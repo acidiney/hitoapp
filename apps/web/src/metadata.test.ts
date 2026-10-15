@@ -5,11 +5,11 @@ import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
 import { NoticeProvider } from "./components/Notices";
-import MetadataFieldEditor from "./components/MetadataFieldEditor";
+import MetadataEditor from "./components/MetadataEditor";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "./hooks/useMetadataHistory";
 import { metadataApi } from "./metadataApi";
-import type { ObservationPage, RecordingMetadata } from "./types";
+import type { ObservationPage, RecordingMetadata, TextMetadata } from "./types";
 import type { MetadataField, MetadataTarget } from "./metadata";
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
@@ -25,7 +25,7 @@ afterEach(() => {
 test("an accepted title reset updates the queue and reloads details", async () => {
   vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
   render(
-    createElement(MetadataFieldEditor, {
+    createElement(Editor, {
       account: "alice",
       target: { kind: "recording", id: "track" },
       field: "title",
@@ -134,7 +134,7 @@ test.each([
   async (target, field, label, action) => {
     vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
     render(
-      createElement(MetadataFieldEditor, {
+      createElement(Editor, {
         account: "alice",
         target: target as MetadataTarget,
         field: field as MetadataField,
@@ -175,7 +175,7 @@ const wrapper = ({ children }: { children: ReactNode }) =>
 test("a failed title save preserves the draft and keeps the player unchanged", async () => {
   vi.mocked(change).mockRejectedValueOnce(new Error("Server unavailable"));
   render(
-    createElement(MetadataFieldEditor, {
+    createElement(Editor, {
       account: "alice",
       target: { kind: "recording", id: "track" },
       field: "title",
@@ -238,3 +238,27 @@ test("history requests cannot leak between recording and album targets with the 
   expect(result.current.page).toEqual(initial);
   expect(vi.mocked(metadataApi.history).mock.calls[0][3].aborted).toBe(true);
 });
+
+function Editor({
+  account,
+  target,
+  field,
+  metadata,
+}: {
+  account: string;
+  target: MetadataTarget;
+  field: MetadataField;
+  metadata: TextMetadata;
+}) {
+  const inherited = {
+    value: "Source",
+    inherited: "Source",
+    personal: null,
+    operation_id: null,
+  };
+  return createElement(MetadataEditor, {
+    account,
+    target,
+    metadata: { title: inherited, artist: inherited, [field]: metadata },
+  });
+}

@@ -1,7 +1,7 @@
 import { Link } from "@inertiajs/react";
 import type { AlbumDetailsPageProps } from "../types";
 import Artwork from "../components/Artwork";
-import MetadataFieldEditor from "../components/MetadataFieldEditor";
+import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 
 export default function AlbumDetailsPage({
@@ -25,25 +25,12 @@ export default function AlbumDetailsPage({
           <p>{detail.artist.value}</p>
         </div>
       </section>
-      <section
-        className="metadata-editor"
-        aria-labelledby="personal-details-heading"
-      >
-        <h2 id="personal-details-heading">Your album details</h2>
-        <p>
-          Changes apply to this album in your account. Track artists and source
-          tags stay as recorded.
-        </p>
-        {(["title", "artist"] as const).map((field) => (
-          <MetadataFieldEditor
-            key={`${user.id}/${target.id}/${field}/${detail[field].operation_id ?? "inherited"}`}
-            account={user.id}
-            target={target}
-            field={field}
-            metadata={detail[field]}
-          />
-        ))}
-      </section>
+      <MetadataEditor
+        key={`${user.id}/${target.id}`}
+        account={user.id}
+        target={target}
+        metadata={detail}
+      />
       <MetadataObservations
         key={`${user.id}/${target.id}/${detail.title.operation_id ?? "inherited"}/${detail.artist.operation_id ?? "inherited"}`}
         account={user.id}

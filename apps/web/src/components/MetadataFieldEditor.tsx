@@ -1,42 +1,33 @@
 import { useState, type FormEvent } from "react";
-import { router } from "@inertiajs/react";
 import type { TextMetadata } from "../types";
-import {
-  metadataAction,
-  type MetadataTarget,
-  type MetadataField,
-} from "../metadata";
-import { useMutation } from "../hooks/useMutation";
-import { usePlayer } from "../player/PlaybackProvider";
+import { type MetadataTarget, type MetadataField } from "../metadata";
+import type { MutationResult } from "../hooks/useMutation";
 
 export default function MetadataFieldEditor({
-  account,
   target,
   field,
   metadata,
+  pending,
+  save: accept,
 }: {
-  account: string;
   target: MetadataTarget;
   field: MetadataField;
   metadata: TextMetadata;
+  pending: boolean;
+  save: (personal: string | null) => Promise<MutationResult>;
 }) {
   const [draft, setDraft] = useState(metadata.value);
   const [error, setError] = useState("");
-  const { mutate, pending } = useMutation(account);
-  const player = usePlayer();
   const label = `${target.kind === "recording" ? "Track" : "Album"} ${field}`;
   const inputId = `personal-${target.kind}-${field}`;
   async function save(inherit: boolean) {
     setError("");
     const personal = inherit ? null : draft;
-    const result = await mutate(metadataAction(target, field, personal));
+    const result = await accept(personal);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    if (target.kind === "recording")
-      player.setRecordingField(target.id, field, personal, metadata.inherited);
-    router.reload();
   }
   function submit(event: FormEvent) {
     event.preventDefault();
