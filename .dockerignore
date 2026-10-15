@@ -1,0 +1,10 @@
+.git
+node_modules
+**/node_modules
+**/dist
+target
+data
+.env
+fixtures/generated
+playwright-report
+test-results

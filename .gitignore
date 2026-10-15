@@ -1,0 +1,16 @@
+/target/
+/node_modules/
+/apps/web/node_modules/
+/apps/web/dist/
+/data/
+/.env
+/fixtures/generated/
+/playwright-report/
+/test-results/
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+
+/backups/
+*.log
