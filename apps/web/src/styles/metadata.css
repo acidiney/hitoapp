@@ -8,11 +8,13 @@
   overflow-wrap: anywhere;
 }
 .metadata-editor h2,
+.source-availability h2,
 .metadata-history h2 {
   font-size: 21px;
   margin: 0 0 10px;
 }
 .metadata-editor > p,
+.source-availability > p,
 .metadata-history > p {
   color: var(--muted);
   line-height: 1.6;
@@ -58,6 +60,18 @@
   margin-top: 48px;
   padding-top: 36px;
   border-top: 1px solid var(--border);
+}
+.source-availability {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.source-availability-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
 }
 .metadata-observations {
   list-style: none;

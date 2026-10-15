@@ -3,6 +3,7 @@ import type { RecordingDetailsPageProps } from "../types";
 import Artwork from "../components/Artwork";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
+import SourceAvailability from "../components/SourceAvailability";
 
 export default function RecordingDetailsPage({
   user,
@@ -29,6 +30,19 @@ export default function RecordingDetailsPage({
         target={target}
         metadata={detail}
       />
+      {source?.origin === "provider_response" && (
+        <SourceAvailability
+          key={`${user.id}/${detail.recording_id}`}
+          account={user.id}
+          track={{
+            id: detail.recording_id,
+            title: detail.title.value,
+            artist: detail.artist.value,
+            duration_ms: source.duration_ms,
+            available: false,
+          }}
+        />
+      )}
       <MetadataObservations
         key={`${user.id}/${detail.recording_id}/${source?.id ?? "none"}/${detail.title.operation_id ?? "inherited"}/${detail.artist.operation_id ?? "inherited"}`}
         account={user.id}
