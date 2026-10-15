@@ -1,0 +1,38 @@
+import type { HistoryPageProps } from "../types";
+import { useMutation } from "../hooks/useMutation";
+import EmptyState from "../components/EmptyState";
+import PageHeading from "../components/PageHeading";
+import TrackTable from "../components/TrackTable";
+import TrackToolbar from "../components/TrackToolbar";
+
+export default function HistoryPage({
+  user,
+  playlists,
+  activity,
+}: HistoryPageProps) {
+  const { mutate } = useMutation(user.id);
+  const tracks = activity.history.map((track) => ({
+    ...track,
+    row_id: track.id,
+    resume_ms: track.position_ms,
+  }));
+  return (
+    <>
+      <PageHeading
+        title="Listening history"
+        description="Pick up where you left off."
+      />
+      {tracks.length > 0 ? (
+        <>
+          <TrackToolbar tracks={tracks} description="Original audio" />
+          <TrackTable tracks={tracks} playlists={playlists} mutate={mutate} />
+        </>
+      ) : (
+        <EmptyState
+          title="Start listening"
+          text="Choose music from your library to get started."
+        />
+      )}
+    </>
+  );
+}
