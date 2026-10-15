@@ -2,15 +2,17 @@
 
 Updated 2026-10-15. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
-Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. The server/web build is running in Docker; most release features below remain unimplemented.
+Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track details now support personal titles and local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
 ## Library and metadata
 
 - [x] Separate recording identity from tagged-file checksums so verified tag-only edits preserve playlists, likes, and progress. Preserve uncertain legacy references without guessing from paths.
 - [x] Add artist/album pages, exact library-scoped credits, release appearances, tagged order, Unicode search, and release artwork.
-- [ ] Expose metadata provenance and add provider-backed artist, release, and recording matching without collapsing uncertain identities.
+- [x] Expose local source metadata observations, supported tag origins, truthful upgrade baselines, and bounded revision history.
+- [ ] Add provider-backed artist, release, and recording matching without collapsing uncertain identities.
 - [ ] Add configurable MusicBrainz/provider enrichment and a disable setting.
-- [ ] Add personal metadata edits, unlinking, merge splitting, undo, and administrator promotion.
+- [x] Add personal recording titles, inheritance reset, synchronized acceptance, and consistent search/album/collection reads.
+- [ ] Complete artist/release metadata edits with account-private grouping, unlinking, merge splitting, undo, and administrator promotion.
 - [x] Add multiple server music folders, independent rescans, safe removal/reconnection, and administrator folder selection in Settings.
 - [ ] Add filesystem watching, automatic desktop Music-folder discovery, and native desktop folder selection.
 - [ ] Add personal provider credentials, personal plugin installation, shared administrator defaults, and optional local PIN locks.
@@ -88,9 +90,9 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-Current evidence: Docker verification passes with 92 Rust workspace tests, one separately run enumeration fault test, 36 frontend tests, and two setup CLI tests. Formatting, Clippy, generated contracts, production build, audit with zero vulnerabilities, Compose path interpolation, and the Chromium workflow pass. The browser adds two folders, navigates artists/albums with playback continuing, and checks mobile layout, Escape/focus restoration, and account isolation. Desktop and phone screenshots were inspected. PowerShell syntax parses in Docker; native dialogs have not been accepted on their host platforms.
+Current evidence: Docker verification passes with 100 Rust workspace tests, one separately run enumeration fault test, 40 frontend tests, and two setup CLI tests. Formatting, Clippy, generated contracts, production build, audit with zero vulnerabilities, Compose path interpolation, and the Chromium workflow pass. The browser adds two folders, navigates artists/albums, saves and resets personal titles with playback continuing, and checks mobile layout, Escape/focus restoration, and account isolation. Desktop and phone screenshots were inspected. PowerShell syntax parses in Docker; native dialogs have not been accepted on their host platforms.
 
-The normal persistent server is healthy after migration 0012. Read-only comparison against its stopped-volume backup preserves accounts, recording/source IDs, file checksums, playlists, entries, likes, progress, membership, and backend identity. All seven source-credit links backfilled and foreign keys are valid. Folder tests cover authorization, containment, reconnects, host ownership, cancellation, expired attempts, and owned playback. Root-open fault injection uses the normal Linux backend; directory-enumeration injection uses rustix's libc backend and does not prove production raw-syscall outage behavior. See [folder behavior and limits](docs/music-folders.md).
+The normal persistent server is healthy after migration 0014. Seven existing source metadata rows have truthful legacy observations; raw tag detail arrives on the next ordinary scan. Read-only comparison against its stopped-volume backup preserves accounts, recording/source IDs, file checksums, playlists, entries, likes, progress, membership, and backend identity. All seven source-credit links remain valid and foreign keys pass. Folder tests cover authorization, containment, reconnects, host ownership, cancellation, expired attempts, and owned playback. Root-open fault injection uses the normal Linux backend; directory-enumeration injection uses rustix's libc backend and does not prove production raw-syscall outage behavior. See [folder behavior and limits](docs/music-folders.md).
 
 Recording identity fixtures cover ten containers. Query-plan checks on 100,000 duplicate locators avoid temporary sorting. A Catalog API smoke test guards compilation-heavy artist reads with 100,000 synthetic tracks before and after ANALYZE. These are not release latency benchmarks. [Catalog browsing](docs/catalog-browsing.md) documents exact credits, source appearances, Unicode search, and paged playback limits. An isolated production container exits successfully on Docker stop with lifecycle logs. Full backup restoration, platform acceptance, and public release gates remain unfinished.
 
