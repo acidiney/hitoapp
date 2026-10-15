@@ -3,7 +3,9 @@ import { createElement, type AnchorHTMLAttributes } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import AlbumPage from "./pages/AlbumPage";
+import ArtistPage from "./pages/ArtistPage";
 import Pagination from "./components/Pagination";
+import TrackToolbar from "./components/TrackToolbar";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -20,7 +22,10 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 test("album playback keeps repeated recording occurrences and their tagged order", () => {
   const track = {
@@ -115,5 +120,101 @@ test("browse pagination retains the active library and page size", () => {
     limit: "1",
     q: "Quiet",
     offset: 1,
+  });
+});
+
+test("albumless artist tracks play only their page and keep album pagination separate", () => {
+  window.history.replaceState(null, "", "/artists/credit?offset=4&limit=1");
+  const track = {
+    id: "provider-recording",
+    library_id: "personal",
+    release_id: null,
+    title: "Saved recording",
+    inherited_title: "Saved recording",
+    artist: "Provider performer",
+    inherited_artist: "Provider performer",
+    album: null,
+    duration_ms: 1000,
+    available: true,
+    liked: false,
+  };
+  render(
+    createElement(ArtistPage, {
+      errors: {},
+      user: { id: "account", username: "Listener", admin: false },
+      libraries: [],
+      playlists: [],
+      detail: {
+        artist: {
+          id: "credit",
+          library_id: "personal",
+          name: "Provider performer",
+          release_count: 0,
+          recording_count: 2,
+          artwork_recording_id: track.id,
+        },
+        releases: { total: 0, offset: 4, limit: 1, items: [] },
+        recordings: { total: 2, offset: 0, limit: 1, items: [track] },
+      },
+    }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "Provider performer" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("heading", { name: "Albums & appearances" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Play this page" }));
+  expect(
+    player.playQueue.mock.calls[0][0].map((item: { id: string }) => item.id),
+  ).toEqual([track.id]);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(navigation.get).toHaveBeenCalledWith("/artists/credit", {
+    offset: "4",
+    limit: "1",
+    recording_offset: 1,
+  });
+});
+
+test("a track collection with no available audio cannot start playback", () => {
+  render(
+    createElement(TrackToolbar, {
+      tracks: [
+        {
+          id: "saved",
+          title: "Unavailable recording",
+          artist: "Artist",
+          duration_ms: 0,
+          available: false,
+        },
+      ],
+      description: "Recording credits in your library",
+    }),
+  );
+  const button = screen.getByRole("button", {
+    name: "Play tracks",
+  }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+});
+
+test("an emptied track page keeps a way back without moving the album page", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/artists/credit?offset=4&recording_offset=60",
+  );
+  render(
+    createElement(Pagination, {
+      page: { total: 1, offset: 60, limit: 60 },
+      query: "",
+      path: "/artists/credit",
+      parameter: "recording_offset",
+      label: "Track pages",
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+  expect(navigation.get).toHaveBeenCalledWith("/artists/credit", {
+    offset: "4",
+    recording_offset: 0,
   });
 });

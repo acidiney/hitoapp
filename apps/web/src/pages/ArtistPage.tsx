@@ -1,11 +1,24 @@
 import type { ArtistPageProps } from "../types";
+import { useMutation } from "../hooks/useMutation";
 import Artwork from "../components/Artwork";
 import AlbumGrid from "../components/AlbumGrid";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
+import TrackTable from "../components/TrackTable";
+import TrackToolbar from "../components/TrackToolbar";
 
-export default function ArtistPage({ detail }: ArtistPageProps) {
-  const { artist, releases } = detail;
+export default function ArtistPage({
+  user,
+  playlists,
+  detail,
+}: ArtistPageProps) {
+  const { artist, releases, recordings } = detail;
+  const { mutate } = useMutation(user.id);
+  const tracks = recordings.items.map((recording) => ({
+    ...recording,
+    row_id: recording.id,
+  }));
+  const path = `/artists/${encodeURIComponent(artist.id)}`;
   return (
     <>
       <section className="collection-hero artist-hero">
@@ -14,26 +27,81 @@ export default function ArtistPage({ detail }: ArtistPageProps) {
           <span>From your collection</span>
           <h1>{artist.name}</h1>
           <p>
-            {artist.release_count}{" "}
-            {artist.release_count === 1 ? "album" : "albums"} · Artist and album
-            credits
+            {artist.recording_count > 0 || artist.release_count === 0 ? (
+              <>
+                {artist.recording_count}{" "}
+                {artist.recording_count === 1 ? "track" : "tracks"}
+                {artist.release_count > 0 && " · "}
+              </>
+            ) : null}
+            {artist.release_count > 0 && (
+              <>
+                {artist.release_count}{" "}
+                {artist.release_count === 1 ? "album" : "albums"}
+              </>
+            )}
           </p>
         </div>
       </section>
-      <h2 className="discography-heading">Albums & appearances</h2>
-      {releases.items.length ? (
-        <AlbumGrid releases={releases.items} />
-      ) : (
-        <EmptyState
-          title="No albums on this page"
-          text="Return to the previous page to browse this artist's collection."
-        />
+      {releases.total > 0 && (
+        <section aria-labelledby="artist-albums-title">
+          <h2 className="discography-heading" id="artist-albums-title">
+            Albums & appearances
+          </h2>
+          {releases.items.length ? (
+            <AlbumGrid releases={releases.items} />
+          ) : (
+            <EmptyState
+              title="No albums on this page"
+              text="Return to the previous page to browse this artist's collection."
+              libraryLink={false}
+            />
+          )}
+          <Pagination
+            page={releases}
+            query=""
+            path={path}
+            label="Album pages"
+          />
+        </section>
       )}
-      <Pagination
-        page={releases}
-        query=""
-        path={`/artists/${encodeURIComponent(artist.id)}`}
-      />
+      {recordings.total > 0 && (
+        <section aria-labelledby="artist-tracks-title">
+          <h2 className="discography-heading" id="artist-tracks-title">
+            Tracks
+          </h2>
+          {tracks.length ? (
+            <>
+              <TrackToolbar
+                tracks={tracks}
+                label={
+                  recordings.total > recordings.limit ? "this page" : "tracks"
+                }
+                description="Recording credits in your library"
+              />
+              <TrackTable
+                tracks={tracks}
+                offset={recordings.offset}
+                playlists={playlists}
+                mutate={mutate}
+              />
+            </>
+          ) : (
+            <EmptyState
+              title="No tracks on this page"
+              text="Return to the previous page to listen to this artist."
+              libraryLink={false}
+            />
+          )}
+          <Pagination
+            page={recordings}
+            query=""
+            path={path}
+            parameter="recording_offset"
+            label="Track pages"
+          />
+        </section>
+      )}
     </>
   );
 }

@@ -26,8 +26,19 @@ export default function ArtistIndexPage({
               <Artwork recording={artist.artwork_recording_id ?? undefined} />
               <h2>{artist.name}</h2>
               <small>
-                {artist.release_count}{" "}
-                {artist.release_count === 1 ? "album" : "albums"}
+                {artist.recording_count > 0 || artist.release_count === 0 ? (
+                  <>
+                    {artist.recording_count}{" "}
+                    {artist.recording_count === 1 ? "track" : "tracks"}
+                    {artist.release_count > 0 && " · "}
+                  </>
+                ) : null}
+                {artist.release_count > 0 && (
+                  <>
+                    {artist.release_count}{" "}
+                    {artist.release_count === 1 ? "album" : "albums"}
+                  </>
+                )}
               </small>
             </Link>
           ))}
@@ -38,7 +49,7 @@ export default function ArtistIndexPage({
           text={
             query
               ? "Try another artist name."
-              : "Artists appear here when Hito reads the credits in your music files."
+              : "Artists appear here when you add recordings to your library."
           }
           libraryLink
         />
