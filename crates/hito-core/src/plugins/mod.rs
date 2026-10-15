@@ -3,6 +3,7 @@ mod credentials;
 mod installations;
 mod key_file;
 mod offers;
+mod operation;
 mod refresh;
 mod removal;
 mod transport;
@@ -18,7 +19,7 @@ pub use types::{
 #[derive(Clone)]
 pub struct Plugins {
     store: Store,
-    remote: transport::ManifestClient,
+    remote: transport::ControlClient,
     vault: vault::Vault,
 }
 
@@ -28,7 +29,7 @@ impl Plugins {
         Ok(Self {
             store,
             vault,
-            remote: transport::ManifestClient::new()?,
+            remote: transport::ControlClient::new()?,
         })
     }
 }

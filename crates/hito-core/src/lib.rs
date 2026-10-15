@@ -9,8 +9,8 @@ mod plugins;
 mod store;
 
 pub use catalog::{
-    Artist, ArtistDetail, Artwork, AudioFile, Browse, Catalog, Page, Recording, Release,
-    ReleaseDetail, ReleaseTrack, Search, Source,
+    Artist, ArtistDetail, Artwork, AudioFile, Browse, Catalog, Page, ProviderSearch, Recording,
+    Release, ReleaseDetail, ReleaseTrack, Search, Source,
 };
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
@@ -61,6 +61,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             store: store.clone(),
         },
         catalog: Catalog {
+            plugins: plugins.clone(),
             store: store.clone(),
             host: config.host_device.clone(),
             artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),

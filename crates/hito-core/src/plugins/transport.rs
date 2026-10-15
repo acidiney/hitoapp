@@ -1,16 +1,16 @@
 use crate::{Error, Result};
-use hito_plugin_sdk::{MANIFEST_PATH, Manifest};
+use hito_plugin_sdk::{MANIFEST_PATH, Manifest, SEARCH_PATH, SearchPage, SearchRequest};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 
 #[derive(Clone)]
-pub(super) struct ManifestClient {
+pub(super) struct ControlClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
     accounts: super::admission::Accounts,
 }
 
-impl ManifestClient {
+impl ControlClient {
     pub(super) fn new() -> Result<Self> {
         if rustls::crypto::CryptoProvider::get_default().is_none() {
             let _ = rustls::crypto::ring::default_provider().install_default();
@@ -40,6 +40,60 @@ impl ManifestClient {
         base_url: &str,
         token: Option<&str>,
     ) -> Result<Manifest> {
+        let manifest: Manifest = self
+            .exchange(
+                account,
+                base_url,
+                token,
+                Call {
+                    path: MANIFEST_PATH,
+                    body: None,
+                    maximum: 65536,
+                },
+            )
+            .await?;
+        manifest.validate().map_err(Error::Invalid)?;
+        tracing::debug!(
+            count = manifest.capabilities.len(),
+            "Plugin manifest verified"
+        );
+        Ok(manifest)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub(super) async fn search(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: &SearchRequest,
+    ) -> Result<SearchPage> {
+        let body = serde_json::to_value(request)
+            .map_err(|_| Error::Internal("Provider search could not be encoded".into()))?;
+        let page: SearchPage = self
+            .exchange(
+                account,
+                base_url,
+                token,
+                Call {
+                    path: SEARCH_PATH,
+                    body: Some(body),
+                    maximum: 262144,
+                },
+            )
+            .await?;
+        page.validate(request.limit)
+            .map_err(|_| Error::Upstream("The provider returned invalid search results"))?;
+        Ok(page)
+    }
+
+    async fn exchange<T: serde::de::DeserializeOwned>(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        call: Call,
+    ) -> Result<T> {
         let _account = self.accounts.enter(account)?;
         let _permit = self
             .slots
@@ -47,12 +101,19 @@ impl ManifestClient {
             .try_acquire_owned()
             .map_err(|_| Error::Conflict("Plugin connections are busy. Try again.".into()))?;
         let endpoint = super::offers::endpoint(base_url)?
-            .join(MANIFEST_PATH)
+            .join(call.path)
             .map_err(|_| Error::Invalid("Invalid plugin service address".into()))?;
-        let mut request = self.client.get(endpoint);
+        let mut request = if call.body.is_some() {
+            self.client.post(endpoint)
+        } else {
+            self.client.get(endpoint)
+        };
         if let Some(token) = token {
             super::vault::validate(token)?;
             request = request.bearer_auth(token);
+        }
+        if let Some(body) = call.body {
+            request = request.json(&body);
         }
         let mut response = request
             .header("accept", "application/json")
@@ -64,7 +125,8 @@ impl ManifestClient {
         let status = response.status();
         tracing::debug!(
             status = status.as_u16(),
-            "Plugin manifest response received"
+            operation = call.path,
+            "Plugin response received"
         );
         if !status.is_success() {
             return Err(Error::Upstream(
@@ -88,37 +150,37 @@ impl ManifestClient {
             .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"));
         if !json {
             return Err(Error::Upstream(
-                "The plugin service did not return a JSON manifest",
+                "The plugin service did not return JSON data",
             ));
         }
         if response
             .content_length()
-            .is_some_and(|length| length > 65536)
+            .is_some_and(|length| length > call.maximum as u64)
         {
             return Err(Error::Upstream(
-                "The plugin manifest exceeds the size limit",
+                "The plugin response exceeds the size limit",
             ));
         }
         let mut bytes = Vec::new();
         while let Some(chunk) = response
             .chunk()
             .await
-            .map_err(|_| Error::Upstream("The plugin manifest could not be read"))?
+            .map_err(|_| Error::Upstream("The plugin response could not be read"))?
         {
-            if bytes.len() + chunk.len() > 65536 {
+            if bytes.len() + chunk.len() > call.maximum {
                 return Err(Error::Upstream(
-                    "The plugin manifest exceeds the size limit",
+                    "The plugin response exceeds the size limit",
                 ));
             }
             bytes.extend_from_slice(&chunk);
         }
-        let manifest: Manifest = serde_json::from_slice(&bytes)
-            .map_err(|_| Error::Upstream("The plugin service returned an invalid manifest"))?;
-        manifest.validate().map_err(Error::Invalid)?;
-        tracing::debug!(
-            count = manifest.capabilities.len(),
-            "Plugin manifest verified"
-        );
-        Ok(manifest)
+        serde_json::from_slice(&bytes)
+            .map_err(|_| Error::Upstream("The plugin service returned invalid JSON data"))
     }
+}
+
+struct Call {
+    path: &'static str,
+    body: Option<serde_json::Value>,
+    maximum: usize,
 }

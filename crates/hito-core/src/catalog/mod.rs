@@ -3,6 +3,8 @@ mod artwork;
 mod availability;
 mod browse;
 mod media;
+mod provider;
+pub use provider::ProviderSearch;
 mod releases;
 mod search;
 mod sources;
@@ -22,6 +24,7 @@ pub use types::{Page, Recording, Search, Source};
 #[derive(Clone)]
 pub struct Catalog {
     pub(crate) store: Store,
+    pub(crate) plugins: crate::Plugins,
     pub(crate) host: HostDeviceId,
     pub(crate) artwork_slots: Arc<Semaphore>,
     pub(crate) directories: crate::library_storage::Directories,
