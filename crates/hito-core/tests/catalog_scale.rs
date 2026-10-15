@@ -78,5 +78,30 @@ async fn compilation_heavy_catalog_reads_do_not_multiply_artists_by_every_album(
         .unwrap();
         assert_eq!(detail.releases.total, 10000);
         assert_eq!(detail.releases.items.len(), 60);
+        assert_eq!(detail.recordings.total, 0);
+        let performer = page
+            .items
+            .iter()
+            .find(|artist| artist.name.starts_with("Performer "))
+            .unwrap();
+        let detail = tokio::time::timeout(
+            Duration::from_secs(5),
+            hito.catalog.artist(
+                &actor,
+                &performer.id,
+                Browse {
+                    limit: Some(1),
+                    recording_offset: Some(1),
+                    ..Default::default()
+                },
+            ),
+        )
+        .await
+        .expect("Artist recording reads exceeded the smoke-test deadline")
+        .unwrap();
+        assert_eq!(detail.artist.recording_count, 10);
+        assert_eq!(detail.recordings.total, 10);
+        assert_eq!(detail.recordings.offset, 1);
+        assert_eq!(detail.recordings.items.len(), 1);
     }
 }
