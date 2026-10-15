@@ -29,6 +29,7 @@ struct Fixture {
     hits: AtomicUsize,
     entered: Semaphore,
     headers: Mutex<Vec<HeaderMap>>,
+    bearer: Mutex<Option<String>>,
 }
 
 pub struct PluginServer {
@@ -53,6 +54,7 @@ impl PluginServer {
             hits: AtomicUsize::new(0),
             entered: Semaphore::new(0),
             headers: Mutex::new(Vec::new()),
+            bearer: Mutex::new(None),
         });
         let router = Router::new()
             .route("/prefix/v1/manifest", get(respond))
@@ -66,6 +68,9 @@ impl PluginServer {
     }
     pub async fn reply(&self, body: Value) {
         self.state.reply.lock().await.body = serde_json::to_vec(&body).unwrap();
+    }
+    pub async fn require_bearer(&self, token: &str) {
+        *self.state.bearer.lock().await = Some(format!("Bearer {token}"));
     }
     pub async fn response(
         &self,
@@ -107,8 +112,14 @@ impl Drop for PluginServer {
 async fn respond(State(state): State<Arc<Fixture>>, headers: HeaderMap) -> Response {
     let reply = state.reply.lock().await.clone();
     state.hits.fetch_add(1, Ordering::SeqCst);
+    let authorized = state.bearer.lock().await.as_ref().is_none_or(|expected| {
+        headers.get("authorization").and_then(|v| v.to_str().ok()) == Some(expected)
+    });
     state.headers.lock().await.push(headers);
     state.entered.add_permits(1);
+    if !authorized {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
     if let Some(gate) = reply.gate {
         gate.acquire().await.unwrap().forget();
     }
