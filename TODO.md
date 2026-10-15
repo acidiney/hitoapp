@@ -16,7 +16,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Add unlinking, merge splitting, undo, administrator promotion, and reconciliation after raw release retags.
 - [x] Add multiple server music folders, independent rescans, safe removal/reconnection, and administrator folder selection in Settings.
 - [ ] Add filesystem watching, automatic desktop Music-folder discovery, and native desktop folder selection.
-- [ ] Add personal provider credentials, personal plugin installation, shared administrator defaults, and optional local PIN locks.
+- [x] Add account-owned HTTP plugin connections, encrypted optional bearer tokens, administrator-offered service addresses, manifest review, and local removal.
+- [ ] Complete provider-specific credential flows and shared provider defaults; add optional local PIN locks.
 
 ## Playback and desktop
 
@@ -39,7 +40,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 
 ## Providers and content
 
-- [ ] Implement the language-neutral HTTP plugin protocol and capability negotiation.
+- [x] Implement the versioned HTTP manifest contract and private installation lifecycle.
+- [ ] Complete plugin capability requests/results, account-scoped provider content, source resolution/relay, and operational capability negotiation.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
 - [ ] Add playlist Import a copy and read-only Follow playlist.
@@ -91,9 +93,9 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-Current evidence: Docker verification passes with 108 Rust workspace tests, one separately run enumeration fault test, 50 frontend tests, and two setup CLI tests. Formatting, Clippy, generated contracts, production build, audit with zero vulnerabilities, Compose path interpolation, and the Chromium workflow pass. The browser adds two folders, navigates artists/albums, saves and resets recording and album title/artist fields with playback continuing, delays a refresh to protect drafts, and checks mobile layout, Escape/focus restoration, and account isolation. Desktop and phone screenshots were inspected. PowerShell syntax parses in Docker; native dialogs have not been accepted on their host platforms.
+Current evidence: Docker verification passes with 124 Rust workspace tests, one separately run enumeration fault test, 56 frontend tests, and two setup CLI tests. Formatting, Clippy, generated contracts, production build, audit with zero vulnerabilities, Compose path interpolation, and the Chromium workflow pass. The browser also verifies private plugin installation, manifest review, token replacement/clear, account isolation, removal/withdrawal, focus restoration, and phone forms against a real HTTP fixture. It adds two folders, navigates artists/albums, saves and resets recording and album title/artist fields with playback continuing, delays a refresh to protect drafts, and checks mobile layout, Escape/focus restoration, and account isolation. Desktop and phone screenshots were inspected. PowerShell syntax parses in Docker; native dialogs have not been accepted on their host platforms.
 
-The normal persistent server is healthy after migration 0017. Seven existing source metadata rows have truthful legacy observations; raw tag detail arrives on the next ordinary scan. Read-only comparison against its stopped-volume backup preserves accounts, recording/source IDs, file checksums, playlists, entries, likes, progress, membership, and backend identity. All seven source-credit links remain valid. The account catalog contains two artists, two releases, and seven source-credit relations. Foreign keys, database integrity, and scoped search-index integrity pass. Folder tests cover authorization, containment, reconnects, host ownership, cancellation, expired attempts, and owned playback. Root-open fault injection uses the normal Linux backend; directory-enumeration injection uses rustix's libc backend and does not prove production raw-syscall outage behavior. See [folder behavior and limits](docs/music-folders.md).
+The normal persistent server is healthy after migration 0018. Seven existing source metadata rows have truthful legacy observations; raw tag detail arrives on the next ordinary scan. Read-only comparison against its stopped-volume backup preserves accounts, recording/source IDs, file checksums, playlists, entries, likes, progress, membership, and backend identity. All seven source-credit links remain valid. The account catalog contains two artists, two releases, and seven source-credit relations. Foreign keys, database integrity, and scoped search-index integrity pass. Folder tests cover authorization, containment, reconnects, host ownership, cancellation, expired attempts, and owned playback. Root-open fault injection uses the normal Linux backend; directory-enumeration injection uses rustix's libc backend and does not prove production raw-syscall outage behavior. See [folder behavior and limits](docs/music-folders.md).
 
 Recording identity fixtures cover ten containers. Query-plan checks on 100,000 duplicate locators avoid temporary sorting. A Catalog API smoke test guards compilation-heavy artist reads with 100,000 synthetic tracks before and after ANALYZE. These are not release latency benchmarks. [Catalog browsing](docs/catalog-browsing.md) documents exact credits, source appearances, Unicode search, and paged playback limits. An isolated production container exits successfully on Docker stop with lifecycle logs. Full backup restoration, platform acceptance, and public release gates remain unfinished.
 
