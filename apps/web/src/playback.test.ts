@@ -23,6 +23,51 @@ class Media extends EventTarget implements MediaPort {
   }
 }
 
+test("a prepared selection cannot replace a later queue selection", async () => {
+  const player = new Playback(new Media(), async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = (id: string) => ({
+    id,
+    title: id,
+    artist: "Fixture",
+    duration_ms: 10000,
+    available: true,
+  });
+  await player.playQueue([track("first"), track("next")]);
+  const prepared = player.prepareSelection();
+  await player.next();
+  expect(await prepared(track("late"))).toBe(false);
+  expect(player.snapshot().current?.id).toBe("next");
+});
+
+test("clearing or pausing cancels a prepared selection while position ticks and seeking preserve it", async () => {
+  const media = new Media();
+  const player = new Playback(media, async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = {
+    id: "recording",
+    title: "Fixture",
+    artist: "Test",
+    duration_ms: 10000,
+    available: true,
+  };
+  for (const cancel of [() => player.clear(), () => player.toggle()]) {
+    await player.playQueue([track]);
+    const prepared = player.prepareSelection();
+    await cancel();
+    expect(await prepared({ ...track, id: "late" })).toBe(false);
+  }
+  await player.playQueue([track]);
+  const prepared = player.prepareSelection();
+  media.currentTime = 1;
+  media.dispatchEvent(new Event("timeupdate"));
+  player.seek(2);
+  expect(await prepared({ ...track, id: "selected" })).toBe(true);
+  expect(player.snapshot().current?.id).toBe("selected");
+});
+
 test("editing and resetting a queued title preserves playback and each release fallback", async () => {
   const audio = new Media();
   let resolutions = 0;

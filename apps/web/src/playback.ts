@@ -51,6 +51,7 @@ export class Playback {
   private listeners = new Set<() => void>();
   private sources: Source[] = [];
   private generation = 0;
+  private selection = 0;
   private sourceAttempt = 0;
   private lastSavedPosition = 0;
   private pendingSeek: number | null = null;
@@ -167,7 +168,21 @@ export class Playback {
     await this.open(index, position);
   }
 
+  prepareSelection(): (track: Track) => Promise<boolean> {
+    const selection = ++this.selection;
+    log.debug("playback.selection_prepared");
+    return async (track) => {
+      if (selection !== this.selection) {
+        log.debug("playback.selection_superseded");
+        return false;
+      }
+      await this.playQueue([track]);
+      return true;
+    };
+  }
+
   private async open(index: number, position = 0) {
+    this.selection++;
     this.persist();
     this.lastSavedPosition = 0;
     const generation = ++this.generation;
@@ -265,6 +280,7 @@ export class Playback {
   }
 
   async toggle() {
+    this.selection++;
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
     log.info("playback.toggle", {
@@ -320,6 +336,7 @@ export class Playback {
     this.update({ shuffle: !this.state.shuffle });
   }
   async previous() {
+    this.selection++;
     log.info("queue.previous", { index: this.state.index });
     if (this.media.currentTime > 3) this.seek(0);
     else await this.open(Math.max(0, this.state.index - 1));
@@ -355,6 +372,7 @@ export class Playback {
       });
   }
   clear() {
+    this.selection++;
     log.info("queue.clear", { count: this.state.queue.length });
     this.generation++;
     this.media.pause();
