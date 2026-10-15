@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    api::{self, browsing, catalog, collection, identity, jobs, storage},
+    api::{self, browsing, catalog, collection, identity, jobs, plugins, storage},
     inertia::{self, props::*},
     security, telemetry,
 };
@@ -39,6 +39,12 @@ struct Contract;
 
 fn api_routes() -> OpenApiRouter<Services> {
     let mut router = OpenApiRouter::with_openapi(Contract::openapi())
+        .routes(routes!(plugins::settings, plugins::install))
+        .routes(routes!(plugins::offer))
+        .routes(routes!(plugins::withdraw))
+        .routes(routes!(plugins::refresh))
+        .routes(routes!(plugins::remove))
+        .routes(routes!(plugins::clear_credential))
         .routes(routes!(api::health))
         .routes(routes!(api::contract))
         .routes(routes!(identity::setup_status, identity::setup))

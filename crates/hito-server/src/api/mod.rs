@@ -5,6 +5,7 @@ pub mod collection;
 pub mod identity;
 pub mod jobs;
 pub mod metadata;
+pub mod plugins;
 pub mod storage;
 
 use axum::{Extension, Json, extract::State, http::StatusCode};
