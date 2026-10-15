@@ -27,7 +27,7 @@ The solid lines describe the initial implementation. Dashed connections are plan
 
 ## Data ownership
 
-A library controls access to recordings and sources. Accounts own playlists, likes, and listening history. Library membership is checked on reads, streaming, and writes. Personal metadata overrides and preferences remain planned. A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
+A library controls access to recordings and sources. Accounts own playlists, likes, listening history, and personal recording titles. Library membership is checked on reads, streaming, and writes. Further metadata edits and preferences remain planned. A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
 
 ```mermaid
 erDiagram
@@ -41,6 +41,10 @@ erDiagram
   RECORDING ||--o{ RECORDING_EVIDENCE : verifies
   SOURCE ||--o| LOCAL_FILE : locates
   SOURCE ||--o| SOURCE_METADATA : observes
+  SOURCE ||--o{ METADATA_OBSERVATION : retains
+  RECORDING ||--o{ METADATA_OBSERVATION : explains
+  USER ||--o{ PERSONAL_RECORDING_TITLE : owns
+  RECORDING ||--o{ PERSONAL_RECORDING_TITLE : labels
   ARTIST ||--o{ SOURCE_ARTIST_CREDIT : credits
   SOURCE_METADATA ||--o| SOURCE_ARTIST_CREDIT : binds
   RELEASE ||--o{ SOURCE_METADATA : appears
@@ -53,6 +57,10 @@ erDiagram
 ## Catalog appearances
 
 Artist and album pages use authorized `Catalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
+
+## Metadata
+
+Recording titles enter through the same collection transaction as other personal operations. Sparse account rows replace shared search matches and keep effective title/artist search consistent with displayed titles. Immutable source observations preserve supported tags separately from filename/default fallbacks. The recording retains its selected observation when audio becomes unavailable. [Metadata ownership](metadata.md) describes precedence, snapshots, cursors, queue behavior, and the remaining correction work.
 
 ## Boundary tests
 

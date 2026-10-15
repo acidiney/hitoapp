@@ -42,4 +42,4 @@ Migrations 0009 through 0012 add positions, exact credits, Unicode search, and s
 
 Public fixture tests cover alternate releases for shared audio, repeated positions, duplicate copies, cached positions, exact credits, Unicode/literal search, retags, artwork isolation, permissions, and playback order. Docker browser checks cover artist/album navigation, persistent playback, and phone layout. Review diagnostics use synthetic SQLite catalogs and are not release latency benchmarks.
 
-Metadata provenance APIs, personal overrides, provider-backed matching/enrichment, canonical artist identities, and final compatibility/performance acceptance remain unfinished.
+Personal recording titles and local source provenance are implemented in [track details](metadata.md). Artist/release overrides, provider-backed matching/enrichment, canonical artist identities, and final compatibility/performance acceptance remain unfinished.

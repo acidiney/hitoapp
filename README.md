@@ -31,6 +31,8 @@ The first account administers other accounts from **Settings → Accounts**. New
 
 Browse **Albums** and **Artists** from the sidebar. Albums retain their own covers and disc/track ordering even when a recording appears on several releases. Artist credits remain exact and library-scoped; search folds case and accents without merging identities. See [catalog behavior and limits](docs/catalog-browsing.md).
 
+Open a track's information link to inspect source metadata and save a personal title. **Use source title** restores inheritance. Corrections stay private to the account, and source observations remain available. See [metadata behavior and limits](docs/metadata.md).
+
 The library has artwork cards and a list view, a recording spotlight, personal playlists, and a persistent player with an expanded queue. Covers come from embedded tags or neighboring cover files; files without covers use a neutral placeholder. Settings groups library scans, privacy information, and account administration into separate tabs.
 
 ## Develop and verify
