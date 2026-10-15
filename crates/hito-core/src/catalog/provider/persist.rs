@@ -65,32 +65,28 @@ pub(super) async fn sources(
     details: &ProviderRecording,
     page: &SourcePage,
 ) -> Result<()> {
-    sqlx::query("UPDATE sources SET ready = 0 WHERE id IN (SELECT source_id FROM provider_sources WHERE installation_id = ? AND recording_id = ?)")
-        .bind(installation).bind(recording).execute(&mut **tx).await?;
-    for source in &page.items {
-        let existing: Option<(String,String)> = sqlx::query_as("SELECT source_id,recording_id FROM provider_sources WHERE installation_id = ? AND provider_source_id = ?")
-            .bind(installation).bind(&source.id).fetch_optional(&mut **tx).await?;
-        let id = match existing {
-            Some((id, owner)) if owner == recording => id,
-            Some(_) => {
-                return Err(Error::Upstream(
-                    "The provider reused a source for a different recording",
-                ));
-            }
-            None => Uuid::new_v4().to_string(),
-        };
-        sqlx::query("INSERT INTO sources(id,recording_id,provider,provider_id,ready) VALUES (?,?,'plugin',?,?) ON CONFLICT(id) DO UPDATE SET ready = excluded.ready")
-            .bind(&id).bind(recording).bind(&source.id).bind(source.ready).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO provider_sources(source_id,installation_id,recording_id,provider_source_id,label) VALUES (?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET label = excluded.label")
-            .bind(&id).bind(installation).bind(recording).bind(&source.id).bind(&source.label).execute(&mut **tx).await?;
+    let generation =
+        sqlx::query_scalar("SELECT generation FROM provider_source_state WHERE recording_id = ?")
+            .bind(recording)
+            .fetch_one(&mut **tx)
+            .await?;
+    let ids = super::sources::replace(
+        tx,
+        installation,
+        recording,
+        page,
+        super::sources::Snapshot {
+            generation,
+            observation,
+        },
+    )
+    .await?;
+    for id in ids {
         sqlx::query("INSERT INTO source_metadata(source_id,release_id,title,artist,duration_ms,disc_number,track_number,inspection_version,observation_id,provenance) VALUES (?,?,?,?,?,?,?,0,?,'provider_response')
             ON CONFLICT(source_id) DO UPDATE SET release_id = excluded.release_id,title = excluded.title,artist = excluded.artist,duration_ms = excluded.duration_ms,disc_number = excluded.disc_number,track_number = excluded.track_number,observation_id = excluded.observation_id,provenance = excluded.provenance")
             .bind(&id).bind(release).bind(&details.title).bind(&details.artist).bind(details.duration_ms.unwrap_or(0) as i64)
             .bind(details.disc_number.map(i64::from)).bind(details.track_number.map(i64::from)).bind(observation).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO source_artist_credits(source_id,artist_id) SELECT ?,id FROM artists WHERE library_id = (SELECT library_id FROM recordings WHERE id = ?) AND name = ? COLLATE BINARY
-            ON CONFLICT(source_id) DO UPDATE SET artist_id = excluded.artist_id")
-            .bind(&id).bind(recording).bind(&details.artist).execute(&mut **tx).await?;
-        crate::metadata::refresh_source(tx, &id).await?;
+        super::sources::project(tx, &id).await?;
     }
     Ok(())
 }
