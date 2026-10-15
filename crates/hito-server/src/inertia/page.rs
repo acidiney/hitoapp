@@ -75,10 +75,9 @@ impl<'a> Screen<'a> {
                 } else {
                     None
                 };
-                Ok(PageProps::RecordingDetails(RecordingDetailsPageProps {
-                    shared,
-                    detail,
-                }))
+                Ok(PageProps::RecordingDetails(Box::new(
+                    RecordingDetailsPageProps { shared, detail },
+                )))
             }
             Self::AlbumIndex => {
                 let query = fields

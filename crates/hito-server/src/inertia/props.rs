@@ -130,7 +130,7 @@ pub enum PageProps {
     Album(AlbumPageProps),
     ArtistIndex(ArtistIndexPageProps),
     Artist(ArtistPageProps),
-    RecordingDetails(RecordingDetailsPageProps),
+    RecordingDetails(Box<RecordingDetailsPageProps>),
     Likes(CatalogPageProps),
     PlaylistIndex(PlaylistIndexPageProps),
     Playlist(PlaylistPageProps),
