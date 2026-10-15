@@ -372,6 +372,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/releases/{id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["release_metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/setup": {
         parameters: {
             query?: never;
@@ -490,6 +506,39 @@ export interface components {
     schemas: {
         Action: {
             /** @enum {string} */
+            kind: "release_title_set";
+            /** Format: uuid */
+            release_id: string;
+            title: string;
+        } | {
+            artist: string;
+            /** @enum {string} */
+            kind: "release_artist_set";
+            /** Format: uuid */
+            release_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "release_title_inherit";
+            /** Format: uuid */
+            release_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "release_artist_inherit";
+            /** Format: uuid */
+            release_id: string;
+        } | {
+            artist: string;
+            /** @enum {string} */
+            kind: "recording_artist_set";
+            /** Format: uuid */
+            recording_id: string;
+        } | {
+            /** @enum {string} */
+            kind: "recording_artist_inherit";
+            /** Format: uuid */
+            recording_id: string;
+        } | {
+            /** @enum {string} */
             kind: "recording_title_set";
             /** Format: uuid */
             recording_id: string;
@@ -561,6 +610,9 @@ export interface components {
         };
         Activity: {
             history: components["schemas"]["HistoryEntry"][];
+        };
+        AlbumDetailsPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["ReleaseMetadata"];
         };
         AlbumIndexPageProps: components["schemas"]["SharedPageProps"] & {
             query: string;
@@ -640,6 +692,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             id: string;
+            inherited_artist: string;
             inherited_title: string;
             liked: boolean;
             /** Format: int64 */
@@ -757,6 +810,7 @@ export interface components {
                 /** Format: int64 */
                 duration_ms: number;
                 id: string;
+                inherited_artist: string;
                 inherited_title: string;
                 library_id: string;
                 liked: boolean;
@@ -820,6 +874,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             entry_id: string;
+            inherited_artist: string;
             inherited_title: string;
             liked: boolean;
             /** Format: int64 */
@@ -838,6 +893,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             id: string;
+            inherited_artist: string;
             inherited_title: string;
             library_id: string;
             liked: boolean;
@@ -848,10 +904,11 @@ export interface components {
             detail: components["schemas"]["RecordingMetadata"];
         };
         RecordingMetadata: {
+            artist: components["schemas"]["TextMetadata"];
             observations: components["schemas"]["ObservationPage"];
             recording_id: string;
             selected_observation: components["schemas"]["MetadataObservation"] | null;
-            title: components["schemas"]["TitleMetadata"];
+            title: components["schemas"]["TextMetadata"];
         };
         RecordingPage: components["schemas"]["Page_Recording"];
         Release: {
@@ -869,6 +926,12 @@ export interface components {
         ReleaseDetail: {
             release: components["schemas"]["Release"];
             tracks: components["schemas"]["Page_ReleaseTrack"];
+        };
+        ReleaseMetadata: {
+            artist: components["schemas"]["TextMetadata"];
+            observations: components["schemas"]["ObservationPage"];
+            release_id: string;
+            title: components["schemas"]["TextMetadata"];
         };
         ReleasePage: components["schemas"]["Page_Release"];
         SettingsPageProps: components["schemas"]["SharedPageProps"];
@@ -922,7 +985,7 @@ export interface components {
             /** @enum {string} */
             kind: "audio_stream";
         };
-        TitleMetadata: {
+        TextMetadata: {
             inherited: string;
             operation_id: string | null;
             personal: string | null;
@@ -2130,6 +2193,70 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    release_metadata: {
+        parameters: {
+            query?: {
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseMetadata"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
