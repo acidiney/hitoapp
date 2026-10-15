@@ -1,0 +1,405 @@
+@media (max-width: 1450px) {
+  .server-label {
+    display: none;
+  }
+  .library-feature-row {
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 20px;
+  }
+  .spotlight-copy {
+    padding: 24px;
+  }
+  .spotlight-copy h2 {
+    font-size: 27px;
+  }
+}
+@media (max-width: 1279px) {
+  :root {
+    --listening: 0px;
+  }
+  .listening-panel {
+    display: none;
+  }
+  .player {
+    grid-template-columns: minmax(170px, 1fr) minmax(300px, 1.6fr) 190px;
+    gap: 16px;
+  }
+  .player-tools .volume,
+  .player-tools > svg {
+    display: none;
+  }
+  .album-column {
+    display: none;
+  }
+  .library-feature-row {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+}
+@media (max-width: 1000px) {
+  :root {
+    --sidebar: 188px;
+  }
+  .sidebar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .topbar {
+    padding: 0 24px;
+  }
+  main#main {
+    padding: 24px;
+  }
+  .library-feature-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .collection-shortcuts {
+    display: none;
+  }
+  .player-tools .expand-player {
+    display: none;
+  }
+  .player {
+    grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.6fr) 100px;
+  }
+  .account-form {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  :root {
+    --sidebar: 0px;
+    --player: 146px;
+  }
+  .app-shell {
+    display: block;
+    padding-right: 0;
+  }
+  .sidebar {
+    position: static;
+    width: 100%;
+    padding: 22px 18px 0;
+    overflow: visible;
+  }
+  .brand {
+    font-size: 29px;
+    padding: 0;
+  }
+  .brand span,
+  .nav-group-label,
+  .sidebar-playlists {
+    display: none;
+  }
+  .sidebar nav {
+    display: flex;
+    overflow: auto;
+    gap: 3px;
+    margin: 20px -7px 0;
+    padding-bottom: 10px;
+  }
+  .nav-group {
+    display: contents;
+  }
+  .sidebar nav a {
+    padding: 10px 8px;
+    white-space: nowrap;
+    font-size: 12px;
+    gap: 6px;
+  }
+  .sidebar nav svg {
+    width: 16px;
+  }
+  .account {
+    position: absolute;
+    top: 20px;
+    right: 18px;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .account > span:nth-child(2) {
+    display: none;
+  }
+  .account .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+  .topbar {
+    height: 76px;
+    padding: 0 18px;
+  }
+  main#main {
+    padding: 24px 18px 38px;
+  }
+  h1 {
+    font-size: 30px;
+  }
+  .page-heading {
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 25px;
+  }
+  .page-heading > .button {
+    font-size: 11px;
+    padding: 9px 11px;
+  }
+  .page-heading > .button > svg {
+    display: none;
+  }
+  .page-heading .muted {
+    font-size: 12px;
+  }
+  .library-spotlight {
+    grid-template-columns: 36% minmax(0, 1fr);
+    min-height: 222px;
+  }
+  .spotlight-copy {
+    padding: 20px;
+  }
+  .spotlight-label {
+    font-size: 10px;
+    margin-bottom: 12px;
+  }
+  .spotlight-copy h2 {
+    font-size: 23px;
+  }
+  .spotlight-copy p {
+    font-size: 12px;
+    margin-top: 9px;
+  }
+  .spotlight-copy .button {
+    font-size: 11px;
+    padding: 9px 11px;
+    margin-top: 18px;
+  }
+  .library-feature-row {
+    margin-bottom: 28px;
+  }
+  .track-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
+  }
+  .card-play {
+    width: 44px;
+    height: 44px;
+    bottom: 10px;
+    right: 10px;
+  }
+  .track-card h3 {
+    font-size: 12px;
+  }
+  .track-card-copy p {
+    font-size: 11px;
+  }
+  .list-toolbar {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .list-toolbar > .muted {
+    display: none;
+  }
+  .artist-column {
+    display: none;
+  }
+  .track-table td,
+  .track-table th {
+    padding: 11px 6px;
+  }
+  .track-table td:nth-child(2) {
+    min-width: 145px;
+  }
+  .track-cell > .artwork {
+    width: 32px;
+    height: 32px;
+    margin-right: 8px;
+  }
+  .track-cell > div:last-child {
+    min-height: 32px;
+  }
+  .mobile-artist {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-top: 4px;
+  }
+  .track-actions .icon-button {
+    min-width: 34px;
+    min-height: 38px;
+  }
+  .add-to-playlist {
+    max-width: 82px;
+    font-size: 10px;
+  }
+  .player {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 18px;
+    gap: 5px 12px;
+  }
+  .now-playing {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .dock-artwork {
+    width: 44px;
+    height: 44px;
+  }
+  .player-tools {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 4px;
+  }
+  .transport {
+    grid-column: 1/-1;
+    grid-row: 2;
+    max-width: none;
+  }
+  .transport-buttons {
+    gap: 24px;
+  }
+  .play-button {
+    width: 44px;
+    height: 44px;
+  }
+  .seek {
+    margin-top: 2px;
+  }
+  .queue-panel {
+    top: 18px;
+    bottom: calc(var(--player) + 16px);
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+  .now-playing-dialog {
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    padding: 16px 20px;
+  }
+  .now-playing-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    overflow: auto;
+    padding: 22px 0;
+  }
+  .now-playing-focus > .artwork,
+  .now-playing-caption {
+    width: min(100%, 37dvh);
+  }
+  .now-playing-caption {
+    margin-top: 17px;
+  }
+  .now-playing-caption h1 {
+    font-size: 25px;
+  }
+  .now-playing-queue {
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    min-height: 200px;
+  }
+  .now-playing-queue > .queue-tracks {
+    overflow: visible;
+  }
+  .now-playing-controls {
+    padding-top: 12px;
+  }
+  .inline-form {
+    flex-wrap: wrap;
+    padding: 18px;
+  }
+  .inline-form label {
+    width: 100%;
+  }
+  .inline-form input {
+    width: 100px;
+  }
+  .inline-form .button {
+    font-size: 11px;
+  }
+  .playlist-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
+  }
+  .collection-hero {
+    gap: 18px;
+    align-items: center;
+  }
+  .collection-hero > .artwork {
+    width: 100px;
+    height: 100px;
+  }
+  .collection-hero h1 {
+    font-size: 28px;
+    margin: 8px 0;
+  }
+  .collection-hero p {
+    font-size: 11px;
+  }
+  .setting-row {
+    gap: 18px;
+  }
+  .setting-row > .button {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+  .setting-row > .button > svg {
+    display: none;
+  }
+  .account-form {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .account-list li {
+    align-items: flex-start;
+  }
+  .account-list li > div {
+    flex-direction: column;
+  }
+  .account-list .button {
+    font-size: 11px;
+    min-height: 36px;
+    padding: 7px 10px;
+  }
+  .empty {
+    padding: 46px 22px;
+  }
+  .notice {
+    padding: 10px 18px;
+  }
+  .auth-page {
+    display: block;
+  }
+  .auth-intro {
+    padding: 35px 28px;
+  }
+  .auth-intro .brand {
+    font-size: 30px;
+    margin-bottom: 30px;
+  }
+  .auth-intro h1 {
+    font-size: 38px;
+  }
+  .auth-intro p {
+    font-size: 15px;
+    margin-top: 18px;
+    max-width: none;
+  }
+  .auth-intro > span {
+    display: none;
+  }
+  .auth-form {
+    padding: 38px 28px;
+  }
+  .auth-form form {
+    max-width: none;
+  }
+}
+@media (max-width: 480px) {
+  .duration-column {
+    display: none;
+  }
+  .auth-intro h1 {
+    font-size: 34px;
+  }
+}

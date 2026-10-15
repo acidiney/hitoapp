@@ -1,0 +1,321 @@
+import { expect, test } from "@playwright/test";
+
+test("set up, scan, listen across navigation, edit a playlist, and switch accounts", async ({
+  page,
+  context,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Set up Hito" }),
+  ).toBeVisible();
+  await page.getByLabel("Username", { exact: true }).fill("admin");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("docker browser test password");
+  await page.getByRole("button", { name: "Create administrator" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your library", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Scan music folder" }).click();
+  await expect(
+    page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
+  ).toBeEnabled({ timeout: 20000 });
+  await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page
+        .locator("audio")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(0.2);
+  const before = await page
+    .locator("audio")
+    .evaluate((audio: HTMLAudioElement) => audio.currentTime);
+  await expect(
+    page.getByRole("region", { name: "Library spotlight" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "List view", exact: true }).click();
+  await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
+  await page.getByRole("button", { name: "Grid view", exact: true }).click();
+  await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await page.screenshot({
+    path: "/workspace/test-results/library-desktop.png",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/library-populated-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole("button", { name: "Expand player", exact: true })
+    .click();
+  const expanded = page.getByRole("dialog", {
+    name: "Now playing",
+    exact: true,
+  });
+  await expect(expanded).toBeVisible();
+  await expect(
+    expanded.getByRole("heading", { name: "Fixture 440 Hz", exact: true }),
+  ).toBeVisible();
+  await expect(expanded.locator(".queue-tracks li")).toHaveCount(2);
+  await page.screenshot({
+    path: "/workspace/test-results/now-playing-desktop.png",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/now-playing-mobile.png",
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expanded.getByRole("button", { name: "Close now playing" }).click();
+  await expect(
+    page.getByRole("button", { name: "Expand player", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("button", { name: "Expand player", exact: true })
+    .click();
+  await page.keyboard.press("Escape");
+  await expect(expanded).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Expand player", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("button", { name: "Expand player", exact: true })
+    .click();
+  await page.route("**/api/v1/recordings/*/sources", (route) =>
+    route.fulfill({ status: 503 }),
+  );
+  await expanded.locator(".queue-track").last().click();
+  await expect(expanded.getByRole("status")).toContainText(
+    "Audio is unavailable",
+  );
+  await page.unroute("**/api/v1/recordings/*/sources");
+  await expanded.locator(".queue-track").first().click();
+  await expect(expanded.getByRole("status")).toHaveCount(0);
+  await expanded
+    .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
+    .click();
+  await expanded
+    .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
+    .click();
+  await expanded.getByRole("button", { name: "Close now playing" }).click();
+  await expect(
+    page.getByRole("button", { name: "Open queue", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Playlists", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Playlists", exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator("audio")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(before);
+  await page
+    .getByLabel("New playlist", { exact: true })
+    .fill("Docker favorites");
+  await page.getByRole("button", { name: "Create playlist" }).click();
+  await expect(
+    page.locator(".playlist-list").getByText("Docker favorites"),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Library", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Like Fixture 440 Hz", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Unlike Fixture 440 Hz", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Add Fixture 440 Hz to playlist", { exact: true })
+    .selectOption({ label: "Docker favorites" });
+  await page
+    .locator(".sidebar-playlists")
+    .getByRole("link", { name: "Docker favorites" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Docker favorites", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Remove Fixture 440 Hz from playlist",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "History", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Settings", exact: true })
+    .click();
+  const libraryTab = page.getByRole("tab", { name: "Library", exact: true });
+  await expect(libraryTab).toHaveAttribute("aria-selected", "true");
+  await libraryTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("tab", { name: "Privacy", exact: true }),
+  ).toBeFocused();
+  await expect(page.getByRole("tabpanel")).toContainText(
+    "No playback outcomes",
+  );
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("tab", { name: "Accounts", exact: true }),
+  ).toBeFocused();
+  await page.getByLabel("Username", { exact: true }).fill("listener");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("listener docker test password");
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await expect(
+    page.locator(".account-list").getByText("listener", { exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "/workspace/test-results/settings-desktop.png",
+    fullPage: true,
+  });
+  const connectionTab = await context.newPage();
+  connectionTab.on("pageerror", (error) => errors.push(error.message));
+  await connectionTab.route("**/api/v1/me", (route) =>
+    route.fulfill({ status: 503 }),
+  );
+  await connectionTab.goto("/playlists");
+  await expect(
+    connectionTab.getByRole("heading", {
+      name: "Unable to check your session",
+    }),
+  ).toBeVisible();
+  await expect(connectionTab.locator(".playlist-list")).toHaveCount(0);
+  await connectionTab.unroute("**/api/v1/me");
+  await connectionTab
+    .getByRole("button", { name: "Reload", exact: true })
+    .click();
+  await expect(
+    connectionTab.locator(".playlist-list").getByText("Docker favorites"),
+  ).toBeVisible();
+  await connectionTab.close();
+  const otherTab = await context.newPage();
+  otherTab.on("pageerror", (error) => errors.push(error.message));
+  await otherTab.goto("/library");
+  await otherTab
+    .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      otherTab
+        .locator("audio")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(0);
+  await otherTab
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Playlists", exact: true })
+    .click();
+  await expect(
+    otherTab.locator(".playlist-list").getByText("Docker favorites"),
+  ).toBeVisible();
+  const delayedTab = await context.newPage();
+  delayedTab.on("pageerror", (error) => errors.push(error.message));
+  let releaseAsset!: () => void;
+  let assetRequested!: () => void;
+  const assetGate = new Promise<void>((resolve) => {
+    releaseAsset = resolve;
+  });
+  const assetPaused = new Promise<void>((resolve) => {
+    assetRequested = resolve;
+  });
+  await delayedTab.route("**/assets/app.js", async (route) => {
+    assetRequested();
+    await assetGate;
+    await route.continue();
+  });
+  await delayedTab.goto("/playlists", { waitUntil: "commit" });
+  await assetPaused;
+  await expect
+    .poll(() => delayedTab.locator("script[data-page=app]").textContent())
+    .toContain("Docker favorites");
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
+  await expect(
+    otherTab.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
+  await expect(otherTab.locator("audio")).toHaveCount(0);
+  await page.getByLabel("Username", { exact: true }).fill("listener");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("listener docker test password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your library", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("0 tracks", { exact: true })).toBeVisible();
+  releaseAsset();
+  await expect(delayedTab.locator(".account")).toContainText("listener");
+  await expect(
+    delayedTab.getByText("Docker favorites", { exact: true }),
+  ).toHaveCount(0);
+  await delayedTab.close();
+  await expect(otherTab.locator(".account")).toContainText("listener");
+  await expect(
+    otherTab.getByText("Docker favorites", { exact: true }),
+  ).toHaveCount(0);
+  await otherTab
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Library", exact: true })
+    .click();
+  await otherTab.goBack();
+  await expect(otherTab.locator(".account")).toContainText("listener");
+  await expect(
+    otherTab.getByText("Docker favorites", { exact: true }),
+  ).toHaveCount(0);
+  await otherTab.close();
+  await expect(
+    page.locator(".sidebar-playlists").getByText("Docker favorites"),
+  ).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByText("Docker favorites", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.locator(".account")).toContainText("listener");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/library-mobile.png",
+    fullPage: true,
+  });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > innerWidth,
+  );
+  expect(overflow).toBe(false);
+  expect(errors).toEqual([]);
+});
