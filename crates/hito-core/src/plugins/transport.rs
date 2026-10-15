@@ -7,6 +7,7 @@ use tokio::sync::Semaphore;
 pub(super) struct ManifestClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
+    accounts: super::admission::Accounts,
 }
 
 impl ManifestClient {
@@ -28,11 +29,13 @@ impl ManifestClient {
         Ok(Self {
             client,
             slots: Arc::new(Semaphore::new(4)),
+            accounts: Default::default(),
         })
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub(super) async fn manifest(&self, base_url: &str) -> Result<Manifest> {
+    pub(super) async fn manifest(&self, account: &str, base_url: &str) -> Result<Manifest> {
+        let _account = self.accounts.enter(account)?;
         let _permit = self
             .slots
             .clone()
@@ -45,6 +48,7 @@ impl ManifestClient {
             .client
             .get(endpoint)
             .header("accept", "application/json")
+            .header("accept-encoding", "identity")
             .header("x-hito-plugin-protocol", "1")
             .send()
             .await
@@ -57,6 +61,15 @@ impl ManifestClient {
         if !status.is_success() {
             return Err(Error::Upstream(
                 "The plugin service rejected the connection",
+            ));
+        }
+        if response
+            .headers()
+            .get("content-encoding")
+            .is_some_and(|value| value != "identity")
+        {
+            return Err(Error::Upstream(
+                "The plugin service returned an unsupported encoding",
             ));
         }
         let json = response

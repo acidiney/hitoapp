@@ -44,27 +44,14 @@ impl Plugins {
                 "This plugin service changed. Reload Settings.".into(),
             ));
         }
-        let manifest = self.remote.manifest(&service.base_url).await?;
+        {
+            let mut connection = self.store.pool.acquire().await?;
+            check_capacity(&mut connection, actor.id(), &service.id).await?;
+        }
+        let manifest = self.remote.manifest(actor.id(), &service.base_url).await?;
         let id = Uuid::new_v4().to_string();
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM plugin_installations WHERE user_id = ? AND service_id = ? AND active = 1)")
-            .bind(actor.id()).bind(&service.id).fetch_one(&mut *tx).await?;
-        if exists {
-            return Err(Error::Conflict(
-                "This plugin is already connected to your account".into(),
-            ));
-        }
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM plugin_installations WHERE user_id = ? AND active = 1",
-        )
-        .bind(actor.id())
-        .fetch_one(&mut *tx)
-        .await?;
-        if count >= 32 {
-            return Err(Error::Invalid(
-                "Your account already has 32 connected plugins".into(),
-            ));
-        }
+        check_capacity(&mut tx, actor.id(), &service.id).await?;
         let row = sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest)
             SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM plugin_services WHERE id = ? AND active = 1 AND revision = ?)
             RETURNING id,service_id,manifest,revision,checked_at")
@@ -92,4 +79,30 @@ pub(super) fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstall
         revision: row.try_get("revision")?,
         checked_at: row.try_get("checked_at")?,
     })
+}
+
+async fn check_capacity(
+    connection: &mut sqlx::SqliteConnection,
+    account: &str,
+    service: &str,
+) -> Result<()> {
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM plugin_installations WHERE user_id = ? AND service_id = ? AND active = 1)")
+            .bind(account).bind(service).fetch_one(&mut *connection).await?;
+    if exists {
+        return Err(Error::Conflict(
+            "This plugin is already connected to your account".into(),
+        ));
+    }
+    let count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM plugin_installations WHERE user_id = ? AND active = 1",
+    )
+    .bind(account)
+    .fetch_one(&mut *connection)
+    .await?;
+    if count >= 32 {
+        return Err(Error::Invalid(
+            "Your account already has 32 connected plugins".into(),
+        ));
+    }
+    Ok(())
 }

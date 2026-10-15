@@ -130,3 +130,44 @@ async fn a_delayed_refresh_cannot_restore_a_removed_personal_installation() {
             .is_empty()
     );
 }
+
+#[tokio::test]
+async fn one_account_cannot_occupy_multiple_manifest_connections() {
+    let server = fixture::PluginServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("plugin-admission-host").await;
+    let service = hito
+        .plugins
+        .offer_service(
+            &actor,
+            OfferPluginService {
+                name: "Fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let gate = server.hold().await;
+    let plugins = hito.plugins.clone();
+    let owner = actor.clone();
+    let first_request = InstallPlugin {
+        service_id: service.id.clone(),
+        service_revision: service.revision,
+    };
+    let task = tokio::spawn(async move { plugins.install(&owner, first_request).await });
+    server.entered().await;
+    let result = tokio::time::timeout(
+        std::time::Duration::from_millis(500),
+        hito.plugins.install(
+            &actor,
+            InstallPlugin {
+                service_id: service.id,
+                service_revision: service.revision,
+            },
+        ),
+    )
+    .await;
+    gate.add_permits(2);
+    assert!(matches!(result, Ok(Err(Error::Conflict(_)))));
+    assert!(task.await.unwrap().is_ok());
+    assert_eq!(server.hits(), 1);
+}

@@ -19,6 +19,8 @@ use tokio::sync::{Mutex, Semaphore};
 pub struct Reply {
     pub body: Vec<u8>,
     pub status: StatusCode,
+    pub headers: HeaderMap,
+    pub chunked: bool,
     pub gate: Option<Arc<Semaphore>>,
 }
 
@@ -41,6 +43,11 @@ impl PluginServer {
             reply: Mutex::new(Reply {
                 body: serde_json::to_vec(&manifest()).unwrap(),
                 status: StatusCode::OK,
+                headers: HeaderMap::from_iter([(
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::HeaderValue::from_static("application/json"),
+                )]),
+                chunked: false,
                 gate: None,
             }),
             hits: AtomicUsize::new(0),
@@ -59,6 +66,21 @@ impl PluginServer {
     }
     pub async fn reply(&self, body: Value) {
         self.state.reply.lock().await.body = serde_json::to_vec(&body).unwrap();
+    }
+    pub async fn response(
+        &self,
+        status: StatusCode,
+        headers: HeaderMap,
+        body: Vec<u8>,
+        chunked: bool,
+    ) {
+        *self.state.reply.lock().await = Reply {
+            status,
+            headers,
+            body,
+            chunked,
+            gate: None,
+        };
     }
     pub async fn hold(&self) -> Arc<Semaphore> {
         let gate = Arc::new(Semaphore::new(0));
@@ -90,12 +112,14 @@ async fn respond(State(state): State<Arc<Fixture>>, headers: HeaderMap) -> Respo
     if let Some(gate) = reply.gate {
         gate.acquire().await.unwrap().forget();
     }
-    (
-        reply.status,
-        [("content-type", "application/json")],
-        Body::from(reply.body),
-    )
-        .into_response()
+    let body = if reply.chunked {
+        Body::from_stream(tokio_util::io::ReaderStream::new(std::io::Cursor::new(
+            reply.body,
+        )))
+    } else {
+        Body::from(reply.body)
+    };
+    (reply.status, reply.headers, body).into_response()
 }
 
 pub fn manifest() -> Value {

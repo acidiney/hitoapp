@@ -30,6 +30,23 @@ async fn an_account_connects_an_offered_service_through_its_real_manifest_endpoi
         )
         .await
         .unwrap();
+    assert!(matches!(
+        hito.plugins
+            .install(
+                &actor,
+                InstallPlugin {
+                    service_id: service.id.clone(),
+                    service_revision: service.revision
+                }
+            )
+            .await,
+        Err(Error::Conflict(_))
+    ));
+    assert_eq!(
+        server.hits(),
+        1,
+        "duplicate installations do not trigger network requests"
+    );
     assert_ne!(installed.id, installed.manifest.id);
     assert_eq!(installed.manifest.id, "org.hito.test");
     assert_eq!(installed.manifest.name, "Fixture provider");

@@ -22,7 +22,7 @@ impl Plugins {
         if previous.revision != request.revision {
             return Err(changed());
         }
-        let manifest = self.remote.manifest(&base_url).await?;
+        let manifest = self.remote.manifest(actor.id(), &base_url).await?;
         if manifest.id != previous.manifest.id {
             return Err(Error::Conflict(
                 "The service returned a different plugin identity. Remove and reconnect to use it."

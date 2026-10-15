@@ -1,3 +1,4 @@
+mod admission;
 mod installations;
 mod offers;
 mod refresh;
