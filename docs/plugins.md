@@ -1,6 +1,6 @@
 # Plugin connections
 
-Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Core provider search and durable adoption are under development. They are not exposed through browser discovery or application HTTP routes yet. Audio relay, catalogs, enrichment, playlists, dashboard content, lyrics, and backing tracks remain release work. Declaring a capability does not make that content available in Hito yet.
+Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Source now includes authenticated provider search, durable adoption, and audio relay APIs. Browser discovery and selection, catalogs, enrichment, playlists, dashboard content, lyrics, and backing tracks remain release work. The normal development server still runs the connection-only deployment on migration 0018.
 
 ## Settings
 
@@ -30,7 +30,7 @@ The core owns URL validation, HTTP policy, credential encryption, quotas, and tr
 
 No SQLite transaction stays open during HTTP work. Install and refresh recheck live service/installation revisions before committing. A delayed response cannot restore a removed connection or withdrawn offer. An account can have 32 active installations; the server can offer 64 active services. Active account reads and credential-key discovery use indexes.
 
-Personal provider data is confined to an owner-only library. It can reuse the recording/source graph without entering a shared library. Administrator membership changes reject personal libraries, and database constraints back that rule. Installation/account visibility and current authority must also reach relay before browser playback ships. A private connection must never make another account's content or credentials visible.
+Personal provider data is confined to an owner-only library. It can reuse the recording/source graph without entering a shared library. Administrator membership changes reject personal libraries, and database constraints back that rule. Audio relay checks the owning account, accepted capability, active connection/service, and saved source binding before contacting the service and throughout streaming.
 
 ## Provider content groundwork
 
@@ -63,11 +63,35 @@ Detail returns `id`, `title`, `artist`, optional `duration_ms`, optional `releas
 
 Queries use at most 512 bytes; cursors use 2,048; IDs/revisions/source labels use 256; titles/artist names use 2,048. Text must be nonblank and contain no control characters. Durations must fit JavaScript's safe integer range. Unknown fields, duplicate IDs, oversized pages, mismatched detail IDs, invalid content types, and encoded responses are rejected. Requests use the same credential, admission, redirect, and deadline policy as manifest requests below. No SQLite transaction spans HTTP work.
 
-`v1/audio` is a reserved SDK path. Audio streaming, range validation, active-stream cancellation, source refresh during playback, discovery UI, official provider services, and their live checks are still unfinished. These core operations do not establish an operational provider playback feature.
+## Audio relay
+
+The provider serves `GET` and `HEAD v1/audio?source_id=<encoded opaque ID>`. Only Hito selects the approved service address and supplies its personal token. The browser requests the existing `/api/v1/sources/{id}/audio` route with Hito's durable source UUID. Provider URLs, tokens, browser cookies, and arbitrary request headers never become source data returned to the browser.
+
+```mermaid
+flowchart LR
+  Browser[Authenticated audio request] --> Catalog[Catalog open_audio]
+  Catalog --> Local[Owned local file]
+  Catalog --> Authority[Personal provider source authority]
+  Authority --> Media[Separate bounded media client]
+  Media --> Service[Fixed approved audio endpoint]
+  Service --> Validate[Status, audio type and byte range validation]
+  Validate --> Stream[Pull stream with live authority checks]
+  Stream --> Browser
+  Database[(Current SQLite authority)] --> Authority
+  Database --> Stream
+```
+
+The relay accepts supported audio MIME types and identity encoding. Transfer-Encoding must be absent or a single chunked coding without Content-Length. It validates single byte-range responses, known lengths, and premature EOF. Unknown request range units are ignored. Multipart ranges are unsupported. HEAD ignores Range. If-Range is treated as an unmatched validator and returns a full representation. Only validated content type, lengths, range support, and Content-Range reach the browser, with private no-store caching. Provider cookies, redirects, filenames, and custom headers are discarded. MIME/framing validation does not verify the decoded recording or establish codec compatibility.
+
+The media client has a two-second connect deadline, ten-second header deadline, and fifteen-second deadline for each actively awaited upstream body read. Consumer pauses and backpressure do not run that read timer. A healthy stream has no total-duration timeout. Redirects, proxies, and retries are disabled. Sixteen global slots and two per account are independent of control requests. Slots last through EOF, failure, or consumer cancellation. Hito yields at most 64 KiB per pull, retains at most one upstream client frame, and does not spawn an audio-buffering pump or persist a download.
+
+Connection removal, service withdrawal, credential changes, capability withdrawal, and lost source ownership cancel active requests and bodies. A database-backed monitor checks unread streams every 250 ms with a one-second authorization-query deadline. Checks also surround each body read. Changes made by a separately opened service instance are visible. A cached readiness change prevents new opens but does not interrupt a healthy current stream. An unchanged connection check can advance its revision without revoking an existing stream. Transfer completion retains the opening log correlation and records only safe outcome, byte count, and elapsed time.
+
+Browser discovery/selection, playback-time source refresh and recovery, conversion, official services, and live-provider checks remain unfinished. This API work is not a completed provider listening experience or a release performance claim.
 
 ## HTTP manifest protocol, version 1
 
-This is the deployed connection protocol. The content operations above are core groundwork.
+This is the deployed connection protocol. The content and relay operations above are implemented in source and await the operational discovery slice before normal deployment.
 
 A base address can use HTTP or HTTPS and a path prefix. It cannot contain user information, a query, or a fragment. Hito normalizes the trailing slash. For `https://provider.example/hito/`, it requests:
 
@@ -109,6 +133,10 @@ The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web 
 | `POST /api/v1/plugins/{id}/refresh` | Checks an expected installation revision; optional reviewed digest and keep/replace credential action |
 | `DELETE /api/v1/plugins/{id}/credential` | Clears this account's credential at the expected revision |
 | `DELETE /api/v1/plugins/{id}` | Removes this account's installation at the expected revision |
+| `POST /api/v1/plugins/{id}/search` | Searches with an expected installation revision, query, optional cursor, and bounded limit; returns transient results |
+| `POST /api/v1/plugins/{id}/recordings` | Adopts or refreshes an opaque provider recording ID at an expected installation revision; returns its durable Hito recording |
+| `GET /api/v1/sources/{id}/audio` | Streams authorized local or provider audio, including validated single byte ranges |
+| `HEAD /api/v1/sources/{id}/audio` | Returns the authorized representation headers without a body |
 
 Mutation JSON rejects unknown fields. Refresh returns `updated` or `review_required`. Responses expose only whether a credential is saved, never a token or encrypted credential. Conflicts require reloading current state; upstream failures return a safe 502 explanation without the service's response body. Browser mutations retain the existing same-origin/account checks and private no-store response policy.
 

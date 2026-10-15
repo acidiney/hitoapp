@@ -10,6 +10,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Add artist/album pages, exact library-scoped credits, release appearances, tagged order, Unicode search, and release artwork.
 - [x] Expose local source metadata observations, supported tag origins, truthful upgrade baselines, and bounded revision history.
 - [ ] Add provider-backed artist, release, and recording matching without collapsing uncertain identities.
+- [ ] Show artist pages for provider recordings without releases, using recording credits without inventing albums.
 - [ ] Add configurable MusicBrainz/provider enrichment and a disable setting.
 - [x] Add personal recording titles, inheritance reset, synchronized acceptance, and consistent search/album/collection reads.
 - [x] Add personal recording artists and album titles/artists with account-private grouping and field resets.
@@ -25,6 +26,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
 - [ ] Add verified HTTP sources, preference ranking, manual override, server relay, direct fallback, conversion, and bitrate settings.
 - [ ] Complete failover near the current position, deferred-source handling, gapless playback, and codec compatibility fixtures.
+- [ ] Verify local audio opens, metadata, and ongoing reads on stalled or disconnected drives.
 - [ ] Verify metadata compatibility, including a bounded policy for compressed ID3 tags, which are currently unsupported.
 - [ ] Complete queue reordering and playback across catalog pages; verify very large queues against the performance gates.
 - [ ] Verify that desktop works without a server and web explains unavailable connections.
@@ -42,6 +44,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 
 - [x] Implement the versioned HTTP manifest contract and private installation lifecycle.
 - [x] Add core provider search and durable adoption with owner-only libraries, stable identities, and provider provenance.
+- [x] Add authenticated provider search/adoption APIs and bounded private audio relay with byte ranges and live cancellation.
 - [ ] Expose provider discovery and selection through the application API/UI, then connect verified source resolution and server-relayed playback.
 - [ ] Complete plugin capability requests/results, account-scoped provider content, source resolution/relay, and operational capability negotiation.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
