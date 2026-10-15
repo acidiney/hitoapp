@@ -6,6 +6,8 @@ The active scope is docs/release-plan.md. docs/status.md records evidence and un
 
 Run application builds and tests through Docker Compose. Host tools may edit and inspect files. Use the tools profile for Rust/Node and the e2e profile for the isolated browser server. Never point first-run browser tests at the normal persistent server volume.
 
+Give source snapshots and worktrees separate Cargo target directories. Mounting different source trees at `/workspace` with a shared target can reuse stale timestamp-based artifacts.
+
 ## Structure
 
 - Core capability services own identity, catalog, collection transactions, and indexing. Service composition contains no business forwarding methods.
