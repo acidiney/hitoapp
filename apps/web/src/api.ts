@@ -73,6 +73,20 @@ export const libraryApi = {
       })
     ).json();
   },
+  async refreshSources(
+    account: string,
+    recording: string,
+    signal?: AbortSignal,
+  ): Promise<Source[]> {
+    return (
+      await request(`/recordings/${part(recording)}/sources/refresh`, {
+        action: "sources.refresh",
+        method: "POST",
+        account,
+        signal,
+      })
+    ).json();
+  },
   async job(account: string, job: string, signal?: AbortSignal): Promise<Job> {
     return (
       await request(`/jobs/${part(job)}`, {

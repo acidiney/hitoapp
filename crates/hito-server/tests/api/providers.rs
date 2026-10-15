@@ -153,7 +153,7 @@ async fn provider_search_selection_and_audio_form_one_private_http_workflow() {
             .1["id"],
         recording["id"]
     );
-    let (_, sources) = call(
+    let (_, previous_sources) = call(
         &app,
         "GET",
         &format!(
@@ -164,6 +164,21 @@ async fn provider_search_selection_and_audio_form_one_private_http_workflow() {
         Some(&token),
     )
     .await;
+    server
+        .reply(
+            "v1/sources",
+            json!({"items":[{"id":"remote/replacement","label":"Replacement","ready":true}]}),
+        )
+        .await;
+    let refresh = format!(
+        "/api/v1/recordings/{}/sources/refresh",
+        recording["id"].as_str().unwrap()
+    );
+    let (status, sources) = call(&app, "POST", &refresh, Value::Null, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(sources.as_array().unwrap().len(), 1);
+    assert_ne!(sources[0]["id"], previous_sources[0]["id"]);
+    assert_eq!(sources[0]["ready"], true);
     let audio = format!(
         "/api/v1/sources/{}/audio",
         sources[0]["id"].as_str().unwrap()
@@ -207,6 +222,16 @@ async fn provider_search_selection_and_audio_form_one_private_http_workflow() {
     )
     .await;
     let bob = session["token"].as_str().unwrap();
+    let source_calls = server.requests("v1/sources").await.len();
+    assert_eq!(
+        call(&app, "POST", &refresh, Value::Null, Some(bob)).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(&app, "POST", &refresh, Value::Null, None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(server.requests("v1/sources").await.len(), source_calls);
     assert_eq!(
         call(&app, "POST", &search, body, Some(bob)).await.0,
         StatusCode::NOT_FOUND

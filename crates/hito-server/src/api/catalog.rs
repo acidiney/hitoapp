@@ -57,6 +57,21 @@ pub async fn sources(
     Ok(Json(services.catalog.sources(&actor, &id).await?))
 }
 
+#[utoipa::path(post, path = "/api/v1/recordings/{id}/sources/refresh", params(("id" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = [Source]), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn refresh_sources(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Vec<Source>>> {
+    Ok(Json(services.catalog.refresh_sources(&actor, &id).await?))
+}
+
 #[utoipa::path(get, path = "/api/v1/sources/{id}/audio", params(
     ("id" = String, Path), ("Range" = Option<String>, Header),
 ), security(("session" = []), ("bearer" = [])), responses(

@@ -47,6 +47,7 @@ async fn provider_workflows_log_safe_outcomes_without_private_content_or_credent
         let request = || AdoptProviderRecording { installation_revision:1, provider_recording_id:"provider-private-remote-id".into() };
         let recording = hito.catalog.adopt_provider(&actor, &installed.id, request()).await.unwrap();
         let source = hito.catalog.sources(&actor,&recording.id).await.unwrap().remove(0);
+        hito.catalog.refresh_sources(&actor, &recording.id).await.unwrap();
         server.audio(axum::http::StatusCode::OK, axum::http::HeaderMap::from_iter([
             ("content-type".parse().unwrap(),"audio/wav".parse().unwrap())
         ]), vec![1,2,3,4]).await;
@@ -55,9 +56,11 @@ async fn provider_workflows_log_safe_outcomes_without_private_content_or_credent
         drop(audio);
         server.reply("v1/sources", serde_json::json!({"items":[],"unexpected":"provider-private-rejected-body"})).await;
         assert!(hito.catalog.adopt_provider(&actor, &installed.id, request()).await.is_err());
+        assert!(hito.catalog.refresh_sources(&actor, &recording.id).await.is_err());
         let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
         assert!(output.contains("Provider search completed"));
         assert!(output.contains("Provider recording adopted"));
+        assert!(output.contains("Provider playback sources refreshed"));
         assert!(output.contains("Provider observation retained"));
         assert!(output.contains("Audio transfer closed"));
         let transfer: serde_json::Value = output.lines().filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())

@@ -63,6 +63,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
+        .routes(routes!(catalog::refresh_sources))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
