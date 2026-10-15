@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { usePlugins } from "../../hooks/usePlugins";
 import ConnectPlugin from "./ConnectPlugin";
 import PluginConnection from "./PluginConnection";
@@ -11,6 +12,8 @@ export default function PluginSettings(props: {
 }
 function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
   const actions = usePlugins(account);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const restoreFocus = () => heading.current?.focus();
   const { data, error, pending } = actions;
   const available =
     data?.services.filter(
@@ -24,13 +27,16 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
       aria-busy={pending}
     >
       <div className="settings-intro">
-        <h2 id="plugins-title">Your plugins</h2>
+        <h2 id="plugins-title" ref={heading} tabIndex={-1}>
+          Your plugins
+        </h2>
         <p>
           Connect to services offered by your administrator. Each account keeps
           its own connections and credentials.
         </p>
         <p>Provider content is not available in Hito yet.</p>
       </div>
+      {pending && <p role="status">Working on plugin connection…</p>}
       {error && (
         <div role="alert" className="form-error">
           <p>{error}</p>
@@ -59,6 +65,7 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
                 key={plugin.id}
                 plugin={plugin}
                 actions={actions}
+                onRemoved={restoreFocus}
                 storageReady={data.credential_storage_ready}
               />
             ))}
@@ -67,7 +74,6 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
             <p>No plugins connected to this account.</p>
           )}
           <ConnectPlugin
-            key={available.map((item) => item.id).join("|")}
             services={available}
             actions={actions}
             storageReady={data.credential_storage_ready}
@@ -80,7 +86,11 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
             </p>
           )}
           {admin && (
-            <PluginServices services={data.services} actions={actions} />
+            <PluginServices
+              services={data.services}
+              actions={actions}
+              onWithdrawn={restoreFocus}
+            />
           )}
         </>
       )}

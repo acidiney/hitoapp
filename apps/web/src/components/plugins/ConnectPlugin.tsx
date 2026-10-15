@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { PluginService } from "../../types";
 import type { PluginActions } from "../../hooks/usePlugins";
 
@@ -11,20 +11,31 @@ export default function ConnectPlugin({
   actions: PluginActions;
   storageReady: boolean;
 }) {
-  const [selected, setSelected] = useState(services[0]?.id ?? "");
-  const [token, setToken] = useState("");
-  const service = services.find((item) => item.id === selected) ?? services[0];
+  const [draft, setDraft] = useState({
+    serviceId: services[0]?.id ?? "",
+    token: "",
+  });
+  const service =
+    services.find((item) => item.id === draft.serviceId) ?? services[0];
+  const serviceId = service?.id ?? "";
+  const token = draft.serviceId === serviceId ? draft.token : "";
+  useEffect(() => {
+    setDraft((current) =>
+      current.serviceId === serviceId ? current : { serviceId, token: "" },
+    );
+  }, [serviceId]);
   async function connect(event: FormEvent) {
     event.preventDefault();
-    if (
-      service &&
-      (await actions.install({
-        service_id: service.id,
-        service_revision: service.revision,
-        bearer_token: token || null,
-      }))
-    )
-      setToken("");
+    if (!service) return;
+    const installation = await actions.install({
+      service_id: service.id,
+      service_revision: service.revision,
+      bearer_token: token || null,
+    });
+    if (installation)
+      setDraft((current) =>
+        current.serviceId === service.id ? { ...current, token: "" } : current,
+      );
   }
   if (!service) return null;
   return (
@@ -37,8 +48,7 @@ export default function ConnectPlugin({
             value={service.id}
             disabled={actions.pending}
             onChange={(event) => {
-              setSelected(event.target.value);
-              setToken("");
+              setDraft({ serviceId: event.target.value, token: "" });
             }}
           >
             {services.map((item) => (
@@ -57,7 +67,9 @@ export default function ConnectPlugin({
             maxLength={4096}
             disabled={actions.pending || !storageReady}
             value={token}
-            onChange={(event) => setToken(event.target.value)}
+            onChange={(event) =>
+              setDraft({ serviceId: service.id, token: event.target.value })
+            }
           />
         </label>
         <p>

@@ -143,3 +143,73 @@ test("old account responses cannot add private connections after an account chan
     screen.queryByRole("heading", { name: "Fixture provider" }),
   ).toBeNull();
 });
+
+test("unrelated service offers do not erase a failed token draft on reload", async () => {
+  vi.mocked(pluginsApi.install).mockRejectedValue(
+    new Error("Plugin unavailable"),
+  );
+  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
+    target: { value: "failed-private-draft" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await screen.findByRole("alert");
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    services: [{ ...service, id: "other", name: "Other service" }, service],
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
+  await screen.findByRole("option", { name: "Other service" });
+  expect(
+    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
+      .value,
+  ).toBe("failed-private-draft");
+});
+
+test("withdrawing the selected offer clears its token before selecting another service", async () => {
+  vi.mocked(pluginsApi.install).mockRejectedValue(new Error("Offer withdrawn"));
+  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
+    target: { value: "old-service-private-draft" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await screen.findByRole("alert");
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    services: [{ ...service, id: "other", name: "Other service" }],
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
+  await screen.findByRole("option", { name: "Other service" });
+  expect(
+    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
+      .value,
+  ).toBe("");
+});
+
+test("a delayed settings reload cannot remove a newly accepted connection", async () => {
+  vi.mocked(pluginsApi.install)
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockResolvedValue(plugin);
+  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect service" }),
+  );
+  await screen.findByRole("alert");
+  let finish!: (settings: Settings) => void;
+  vi.mocked(pluginsApi.settings).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
+  await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await screen.findByRole("heading", { name: "Fixture provider" });
+  finish(initial);
+  await waitFor(() =>
+    expect(
+      screen.getByRole("heading", { name: "Fixture provider" }),
+    ).toBeTruthy(),
+  );
+});
