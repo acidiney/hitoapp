@@ -86,6 +86,20 @@ pub(crate) async fn provision(
 
 #[tracing::instrument(level = "trace", skip_all, err(Debug))]
 pub(crate) async fn source(tx: &mut Transaction<'_, Sqlite>, source: &str) -> Result<()> {
+    sqlx::query(
+        "DELETE FROM account_source_credits
+         WHERE source_id = ?
+           AND NOT EXISTS (
+               SELECT 1 FROM source_metadata m
+               JOIN sources s ON s.id = m.source_id
+               JOIN recordings r ON r.id = s.recording_id
+               JOIN releases a ON a.id = m.release_id AND a.library_id = r.library_id
+               WHERE m.source_id = account_source_credits.source_id
+           )",
+    )
+    .bind(source)
+    .execute(&mut **tx)
+    .await?;
     let scope = Scope::Source(source);
     releases(tx, &scope).await?;
     credits(tx, &scope).await?;
@@ -105,7 +119,7 @@ pub(super) async fn recording(
 }
 
 #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-pub(super) async fn release(
+pub(crate) async fn release(
     tx: &mut Transaction<'_, Sqlite>,
     user: &str,
     release: &str,

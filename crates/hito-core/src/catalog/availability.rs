@@ -30,6 +30,14 @@ pub(crate) fn push_source_access(
         SELECT 1 FROM local_files file JOIN music_folders folder ON folder.id = file.folder_id
         WHERE file.source_id = s.id AND folder.connected = 1 AND folder.bound = 1))",
     );
+    query.push(
+        " AND (s.provider != 'plugin' OR EXISTS (
+        SELECT 1 FROM provider_sources ps
+        JOIN plugin_installations p ON p.id = ps.installation_id AND p.active = 1
+        JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
+        WHERE ps.source_id = s.id AND EXISTS (
+            SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')))",
+    );
 }
 
 pub(crate) fn push_available(query: &mut QueryBuilder<'_, Sqlite>, host: &HostDeviceId) {

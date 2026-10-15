@@ -12,6 +12,7 @@ pub(crate) use recording_fields::{
 };
 pub use types::*;
 
+pub(crate) use projection::release as refresh_release;
 pub(crate) use projection::{provision, source as refresh_source};
 
 pub(crate) use release_fields::set_release_field;

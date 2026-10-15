@@ -9,8 +9,8 @@ mod plugins;
 mod store;
 
 pub use catalog::{
-    Artist, ArtistDetail, Artwork, AudioFile, Browse, Catalog, Page, ProviderSearch, Recording,
-    Release, ReleaseDetail, ReleaseTrack, Search, Source,
+    AdoptProviderRecording, Artist, ArtistDetail, Artwork, AudioFile, Browse, Catalog, Page,
+    ProviderSearch, Recording, Release, ReleaseDetail, ReleaseTrack, Search, Source,
 };
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,

@@ -1,5 +1,8 @@
 use crate::{Error, Result};
-use hito_plugin_sdk::{MANIFEST_PATH, Manifest, SEARCH_PATH, SearchPage, SearchRequest};
+use hito_plugin_sdk::{
+    DETAIL_PATH, MANIFEST_PATH, Manifest, ProviderRecording, RecordingRequest, SEARCH_PATH,
+    SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
+};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 
@@ -85,6 +88,54 @@ impl ControlClient {
         page.validate(request.limit)
             .map_err(|_| Error::Upstream("The provider returned invalid search results"))?;
         Ok(page)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub(super) async fn recording(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: &RecordingRequest,
+    ) -> Result<(ProviderRecording, SourcePage)> {
+        let body = serde_json::to_value(request)
+            .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
+        let recording: ProviderRecording = self
+            .exchange(
+                account,
+                base_url,
+                token,
+                Call {
+                    path: DETAIL_PATH,
+                    body: Some(body.clone()),
+                    maximum: 32768,
+                },
+            )
+            .await?;
+        recording
+            .validate()
+            .map_err(|_| Error::Upstream("The provider returned invalid recording details"))?;
+        if recording.id != request.recording_id {
+            return Err(Error::Upstream(
+                "The provider returned a different recording",
+            ));
+        }
+        let sources: SourcePage = self
+            .exchange(
+                account,
+                base_url,
+                token,
+                Call {
+                    path: SOURCES_PATH,
+                    body: Some(body),
+                    maximum: 32768,
+                },
+            )
+            .await?;
+        sources
+            .validate()
+            .map_err(|_| Error::Upstream("The provider returned invalid sources"))?;
+        Ok((recording, sources))
     }
 
     async fn exchange<T: serde::de::DeserializeOwned>(

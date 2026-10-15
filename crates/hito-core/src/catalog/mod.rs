@@ -4,7 +4,7 @@ mod availability;
 mod browse;
 mod media;
 mod provider;
-pub use provider::ProviderSearch;
+pub use provider::{AdoptProviderRecording, ProviderSearch};
 mod releases;
 mod search;
 mod sources;

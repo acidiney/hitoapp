@@ -1,10 +1,14 @@
 use super::Plugins;
 use crate::{Actor, Error, Result};
-use hito_plugin_sdk::{Capability, Manifest, SearchPage, SearchRequest};
+use hito_plugin_sdk::{
+    Capability, Manifest, ProviderRecording, RecordingRequest, SearchPage, SearchRequest,
+    SourcePage,
+};
 use sqlx::Row;
 use zeroize::Zeroizing;
 
 pub(crate) struct Operation {
+    pub(crate) provider: String,
     account: String,
     installation: String,
     installation_revision: i64,
@@ -50,6 +54,7 @@ impl Plugins {
             .map(|blob| self.vault.reveal(actor.id(), id, &service, blob))
             .transpose()?;
         Ok(Operation {
+            provider: manifest.id,
             account: actor.id().into(),
             installation: id.into(),
             installation_revision: revision,
@@ -62,6 +67,19 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) async fn recording(
+        &self,
+        request: &RecordingRequest,
+    ) -> Result<(ProviderRecording, SourcePage)> {
+        self.remote
+            .recording(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
     pub(crate) async fn search(&self, request: &SearchRequest) -> Result<SearchPage> {
         self.remote
             .search(
