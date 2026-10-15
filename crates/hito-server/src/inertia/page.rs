@@ -1,9 +1,15 @@
 use super::{props::*, protocol::Protocol};
+use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::{api::catalog::RecordingPage, error::ApiResult};
+use hito_core::Browse;
 use hito_core::{Actor, Search, Services};
 
 pub enum Screen<'a> {
     Catalog,
+    AlbumIndex,
+    Album(&'a str),
+    ArtistIndex,
+    Artist(&'a str),
     Likes,
     PlaylistIndex,
     Playlist(&'a str),
@@ -19,6 +25,12 @@ impl<'a> Screen<'a> {
             "/playlists" => Self::PlaylistIndex,
             "/history" => Self::History,
             "/settings" => Self::Settings,
+            "/albums" => Self::AlbumIndex,
+            "/artists" => Self::ArtistIndex,
+            _ if path.starts_with("/albums/") => Self::Album(path.trim_start_matches("/albums/")),
+            _ if path.starts_with("/artists/") => {
+                Self::Artist(path.trim_start_matches("/artists/"))
+            }
             _ => Self::Playlist(path.trim_start_matches("/playlists/")),
         }
     }
@@ -26,6 +38,10 @@ impl<'a> Screen<'a> {
     pub fn component(&self) -> &'static str {
         match self {
             Self::Catalog => "CatalogPage",
+            Self::AlbumIndex => "AlbumIndexPage",
+            Self::Album(_) => "AlbumPage",
+            Self::ArtistIndex => "ArtistIndexPage",
+            Self::Artist(_) => "ArtistPage",
             Self::Likes => "LikesPage",
             Self::PlaylistIndex => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",
@@ -43,6 +59,56 @@ impl<'a> Screen<'a> {
     ) -> ApiResult<PageProps> {
         let shared = shared(services, actor, fields).await?;
         match self {
+            Self::AlbumIndex => {
+                let query = fields
+                    .requested("query")
+                    .then(|| search.q.clone().unwrap_or_default());
+                let releases = if fields.requested("releases") {
+                    Some(ReleasePage(
+                        services.catalog.releases(actor, browse(search)).await?,
+                    ))
+                } else {
+                    None
+                };
+                Ok(PageProps::AlbumIndex(AlbumIndexPageProps {
+                    shared,
+                    query,
+                    releases,
+                }))
+            }
+            Self::ArtistIndex => {
+                let query = fields
+                    .requested("query")
+                    .then(|| search.q.clone().unwrap_or_default());
+                let artists = if fields.requested("artists") {
+                    Some(ArtistPage(
+                        services.catalog.artists(actor, browse(search)).await?,
+                    ))
+                } else {
+                    None
+                };
+                Ok(PageProps::ArtistIndex(ArtistIndexPageProps {
+                    shared,
+                    query,
+                    artists,
+                }))
+            }
+            Self::Album(id) => {
+                let detail = if fields.requested("detail") {
+                    Some(services.catalog.release(actor, id, browse(search)).await?)
+                } else {
+                    None
+                };
+                Ok(PageProps::Album(AlbumPageProps { shared, detail }))
+            }
+            Self::Artist(id) => {
+                let detail = if fields.requested("detail") {
+                    Some(services.catalog.artist(actor, id, browse(search)).await?)
+                } else {
+                    None
+                };
+                Ok(PageProps::Artist(ArtistPageProps { shared, detail }))
+            }
             Self::Catalog | Self::Likes => {
                 if matches!(self, Self::Likes) {
                     search.liked = Some(true);
@@ -87,6 +153,16 @@ impl<'a> Screen<'a> {
             }
             Self::Settings => Ok(PageProps::Settings(SettingsPageProps { shared })),
         }
+    }
+}
+
+fn browse(search: Search) -> Browse {
+    Browse {
+        q: search.q,
+        library: search.library,
+        offset: search.offset,
+        limit: search.limit,
+        ..Browse::default()
     }
 }
 

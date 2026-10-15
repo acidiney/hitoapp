@@ -1,5 +1,7 @@
+use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
 use hito_core::{Activity, Library, Playlist, PlaylistDetail, User};
+use hito_core::{ArtistDetail, ReleaseDetail};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use utoipa::ToSchema;
@@ -39,6 +41,48 @@ pub struct CatalogPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct AlbumIndexPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub query: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub releases: Option<ReleasePage>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArtistIndexPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub query: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub artists: Option<ArtistPage>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AlbumPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<ReleaseDetail>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArtistPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<ArtistDetail>,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct PlaylistIndexPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -73,6 +117,10 @@ pub struct SettingsPageProps {
 pub enum PageProps {
     Login(LoginPageProps),
     Catalog(CatalogPageProps),
+    AlbumIndex(AlbumIndexPageProps),
+    Album(AlbumPageProps),
+    ArtistIndex(ArtistIndexPageProps),
+    Artist(ArtistPageProps),
     Likes(CatalogPageProps),
     PlaylistIndex(PlaylistIndexPageProps),
     Playlist(PlaylistPageProps),
@@ -85,6 +133,10 @@ impl PageProps {
         match self {
             Self::Login(_) => "LoginPage",
             Self::Catalog(_) => "CatalogPage",
+            Self::AlbumIndex(_) => "AlbumIndexPage",
+            Self::Album(_) => "AlbumPage",
+            Self::ArtistIndex(_) => "ArtistIndexPage",
+            Self::Artist(_) => "ArtistPage",
             Self::Likes(_) => "LikesPage",
             Self::PlaylistIndex(_) => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",

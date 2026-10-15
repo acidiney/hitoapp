@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    api::{self, catalog, collection, identity, jobs, storage},
+    api::{self, browsing, catalog, collection, identity, jobs, storage},
     inertia::{self, props::*},
     security, telemetry,
 };
@@ -23,6 +23,10 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         SharedPageProps,
         LoginPageProps,
         CatalogPageProps,
+        AlbumIndexPageProps,
+        AlbumPageProps,
+        ArtistIndexPageProps,
+        ArtistPageProps,
         PlaylistIndexPageProps,
         PlaylistPageProps,
         HistoryPageProps,
@@ -43,6 +47,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::grant_access, identity::revoke_access))
         .routes(routes!(catalog::libraries))
         .routes(routes!(catalog::recordings))
+        .routes(routes!(browsing::releases))
+        .routes(routes!(browsing::release))
+        .routes(routes!(browsing::artists))
+        .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
         .routes(routes!(api::artwork::artwork))
         .routes(routes!(catalog::audio))
@@ -83,6 +91,10 @@ pub fn router_with_config(services: Services, config: Config) -> Router {
     Router::new()
         .route("/", get(inertia::page))
         .route("/library", get(inertia::page))
+        .route("/albums", get(inertia::page))
+        .route("/albums/{id}", get(inertia::page))
+        .route("/artists", get(inertia::page))
+        .route("/artists/{id}", get(inertia::page))
         .route("/likes", get(inertia::page))
         .route("/history", get(inertia::page))
         .route("/settings", get(inertia::page))
