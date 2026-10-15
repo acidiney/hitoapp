@@ -136,6 +136,66 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect(page.locator(".track-table tbody tr")).toHaveCount(2);
   await page.getByRole("button", { name: "Grid view", exact: true }).click();
   await expect(page.locator(".track-grid .track-card")).toHaveCount(2);
+  await page
+    .getByRole("link", { name: "Details for Fixture 440 Hz", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Your track title", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Track title", { exact: true })
+    .fill("My fixture title");
+  await page
+    .getByRole("button", { name: "Save personal title", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "My fixture title",
+      exact: true,
+      level: 1,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".now-playing strong")).toHaveText(
+    "My fixture title",
+  );
+  await page.getByText("Inspected tags", { exact: true }).click();
+  await expect(page.locator(".metadata-tag-list")).toBeVisible();
+  await page.screenshot({
+    path: "/workspace/test-results/metadata-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/metadata-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole("button", { name: "Use source title", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Fixture 440 Hz",
+      exact: true,
+      level: 1,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".now-playing strong")).toHaveText(
+    "Fixture 440 Hz",
+  );
+  await expect
+    .poll(() =>
+      page
+        .locator("audio")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(before);
+  await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await page.screenshot({
     path: "/workspace/test-results/library-desktop.png",
   });
