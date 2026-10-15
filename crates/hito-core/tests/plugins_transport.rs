@@ -82,3 +82,55 @@ fn json_headers() -> HeaderMap {
     headers.insert("content-type", HeaderValue::from_static("application/json"));
     headers
 }
+
+#[tokio::test]
+async fn unavailable_plugin_requests_expire_and_release_admission_for_retry() {
+    let server = fixture::PluginServer::start().await;
+    let (_dir, hito, actor, _library, _music) = support::library("plugin-deadline-host").await;
+    let service = hito
+        .plugins
+        .offer_service(
+            &actor,
+            OfferPluginService {
+                name: "Fixture".into(),
+                base_url: server.url.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let gate = server.hold().await;
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(14),
+        hito.plugins.install(
+            &actor,
+            InstallPlugin {
+                service_id: service.id.clone(),
+                service_revision: 1,
+                bearer_token: None,
+            },
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(result, Err(Error::Upstream(_))));
+    assert!(
+        hito.plugins
+            .settings(&actor)
+            .await
+            .unwrap()
+            .installations
+            .is_empty()
+    );
+    gate.add_permits(2);
+    hito.plugins
+        .install(
+            &actor,
+            InstallPlugin {
+                service_id: service.id,
+                service_revision: 1,
+                bearer_token: None,
+            },
+        )
+        .await
+        .unwrap();
+}
