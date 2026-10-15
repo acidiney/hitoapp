@@ -50,6 +50,10 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
 - [ ] Run reproducible fixture tests and live checks for every official provider.
 
+## UI and branding
+
+- [ ] Regenerate Hito's logo and wordmark, replacing the current waveform design across the app.
+
 ## Community service
 
 - [ ] Build and deploy the separate source-ranking/correction API.
