@@ -1,0 +1,105 @@
+use super::{Catalog, Page, Recording, Search, push_available};
+use crate::{Actor, Error, Library, Result};
+use sqlx::{QueryBuilder, Sqlite};
+
+impl Catalog {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn libraries(&self, actor: &Actor) -> Result<Vec<Library>> {
+        Ok(sqlx::query_as(
+            "SELECT l.id, l.name
+             FROM libraries l JOIN library_members m ON l.id = m.library_id
+             WHERE m.user_id = ? ORDER BY l.name",
+        )
+        .bind(actor.id())
+        .fetch_all(&self.store.pool)
+        .await?)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
+    pub async fn recordings(&self, actor: &Actor, search: Search) -> Result<Page<Recording>> {
+        let offset = search.offset.unwrap_or(0).max(0);
+        let limit = search.limit.unwrap_or(100).clamp(1, 200);
+        let terms = search_terms(search.q.as_deref().unwrap_or_default())?;
+        let mut count = QueryBuilder::new("SELECT count(*)");
+        filters(&mut count, actor, &search, &terms, false);
+        let total = count
+            .build_query_scalar()
+            .fetch_one(&self.store.pool)
+            .await?;
+
+        let mut query = QueryBuilder::new(
+            "SELECT r.id, r.library_id, r.release_id, r.title, r.artist,
+                    a.title AS album, r.duration_ms, ",
+        );
+        push_available(&mut query, &self.host);
+        query.push(" AS available, COALESCE(l.liked, 0) AS liked");
+        filters(&mut query, actor, &search, &terms, true);
+        query
+            .push(" ORDER BY r.title COLLATE NOCASE, r.id LIMIT ")
+            .push_bind(limit)
+            .push(" OFFSET ")
+            .push_bind(offset);
+        let items = query.build_query_as().fetch_all(&self.store.pool).await?;
+        tracing::debug!(total, offset, limit, "Catalog page loaded");
+        Ok(Page {
+            items,
+            total,
+            offset,
+            limit,
+        })
+    }
+}
+
+fn search_terms(query: &str) -> Result<String> {
+    if query.len() > 512 {
+        return Err(Error::Invalid("Search must be at most 512 bytes".into()));
+    }
+    Ok(query
+        .split_whitespace()
+        .map(|term| format!("\"{}\"*", term.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" AND "))
+}
+
+fn filters(
+    query: &mut QueryBuilder<'_, Sqlite>,
+    actor: &Actor,
+    search: &Search,
+    terms: &str,
+    ordered: bool,
+) {
+    query.push(" FROM recordings r");
+    if ordered {
+        query.push(" LEFT JOIN releases a ON a.id = r.release_id");
+    }
+    if ordered || search.liked == Some(true) {
+        query
+            .push(" LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ")
+            .push_bind(actor.id().to_owned());
+    }
+    query
+        .push(
+            " WHERE EXISTS (
+             SELECT 1 FROM library_members m
+             WHERE m.library_id = r.library_id AND m.user_id = ",
+        )
+        .push_bind(actor.id().to_owned())
+        .push(")");
+    if !terms.is_empty() {
+        query
+            .push(
+                " AND r.rowid IN (
+                 SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ",
+            )
+            .push_bind(terms.to_owned())
+            .push(")");
+    }
+    if search.liked == Some(true) {
+        query.push(" AND l.liked = 1");
+    }
+    if let Some(library) = &search.library {
+        query
+            .push(" AND r.library_id = ")
+            .push_bind(library.clone());
+    }
+}
