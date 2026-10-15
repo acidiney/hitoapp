@@ -13,7 +13,12 @@ async fn excessive_directory_depth_fails_without_hiding_previously_verified_audi
         std::fs::create_dir(&folder).unwrap();
     }
     std::fs::write(folder.join("unrelated.txt"), "Not audio").unwrap();
-    let job = hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    let job = hito
+        .storage
+        .enqueue_scan(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0);
     assert!(hito.storage.run_next_job().await.unwrap());
     assert_eq!(
         hito.storage.job(&actor, &job.id).await.unwrap().state,

@@ -24,7 +24,12 @@ async fn a_missing_media_tool_fails_the_scan_without_hiding_verified_audio() {
     );
     config.media_tools.ffprobe = dir.path().join("missing-private-tool");
     let hito = hito_core::open(config).await.unwrap();
-    let job = hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    let job = hito
+        .storage
+        .enqueue_scan(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0);
     assert!(hito.storage.run_next_job().await.unwrap());
     let job = hito.storage.job(&actor, &job.id).await.unwrap();
     assert_eq!(job.state, "failed");

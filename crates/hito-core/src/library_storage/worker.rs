@@ -1,46 +1,97 @@
-use super::LibraryStorage;
-use crate::Result;
+use super::{LibraryStorage, folder_types::Folder, lease::Lease, metadata_owner};
+use crate::{Error, Result};
+use uuid::Uuid;
 
 impl LibraryStorage {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub async fn run_next_job(&self) -> Result<bool> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let row: Option<(String, String)> = sqlx::query_as(
-            "SELECT id, library_id FROM jobs
-             WHERE state = 'queued' OR (state = 'running' AND lease_until < unixepoch())
-             ORDER BY created_at, id LIMIT 1",
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-        let Some((id, library)) = row else {
+        let id: Option<String> = sqlx::query_scalar(
+            "SELECT j.id FROM jobs j JOIN music_folders f ON f.id = j.folder_id
+             WHERE f.host_device = ? AND f.connected = 1 AND f.bound = 1 AND j.folder_generation = f.generation
+               AND (j.state = 'queued' OR (j.state = 'running' AND j.lease_until < unixepoch()))
+             ORDER BY j.rowid LIMIT 1",
+        ).bind(self.host.as_str()).fetch_optional(&mut *tx).await?;
+        let Some(id) = id else {
             return Ok(false);
         };
-        sqlx::query(
-            "UPDATE jobs SET state = 'running', lease_until = unixepoch() + 300, error = NULL
-             WHERE id = ?",
+        let folder: Folder = sqlx::query_as(
+            "SELECT f.* FROM music_folders f JOIN jobs j ON j.folder_id = f.id WHERE j.id = ?",
         )
         .bind(&id)
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await?;
+        let token = Uuid::new_v4().to_string();
+        sqlx::query("UPDATE jobs SET state = 'running', lease_until = unixepoch() + 300, lease_token = ?, progress = 0, error = NULL WHERE id = ?")
+            .bind(&token).bind(&id).execute(&mut *tx).await?;
         tx.commit().await?;
-        tracing::info!(job_id = %id, "Scan lease acquired");
-        match self.scan(&id, &library).await {
+        let lease = Lease {
+            job: id,
+            token,
+            folder,
+        };
+        tracing::info!(job_id = %lease.job, folder_id = %lease.folder.id, generation = lease.folder.generation, "Scan lease acquired");
+        let outcome = self.scan_folder(&lease).await;
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = lease.guard(&mut tx).await {
+            if !matches!(error, Error::Conflict(_)) {
+                return Err(error);
+            }
+            tracing::info!(job_id = %lease.job, event = "scan_superseded", "Scan attempt no longer owns its target");
+            return Ok(true);
+        }
+        match outcome {
             Ok(count) => {
-                sqlx::query(
-                    "UPDATE jobs SET state = 'complete', progress = ?, lease_until = NULL WHERE id = ?",
-                ).bind(count).bind(&id).execute(&self.store.pool).await?;
-                tracing::info!(job_id = %id, files_read = count, "Scan completed");
+                sqlx::query("UPDATE jobs SET state = 'complete', progress = ?, lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
+                    .bind(count).bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
+                sqlx::query("UPDATE music_folders SET last_scan_at = unixepoch() WHERE id = ? AND generation = ?")
+                    .bind(&lease.folder.id).bind(lease.folder.generation).execute(&mut *tx).await?;
+                tracing::info!(job_id = %lease.job, files_read = count, "Scan completed");
             }
             Err(error) => {
-                tracing::warn!(job_id = %id, error_code = error.code(), "Scan failed");
-                sqlx::query(
-                    "UPDATE jobs SET state = 'failed',
-                         error = 'Music scan failed. Check the music folder and installed FFmpeg tools.',
-                         lease_until = NULL
-                     WHERE id = ?",
-                ).bind(&id).execute(&self.store.pool).await?;
+                sqlx::query("UPDATE jobs SET state = 'failed', error = 'Music scan failed. Check the connected folder and installed FFmpeg tools.', lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
+                    .bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
+                tracing::warn!(job_id = %lease.job, error_code = error.code(), "Scan failed");
             }
         }
+        tx.commit().await?;
         Ok(true)
+    }
+
+    async fn scan_folder(&self, lease: &Lease) -> Result<i64> {
+        let root = match self.open_scan_root(lease, &lease.folder).await {
+            Ok(root) => root,
+            Err(error) => {
+                let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+                lease.guard(&mut tx).await?;
+                sqlx::query("UPDATE sources SET ready = 0 WHERE id IN (SELECT source_id FROM local_files WHERE folder_id = ?)")
+                    .bind(&lease.folder.id).execute(&mut *tx).await?;
+                metadata_owner::refresh_folder_metadata(&mut tx, &lease.folder.id).await?;
+                tx.commit().await?;
+                return Err(error);
+            }
+        };
+        self.scan(lease, root).await
+    }
+
+    pub(super) async fn open_scan_root(
+        &self,
+        lease: &Lease,
+        folder: &Folder,
+    ) -> Result<super::Root> {
+        lease.check_folder(&self.store, folder).await?;
+        let selection = folder.directory().ok_or(Error::NotFound)?;
+        let opening = self.directories.open_selected(&selection);
+        tokio::pin!(opening);
+        let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(1));
+        loop {
+            tokio::select! {
+                root = &mut opening => return root,
+                _ = heartbeat.tick() => {
+                    lease.renew(&self.store, 0).await?;
+                    lease.check_folder(&self.store, folder).await?;
+                }
+            }
+        }
     }
 }

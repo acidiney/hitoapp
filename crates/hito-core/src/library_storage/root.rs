@@ -9,30 +9,52 @@ use std::{
 use tokio::sync::Semaphore;
 
 #[derive(Clone)]
-pub(super) struct Root {
+pub(crate) struct Root {
     path: PathBuf,
     pub directory: Arc<Dir>,
+    pub(super) slots: Arc<Semaphore>,
+    pub(super) walk_slots: Arc<Semaphore>,
 }
 
 impl Root {
-    pub async fn open(path: &Path, slots: &Arc<Semaphore>) -> crate::Result<Self> {
-        let permit = slots
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|_| unavailable())?;
+    pub async fn open(
+        path: &Path,
+        slots: &Arc<Semaphore>,
+        walk_slots: &Arc<Semaphore>,
+        components: &[String],
+    ) -> crate::Result<Self> {
         let path = path.to_owned();
-        tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            let path = path.canonicalize()?;
-            let directory = Dir::open_ambient_dir(&path, cap_std::ambient_authority())?;
-            Ok::<_, io::Error>(Self {
-                path,
+        let components = components.to_owned();
+        let root_slots = slots.clone();
+        let walk_slots = walk_slots.clone();
+        super::blocking::run(slots.clone(), move |cancelled| {
+            let path = path.canonicalize().map_err(|_| unavailable())?;
+            super::blocking::check(cancelled)?;
+            let mut directory = Dir::open_ambient_dir(&path, cap_std::ambient_authority())
+                .map_err(|_| unavailable())?;
+            let mut selected = path;
+            for component in components {
+                super::blocking::check(cancelled)?;
+                if directory
+                    .symlink_metadata(&component)
+                    .map_err(|_| unavailable())?
+                    .file_type()
+                    .is_symlink()
+                {
+                    return Err(unavailable());
+                }
+                directory = directory.open_dir(&component).map_err(|_| unavailable())?;
+                selected.push(component);
+            }
+            super::blocking::check(cancelled)?;
+            Ok(Self {
+                path: selected,
                 directory: Arc::new(directory),
+                slots: root_slots,
+                walk_slots,
             })
         })
         .await
-        .map_err(|_| unavailable())?
         .map_err(|_| unavailable())
     }
 

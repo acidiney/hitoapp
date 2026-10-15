@@ -5,6 +5,8 @@ use utoipa::ToSchema;
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
 pub struct Job {
     pub id: String,
+    pub library_id: String,
+    pub folder_id: Option<String>,
     pub kind: String,
     pub state: String,
     pub progress: i64,

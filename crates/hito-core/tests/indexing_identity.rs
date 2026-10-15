@@ -82,8 +82,8 @@ async fn retagging_preserves_recording_source_and_personal_collections() {
     assert_eq!(sources[0].id, source);
     assert!(sources[0].ready);
     assert_eq!(
-        hito.catalog.audio_file(&actor, &source).await.unwrap(),
-        path.canonicalize().unwrap()
+        support::audio_bytes(hito.catalog.audio_file(&actor, &source).await.unwrap()),
+        std::fs::read(&path).unwrap()
     );
     let playlist = hito
         .collection

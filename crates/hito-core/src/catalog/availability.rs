@@ -25,6 +25,11 @@ pub(crate) fn push_source_access(
                 .push_bind(host.as_str().to_owned());
         }
     }
+    query.push(
+        " AND (s.provider != 'local' OR EXISTS (
+        SELECT 1 FROM local_files file JOIN music_folders folder ON folder.id = file.folder_id
+        WHERE file.source_id = s.id AND folder.connected = 1 AND folder.bound = 1))",
+    );
 }
 
 pub(crate) fn push_available(query: &mut QueryBuilder<'_, Sqlite>, host: &HostDeviceId) {

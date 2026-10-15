@@ -6,7 +6,7 @@ use crate::{
 use axum::{
     Json,
     extract::{Path, Request, State},
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use hito_core::{Library, Page, Recording, Search, Services, Source};
 use serde::Serialize;
@@ -72,14 +72,5 @@ pub async fn audio(
     request: Request,
 ) -> ApiResult<Response> {
     let file = services.catalog.audio_file(&actor, &id).await?;
-    use tower::ServiceExt;
-    let mut response = tower_http::services::ServeFile::new(file)
-        .oneshot(request)
-        .await
-        .unwrap()
-        .into_response();
-    response
-        .headers_mut()
-        .insert("cache-control", "private, no-store".parse().unwrap());
-    Ok(response)
+    crate::audio::response(file, request).await
 }

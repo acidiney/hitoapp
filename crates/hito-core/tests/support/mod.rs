@@ -31,7 +31,12 @@ pub async fn library(host: &str) -> (tempfile::TempDir, Services, Actor, String,
 }
 
 pub async fn scan(hito: &Services, actor: &Actor, library: &str) {
-    let job = hito.storage.enqueue_scan(actor, library).await.unwrap();
+    let job = hito
+        .storage
+        .enqueue_scan(actor, library)
+        .await
+        .unwrap()
+        .remove(0);
     assert!(hito.storage.run_next_job().await.unwrap());
     let job = hito.storage.job(actor, &job.id).await.unwrap();
     assert_eq!(job.state, "complete", "{:?}", job.error);
@@ -86,7 +91,12 @@ pub async fn catalog() -> (tempfile::TempDir, Services, Actor, String) {
         .unwrap();
     let actor = hito.identity.authenticate(&session.token).await.unwrap();
     let library = hito.catalog.libraries(&actor).await.unwrap().remove(0).id;
-    let job = hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    let job = hito
+        .storage
+        .enqueue_scan(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0);
     assert!(hito.storage.run_next_job().await.unwrap());
     assert_eq!(
         hito.storage.job(&actor, &job.id).await.unwrap().state,
@@ -112,4 +122,10 @@ pub async fn synchronize(hito: &Services, actor: &Actor, actions: Vec<Action>) {
         )
         .await
         .unwrap();
+}
+
+pub fn audio_bytes(mut audio: hito_core::AudioFile) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut audio.file, &mut bytes).unwrap();
+    bytes
 }

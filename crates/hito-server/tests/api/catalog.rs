@@ -25,7 +25,7 @@ async fn scanned_audio_is_searchable_seekable_and_private() {
     let (_, job) = call(
         &app,
         "GET",
-        &format!("/api/v1/jobs/{}", job["id"].as_str().unwrap()),
+        &format!("/api/v1/jobs/{}", job[0]["id"].as_str().unwrap()),
         Value::Null,
         Some(&admin),
     )
@@ -127,4 +127,70 @@ async fn scanned_audio_is_searchable_seekable_and_private() {
         .0,
         StatusCode::NOT_FOUND
     );
+}
+
+#[tokio::test]
+async fn owned_audio_streams_support_suffix_ranges_and_head_without_reopening_paths() {
+    let (_dir, app, token, recording) = super::support::indexed_app().await;
+    let (_, sources) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/recordings/{recording}/sources"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    let source = sources[0]["id"].as_str().unwrap();
+    for (method, range, status, bytes) in [
+        ("GET", "bytes=-20", StatusCode::PARTIAL_CONTENT, 20),
+        ("GET", "bytes=-20000", StatusCode::PARTIAL_CONTENT, 16044),
+        (
+            "GET",
+            "bytes=-18446744073709551616",
+            StatusCode::PARTIAL_CONTENT,
+            16044,
+        ),
+        (
+            "GET",
+            "bytes=0-18446744073709551616",
+            StatusCode::PARTIAL_CONTENT,
+            16044,
+        ),
+        ("GET", "BYTES=0-2", StatusCode::PARTIAL_CONTENT, 3),
+        ("GET", "bytes=-+20000", StatusCode::RANGE_NOT_SATISFIABLE, 0),
+        ("GET", "bytes=-0", StatusCode::RANGE_NOT_SATISFIABLE, 0),
+        ("GET", "bytes=16040-", StatusCode::PARTIAL_CONTENT, 4),
+        ("GET", "bytes=99999-", StatusCode::RANGE_NOT_SATISFIABLE, 0),
+        ("GET", "bytes=0-2,4-6", StatusCode::RANGE_NOT_SATISFIABLE, 0),
+        ("HEAD", "bytes=0-2", StatusCode::OK, 0),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(format!("/api/v1/sources/{source}/audio"))
+                    .header("authorization", format!("Bearer {token}"))
+                    .header("range", range)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status);
+        assert_eq!(response.headers()["cache-control"], "private, no-store");
+        if method == "HEAD" {
+            assert_eq!(response.headers()["content-length"], "16044");
+        }
+        assert_eq!(
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .len(),
+            bytes
+        );
+    }
 }

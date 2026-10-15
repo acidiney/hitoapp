@@ -112,8 +112,8 @@ async fn tagged_albums_in_one_folder_stay_distinct_and_retags_resolve_the_releas
     assert!(source.ready);
     assert_eq!(source.id, original_source);
     assert_eq!(
-        hito.catalog.audio_file(&actor, &source.id).await.unwrap(),
-        music.join("a.wav").canonicalize().unwrap()
+        support::audio_bytes(hito.catalog.audio_file(&actor, &source.id).await.unwrap()),
+        std::fs::read(music.join("a.wav")).unwrap()
     );
     for original in [second, third, fourth] {
         let current = rescanned

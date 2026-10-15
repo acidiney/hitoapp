@@ -1,4 +1,5 @@
 mod api;
+mod audio;
 mod auth;
 mod config;
 mod error;
@@ -8,6 +9,7 @@ mod inertia;
 mod routes;
 mod runtime;
 mod security;
+mod storage_manifest;
 mod telemetry;
 
 pub use config::{Config, RuntimeConfig};

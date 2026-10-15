@@ -1,10 +1,12 @@
 use super::{
     LibraryStorage,
+    folder_types::Folder,
     inspection::CachedFile,
-    observations,
+    lease::Lease,
+    local_path, metadata_owner,
     root::Root,
     types::{AUDIO_ALGORITHM, IndexedFile},
-    walking::paths,
+    walking::{Paths, paths},
 };
 use crate::{Error, Result};
 use std::{
@@ -12,50 +14,50 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use tokio::{sync::mpsc::Receiver, time::Interval};
+use tokio::time::Interval;
 
 impl LibraryStorage {
-    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
-    pub(super) async fn scan(&self, job: &str, library: &str) -> Result<i64> {
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = self.host.as_str(), job_id = %lease.job, folder_id = %lease.folder.id))]
+    pub(super) async fn scan(&self, lease: &Lease, root: Root) -> Result<i64> {
         self.inspector.check_tools().await?;
-        if self.directories.legacy.is_none() {
-            return Err(Error::Invalid(
-                "Connect a music folder before scanning".into(),
-            ));
-        }
-        let root = self.directories.open("legacy-music").await?;
-        let mut heartbeat = tokio::time::interval(Duration::from_secs(30));
-        self.adopt_legacy(job, library, &root, &mut heartbeat)
-            .await?;
-        let (mut receiver, reader) = paths(&root);
-        let mut count = 0i64;
-        let mut skipped = 0i64;
-        while let Some(path) = self
-            .next_path(job, count, &mut receiver, &mut heartbeat)
+        let mut heartbeat = tokio::time::interval(Duration::from_secs(1));
+        if self
+            .legacy_evidence_pending(&lease.folder.library_id)
             .await?
         {
-            let result = self
-                .inspect_with_lease(job, library, count, &root, &path, &mut heartbeat)
-                .await;
-            match result {
+            let witnesses: Vec<Folder> = sqlx::query_as("SELECT * FROM music_folders WHERE library_id = ? AND host_device = ? AND connected = 1 AND bound = 1 ORDER BY id")
+            .bind(&lease.folder.library_id).bind(self.host.as_str()).fetch_all(&self.store.pool).await?;
+            for witness in witnesses {
+                if let Ok(witness_root) = self.open_scan_root(lease, &witness).await {
+                    self.adopt_legacy(lease, &witness, &witness_root, &mut heartbeat)
+                        .await?;
+                }
+            }
+        }
+        let mut receiver = paths(&root)?;
+        let mut count = 0;
+        let mut skipped = 0;
+        while let Some(path) = self
+            .next_path(lease, &lease.folder, count, &mut receiver, &mut heartbeat)
+            .await?
+        {
+            match self
+                .inspect_with_lease(lease, &lease.folder, count, &root, &path, &mut heartbeat)
+                .await
+            {
                 Ok(file) => {
-                    self.index_file(job, library, root.path(), file).await?;
+                    self.index_file(lease, &root, file).await?;
                     count += 1;
                 }
                 Err(error @ Error::Database(_)) => return Err(error),
                 Err(error) => {
-                    self.invalidate_path(library, &path).await?;
+                    self.invalidate_path(lease, &root, &path).await?;
                     skipped += 1;
                     tracing::warn!(error_code = error.code(), "Skipping unverified audio file");
                 }
             }
         }
-        reader
-            .await
-            .map_err(|_| Error::Internal("Music folder reader stopped".into()))??;
-        let stale = self
-            .reconcile_missing(job, library, root.path(), count)
-            .await?;
+        let stale = self.reconcile_missing(lease, count).await?;
         tracing::info!(
             files_read = count,
             files_skipped = skipped,
@@ -67,105 +69,104 @@ impl LibraryStorage {
 
     pub(super) async fn inspect_with_lease(
         &self,
-        job: &str,
-        library: &str,
+        lease: &Lease,
+        folder: &Folder,
         count: i64,
         root: &Root,
         path: &Path,
-        heartbeat: &mut tokio::time::Interval,
+        heartbeat: &mut Interval,
     ) -> Result<IndexedFile> {
+        lease.check_folder(&self.store, folder).await?;
+        let relative = relative(root, path)?;
         let cached: Option<CachedFile> = sqlx::query_as(
             "SELECT f.file_checksum AS checksum, f.audio_digest, m.title, m.artist, m.duration_ms,
                 COALESCE(a.title, 'Unknown album') AS album, COALESCE(a.artist, m.artist) AS album_artist
              FROM local_files f JOIN sources s ON s.id = f.source_id
              JOIN source_metadata m ON m.source_id = s.id LEFT JOIN releases a ON a.id = m.release_id
-             WHERE f.library_id = ? AND f.path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ?",
-        ).bind(library).bind(path.to_string_lossy().as_ref()).bind(root.path().to_string_lossy().as_ref())
+             WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ?",
+        ).bind(&folder.id).bind(relative).bind(root.path().to_string_lossy().as_ref())
             .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).fetch_optional(&self.store.pool).await?;
         let inspection = self.inspector.inspect(root, path, cached);
         tokio::pin!(inspection);
         loop {
             tokio::select! {
                 result = &mut inspection => return result,
-                _ = heartbeat.tick() => self.renew_lease(job, count).await?,
+                _ = heartbeat.tick() => {
+                    lease.renew(&self.store, count).await?;
+                    lease.check_folder(&self.store, folder).await?;
+                },
             }
         }
     }
 
-    async fn renew_lease(&self, job: &str, count: i64) -> Result<()> {
-        sqlx::query("UPDATE jobs SET lease_until = unixepoch() + 300, progress = ? WHERE id = ?")
-            .bind(count)
-            .bind(job)
-            .execute(&self.store.pool)
-            .await?;
-        tracing::debug!(files_read = count, "Scan lease renewed");
-        Ok(())
-    }
-
     pub(super) async fn next_path(
         &self,
-        job: &str,
+        lease: &Lease,
+        folder: &Folder,
         count: i64,
-        receiver: &mut Receiver<PathBuf>,
+        receiver: &mut Paths,
         heartbeat: &mut Interval,
     ) -> Result<Option<PathBuf>> {
+        lease.check_folder(&self.store, folder).await?;
+        let next = receiver.next();
+        tokio::pin!(next);
         loop {
             tokio::select! {
-                path = receiver.recv() => return Ok(path),
-                _ = heartbeat.tick() => self.renew_lease(job, count).await?,
+                path = &mut next => return path,
+                _ = heartbeat.tick() => {
+                    lease.renew(&self.store, count).await?;
+                    lease.check_folder(&self.store, folder).await?;
+                },
             }
         }
     }
 
     pub(super) async fn checksum_with_lease(
         &self,
-        job: &str,
+        lease: &Lease,
+        folder: &Folder,
         root: &Root,
         path: &Path,
         heartbeat: &mut Interval,
     ) -> Result<String> {
+        lease.check_folder(&self.store, folder).await?;
         let checksum = self.inspector.checksum(root, path);
         tokio::pin!(checksum);
         loop {
             tokio::select! {
                 result = &mut checksum => return result,
-                _ = heartbeat.tick() => self.renew_lease(job, 0).await?,
+                _ = heartbeat.tick() => {
+                    lease.renew(&self.store, 0).await?;
+                    lease.check_folder(&self.store, folder).await?;
+                },
             }
         }
     }
 
-    async fn invalidate_path(&self, library: &str, path: &Path) -> Result<()> {
+    async fn invalidate_path(&self, lease: &Lease, root: &Root, path: &Path) -> Result<()> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        lease.guard(&mut tx).await?;
         let recording: Option<String> = sqlx::query_scalar(
-            "UPDATE sources SET ready = 0 WHERE device_id = ? AND id IN (
-             SELECT source_id FROM local_files WHERE library_id = ? AND path = ?) RETURNING recording_id",
-        ).bind(self.host.as_str()).bind(library).bind(path.to_string_lossy().as_ref())
-            .fetch_optional(&mut *tx).await?;
+            "UPDATE sources SET ready = 0 WHERE id IN (SELECT source_id FROM local_files WHERE folder_id = ? AND relative_path = ?) RETURNING recording_id",
+        ).bind(&lease.folder.id).bind(relative(root, path)?).fetch_optional(&mut *tx).await?;
         if let Some(recording) = recording {
-            observations::refresh_metadata(&mut tx, &recording).await?;
+            metadata_owner::refresh_metadata(&mut tx, &recording).await?;
         }
         tx.commit().await?;
         Ok(())
     }
 
-    async fn reconcile_missing(
-        &self,
-        job: &str,
-        library: &str,
-        root: &Path,
-        count: i64,
-    ) -> Result<u64> {
+    async fn reconcile_missing(&self, lease: &Lease, count: i64) -> Result<u64> {
         let mut cursor = String::new();
         let mut stale = 0;
         loop {
-            self.renew_lease(job, count).await?;
+            lease.renew(&self.store, count).await?;
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            lease.guard(&mut tx).await?;
             let files: Vec<(String, String)> = sqlx::query_as(
                 "SELECT f.source_id, s.recording_id FROM local_files f JOIN sources s ON s.id = f.source_id
-                 WHERE f.library_id = ? AND f.source_id > ? AND s.device_id = ?
-                   AND s.ready = 1 AND (f.scan_root != ? OR f.last_scan_job IS NOT ?) ORDER BY f.source_id LIMIT 64",
-            ).bind(library).bind(&cursor).bind(self.host.as_str())
-                .bind(root.to_string_lossy().as_ref()).bind(job).fetch_all(&mut *tx).await?;
+                 WHERE f.folder_id = ? AND f.source_id > ? AND s.ready = 1 AND f.last_scan_attempt IS NOT ? ORDER BY f.source_id LIMIT 64",
+            ).bind(&lease.folder.id).bind(&cursor).bind(&lease.token).fetch_all(&mut *tx).await?;
             if files.is_empty() {
                 break;
             }
@@ -180,10 +181,17 @@ impl LibraryStorage {
                 recordings.insert(recording);
             }
             for recording in recordings {
-                observations::refresh_metadata(&mut tx, &recording).await?;
+                metadata_owner::refresh_metadata(&mut tx, &recording).await?;
             }
             tx.commit().await?;
         }
         Ok(stale)
     }
+}
+
+pub(super) fn relative(root: &Root, path: &Path) -> Result<String> {
+    local_path::encode(
+        path.strip_prefix(root.path())
+            .map_err(|_| Error::Forbidden)?,
+    )
 }

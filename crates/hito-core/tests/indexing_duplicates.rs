@@ -21,19 +21,7 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
     let original = recordings.items.remove(0);
     let sources = hito.catalog.sources(&actor, &original.id).await.unwrap();
     assert_eq!(sources.len(), 2);
-    let mut a_source = None;
-    let mut b_source = None;
-    for source in sources {
-        assert!(source.ready);
-        let path = hito.catalog.audio_file(&actor, &source.id).await.unwrap();
-        if path == a.canonicalize().unwrap() {
-            a_source = Some(source.id);
-        } else if path == b.canonicalize().unwrap() {
-            b_source = Some(source.id);
-        }
-    }
-    let a_source = a_source.unwrap();
-    let b_source = b_source.unwrap();
+    let original_sources: Vec<_> = sources.into_iter().map(|source| source.id).collect();
 
     let replacement_audio = write_wav(&a, 1);
     assert_ne!(replacement_audio, original_audio);
@@ -57,6 +45,19 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
     assert_eq!(unchanged.duration_ms, original.duration_ms);
     let sources = hito.catalog.sources(&actor, &original.id).await.unwrap();
     assert_eq!(sources.len(), 2);
+    let a_source = sources
+        .iter()
+        .find(|source| !source.ready)
+        .unwrap()
+        .id
+        .clone();
+    let b_source = sources
+        .iter()
+        .find(|source| source.ready)
+        .unwrap()
+        .id
+        .clone();
+    assert!(original_sources.contains(&a_source) && original_sources.contains(&b_source));
     assert!(
         !sources
             .iter()
@@ -76,8 +77,7 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
         Err(Error::NotFound)
     ));
     let path = hito.catalog.audio_file(&actor, &b_source).await.unwrap();
-    assert_eq!(path, b.canonicalize().unwrap());
-    assert_eq!(std::fs::read(path).unwrap(), original_audio);
+    assert_eq!(support::audio_bytes(path), original_audio);
 
     let replacement = recordings
         .items
@@ -95,8 +95,7 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
         .audio_file(&actor, &replacement_source.id)
         .await
         .unwrap();
-    assert_eq!(path, a.canonicalize().unwrap());
-    assert_eq!(std::fs::read(path).unwrap(), replacement_audio);
+    assert_eq!(support::audio_bytes(path), replacement_audio);
 
     scan(&hito, &actor, &library).await;
     assert_eq!(
@@ -135,8 +134,8 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
     assert_ne!(restored.id, a_source);
     assert_ne!(restored.id, replacement_source.id);
     assert_eq!(
-        hito.catalog.audio_file(&actor, &restored.id).await.unwrap(),
-        a.canonicalize().unwrap()
+        support::audio_bytes(hito.catalog.audio_file(&actor, &restored.id).await.unwrap()),
+        original_audio
     );
     assert!(matches!(
         hito.catalog

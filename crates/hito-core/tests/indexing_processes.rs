@@ -62,7 +62,12 @@ async fn exercise(cancel: bool) {
     config.media_tools.ffprobe = tool;
     config.media_tools.timeout = Duration::from_secs(1);
     let hito = hito_core::open(config).await.unwrap();
-    let job = hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    let job = hito
+        .storage
+        .enqueue_scan(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0);
     let indexer = hito.storage.clone();
     let worker = tokio::spawn(async move { indexer.run_next_job().await });
     let (pid, input) = started(&marker).await;

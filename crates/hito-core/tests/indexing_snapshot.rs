@@ -67,7 +67,11 @@ fn cancelling_large_file_verification_does_not_delay_runtime_shutdown() {
                 .unwrap()
                 .set_len(8 * 1024 * 1024 * 1024)
                 .unwrap();
-            hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+            hito.storage
+                .enqueue_scan(&actor, &library)
+                .await
+                .unwrap()
+                .remove(0);
             let indexer = hito.storage.clone();
             let worker = tokio::spawn(async move { indexer.run_next_job().await });
             tokio::time::sleep(Duration::from_millis(200)).await;
@@ -111,7 +115,11 @@ async fn a_scan_retains_its_selected_directory_when_the_root_path_changes_during
     );
     config.media_tools.ffprobe = tool;
     let hito = hito_core::open(config).await.unwrap();
-    hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    hito.storage
+        .enqueue_scan(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0);
     let indexer = hito.storage.clone();
     let worker = tokio::spawn(async move { indexer.run_next_job().await });
     tokio::time::timeout(Duration::from_secs(5), async {

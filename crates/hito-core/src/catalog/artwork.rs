@@ -19,21 +19,21 @@ impl Catalog {
             .filter(|source| source.ready && source.provider == "local")
             .take(4)
         {
-            let path = match self.audio_file(actor, &source.id).await {
-                Ok(path) => path,
-                Err(crate::Error::NotFound) => continue,
-                Err(error) => return Err(error),
-            };
             let permit = self
                 .artwork_slots
                 .clone()
                 .acquire_owned()
                 .await
                 .map_err(|_| crate::Error::Internal("Artwork reader stopped".into()))?;
+            let audio = match self.local_audio(actor, &source.id).await {
+                Ok(audio) => audio,
+                Err(crate::Error::NotFound) => continue,
+                Err(error) => return Err(error),
+            };
             let span = tracing::Span::current();
             let artwork = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
-                span.in_scope(|| read_artwork(&path))
+                span.in_scope(|| read_artwork(audio))
             })
             .await
             .map_err(|_| crate::Error::Internal("Artwork reader stopped".into()))?;

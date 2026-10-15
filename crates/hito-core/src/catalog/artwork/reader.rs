@@ -1,5 +1,5 @@
 use super::{Artwork, budget::BudgetedFile};
-use crate::media_file::open_regular;
+use crate::library_storage::{OpenedMedia, Root};
 use lofty::{config::ParseOptions, file::TaggedFileExt, picture::PictureType, probe::Probe};
 use std::{
     io::{BufReader, Read},
@@ -9,12 +9,11 @@ use std::{
 const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_METADATA_BYTES: usize = 16 * 1024 * 1024;
 
-pub(super) fn read_artwork(path: &Path) -> Option<Artwork> {
-    read_embedded(path).or_else(|| read_folder(path.parent()?))
+pub(super) fn read_artwork(audio: OpenedMedia) -> Option<Artwork> {
+    read_embedded(audio.file).or_else(|| read_folder(&audio.root, audio.path.parent()?))
 }
 
-fn read_embedded(path: &Path) -> Option<Artwork> {
-    let file = open_regular(path).ok()?;
+fn read_embedded(file: std::fs::File) -> Option<Artwork> {
     let mut reader = BudgetedFile::new(file, MAX_METADATA_BYTES);
     let tagged = Probe::new(BufReader::new(&mut reader))
         .options(ParseOptions::new().read_properties(false))
@@ -47,7 +46,7 @@ fn read_embedded(path: &Path) -> Option<Artwork> {
     None
 }
 
-fn read_folder(folder: &Path) -> Option<Artwork> {
+fn read_folder(root: &Root, folder: &Path) -> Option<Artwork> {
     for name in [
         "cover.jpg",
         "cover.png",
@@ -56,13 +55,7 @@ fn read_folder(folder: &Path) -> Option<Artwork> {
         "front.jpg",
         "front.png",
     ] {
-        let Ok(candidate) = folder.join(name).canonicalize() else {
-            continue;
-        };
-        if !candidate.starts_with(folder) {
-            continue;
-        }
-        let Ok(file) = open_regular(&candidate) else {
+        let Ok(file) = root.open_file(&folder.join(name)) else {
             continue;
         };
         let mut bytes = Vec::new();

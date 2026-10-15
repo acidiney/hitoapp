@@ -1,6 +1,14 @@
+mod blocking;
+mod browsing;
 mod directories;
+mod folder_types;
+mod folders;
+mod initialization;
 mod inspection;
+mod lease;
 mod legacy;
+pub(crate) mod local_path;
+mod metadata_owner;
 mod observations;
 mod persistence;
 mod resolution;
@@ -12,9 +20,13 @@ mod walking;
 mod worker;
 
 use crate::{HostDeviceId, store::Store};
+pub use browsing::{BrowseDirectories, DirectoryEntry, DirectoryPage};
 pub(crate) use directories::Directories;
+pub(crate) use directories::OpenedMedia;
 pub use directories::SharedDirectory;
+pub use folder_types::{ConnectFolder, DirectoryRef, MusicFolder};
 pub(crate) use inspection::FileInspector;
+pub(crate) use root::Root;
 pub use types::Job;
 
 #[derive(Clone)]

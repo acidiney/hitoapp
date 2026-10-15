@@ -22,13 +22,16 @@ pub(super) async fn run<T: Send + 'static>(
     let span = tracing::Span::current();
     let operation = async move {
         let permit = slots.acquire_owned().await.map_err(|_| stopped())?;
-        tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            check(&cancelled)?;
-            span.in_scope(|| work(&cancelled))
-        })
-        .await
-        .map_err(|_| stopped())?
+        let (finished, result) = tokio::sync::oneshot::channel();
+        std::thread::Builder::new()
+            .name("hito-directory-io".into())
+            .spawn(move || {
+                let _permit = permit;
+                let outcome = check(&cancelled).and_then(|()| span.in_scope(|| work(&cancelled)));
+                let _ = finished.send(outcome);
+            })
+            .map_err(|_| stopped())?;
+        result.await.map_err(|_| stopped())?
     };
     tokio::time::timeout(Duration::from_secs(5), operation)
         .await

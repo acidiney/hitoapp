@@ -4,10 +4,9 @@ mod context;
 mod error;
 mod identity;
 mod library_storage;
-mod media_file;
 mod store;
 
-pub use catalog::{Artwork, Catalog, Page, Recording, Search, Source};
+pub use catalog::{Artwork, AudioFile, Catalog, Page, Recording, Search, Source};
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
     SyncBatch, SyncEvent, SyncPage, SyncReceipt,
@@ -15,7 +14,10 @@ pub use collection::{
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
-pub use library_storage::{Job, LibraryStorage, SharedDirectory};
+pub use library_storage::{
+    BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
+    LibraryStorage, MusicFolder, SharedDirectory,
+};
 use store::Store;
 
 #[derive(Clone)]
@@ -31,6 +33,13 @@ pub struct Services {
 pub async fn open(config: CoreConfig) -> Result<Services> {
     let directories = library_storage::Directories::new(config.storage)?;
     let store = Store::open(&config.database).await?;
+    let storage = LibraryStorage {
+        store: store.clone(),
+        host: config.host_device.clone(),
+        directories,
+        inspector: library_storage::FileInspector::new(config.media_tools),
+    };
+    storage.initialize().await?;
     tracing::info!("Core services ready");
     Ok(Services {
         identity: Identity {
@@ -40,17 +49,13 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             store: store.clone(),
             host: config.host_device.clone(),
             artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+            directories: storage.directories.clone(),
         },
         collection: Collection {
             store: store.clone(),
             host: config.host_device.clone(),
         },
-        storage: LibraryStorage {
-            store: store.clone(),
-            host: config.host_device,
-            directories,
-            inspector: library_storage::FileInspector::new(config.media_tools),
-        },
+        storage,
         store,
     })
 }
