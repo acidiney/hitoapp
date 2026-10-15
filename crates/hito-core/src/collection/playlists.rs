@@ -28,9 +28,10 @@ impl Collection {
         let mut query = QueryBuilder::new(
             "SELECT e.id AS entry_id, e.recording_id, e.position,
                     COALESCE(k.liked, 0) AS liked,
-                    CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE COALESCE(personal_title.override_title, r.title) END AS title,
+                    CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE COALESCE(personal_metadata.override_title, r.title) END AS title,
                     CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE r.title END AS inherited_title,
-                    CASE WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS artist,
+                    CASE WHEN m.user_id IS NULL THEN '' ELSE COALESCE(personal_metadata.override_artist, r.artist) END AS artist,
+                    CASE WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS inherited_artist,
                     CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
                     (m.user_id IS NOT NULL AND ",
         );
@@ -47,7 +48,7 @@ impl Collection {
                 " LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = m.user_id
               ",
             );
-        metadata::join_title(&mut query, actor);
+        metadata::join_recording_fields(&mut query, actor);
         query
             .push(" WHERE e.playlist_id = ")
             .push_bind(id.to_owned())

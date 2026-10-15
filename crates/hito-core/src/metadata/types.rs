@@ -11,14 +11,15 @@ pub struct MetadataHistoryQuery {
 #[derive(Serialize, ToSchema)]
 pub struct RecordingMetadata {
     pub recording_id: String,
-    pub title: TitleMetadata,
+    pub title: TextMetadata,
+    pub artist: TextMetadata,
     #[schema(required = true)]
     pub selected_observation: Option<MetadataObservation>,
     pub observations: ObservationPage,
 }
 
 #[derive(Serialize, ToSchema)]
-pub struct TitleMetadata {
+pub struct TextMetadata {
     pub value: String,
     pub inherited: String,
     #[schema(required = true)]

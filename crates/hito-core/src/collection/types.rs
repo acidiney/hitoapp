@@ -12,6 +12,13 @@ pub struct Operation {
 #[derive(ToSchema, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    RecordingArtistSet {
+        recording_id: Uuid,
+        artist: String,
+    },
+    RecordingArtistInherit {
+        recording_id: Uuid,
+    },
     RecordingTitleSet {
         recording_id: Uuid,
         title: String,
@@ -59,6 +66,8 @@ pub enum Action {
 impl Action {
     pub(crate) fn kind(&self) -> &'static str {
         match self {
+            Self::RecordingArtistSet { .. } => "recording_artist_set",
+            Self::RecordingArtistInherit { .. } => "recording_artist_inherit",
             Self::RecordingTitleSet { .. } => "recording_title_set",
             Self::RecordingTitleInherit { .. } => "recording_title_inherit",
             Self::LikeSet { .. } => "like_set",
@@ -120,6 +129,7 @@ pub struct PlaylistEntry {
     pub position: i64,
     pub title: String,
     pub inherited_title: String,
+    pub inherited_artist: String,
     pub artist: String,
     pub duration_ms: i64,
     pub available: bool,
@@ -135,6 +145,7 @@ pub struct HistoryEntry {
     pub id: String,
     pub title: String,
     pub inherited_title: String,
+    pub inherited_artist: String,
     pub artist: String,
     pub duration_ms: i64,
     pub position_ms: i64,

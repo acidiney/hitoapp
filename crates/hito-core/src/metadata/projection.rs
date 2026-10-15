@@ -8,6 +8,7 @@ const REGISTER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library
 
 enum Scope<'a> {
     Source(&'a str),
+    Recording { user: &'a str, recording: &'a str },
     Library { user: &'a str, library: &'a str },
 }
 
@@ -22,6 +23,14 @@ impl Scope<'_> {
                         " AND m.source_id = "
                     })
                     .push_bind(source.to_string());
+                if releases {
+                    query.push(")");
+                }
+            }
+            Self::Recording { user, recording } => {
+                query.push(" AND access.user_id = ").push_bind(user.to_string())
+                    .push(if releases { " AND EXISTS (SELECT 1 FROM source_metadata m JOIN sources s ON s.id = m.source_id WHERE m.release_id = a.id AND s.recording_id = " } else { " AND r.id = " })
+                    .push_bind(recording.to_string());
                 if releases {
                     query.push(")");
                 }
@@ -69,6 +78,17 @@ pub(crate) async fn source(tx: &mut Transaction<'_, Sqlite>, source: &str) -> Re
     releases(tx, &scope).await?;
     credits(tx, &scope).await?;
     tracing::trace!("Account source metadata refreshed");
+    Ok(())
+}
+
+#[tracing::instrument(level = "debug", skip_all, err(Debug))]
+pub(super) async fn recording(
+    tx: &mut Transaction<'_, Sqlite>,
+    user: &str,
+    recording: &str,
+) -> Result<()> {
+    credits(tx, &Scope::Recording { user, recording }).await?;
+    tracing::debug!("Account recording credits refreshed");
     Ok(())
 }
 

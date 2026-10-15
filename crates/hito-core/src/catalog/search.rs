@@ -38,7 +38,11 @@ impl Catalog {
             query
                 .push("SELECT r.id, r.library_id, r.release_id, ")
                 .push(if personal { "p.title" } else { "r.title" })
-                .push(" AS title, r.title AS inherited_title, r.artist, a.title AS album, r.duration_ms, ");
+                .push(" AS title, r.title AS inherited_title, ")
+                .push(if personal { "p.artist" } else { "r.artist" })
+                .push(
+                    " AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ",
+                );
             push_available(&mut query, &self.host);
             query.push(" AS available, COALESCE(l.liked, 0) AS liked");
             filters(&mut query, actor, &search, &terms, personal, true);

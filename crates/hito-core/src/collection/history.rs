@@ -8,7 +8,8 @@ impl Collection {
         let mut query = QueryBuilder::new("SELECT r.id, ");
         query
             .push(metadata::RECORDING_TITLE)
-            .push(" AS title, r.title AS inherited_title, r.artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
+            .push(" AS title, r.title AS inherited_title, ").push(metadata::RECORDING_ARTIST)
+            .push(" AS artist, r.artist AS inherited_artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
         push_available(&mut query, &self.host);
         query.push(
             " AS available, COALESCE(l.liked, 0) AS liked
@@ -18,7 +19,7 @@ impl Collection {
               LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = p.user_id
               ",
         );
-        metadata::join_title(&mut query, actor);
+        metadata::join_recording_fields(&mut query, actor);
         query
             .push(" WHERE p.user_id = ")
             .push_bind(actor.id().to_owned())

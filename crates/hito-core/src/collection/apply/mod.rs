@@ -4,7 +4,10 @@ mod playlists;
 mod progress;
 
 use super::{Action, Operation};
-use crate::{Actor, Result};
+use crate::{
+    Actor, Result,
+    metadata::{self, RecordingField},
+};
 type Transaction<'a> = sqlx::Transaction<'a, sqlx::Sqlite>;
 
 #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), action_kind = operation.action.kind(), operation_id = %operation.id))]
@@ -17,9 +20,52 @@ pub(super) async fn action(
         Action::RecordingTitleSet {
             recording_id,
             title,
-        } => crate::metadata::set_title(tx, actor, recording_id, Some(title), &operation.id).await,
+        } => {
+            metadata::set_recording_field(
+                tx,
+                actor,
+                recording_id,
+                RecordingField::Title,
+                Some(title),
+                &operation.id,
+            )
+            .await
+        }
         Action::RecordingTitleInherit { recording_id } => {
-            crate::metadata::set_title(tx, actor, recording_id, None, &operation.id).await
+            metadata::set_recording_field(
+                tx,
+                actor,
+                recording_id,
+                RecordingField::Title,
+                None,
+                &operation.id,
+            )
+            .await
+        }
+        Action::RecordingArtistSet {
+            recording_id,
+            artist,
+        } => {
+            metadata::set_recording_field(
+                tx,
+                actor,
+                recording_id,
+                RecordingField::Artist,
+                Some(artist),
+                &operation.id,
+            )
+            .await
+        }
+        Action::RecordingArtistInherit { recording_id } => {
+            metadata::set_recording_field(
+                tx,
+                actor,
+                recording_id,
+                RecordingField::Artist,
+                None,
+                &operation.id,
+            )
+            .await
         }
         Action::LikeSet {
             recording_id,

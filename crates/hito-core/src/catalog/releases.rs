@@ -90,7 +90,9 @@ impl Catalog {
         query
             .push("SELECT r.id, r.library_id, a.id AS release_id, ")
             .push(metadata::APPEARANCE_TITLE)
-            .push(" AS title, m.title AS inherited_title, m.artist, a.title AS album, m.duration_ms, ");
+            .push(" AS title, m.title AS inherited_title, ")
+            .push(metadata::APPEARANCE_ARTIST)
+            .push(" AS artist, m.artist AS inherited_artist, a.title AS album, m.duration_ms, ");
         push_available(&mut query, &self.host);
         query
             .push(
@@ -100,7 +102,7 @@ impl Catalog {
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
             )
             .push_bind(actor.id().to_owned());
-        metadata::join_title(&mut query, actor);
+        metadata::join_recording_fields(&mut query, actor);
         query
             .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, title COLLATE NOCASE, r.id, m.source_id LIMIT ")
             .push_bind(limit)

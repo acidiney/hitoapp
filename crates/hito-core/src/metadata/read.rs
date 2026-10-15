@@ -1,6 +1,6 @@
 use super::{
     MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
-    RecordingMetadata, TitleMetadata,
+    RecordingMetadata, TextMetadata,
 };
 use crate::{Actor, Catalog, Error, Result};
 use sqlx::{Row, sqlite::SqliteRow};
@@ -20,17 +20,23 @@ impl Catalog {
         let mut tx = self.store.pool.begin().await?;
         let row = sqlx::query(
             "SELECT r.id, r.title AS inherited, COALESCE(p.override_title, r.title) AS title,
-                p.override_title, p.title_operation_id AS operation_id, r.metadata_observation_id
+                p.override_title, p.title_operation_id AS operation_id, r.artist AS inherited_artist, COALESCE(p.override_artist, r.artist) AS artist, p.override_artist, p.artist_operation_id, r.metadata_observation_id
              FROM recordings r JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ?
              LEFT JOIN personal_recording_metadata p ON p.recording_id = r.id AND p.user_id = m.user_id
              WHERE r.id = ?",
         ).bind(actor.id()).bind(recording).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let recording_id: String = row.try_get("id")?;
-        let title = TitleMetadata {
+        let title = TextMetadata {
             value: row.try_get("title")?,
             inherited: row.try_get("inherited")?,
             personal: row.try_get("override_title")?,
             operation_id: row.try_get("operation_id")?,
+        };
+        let artist = TextMetadata {
+            value: row.try_get("artist")?,
+            inherited: row.try_get("inherited_artist")?,
+            personal: row.try_get("override_artist")?,
+            operation_id: row.try_get("artist_operation_id")?,
         };
         let selected: Option<String> = row.try_get("metadata_observation_id")?;
         let selected_observation = if let Some(id) = selected {
@@ -64,6 +70,7 @@ impl Catalog {
         Ok(RecordingMetadata {
             recording_id,
             title,
+            artist,
             selected_observation,
             observations: ObservationPage { items, next_before },
         })

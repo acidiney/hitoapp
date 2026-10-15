@@ -1,9 +1,12 @@
 mod projection;
 mod read;
-mod titles;
+mod recording_fields;
 mod types;
 
-pub(crate) use titles::{APPEARANCE_TITLE, RECORDING_TITLE, join_title, set_title};
+pub(crate) use recording_fields::{
+    APPEARANCE_ARTIST, APPEARANCE_TITLE, RECORDING_ARTIST, RECORDING_TITLE, RecordingField,
+    join_recording_fields, set_recording_field,
+};
 pub use types::*;
 
 pub(crate) use projection::{provision, source as refresh_source};
