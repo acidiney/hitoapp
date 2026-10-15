@@ -20,3 +20,6 @@ CREATE TABLE plugin_installations (
 CREATE UNIQUE INDEX active_plugin_installations ON plugin_installations(user_id, service_id) WHERE active = 1;
 CREATE INDEX account_plugin_installations ON plugin_installations(user_id, active, checked_at DESC, id);
 CREATE INDEX service_plugin_installations ON plugin_installations(service_id, active);
+CREATE INDEX plugin_credential_fingerprints
+    ON plugin_installations(substr(credential, 1, 33))
+    WHERE credential IS NOT NULL;
