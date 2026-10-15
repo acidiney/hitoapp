@@ -1,6 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-const output = fileURLToPath(new URL('../fixtures/generated/', import.meta.url));
+const arguments_ = process.argv.slice(2);
+if (arguments_.length > 1 || arguments_.some(argument => argument !== '--e2e')) {
+  throw new Error('Usage: audio-fixtures.mjs [--e2e]');
+}
+const folder = arguments_.includes('--e2e') ? '../fixtures/e2e-generated/' : '../fixtures/generated/';
+const output = fileURLToPath(new URL(folder, import.meta.url));
 mkdirSync(output, { recursive: true });
 for (const frequency of [440, 660]) {
   const rate = 16000;

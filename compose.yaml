@@ -49,7 +49,7 @@ services:
       HITO_LOG_FORMAT: json
       RUST_LOG: info,hito_core=debug,hito_server=debug
     volumes:
-      - ./fixtures/generated:/music:ro
+      - ./fixtures/e2e-generated:/music:ro
     tmpfs:
       - /data:uid=10001,gid=10001,mode=0700
   browser:

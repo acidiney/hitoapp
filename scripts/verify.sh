@@ -9,7 +9,7 @@ docker compose --profile tools run --rm node npm ci
 docker compose --profile tools run --rm node npm test
 docker compose --profile tools run --rm node npm run build
 docker compose --profile tools run --rm node npm audit --audit-level=high
-docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs
+docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs --e2e
 docker compose --profile e2e rm -sf e2e-server
 docker compose --profile e2e up --build -d e2e-server
 trap 'docker compose --profile e2e stop e2e-server' EXIT

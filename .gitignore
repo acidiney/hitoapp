@@ -5,6 +5,7 @@
 /data/
 /.env
 /fixtures/generated/
+/fixtures/e2e-generated/
 /playwright-report/
 /test-results/
 .DS_Store
