@@ -125,6 +125,16 @@ impl Operation {
             )
             .await
     }
+    pub(crate) async fn sources(&self, request: &RecordingRequest) -> Result<SourcePage> {
+        self.remote
+            .sources(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
     pub(crate) async fn recheck(&self, connection: &mut sqlx::SqliteConnection) -> Result<()> {
         let current: Option<(i64, i64)> = sqlx::query_as("SELECT p.revision,s.revision FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
             WHERE p.id = ? AND p.user_id = ? AND p.service_id = ? AND p.active = 1")

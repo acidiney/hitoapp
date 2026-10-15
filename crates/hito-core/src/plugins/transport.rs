@@ -107,7 +107,7 @@ impl ControlClient {
                 token,
                 Call {
                     path: DETAIL_PATH,
-                    body: Some(body.clone()),
+                    body: Some(body),
                     maximum: 32768,
                 },
             )
@@ -120,6 +120,22 @@ impl ControlClient {
                 "The provider returned a different recording",
             ));
         }
+        Ok((
+            recording,
+            self.sources(account, base_url, token, request).await?,
+        ))
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub(super) async fn sources(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: &RecordingRequest,
+    ) -> Result<SourcePage> {
+        let body = serde_json::to_value(request)
+            .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
         let sources: SourcePage = self
             .exchange(
                 account,
@@ -135,7 +151,7 @@ impl ControlClient {
         sources
             .validate()
             .map_err(|_| Error::Upstream("The provider returned invalid sources"))?;
-        Ok((recording, sources))
+        Ok(sources)
     }
 
     async fn exchange<T: serde::de::DeserializeOwned>(
