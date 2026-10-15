@@ -106,6 +106,9 @@ test("manifest changes are reviewed before accepting new capabilities", async ()
       screen.queryByRole("heading", { name: "Review plugin changes" }),
     ).toBeNull(),
   );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Check connection" }),
+  );
   expect(pluginsApi.refresh).toHaveBeenLastCalledWith(
     "bob",
     plugin,

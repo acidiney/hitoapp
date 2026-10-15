@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { PluginInstallation, PluginRefresh } from "../../types";
 import type { PluginActions } from "../../hooks/usePlugins";
 
@@ -22,6 +22,12 @@ export default function PluginConnection({
   const [review, setReview] = useState<Review | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [status, setStatus] = useState("");
+  const [focus, focusAfterCommit] = useState<"check" | "remove" | null>(null);
+  useLayoutEffect(() => {
+    if (actions.pending || focus === null) return;
+    (focus === "check" ? checkButton : removeButton).current?.focus();
+    focusAfterCommit(null);
+  }, [actions.pending, focus]);
   async function check(accept = false) {
     const result = await actions.refresh(plugin, {
       revision: plugin.revision,
@@ -38,7 +44,7 @@ export default function PluginConnection({
       setReview(null);
       setToken("");
       setStatus("Connection checked.");
-      checkButton.current?.focus();
+      focusAfterCommit("check");
     }
   }
   function submit(event: FormEvent) {
@@ -95,7 +101,7 @@ export default function PluginConnection({
               disabled={actions.pending}
               onClick={() => {
                 setConfirm(false);
-                removeButton.current?.focus();
+                focusAfterCommit("remove");
               }}
             >
               Cancel removal
@@ -139,7 +145,7 @@ export default function PluginConnection({
                     setToken("");
                     setReview(null);
                     setStatus("Saved token cleared.");
-                    checkButton.current?.focus();
+                    focusAfterCommit("check");
                   }
                 }}
               >
@@ -180,7 +186,7 @@ export default function PluginConnection({
               onClick={() => {
                 setReview(null);
                 setToken("");
-                checkButton.current?.focus();
+                focusAfterCommit("check");
               }}
             >
               Keep current declaration
