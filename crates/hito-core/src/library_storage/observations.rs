@@ -76,7 +76,8 @@ pub(super) async fn remember(
             "Source artist credit could not be recorded".into(),
         ));
     }
-    super::metadata_owner::refresh_metadata(tx, recording).await
+    super::metadata_owner::refresh_metadata(tx, recording).await?;
+    crate::metadata::refresh_source(tx, source).await
 }
 
 #[tracing::instrument(level = "trace", skip_all, err(Debug))]

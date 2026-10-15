@@ -12,29 +12,35 @@ impl Identity {
         allowed: bool,
     ) -> Result<()> {
         actor.require_admin()?;
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         if allowed {
             let exists: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM libraries l CROSS JOIN users u WHERE l.id = ? AND u.id = ?",
             )
             .bind(library)
             .bind(user)
-            .fetch_one(&self.store.pool)
+            .fetch_one(&mut *tx)
             .await?;
             if exists == 0 {
                 return Err(Error::NotFound);
             }
-            sqlx::query("INSERT OR IGNORE INTO library_members VALUES (?, ?)")
+            let inserted = sqlx::query("INSERT OR IGNORE INTO library_members VALUES (?, ?)")
                 .bind(library)
                 .bind(user)
-                .execute(&self.store.pool)
-                .await?;
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+            if inserted == 1 {
+                crate::metadata::provision(&mut tx, user, library).await?;
+            }
         } else {
             sqlx::query("DELETE FROM library_members WHERE library_id = ? AND user_id = ?")
                 .bind(library)
                 .bind(user)
-                .execute(&self.store.pool)
+                .execute(&mut *tx)
                 .await?;
         }
+        tx.commit().await?;
         tracing::info!(allowed, "Library membership updated");
         Ok(())
     }
