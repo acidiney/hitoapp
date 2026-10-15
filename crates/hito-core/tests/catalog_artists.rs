@@ -38,6 +38,25 @@ async fn artist_pages_keep_exact_credits_and_album_appearances_without_guessing_
         assert_eq!(page.artist.name, artist.name);
         assert_eq!(page.releases.total, 1);
         assert_eq!(page.releases.items[0].title, "Compilation");
+        let tracks = hito
+            .catalog
+            .recordings(
+                &actor,
+                hito_core::Search {
+                    artist: Some(artist.id.clone()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            tracks.total,
+            if artist.name == "Various Artists" {
+                0
+            } else {
+                1
+            }
+        );
         ids.push(artist.id);
     }
     ids.sort();

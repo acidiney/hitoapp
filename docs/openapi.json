@@ -177,6 +177,15 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "recording_offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -1795,6 +1804,14 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -3632,7 +3649,8 @@
           "id",
           "library_id",
           "name",
-          "release_count"
+          "release_count",
+          "recording_count"
         ],
         "properties": {
           "artwork_recording_id": {
@@ -3650,6 +3668,10 @@
           "name": {
             "type": "string"
           },
+          "recording_count": {
+            "type": "integer",
+            "format": "int64"
+          },
           "release_count": {
             "type": "integer",
             "format": "int64"
@@ -3660,11 +3682,15 @@
         "type": "object",
         "required": [
           "artist",
-          "releases"
+          "releases",
+          "recordings"
         ],
         "properties": {
           "artist": {
             "$ref": "#/components/schemas/Artist"
+          },
+          "recordings": {
+            "$ref": "#/components/schemas/Page_Recording"
           },
           "releases": {
             "$ref": "#/components/schemas/Page_Release"
@@ -4508,7 +4534,8 @@
                 "id",
                 "library_id",
                 "name",
-                "release_count"
+                "release_count",
+                "recording_count"
               ],
               "properties": {
                 "artwork_recording_id": {
@@ -4525,6 +4552,10 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "recording_count": {
+                  "type": "integer",
+                  "format": "int64"
                 },
                 "release_count": {
                   "type": "integer",

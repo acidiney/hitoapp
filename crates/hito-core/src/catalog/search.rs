@@ -127,6 +127,11 @@ fn filters(
     if search.liked == Some(true) {
         query.push(" AND l.liked = 1");
     }
+    if let Some(artist) = &search.artist {
+        query.push(" AND EXISTS (SELECT 1 FROM account_recording_credits credit WHERE credit.user_id = ")
+            .push_bind(actor.id().to_owned()).push(" AND credit.artist_id = ").push_bind(artist.clone())
+            .push(" AND credit.recording_id = r.id)");
+    }
     if let Some(library) = &search.library {
         query
             .push(" AND r.library_id = ")

@@ -760,10 +760,13 @@ export interface components {
             library_id: string;
             name: string;
             /** Format: int64 */
+            recording_count: number;
+            /** Format: int64 */
             release_count: number;
         };
         ArtistDetail: {
             artist: components["schemas"]["Artist"];
+            recordings: components["schemas"]["Page_Recording"];
             releases: components["schemas"]["Page_Release"];
         };
         ArtistIndexPageProps: components["schemas"]["SharedPageProps"] & {
@@ -956,6 +959,8 @@ export interface components {
                 id: string;
                 library_id: string;
                 name: string;
+                /** Format: int64 */
+                recording_count: number;
                 /** Format: int64 */
                 release_count: number;
             }[];
@@ -1345,6 +1350,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                recording_offset?: number;
             };
             header?: never;
             path: {
@@ -2585,6 +2591,7 @@ export interface operations {
             query?: {
                 q?: string;
                 liked?: boolean;
+                artist?: string;
                 offset?: number;
                 limit?: number;
                 library?: string;

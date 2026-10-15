@@ -67,14 +67,21 @@ async fn removing_a_provider_release_removes_its_obsolete_artist_association() {
         .adopt_provider(&actor, &installed.id, request("first"))
         .await
         .unwrap();
-    assert_eq!(
-        hito.catalog
-            .artists(&actor, Default::default())
-            .await
-            .unwrap()
-            .total,
-        0
-    );
+    let artists = hito
+        .catalog
+        .artists(&actor, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(artists.total, 1);
+    assert_eq!(artists.items[0].name, "After");
+    assert_eq!(artists.items[0].release_count, 0);
+    let detail = hito
+        .catalog
+        .artist(&actor, &artists.items[0].id, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(detail.recordings.total, 1);
+    assert_eq!(detail.recordings.items[0].artist, "After");
     assert_eq!(
         hito.catalog
             .releases(&actor, Default::default())

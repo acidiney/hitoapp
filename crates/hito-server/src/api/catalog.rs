@@ -27,7 +27,7 @@ pub async fn libraries(
 }
 
 #[utoipa::path(get, path = "/api/v1/recordings", params(
-    ("q" = Option<String>, Query), ("liked" = Option<bool>, Query),
+    ("q" = Option<String>, Query), ("liked" = Option<bool>, Query), ("artist" = Option<String>, Query),
     ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query), ("library" = Option<String>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = RecordingPage), (status = 401, body = ErrorResponse),

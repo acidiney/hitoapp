@@ -18,6 +18,7 @@ pub struct Recording {
 
 #[derive(Deserialize, Default, ToSchema)]
 pub struct Search {
+    pub artist: Option<String>,
     pub q: Option<String>,
     pub liked: Option<bool>,
     pub offset: Option<i64>,

@@ -1,4 +1,4 @@
-use super::{Browse, Catalog, Page, Release};
+use super::{Browse, Catalog, Page, Recording, Release, Search};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
@@ -10,6 +10,7 @@ pub struct Artist {
     pub library_id: String,
     pub name: String,
     pub release_count: i64,
+    pub recording_count: i64,
     pub artwork_recording_id: Option<String>,
 }
 
@@ -17,6 +18,7 @@ pub struct Artist {
 pub struct ArtistDetail {
     pub artist: Artist,
     pub releases: Page<Release>,
+    pub recordings: Page<Recording>,
 }
 
 const SUMMARY: &str = "), associations AS (
@@ -27,11 +29,13 @@ const SUMMARY: &str = "), associations AS (
     SELECT c.user_id, c.id, credit.release_id FROM selected c
     CROSS JOIN account_source_credits credit ON credit.user_id = c.user_id AND credit.artist_id = c.id
 ), counts AS (
-    SELECT c.id, c.library_id, c.name, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
-    FROM selected c JOIN associations ar ON ar.user_id = c.user_id AND ar.artist_id = c.id GROUP BY c.id
+    SELECT c.user_id, c.id, c.library_id, c.name, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
+    FROM selected c LEFT JOIN associations ar ON ar.user_id = c.user_id AND ar.artist_id = c.id GROUP BY c.id
 ) SELECT c.id, c.library_id, c.name, c.release_count,
-    (SELECT s.recording_id FROM source_metadata m JOIN sources s ON s.id = m.source_id
-     WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1) AS artwork_recording_id
+    (SELECT count(*) FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id) AS recording_count,
+    COALESCE((SELECT s.recording_id FROM source_metadata m JOIN sources s ON s.id = m.source_id
+     WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1),
+    (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id
     FROM counts c ORDER BY c.name COLLATE NOCASE, c.id";
 
 impl Catalog {
@@ -40,7 +44,7 @@ impl Catalog {
         let (offset, limit) = browse.bounds();
         let mut count = QueryBuilder::new("SELECT count(*) FROM account_artists c");
         browse.filter(&mut count, actor, "c", "account_artists_fts", "name")?;
-        count.push(" AND EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id)");
+        count.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
         let total = count
             .build_query_scalar()
             .fetch_one(&self.store.pool)
@@ -65,6 +69,18 @@ impl Catalog {
             .await?
             .ok_or(Error::NotFound)?;
         tracing::Span::current().record("artist_id", &artist.id);
+        let recordings = self
+            .recordings(
+                actor,
+                Search {
+                    artist: Some(artist.id.clone()),
+                    library: browse.library.clone(),
+                    offset: browse.recording_offset,
+                    limit: Some(browse.bounds().1),
+                    ..Search::default()
+                },
+            )
+            .await?;
         let releases = self
             .releases(
                 actor,
@@ -74,8 +90,16 @@ impl Catalog {
                 },
             )
             .await?;
-        tracing::debug!(count = releases.items.len(), "Artist detail loaded");
-        Ok(ArtistDetail { artist, releases })
+        tracing::debug!(
+            releases = releases.items.len(),
+            recordings = recordings.items.len(),
+            "Artist detail loaded"
+        );
+        Ok(ArtistDetail {
+            artist,
+            releases,
+            recordings,
+        })
     }
 }
 
@@ -86,7 +110,7 @@ fn selected(
 ) -> Result<QueryBuilder<'static, Sqlite>> {
     let mut query = QueryBuilder::new("WITH selected AS (SELECT c.* FROM account_artists c");
     browse.filter(&mut query, actor, "c", "account_artists_fts", "name")?;
-    query.push(" AND EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id)");
+    query.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
     if let Some(id) = id {
         query.push(" AND c.id = ").push_bind(id.to_owned());
     } else {
