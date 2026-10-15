@@ -1,0 +1,24 @@
+import type { components } from "./generated";
+
+type Schema = components["schemas"];
+export type User = Schema["User"];
+export type Library = Schema["Library"];
+export type RecordingPage = Schema["RecordingPage"];
+export type Recording = RecordingPage["items"][number];
+export type Source = Schema["Source"];
+export type Job = Schema["Job"];
+export type Playlist = Schema["Playlist"];
+export type PlaylistEntry = Schema["PlaylistEntry"];
+export type PlaylistDetail = Schema["PlaylistDetail"];
+export type HistoryEntry = Schema["HistoryEntry"];
+export type Action = Schema["Action"];
+export type SyncBatch = Schema["SyncBatch"];
+export type SyncReceipt = Schema["SyncReceipt"];
+export type SharedPageProps = Schema["SharedPageProps"];
+export type CatalogPageProps = Schema["CatalogPageProps"];
+export type PlaylistIndexPageProps = Schema["PlaylistIndexPageProps"];
+export type PlaylistPageProps = Schema["PlaylistPageProps"];
+export type HistoryPageProps = Schema["HistoryPageProps"];
+export type SettingsPageProps = Schema["SettingsPageProps"];
+export type LoginPageProps = Schema["LoginPageProps"];
+export type Credentials = Schema["Credentials"];
