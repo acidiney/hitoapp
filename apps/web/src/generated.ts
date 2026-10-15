@@ -813,6 +813,12 @@ export interface components {
             components?: string[];
             directory_id: string;
         };
+        DiscoverPageProps: components["schemas"]["SharedPageProps"] & {
+            connections: components["schemas"]["PluginInstallation"][];
+            service_names: {
+                [key: string]: string;
+            };
+        };
         ErrorResponse: {
             error: string;
         };

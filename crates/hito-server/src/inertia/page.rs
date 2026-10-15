@@ -17,6 +17,7 @@ pub enum Screen<'a> {
     Playlist(&'a str),
     History,
     Settings,
+    Discover,
 }
 
 impl<'a> Screen<'a> {
@@ -27,6 +28,7 @@ impl<'a> Screen<'a> {
             "/playlists" => Self::PlaylistIndex,
             "/history" => Self::History,
             "/settings" => Self::Settings,
+            "/discover" => Self::Discover,
             "/albums" => Self::AlbumIndex,
             "/artists" => Self::ArtistIndex,
             _ if path.starts_with("/albums/") && path.ends_with("/details") => Self::AlbumDetails(
@@ -58,6 +60,7 @@ impl<'a> Screen<'a> {
             Self::Playlist(_) => "PlaylistPage",
             Self::History => "HistoryPage",
             Self::Settings => "SettingsPage",
+            Self::Discover => "DiscoverPage",
         }
     }
 
@@ -194,6 +197,31 @@ impl<'a> Screen<'a> {
                 Ok(PageProps::History(HistoryPageProps { shared, activity }))
             }
             Self::Settings => Ok(PageProps::Settings(SettingsPageProps { shared })),
+            Self::Discover => {
+                let (connections, service_names) =
+                    if fields.requested("connections") || fields.requested("service_names") {
+                        let settings = services.plugins.settings(actor).await?;
+                        (
+                            fields
+                                .requested("connections")
+                                .then_some(settings.installations),
+                            fields.requested("service_names").then(|| {
+                                settings
+                                    .services
+                                    .into_iter()
+                                    .map(|service| (service.id, service.name))
+                                    .collect()
+                            }),
+                        )
+                    } else {
+                        (None, None)
+                    };
+                Ok(PageProps::Discover(DiscoverPageProps {
+                    shared,
+                    connections,
+                    service_names,
+                }))
+            }
         }
     }
 }

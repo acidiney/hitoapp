@@ -33,6 +33,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         PlaylistPageProps,
         HistoryPageProps,
         SettingsPageProps,
+        DiscoverPageProps,
     ))
 )]
 struct Contract;
@@ -104,6 +105,7 @@ pub fn router_with_config(services: Services, config: Config) -> Router {
     Router::new()
         .route("/", get(inertia::page))
         .route("/library", get(inertia::page))
+        .route("/discover", get(inertia::page))
         .route("/albums", get(inertia::page))
         .route("/albums/{id}", get(inertia::page))
         .route("/albums/{id}/details", get(inertia::page))

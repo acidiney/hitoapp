@@ -3881,6 +3881,37 @@
         },
         "additionalProperties": false
       },
+      "DiscoverPageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "connections",
+              "service_names"
+            ],
+            "properties": {
+              "connections": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PluginInstallation"
+                }
+              },
+              "service_names": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
       "ErrorResponse": {
         "type": "object",
         "required": [

@@ -130,6 +130,18 @@ pub struct SettingsPageProps {
     pub shared: SharedPageProps,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct DiscoverPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub connections: Option<Vec<hito_core::PluginInstallation>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub service_names: Option<BTreeMap<String, String>>,
+}
+
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PageProps {
@@ -146,6 +158,7 @@ pub enum PageProps {
     Playlist(PlaylistPageProps),
     History(HistoryPageProps),
     Settings(SettingsPageProps),
+    Discover(DiscoverPageProps),
 }
 
 impl PageProps {
@@ -164,6 +177,7 @@ impl PageProps {
             Self::Playlist(_) => "PlaylistPage",
             Self::History(_) => "HistoryPage",
             Self::Settings(_) => "SettingsPage",
+            Self::Discover(_) => "DiscoverPage",
         }
     }
 }
