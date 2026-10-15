@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/folders/{id}": {
         parameters: {
             query?: never;
@@ -276,6 +308,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["releases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/releases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["release"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/releases/{id}/artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["release_artwork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/setup": {
         parameters: {
             query?: never;
@@ -455,6 +535,33 @@ export interface components {
         Activity: {
             history: components["schemas"]["HistoryEntry"][];
         };
+        AlbumIndexPageProps: components["schemas"]["SharedPageProps"] & {
+            query: string;
+            releases: components["schemas"]["ReleasePage"];
+        };
+        AlbumPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["ReleaseDetail"];
+        };
+        Artist: {
+            artwork_recording_id?: string | null;
+            id: string;
+            library_id: string;
+            name: string;
+            /** Format: int64 */
+            release_count: number;
+        };
+        ArtistDetail: {
+            artist: components["schemas"]["Artist"];
+            releases: components["schemas"]["Page_Release"];
+        };
+        ArtistIndexPageProps: components["schemas"]["SharedPageProps"] & {
+            artists: components["schemas"]["ArtistPage"];
+            query: string;
+        };
+        ArtistPage: components["schemas"]["Page_Artist"];
+        ArtistPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["ArtistDetail"];
+        };
         AuthSession: {
             token: string;
             user: components["schemas"]["User"];
@@ -557,6 +664,22 @@ export interface components {
             /** Format: uuid */
             id: string;
         };
+        Page_Artist: {
+            items: {
+                artwork_recording_id?: string | null;
+                id: string;
+                library_id: string;
+                name: string;
+                /** Format: int64 */
+                release_count: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
         Page_Recording: {
             items: {
                 album?: string | null;
@@ -570,6 +693,41 @@ export interface components {
                 release_id?: string | null;
                 title: string;
             }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_Release: {
+            items: {
+                artist: string;
+                artist_id: string;
+                artwork_recording_id?: string | null;
+                /** Format: int64 */
+                duration_ms: number;
+                id: string;
+                library_id: string;
+                title: string;
+                /** Format: int64 */
+                track_count: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_ReleaseTrack: {
+            items: (components["schemas"]["Recording"] & {
+                /** Format: int64 */
+                disc_number?: number | null;
+                entry_id: string;
+                /** Format: int64 */
+                track_number?: number | null;
+            })[];
             /** Format: int64 */
             limit: number;
             /** Format: int64 */
@@ -602,7 +760,36 @@ export interface components {
         PlaylistPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["PlaylistDetail"];
         };
+        Recording: {
+            album?: string | null;
+            artist: string;
+            available: boolean;
+            /** Format: int64 */
+            duration_ms: number;
+            id: string;
+            library_id: string;
+            liked: boolean;
+            release_id?: string | null;
+            title: string;
+        };
         RecordingPage: components["schemas"]["Page_Recording"];
+        Release: {
+            artist: string;
+            artist_id: string;
+            artwork_recording_id?: string | null;
+            /** Format: int64 */
+            duration_ms: number;
+            id: string;
+            library_id: string;
+            title: string;
+            /** Format: int64 */
+            track_count: number;
+        };
+        ReleaseDetail: {
+            release: components["schemas"]["Release"];
+            tracks: components["schemas"]["Page_ReleaseTrack"];
+        };
+        ReleasePage: components["schemas"]["Page_Release"];
         SettingsPageProps: components["schemas"]["SharedPageProps"];
         SetupStatus: {
             needs_setup: boolean;
@@ -686,6 +873,94 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artists: {
+        parameters: {
+            query?: {
+                q?: string;
+                library?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistPage"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistDetail"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1492,6 +1767,138 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    releases: {
+        parameters: {
+            query?: {
+                q?: string;
+                library?: string;
+                artist?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasePage"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    release: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseDetail"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    release_artwork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cover from an authorized source on this release */
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                    "image/gif": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
