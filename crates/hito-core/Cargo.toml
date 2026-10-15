@@ -21,6 +21,13 @@ cap-fs-ext.workspace = true
 tracing.workspace = true
 utoipa.workspace = true
 tempfile.workspace = true
+url.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+hito-plugin-sdk = { path = "../hito-plugin-sdk", features = ["schema"] }
+
+[dev-dependencies]
+axum.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

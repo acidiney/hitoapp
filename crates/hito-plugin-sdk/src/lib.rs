@@ -2,8 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub const PROTOCOL_VERSION: u32 = 1;
+pub const MANIFEST_PATH: &str = "v1/manifest";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
     pub id: String,
@@ -13,6 +15,7 @@ pub struct Manifest {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
     Search,

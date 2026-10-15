@@ -7,5 +7,9 @@ license = "Apache-2.0"
 
 [dependencies]
 serde.workspace = true
+utoipa = { workspace = true, optional = true }
 serde_json.workspace = true
 url.workspace = true
+
+[features]
+schema = ["dep:utoipa"]
