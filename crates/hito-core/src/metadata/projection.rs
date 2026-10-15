@@ -8,6 +8,7 @@ const REGISTER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library
 
 enum Scope<'a> {
     Source(&'a str),
+    Release { user: &'a str, release: &'a str },
     Recording { user: &'a str, recording: &'a str },
     Library { user: &'a str, library: &'a str },
 }
@@ -26,6 +27,17 @@ impl Scope<'_> {
                 if releases {
                     query.push(")");
                 }
+            }
+            Self::Release { user, release } => {
+                query
+                    .push(" AND access.user_id = ")
+                    .push_bind(user.to_string())
+                    .push(if releases {
+                        " AND a.id = "
+                    } else {
+                        " AND m.release_id = "
+                    })
+                    .push_bind(release.to_string());
             }
             Self::Recording { user, recording } => {
                 query.push(" AND access.user_id = ").push_bind(user.to_string())
@@ -92,6 +104,17 @@ pub(super) async fn recording(
     Ok(())
 }
 
+#[tracing::instrument(level = "debug", skip_all, err(Debug))]
+pub(super) async fn release(
+    tx: &mut Transaction<'_, Sqlite>,
+    user: &str,
+    release: &str,
+) -> Result<()> {
+    releases(tx, &Scope::Release { user, release }).await?;
+    tracing::debug!("Account release metadata refreshed");
+    Ok(())
+}
+
 fn source_targets(scope: &Scope<'_>) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(
         "WITH targets AS (SELECT access.user_id, r.library_id, r.id AS recording_id, m.source_id, a.id AS release_id,
@@ -122,8 +145,9 @@ async fn credits(tx: &mut Transaction<'_, Sqlite>, scope: &Scope<'_>) -> Result<
 
 fn release_targets(scope: &Scope<'_>) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(
-        "WITH targets AS (SELECT access.user_id, a.id, a.library_id, a.title, a.artist AS name
-         FROM releases a JOIN library_members access ON access.library_id = a.library_id WHERE 1",
+        "WITH targets AS (SELECT access.user_id, a.id, a.library_id, COALESCE(p.override_title, a.title) AS title, COALESCE(p.override_artist, a.artist) AS name
+         FROM releases a JOIN library_members access ON access.library_id = a.library_id
+         LEFT JOIN personal_release_metadata p ON p.user_id = access.user_id AND p.release_id = a.id WHERE 1",
     );
     scope.filter(&mut query, true);
     query.push(") ");

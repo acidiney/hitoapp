@@ -12,6 +12,20 @@ pub struct Operation {
 #[derive(ToSchema, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    ReleaseTitleSet {
+        release_id: Uuid,
+        title: String,
+    },
+    ReleaseArtistSet {
+        release_id: Uuid,
+        artist: String,
+    },
+    ReleaseTitleInherit {
+        release_id: Uuid,
+    },
+    ReleaseArtistInherit {
+        release_id: Uuid,
+    },
     RecordingArtistSet {
         recording_id: Uuid,
         artist: String,
@@ -66,6 +80,10 @@ pub enum Action {
 impl Action {
     pub(crate) fn kind(&self) -> &'static str {
         match self {
+            Self::ReleaseTitleSet { .. } => "release_title_set",
+            Self::ReleaseArtistSet { .. } => "release_artist_set",
+            Self::ReleaseTitleInherit { .. } => "release_title_inherit",
+            Self::ReleaseArtistInherit { .. } => "release_artist_inherit",
             Self::RecordingArtistSet { .. } => "recording_artist_set",
             Self::RecordingArtistInherit { .. } => "recording_artist_inherit",
             Self::RecordingTitleSet { .. } => "recording_title_set",

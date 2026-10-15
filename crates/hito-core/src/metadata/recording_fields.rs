@@ -1,4 +1,5 @@
-use crate::{Actor, Error, Result, identity::recording_access};
+use super::validate_text;
+use crate::{Actor, Result, identity::recording_access};
 use sqlx::{QueryBuilder, Sqlite, Transaction};
 use uuid::Uuid;
 
@@ -13,7 +14,7 @@ pub(crate) fn join_recording_fields(query: &mut QueryBuilder<'_, Sqlite>, actor:
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum RecordingField {
+pub(crate) enum TextField {
     Title,
     Artist,
 }
@@ -23,22 +24,16 @@ pub(crate) async fn set_recording_field(
     tx: &mut Transaction<'_, Sqlite>,
     actor: &Actor,
     recording: &Uuid,
-    field: RecordingField,
+    field: TextField,
     value: Option<&str>,
     operation: &Uuid,
 ) -> Result<()> {
     let recording = recording.to_string();
     recording_access(tx, actor, &recording).await?;
-    if let Some(value) = value
-        && (value.trim().is_empty() || value.len() > 2048 || value.chars().any(char::is_control))
-    {
-        return Err(Error::Invalid(
-            "Use metadata of 1 to 2048 bytes without control characters".into(),
-        ));
-    }
+    validate_text(value)?;
     let (title, artist, title_operation, artist_operation) = match field {
-        RecordingField::Title => (value, None, Some(operation.to_string()), None),
-        RecordingField::Artist => (None, value, None, Some(operation.to_string())),
+        TextField::Title => (value, None, Some(operation.to_string()), None),
+        TextField::Artist => (None, value, None, Some(operation.to_string())),
     };
     let mut query = QueryBuilder::new(
         "INSERT INTO personal_recording_metadata(user_id, recording_id, override_title, override_artist, title, artist, title_operation_id, artist_operation_id) SELECT ",
@@ -49,11 +44,11 @@ pub(crate) async fn set_recording_field(
         .push_bind(title_operation).push(", ").push_bind(artist_operation)
         .push(" FROM recordings r WHERE r.id = ").push_bind(recording.clone())
         .push(" ON CONFLICT(user_id, recording_id) DO UPDATE SET ").push(match field {
-            RecordingField::Title => "override_title = excluded.override_title, title = excluded.title, title_operation_id = excluded.title_operation_id",
-            RecordingField::Artist => "override_artist = excluded.override_artist, artist = excluded.artist, artist_operation_id = excluded.artist_operation_id",
+            TextField::Title => "override_title = excluded.override_title, title = excluded.title, title_operation_id = excluded.title_operation_id",
+            TextField::Artist => "override_artist = excluded.override_artist, artist = excluded.artist, artist_operation_id = excluded.artist_operation_id",
         });
     query.build().execute(&mut **tx).await?;
-    if matches!(field, RecordingField::Artist) {
+    if matches!(field, TextField::Artist) {
         super::projection::recording(tx, actor.id(), &recording).await?;
     }
     tracing::debug!("Personal recording metadata accepted");

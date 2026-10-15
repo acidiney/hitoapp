@@ -6,7 +6,7 @@ mod progress;
 use super::{Action, Operation};
 use crate::{
     Actor, Result,
-    metadata::{self, RecordingField},
+    metadata::{self, TextField},
 };
 type Transaction<'a> = sqlx::Transaction<'a, sqlx::Sqlite>;
 
@@ -17,6 +17,50 @@ pub(super) async fn action(
     operation: &Operation,
 ) -> Result<()> {
     match &operation.action {
+        Action::ReleaseTitleSet { release_id, title } => {
+            metadata::set_release_field(
+                tx,
+                actor,
+                release_id,
+                TextField::Title,
+                Some(title),
+                &operation.id,
+            )
+            .await
+        }
+        Action::ReleaseArtistSet { release_id, artist } => {
+            metadata::set_release_field(
+                tx,
+                actor,
+                release_id,
+                TextField::Artist,
+                Some(artist),
+                &operation.id,
+            )
+            .await
+        }
+        Action::ReleaseTitleInherit { release_id } => {
+            metadata::set_release_field(
+                tx,
+                actor,
+                release_id,
+                TextField::Title,
+                None,
+                &operation.id,
+            )
+            .await
+        }
+        Action::ReleaseArtistInherit { release_id } => {
+            metadata::set_release_field(
+                tx,
+                actor,
+                release_id,
+                TextField::Artist,
+                None,
+                &operation.id,
+            )
+            .await
+        }
         Action::RecordingTitleSet {
             recording_id,
             title,
@@ -25,7 +69,7 @@ pub(super) async fn action(
                 tx,
                 actor,
                 recording_id,
-                RecordingField::Title,
+                TextField::Title,
                 Some(title),
                 &operation.id,
             )
@@ -36,7 +80,7 @@ pub(super) async fn action(
                 tx,
                 actor,
                 recording_id,
-                RecordingField::Title,
+                TextField::Title,
                 None,
                 &operation.id,
             )
@@ -50,7 +94,7 @@ pub(super) async fn action(
                 tx,
                 actor,
                 recording_id,
-                RecordingField::Artist,
+                TextField::Artist,
                 Some(artist),
                 &operation.id,
             )
@@ -61,7 +105,7 @@ pub(super) async fn action(
                 tx,
                 actor,
                 recording_id,
-                RecordingField::Artist,
+                TextField::Artist,
                 None,
                 &operation.id,
             )
