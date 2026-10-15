@@ -610,7 +610,6 @@ dependencies = [
  "axum",
  "hito-core",
  "http-body-util",
- "http-range-header",
  "lofty",
  "serde",
  "serde_json",

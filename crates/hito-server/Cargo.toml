@@ -6,7 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-http-range-header.workspace = true
 tokio-util.workspace = true
 hito-core = { path = "../hito-core" }
 axum.workspace = true

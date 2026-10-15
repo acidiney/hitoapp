@@ -20,21 +20,7 @@ pub async fn response(audio: AudioFile, request: Request<Body>) -> ApiResult<Res
         let range = value
             .to_str()
             .ok()
-            .filter(|value| value.len() <= 1024 && !value.contains(','))
-            .and_then(|value| {
-                let suffix = value
-                    .strip_prefix("bytes=-")
-                    .and_then(|length| length.parse::<u64>().ok());
-                let value =
-                    if audio.length > 0 && suffix.is_some_and(|length| length > audio.length) {
-                        std::borrow::Cow::Owned(format!("bytes=0-{}", audio.length - 1))
-                    } else {
-                        std::borrow::Cow::Borrowed(value)
-                    };
-                http_range_header::parse_range_header(&value).ok()
-            })
-            .and_then(|ranges| ranges.validate(audio.length).ok())
-            .and_then(|mut ranges| ranges.pop());
+            .and_then(|value| single_range(value, audio.length));
         let Some(range) = range else {
             return Ok(Response::builder()
                 .status(StatusCode::RANGE_NOT_SATISFIABLE)
@@ -68,4 +54,31 @@ pub async fn response(audio: AudioFile, request: Request<Body>) -> ApiResult<Res
         .map_err(|_| Error::Internal("Audio could not be read".into()))?;
     let stream = ReaderStream::with_capacity(file.take(length), 65536);
     Ok(builder.body(Body::from_stream(stream)).unwrap())
+}
+
+fn single_range(value: &str, length: u64) -> Option<std::ops::RangeInclusive<u64>> {
+    if value.len() > 1024 || length == 0 {
+        return None;
+    }
+    let (unit, value) = value.trim().split_once('=')?;
+    if !unit.eq_ignore_ascii_case("bytes") {
+        return None;
+    }
+    let (first, last) = value.split_once('-')?;
+    if first.is_empty() {
+        let suffix = decimal(last)?;
+        return (suffix > 0).then(|| length.saturating_sub(suffix)..=length - 1);
+    }
+    let first = decimal(first)?;
+    let last = if last.is_empty() {
+        length - 1
+    } else {
+        decimal(last)?.min(length - 1)
+    };
+    (first <= last && first < length).then_some(first..=last)
+}
+
+fn decimal(value: &str) -> Option<u64> {
+    (!value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
+        .then(|| value.parse().unwrap_or(u64::MAX))
 }
