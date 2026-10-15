@@ -8,6 +8,8 @@
 /fixtures/e2e-generated/
 /playwright-report/
 /test-results/
+/apps/web/test-results/
+/apps/web/playwright-report/
 .DS_Store
 *.db
 *.db-shm
