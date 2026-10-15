@@ -22,5 +22,7 @@ mod security;
 #[path = "api/artwork.rs"]
 mod artwork;
 
+#[path = "api/metadata.rs"]
+mod metadata;
 #[path = "api/storage.rs"]
 mod storage;
