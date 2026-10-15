@@ -2,18 +2,45 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
-export async function providerFixture() {
+export async function providerFixture(prefix = "Relay", expanded = false) {
   const audio = await readFile(
     "/workspace/fixtures/e2e-generated/Music/Fixture 440 Hz.wav",
   );
   const token = "browser-private-relay-token";
   const recording = {
     id: "provider/private/recording",
-    title: "Relay owned fixture",
+    title: `${prefix} owned fixture`,
     artist: "Hito test fixtures",
     duration_ms: 90000,
   };
   const source = "provider:/audio?private=value&other=bad";
+  const second = {
+    ...recording,
+    id: "provider/private/second",
+    title: `${prefix} second fixture`,
+  };
+  const secondSource = `${source}/second`;
+  const extras = expanded
+    ? Array.from({ length: 5 }, (_, index) => ({
+        ...recording,
+        id: `provider/private/catalog-${index}`,
+        title: `${prefix} catalog fixture ${index + 1}`,
+      }))
+    : [];
+  const records = new Map(
+    [recording, second, ...extras].map((item) => [item.id, item]),
+  );
+  const sourceFor = (id: string) =>
+    id === recording.id
+      ? source
+      : id === second.id
+        ? secondSource
+        : `${source}/${id}`;
+  const sources = new Set([...records.keys()].map(sourceFor));
+  const gates = new Map<
+    string,
+    { entered: boolean; wait: Promise<void>; release: () => void }
+  >();
   const requests: {
     authorization?: string;
     cookie?: string;
@@ -31,7 +58,7 @@ export async function providerFixture() {
         cookie: request.headers.cookie,
         source: url.searchParams.get("source_id"),
       });
-      if (url.searchParams.get("source_id") !== source) {
+      if (!sources.has(url.searchParams.get("source_id") ?? "")) {
         response.writeHead(404).end();
         return;
       }
@@ -78,19 +105,41 @@ export async function providerFixture() {
         };
         break;
       case "/fixture/v1/search":
-        reply = { items: [recording] };
-        break;
-      case "/fixture/v1/recordings/detail":
         reply =
-          JSON.parse(body).recording_id === recording.id ? recording : null;
+          JSON.parse(body).cursor === "browser-private-next"
+            ? { items: [second] }
+            : {
+                items: [recording, ...extras],
+                next_cursor: "browser-private-next",
+              };
         break;
+      case "/fixture/v1/recordings/detail": {
+        const id = JSON.parse(body).recording_id;
+        const gate = gates.get(id);
+        if (gate) {
+          gate.entered = true;
+          await gate.wait;
+          gates.delete(id);
+        }
+        reply = records.get(id) ?? null;
+        break;
+      }
       case "/fixture/v1/sources":
-        reply = { items: [{ id: source, label: "Original", ready: true }] };
+        reply = {
+          items: [
+            {
+              id: sourceFor(JSON.parse(body).recording_id),
+              label: "Original",
+              ready: true,
+            },
+          ],
+        };
         break;
       default:
         response.writeHead(404).end();
         return;
     }
+    if (response.destroyed) return;
     response
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify(reply));
@@ -100,9 +149,26 @@ export async function providerFixture() {
     address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture/`,
     token,
     recording,
+    second,
     source,
+    secondSource,
     requests,
+    holdDetails: (id: string) => {
+      let release!: () => void;
+      const wait = new Promise<void>((done) => {
+        release = done;
+      });
+      const gate = { entered: false, wait, release };
+      gates.set(id, gate);
+      return {
+        get entered() {
+          return gate.entered;
+        },
+        release,
+      };
+    },
     close: async () => {
+      gates.forEach((gate) => gate.release());
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
