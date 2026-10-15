@@ -1,0 +1,227 @@
+.music-folders-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0 24px;
+}
+.music-folders-heading h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+.music-folders-list,
+.folder-browser-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.music-folders-list > li {
+  border-bottom: 1px solid var(--border);
+}
+.music-folder-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 24px 0;
+}
+.music-folder-detail {
+  min-width: 0;
+  flex: 1;
+}
+.music-folder-detail h4,
+.folder-remove-confirm h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.music-folder-detail small {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.music-folder-actions {
+  display: flex;
+  gap: 8px;
+}
+.music-folders-empty {
+  padding: 38px 24px;
+  margin: 4px 0 16px;
+  background: #1c1c1c;
+  border-radius: 12px;
+}
+.music-folders-empty > svg {
+  color: var(--primary);
+  margin-bottom: 20px;
+}
+.music-folders-empty h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+.folder-host-help {
+  margin-top: 28px;
+}
+.folder-error {
+  margin: 22px 0;
+}
+.folder-error .text-link {
+  margin-top: 8px;
+}
+.folder-remove-confirm {
+  padding: 0 0 24px 62px;
+}
+.folder-remove-confirm > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+.folder-remove-confirm .danger {
+  margin-left: 0;
+}
+.folder-library-select {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  max-width: 360px;
+}
+.folder-library-select select {
+  padding: 10px 12px;
+  width: 100%;
+}
+.folder-picker {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 28px;
+  color: var(--text, #f5f5f5);
+  background: #1b1b1b;
+  border: 1px solid #3b3b3b;
+  border-radius: 16px;
+  overflow: auto;
+}
+.folder-picker[open] {
+  display: flex;
+  flex-direction: column;
+}
+.folder-picker::backdrop {
+  background: #000b;
+}
+.folder-picker header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.folder-picker h2 {
+  font-size: 22px;
+  margin: 0 0 8px;
+}
+.folder-picker p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.folder-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 24px 0 16px;
+  overflow: auto;
+}
+.folder-breadcrumbs > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.folder-breadcrumbs svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.folder-breadcrumbs button {
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.folder-breadcrumbs button:disabled {
+  opacity: 1;
+  color: #c4c4c4;
+}
+.folder-browser-content {
+  min-height: 180px;
+  overflow: auto;
+  padding: 4px;
+  margin: 0 -4px;
+}
+.folder-browser-list button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+}
+.folder-browser-list button > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.folder-browser-list small {
+  margin-top: 3px;
+}
+.folder-browser-content > p {
+  padding: 24px 12px;
+}
+.folder-browser-content > .button {
+  margin-top: 16px;
+}
+.folder-picker footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 24px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.folder-picker > .form-error {
+  margin-top: 20px;
+}
+@media (max-width: 640px) {
+  .music-folders-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .music-folder-row {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .music-folder-row .storage-icon {
+    width: 38px;
+    height: 38px;
+  }
+  .music-folder-detail {
+    flex-basis: calc(100% - 50px);
+  }
+  .music-folder-actions {
+    margin-left: 50px;
+  }
+  .folder-remove-confirm {
+    padding-left: 0;
+  }
+  .folder-picker {
+    padding: 20px;
+  }
+  .folder-picker footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+}
