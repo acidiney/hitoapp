@@ -1,0 +1,86 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { change, libraryApi } from "../api";
+import { errorMessage } from "../format";
+import { useNotice } from "../components/Notices";
+import { Playback } from "../playback";
+import { log } from "../log";
+import { useRequestScope } from "../hooks/useRequestScope";
+
+const PlaybackContext = createContext<Playback | null>(null);
+
+export function PlaybackProvider({
+  account,
+  children,
+}: {
+  account: string;
+  children: ReactNode;
+}) {
+  return (
+    <AccountPlayback key={account} account={account}>
+      {children}
+    </AccountPlayback>
+  );
+}
+
+function AccountPlayback({
+  account,
+  children,
+}: {
+  account: string;
+  children: ReactNode;
+}) {
+  const notice = useNotice();
+  const scope = useRequestScope(account);
+  const [{ audio, player }] = useState(() => {
+    const audio = new Audio();
+    const player = new Playback(
+      audio,
+      (recording) =>
+        libraryApi.sources(account, recording, scope.capture().signal),
+      (track, position, speed) => {
+        const request = scope.capture();
+        void change(
+          account,
+          {
+            kind: "progress_set",
+            recording_id: track.id,
+            position_ms: Math.floor(position * 1000),
+            speed,
+          },
+          request.signal,
+        ).catch((error) => {
+          if (request.active()) notice(errorMessage(error));
+        });
+      },
+    );
+    return { audio, player };
+  });
+  useEffect(() => {
+    log.info("playback.account_opened", { account_id: account });
+    audio.dataset.hitoPlayer = "";
+    audio.preload = "auto";
+    document.body.append(audio);
+    return () => {
+      log.info("playback.account_closed", { account_id: account });
+      player.clear();
+      audio.remove();
+    };
+  }, [account, audio, player]);
+  return (
+    <PlaybackContext.Provider value={player}>
+      {children}
+    </PlaybackContext.Provider>
+  );
+}
+
+export function usePlayer() {
+  const player = useContext(PlaybackContext);
+  if (!player) throw new Error("Playback needs a PlaybackProvider");
+  return player;
+}
