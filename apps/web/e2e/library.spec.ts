@@ -198,6 +198,9 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect(page.locator(".now-playing small")).toHaveText(
     "My fixture performer",
   );
+  await expect(
+    page.getByRole("button", { name: "Use source artist", exact: true }),
+  ).toBeEnabled();
   await page.getByText("Inspected tags", { exact: true }).click();
   await expect(page.locator(".metadata-tag-list")).toBeVisible();
   await page.screenshot({
@@ -272,6 +275,9 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect(page.getByLabel("Album artist", { exact: true })).toHaveValue(
     "My album artist",
   );
+  await expect(
+    page.getByRole("button", { name: "Use source artist", exact: true }),
+  ).toBeEnabled();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: "/workspace/test-results/album-metadata-desktop.png",
@@ -282,6 +288,24 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
     path: "/workspace/test-results/album-metadata-mobile.png",
     fullPage: true,
   });
+  await page
+    .getByLabel("Album artist", { exact: true })
+    .evaluate((input) =>
+      input.closest("form")?.scrollIntoView({ block: "center" }),
+    );
+  await page.screenshot({
+    path: "/workspace/test-results/album-metadata-controls-mobile.png",
+  });
+  const resetArtist = await page
+    .getByRole("button", { name: "Use source artist", exact: true })
+    .boundingBox();
+  const playerDock = await page
+    .getByRole("contentinfo", { name: "Audio player", exact: true })
+    .boundingBox();
+  expect(resetArtist).not.toBeNull();
+  expect(playerDock).not.toBeNull();
+  if (resetArtist && playerDock)
+    expect(resetArtist.y + resetArtist.height).toBeLessThan(playerDock.y);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
