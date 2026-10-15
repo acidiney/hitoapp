@@ -12,6 +12,7 @@ pub struct MetadataHistoryQuery {
 pub struct RecordingMetadata {
     pub recording_id: String,
     pub title: TitleMetadata,
+    #[schema(required = true)]
     pub selected_observation: Option<MetadataObservation>,
     pub observations: ObservationPage,
 }
@@ -20,13 +21,16 @@ pub struct RecordingMetadata {
 pub struct TitleMetadata {
     pub value: String,
     pub inherited: String,
+    #[schema(required = true)]
     pub personal: Option<String>,
+    #[schema(required = true)]
     pub operation_id: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct ObservationPage {
     pub items: Vec<MetadataObservation>,
+    #[schema(required = true)]
     pub next_before: Option<i64>,
 }
 
@@ -34,18 +38,25 @@ pub struct ObservationPage {
 pub struct MetadataObservation {
     pub id: String,
     pub source_id: String,
+    #[schema(required = true)]
     pub release_id: Option<String>,
     pub provider: String,
     pub origin: ObservationOrigin,
+    #[schema(required = true)]
     pub observed_at: Option<i64>,
     pub inspection_version: i64,
     pub title: String,
     pub artist: String,
+    #[schema(required = true)]
     pub album: Option<String>,
+    #[schema(required = true)]
     pub album_artist: Option<String>,
     pub duration_ms: i64,
+    #[schema(required = true)]
     pub disc_number: Option<i64>,
+    #[schema(required = true)]
     pub track_number: Option<i64>,
+    #[schema(required = true)]
     pub tags: Option<InspectedTags>,
 }
 
@@ -58,11 +69,17 @@ pub enum ObservationOrigin {
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct InspectedTags {
+    #[schema(required = true)]
     pub title: Option<ObservedTag>,
+    #[schema(required = true)]
     pub artist: Option<ObservedTag>,
+    #[schema(required = true)]
     pub album: Option<ObservedTag>,
+    #[schema(required = true)]
     pub album_artist: Option<ObservedTag>,
+    #[schema(required = true)]
     pub disc: Option<ObservedTag>,
+    #[schema(required = true)]
     pub track: Option<ObservedTag>,
 }
 

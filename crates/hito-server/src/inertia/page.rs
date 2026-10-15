@@ -10,6 +10,7 @@ pub enum Screen<'a> {
     Album(&'a str),
     ArtistIndex,
     Artist(&'a str),
+    RecordingDetails(&'a str),
     Likes,
     PlaylistIndex,
     Playlist(&'a str),
@@ -31,6 +32,9 @@ impl<'a> Screen<'a> {
             _ if path.starts_with("/artists/") => {
                 Self::Artist(path.trim_start_matches("/artists/"))
             }
+            _ if path.starts_with("/recordings/") => {
+                Self::RecordingDetails(path.trim_start_matches("/recordings/"))
+            }
             _ => Self::Playlist(path.trim_start_matches("/playlists/")),
         }
     }
@@ -42,6 +46,7 @@ impl<'a> Screen<'a> {
             Self::Album(_) => "AlbumPage",
             Self::ArtistIndex => "ArtistIndexPage",
             Self::Artist(_) => "ArtistPage",
+            Self::RecordingDetails(_) => "RecordingDetailsPage",
             Self::Likes => "LikesPage",
             Self::PlaylistIndex => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",
@@ -59,6 +64,22 @@ impl<'a> Screen<'a> {
     ) -> ApiResult<PageProps> {
         let shared = shared(services, actor, fields).await?;
         match self {
+            Self::RecordingDetails(id) => {
+                let detail = if fields.requested("detail") {
+                    Some(
+                        services
+                            .catalog
+                            .recording_metadata(actor, id, Default::default())
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                Ok(PageProps::RecordingDetails(RecordingDetailsPageProps {
+                    shared,
+                    detail,
+                }))
+            }
             Self::AlbumIndex => {
                 let query = fields
                     .requested("query")

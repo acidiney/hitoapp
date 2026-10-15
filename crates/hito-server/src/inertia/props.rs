@@ -1,7 +1,7 @@
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
 use hito_core::{Activity, Library, Playlist, PlaylistDetail, User};
-use hito_core::{ArtistDetail, ReleaseDetail};
+use hito_core::{ArtistDetail, RecordingMetadata, ReleaseDetail};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use utoipa::ToSchema;
@@ -83,6 +83,15 @@ pub struct ArtistPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct RecordingDetailsPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<RecordingMetadata>,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct PlaylistIndexPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -121,6 +130,7 @@ pub enum PageProps {
     Album(AlbumPageProps),
     ArtistIndex(ArtistIndexPageProps),
     Artist(ArtistPageProps),
+    RecordingDetails(RecordingDetailsPageProps),
     Likes(CatalogPageProps),
     PlaylistIndex(PlaylistIndexPageProps),
     Playlist(PlaylistPageProps),
@@ -137,6 +147,7 @@ impl PageProps {
             Self::Album(_) => "AlbumPage",
             Self::ArtistIndex(_) => "ArtistIndexPage",
             Self::Artist(_) => "ArtistPage",
+            Self::RecordingDetails(_) => "RecordingDetailsPage",
             Self::Likes(_) => "LikesPage",
             Self::PlaylistIndex(_) => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",

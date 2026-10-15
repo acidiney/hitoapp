@@ -1,6 +1,9 @@
 use super::support::{call, indexed_app};
 use axum::http::StatusCode;
+use axum::{body::Body, http::Request};
+use http_body_util::BodyExt;
 use serde_json::{Value, json};
+use tower::ServiceExt;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -32,6 +35,26 @@ async fn metadata_endpoint_explains_personal_and_inherited_titles_without_exposi
     assert_eq!(detail["title"]["personal"], "My private title");
     assert_eq!(detail["title"]["inherited"], "Fixture");
     assert_eq!(detail["title"]["operation_id"], operation.to_string());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/recordings/{recording}"))
+                .header("authorization", format!("Bearer {token}"))
+                .header("x-inertia", "true")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let page: Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(page["component"], "RecordingDetailsPage");
+    assert_eq!(
+        page["props"]["detail"]["title"]["value"],
+        "My private title"
+    );
     let (_, bob) = call(
         &app,
         "POST",
