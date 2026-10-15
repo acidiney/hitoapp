@@ -1,0 +1,195 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  min-height: 100dvh;
+  padding-bottom: var(--player);
+  padding-right: var(--listening);
+}
+.wide-workspace {
+  --listening: 0px;
+}
+.sidebar {
+  position: fixed;
+  inset: 0 auto var(--player) 0;
+  width: var(--sidebar);
+  padding: 30px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: #101010;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 33px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  flex-wrap: wrap;
+  padding: 0 10px;
+}
+.brand > svg {
+  color: var(--primary);
+}
+.brand span {
+  width: 100%;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  padding-left: 42px;
+}
+.sidebar nav {
+  margin-top: 38px;
+  display: grid;
+  gap: 26px;
+}
+.nav-group {
+  display: grid;
+  gap: 4px;
+}
+.nav-group-label {
+  color: #a3a3a3;
+  font-size: 11px;
+  padding: 0 14px 7px;
+}
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  border-radius: 8px;
+}
+.sidebar nav a:hover {
+  color: #fff;
+  background: #1a1a1a;
+}
+.sidebar nav a.active {
+  color: var(--primary);
+  background: #2a211e;
+}
+.sidebar-playlists {
+  margin: 32px 10px 28px;
+}
+.sidebar-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  margin-bottom: 10px;
+  font-size: 11px;
+}
+.sidebar-section-heading a {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+.sidebar-playlists > a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  font-size: 12px;
+  color: #c0c0c0;
+}
+.sidebar-playlists > a > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-playlists > .muted {
+  font-size: 12px;
+}
+.account {
+  margin-top: auto;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.account > span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #342822;
+  color: #ffb092;
+  font-weight: 600;
+}
+.account small {
+  font-size: 10px;
+  margin-top: 2px;
+}
+.workspace {
+  grid-column: 2;
+  min-width: 0;
+  background: #151515;
+}
+.topbar {
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 32px;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  border-radius: 12px;
+  background: #222;
+  color: var(--muted);
+  padding: 5px 6px 5px 16px;
+}
+.search input {
+  width: 100%;
+  padding: 9px 0;
+  border: 0;
+  font-size: 12px;
+  background: transparent;
+}
+.search button {
+  padding: 7px 10px;
+  font-size: 11px;
+  border: 0;
+  background: #303030;
+}
+.server-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+main#main {
+  padding: 26px 32px 48px;
+  outline: none;
+  max-width: 1700px;
+  margin: 0 auto;
+}
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.page-heading .muted {
+  margin-top: 10px;
+  font-size: 13px;
+}
