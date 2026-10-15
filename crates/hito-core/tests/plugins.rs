@@ -26,6 +26,7 @@ async fn an_account_connects_an_offered_service_through_its_real_manifest_endpoi
             InstallPlugin {
                 service_id: service.id.clone(),
                 service_revision: service.revision,
+                bearer_token: None,
             },
         )
         .await
@@ -36,7 +37,8 @@ async fn an_account_connects_an_offered_service_through_its_real_manifest_endpoi
                 &actor,
                 InstallPlugin {
                     service_id: service.id.clone(),
-                    service_revision: service.revision
+                    service_revision: service.revision,
+                    bearer_token: None,
                 }
             )
             .await,
@@ -111,6 +113,7 @@ async fn personal_installations_are_private_even_when_accounts_share_the_same_se
             InstallPlugin {
                 service_id: service.id.clone(),
                 service_revision: service.revision,
+                bearer_token: None,
             },
         )
         .await
@@ -130,6 +133,7 @@ async fn personal_installations_are_private_even_when_accounts_share_the_same_se
             InstallPlugin {
                 service_id: service.id,
                 service_revision: service.revision,
+                bearer_token: None,
             },
         )
         .await

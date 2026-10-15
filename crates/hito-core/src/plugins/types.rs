@@ -14,6 +14,8 @@ pub struct OfferPluginService {
 pub struct InstallPlugin {
     pub service_id: String,
     pub service_revision: i64,
+    #[schema(write_only)]
+    pub bearer_token: Option<String>,
 }
 
 #[derive(Serialize, ToSchema, sqlx::FromRow)]
@@ -31,10 +33,12 @@ pub struct PluginInstallation {
     pub manifest: Manifest,
     pub revision: i64,
     pub checked_at: i64,
+    pub credential_set: bool,
 }
 
 #[derive(Serialize, ToSchema)]
 pub struct PluginSettings {
+    pub credential_storage_ready: bool,
     pub services: Vec<PluginService>,
     pub installations: Vec<PluginInstallation>,
 }
@@ -44,6 +48,8 @@ pub struct PluginSettings {
 pub struct RefreshPlugin {
     pub revision: i64,
     pub accept_manifest_digest: Option<String>,
+    #[serde(default)]
+    pub credential: PluginCredential,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -51,4 +57,15 @@ pub struct RefreshPlugin {
 pub enum PluginRefresh {
     Updated { installation: PluginInstallation },
     ReviewRequired { manifest: Manifest, digest: String },
+}
+
+#[derive(Default, Deserialize, ToSchema)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PluginCredential {
+    #[default]
+    Keep,
+    Replace {
+        #[schema(write_only)]
+        bearer_token: String,
+    },
 }

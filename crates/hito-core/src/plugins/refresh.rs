@@ -1,4 +1,4 @@
-use super::{PluginRefresh, Plugins, RefreshPlugin, installations::installation};
+use super::{PluginCredential, PluginRefresh, Plugins, RefreshPlugin, installations::installation};
 use crate::{Actor, Error, Result};
 use hito_plugin_sdk::Manifest;
 use sha2::{Digest, Sha256};
@@ -12,17 +12,40 @@ impl Plugins {
         id: &str,
         request: RefreshPlugin,
     ) -> Result<PluginRefresh> {
-        let row = sqlx::query("SELECT p.id,p.service_id,p.manifest,p.revision,p.checked_at,s.base_url,s.revision AS service_revision
+        let row = sqlx::query("SELECT p.id,p.service_id,p.manifest,p.revision,p.checked_at,p.credential,p.credential IS NOT NULL AS credential_set,s.base_url,s.revision AS service_revision
             FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
             WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
             .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
         let base_url: String = row.try_get("base_url")?;
         let service_revision: i64 = row.try_get("service_revision")?;
+        let saved: Option<Vec<u8>> = row.try_get("credential")?;
         let previous = installation(row)?;
         if previous.revision != request.revision {
             return Err(changed());
         }
-        let manifest = self.remote.manifest(actor.id(), &base_url).await?;
+        let (token, credential) = match request.credential {
+            PluginCredential::Keep => (
+                saved
+                    .as_deref()
+                    .map(|blob| {
+                        self.vault
+                            .reveal(actor.id(), id, &previous.service_id, blob)
+                    })
+                    .transpose()?,
+                saved,
+            ),
+            PluginCredential::Replace { bearer_token } => {
+                let token = zeroize::Zeroizing::new(bearer_token);
+                let sealed = self
+                    .vault
+                    .seal(actor.id(), id, &previous.service_id, &token)?;
+                (Some(token), Some(sealed))
+            }
+        };
+        let manifest = self
+            .remote
+            .manifest(actor.id(), &base_url, token.as_deref().map(String::as_str))
+            .await?;
         if manifest.id != previous.manifest.id {
             return Err(Error::Conflict(
                 "The service returned a different plugin identity. Remove and reconnect to use it."
@@ -60,9 +83,9 @@ impl Plugins {
             tracing::info!(installation_id = id, "Plugin manifest review required");
             return Ok(PluginRefresh::ReviewRequired { manifest, digest });
         }
-        let row = sqlx::query("UPDATE plugin_installations SET manifest = ?, revision = revision + 1, checked_at = unixepoch()
-            WHERE id = ? AND user_id = ? AND active = 1 AND revision = ? RETURNING id,service_id,manifest,revision,checked_at")
-            .bind(encoded).bind(id).bind(actor.id()).bind(current).fetch_one(&mut *tx).await?;
+        let row = sqlx::query("UPDATE plugin_installations SET manifest = ?, credential = ?, revision = revision + 1, checked_at = unixepoch()
+            WHERE id = ? AND user_id = ? AND active = 1 AND revision = ? RETURNING id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set")
+            .bind(encoded).bind(credential).bind(id).bind(actor.id()).bind(current).fetch_one(&mut *tx).await?;
         let installation = installation(row)?;
         tx.commit().await?;
         tracing::info!(

@@ -41,7 +41,8 @@ async fn invalid_manifests_never_create_personal_installations() {
                     &actor,
                     InstallPlugin {
                         service_id: service.id.clone(),
-                        service_revision: service.revision
+                        service_revision: service.revision,
+                        bearer_token: None,
                     }
                 )
                 .await
@@ -63,7 +64,8 @@ async fn invalid_manifests_never_create_personal_installations() {
                 &actor,
                 InstallPlugin {
                     service_id: service.id,
-                    service_revision: service.revision
+                    service_revision: service.revision,
+                    bearer_token: None,
                 }
             )
             .await

@@ -9,7 +9,7 @@ impl Plugins {
         let mut tx = self.store.pool.begin().await?;
         let services = sqlx::query_as::<_, PluginService>("SELECT id,name,base_url,revision FROM plugin_services WHERE active = 1 ORDER BY name COLLATE NOCASE,id")
             .fetch_all(&mut *tx).await?;
-        let rows = sqlx::query("SELECT id,service_id,manifest,revision,checked_at FROM plugin_installations WHERE user_id = ? AND active = 1 ORDER BY checked_at DESC,id")
+        let rows = sqlx::query("SELECT id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set FROM plugin_installations WHERE user_id = ? AND active = 1 ORDER BY checked_at DESC,id")
             .bind(actor.id()).fetch_all(&mut *tx).await?;
         let installations = rows
             .into_iter()
@@ -21,6 +21,7 @@ impl Plugins {
             "Personal plugin settings loaded"
         );
         Ok(PluginSettings {
+            credential_storage_ready: self.vault.ready(),
             services,
             installations,
         })
@@ -48,15 +49,27 @@ impl Plugins {
             let mut connection = self.store.pool.acquire().await?;
             check_capacity(&mut connection, actor.id(), &service.id).await?;
         }
-        let manifest = self.remote.manifest(actor.id(), &service.base_url).await?;
         let id = Uuid::new_v4().to_string();
+        let credential = request
+            .bearer_token
+            .as_deref()
+            .map(|token| self.vault.seal(actor.id(), &id, &service.id, token))
+            .transpose()?;
+        let manifest = self
+            .remote
+            .manifest(
+                actor.id(),
+                &service.base_url,
+                request.bearer_token.as_deref(),
+            )
+            .await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         check_capacity(&mut tx, actor.id(), &service.id).await?;
-        let row = sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest)
-            SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM plugin_services WHERE id = ? AND active = 1 AND revision = ?)
-            RETURNING id,service_id,manifest,revision,checked_at")
+        let row = sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest,credential)
+            SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM plugin_services WHERE id = ? AND active = 1 AND revision = ?)
+            RETURNING id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set")
             .bind(&id).bind(actor.id()).bind(&service.id).bind(serde_json::to_string(&manifest).map_err(|_| Error::Internal("Plugin manifest could not be stored".into()))?)
-            .bind(&service.id).bind(service.revision).fetch_optional(&mut *tx).await?
+            .bind(credential).bind(&service.id).bind(service.revision).fetch_optional(&mut *tx).await?
             .ok_or_else(|| Error::Conflict("This plugin service was withdrawn during connection".into()))?;
         let installed = installation(row)?;
         tx.commit().await?;
@@ -78,6 +91,7 @@ pub(super) fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstall
             .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?,
         revision: row.try_get("revision")?,
         checked_at: row.try_get("checked_at")?,
+        credential_set: row.try_get("credential_set")?,
     })
 }
 

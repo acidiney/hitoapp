@@ -26,6 +26,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
             InstallPlugin {
                 service_id: service.id,
                 service_revision: service.revision,
+                bearer_token: None,
             },
         )
         .await
@@ -40,6 +41,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
             RefreshPlugin {
                 revision: installed.revision,
                 accept_manifest_digest: None,
+                credential: Default::default(),
             },
         )
         .await
@@ -60,6 +62,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
             RefreshPlugin {
                 revision: checked.revision,
                 accept_manifest_digest: None,
+                credential: Default::default(),
             },
         )
         .await
@@ -88,6 +91,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
             RefreshPlugin {
                 revision: checked.revision,
                 accept_manifest_digest: Some(digest),
+                credential: Default::default(),
             },
         )
         .await
@@ -107,6 +111,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
                 RefreshPlugin {
                     revision: accepted.revision,
                     accept_manifest_digest: None,
+                    credential: Default::default(),
                 }
             )
             .await,

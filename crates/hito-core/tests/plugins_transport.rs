@@ -52,6 +52,7 @@ async fn redirects_errors_non_json_and_oversized_bodies_leave_no_installation() 
                 InstallPlugin {
                     service_id: service.id.clone(),
                     service_revision: service.revision,
+                    bearer_token: None,
                 },
             )
             .await

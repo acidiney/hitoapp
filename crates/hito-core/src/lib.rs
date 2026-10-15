@@ -28,8 +28,8 @@ pub use metadata::{
     ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use plugins::{
-    InstallPlugin, OfferPluginService, PluginInstallation, PluginRefresh, PluginService,
-    PluginSettings, Plugins, RefreshPlugin,
+    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
+    PluginService, PluginSettings, Plugins, RefreshPlugin,
 };
 use store::Store;
 
@@ -54,7 +54,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         inspector: library_storage::FileInspector::new(config.media_tools),
     };
     storage.initialize().await?;
-    let plugins = Plugins::new(store.clone())?;
+    let plugins = Plugins::new(store.clone(), &config.database).await?;
     tracing::info!("Core services ready");
     Ok(Services {
         identity: Identity {

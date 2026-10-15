@@ -1,27 +1,33 @@
 mod admission;
+mod credentials;
 mod installations;
+mod key_file;
 mod offers;
 mod refresh;
 mod removal;
 mod transport;
 mod types;
+mod vault;
 
 use crate::{Result, store::Store};
 pub use types::{
-    InstallPlugin, OfferPluginService, PluginInstallation, PluginRefresh, PluginService,
-    PluginSettings, RefreshPlugin,
+    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
+    PluginService, PluginSettings, RefreshPlugin,
 };
 
 #[derive(Clone)]
 pub struct Plugins {
     store: Store,
     remote: transport::ManifestClient,
+    vault: vault::Vault,
 }
 
 impl Plugins {
-    pub(crate) fn new(store: Store) -> Result<Self> {
+    pub(crate) async fn new(store: Store, database: &std::path::Path) -> Result<Self> {
+        let vault = vault::Vault::open(&store, database).await?;
         Ok(Self {
             store,
+            vault,
             remote: transport::ManifestClient::new()?,
         })
     }

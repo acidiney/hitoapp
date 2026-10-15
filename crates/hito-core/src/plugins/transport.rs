@@ -34,7 +34,12 @@ impl ManifestClient {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub(super) async fn manifest(&self, account: &str, base_url: &str) -> Result<Manifest> {
+    pub(super) async fn manifest(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+    ) -> Result<Manifest> {
         let _account = self.accounts.enter(account)?;
         let _permit = self
             .slots
@@ -44,9 +49,12 @@ impl ManifestClient {
         let endpoint = super::offers::endpoint(base_url)?
             .join(MANIFEST_PATH)
             .map_err(|_| Error::Invalid("Invalid plugin service address".into()))?;
-        let mut response = self
-            .client
-            .get(endpoint)
+        let mut request = self.client.get(endpoint);
+        if let Some(token) = token {
+            super::vault::validate(token)?;
+            request = request.bearer_auth(token);
+        }
+        let mut response = request
             .header("accept", "application/json")
             .header("accept-encoding", "identity")
             .header("x-hito-plugin-protocol", "1")

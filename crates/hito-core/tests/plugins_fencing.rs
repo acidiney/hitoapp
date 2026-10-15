@@ -30,6 +30,7 @@ async fn withdrawing_a_service_fences_inflight_installs_and_reoffering_uses_a_ne
                     InstallPlugin {
                         service_id,
                         service_revision,
+                        bearer_token: None,
                     },
                 )
                 .await
@@ -92,6 +93,7 @@ async fn a_delayed_refresh_cannot_restore_a_removed_personal_installation() {
             InstallPlugin {
                 service_id: service.id,
                 service_revision: service.revision,
+                bearer_token: None,
             },
         )
         .await
@@ -109,6 +111,7 @@ async fn a_delayed_refresh_cannot_restore_a_removed_personal_installation() {
                     RefreshPlugin {
                         revision,
                         accept_manifest_digest: None,
+                        credential: Default::default(),
                     },
                 )
                 .await
@@ -152,6 +155,7 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
     let first_request = InstallPlugin {
         service_id: service.id.clone(),
         service_revision: service.revision,
+        bearer_token: None,
     };
     let task = tokio::spawn(async move { plugins.install(&owner, first_request).await });
     server.entered().await;
@@ -162,6 +166,7 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
             InstallPlugin {
                 service_id: service.id,
                 service_revision: service.revision,
+                bearer_token: None,
             },
         ),
     )
