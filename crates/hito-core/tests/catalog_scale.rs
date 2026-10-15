@@ -41,6 +41,14 @@ async fn compilation_heavy_catalog_reads_do_not_multiply_artists_by_every_album(
         JOIN recordings r ON r.id = s.recording_id JOIN artists c ON c.library_id = r.library_id AND c.name = m.artist COLLATE BINARY")
         .execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
+    hito.identity
+        .set_library_access(&actor, &library, &actor.user().id, false)
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(&actor, &library, &actor.user().id, true)
+        .await
+        .unwrap();
     for analyzed in [false, true] {
         if analyzed {
             sqlx::query("ANALYZE").execute(&pool).await.unwrap();

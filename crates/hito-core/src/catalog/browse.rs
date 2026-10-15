@@ -1,4 +1,4 @@
-use super::search::search_terms;
+use super::search::{scoped_terms, search_terms};
 use crate::{Actor, Result};
 use serde::Deserialize;
 use sqlx::{QueryBuilder, Sqlite};
@@ -27,6 +27,7 @@ impl Browse {
         actor: &Actor,
         alias: &str,
         index: &str,
+        columns: &str,
     ) -> Result<()> {
         query
             .push(" WHERE EXISTS (SELECT 1 FROM library_members access WHERE access.library_id = ")
@@ -34,6 +35,11 @@ impl Browse {
             .push(".library_id AND access.user_id = ")
             .push_bind(actor.id().to_owned())
             .push(")");
+        query
+            .push(" AND ")
+            .push(alias)
+            .push(".user_id = ")
+            .push_bind(actor.id().to_owned());
         if let Some(library) = &self.library {
             query
                 .push(" AND ")
@@ -51,7 +57,7 @@ impl Browse {
                 .push(" WHERE ")
                 .push(index)
                 .push(" MATCH ")
-                .push_bind(terms)
+                .push_bind(scoped_terms(actor, columns, &terms))
                 .push(")");
         }
         Ok(())

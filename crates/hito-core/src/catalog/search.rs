@@ -86,7 +86,9 @@ fn filters(
         query.push(" FROM recordings r");
     }
     if ordered {
-        query.push(" LEFT JOIN releases a ON a.id = r.release_id");
+        query
+            .push(" LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ")
+            .push_bind(actor.id().to_owned());
     }
     if ordered || search.liked == Some(true) {
         query

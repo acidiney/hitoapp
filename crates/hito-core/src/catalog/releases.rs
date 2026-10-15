@@ -37,19 +37,24 @@ const ENTRIES: &str = "), entries AS (
     FROM selected a CROSS JOIN source_metadata m ON m.release_id = a.id JOIN sources s ON s.id = m.source_id
     GROUP BY m.release_id, s.recording_id, m.disc_number, m.track_number
 ) ";
-const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist, c.id AS artist_id,
+const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist, a.artist_id,
     count(*) AS track_count, sum(m.duration_ms) AS duration_ms,
     min(e.recording_id) AS artwork_recording_id
     FROM selected a JOIN entries e ON e.release_id = a.id
-    JOIN artists c ON c.library_id = a.library_id AND c.name = a.artist COLLATE BINARY
     JOIN source_metadata m ON m.source_id = e.source_id";
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn releases(&self, actor: &Actor, browse: Browse) -> Result<Page<Release>> {
         let (offset, limit) = browse.bounds();
-        let mut count = QueryBuilder::new("SELECT count(*) FROM releases a");
-        browse.filter(&mut count, actor, "a", "releases_fts")?;
+        let mut count = QueryBuilder::new("SELECT count(*) FROM account_releases a");
+        browse.filter(
+            &mut count,
+            actor,
+            "a",
+            "account_releases_fts",
+            "{title artist}",
+        )?;
         filter_artist(&mut count, &browse);
         count.push(" AND EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)");
         let total = count
@@ -118,7 +123,7 @@ impl Catalog {
 
 fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {
     if let Some(artist) = &browse.artist {
-        query.push(" AND EXISTS (SELECT 1 FROM artist_releases ar WHERE ar.release_id = a.id AND ar.artist_id = ").push_bind(artist.clone()).push(")");
+        query.push(" AND EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = a.user_id AND ar.release_id = a.id AND ar.artist_id = ").push_bind(artist.clone()).push(")");
     }
 }
 
@@ -127,8 +132,14 @@ fn selected(
     browse: &Browse,
     id: Option<&str>,
 ) -> Result<QueryBuilder<'static, Sqlite>> {
-    let mut query = QueryBuilder::new("WITH selected AS (SELECT a.* FROM releases a");
-    browse.filter(&mut query, actor, "a", "releases_fts")?;
+    let mut query = QueryBuilder::new("WITH selected AS (SELECT a.* FROM account_releases a");
+    browse.filter(
+        &mut query,
+        actor,
+        "a",
+        "account_releases_fts",
+        "{title artist}",
+    )?;
     filter_artist(&mut query, browse);
     query.push(" AND EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)");
     if let Some(id) = id {
