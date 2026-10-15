@@ -1,6 +1,11 @@
 mod support;
 
-use hito_core::{Action, Browse, Search};
+use hito_core::{Action, Browse, Credentials, Error, Operation, Search, SyncBatch};
+use lofty::{
+    config::WriteOptions,
+    prelude::{Accessor, TagExt},
+    tag::{Tag, TagType},
+};
 use support::{catalog, synchronize};
 use uuid::Uuid;
 
@@ -107,4 +112,189 @@ async fn personal_title_is_used_by_search_albums_playlists_and_history() {
             .title,
         "Étoile personnelle"
     );
+}
+
+#[tokio::test]
+async fn title_reset_follows_retags_and_replay_does_not_restore_an_older_edit() {
+    let (_dir, hito, actor, library, music) = support::library("title-host").await;
+    let path = music.join("private-file-name.wav");
+    support::write_wav(&path, 0);
+    let mut tag = Tag::new(TagType::Id3v2);
+    tag.set_title("Observed first".into());
+    tag.set_artist("First credit".into());
+    tag.save_to_path(&path, WriteOptions::default()).unwrap();
+    support::scan(&hito, &actor, &library).await;
+    let track = hito
+        .catalog
+        .recordings(&actor, Search::default())
+        .await
+        .unwrap()
+        .items
+        .remove(0);
+    let recording = Uuid::parse_str(&track.id).unwrap();
+    let bob = hito
+        .identity
+        .create_user(
+            &actor,
+            Credentials {
+                username: "bob".into(),
+                password: "metadata bob password".into(),
+            },
+        )
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(&actor, &library, &bob.id, true)
+        .await
+        .unwrap();
+    let session = hito
+        .identity
+        .login(Credentials {
+            username: "bob".into(),
+            password: "metadata bob password".into(),
+        })
+        .await
+        .unwrap();
+    let bob = hito.identity.authenticate(&session.token).await.unwrap();
+    let operation = Uuid::new_v4();
+    for _ in 0..2 {
+        hito.collection
+            .apply(
+                &actor,
+                SyncBatch {
+                    device_id: "offline-client".into(),
+                    operations: vec![Operation {
+                        id: operation,
+                        action: Action::RecordingTitleSet {
+                            recording_id: recording,
+                            title: "Observed first".into(),
+                        },
+                    }],
+                },
+            )
+            .await
+            .unwrap();
+    }
+    tag.set_title("Observed second".into());
+    tag.set_artist("Second credit".into());
+    tag.save_to_path(&path, WriteOptions::default()).unwrap();
+    support::scan(&hito, &actor, &library).await;
+    assert_eq!(
+        hito.catalog
+            .recordings(&actor, Search::default())
+            .await
+            .unwrap()
+            .items[0]
+            .title,
+        "Observed first"
+    );
+    assert_eq!(
+        hito.catalog
+            .recordings(&bob, Search::default())
+            .await
+            .unwrap()
+            .items[0]
+            .title,
+        "Observed second"
+    );
+    let matches = hito
+        .catalog
+        .recordings(
+            &actor,
+            Search {
+                q: Some("Observed first Second".into()),
+                ..Search::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(matches.total, 1);
+    synchronize(
+        &hito,
+        &actor,
+        vec![Action::RecordingTitleInherit {
+            recording_id: recording,
+        }],
+    )
+    .await;
+    hito.collection
+        .apply(
+            &actor,
+            SyncBatch {
+                device_id: "offline-client".into(),
+                operations: vec![Operation {
+                    id: operation,
+                    action: Action::RecordingTitleSet {
+                        recording_id: recording,
+                        title: "Observed first".into(),
+                    },
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        hito.catalog
+            .recordings(&actor, Search::default())
+            .await
+            .unwrap()
+            .items[0]
+            .title,
+        "Observed second"
+    );
+    assert_eq!(
+        hito.collection
+            .events(&actor, 0)
+            .await
+            .unwrap()
+            .operations
+            .len(),
+        2
+    );
+    assert!(
+        hito.collection
+            .events(&bob, 0)
+            .await
+            .unwrap()
+            .operations
+            .is_empty()
+    );
+    tag.set_title("Observed third".into());
+    tag.save_to_path(&path, WriteOptions::default()).unwrap();
+    support::scan(&hito, &actor, &library).await;
+    assert_eq!(
+        hito.catalog
+            .recordings(
+                &actor,
+                Search {
+                    q: Some("Observed third".into()),
+                    ..Search::default()
+                }
+            )
+            .await
+            .unwrap()
+            .total,
+        1
+    );
+    hito.identity
+        .set_library_access(&actor, &library, &bob.user().id, false)
+        .await
+        .unwrap();
+    let result = hito
+        .collection
+        .apply(
+            &bob,
+            SyncBatch {
+                device_id: "bob-device".into(),
+                operations: vec![Operation {
+                    id: Uuid::new_v4(),
+                    action: Action::RecordingTitleSet {
+                        recording_id: recording,
+                        title: "Hidden".into(),
+                    },
+                }],
+            },
+        )
+        .await;
+    assert!(matches!(result, Err(Error::NotFound)));
 }

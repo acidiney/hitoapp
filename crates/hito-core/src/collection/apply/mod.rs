@@ -18,6 +18,9 @@ pub(super) async fn action(
             recording_id,
             title,
         } => crate::metadata::set_title(tx, actor, recording_id, Some(title), &operation.id).await,
+        Action::RecordingTitleInherit { recording_id } => {
+            crate::metadata::set_title(tx, actor, recording_id, None, &operation.id).await
+        }
         Action::LikeSet {
             recording_id,
             liked,

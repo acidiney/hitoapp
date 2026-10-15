@@ -16,6 +16,9 @@ pub enum Action {
         recording_id: Uuid,
         title: String,
     },
+    RecordingTitleInherit {
+        recording_id: Uuid,
+    },
     LikeSet {
         recording_id: Uuid,
         liked: bool,
@@ -57,6 +60,7 @@ impl Action {
     pub(crate) fn kind(&self) -> &'static str {
         match self {
             Self::RecordingTitleSet { .. } => "recording_title_set",
+            Self::RecordingTitleInherit { .. } => "recording_title_inherit",
             Self::LikeSet { .. } => "like_set",
             Self::ProgressSet { .. } => "progress_set",
             Self::PlaylistCreate { .. } => "playlist_create",
