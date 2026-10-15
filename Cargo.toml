@@ -26,7 +26,8 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 tempfile = "3"
 lofty = { version = "0.22.4", default-features = false }
-walkdir = "2"
+cap-std = "4.0.3"
+cap-fs-ext = "4.0.3"
 url = { version = "2", features = ["serde"] }
 
 utoipa = { version = "6", features = ["axum_extras", "uuid"] }
