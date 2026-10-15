@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
 import {
   AudioLines,
+  Disc3,
+  Mic2,
   Heart,
   History,
   Library,
@@ -22,6 +24,8 @@ const navigation = [
     group: "Browse",
     items: [
       { href: "/library", label: "Library", icon: Library },
+      { href: "/albums", label: "Albums", icon: Disc3 },
+      { href: "/artists", label: "Artists", icon: Mic2 },
       { href: "/playlists", label: "Playlists", icon: ListMusic },
     ],
   },

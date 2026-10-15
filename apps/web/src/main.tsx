@@ -2,6 +2,10 @@ import { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createInertiaApp } from "@inertiajs/react";
 import CatalogPage from "./pages/CatalogPage";
+import AlbumIndexPage from "./pages/AlbumIndexPage";
+import AlbumPage from "./pages/AlbumPage";
+import ArtistIndexPage from "./pages/ArtistIndexPage";
+import ArtistPage from "./pages/ArtistPage";
 import HistoryPage from "./pages/HistoryPage";
 import LikesPage from "./pages/LikesPage";
 import LoginPage from "./pages/LoginPage";
@@ -17,6 +21,10 @@ const layout = (page: ReactNode) => <Shell>{page}</Shell>;
 const pages = {
   LoginPage,
   CatalogPage: Object.assign(CatalogPage, { layout }),
+  AlbumIndexPage: Object.assign(AlbumIndexPage, { layout }),
+  AlbumPage: Object.assign(AlbumPage, { layout }),
+  ArtistIndexPage: Object.assign(ArtistIndexPage, { layout }),
+  ArtistPage: Object.assign(ArtistPage, { layout }),
   LikesPage: Object.assign(LikesPage, { layout }),
   PlaylistIndexPage: Object.assign(PlaylistIndexPage, { layout }),
   PlaylistPage: Object.assign(PlaylistPage, { layout }),
