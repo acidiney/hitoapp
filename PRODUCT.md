@@ -24,7 +24,7 @@ Downloads require an explicit action. Device queues stay independent. Contributi
 
 Development and the initial deployment run in Docker. SQLite stays on local persistent storage. Music folders mount read-only. Provider credentials, signing credentials, public DNS, and hosting are external dependencies.
 
-Nontechnical users choose music folders through a file explorer. Desktop discovers the standard Music folder and uses the native folder picker for additional locations. Server installation needs a host-side launcher that selects folders and configures Docker read-only mounts automatically. Editing `.env` or setting `HITO_MUSIC_FOLDER` is an advanced option, not the required setup flow. Administrator folder management belongs inside Hito Settings. A browser can browse server-accessible folders but cannot grant new host filesystem mounts by itself. Guided installation and multiple-folder management remain unimplemented in the current development build.
+Nontechnical users choose music folders through a file explorer. Development setup launchers select host folders and generate Docker read-only mounts. Administrators connect those locations to libraries inside Hito Settings. Editing `.env` or setting `HITO_MUSIC_FOLDER` is an advanced option. A browser can browse already shared directories but cannot grant new host filesystem mounts. Native launcher acceptance, packaging, automatic desktop Music-folder discovery, and desktop folder selection remain unfinished.
 
 ## Evidence on hand
 

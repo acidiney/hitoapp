@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, and indexing services. HTTP adapters authenticate requests once and invoke those services. The core owns SQLite transactions, permissions, indexing, and synchronization so a desktop backend can reuse them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, and library-storage services. HTTP adapters authenticate requests once and invoke those services. The core owns SQLite transactions, permissions, indexing, and synchronization so a desktop backend can reuse them without HTTP.
 
 ```mermaid
 flowchart LR
@@ -8,17 +8,17 @@ flowchart LR
   HTTP --> Identity[Identity / opaque authenticated Actor]
   HTTP --> Catalog[Catalog / authorized reads]
   HTTP --> Collection[Collection / atomic operation acceptance]
-  HTTP --> Indexer[Indexer / durable scan jobs]
+  HTTP --> Storage[LibraryStorage / folders and durable scans]
   Identity --> Store[Private SQLite store]
   Catalog --> Store
   Collection --> Store
-  Indexer --> Store
+  Storage --> Store
   Store --> DB[(SQLite / WAL)]
-  Indexer --> Music[Read-only music folders]
+  Storage --> Music[Granted read-only music folders]
   Desktop[Planned Tauri local backend] -.-> Identity
   Desktop -.-> Catalog
   Desktop -.-> Collection
-  Desktop -.-> Indexer
+  Desktop -.-> Storage
   Catalog -. HTTP protocol .-> Plugins[Planned provider services]
   Catalog -. opt-in .-> Community[Planned community service]
 ```
@@ -34,6 +34,9 @@ erDiagram
   USER ||--o{ LIBRARY_MEMBER : joins
   LIBRARY ||--o{ LIBRARY_MEMBER : permits
   LIBRARY ||--o{ RECORDING : contains
+  LIBRARY ||--o{ MUSIC_FOLDER : connects
+  MUSIC_FOLDER ||--o{ LOCAL_FILE : locates
+  MUSIC_FOLDER ||--o{ JOB : scans
   RECORDING ||--o{ SOURCE : plays
   RECORDING ||--o{ RECORDING_EVIDENCE : verifies
   SOURCE ||--o| LOCAL_FILE : locates
@@ -52,7 +55,9 @@ SQLite is a local dependency. Integration tests use a real temporary SQLite data
 
 Add a module when it owns a rule or resource lifecycle. Avoid layers that merely forward the same parameters. Keep database schemas and transaction ordering inside the core. Keep provider-specific response types inside adapters. Plugin SDK types describe a language-neutral wire contract and carry no application database dependency.
 
-`Collection` owns one immediate transaction for validating and accepting a batch, changing personal state, and appending events. Action modules cannot commit independently. `Indexer` selects or creates a scan in an immediate transaction so a fast worker cannot finish it between enqueue and selection. The configured backend `HostDeviceId` owns local availability. A synchronization batch's client device ID never grants filesystem access.
+`Collection` owns one immediate transaction for validating and accepting a batch, changing personal state, and appending events. Action modules cannot commit independently. `LibraryStorage` owns folder connections, grant binding, scan acceptance, leases, and reconciliation. Scan enqueue selects its row inside the same immediate transaction. Every publication requires the current attempt token and connected folder generation. The configured backend `HostDeviceId` owns local availability. A synchronization batch's client device ID never grants filesystem access.
+
+Trusted startup configuration grants directories. The browser selects typed relative components within those grants. Core opens owned directory/file handles with cap-std; the server streams the authorized handle without reopening its path. Per-grant operation and walk permits remain held through abandoned filesystem calls. Enumeration reports successful completion separately from interruption, so an incomplete walk cannot mark previously verified files missing. See [music folders](music-folders.md) for deadlines, recovery, host setup, and verification limits.
 
 ## Browser ownership
 
