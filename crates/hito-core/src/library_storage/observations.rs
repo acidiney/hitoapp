@@ -87,7 +87,7 @@ async fn observe(
     release: &str,
     file: &IndexedFile,
 ) -> Result<String> {
-    sqlx::query(
+    let stored = sqlx::query(
         "INSERT INTO metadata_observations(id, source_id, recording_id, release_id, provider, origin,
             observed_at, file_checksum, inspection_version, title, artist, album, album_artist,
             duration_ms, disc_number, track_number, tags)
@@ -97,7 +97,12 @@ async fn observe(
     ).bind(Uuid::new_v4().to_string()).bind(recording).bind(release).bind(&file.checksum)
         .bind(METADATA_VERSION).bind(&file.title).bind(&file.artist).bind(&file.album).bind(&file.album_artist)
         .bind(file.duration_ms).bind(file.disc_number).bind(file.track_number).bind(&file.tag_details).bind(source)
-        .execute(&mut **tx).await?;
+        .execute(&mut **tx).await?.rows_affected();
+    tracing::debug!(
+        created = stored == 1,
+        inspection_version = METADATA_VERSION,
+        "Source observation retained"
+    );
     Ok(sqlx::query_scalar("SELECT id FROM metadata_observations WHERE source_id = ? AND file_checksum = ? AND inspection_version = ?")
         .bind(source).bind(&file.checksum).bind(METADATA_VERSION).fetch_one(&mut **tx).await?)
 }

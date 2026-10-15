@@ -112,6 +112,16 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             .header("authorization", format!("Bearer {token}"))
             .body(Body::from(json!({"device_id":"logging-client","operations":[{"id":uuid::Uuid::new_v4(),"action":{"kind":"invalid-sync-private-title-sentinel"}}]}).to_string())).unwrap()).await.unwrap();
         assert_rejected(response, StatusCode::UNPROCESSABLE_ENTITY, "Request JSON does not match the expected fields").await;
+        for action in [
+            json!({"kind":"recording_title_set","recording_id":uuid::Uuid::new_v4(),"title":"personal-title-private-sentinel"}),
+            json!({"kind":"recording_title_inherit","recording_id":uuid::Uuid::new_v4()}),
+        ] {
+            let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/v1/sync")
+                .header("content-type", "application/json").header("x-hito-request", "1")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(json!({"device_id":"logging-client","operations":[{"id":uuid::Uuid::new_v4(),"action":action}]}).to_string())).unwrap()).await.unwrap();
+            assert_rejected(response, StatusCode::NOT_FOUND, "Resource not found").await;
+        }
         for path in [
             "/api/v1/recordings?liked=invalid-query-private-sentinel",
             "/api/v1/sync?cursor=invalid-cursor-private-sentinel",
@@ -146,6 +156,8 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             ("GET", "/api/v1/artists/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel/artwork", "null"),
+            ("GET", "/api/v1/recordings/%2Fprivate-identifier-sentinel/metadata", "null"),
+            ("GET", "/recordings/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/jobs/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/libraries/%2Fprivate-identifier-sentinel/folders", "null"),
             ("POST", "/api/v1/libraries/%2Fprivate-identifier-sentinel/scan", "null"),
@@ -179,6 +191,7 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             "private-path-sentinel",
             "7458972365897458",
             "invalid-sync-private-title-sentinel",
+            "personal-title-private-sentinel",
             "invalid-query-private-sentinel",
             "invalid-cursor-private-sentinel",
             "inertia-query-private-sentinel",
