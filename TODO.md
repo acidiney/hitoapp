@@ -2,7 +2,7 @@
 
 Updated 2026-10-15. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
-Current task: administrator UI for multiple music folders, their scan status, and library access, followed by guided installation with a native host folder picker and automatic read-only Docker mounts. Administration belongs inside Hito Settings. Normal setup must not require editing `HITO_MUSIC_FOLDER`. Recording identity is now separate from tagged-file checksums. The server/web foundation is running in Docker; most release features below remain unimplemented.
+Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. The server/web build is running in Docker; most release features below remain unimplemented.
 
 ## Library and metadata
 
@@ -10,7 +10,8 @@ Current task: administrator UI for multiple music folders, their scan status, an
 - [ ] Add artist/album pages, metadata provenance, and conservative recording matching.
 - [ ] Add configurable MusicBrainz/provider enrichment and a disable setting.
 - [ ] Add personal metadata edits, unlinking, merge splitting, undo, and administrator promotion.
-- [ ] Add additional music folders/drives, rescanning rules, and automatic desktop Music-folder indexing.
+- [x] Add multiple server music folders, independent rescans, safe removal/reconnection, and administrator folder selection in Settings.
+- [ ] Add filesystem watching, automatic desktop Music-folder discovery, and native desktop folder selection.
 - [ ] Add personal provider credentials, personal plugin installation, shared administrator defaults, and optional local PIN locks.
 
 ## Playback and desktop
@@ -58,7 +59,8 @@ Current task: administrator UI for multiple music folders, their scan status, an
 - [ ] Exercise slow providers, expired links, failed seeks, interrupted transfers, server outages, and recovery.
 - [ ] Verify backups/restoration, migrations, upgrades, installation, and approval-based updates.
 - [ ] Publish server containers/binaries, Compose deployment, Linux packages, and signed macOS/Windows installers.
-- [ ] Add guided installation with native folder selection and automatic Docker read-only mount configuration; manual `HITO_MUSIC_FOLDER` setup is an advanced option.
+- [x] Add development setup launchers with native folder selection and generated Docker read-only mounts; manual `HITO_MUSIC_FOLDER` setup is an advanced option.
+- [ ] Verify native setup dialogs, permissions, drive reconnects, project discovery/adoption, stopped backups, and rollback on macOS, Windows, and Linux; package the setup experience for distribution.
 - [ ] Complete platform verification on all three desktop systems.
 - [ ] Provision community hosting/DNS and provider test accounts.
 - [ ] Protect signing credentials, configure Apple notarization, and obtain Windows signing through SignPath or an agreed alternative.
@@ -67,7 +69,7 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 
 ## Verified foundation
 
-- [x] Split Rust into identity, catalog, collection, and indexing services with private SQLite ownership.
+- [x] Split Rust into identity, catalog, collection, and library-storage services with private SQLite ownership.
 - [x] Split React into explicit typed pages, components, and cancellable workflow hooks.
 - [x] Generate OpenAPI from actual Rust routes and TypeScript from that schema.
 - [x] Add correlated backend and local browser logging with redaction tests.
@@ -85,5 +87,9 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-Current evidence: Docker checks pass with 62 Rust tests, 30 browser unit tests, generated-contract checks, formatting, Clippy, production build, audit, and the browser workflow. Browser coverage includes the redesigned composition, native modal focus and errors, settings keyboard navigation, multiple tabs, and delayed JavaScript across account changes. Desktop and phone screenshots were inspected. The normal persistent server is rebuilt and healthy after migration 0007. A stopped-volume backup and row-count comparison confirm that accounts, recordings, playlists, entries, likes, progress, and backend identity were preserved. Recording identity tests cover ten audio containers, legacy witness ordering, metadata-owner fallback, cancellation, and owned directory access. Query-plan checks on 100,000 duplicate locators avoid temporary sorting for checksum resolution, metadata fallback, and reconciliation; these are not release latency benchmarks. An isolated production container exits successfully on Docker stop with worker/server shutdown logs. The public release remains unfinished.
+Current evidence: Docker verification passes with 82 Rust workspace tests, one separately run enumeration fault test, 34 frontend tests, and two setup CLI tests. Formatting, Clippy, generated contracts, production build, audit with zero vulnerabilities, Compose path interpolation, and the Chromium workflow pass. The browser adds two folders and checks mobile layout, Escape/focus restoration, playback, and account isolation. Desktop and phone screenshots were inspected. PowerShell syntax parses in Docker; native dialogs have not been accepted on their host platforms.
+
+The normal persistent server is healthy after migration 0008. Read-only comparison against its stopped-volume backup preserves accounts, recording/source IDs, file checksums, playlists, entries, likes, progress, membership, and backend identity. Foreign keys are valid. Folder tests cover authorization, containment, reconnects, host ownership, cancellation, expired attempts, and owned playback. Root-open fault injection uses the normal Linux backend; directory-enumeration injection uses rustix's libc backend and does not prove production raw-syscall outage behavior. See [folder behavior and limits](docs/music-folders.md).
+
+Recording identity fixtures cover ten containers. Query-plan checks on 100,000 duplicate locators avoid temporary sorting; they are not release latency benchmarks. An isolated production container exits successfully on Docker stop with lifecycle logs. Full backup restoration, platform acceptance, and public release gates remain unfinished.
 
