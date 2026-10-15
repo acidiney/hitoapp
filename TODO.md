@@ -41,6 +41,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 ## Providers and content
 
 - [x] Implement the versioned HTTP manifest contract and private installation lifecycle.
+- [x] Add core provider search and durable adoption with owner-only libraries, stable identities, and provider provenance.
+- [ ] Expose provider discovery and selection through the application API/UI, then connect verified source resolution and server-relayed playback.
 - [ ] Complete plugin capability requests/results, account-scoped provider content, source resolution/relay, and operational capability negotiation.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.

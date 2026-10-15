@@ -1,6 +1,6 @@
 # Plugin connections
 
-Hito connects to separately hosted HTTP services. It does not download or execute plugin code. The current implementation covers service offers, personal installation, manifest validation/review, credential storage, and removal. Provider search, catalogs, metadata ingestion, source resolution/relay, playlists, dashboard content, lyrics, and backing-track operations are still release work. Declaring a capability does not make that content available in Hito yet.
+Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Core provider search and durable adoption are under development. They are not exposed through browser discovery or application HTTP routes yet. Audio relay, catalogs, enrichment, playlists, dashboard content, lyrics, and backing tracks remain release work. Declaring a capability does not make that content available in Hito yet.
 
 ## Settings
 
@@ -30,11 +30,44 @@ The core owns URL validation, HTTP policy, credential encryption, quotas, and tr
 
 No SQLite transaction stays open during HTTP work. Install and refresh recheck live service/installation revisions before committing. A delayed response cannot restore a removed connection or withdrawn offer. An account can have 32 active installations; the server can offer 64 active services. Active account reads and credential-key discovery use indexes.
 
-Personal provider data is not inserted into shared source/metadata tables. Before provider operations ship, installation/account visibility and current authority must reach search, source readiness, artwork, relay, and metadata provenance. A private provider connection must never make another account's content or credentials visible.
+Personal provider data is confined to an owner-only library. It can reuse the recording/source graph without entering a shared library. Administrator membership changes reject personal libraries, and database constraints back that rule. Installation/account visibility and current authority must also reach relay before browser playback ships. A private connection must never make another account's content or credentials visible.
+
+## Provider content groundwork
+
+`Catalog::search_provider` returns transient provider results. It requires the accepted `search` capability and an expected installation revision. Search does not populate the library. `Catalog::adopt_provider` takes only an installation revision and opaque provider recording ID. It requires `sources`, refetches detail and the complete source list, then commits durable recording/source/release identities and observations atomically. The `metadata` capability is reserved for enrichment of existing content.
+
+```mermaid
+flowchart LR
+  Selection[Selected provider ID] --> Catalog[Core Catalog]
+  Catalog --> Authority[Private plugin operation]
+  Authority --> Remote[Fixed approved HTTP endpoints]
+  Remote --> Validated[Bounded detail and complete sources]
+  Validated --> Fence[Transaction and live revision check]
+  Fence --> Personal[(Owner-only library)]
+  Personal --> Saved[Stable playlist, like and progress references]
+```
+
+Provider IDs are namespaced by personal installation. Matching titles never merge recordings. A repeated selection preserves UUIDs and personal fields. Source IDs cannot silently move to a different recording. Failed responses leave previous catalog state intact. Only a complete successful source response withdraws missing sources. Removing a connection or withdrawing its service retains recordings and collection references but removes readiness. Reinstallation starts a separate identity scope.
+
+Provider observations record the accepted manifest ID, installation, remote recording ID, optional remote revision, observation time, and validated detail JSON. File checksum, local source, and file inspection version remain null. Missing duration displays as zero; the retained provider JSON preserves whether it was actually reported. Recording checksums remain real file evidence or null. Provider source metadata explicitly uses `provider_response` provenance.
+
+The outgoing JSON protocol uses these fixed paths relative to the approved base address:
+
+| Operation | Request | Response limit |
+| --- | --- | --- |
+| `POST v1/search` | `query`, optional `cursor`, `limit` | 262,144 bytes, at most 50 items |
+| `POST v1/recordings/detail` | `recording_id` | 32,768 bytes, one matching recording |
+| `POST v1/sources` | `recording_id` | 32,768 bytes, complete list of at most 16 sources |
+
+Detail returns `id`, `title`, `artist`, optional `duration_ms`, optional `release` with `id/title/artist`, optional positive disc/track numbers, and optional `revision`. Search returns `items` with the same recording fields plus optional `next_cursor`. Sources returns `items` containing `id`, `label`, and `ready`. No operation returns stream URLs or arbitrary request headers. The SDK validates these language-neutral JSON contracts.
+
+Queries use at most 512 bytes; cursors use 2,048; IDs/revisions/source labels use 256; titles/artist names use 2,048. Text must be nonblank and contain no control characters. Durations must fit JavaScript's safe integer range. Unknown fields, duplicate IDs, oversized pages, mismatched detail IDs, invalid content types, and encoded responses are rejected. Requests use the same credential, admission, redirect, and deadline policy as manifest requests below. No SQLite transaction spans HTTP work.
+
+`v1/audio` is a reserved SDK path. Audio streaming, range validation, active-stream cancellation, source refresh during playback, discovery UI, official provider services, and their live checks are still unfinished. These core operations do not establish an operational provider playback feature.
 
 ## HTTP manifest protocol, version 1
 
-This is the implemented portion of the language-neutral protocol. Additional capability endpoints have not been specified or implemented.
+This is the deployed connection protocol. The content operations above are core groundwork.
 
 A base address can use HTTP or HTTPS and a path prefix. It cannot contain user information, a query, or a fragment. Hito normalizes the trailing slash. For `https://provider.example/hito/`, it requests:
 
