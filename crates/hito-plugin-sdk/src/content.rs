@@ -46,6 +46,52 @@ pub struct ProviderRelease {
     pub artist: String,
 }
 
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecordingRequest {
+    pub recording_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SourcePage {
+    pub items: Vec<ProviderSource>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ProviderSource {
+    pub id: String,
+    pub label: String,
+    pub ready: bool,
+}
+
+impl RecordingRequest {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        text(&self.recording_id, 256)
+    }
+}
+
+impl SourcePage {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.items.len() > 16 {
+            return Err("The provider returned too many sources");
+        }
+        let mut ids = HashSet::new();
+        for source in &self.items {
+            text(&source.id, 256)?;
+            text(&source.label, 256)?;
+            if !ids.insert(&source.id) {
+                return Err("The provider returned duplicate source IDs");
+            }
+        }
+        Ok(())
+    }
+}
+
 impl SearchRequest {
     pub fn validate(&self) -> Result<(), &'static str> {
         text(&self.query, 512)?;
@@ -82,7 +128,7 @@ impl ProviderRecording {
         optional(self.revision.as_deref(), 256)?;
         if self
             .duration_ms
-            .is_some_and(|duration| duration > 604800000)
+            .is_some_and(|duration| duration > 9_007_199_254_740_991)
         {
             return Err("The provider returned an unsupported recording duration");
         }
