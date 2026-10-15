@@ -1,12 +1,6 @@
-import { router } from "@inertiajs/react";
 import type { RecordingMetadata } from "../types";
-import {
-  metadataAction,
-  type MetadataTarget,
-  type MetadataField,
-} from "../metadata";
-import { useMutation } from "../hooks/useMutation";
-import { usePlayer } from "../player/PlaybackProvider";
+import type { MetadataTarget } from "../metadata";
+import { useMetadataEditor } from "../hooks/useMetadataEditor";
 import MetadataFieldEditor from "./MetadataFieldEditor";
 
 export default function MetadataEditor({
@@ -18,23 +12,8 @@ export default function MetadataEditor({
   target: MetadataTarget;
   metadata: Pick<RecordingMetadata, "title" | "artist">;
 }) {
-  const { mutate, pending } = useMutation(account);
-  const player = usePlayer();
+  const { save, pending } = useMetadataEditor(account, target, metadata);
   const recording = target.kind === "recording";
-  async function save(field: MetadataField, personal: string | null) {
-    const result = await mutate(metadataAction(target, field, personal));
-    if (result.ok) {
-      if (recording)
-        player.setRecordingField(
-          target.id,
-          field,
-          personal,
-          metadata[field].inherited,
-        );
-      router.reload();
-    }
-    return result;
-  }
   return (
     <section
       className="metadata-editor"
