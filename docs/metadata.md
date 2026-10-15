@@ -1,59 +1,80 @@
-# Recording titles and source observations
+# Personal metadata and source observations
 
-Listeners can open track details from a recording's information link. They can save a personal title or choose **Use source title** to follow inherited metadata again. This first implementation edits recording titles. Artist/release corrections, provider enrichment, unlinking, split/undo operations, and administrator promotion remain release work.
+Track details let listeners edit a recording's title and artist. Album pages link to a separate editor for that album's title and album artist. Each field has its own **Use source** action. Edits belong to the signed-in account and do not change audio files or source observations.
 
-## Personal titles
+## Fields and identity
 
-A title belongs to the authenticated account and the recording UUID. It applies to library search, likes, playlists, listening history, and every album appearance of that performance. It changes neither the audio file nor recording/source/release identities. Other accounts retain their own titles and inherited metadata.
+Recording edits follow the recording UUID across library search, likes, playlists, listening history, and every album appearance. Album edits follow the release UUID. Changing an album artist leaves its track artists alone. Giving two albums the same title and artist does not merge them.
 
-Saving a title pins it even when it equals today's inherited title. Retagging or a change of metadata source does not replace the pin. Choosing **Use source title** accepts a new synchronization operation and removes the pin. Library rows then use the latest selected source title; album rows return to each appearance's observed title.
+Saving a value pins it, even when it equals today's inherited value. Retagging or selecting another source does not replace the pin. Reset accepts a new synchronization operation and follows inherited metadata again. Library rows use the selected source; album track rows use each appearance's observed title and artist.
 
-The browser updates titles already in its queue without restarting audio. Each queued occurrence carries its inherited title so reset can restore different release labels. The queue remains a device-local snapshot; refreshing inherited queue labels after a separate source change or an edit from another client still needs the synchronization client.
+The browser updates current and queued recording fields without reopening audio or changing position or speed. Each queued occurrence carries its inherited title and artist, so reset can restore different appearance credits. Queues remain device-local snapshots. Updating them after an external source change or an edit from another client still needs the synchronization client.
 
-`recording_title_set` and `recording_title_inherit` use the existing versioned synchronization API. Each accepted operation has a UUID. Identical delivery only acknowledges the original operation; it cannot reapply an older title over a newer reset. Reusing an operation UUID with different contents fails. All operations in a batch commit together or roll back together, including title state, search indexes, and the synchronization journal. Conflicting title operations follow committed server acceptance order.
+Artist pages group exact credit text within an account and library. These are credit labels, not canonical people. A personal artist never enters the shared observed-artist registry. Its account-owned ID stays stable if a later file inspection observes the same name. Empty historical credits are retained internally but hidden from browsing.
 
-Required titles contain 1 to 2048 UTF-8 bytes and no control characters. Blank titles are rejected. Library membership is required for new title operations and provenance reads. Removing membership hides existing personal state without deleting it; a later grant reveals that account's state again.
+Raw retagging can still change an inferred release UUID because its key includes album tags and directory identity. Personal edits do not run that identity constructor. Moving corrections to a different release after raw retagging needs explicit reconciliation and remains unfinished.
 
-## What provenance records
+## Acceptance and access
 
-`GET /api/v1/recordings/{id}/metadata` returns the effective, inherited, and personal title, the account's latest title operation ID, the selected source observation, and a bounded observation page. It exposes no filesystem paths or file checksums. Other accounts' corrections and operation IDs are excluded.
+The versioned synchronization API accepts these field operations:
 
-Each successful inspection records a normalized snapshot and the six supported chosen tags: title, artist, album, album artist, disc, and track. Tag values retain whether FFprobe found them in file tags or an audio stream. Missing tags remain absent in this structured evidence. The normalized values still apply Hito's filename and unknown-value fallbacks. This distinguishes a title tag from a filename fallback without retaining arbitrary probe output.
+| Object | Set | Follow source |
+| --- | --- | --- |
+| Recording title | `recording_title_set` | `recording_title_inherit` |
+| Recording artist | `recording_artist_set` | `recording_artist_inherit` |
+| Album title | `release_title_set` | `release_title_inherit` |
+| Album artist | `release_artist_set` | `release_artist_inherit` |
 
-Observations identify the source, recording, release, provider, inspection version, and observation time. A distinct source/checksum/inspection revision gets one immutable snapshot. A cached scan reuses it. Returning to a previously observed revision can select its earlier snapshot; this history is revision evidence, not a log of every scan. Personal title operations never rewrite snapshots.
+Each field retains its own accepted operation UUID. Identical delivery acknowledges the original operation without reapplying it over a newer reset. Reusing a UUID with different contents fails. Batch acceptance, personal state, search indexes, artist relations, and the account journal commit or roll back together. Conflicting field operations follow committed server acceptance order.
 
-Migration 0014 records the normalized metadata available at upgrade as `legacy_normalized`. Its original tags and observation time are unknown and stay null. Inspection version 2 captures supported tag evidence on the next successful scan. Until then, the details page explains the missing evidence. Migration cannot reconstruct the selected origin if an older version had already discarded that pointer.
+Values require 1 to 2048 UTF-8 bytes, nonblank text, and no control characters. Live library membership gates new writes and metadata reads. Revocation hides retained personal state and artist relations immediately. Regrant restores the account's state and refreshes its catalog transactionally. Other accounts receive their own effective values and operation IDs.
 
-The current source metadata row points to its observation. The recording keeps a separate selected-observation pointer. If every source becomes unavailable, Hito retains the last inherited metadata and its observation while clearing the playable source owner. Provenance therefore remains useful when the original drive is absent.
+## Provenance
 
-Observation pages are newest first, default to 20 entries, and return at most 100. `before` is an exclusive sequence cursor constrained to the authorized recording. The selected observation is returned separately, including when it falls outside the current history page. The browser replaces one history page at a time and cancels stale requests when its account or recording changes.
+`GET /api/v1/recordings/{id}/metadata` returns effective, inherited, and personal values for both fields, their operation IDs, the selected source observation, and a bounded observation page. `GET /api/v1/releases/{id}/metadata` returns the album fields and observations associated with that release. An album does not claim one selected track observation for its entire group. Neither response exposes filesystem paths or file checksums.
 
-## Ownership and indexes
+Each successful inspection records a normalized snapshot and six supported chosen tags: title, artist, album, album artist, disc, and track. Tag values retain whether FFprobe found them in file tags or an audio stream. Missing tags remain absent. Normalized values still apply Hito's filename and unknown-value fallbacks.
+
+A distinct source/checksum/inspection revision gets one immutable snapshot. Cached scans reuse it. Returning to a previously observed revision can select its earlier snapshot; this is revision evidence, not a log of every scan. Personal edits never rewrite these snapshots.
+
+Migration 0014 records available upgrade metadata as `legacy_normalized`. Original tags and observation times remain null. Inspection version 2 captures supported tag evidence on the next successful scan. Migration cannot reconstruct a previously discarded source pointer.
+
+Current source metadata points to its observation. Recordings keep separate selected-observation pointers. If every source becomes unavailable, Hito retains the last inherited metadata and observation while clearing the playable source owner.
+
+History pages are newest first, default to 20 entries, and return at most 100. The exclusive `before` cursor is constrained to the authorized object. A recording's selected observation is returned separately, even outside that page. The browser replaces one page at a time and cancels stale requests across account, object kind, and object ID changes.
+
+## Ownership and data flow
 
 ```mermaid
 flowchart TD
-    File[Owned file inspection] --> Observation[Immutable supported-tag observation]
-    Observation --> Current[Current source metadata]
-    Current --> Selected[Selected inherited recording metadata]
-    Listener[Authenticated listener operation] --> Collection[Collection transaction]
-    Collection --> Personal[Account title state and effective search row]
+    File[Owned file inspection] --> Observation[Immutable tag observation]
+    Observation --> Source[Current source metadata]
+    Source --> Selected[Selected inherited recording fields]
+    Listener[Authenticated field operation] --> Collection[Collection transaction]
+    Collection --> Overrides[Sparse account recording and release state]
     Collection --> Journal[Account synchronization journal]
-    Selected --> Personal
-    Selected --> Catalog[Catalog and collection reads]
-    Personal --> Catalog
-    Catalog --> UI[Track details, search, albums, playlists and history]
+    Source --> Projection[Account artists, releases and performer relations]
+    Overrides --> Projection
+    Grant[New library membership] --> Projection
+    Selected --> Search[Sparse effective recording search rows]
+    Overrides --> Search
+    Projection --> Catalog[Membership-gated catalog reads]
+    Search --> Catalog
+    Catalog --> UI[Library, album, artist and detail pages]
 ```
 
-Library storage owns inspection, observations, source selection, leases, and indexing transactions. Collection owns personal operation acceptance. The private metadata module owns title validation, title joins, and provenance reads. HTTP authenticates and maps typed results. React uses those generated contracts; it does not resolve metadata precedence.
+Library storage owns inspection, observations, source selection, and indexing transactions. Identity provisions account relations when granting a library. Collection owns personal operation acceptance. The private metadata module owns validation, effective field expressions, catalog projection updates, and bounded provenance reads. HTTP authenticates and maps typed results. React uses generated contracts.
 
-Personal title state is sparse. Only recordings that an account has edited or reset need a replacement row. That row retains the accepted operation ID and indexes the effective title plus inherited artist credit. Shared recording changes refresh its inherited values transactionally. Search excludes those recording IDs from the account's shared branch and merges their indexed replacement branch. This makes multiword title/artist search, counts, order, and pagination agree with displayed metadata.
+Recording search state stays sparse. Only edited or reset recordings need replacement rows. The effective title and artist are indexed together; inherited updates refresh them in the same transaction. Search merges those rows with the remaining shared branch. Album and artist graphs are materialized per account, with account-scoped FTS and indexed performer relations. Every read still checks current library membership. Unchanged indexing skips projection and FTS rewrites.
 
-Personal artist credits must not enter the shared artist registry. They need account-specific effective grouping before artist editing can ship. Release membership and disc/track corrections also need explicit appearance identities; editable names must not silently regroup recordings.
+Migration 0015 preserves prior title pins, resets, and operation IDs while adding an independent recording artist field. Migration 0016 backfills the account catalog. Migration 0017 adds independent release fields and indexed release history.
 
 ## Evidence and limits
 
-Public Docker tests cover title propagation, account isolation, revocation/regrant, invalid-batch rollback, replay after reset, retagging, different release appearances, source-owner changes, retained provenance, revision paging, cache reuse, and truthful legacy upgrades. HTTP tests cover authenticated metadata and Inertia reads. Browser tests exercise editing and resetting during playback, details inspection, and phone layout.
+Public Docker tests cover field propagation, private search and grouping, equal-name album separation, grant/revoke/regrant, rollback, replay, retags, appearance fallbacks, source changes, retained provenance, paging, cache reuse, and truthful upgrades. A schema-14 upgrade test preserves saved pins and reset operation IDs through the public capability. HTTP tests cover authentication, authorization, rollback, private values, and Inertia props. Log capture rejects private titles, credits, invalid route identifiers, and credentials.
 
-Independent SQL diagnostics used the project's bundled SQLite 3.46.0 with 100,000 tracks, ten accounts, and 50,000 personal title rows. Median count-plus-page times after `ANALYZE` were about 75 ms for ordinary browsing, 442 ms for a common-term search, 0.16 ms for a selective search, and 287 ms at offset 90,000. A 100,000-row observation migration took about 1.76 seconds. These sequential synthetic diagnostics do not establish HTTP p95, concurrent-listener performance, playback targets, or platform release gates.
+The Chromium workflow saves and resets all four fields while audio continues, verifies the unchanged album URL and track performers, and follows the personal album artist. It delays a real refresh response to verify disabled controls and preservation of an unsaved artist draft. Desktop and phone captures were inspected; a phone viewport assertion keeps the album reset control above the player dock. These checks do not establish native or cross-browser acceptance.
 
-Provider-backed provenance, configurable enrichment, shared correction layers, negative matching decisions, stable corrected appearance identities, undo, and promotion remain unimplemented. Raw retagging can still change an inferred release UUID because its current key includes album tags and directory identity. Hito must resolve that behavior explicitly before claiming preservation of future release overrides.
+Independent diagnostics used bundled SQLite 3.46.0 with 100,000 recordings, ten accounts, 50,000 recording correction states, 10,000 release correction states, and one million account source credits. After `ANALYZE`, median count/page timings were about 29/0.25 ms for recording browse, 41/77 ms for broad recording search, 21/9 ms for artist browse, and 4/0.62 ms for release browse. A new membership across 100,000 sources took 861 ms. Unchanged source refresh across ten or eleven memberships took 0.067–0.094 ms and wrote no rows. Indexed history returned 101 rows in 0.13–0.22 ms. Migration 0016 took about six seconds. These sequential synthetic measurements exclude HTTP, concurrent listeners, decoding, and playback latency.
+
+Provider enrichment, shared correction layers, negative matches, unlink/split, undo, disc/track corrections, stable corrected appearance identities, administrator promotion, and release identity reconciliation remain unimplemented.
