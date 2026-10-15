@@ -50,13 +50,13 @@ test("editing and resetting a queued title preserves playback and each release f
   ]);
   player.seek(4);
   const source = audio.src;
-  player.setRecordingTitle("same", "Personal title", "Original title");
+  player.setRecordingField("same", "title", "Personal title", "Original title");
   expect(player.snapshot().queue.map((track) => track.title)).toEqual([
     "Personal title",
     "Personal title",
   ]);
   expect(player.snapshot().current?.title).toBe("Personal title");
-  player.setRecordingTitle("same", null, "Original title");
+  player.setRecordingField("same", "title", null, "Original title");
   expect(player.snapshot().queue.map((track) => track.title)).toEqual([
     "Original title",
     "Encore",
@@ -93,6 +93,45 @@ test("a failed source recovers the same recording near the current position", as
   audio.dispatchEvent(new Event("loadedmetadata"));
   expect(audio.currentTime).toBe(4.5);
   expect(player.snapshot().current?.id).toBe("recording");
+});
+
+test("performer edits and resets preserve audio and each appearance's credit", async () => {
+  const media = new Media();
+  const player = new Playback(media, async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = {
+    id: "recording",
+    title: "Title",
+    duration_ms: 10000,
+    available: true,
+  };
+  await player.playQueue([
+    { ...track, artist: "Original", inherited_artist: "Original" },
+    { ...track, artist: "Guest", inherited_artist: "Guest" },
+    { ...track, id: "other", artist: "Unchanged" },
+  ]);
+  player.seek(3);
+  player.speed(1.25);
+  const source = media.src;
+  player.setRecordingField("recording", "artist", "Personal", "Original");
+  expect(player.snapshot().queue.map((item) => item.artist)).toEqual([
+    "Personal",
+    "Personal",
+    "Unchanged",
+  ]);
+  expect(player.snapshot().current?.artist).toBe("Personal");
+  player.setRecordingField("recording", "artist", null, "Original");
+  expect(player.snapshot().queue.map((item) => item.artist)).toEqual([
+    "Original",
+    "Guest",
+    "Unchanged",
+  ]);
+  expect(player.snapshot().current?.artist).toBe("Original");
+  expect(media.src).toBe(source);
+  expect(media.currentTime).toBe(3);
+  expect(media.playbackRate).toBe(1.25);
+  expect(media.paused).toBe(false);
 });
 
 test("an old media error while resolving cannot replace the selected track", async () => {

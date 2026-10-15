@@ -32,8 +32,9 @@ export default function RecordingTitleEditor({
       setError(result.error);
       return;
     }
-    player.setRecordingTitle(
+    player.setRecordingField(
       recording,
+      "title",
       inherit ? null : draft,
       title.inherited,
     );

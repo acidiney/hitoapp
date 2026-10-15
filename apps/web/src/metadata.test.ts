@@ -5,13 +5,14 @@ import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
 import { NoticeProvider } from "./components/Notices";
-import RecordingTitleEditor from "./components/RecordingTitleEditor";
+import MetadataFieldEditor from "./components/MetadataFieldEditor";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "./hooks/useMetadataHistory";
 import { metadataApi } from "./metadataApi";
 import type { ObservationPage, RecordingMetadata } from "./types";
+import type { MetadataField, MetadataTarget } from "./metadata";
 
-const player = vi.hoisted(() => ({ setRecordingTitle: vi.fn() }));
+const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("./api", () => ({ change: vi.fn() }));
 vi.mock("./metadataApi", () => ({ metadataApi: { recording: vi.fn() } }));
@@ -24,10 +25,11 @@ afterEach(() => {
 test("an accepted title reset updates the queue and reloads details", async () => {
   vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
   render(
-    createElement(RecordingTitleEditor, {
+    createElement(MetadataFieldEditor, {
       account: "alice",
-      recording: "track",
-      title: {
+      target: { kind: "recording", id: "track" },
+      field: "title",
+      metadata: {
         value: "My title",
         inherited: "Source title",
         personal: "My title",
@@ -43,8 +45,9 @@ test("an accepted title reset updates the queue and reloads details", async () =
     { kind: "recording_title_inherit", recording_id: "track" },
     expect.any(AbortSignal),
   );
-  expect(player.setRecordingTitle).toHaveBeenCalledWith(
+  expect(player.setRecordingField).toHaveBeenCalledWith(
     "track",
+    "title",
     null,
     "Source title",
   );
@@ -78,6 +81,12 @@ test("a late history response cannot appear after switching accounts", async () 
         operation_id: "private",
       },
       selected_observation: null,
+      artist: {
+        value: "Source",
+        inherited: "Source",
+        personal: null,
+        operation_id: null,
+      },
       observations: { items: [], next_before: 8 },
     });
     await pending;
@@ -87,16 +96,85 @@ test("a late history response cannot appear after switching accounts", async () 
   expect(result.current.error).toBe("");
   expect(vi.mocked(metadataApi.recording).mock.calls[0][3].aborted).toBe(true);
 });
+
+test.each([
+  [
+    { kind: "recording", id: "track" },
+    "artist",
+    "Track artist",
+    {
+      kind: "recording_artist_set",
+      recording_id: "track",
+      artist: "Private credit",
+    },
+  ],
+  [
+    { kind: "release", id: "album" },
+    "artist",
+    "Album artist",
+    {
+      kind: "release_artist_set",
+      release_id: "album",
+      artist: "Private credit",
+    },
+  ],
+  [
+    { kind: "release", id: "album" },
+    "title",
+    "Album title",
+    { kind: "release_title_set", release_id: "album", title: "Private credit" },
+  ],
+] as const)(
+  "saving %s %s sends the right typed operation",
+  async (target, field, label, action) => {
+    vi.mocked(change).mockResolvedValueOnce({ acknowledged: [] });
+    render(
+      createElement(MetadataFieldEditor, {
+        account: "alice",
+        target: target as MetadataTarget,
+        field: field as MetadataField,
+        metadata: {
+          value: "Inherited",
+          inherited: "Inherited",
+          personal: null,
+          operation_id: null,
+        },
+      }),
+      { wrapper },
+    );
+    fireEvent.change(screen.getByLabelText(label), {
+      target: { value: "Private credit" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: `Save personal ${field}` }),
+    );
+    await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+    expect(change).toHaveBeenCalledWith(
+      "alice",
+      action,
+      expect.any(AbortSignal),
+    );
+    if (target.kind === "recording")
+      expect(player.setRecordingField).toHaveBeenCalledWith(
+        "track",
+        field,
+        "Private credit",
+        "Inherited",
+      );
+    else expect(player.setRecordingField).not.toHaveBeenCalled();
+  },
+);
 const wrapper = ({ children }: { children: ReactNode }) =>
   createElement(NoticeProvider, null, children);
 
 test("a failed title save preserves the draft and keeps the player unchanged", async () => {
   vi.mocked(change).mockRejectedValueOnce(new Error("Server unavailable"));
   render(
-    createElement(RecordingTitleEditor, {
+    createElement(MetadataFieldEditor, {
       account: "alice",
-      recording: "track",
-      title: {
+      target: { kind: "recording", id: "track" },
+      field: "title",
+      metadata: {
         value: "Inherited",
         inherited: "Inherited",
         personal: null,
@@ -110,6 +188,6 @@ test("a failed title save preserves the draft and keeps the player unchanged", a
   fireEvent.click(screen.getByRole("button", { name: "Save personal title" }));
   await screen.findByText("Server unavailable");
   expect(input.value).toBe("Keep my draft");
-  expect(player.setRecordingTitle).not.toHaveBeenCalled();
+  expect(player.setRecordingField).not.toHaveBeenCalled();
   expect(router.reload).not.toHaveBeenCalled();
 });
