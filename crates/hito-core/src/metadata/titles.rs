@@ -6,7 +6,7 @@ pub(crate) const RECORDING_TITLE: &str = "COALESCE(personal_title.override_title
 pub(crate) const APPEARANCE_TITLE: &str = "COALESCE(personal_title.override_title, m.title)";
 
 pub(crate) fn join_title(query: &mut QueryBuilder<'_, Sqlite>, actor: &Actor) {
-    query.push(" LEFT JOIN personal_recording_titles personal_title ON personal_title.recording_id = r.id AND personal_title.user_id = ")
+    query.push(" LEFT JOIN personal_recording_metadata personal_title ON personal_title.recording_id = r.id AND personal_title.user_id = ")
         .push_bind(actor.id().to_owned());
 }
 
@@ -28,10 +28,10 @@ pub(crate) async fn set_title(
         ));
     }
     sqlx::query(
-        "INSERT INTO personal_recording_titles(user_id, recording_id, override_title, title, artist, operation_id)
+        "INSERT INTO personal_recording_metadata(user_id, recording_id, override_title, title, artist, title_operation_id)
          SELECT ?, r.id, ?, COALESCE(?, r.title), r.artist, ? FROM recordings r WHERE r.id = ?
          ON CONFLICT(user_id, recording_id) DO UPDATE SET override_title = excluded.override_title,
-            title = excluded.title, artist = excluded.artist, operation_id = excluded.operation_id",
+            title = excluded.title, artist = excluded.artist, title_operation_id = excluded.title_operation_id",
     )
     .bind(actor.id()).bind(title).bind(title).bind(operation.to_string()).bind(&recording)
     .execute(&mut **tx).await?;

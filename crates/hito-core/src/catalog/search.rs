@@ -80,7 +80,7 @@ fn filters(
 ) {
     if personal {
         query.push(
-            " FROM personal_recording_titles p CROSS JOIN recordings r ON r.id = p.recording_id",
+            " FROM personal_recording_metadata p CROSS JOIN recordings r ON r.id = p.recording_id",
         );
     } else {
         query.push(" FROM recordings r");
@@ -107,16 +107,16 @@ fn filters(
             .push_bind(actor.id().to_owned());
     } else {
         query
-            .push(" AND NOT EXISTS (SELECT 1 FROM personal_recording_titles p WHERE p.user_id = ")
+            .push(" AND NOT EXISTS (SELECT 1 FROM personal_recording_metadata p WHERE p.user_id = ")
             .push_bind(actor.id().to_owned())
             .push(" AND p.recording_id = r.id)");
     }
     if !terms.is_empty() {
         query.push(if personal {
-            " AND p.id IN (SELECT rowid FROM personal_titles_fts WHERE personal_titles_fts MATCH "
+            " AND p.id IN (SELECT rowid FROM personal_recordings_fts WHERE personal_recordings_fts MATCH "
         } else {
             " AND r.rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH "
-        }).push_bind(terms.to_owned()).push(")");
+        }).push_bind(if personal { scoped_terms(actor, "{title artist}", terms) } else { terms.to_owned() }).push(")");
     }
     if search.liked == Some(true) {
         query.push(" AND l.liked = 1");
@@ -126,4 +126,14 @@ fn filters(
             .push(" AND r.library_id = ")
             .push_bind(library.clone());
     }
+}
+
+pub(crate) fn scoped_terms(actor: &Actor, columns: &str, terms: &str) -> String {
+    let scope: String = actor
+        .id()
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect();
+    format!("scope: \"{scope}\" AND {columns}: ({terms})")
 }
