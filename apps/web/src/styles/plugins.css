@@ -1,0 +1,97 @@
+.plugin-section {
+  margin-top: 34px;
+}
+.plugin-section > h3,
+.plugin-review h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.plugin-form {
+  display: grid;
+  gap: 14px;
+  max-width: 480px;
+  margin: 18px 0 24px;
+}
+.plugin-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.plugin-form input,
+.plugin-form select {
+  width: 100%;
+  min-width: 0;
+}
+.plugin-form > .button {
+  justify-self: start;
+}
+.plugin-form p {
+  margin: 0;
+}
+.plugin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.plugin-connection {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.plugin-connection .setting-row {
+  border-bottom: 0;
+}
+.plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.plugin-address {
+  overflow-wrap: anywhere;
+}
+.plugin-details summary {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 12px 0;
+}
+.plugin-details[open] > summary {
+  margin-bottom: 10px;
+}
+.plugin-confirm,
+.plugin-review {
+  padding: 18px 0;
+}
+.plugin-confirm .plugin-actions,
+.plugin-review .plugin-actions {
+  margin-top: 16px;
+}
+.plugin-review dl {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 10px 18px;
+  font-size: 13px;
+  margin: 18px 0;
+}
+.plugin-review dt {
+  color: var(--muted);
+}
+.plugin-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.plugin-connection > [role="status"] {
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .plugin-connection .setting-row {
+    align-items: start;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .plugin-review dl {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .plugin-review dd {
+    margin-bottom: 10px;
+  }
+}

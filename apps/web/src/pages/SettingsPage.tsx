@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import type { SettingsPageProps } from "../types";
 import AccountSettings from "../components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
+import PluginSettings from "../components/plugins/PluginSettings";
 import PageHeading from "../components/PageHeading";
 import { log } from "../log";
 
@@ -11,6 +12,7 @@ export default function SettingsPage(props: SettingsPageProps) {
   const tabs = [
     { id: "library", label: "Library" },
     { id: "privacy", label: "Privacy" },
+    { id: "plugins", label: "Plugins" },
     ...(props.user.admin ? [{ id: "accounts", label: "Accounts" }] : []),
   ];
   function selectTab(mode: string) {
@@ -65,6 +67,9 @@ export default function SettingsPage(props: SettingsPageProps) {
           role="tabpanel"
           aria-labelledby={`tab-${selected}`}
         >
+          {selected === "plugins" && (
+            <PluginSettings account={props.user.id} admin={props.user.admin} />
+          )}
           {selected === "library" && <LibrarySettings {...props} />}
           {selected === "privacy" && (
             <section className="settings-panel">
