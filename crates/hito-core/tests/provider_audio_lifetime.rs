@@ -202,12 +202,12 @@ async fn connection_checks_and_cached_readiness_changes_do_not_interrupt_a_healt
         .await
         .unwrap();
     assert!(
-        !f.hito
+        f.hito
             .catalog
             .sources(&f.actor, &f.source.recording_id)
             .await
-            .unwrap()[0]
-            .ready
+            .unwrap()
+            .is_empty()
     );
     assert!(
         f.hito
