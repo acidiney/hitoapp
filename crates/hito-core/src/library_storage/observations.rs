@@ -1,5 +1,5 @@
 use super::types::{IndexedFile, METADATA_VERSION};
-use crate::Result;
+use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 use sqlx::{Sqlite, Transaction};
 use std::path::Path;
@@ -57,5 +57,23 @@ pub(super) async fn remember(
             track_number = excluded.track_number, inspection_version = excluded.inspection_version",
     ).bind(source).bind(release).bind(&file.title).bind(&file.artist).bind(file.duration_ms)
         .bind(file.disc_number).bind(file.track_number).bind(METADATA_VERSION).execute(&mut **tx).await?;
+    let bound = sqlx::query(
+        "INSERT INTO source_artist_credits(source_id, artist_id)
+         SELECT m.source_id, c.id FROM source_metadata m JOIN sources s ON s.id = m.source_id
+         JOIN recordings r ON r.id = s.recording_id
+         JOIN artists c ON c.library_id = r.library_id AND c.name = m.artist COLLATE BINARY
+         WHERE m.source_id = ? AND r.id = ?
+         ON CONFLICT(source_id) DO UPDATE SET artist_id = excluded.artist_id",
+    )
+    .bind(source)
+    .bind(recording)
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+    if bound != 1 {
+        return Err(Error::Internal(
+            "Source artist credit could not be recorded".into(),
+        ));
+    }
     super::metadata_owner::refresh_metadata(tx, recording).await
 }
