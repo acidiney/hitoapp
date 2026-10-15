@@ -19,6 +19,14 @@ pub struct RecordingMetadata {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct ReleaseMetadata {
+    pub release_id: String,
+    pub title: TextMetadata,
+    pub artist: TextMetadata,
+    pub observations: ObservationPage,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct TextMetadata {
     pub value: String,
     pub inherited: String,

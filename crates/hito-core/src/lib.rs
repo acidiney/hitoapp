@@ -24,7 +24,7 @@ pub use library_storage::{
 };
 pub use metadata::{
     InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
-    ObservedTag, RecordingMetadata, TagLocation, TextMetadata,
+    ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 use store::Store;
 

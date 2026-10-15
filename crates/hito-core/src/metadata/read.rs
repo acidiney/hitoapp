@@ -1,9 +1,6 @@
-use super::{
-    MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
-    RecordingMetadata, TextMetadata,
-};
+use super::{MetadataHistoryQuery, RecordingMetadata, TextMetadata, history};
 use crate::{Actor, Catalog, Error, Result};
-use sqlx::{Row, sqlite::SqliteRow};
+use sqlx::Row;
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -13,10 +10,6 @@ impl Catalog {
         recording: &str,
         page: MetadataHistoryQuery,
     ) -> Result<RecordingMetadata> {
-        if page.before.is_some_and(|before| before <= 0) {
-            return Err(Error::Invalid("Use a positive observation cursor".into()));
-        }
-        let limit = page.limit.unwrap_or(20).clamp(1, 100);
         let mut tx = self.store.pool.begin().await?;
         let row = sqlx::query(
             "SELECT r.id, r.title AS inherited, COALESCE(p.override_title, r.title) AS title,
@@ -45,66 +38,24 @@ impl Catalog {
                 .bind(&recording_id)
                 .fetch_optional(&mut *tx)
                 .await?
-                .map(observation)
+                .map(history::observation)
                 .transpose()?
         } else {
             None
         };
-        let mut rows = sqlx::query(
-            "SELECT * FROM metadata_observations WHERE recording_id = ? AND sequence < ? ORDER BY sequence DESC LIMIT ?",
-        ).bind(&recording_id).bind(page.before.unwrap_or(i64::MAX)).bind(limit + 1).fetch_all(&mut *tx).await?;
-        let next_before = if rows.len() > limit as usize {
-            rows.pop();
-            rows.last()
-                .map(|row| row.try_get::<i64, _>("sequence"))
-                .transpose()?
-        } else {
-            None
-        };
-        let items = rows
-            .into_iter()
-            .map(observation)
-            .collect::<Result<Vec<_>>>()?;
+        let observations =
+            history::page(&mut tx, history::Target::Recording(&recording_id), page).await?;
         tx.commit().await?;
-        tracing::debug!(count = items.len(), "Recording metadata loaded");
+        tracing::debug!(
+            count = observations.items.len(),
+            "Recording metadata loaded"
+        );
         Ok(RecordingMetadata {
             recording_id,
             title,
             artist,
             selected_observation,
-            observations: ObservationPage { items, next_before },
+            observations,
         })
     }
-}
-
-fn observation(row: SqliteRow) -> Result<MetadataObservation> {
-    let origin: &str = row.try_get("origin")?;
-    let origin = match origin {
-        "file_inspection" => ObservationOrigin::FileInspection,
-        "legacy_normalized" => ObservationOrigin::LegacyNormalized,
-        _ => return Err(Error::Internal("Metadata origin could not be read".into())),
-    };
-    let tags: Option<String> = row.try_get("tags")?;
-    let tags = tags
-        .as_deref()
-        .map(serde_json::from_str)
-        .transpose()
-        .map_err(|_| Error::Internal("Observed tags could not be read".into()))?;
-    Ok(MetadataObservation {
-        id: row.try_get("id")?,
-        source_id: row.try_get("source_id")?,
-        release_id: row.try_get("release_id")?,
-        provider: row.try_get("provider")?,
-        origin,
-        observed_at: row.try_get("observed_at")?,
-        inspection_version: row.try_get("inspection_version")?,
-        title: row.try_get("title")?,
-        artist: row.try_get("artist")?,
-        album: row.try_get("album")?,
-        album_artist: row.try_get("album_artist")?,
-        duration_ms: row.try_get("duration_ms")?,
-        disc_number: row.try_get("disc_number")?,
-        track_number: row.try_get("track_number")?,
-        tags,
-    })
 }
