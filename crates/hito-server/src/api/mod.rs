@@ -1,4 +1,5 @@
 pub mod artwork;
+pub mod browsing;
 pub mod catalog;
 pub mod collection;
 pub mod identity;

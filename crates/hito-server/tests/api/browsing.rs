@@ -1,0 +1,137 @@
+use super::support::{call, indexed_app};
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+};
+use http_body_util::BodyExt;
+use serde_json::{Value, json};
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn artist_and_album_pages_share_the_authorized_json_catalog() {
+    let (_dir, app, token, _) = indexed_app().await;
+    for (resource, page, index_component, detail_component) in [
+        ("releases", "albums", "AlbumIndexPage", "AlbumPage"),
+        ("artists", "artists", "ArtistIndexPage", "ArtistPage"),
+    ] {
+        let (status, index) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/{resource}?limit=1"),
+            Value::Null,
+            Some(&token),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(index["total"], 1);
+        let id = index["items"][0]["id"].as_str().unwrap();
+        assert_eq!(
+            call(
+                &app,
+                "GET",
+                &format!("/api/v1/{resource}/{id}"),
+                Value::Null,
+                Some(&token)
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        for (path, component) in [
+            (format!("/{page}"), index_component),
+            (format!("/{page}/{id}"), detail_component),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .header("authorization", format!("Bearer {token}"))
+                        .header("x-inertia", "true")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let data: Value =
+                serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            assert_eq!(data["component"], component);
+            assert!(
+                data["props"][if component.ends_with("IndexPage") {
+                    resource
+                } else {
+                    "detail"
+                }]
+                .is_object()
+            );
+        }
+    }
+    let (_, listener) = call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username":"listener","password":"listener private password"}),
+        Some(&token),
+    )
+    .await;
+    assert!(listener["id"].is_string());
+    let (_, session) = call(
+        &app,
+        "POST",
+        "/api/v1/login",
+        json!({"username":"listener","password":"listener private password"}),
+        None,
+    )
+    .await;
+    for resource in ["releases", "artists"] {
+        let index = call(
+            &app,
+            "GET",
+            &format!("/api/v1/{resource}"),
+            Value::Null,
+            Some(&token),
+        )
+        .await
+        .1;
+        let id = index["items"][0]["id"].as_str().unwrap();
+        let listener = session["token"].as_str().unwrap();
+        assert_eq!(
+            call(
+                &app,
+                "GET",
+                &format!("/api/v1/{resource}"),
+                Value::Null,
+                Some(listener)
+            )
+            .await
+            .1["total"],
+            0
+        );
+        assert_eq!(
+            call(
+                &app,
+                "GET",
+                &format!("/api/v1/{resource}/{id}"),
+                Value::Null,
+                Some(listener)
+            )
+            .await
+            .0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            call(
+                &app,
+                "GET",
+                &format!("/api/v1/{resource}/{id}"),
+                Value::Null,
+                None
+            )
+            .await
+            .0,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+}

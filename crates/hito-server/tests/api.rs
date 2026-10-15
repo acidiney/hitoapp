@@ -7,6 +7,9 @@ mod identity;
 #[path = "api/catalog.rs"]
 mod catalog;
 
+#[path = "api/browsing.rs"]
+mod browsing;
+
 #[path = "api/collection.rs"]
 mod collection;
 
