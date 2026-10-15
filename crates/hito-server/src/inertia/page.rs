@@ -8,6 +8,7 @@ pub enum Screen<'a> {
     Catalog,
     AlbumIndex,
     Album(&'a str),
+    AlbumDetails(&'a str),
     ArtistIndex,
     Artist(&'a str),
     RecordingDetails(&'a str),
@@ -28,6 +29,10 @@ impl<'a> Screen<'a> {
             "/settings" => Self::Settings,
             "/albums" => Self::AlbumIndex,
             "/artists" => Self::ArtistIndex,
+            _ if path.starts_with("/albums/") && path.ends_with("/details") => Self::AlbumDetails(
+                path.trim_start_matches("/albums/")
+                    .trim_end_matches("/details"),
+            ),
             _ if path.starts_with("/albums/") => Self::Album(path.trim_start_matches("/albums/")),
             _ if path.starts_with("/artists/") => {
                 Self::Artist(path.trim_start_matches("/artists/"))
@@ -44,6 +49,7 @@ impl<'a> Screen<'a> {
             Self::Catalog => "CatalogPage",
             Self::AlbumIndex => "AlbumIndexPage",
             Self::Album(_) => "AlbumPage",
+            Self::AlbumDetails(_) => "AlbumDetailsPage",
             Self::ArtistIndex => "ArtistIndexPage",
             Self::Artist(_) => "ArtistPage",
             Self::RecordingDetails(_) => "RecordingDetailsPage",
@@ -64,6 +70,22 @@ impl<'a> Screen<'a> {
     ) -> ApiResult<PageProps> {
         let shared = shared(services, actor, fields).await?;
         match self {
+            Self::AlbumDetails(id) => {
+                let detail = if fields.requested("detail") {
+                    Some(
+                        services
+                            .catalog
+                            .release_metadata(actor, id, Default::default())
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                Ok(PageProps::AlbumDetails(AlbumDetailsPageProps {
+                    shared,
+                    detail,
+                }))
+            }
             Self::RecordingDetails(id) => {
                 let detail = if fields.requested("detail") {
                     Some(

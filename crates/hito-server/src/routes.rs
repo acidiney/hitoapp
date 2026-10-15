@@ -25,6 +25,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         CatalogPageProps,
         AlbumIndexPageProps,
         AlbumPageProps,
+        AlbumDetailsPageProps,
         ArtistIndexPageProps,
         ArtistPageProps,
         RecordingDetailsPageProps,
@@ -54,6 +55,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
         .routes(routes!(api::metadata::recording_metadata))
+        .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
         .routes(routes!(api::artwork::release_artwork))
         .routes(routes!(catalog::audio))
@@ -96,6 +98,7 @@ pub fn router_with_config(services: Services, config: Config) -> Router {
         .route("/library", get(inertia::page))
         .route("/albums", get(inertia::page))
         .route("/albums/{id}", get(inertia::page))
+        .route("/albums/{id}/details", get(inertia::page))
         .route("/artists", get(inertia::page))
         .route("/artists/{id}", get(inertia::page))
         .route("/recordings/{id}", get(inertia::page))
