@@ -38,3 +38,17 @@ pub struct PluginSettings {
     pub services: Vec<PluginService>,
     pub installations: Vec<PluginInstallation>,
 }
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RefreshPlugin {
+    pub revision: i64,
+    pub accept_manifest_digest: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PluginRefresh {
+    Updated { installation: PluginInstallation },
+    ReviewRequired { manifest: Manifest, digest: String },
+}

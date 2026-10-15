@@ -82,7 +82,7 @@ impl Plugins {
     }
 }
 
-fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstallation> {
+pub(super) fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstallation> {
     let manifest: String = row.try_get("manifest")?;
     Ok(PluginInstallation {
         id: row.try_get("id")?,

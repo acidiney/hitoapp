@@ -28,7 +28,8 @@ pub use metadata::{
     ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use plugins::{
-    InstallPlugin, OfferPluginService, PluginInstallation, PluginService, PluginSettings, Plugins,
+    InstallPlugin, OfferPluginService, PluginInstallation, PluginRefresh, PluginService,
+    PluginSettings, Plugins, RefreshPlugin,
 };
 use store::Store;
 
