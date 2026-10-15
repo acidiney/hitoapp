@@ -24,6 +24,8 @@ tempfile.workspace = true
 url.workspace = true
 reqwest.workspace = true
 rustls.workspace = true
+chacha20poly1305.workspace = true
+zeroize.workspace = true
 hito-plugin-sdk = { path = "../hito-plugin-sdk", features = ["schema"] }
 
 [dev-dependencies]
