@@ -64,7 +64,47 @@ test("personal plugin connections review changes and remain private across accou
     await page
       .getByRole("button", { name: "Offer service", exact: true })
       .click();
-    await expect(page.getByRole("combobox", { name: "Service", exact: true })).toHaveValue(/.+/);
+    await expect(
+      page.getByRole("combobox", { name: "Service", exact: true }),
+    ).toHaveValue(/.+/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const connectButton = page.getByRole("button", {
+      name: "Connect service",
+      exact: true,
+    });
+    await connectButton.scrollIntoViewIfNeeded();
+    const connectBounds = await connectButton.boundingBox();
+    const dockBounds = await page
+      .getByRole("contentinfo", { name: "Audio player" })
+      .boundingBox();
+    expect(connectBounds!.y + connectBounds!.height).toBeLessThanOrEqual(
+      dockBounds!.y,
+    );
+    const selector = await page
+      .getByRole("combobox", { name: "Service", exact: true })
+      .boundingBox();
+    expect(selector!.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    ).toBe(false);
+    await page.screenshot({
+      path: "/workspace/test-results/plugins-connect-mobile.png",
+    });
+    const serviceAddress = page.getByLabel("Service address", { exact: true });
+    await serviceAddress.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
+    const addressBounds = await serviceAddress.boundingBox();
+    expect(addressBounds!.y + addressBounds!.height).toBeLessThanOrEqual(
+      dockBounds!.y,
+    );
+    await page.screenshot({
+      path: "/workspace/test-results/plugins-admin-mobile.png",
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(expectedToken!);

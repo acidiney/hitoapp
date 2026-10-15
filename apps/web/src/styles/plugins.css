@@ -21,6 +21,13 @@
 .plugin-form select {
   width: 100%;
   min-width: 0;
+  min-height: 44px;
+}
+.plugin-form select {
+  padding: 10px 12px;
+}
+.plugin-form :is(input, select, button) {
+  scroll-margin-block: 24px calc(var(--player) + 24px);
 }
 .plugin-form > .button {
   justify-self: start;
