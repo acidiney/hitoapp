@@ -16,6 +16,11 @@ use props::{LoginPageProps, PageProps};
 use protocol::Protocol;
 use serde_json::json;
 
+#[derive(serde::Deserialize)]
+pub(super) struct ArtistPagination {
+    recording_offset: Option<i64>,
+}
+
 pub async fn page(
     State(services): State<Services>,
     Extension(config): Extension<Config>,
@@ -23,6 +28,7 @@ pub async fn page(
     OriginalUri(uri): OriginalUri,
     headers: HeaderMap,
     QueryParams(search): QueryParams<Search>,
+    QueryParams(pagination): QueryParams<ArtistPagination>,
 ) -> ApiResult<Response> {
     if let Some(response) =
         Protocol::version_conflict(&headers, &config.asset_version, &uri.to_string())
@@ -38,7 +44,11 @@ pub async fn page(
     let protocol = Protocol::new(&headers, component);
     let clear_history = actor.is_none();
     let props = match actor {
-        Some(actor) => screen.props(&services, &actor, search, &protocol).await?,
+        Some(actor) => {
+            screen
+                .props(&services, &actor, search, pagination, &protocol)
+                .await?
+        }
         None => {
             let needs_setup = if protocol.requested("needs_setup") {
                 Some(services.identity.needs_setup().await?)

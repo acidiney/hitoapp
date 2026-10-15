@@ -69,6 +69,7 @@ impl<'a> Screen<'a> {
         services: &Services,
         actor: &Actor,
         mut search: Search,
+        pagination: super::ArtistPagination,
         fields: &Protocol,
     ) -> ApiResult<PageProps> {
         let shared = shared(services, actor, fields).await?;
@@ -148,7 +149,9 @@ impl<'a> Screen<'a> {
             }
             Self::Artist(id) => {
                 let detail = if fields.requested("detail") {
-                    Some(services.catalog.artist(actor, id, browse(search)).await?)
+                    let mut browse = browse(search);
+                    browse.recording_offset = pagination.recording_offset;
+                    Some(services.catalog.artist(actor, id, browse).await?)
                 } else {
                     None
                 };

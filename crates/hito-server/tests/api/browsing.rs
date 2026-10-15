@@ -197,3 +197,58 @@ async fn release_artwork_is_private_and_requires_library_membership() {
         StatusCode::UNAUTHORIZED
     );
 }
+
+#[tokio::test]
+async fn artist_tracks_and_albums_have_independent_json_and_inertia_offsets() {
+    let (_dir, app, token, recording) = indexed_app().await;
+    let (_, artists) = call(&app, "GET", "/api/v1/artists", Value::Null, Some(&token)).await;
+    let artist = artists["items"][0]["id"].as_str().unwrap();
+    let (_, filtered) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/recordings?artist={artist}"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(filtered["total"], 1);
+    assert_eq!(filtered["items"][0]["id"], recording);
+    let (_, missing) = call(
+        &app,
+        "GET",
+        "/api/v1/recordings?artist=missing",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(missing["total"], 0);
+    let query = "offset=0&limit=1&recording_offset=1";
+    let (_, json) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{artist}?{query}"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(json["releases"]["offset"], 0);
+    assert_eq!(json["releases"]["items"].as_array().unwrap().len(), 1);
+    assert_eq!(json["recordings"]["offset"], 1);
+    assert!(json["recordings"]["items"].as_array().unwrap().is_empty());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/artists/{artist}?{query}"))
+                .header("authorization", format!("Bearer {token}"))
+                .header("x-inertia", "true")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let page: Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(page["props"]["detail"], json);
+}
