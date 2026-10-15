@@ -1,3 +1,9 @@
+mod content;
+pub use content::{
+    AUDIO_PATH, DETAIL_PATH, ProviderRecording, ProviderRelease, SEARCH_PATH, SOURCES_PATH,
+    SearchPage, SearchRequest,
+};
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
