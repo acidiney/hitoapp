@@ -4,6 +4,7 @@ import { createInertiaApp } from "@inertiajs/react";
 import CatalogPage from "./pages/CatalogPage";
 import AlbumIndexPage from "./pages/AlbumIndexPage";
 import AlbumPage from "./pages/AlbumPage";
+import AlbumDetailsPage from "./pages/AlbumDetailsPage";
 import ArtistIndexPage from "./pages/ArtistIndexPage";
 import ArtistPage from "./pages/ArtistPage";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
@@ -24,6 +25,7 @@ const pages = {
   CatalogPage: Object.assign(CatalogPage, { layout }),
   AlbumIndexPage: Object.assign(AlbumIndexPage, { layout }),
   AlbumPage: Object.assign(AlbumPage, { layout }),
+  AlbumDetailsPage: Object.assign(AlbumDetailsPage, { layout }),
   ArtistIndexPage: Object.assign(ArtistIndexPage, { layout }),
   ArtistPage: Object.assign(ArtistPage, { layout }),
   RecordingDetailsPage: Object.assign(RecordingDetailsPage, { layout }),

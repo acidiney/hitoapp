@@ -33,6 +33,12 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
             {release.track_count === 1 ? "track" : "tracks"} ·{" "}
             {time(release.duration_ms / 1000)}
           </p>
+          <Link
+            className="text-link"
+            href={`/albums/${encodeURIComponent(release.id)}/details`}
+          >
+            Edit album details
+          </Link>
         </div>
       </section>
       {tracks.length ? (

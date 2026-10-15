@@ -18,9 +18,14 @@
   line-height: 1.6;
   margin: 0 0 24px;
 }
-.metadata-editor form {
+.metadata-field {
   display: grid;
   gap: 12px;
+}
+.metadata-field + .metadata-field {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
 }
 .metadata-editor label {
   font-size: 14px;

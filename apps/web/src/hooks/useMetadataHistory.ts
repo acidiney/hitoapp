@@ -2,14 +2,15 @@ import { useRef, useState } from "react";
 import { metadataApi } from "../metadataApi";
 import { errorMessage } from "../format";
 import type { ObservationPage } from "../types";
+import type { MetadataTarget } from "../metadata";
 import { useRequestScope } from "./useRequestScope";
 
 export function useMetadataHistory(
   account: string,
-  recording: string,
+  target: MetadataTarget,
   initial: ObservationPage,
 ) {
-  const scope = useRequestScope(`${account}\0${recording}`);
+  const scope = useRequestScope(`${account}\0${target.kind}\0${target.id}`);
   const [state, setState] = useState({ scope, page: initial });
   const [pending, setPending] = useState<typeof scope | null>(null);
   const [failure, setFailure] = useState<{
@@ -25,9 +26,9 @@ export function useMetadataHistory(
     setPending(scope);
     setFailure(null);
     try {
-      const detail = await metadataApi.recording(
+      const detail = await metadataApi.history(
         account,
-        recording,
+        target,
         page.next_before,
         request.signal,
       );

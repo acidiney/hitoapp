@@ -1,16 +1,18 @@
 import { request } from "./http";
-import type { RecordingMetadata } from "./types";
+import type { RecordingMetadata, ReleaseMetadata } from "./types";
+import type { MetadataTarget } from "./metadata";
 
 export const metadataApi = {
-  async recording(
+  async history(
     account: string,
-    recording: string,
+    target: MetadataTarget,
     before: number,
     signal: AbortSignal,
-  ): Promise<RecordingMetadata> {
+  ): Promise<RecordingMetadata | ReleaseMetadata> {
+    const resource = target.kind === "recording" ? "recordings" : "releases";
     return (
       await request(
-        `/recordings/${encodeURIComponent(recording)}/metadata?before=${before}`,
+        `/${resource}/${encodeURIComponent(target.id)}/metadata?before=${before}`,
         {
           action: "metadata.history",
           account,

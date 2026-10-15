@@ -30,6 +30,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
     title: "Opening",
     inherited_title: "Opening",
     artist: "Performer",
+    inherited_artist: "Performer",
     album: "Two discs",
     duration_ms: 1000,
     available: true,

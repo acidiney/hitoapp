@@ -15,7 +15,7 @@ import type { MetadataField, MetadataTarget } from "./metadata";
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("./api", () => ({ change: vi.fn() }));
-vi.mock("./metadataApi", () => ({ metadataApi: { recording: vi.fn() } }));
+vi.mock("./metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
 afterEach(() => {
   cleanup();
@@ -55,7 +55,7 @@ test("an accepted title reset updates the queue and reloads details", async () =
 
 test("a late history response cannot appear after switching accounts", async () => {
   let resolve!: (value: RecordingMetadata) => void;
-  vi.mocked(metadataApi.recording).mockReturnValueOnce(
+  vi.mocked(metadataApi.history).mockReturnValueOnce(
     new Promise((done) => {
       resolve = done;
     }),
@@ -63,7 +63,12 @@ test("a late history response cannot appear after switching accounts", async () 
   const alice: ObservationPage = { items: [], next_before: 20 };
   const bob: ObservationPage = { items: [], next_before: null };
   const { result, rerender } = renderHook(
-    ({ account, initial }) => useMetadataHistory(account, "recording", initial),
+    ({ account, initial }) =>
+      useMetadataHistory(
+        account,
+        { kind: "recording", id: "recording" },
+        initial,
+      ),
     { initialProps: { account: "alice", initial: alice } },
   );
   let pending!: Promise<void>;
@@ -94,7 +99,7 @@ test("a late history response cannot appear after switching accounts", async () 
   expect(result.current.page).toEqual(bob);
   expect(result.current.pending).toBe(false);
   expect(result.current.error).toBe("");
-  expect(vi.mocked(metadataApi.recording).mock.calls[0][3].aborted).toBe(true);
+  expect(vi.mocked(metadataApi.history).mock.calls[0][3].aborted).toBe(true);
 });
 
 test.each([
@@ -190,4 +195,46 @@ test("a failed title save preserves the draft and keeps the player unchanged", a
   expect(input.value).toBe("Keep my draft");
   expect(player.setRecordingField).not.toHaveBeenCalled();
   expect(router.reload).not.toHaveBeenCalled();
+});
+
+test("history requests cannot leak between recording and album targets with the same ID", async () => {
+  let resolve!: (value: RecordingMetadata) => void;
+  vi.mocked(metadataApi.history).mockReturnValueOnce(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  const initial: ObservationPage = { items: [], next_before: 20 };
+  const { result, rerender } = renderHook(
+    ({ kind }: { kind: "recording" | "release" }) =>
+      useMetadataHistory("alice", { kind, id: "same" }, initial),
+    { initialProps: { kind: "recording" } },
+  );
+  let pending!: Promise<void>;
+  act(() => {
+    pending = result.current.older();
+  });
+  rerender({ kind: "release" });
+  await act(async () => {
+    resolve({
+      recording_id: "same",
+      title: {
+        value: "Title",
+        inherited: "Title",
+        personal: null,
+        operation_id: null,
+      },
+      artist: {
+        value: "Artist",
+        inherited: "Artist",
+        personal: null,
+        operation_id: null,
+      },
+      selected_observation: null,
+      observations: { items: [], next_before: 8 },
+    });
+    await pending;
+  });
+  expect(result.current.page).toEqual(initial);
+  expect(vi.mocked(metadataApi.history).mock.calls[0][3].aborted).toBe(true);
 });

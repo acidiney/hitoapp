@@ -1,5 +1,6 @@
 import type { MetadataObservation, ObservationPage } from "../types";
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
+import type { MetadataTarget } from "../metadata";
 
 const tagLabels = {
   title: "Title",
@@ -84,16 +85,16 @@ function Observation({
 
 export default function MetadataObservations({
   account,
-  recording,
+  target,
   initial,
   selected,
 }: {
   account: string;
-  recording: string;
+  target: MetadataTarget;
   initial: ObservationPage;
   selected?: string;
 }) {
-  const history = useMetadataHistory(account, recording, initial);
+  const history = useMetadataHistory(account, target, initial);
   return (
     <section
       className="metadata-history"
@@ -102,8 +103,8 @@ export default function MetadataObservations({
     >
       <h2 id="source-history-heading">Source observations</h2>
       <p>
-        Metadata read from your library. Personal titles leave these
-        observations intact.
+        Metadata read from your library. Personal edits leave these observations
+        intact.
       </p>
       {!history.isLatest && (
         <button
