@@ -1,0 +1,126 @@
+.recording-details {
+  max-width: 860px;
+}
+.metadata-hero {
+  margin: 28px 0 36px;
+}
+.metadata-hero h1 {
+  overflow-wrap: anywhere;
+}
+.metadata-editor h2,
+.metadata-history h2 {
+  font-size: 21px;
+  margin: 0 0 10px;
+}
+.metadata-editor > p,
+.metadata-history > p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.metadata-editor form {
+  display: grid;
+  gap: 12px;
+}
+.metadata-editor label {
+  font-size: 14px;
+  font-weight: 550;
+}
+.metadata-editor input {
+  min-width: 0;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+}
+.metadata-inheritance {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.metadata-inheritance strong {
+  color: var(--text);
+  font-weight: 450;
+}
+.metadata-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+.metadata-history {
+  margin-top: 48px;
+  padding-top: 36px;
+  border-top: 1px solid var(--border);
+}
+.metadata-observations {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+}
+.metadata-observations > li {
+  padding: 26px 0;
+  border-bottom: 1px solid var(--border);
+}
+.metadata-observations header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.metadata-selected {
+  color: var(--primary);
+  font-weight: 500;
+  margin-left: 12px;
+}
+.metadata-observations h3 {
+  font-size: 17px;
+  margin: 18px 0 7px;
+}
+.metadata-observations p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+.metadata-observations article {
+  overflow-wrap: anywhere;
+}
+.metadata-observations summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.metadata-tag-list {
+  display: grid;
+  gap: 16px;
+  padding: 18px 0 0;
+  margin: 0;
+}
+.metadata-tag-list > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 16px;
+  font-size: 13px;
+}
+.metadata-tag-list dt {
+  color: var(--muted);
+}
+.metadata-tag-list dd {
+  margin: 0;
+}
+.metadata-tag-list small {
+  color: var(--muted);
+  display: block;
+  margin-top: 6px;
+}
+@media (max-width: 600px) {
+  .metadata-editor-actions .button {
+    flex: 1;
+  }
+  .metadata-tag-list > div {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+}
