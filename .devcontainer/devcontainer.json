@@ -1,0 +1,14 @@
+{
+  "name": "Hito Rust",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "rust",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": true,
+  "shutdownAction": "none",
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml"],
+      "settings": { "rust-analyzer.cargo.targetDir": true }
+    }
+  }
+}

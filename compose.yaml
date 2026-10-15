@@ -1,0 +1,74 @@
+name: hito
+services:
+  server:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "127.0.0.1:${HITO_PORT:-8080}:8080"
+    volumes:
+      - hito-data:/data
+      - ${HITO_MUSIC_FOLDER:-./fixtures/generated}:/music:ro
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:${HITO_PORT:-8080}
+      HITO_LOG_FORMAT: json
+      RUST_LOG: ${RUST_LOG:-info}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  rust:
+    profiles: [tools]
+    build:
+      context: .
+      target: rust-tools
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - rust-target:/build
+    command: cargo test --workspace
+  node:
+    profiles: [tools]
+    image: node:22-bookworm-slim
+    working_dir: /workspace/apps/web
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/apps/web/node_modules
+    command: npm test
+  e2e-server:
+    profiles: [e2e]
+    build:
+      context: .
+      target: runtime
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - ./fixtures/generated:/music:ro
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700
+  browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    working_dir: /workspace/apps/web
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/apps/web/node_modules
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+    depends_on:
+      e2e-server:
+        condition: service_healthy
+    network_mode: service:e2e-server
+    command: npm run e2e
+volumes:
+  hito-data:
+  cargo-registry:
+  cargo-git:
+  rust-target:
+  node-modules:

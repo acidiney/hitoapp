@@ -1,0 +1,14 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "targetDir": true,
+          "buildScripts": { "enable": true }
+        },
+        "procMacro": { "enable": true },
+        "check": { "command": "clippy" }
+      }
+    }
+  }
+}
