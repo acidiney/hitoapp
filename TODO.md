@@ -57,7 +57,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 
 ## UI and branding
 
-- [ ] Regenerate Hito's logo and wordmark, replacing the current waveform design across the app.
+- [ ] Regenerate Hito's logo and wordmark with a new visual direction, replace the current orange waveform across the app, and verify readability at small sizes and as an application icon.
 
 ## Community service
 
