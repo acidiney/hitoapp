@@ -1,12 +1,13 @@
-import type { Recording, Source as ApiSource } from "./types";
+import type { Recording } from "./types";
 import { log } from "./log";
+import { PlaybackSources, type SourceResolver } from "./playbackSources";
+export type { Source } from "./playbackSources";
 
 export type Track = Pick<
   Recording,
   "id" | "title" | "artist" | "duration_ms" | "available"
 > &
   Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
-export type Source = Pick<ApiSource, "id" | "ready">;
 export interface MediaPort extends EventTarget {
   src: string;
   currentTime: number;
@@ -49,7 +50,7 @@ export class Playback {
     speed: 1,
   };
   private listeners = new Set<() => void>();
-  private sources: Source[] = [];
+  private sources: PlaybackSources | null = null;
   private generation = 0;
   private selection = 0;
   private sourceAttempt = 0;
@@ -60,7 +61,7 @@ export class Playback {
 
   constructor(
     private media: MediaPort,
-    private resolve: (recording: string) => Promise<Source[]>,
+    private resolve: SourceResolver,
     private onProgress?: (
       track: Track,
       position: number,
@@ -69,13 +70,14 @@ export class Playback {
   ) {
     media.addEventListener("loadedmetadata", () => {
       log.debug("playback.metadata", { recording_id: this.state.current?.id });
-      if (this.pendingSeek !== null) {
-        media.currentTime = this.pendingSeek;
-        this.pendingSeek = null;
-      }
       this.update({
         duration: Number.isFinite(media.duration) ? media.duration : 0,
       });
+      if (this.pendingSeek !== null) {
+        const position = this.pendingSeek;
+        this.pendingSeek = null;
+        this.seek(position);
+      }
     });
     media.addEventListener("timeupdate", () => {
       this.update({ position: media.currentTime });
@@ -188,7 +190,10 @@ export class Playback {
     const generation = ++this.generation;
     const current = this.state.queue[index];
     log.info("playback.resolving", { recording_id: current?.id, index });
-    this.sources = [];
+    this.sources?.close();
+    this.sources = current
+      ? new PlaybackSources(current.id, this.resolve)
+      : null;
     this.media.pause();
     this.activeSource = false;
     this.media.removeAttribute("src");
@@ -207,13 +212,6 @@ export class Playback {
       return;
     }
     try {
-      const sources = await this.resolve(current.id);
-      if (generation !== this.generation) return;
-      this.sources = sources.filter((source) => source.ready);
-      log.debug("playback.resolved", {
-        recording_id: current.id,
-        count: this.sources.length,
-      });
       await this.useNextSource(position);
     } catch {
       log.warn("playback.resolution_failed", { recording_id: current.id });
@@ -224,12 +222,19 @@ export class Playback {
   private async useNextSource(position: number) {
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
-    const source = this.sources.shift();
+    const sources = this.sources;
+    const source = await sources?.next();
+    if (
+      generation !== this.generation ||
+      attempt !== this.sourceAttempt ||
+      sources !== this.sources
+    )
+      return;
     if (!source) {
       await this.skipFailed();
       return;
     }
-    this.pendingSeek = position;
+    this.pendingSeek ??= position;
     this.activeSource = true;
     log.info("playback.source_changed", {
       recording_id: this.state.current?.id,
@@ -250,13 +255,23 @@ export class Playback {
   }
 
   async recover() {
+    if (!this.activeSource) return;
+    const generation = this.generation;
+    const sources = this.sources;
+    this.activeSource = false;
+    const position = this.pendingSeek ?? this.media.currentTime;
+    this.pendingSeek = position;
+    this.media.pause();
+    this.update({ playing: false, loading: true });
     log.warn("playback.recovering", {
       recording_id: this.state.current?.id,
-      count: this.sources.length,
     });
-    await this.useNextSource(
-      Math.max(this.pendingSeek ?? 0, this.media.currentTime),
-    );
+    try {
+      await this.useNextSource(position);
+    } catch {
+      if (generation === this.generation && sources === this.sources)
+        await this.skipFailed();
+    }
   }
 
   private async skipFailed() {
@@ -281,6 +296,7 @@ export class Playback {
 
   async toggle() {
     this.selection++;
+    if (this.state.loading) return;
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
     log.info("playback.toggle", {
@@ -300,14 +316,25 @@ export class Playback {
     } else this.media.pause();
   }
   seek(seconds: number) {
-    this.media.currentTime = Math.max(
+    if (!Number.isFinite(seconds)) return;
+    const position = Math.max(
       0,
       Math.min(seconds, this.state.duration || seconds),
     );
-    this.update({ position: this.media.currentTime });
+    if (this.state.loading && !this.activeSource) this.pendingSeek = position;
+    else {
+      try {
+        this.media.currentTime = position;
+        this.pendingSeek = null;
+      } catch {
+        this.pendingSeek = position;
+        void this.recover();
+      }
+    }
+    this.update({ position });
     log.debug("playback.seek", {
       recording_id: this.state.current?.id,
-      position_ms: Math.floor(this.media.currentTime * 1000),
+      position_ms: Math.floor(position * 1000),
     });
   }
   speed(value: number) {
@@ -375,6 +402,8 @@ export class Playback {
     this.selection++;
     log.info("queue.clear", { count: this.state.queue.length });
     this.generation++;
+    this.sources?.close();
+    this.sources = null;
     this.media.pause();
     this.activeSource = false;
     this.media.removeAttribute("src");

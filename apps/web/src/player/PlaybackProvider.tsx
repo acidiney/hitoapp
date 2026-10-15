@@ -41,8 +41,10 @@ function AccountPlayback({
     const audio = new Audio();
     const player = new Playback(
       audio,
-      (recording) =>
-        libraryApi.sources(account, recording, scope.capture().signal),
+      (recording, options) =>
+        options.refresh
+          ? libraryApi.refreshSources(account, recording, options.signal)
+          : libraryApi.sources(account, recording, options.signal),
       (track, position, speed) => {
         const request = scope.capture();
         void change(

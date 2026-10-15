@@ -35,7 +35,7 @@ export default function PlaybackControls() {
         </button>
         <button
           className="play-button"
-          disabled={!state.current}
+          disabled={!state.current || state.loading}
           aria-label={state.playing ? "Pause" : "Play"}
           onClick={() => void player.toggle()}
         >

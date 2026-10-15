@@ -132,6 +132,7 @@ test("a failed source recovers the same recording near the current position", as
     0,
   );
   expect(audio.src).toContain("first");
+  audio.dispatchEvent(new Event("loadedmetadata"));
   audio.currentTime = 4.5;
   await player.recover();
   expect(audio.src).toContain("second");
@@ -211,12 +212,17 @@ test("an old media error while resolving cannot replace the selected track", asy
 
 test("a rejected play promise from an earlier selection cannot skip the new track", async () => {
   let rejectOld!: (error: Error) => void;
+  let started!: () => void;
+  const entered = new Promise<void>((resolve) => {
+    started = resolve;
+  });
   class DelayedMedia extends Media {
     calls = 0;
     override async play() {
       if (this.calls++ === 0)
         await new Promise<void>((_, reject) => {
           rejectOld = reject;
+          started();
         });
       else await super.play();
     }
@@ -231,7 +237,7 @@ test("a rejected play promise from an earlier selection cannot skip the new trac
   });
   const player = new Playback(audio, async (id) => [{ id, ready: true }]);
   const old = player.playQueue([track("old")]);
-  await Promise.resolve();
+  await entered;
   await player.playQueue([track("new"), track("next")]);
   const aborted = new Error("aborted");
   aborted.name = "AbortError";
