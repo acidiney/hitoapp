@@ -3,27 +3,29 @@ import { Disc3, ListMusic } from "lucide-react";
 
 export default function Artwork({
   recording,
+  release,
   playlist = false,
   className = "",
 }: {
   recording?: string;
+  release?: string;
   playlist?: boolean;
   className?: string;
 }) {
   const [failed, setFailed] = useState<string>();
-  const image = recording && failed !== recording;
+  const url = release
+    ? `/api/v1/releases/${encodeURIComponent(release)}/artwork`
+    : recording
+      ? `/api/v1/recordings/${encodeURIComponent(recording)}/artwork`
+      : undefined;
+  const image = url && failed !== url;
   return (
     <div
       className={`artwork ${image ? "has-image" : ""} ${className}`}
       aria-hidden="true"
     >
       {image ? (
-        <img
-          src={`/api/v1/recordings/${encodeURIComponent(recording)}/artwork`}
-          alt=""
-          loading="lazy"
-          onError={() => setFailed(recording)}
-        />
+        <img src={url} alt="" loading="lazy" onError={() => setFailed(url)} />
       ) : playlist ? (
         <ListMusic strokeWidth={1} />
       ) : (
