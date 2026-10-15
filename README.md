@@ -2,27 +2,30 @@
 
 Hito is an open-source audio library built around reliable playback. The monorepo currently runs a Rust server and a shared React browser interface in Docker. The [first public release plan](docs/release-plan.md) includes desktop clients, provider services, downloads, and a community service. Those remain active implementation work; this is a development build.
 
-## Run in Docker
+## Choose your music folders
 
-Docker Engine and Docker Compose are the only host requirements.
+Install Docker Engine or Docker Desktop with Compose, then open the development setup launcher:
+
+- macOS: open **Hito Setup.command**.
+- Windows: run **Hito Setup.ps1** in PowerShell.
+- Linux: run `./hito-setup`. The native chooser uses Zenity or KDialog.
+
+Choose folders in the file explorer. Setup builds Hito in Docker and creates read-only mounts automatically. In Hito, create the first administrator account, open **Settings → Library**, and select **Add music folder**. Choose a shared location or one of its subfolders. Each connected folder scans automatically and has its own status, rescan, and removal controls.
+
+Setup retains recognized existing data volumes, project names, ports, and the legacy music mount, and archives a stopped data volume before restarting. It rejects ambiguous installations and unsupported custom mounts. These are development launchers; signed packaging and live native-dialog verification on all three systems remain release work. See [music folder setup](docs/music-folders.md).
+
+## Advanced Docker setup
+
+For a manual instance with synthetic audio:
 
 ```sh
-cp .env.example .env
 docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs
 docker compose up --build -d server
 ```
 
-Open [localhost:8080](http://localhost:8080). Create the first administrator account, then select **Scan music folder**. The generated files are synthetic 30-second WAV tones for verification.
+Open [localhost:8080](http://localhost:8080). The generated files are synthetic 30-second WAV tones. The legacy Compose file accepts `HITO_MUSIC_FOLDER` for an advanced single mount. Guided setup does not require that variable. Use the launcher's generated Compose file for subsequent management of a guided installation; see [operations](docs/operations.md).
 
-The current development build uses manual mount configuration. To use your own audio, set `HITO_MUSIC_FOLDER` in `.env` to an absolute folder path and recreate the server:
-
-```sh
-docker compose up -d --force-recreate server
-```
-
-Music mounts read-only at `/music`. SQLite persists in the `hito_hito-data` Docker volume. The application runs as UID 10001 and publishes its port on loopback. The configured folder must be readable by that user. Do not put SQLite on a network filesystem.
-
-The approved installation flow will offer a native folder picker and configure Docker mounts automatically. Multiple-folder administration will live in Settings. These remain the next implementation work; nontechnical users will not need to edit environment variables in the release flow.
+SQLite persists in a local Docker volume, normally `hito_hito-data`. The server runs as UID 10001 and publishes its port on loopback. Music must be readable by that user. Do not put SQLite on a network filesystem.
 
 The first account administers other accounts from **Settings → Accounts**. New accounts receive no library access until an administrator grants it. Playlists, likes, and history belong to each account.
 

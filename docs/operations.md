@@ -18,7 +18,9 @@ flowchart LR
   Server -->|SQLite WAL transactions| Data
 ```
 
-Changing the host music folder currently requires recreating the container. Guided host folder selection and multiple-folder Settings are approved but unfinished. Scanning does not modify or remove original audio. It creates private temporary inspection copies and removes them after use. Missing files and sources from a displaced configured root become unavailable after a successful scan.
+Development setup launchers configure read-only mounts through native folder selection. Administrator Settings connects folders inside those grants. See [music folders](music-folders.md) for setup, removal, and verification limits. Scanning never modifies original audio. Private inspection copies are removed after use. Only a completed folder walk reconciles missing files.
+
+For a guided installation, use its generated Compose file, for example `docker compose -p hito -f "$HOME/Library/Application Support/Hito/compose.json" ps` on macOS. Substitute the saved project and platform configuration directory. The repository Compose file remains the advanced development setup.
 
 Tag-only changes preserve recording and source identities when verified audio evidence matches. Actual replaced audio receives a different recording and source, preserving references to the old recording. [Recording identity](recording-identity.md) explains conservative legacy matching and unavailable historical records.
 
