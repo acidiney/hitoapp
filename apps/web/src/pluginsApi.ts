@@ -7,9 +7,45 @@ import type {
   PluginService,
   PluginSettings,
   RefreshPlugin,
+  ProviderSearch,
+  ProviderSearchPage,
+  AdoptProviderRecording,
+  Recording,
 } from "./types";
 const part = encodeURIComponent;
 export const pluginsApi = {
+  async adopt(
+    account: string,
+    installation: string,
+    body: AdoptProviderRecording,
+    signal: AbortSignal,
+  ): Promise<Recording> {
+    return (
+      await request(`/plugins/${part(installation)}/recordings`, {
+        action: "providers.adopt",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
+  async search(
+    account: string,
+    installation: string,
+    body: ProviderSearch,
+    signal: AbortSignal,
+  ): Promise<ProviderSearchPage> {
+    return (
+      await request(`/plugins/${part(installation)}/search`, {
+        action: "providers.search",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
   async settings(
     account: string,
     signal: AbortSignal,
