@@ -41,6 +41,9 @@ erDiagram
   LIBRARY ||--o{ MUSIC_FOLDER : connects
   MUSIC_FOLDER ||--o{ LOCAL_FILE : locates
   MUSIC_FOLDER ||--o{ JOB : scans
+  USER ||--o{ ACCOUNT_RECORDING_CREDIT : owns
+  RECORDING ||--o{ ACCOUNT_RECORDING_CREDIT : credits
+  ACCOUNT_ARTIST ||--o{ ACCOUNT_RECORDING_CREDIT : identifies
   RECORDING ||--o{ SOURCE : plays
   RECORDING ||--o{ RECORDING_EVIDENCE : verifies
   SOURCE ||--o| LOCAL_FILE : locates
@@ -60,7 +63,7 @@ erDiagram
 
 ## Catalog appearances
 
-Artist and album pages use authorized `Catalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
+Artist and album pages use authorized `Catalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. Effective account recording credits also expose recordings without a release or source. They update within provider adoption, personal artist edits, membership provisioning, and selected local metadata changes, including folder failover. Artist details return bounded independent recording and album pages through the existing Catalog boundary. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
 
 ## Metadata
 
