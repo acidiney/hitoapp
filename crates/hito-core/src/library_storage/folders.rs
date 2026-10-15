@@ -49,6 +49,7 @@ impl LibraryStorage {
         actor.require_admin()?;
         let mut connection = self.store.pool.acquire().await?;
         library_access(&mut connection, actor, library).await?;
+        crate::identity::shared_library(&mut connection, library).await?;
         tracing::Span::current().record("library_id", library);
         let rows: Vec<Folder> = sqlx::query_as("SELECT * FROM music_folders WHERE library_id = ? AND host_device = ? AND connected = 1 ORDER BY name, id")
             .bind(library).bind(self.host.as_str()).fetch_all(&mut *connection).await?;
@@ -82,6 +83,7 @@ impl LibraryStorage {
         actor.require_admin()?;
         let mut connection = self.store.pool.acquire().await?;
         library_access(&mut connection, actor, library).await?;
+        crate::identity::shared_library(&mut connection, library).await?;
         tracing::Span::current().record("library_id", library);
         drop(connection);
         let root = self.directories.open_selected(&request.directory).await?;

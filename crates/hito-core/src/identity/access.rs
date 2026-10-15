@@ -13,6 +13,7 @@ impl Identity {
     ) -> Result<()> {
         actor.require_admin()?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        shared_library(&mut tx, library).await?;
         if allowed {
             let exists: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM libraries l CROSS JOIN users u WHERE l.id = ? AND u.id = ?",
@@ -43,6 +44,21 @@ impl Identity {
         tx.commit().await?;
         tracing::info!(allowed, "Library membership updated");
         Ok(())
+    }
+}
+
+pub(crate) async fn shared_library(connection: &mut SqliteConnection, library: &str) -> Result<()> {
+    let owner: Option<Option<String>> =
+        sqlx::query_scalar("SELECT owner_id FROM libraries WHERE id = ?")
+            .bind(library)
+            .fetch_optional(connection)
+            .await?;
+    match owner {
+        Some(None) => Ok(()),
+        Some(Some(_)) => Err(Error::Invalid(
+            "Personal provider libraries are managed by their owner through plugins".into(),
+        )),
+        None => Err(Error::NotFound),
     }
 }
 

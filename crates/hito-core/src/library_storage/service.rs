@@ -9,6 +9,7 @@ impl LibraryStorage {
         actor.require_admin()?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         library_access(&mut tx, actor, library).await?;
+        crate::identity::shared_library(&mut tx, library).await?;
         tracing::Span::current().record("library_id", library);
         self.ensure_legacy(&mut tx, actor, library).await?;
         let folders: Vec<Folder> = sqlx::query_as("SELECT * FROM music_folders WHERE library_id = ? AND host_device = ? AND connected = 1 AND bound = 1 ORDER BY id")
