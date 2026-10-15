@@ -1270,6 +1270,103 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/metadata": {
+      "get": {
+        "operationId": "recording_metadata",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/sources": {
       "get": {
         "operationId": "sources",
@@ -2254,6 +2351,48 @@
             "type": "object",
             "required": [
               "recording_id",
+              "title",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "recording_title_set"
+                ]
+              },
+              "recording_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "recording_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "recording_title_inherit"
+                ]
+              },
+              "recording_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "recording_id",
               "liked",
               "kind"
             ],
@@ -2788,6 +2927,7 @@
         "required": [
           "id",
           "title",
+          "inherited_title",
           "artist",
           "duration_ms",
           "position_ms",
@@ -2808,6 +2948,9 @@
             "format": "int64"
           },
           "id": {
+            "type": "string"
+          },
+          "inherited_title": {
             "type": "string"
           },
           "liked": {
@@ -2847,6 +2990,79 @@
             }
           }
         ]
+      },
+      "InspectedTags": {
+        "type": "object",
+        "required": [
+          "title",
+          "artist",
+          "album",
+          "album_artist",
+          "disc",
+          "track"
+        ],
+        "properties": {
+          "album": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "album_artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disc": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "track": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       },
       "Job": {
         "type": "object",
@@ -2924,6 +3140,103 @@
           }
         }
       },
+      "MetadataObservation": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "release_id",
+          "provider",
+          "origin",
+          "observed_at",
+          "inspection_version",
+          "title",
+          "artist",
+          "album",
+          "album_artist",
+          "duration_ms",
+          "disc_number",
+          "track_number",
+          "tags"
+        ],
+        "properties": {
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artist": {
+            "type": "string"
+          },
+          "disc_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inspection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ObservationOrigin"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "release_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "tags": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InspectedTags"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "MusicFolder": {
         "type": "object",
         "required": [
@@ -2984,6 +3297,50 @@
           "revision": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ObservationOrigin": {
+        "type": "string",
+        "enum": [
+          "legacy_normalized",
+          "file_inspection"
+        ]
+      },
+      "ObservationPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_before"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetadataObservation"
+            }
+          },
+          "next_before": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "ObservedTag": {
+        "type": "object",
+        "required": [
+          "value",
+          "location"
+        ],
+        "properties": {
+          "location": {
+            "$ref": "#/components/schemas/TagLocation"
+          },
+          "value": {
+            "type": "string"
           }
         }
       },
@@ -3077,6 +3434,7 @@
                 "id",
                 "library_id",
                 "title",
+                "inherited_title",
                 "artist",
                 "duration_ms",
                 "available",
@@ -3100,6 +3458,9 @@
                   "format": "int64"
                 },
                 "id": {
+                  "type": "string"
+                },
+                "inherited_title": {
                   "type": "string"
                 },
                 "library_id": {
@@ -3306,6 +3667,7 @@
           "recording_id",
           "position",
           "title",
+          "inherited_title",
           "artist",
           "duration_ms",
           "available"
@@ -3322,6 +3684,9 @@
             "format": "int64"
           },
           "entry_id": {
+            "type": "string"
+          },
+          "inherited_title": {
             "type": "string"
           },
           "liked": {
@@ -3370,6 +3735,7 @@
           "id",
           "library_id",
           "title",
+          "inherited_title",
           "artist",
           "duration_ms",
           "available",
@@ -3395,6 +3761,9 @@
           "id": {
             "type": "string"
           },
+          "inherited_title": {
+            "type": "string"
+          },
           "library_id": {
             "type": "string"
           },
@@ -3409,6 +3778,54 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "RecordingDetailsPageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "detail"
+            ],
+            "properties": {
+              "detail": {
+                "$ref": "#/components/schemas/RecordingMetadata"
+              }
+            }
+          }
+        ]
+      },
+      "RecordingMetadata": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "title",
+          "selected_observation",
+          "observations"
+        ],
+        "properties": {
+          "observations": {
+            "$ref": "#/components/schemas/ObservationPage"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "selected_observation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MetadataObservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/TitleMetadata"
           }
         }
       },
@@ -3651,6 +4068,72 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "TagLocation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "format"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "index",
+              "kind"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "audio_stream"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "TitleMetadata": {
+        "type": "object",
+        "required": [
+          "value",
+          "inherited",
+          "personal",
+          "operation_id"
+        ],
+        "properties": {
+          "inherited": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "personal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": "string"
           }
         }
       },

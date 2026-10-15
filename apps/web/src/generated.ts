@@ -292,6 +292,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recording_metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/sources": {
         parameters: {
             query?: never;
@@ -474,6 +490,17 @@ export interface components {
     schemas: {
         Action: {
             /** @enum {string} */
+            kind: "recording_title_set";
+            /** Format: uuid */
+            recording_id: string;
+            title: string;
+        } | {
+            /** @enum {string} */
+            kind: "recording_title_inherit";
+            /** Format: uuid */
+            recording_id: string;
+        } | {
+            /** @enum {string} */
             kind: "like_set";
             liked: boolean;
             /** Format: uuid */
@@ -613,6 +640,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             id: string;
+            inherited_title: string;
             liked: boolean;
             /** Format: int64 */
             position_ms: number;
@@ -624,6 +652,14 @@ export interface components {
         };
         HistoryPageProps: components["schemas"]["SharedPageProps"] & {
             activity: components["schemas"]["Activity"];
+        };
+        InspectedTags: {
+            album: components["schemas"]["ObservedTag"] | null;
+            album_artist: components["schemas"]["ObservedTag"] | null;
+            artist: components["schemas"]["ObservedTag"] | null;
+            disc: components["schemas"]["ObservedTag"] | null;
+            title: components["schemas"]["ObservedTag"] | null;
+            track: components["schemas"]["ObservedTag"] | null;
         };
         Job: {
             error?: string | null;
@@ -645,6 +681,28 @@ export interface components {
             };
             needs_setup: boolean;
         };
+        MetadataObservation: {
+            album: string | null;
+            album_artist: string | null;
+            artist: string;
+            /** Format: int64 */
+            disc_number: number | null;
+            /** Format: int64 */
+            duration_ms: number;
+            id: string;
+            /** Format: int64 */
+            inspection_version: number;
+            /** Format: int64 */
+            observed_at: number | null;
+            origin: components["schemas"]["ObservationOrigin"];
+            provider: string;
+            release_id: string | null;
+            source_id: string;
+            tags: components["schemas"]["InspectedTags"] | null;
+            title: string;
+            /** Format: int64 */
+            track_number: number | null;
+        };
         MusicFolder: {
             available: boolean;
             connected: boolean;
@@ -658,6 +716,17 @@ export interface components {
             name: string;
             /** Format: int64 */
             revision: number;
+        };
+        /** @enum {string} */
+        ObservationOrigin: "legacy_normalized" | "file_inspection";
+        ObservationPage: {
+            items: components["schemas"]["MetadataObservation"][];
+            /** Format: int64 */
+            next_before: number | null;
+        };
+        ObservedTag: {
+            location: components["schemas"]["TagLocation"];
+            value: string;
         };
         Operation: {
             action: components["schemas"]["Action"];
@@ -688,6 +757,7 @@ export interface components {
                 /** Format: int64 */
                 duration_ms: number;
                 id: string;
+                inherited_title: string;
                 library_id: string;
                 liked: boolean;
                 release_id?: string | null;
@@ -750,6 +820,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             entry_id: string;
+            inherited_title: string;
             liked: boolean;
             /** Format: int64 */
             position: number;
@@ -767,10 +838,20 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             id: string;
+            inherited_title: string;
             library_id: string;
             liked: boolean;
             release_id?: string | null;
             title: string;
+        };
+        RecordingDetailsPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["RecordingMetadata"];
+        };
+        RecordingMetadata: {
+            observations: components["schemas"]["ObservationPage"];
+            recording_id: string;
+            selected_observation: components["schemas"]["MetadataObservation"] | null;
+            title: components["schemas"]["TitleMetadata"];
         };
         RecordingPage: components["schemas"]["Page_Recording"];
         Release: {
@@ -832,6 +913,20 @@ export interface components {
         };
         SyncReceipt: {
             acknowledged: string[];
+        };
+        TagLocation: {
+            /** @enum {string} */
+            kind: "format";
+        } | {
+            index: number;
+            /** @enum {string} */
+            kind: "audio_stream";
+        };
+        TitleMetadata: {
+            inherited: string;
+            operation_id: string | null;
+            personal: string | null;
+            value: string;
         };
         User: {
             admin: boolean;
@@ -1762,6 +1857,70 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_metadata: {
+        parameters: {
+            query?: {
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingMetadata"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
