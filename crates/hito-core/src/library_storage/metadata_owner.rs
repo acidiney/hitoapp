@@ -48,6 +48,7 @@ pub(super) async fn refresh_metadata(
     ).bind(&metadata.source).bind(&metadata.observation_id).bind(&metadata.release_id).bind(&metadata.title).bind(&metadata.artist).bind(metadata.duration_ms)
         .bind(recording).bind(&metadata.source).bind(&metadata.observation_id).bind(&metadata.release_id).bind(&metadata.title).bind(&metadata.artist).bind(metadata.duration_ms)
         .execute(&mut **tx).await?;
+    crate::metadata::refresh_recording_credits(tx, recording).await?;
     Ok(())
 }
 
@@ -76,5 +77,6 @@ pub(super) async fn refresh_folder_metadata(
            OR r.artist IS NOT COALESCE(m.artist, r.artist) OR r.duration_ms IS NOT COALESCE(m.duration_ms, r.duration_ms)
            OR (o.source IS NOT NULL AND r.release_id IS NOT m.release_id))",
     ).bind(folder).execute(&mut **tx).await?;
+    crate::metadata::refresh_folder_credits(tx, folder).await?;
     Ok(())
 }

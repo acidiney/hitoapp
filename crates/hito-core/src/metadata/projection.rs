@@ -1,7 +1,7 @@
 use crate::Result;
 use sqlx::{QueryBuilder, Sqlite, Transaction};
 
-const REGISTER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
+pub(super) const REGISTER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
         SELECT t.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), t.library_id, t.name FROM targets t
         LEFT JOIN artists shared ON shared.library_id = t.library_id AND shared.name = t.name COLLATE BINARY WHERE 1
         ON CONFLICT(user_id, library_id, name) DO NOTHING";
@@ -80,6 +80,11 @@ pub(crate) async fn provision(
     let scope = Scope::Library { user, library };
     releases(tx, &scope).await?;
     credits(tx, &scope).await?;
+    super::recording_credits::refresh(
+        tx,
+        super::recording_credits::Scope::Library { user, library },
+    )
+    .await?;
     tracing::debug!("Account catalog provisioned");
     Ok(())
 }
@@ -114,6 +119,7 @@ pub(super) async fn recording(
     recording: &str,
 ) -> Result<()> {
     credits(tx, &Scope::Recording { user, recording }).await?;
+    super::recording_credits::recording(tx, recording).await?;
     tracing::debug!("Account recording credits refreshed");
     Ok(())
 }

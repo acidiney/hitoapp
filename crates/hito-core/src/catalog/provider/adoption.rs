@@ -64,6 +64,7 @@ impl Catalog {
             &sources,
         )
         .await?;
+        crate::metadata::refresh_recording_credits(&mut tx, &recording).await?;
         if let Some(release) = &release {
             crate::metadata::refresh_release(&mut tx, actor.id(), release).await?;
         }
