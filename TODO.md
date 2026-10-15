@@ -2,11 +2,11 @@
 
 Updated 2026-10-15. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
-Current task: preserve recording identity across tag-only edits. Next: administrator UI for multiple music folders, their scan status, and library access. Administration belongs inside Hito Settings. The server/web foundation is running in Docker; most release features below remain unimplemented.
+Current task: administrator UI for multiple music folders, their scan status, and library access, followed by guided installation with a native host folder picker and automatic read-only Docker mounts. Administration belongs inside Hito Settings. Normal setup must not require editing `HITO_MUSIC_FOLDER`. Recording identity is now separate from tagged-file checksums. The server/web foundation is running in Docker; most release features below remain unimplemented.
 
 ## Library and metadata
 
-- [ ] Separate recording identity from tagged-file checksums so retagging preserves playlists, likes, and progress.
+- [x] Separate recording identity from tagged-file checksums so verified tag-only edits preserve playlists, likes, and progress. Preserve uncertain legacy references without guessing from paths.
 - [ ] Add artist/album pages, metadata provenance, and conservative recording matching.
 - [ ] Add configurable MusicBrainz/provider enrichment and a disable setting.
 - [ ] Add personal metadata edits, unlinking, merge splitting, undo, and administrator promotion.
@@ -85,5 +85,5 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-Current evidence: Docker checks pass with 37 Rust tests, 30 browser unit tests, generated-contract checks, formatting, Clippy, production build, audit, and the browser workflow. Browser coverage includes the redesigned composition, native modal focus and errors, settings keyboard navigation, multiple tabs, and delayed JavaScript across account changes. Desktop and phone screenshots were inspected. The normal persistent server is rebuilt and healthy with its existing database and accounts; a stopped-volume backup preserves the pre-upgrade data. An isolated production container exits successfully on Docker stop with worker/server shutdown logs. The public release remains unfinished.
+Current evidence: Docker checks pass with 62 Rust tests, 30 browser unit tests, generated-contract checks, formatting, Clippy, production build, audit, and the browser workflow. Browser coverage includes the redesigned composition, native modal focus and errors, settings keyboard navigation, multiple tabs, and delayed JavaScript across account changes. Desktop and phone screenshots were inspected. The normal persistent server is rebuilt and healthy after migration 0007. A stopped-volume backup and row-count comparison confirm that accounts, recordings, playlists, entries, likes, progress, and backend identity were preserved. Recording identity tests cover ten audio containers, legacy witness ordering, metadata-owner fallback, cancellation, and owned directory access. Query-plan checks on 100,000 duplicate locators avoid temporary sorting for checksum resolution, metadata fallback, and reconciliation; these are not release latency benchmarks. An isolated production container exits successfully on Docker stop with worker/server shutdown logs. The public release remains unfinished.
 
