@@ -11,7 +11,8 @@ for (const frequency of [440, 660]) {
   const destination = arguments_.includes('--e2e') ? `${output}/${frequency === 440 ? 'Music' : 'Archive'}` : output;
   mkdirSync(destination, { recursive: true });
   const rate = 16000;
-  const samples = rate * 30;
+  const seconds = arguments_.includes('--e2e') ? 90 : 30;
+  const samples = rate * seconds;
   const buffer = Buffer.alloc(44 + samples * 2);
   buffer.write('RIFF', 0); buffer.writeUInt32LE(buffer.length - 8, 4); buffer.write('WAVEfmt ', 8);
   buffer.writeUInt32LE(16, 16); buffer.writeUInt16LE(1, 20); buffer.writeUInt16LE(1, 22);
@@ -35,4 +36,4 @@ if (arguments_.includes('--e2e')) writeFileSync(`${output}/storage.json`, JSON.s
   { id: 'fixture-music', name: 'Music', root: '/music/Music' },
   { id: 'fixture-archive', name: 'Archive', root: '/music/Archive' },
 ] }));
-console.log('Generated two synthetic 30-second WAV fixtures.');
+console.log('Generated two synthetic WAV fixtures.');

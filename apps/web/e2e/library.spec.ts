@@ -83,6 +83,9 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   const before = await page
     .locator("audio")
     .evaluate((audio: HTMLAudioElement) => audio.currentTime);
+  const playingSource = await page
+    .locator("audio")
+    .evaluate((audio: HTMLAudioElement) => audio.src);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await navigation.getByRole("link", { name: "Albums", exact: true }).click();
   await expect(
@@ -140,7 +143,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
     .getByRole("link", { name: "Details for Fixture 440 Hz", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Your track title", exact: true }),
+    page.getByRole("heading", { name: "Your track details", exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Track title", { exact: true })
@@ -157,6 +160,15 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   ).toBeVisible();
   await expect(page.locator(".now-playing strong")).toHaveText(
     "My fixture title",
+  );
+  await page
+    .getByLabel("Track artist", { exact: true })
+    .fill("My fixture performer");
+  await page
+    .getByRole("button", { name: "Save personal artist", exact: true })
+    .click();
+  await expect(page.locator(".now-playing small")).toHaveText(
+    "My fixture performer",
   );
   await page.getByText("Inspected tags", { exact: true }).click();
   await expect(page.locator(".metadata-tag-list")).toBeVisible();
@@ -195,6 +207,105 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
+  await page
+    .getByRole("button", { name: "Use source artist", exact: true })
+    .click();
+  await expect(page.locator(".now-playing small")).toHaveText(
+    "Hito test fixtures",
+  );
+  await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
+    .click();
+  const albumUrl = page.url();
+  await page
+    .getByRole("link", { name: "Edit album details", exact: true })
+    .click();
+  await page
+    .getByLabel("Album title", { exact: true })
+    .fill("My fixture album");
+  await page
+    .getByRole("button", { name: "Save personal title", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "My fixture album",
+      exact: true,
+      level: 1,
+    }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Album artist", { exact: true })
+    .fill("My album artist");
+  await page
+    .getByRole("button", { name: "Save personal artist", exact: true })
+    .click();
+  await expect(page.getByLabel("Album artist", { exact: true })).toHaveValue(
+    "My album artist",
+  );
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "/workspace/test-results/album-metadata-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/album-metadata-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("link", { name: "Back to album", exact: true }).click();
+  await expect(page).toHaveURL(albumUrl);
+  await expect(
+    page.getByRole("heading", {
+      name: "My fixture album",
+      exact: true,
+      level: 1,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".track-table")).toContainText(
+    "Hito test fixtures",
+  );
+  await page
+    .getByRole("link", { name: "My album artist", exact: true })
+    .click();
+  await expect(page.locator(".album-card")).toHaveCount(1);
+  await page
+    .getByRole("link", { name: "My fixture album", exact: true })
+    .click();
+  await page
+    .getByRole("link", { name: "Edit album details", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Use source title", exact: true })
+    .click();
+  await expect(page.getByLabel("Album title", { exact: true })).toHaveValue(
+    "Fixture collection 440 Hz",
+  );
+  await page
+    .getByRole("button", { name: "Use source artist", exact: true })
+    .click();
+  await expect(page.getByLabel("Album artist", { exact: true })).toHaveValue(
+    "Hito test fixtures",
+  );
+  await expect(page.locator(".now-playing small")).toHaveText(
+    "Hito test fixtures",
+  );
+  expect(
+    await page
+      .locator("audio")
+      .evaluate((audio: HTMLAudioElement) => audio.src),
+  ).toBe(playingSource);
+  expect(
+    await page
+      .locator("audio")
+      .evaluate((audio: HTMLAudioElement) => audio.paused),
+  ).toBe(false);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await page.screenshot({
     path: "/workspace/test-results/library-desktop.png",
