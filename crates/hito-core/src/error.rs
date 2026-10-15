@@ -10,6 +10,8 @@ pub enum Error {
     NotFound,
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Upstream(&'static str),
     #[error("Database operation failed")]
     Database(#[from] sqlx::Error),
     #[error("Database migration failed")]
@@ -28,6 +30,7 @@ impl Error {
             Self::Forbidden => "forbidden",
             Self::NotFound => "not_found",
             Self::Conflict(_) => "conflict",
+            Self::Upstream(_) => "upstream",
             Self::Database(_) => "database",
             Self::Migration(_) => "migration",
             Self::Internal(_) => "internal",

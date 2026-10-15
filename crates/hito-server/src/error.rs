@@ -29,9 +29,18 @@ impl IntoResponse for ApiError {
             Error::Forbidden => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::Conflict(_) => StatusCode::CONFLICT,
+            Error::Upstream(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let error = if status.is_server_error() {
+        let error = if let Error::Upstream(message) = &self.0 {
+            tracing::warn!(
+                event = "upstream_failed",
+                error_kind = self.0.code(),
+                status = status.as_u16(),
+                "External service failed"
+            );
+            message.to_string()
+        } else if status.is_server_error() {
             tracing::error!(
                 event = "request_failed",
                 error_kind = self.0.code(),

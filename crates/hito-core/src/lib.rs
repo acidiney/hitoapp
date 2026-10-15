@@ -5,6 +5,7 @@ mod error;
 mod identity;
 mod library_storage;
 mod metadata;
+mod plugins;
 mod store;
 
 pub use catalog::{
@@ -26,6 +27,9 @@ pub use metadata::{
     InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
     ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
+pub use plugins::{
+    InstallPlugin, OfferPluginService, PluginInstallation, PluginService, PluginSettings, Plugins,
+};
 use store::Store;
 
 #[derive(Clone)]
@@ -34,6 +38,7 @@ pub struct Services {
     pub catalog: Catalog,
     pub collection: Collection,
     pub storage: LibraryStorage,
+    pub plugins: Plugins,
     store: Store,
 }
 
@@ -48,6 +53,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         inspector: library_storage::FileInspector::new(config.media_tools),
     };
     storage.initialize().await?;
+    let plugins = Plugins::new(store.clone())?;
     tracing::info!("Core services ready");
     Ok(Services {
         identity: Identity {
@@ -64,6 +70,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             host: config.host_device.clone(),
         },
         storage,
+        plugins,
         store,
     })
 }
