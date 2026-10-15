@@ -41,11 +41,18 @@ erDiagram
   RECORDING ||--o{ RECORDING_EVIDENCE : verifies
   SOURCE ||--o| LOCAL_FILE : locates
   SOURCE ||--o| SOURCE_METADATA : observes
+  ARTIST ||--o{ SOURCE_ARTIST_CREDIT : credits
+  SOURCE_METADATA ||--o| SOURCE_ARTIST_CREDIT : binds
+  RELEASE ||--o{ SOURCE_METADATA : appears
   USER ||--o{ PLAYLIST : owns
   PLAYLIST ||--o{ PLAYLIST_ENTRY : orders
   RECORDING ||--o{ PLAYLIST_ENTRY : references
   USER ||--o{ SYNC_OPERATION : accepts
 ```
+
+## Catalog appearances
+
+Artist and album pages use authorized `Catalog` reads. Exact library credit IDs are distinct from canonical person identities. Album membership follows source observations, including alternate releases and repeated positions; selected recording display metadata does not erase those appearances. The metadata writer updates indexed source-credit bindings in its existing transaction. Album artwork selects only sources on the requested release. See [catalog browsing](catalog-browsing.md) for paging, search, upgrades, and current limits.
 
 ## Boundary tests
 
