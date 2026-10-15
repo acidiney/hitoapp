@@ -18,3 +18,6 @@ mod security;
 
 #[path = "api/artwork.rs"]
 mod artwork;
+
+#[path = "api/storage.rs"]
+mod storage;

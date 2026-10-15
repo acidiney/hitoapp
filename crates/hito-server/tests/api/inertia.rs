@@ -224,6 +224,17 @@ async fn api_contract_is_published_without_authentication() {
     let (status, contract) = call(&app, "GET", "/api/v1/openapi.json", Value::Null, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(contract["openapi"], "3.1.0");
+    let mut operation_ids = std::collections::HashSet::new();
+    for item in contract["paths"].as_object().unwrap().values() {
+        for operation in item.as_object().unwrap().values() {
+            if let Some(id) = operation["operationId"].as_str() {
+                assert!(
+                    operation_ids.insert(id),
+                    "Operation IDs must be unique: {id}"
+                );
+            }
+        }
+    }
     assert!(contract["paths"]["/api/v1/sync"]["post"].is_object());
     assert_eq!(
         contract,

@@ -130,6 +130,21 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
                 .body(body).unwrap()).await.unwrap();
             assert_rejected(response, status, "Request body could not be read").await;
         }
+        for (method, path, body) in [
+            ("GET", "/api/v1/sources/%2Fprivate-identifier-sentinel/audio", "null"),
+            ("GET", "/api/v1/jobs/%2Fprivate-identifier-sentinel", "null"),
+            ("GET", "/api/v1/libraries/%2Fprivate-identifier-sentinel/folders", "null"),
+            ("POST", "/api/v1/libraries/%2Fprivate-identifier-sentinel/scan", "null"),
+            ("POST", "/api/v1/libraries/%2Fprivate-identifier-sentinel/folders", "{\"directory\":{\"directory_id\":\"unknown\"}}"),
+            ("POST", "/api/v1/folders/%2Fprivate-identifier-sentinel/scan", "null"),
+            ("DELETE", "/api/v1/folders/%2Fprivate-identifier-sentinel", "{\"revision\":1}"),
+        ] {
+            let response = app.clone().oneshot(Request::builder().method(method).uri(path)
+                .header("content-type", "application/json").header("x-hito-request", "1")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::from(body)).unwrap()).await.unwrap();
+            assert!(response.status().is_client_error());
+        }
         let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
         assert!(
             output.contains(&request_id),
@@ -156,6 +171,7 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             "syntax-private-sentinel",
             "content-type-private-sentinel",
             "body-read-private-sentinel",
+            "private-identifier-sentinel",
         ] {
             assert!(!output.contains(secret), "private value appeared in logs");
         }
