@@ -7,8 +7,8 @@ mod library_storage;
 mod store;
 
 pub use catalog::{
-    Artwork, AudioFile, Browse, Catalog, Page, Recording, Release, ReleaseDetail, ReleaseTrack,
-    Search, Source,
+    Artist, ArtistDetail, Artwork, AudioFile, Browse, Catalog, Page, Recording, Release,
+    ReleaseDetail, ReleaseTrack, Search, Source,
 };
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,

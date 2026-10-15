@@ -1,3 +1,4 @@
+mod artists;
 mod artwork;
 mod availability;
 mod browse;
@@ -8,6 +9,7 @@ mod sources;
 mod types;
 
 use crate::{HostDeviceId, store::Store};
+pub use artists::{Artist, ArtistDetail};
 pub use artwork::Artwork;
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;

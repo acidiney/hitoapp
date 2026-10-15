@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 pub struct Browse {
     pub q: Option<String>,
     pub library: Option<String>,
+    pub artist: Option<String>,
     pub offset: Option<i64>,
     pub limit: Option<i64>,
 }
@@ -24,6 +25,7 @@ impl Browse {
         query: &mut QueryBuilder<'_, Sqlite>,
         actor: &Actor,
         alias: &str,
+        columns: &str,
     ) -> Result<()> {
         query
             .push(" WHERE EXISTS (SELECT 1 FROM library_members access WHERE access.library_id = ")
@@ -44,10 +46,8 @@ impl Browse {
             }
             query
                 .push(" AND instr(lower(")
-                .push(alias)
-                .push(".title || ' ' || ")
-                .push(alias)
-                .push(".artist), lower(")
+                .push(columns)
+                .push("), lower(")
                 .push_bind(text.clone())
                 .push(")) > 0");
         }

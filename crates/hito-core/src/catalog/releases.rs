@@ -47,7 +47,8 @@ impl Catalog {
     pub async fn releases(&self, actor: &Actor, browse: Browse) -> Result<Page<Release>> {
         let (offset, limit) = browse.bounds();
         let mut count = QueryBuilder::new("SELECT count(*) FROM releases a");
-        browse.filter(&mut count, actor, "a")?;
+        browse.filter(&mut count, actor, "a", "a.title || ' ' || a.artist")?;
+        filter_artist(&mut count, &browse);
         count.push(" AND EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)");
         let total = count
             .build_query_scalar()
@@ -55,7 +56,8 @@ impl Catalog {
             .await?;
         let mut query = QueryBuilder::new(ENTRIES);
         query.push(SUMMARY);
-        browse.filter(&mut query, actor, "a")?;
+        browse.filter(&mut query, actor, "a", "a.title || ' ' || a.artist")?;
+        filter_artist(&mut query, &browse);
         query
             .push(" GROUP BY a.id ORDER BY a.title COLLATE NOCASE, a.id LIMIT ")
             .push_bind(limit)
@@ -76,7 +78,7 @@ impl Catalog {
         let (offset, limit) = browse.bounds();
         let mut summary = QueryBuilder::new(ENTRIES);
         summary.push(SUMMARY);
-        Browse::default().filter(&mut summary, actor, "a")?;
+        Browse::default().filter(&mut summary, actor, "a", "a.title || ' ' || a.artist")?;
         summary
             .push(" AND a.id = ")
             .push_bind(id.to_owned())
@@ -98,7 +100,7 @@ impl Catalog {
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
             )
             .push_bind(actor.id().to_owned());
-        Browse::default().filter(&mut query, actor, "a")?;
+        Browse::default().filter(&mut query, actor, "a", "a.title || ' ' || a.artist")?;
         query
             .push(" AND a.id = ")
             .push_bind(release.id.clone())
@@ -118,5 +120,11 @@ impl Catalog {
                 limit,
             },
         })
+    }
+}
+
+fn filter_artist(query: &mut QueryBuilder<'_, sqlx::Sqlite>, browse: &Browse) {
+    if let Some(artist) = &browse.artist {
+        query.push(" AND EXISTS (SELECT 1 FROM artist_releases ar WHERE ar.release_id = a.id AND ar.artist_id = ").push_bind(artist.clone()).push(")");
     }
 }
