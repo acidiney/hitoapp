@@ -95,7 +95,7 @@ pub async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[utoipa::path(post, path = "/api/v1/folders/{id}/scan", params(("id" = String, Path)),
+#[utoipa::path(post, path = "/api/v1/folders/{id}/scan", operation_id = "scan_folder", params(("id" = String, Path)),
     security(("session" = []), ("bearer" = [])), responses(
     (status = 202, body = Job), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),

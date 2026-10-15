@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    api::{self, catalog, collection, identity, jobs},
+    api::{self, catalog, collection, identity, jobs, storage},
     inertia::{self, props::*},
     security, telemetry,
 };
@@ -48,6 +48,11 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(catalog::audio))
         .routes(routes!(jobs::scan))
         .routes(routes!(jobs::job))
+        .routes(routes!(storage::directories))
+        .routes(routes!(storage::browse))
+        .routes(routes!(storage::folders, storage::connect))
+        .routes(routes!(storage::remove))
+        .routes(routes!(storage::scan))
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
         .routes(routes!(collection::sync, collection::sync_events))

@@ -1,4 +1,4 @@
-use hito_core::{CoreConfig, HostDeviceId};
+use hito_core::{CoreConfig, HostDeviceId, StorageConfig};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
 
@@ -41,7 +41,12 @@ impl RuntimeConfig {
             .ok()
             .map(HostDeviceId::new)
             .transpose()?;
-        let mut config = Self::load(database, music_root, web_dir, host_device).await?;
+        let mut config = match std::env::var_os("HITO_STORAGE_MANIFEST") {
+            Some(manifest) => {
+                Self::load_with_manifest(database, manifest.into(), web_dir, host_device).await?
+            }
+            None => Self::load(database, music_root, web_dir, host_device).await?,
+        };
         if let Some(tool) = std::env::var_os("HITO_FFMPEG") {
             config.core.media_tools.ffmpeg = tool.into();
         }
@@ -63,6 +68,37 @@ impl RuntimeConfig {
         web_dir: PathBuf,
         host_device: Option<HostDeviceId>,
     ) -> RuntimeResult<Self> {
+        Self::load_storage(
+            database,
+            StorageConfig::LegacyFolder(music_root),
+            web_dir,
+            host_device,
+        )
+        .await
+    }
+
+    pub async fn load_with_manifest(
+        database: PathBuf,
+        manifest: PathBuf,
+        web_dir: PathBuf,
+        host_device: Option<HostDeviceId>,
+    ) -> RuntimeResult<Self> {
+        let directories = crate::storage_manifest::read(&manifest).await?;
+        Self::load_storage(
+            database,
+            StorageConfig::SharedDirectories(directories),
+            web_dir,
+            host_device,
+        )
+        .await
+    }
+
+    async fn load_storage(
+        database: PathBuf,
+        storage: StorageConfig,
+        web_dir: PathBuf,
+        host_device: Option<HostDeviceId>,
+    ) -> RuntimeResult<Self> {
         if let Some(parent) = database
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -74,11 +110,12 @@ impl RuntimeConfig {
             Sha256::digest(tokio::fs::read(web_dir.join("assets/app.js")).await?)
         );
         Ok(Self {
-            core: CoreConfig::new(
-                database.clone(),
-                music_root,
-                crate::host_identity::load(&database, host_device).await?,
-            ),
+            core: CoreConfig {
+                database: database.clone(),
+                storage,
+                host_device: crate::host_identity::load(&database, host_device).await?,
+                media_tools: Default::default(),
+            },
             http: Config {
                 origin: Config::default().origin,
                 web_dir,

@@ -3,6 +3,7 @@ pub mod catalog;
 pub mod collection;
 pub mod identity;
 pub mod jobs;
+pub mod storage;
 
 use axum::{Extension, Json, extract::State, http::StatusCode};
 use hito_core::Services;
