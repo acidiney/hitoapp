@@ -5,6 +5,35 @@ use uuid::Uuid;
 
 impl Plugins {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn withdraw_service(
+        &self,
+        actor: &Actor,
+        id: &str,
+        expected_revision: i64,
+    ) -> Result<()> {
+        actor.require_admin()?;
+        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let revision: i64 =
+            sqlx::query_scalar("SELECT revision FROM plugin_services WHERE id = ? AND active = 1")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(Error::NotFound)?;
+        if revision != expected_revision {
+            return Err(Error::Conflict(
+                "This plugin service changed. Reload Settings.".into(),
+            ));
+        }
+        sqlx::query("UPDATE plugin_services SET active = 0, revision = revision + 1 WHERE id = ? AND active = 1 AND revision = ?")
+            .bind(id).bind(revision).execute(&mut *tx).await?;
+        sqlx::query("UPDATE plugin_installations SET active = 0, credential = NULL, revision = revision + 1 WHERE service_id = ? AND active = 1")
+            .bind(id).execute(&mut *tx).await?;
+        tx.commit().await?;
+        tracing::info!(service_id = id, "Plugin service withdrawn");
+        Ok(())
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn offer_service(
         &self,
         actor: &Actor,
