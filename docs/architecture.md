@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, and library-storage services. HTTP adapters authenticate requests once and invoke those services. The core owns SQLite transactions, permissions, indexing, and synchronization so a desktop backend can reuse them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, library-storage, and plugin services. HTTP adapters authenticate requests once and invoke those services. The core owns SQLite transactions, permissions, indexing, and synchronization so a desktop backend can reuse them without HTTP.
 
 ```mermaid
 flowchart LR
@@ -9,6 +9,10 @@ flowchart LR
   HTTP --> Catalog[Catalog / authorized reads]
   HTTP --> Collection[Collection / atomic operation acceptance]
   HTTP --> Storage[LibraryStorage / folders and durable scans]
+  HTTP --> Connections[Plugins / personal installation authority]
+  Connections --> Store
+  Connections --> Vault[Private credential key]
+  Connections --> Provider[HTTP services / manifest lifecycle]
   Identity --> Store[Private SQLite store]
   Catalog --> Store
   Collection --> Store
@@ -19,7 +23,7 @@ flowchart LR
   Desktop -.-> Catalog
   Desktop -.-> Collection
   Desktop -.-> Storage
-  Catalog -. HTTP protocol .-> Plugins[Planned provider services]
+  Catalog -. planned provider operations .-> Provider
   Catalog -. opt-in .-> Community[Planned community service]
 ```
 
@@ -27,7 +31,7 @@ The solid lines describe the initial implementation. Dashed connections are plan
 
 ## Data ownership
 
-A library controls access to recordings and sources. Accounts own playlists, likes, listening history, and personal recording titles. Library membership is checked on reads, streaming, and writes. Further metadata edits and preferences remain planned. A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
+A library controls access to recordings and sources. Accounts own playlists, likes, listening history, and personal recording and album title/artist fields, and plugin installations. Library membership is checked on reads, streaming, and writes. Provider matching and further preferences remain planned. A recording represents a performance and has a stable UUID. Exact tagged-file checksums and versioned decoded-audio evidence are separate. See [recording identity](recording-identity.md) for conservative matching, legacy upgrades, metadata ownership, and inspection limits.
 
 ```mermaid
 erDiagram
@@ -108,3 +112,7 @@ flowchart LR
 ```
 
 Artwork stays behind the core's filesystem authorization. The private reader modules own metadata read budgets, safe regular-file opens, and raster signatures. Reader permits remain held inside blocking work even if the HTTP future is canceled. Missing artwork uses a neutral UI fallback. There is no third-party image request or generated catalog content.
+
+## Plugin connections
+
+`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. Plugin content does not enter the catalog yet. See [implemented protocol and recovery](plugins.md).

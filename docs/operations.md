@@ -41,6 +41,8 @@ Unix binaries handle SIGTERM and SIGINT; Windows uses Ctrl+C. The server and ind
 
 ## Backups
 
+Preserve `hito.plugin-key` beside the database. It decrypts personal plugin credentials; a database-only backup cannot recover those tokens. A missing or invalid key leaves local playback enabled but disables credential-dependent plugin checks. Restore the matching private key and restart. See [plugin recovery](plugins.md#credential-key-and-backups).
+
 Until the online backup interface is implemented, stop the normal server and archive the complete data volume. Copying only `hito.db` while SQLite is running can miss committed WAL data.
 
 ```sh
@@ -59,4 +61,4 @@ The default listener is exposed only on `127.0.0.1`. A public installation needs
 
 Cookie-authenticated mutations send `X-Hito-Request: 1`. API clients can use bearer tokens. Login/setup have per-client rate limits, bounded request bodies, a body-read timeout, and limited password-hashing concurrency. Do not trust arbitrary forwarded IP headers; the server uses its actual connection peer. Behind a reverse proxy, shared peer limits apply until trusted-proxy handling is implemented.
 
-Logs omit session tokens and request bodies. Compose enables structured JSON with bounded rotation. [Logging](logging.md) documents filters, browser logs, correlation, and redaction tests. Provider credential storage and future integrations require their own redaction verification before release.
+Logs omit session tokens and request bodies. Compose enables structured JSON with bounded rotation. [Logging](logging.md) documents filters, browser logs, correlation, and redaction tests. Plugin installation and credential workflows have dedicated trace-redaction checks. Future capability operations and official provider adapters require their own verification before release.
