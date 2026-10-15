@@ -1,0 +1,27 @@
+use super::{Activity, Collection};
+use crate::{Actor, Result, catalog::push_available};
+use sqlx::QueryBuilder;
+
+impl Collection {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
+    pub async fn activity(&self, actor: &Actor) -> Result<Activity> {
+        let mut query = QueryBuilder::new(
+            "SELECT r.id, r.title, r.artist, r.duration_ms,
+                    p.position_ms, p.speed, p.updated_at, ",
+        );
+        push_available(&mut query, &self.host);
+        query
+            .push(
+                " AS available, COALESCE(l.liked, 0) AS liked
+              FROM listening_progress p
+              JOIN recordings r ON p.recording_id = r.id
+              JOIN library_members m ON m.library_id = r.library_id AND m.user_id = p.user_id
+              LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = p.user_id
+              WHERE p.user_id = ",
+            )
+            .push_bind(actor.id().to_owned())
+            .push(" ORDER BY p.updated_at DESC, r.id LIMIT 200");
+        let history = query.build_query_as().fetch_all(&self.store.pool).await?;
+        Ok(Activity { history })
+    }
+}
