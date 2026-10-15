@@ -119,6 +119,7 @@ pub struct PlaylistEntry {
     pub recording_id: String,
     pub position: i64,
     pub title: String,
+    pub inherited_title: String,
     pub artist: String,
     pub duration_ms: i64,
     pub available: bool,
@@ -133,6 +134,7 @@ pub struct Activity {
 pub struct HistoryEntry {
     pub id: String,
     pub title: String,
+    pub inherited_title: String,
     pub artist: String,
     pub duration_ms: i64,
     pub position_ms: i64,

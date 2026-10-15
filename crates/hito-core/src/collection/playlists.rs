@@ -29,6 +29,7 @@ impl Collection {
             "SELECT e.id AS entry_id, e.recording_id, e.position,
                     COALESCE(k.liked, 0) AS liked,
                     CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE COALESCE(personal_title.override_title, r.title) END AS title,
+                    CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE r.title END AS inherited_title,
                     CASE WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS artist,
                     CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
                     (m.user_id IS NOT NULL AND ",

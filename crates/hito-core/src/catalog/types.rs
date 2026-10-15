@@ -7,6 +7,7 @@ pub struct Recording {
     pub library_id: String,
     pub release_id: Option<String>,
     pub title: String,
+    pub inherited_title: String,
     pub artist: String,
     pub album: Option<String>,
     pub duration_ms: i64,

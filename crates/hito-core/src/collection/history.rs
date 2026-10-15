@@ -8,7 +8,7 @@ impl Collection {
         let mut query = QueryBuilder::new("SELECT r.id, ");
         query
             .push(metadata::RECORDING_TITLE)
-            .push(" AS title, r.artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
+            .push(" AS title, r.title AS inherited_title, r.artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
         push_available(&mut query, &self.host);
         query.push(
             " AS available, COALESCE(l.liked, 0) AS liked

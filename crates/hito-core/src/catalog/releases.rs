@@ -85,7 +85,7 @@ impl Catalog {
         query
             .push("SELECT r.id, r.library_id, a.id AS release_id, ")
             .push(metadata::APPEARANCE_TITLE)
-            .push(" AS title, m.artist, a.title AS album, m.duration_ms, ");
+            .push(" AS title, m.title AS inherited_title, m.artist, a.title AS album, m.duration_ms, ");
         push_available(&mut query, &self.host);
         query
             .push(
