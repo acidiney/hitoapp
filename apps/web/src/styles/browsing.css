@@ -1,0 +1,80 @@
+.album-grid,
+.artist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 32px 24px;
+}
+.album-card,
+.artist-card {
+  min-width: 0;
+}
+.album-cover-link {
+  display: block;
+  border-radius: 12px;
+}
+.album-card .artwork,
+.artist-card .artwork {
+  margin-bottom: 15px;
+  transition: filter 150ms ease-out;
+}
+.album-cover-link:hover .artwork,
+.artist-card:hover .artwork {
+  filter: brightness(1.1);
+}
+.album-card h2,
+.artist-card h2 {
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+  margin-bottom: 5px;
+}
+.credit-link {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.credit-link:hover,
+.album-card h2 a:hover,
+.track-table td > a:hover {
+  color: #f5f5f5;
+  text-decoration: underline;
+}
+.album-card small,
+.artist-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.discography-heading {
+  font-size: 20px;
+  margin-bottom: 24px;
+}
+.album-hero .credit-link {
+  font-size: 15px;
+}
+.album-hero p {
+  margin-top: 10px;
+}
+@media (max-width: 760px) {
+  .album-grid,
+  .artist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 16px;
+  }
+  .album-card h2,
+  .artist-card h2 {
+    font-size: 14px;
+  }
+  .album-hero .credit-link {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-card .artwork,
+  .artist-card .artwork {
+    transition: none;
+  }
+}
