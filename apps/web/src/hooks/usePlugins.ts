@@ -74,7 +74,7 @@ export function usePlugins(account: string) {
           ? { owner, data: update(current.data, result) }
           : current,
       );
-      log.info("plugins.changed", { account_id: account, action });
+      log.info("plugins.completed", { account_id: account, action });
       return result;
     } catch (error) {
       if (request.active()) setFailure({ owner, message: errorMessage(error) });

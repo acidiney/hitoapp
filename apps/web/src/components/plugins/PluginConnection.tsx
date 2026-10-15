@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import type { PluginInstallation, PluginRefresh } from "../../types";
 import type { PluginActions } from "../../hooks/usePlugins";
 
@@ -9,11 +9,15 @@ export default function PluginConnection({
   plugin,
   actions,
   storageReady,
+  onRemoved,
 }: {
   plugin: PluginInstallation;
   actions: PluginActions;
   storageReady: boolean;
+  onRemoved: () => void;
 }) {
+  const checkButton = useRef<HTMLButtonElement>(null);
+  const removeButton = useRef<HTMLButtonElement>(null);
   const [token, setToken] = useState("");
   const [review, setReview] = useState<Review | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -34,6 +38,7 @@ export default function PluginConnection({
       setReview(null);
       setToken("");
       setStatus("Connection checked.");
+      checkButton.current?.focus();
     }
   }
   function submit(event: FormEvent) {
@@ -54,6 +59,7 @@ export default function PluginConnection({
           <button
             className="button"
             disabled={actions.pending}
+            ref={checkButton}
             onClick={() => void check()}
           >
             Check connection
@@ -61,6 +67,7 @@ export default function PluginConnection({
           <button
             className="button"
             disabled={actions.pending}
+            ref={removeButton}
             onClick={() => setConfirm(true)}
           >
             Remove
@@ -77,14 +84,19 @@ export default function PluginConnection({
             <button
               className="button"
               disabled={actions.pending}
-              onClick={() => void actions.remove(plugin)}
+              onClick={async () => {
+                if (await actions.remove(plugin)) onRemoved();
+              }}
             >
               Remove plugin
             </button>
             <button
               className="button"
               disabled={actions.pending}
-              onClick={() => setConfirm(false)}
+              onClick={() => {
+                setConfirm(false);
+                removeButton.current?.focus();
+              }}
             >
               Cancel removal
             </button>
@@ -127,6 +139,7 @@ export default function PluginConnection({
                     setToken("");
                     setReview(null);
                     setStatus("Saved token cleared.");
+                    checkButton.current?.focus();
                   }
                 }}
               >
@@ -167,6 +180,7 @@ export default function PluginConnection({
               onClick={() => {
                 setReview(null);
                 setToken("");
+                checkButton.current?.focus();
               }}
             >
               Keep current declaration

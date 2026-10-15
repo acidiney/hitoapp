@@ -5,9 +5,11 @@ import type { PluginActions } from "../../hooks/usePlugins";
 export default function PluginServices({
   services,
   actions,
+  onWithdrawn,
 }: {
   services: PluginService[];
   actions: PluginActions;
+  onWithdrawn: () => void;
 }) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -80,7 +82,10 @@ export default function PluginServices({
                     className="button"
                     disabled={actions.pending}
                     onClick={async () => {
-                      if (await actions.withdraw(service)) setConfirm(null);
+                      if (await actions.withdraw(service)) {
+                        setConfirm(null);
+                        onWithdrawn();
+                      }
                     }}
                   >
                     Withdraw for everyone
