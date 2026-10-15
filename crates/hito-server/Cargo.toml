@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 tokio-util.workspace = true
 hito-core = { path = "../hito-core" }
+hito-plugin-sdk = { path = "../hito-plugin-sdk", features = ["schema"] }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -20,6 +21,7 @@ sha2.workspace = true
 tower.workspace = true
 utoipa.workspace = true
 utoipa-axum.workspace = true
+futures-util.workspace = true
 
 [dev-dependencies]
 lofty.workspace = true
