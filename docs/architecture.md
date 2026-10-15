@@ -23,7 +23,7 @@ flowchart LR
   Desktop -.-> Catalog
   Desktop -.-> Collection
   Desktop -.-> Storage
-  Catalog -. planned provider operations .-> Provider
+  Catalog -->|private search, adoption and relay| Provider
   Catalog -. opt-in .-> Community[Planned community service]
 ```
 
@@ -115,4 +115,34 @@ Artwork stays behind the core's filesystem authorization. The private reader mod
 
 ## Plugin connections
 
-`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. Plugin content does not enter the catalog yet. See [implemented protocol and recovery](plugins.md).
+`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. `Catalog` owns transient provider search and durable adoption into owner-only libraries. Its private plugin operations keep approved endpoints and credentials out of the HTTP/UI adapters. Audio uses a separate media client with live authority checks. See [implemented protocol and recovery](plugins.md).
+
+## Provider discovery
+
+```mermaid
+sequenceDiagram
+  participant Page as Discover page
+  participant Workflow as Account-scoped discovery hook
+  participant API as Authenticated API
+  participant Catalog as Core Catalog
+  participant Provider as Approved HTTP service
+  Page->>Workflow: Search accepted connection
+  Workflow->>API: Query, opaque cursor, installation revision
+  API->>Catalog: Authenticated actor and typed search
+  Catalog->>Provider: Bounded private search
+  Provider-->>Page: One transient result page through API
+  Page->>Workflow: Add or Play
+  Workflow->>API: Provider recording ID and revision
+  API->>Catalog: Adopt recording
+  Catalog->>Provider: Refetch detail and complete sources
+  Catalog-->>Workflow: Durable owner-only recording
+  opt Play with current intention
+    Workflow->>API: Resolve durable source UUID
+    API->>Catalog: Open authorized audio
+    Catalog->>Provider: Relay approved audio endpoint
+  end
+```
+
+The page composes typed props and view components. `useDiscovery` owns search, cursor history, adoption, and cancellation. It retains one result page and immutable completed-adoption feedback for the current account, installation, and revision. Search does not save content. Add does not start audio. A new authority clears private results and saved feedback; returning to the old authority cannot revive it.
+
+Playback owns a separate selection counter. A provider Play captures its intention before adoption, then checks it before replacing the queue. A later queue selection, Next, Previous, toggle, or clear supersedes it. Position ticks and seeking preserve a pending selection. Account playback disposal cancels source resolution. The discovery page does not subscribe to playback positions. Inertia partial discovery requests load connection data only when requested, and never expose credentials or service addresses.

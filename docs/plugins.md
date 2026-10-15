@@ -1,6 +1,6 @@
 # Plugin connections
 
-Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Source now includes authenticated provider search, durable adoption, and audio relay APIs. Browser discovery and selection, catalogs, enrichment, playlists, dashboard content, lyrics, and backing tracks remain release work. The normal development server still runs the connection-only deployment on migration 0018.
+Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Discover supports private music search, durable adoption, and playback through authorized audio relay. These workflows are deployed on the normal development server at migration 0020. Catalog browsing capabilities, enrichment, provider playlists, dashboard content, lyrics, and backing tracks remain release work.
 
 ## Settings
 
@@ -9,6 +9,14 @@ Open Settings → Plugins. An administrator can expand **Services for this serve
 Each account owns its connections. Administrators cannot list, check, or clear another account's connection. Removing a personal connection clears its saved token. Withdrawing an offered service disconnects all installations of that service and clears their tokens. Both actions retain an inactive identity record. Reoffering the same address creates a new service identity.
 
 **Check connection** fetches and validates the manifest. A changed name or capability declaration appears for review. Acceptance fetches the manifest again and requires the reviewed digest. A different remote plugin ID is rejected; remove and reconnect to accept a new identity. Failed requests and unaccepted reviews preserve the accepted manifest and credentials. **Save token** checks the replacement before saving it. **Clear saved token** is local and works even when the service is unavailable.
+
+## Discover music
+
+Open Discover, choose a connected music service, and search for a track or artist. Only connections with an accepted search capability appear. Services that offer search without sources show results with Play and Add disabled.
+
+Search returns one transient page and does not change the library. **Add to library** refetches authoritative detail and sources, then saves a durable private recording without starting audio. **Play** performs the same adoption before replacing the queue. Neither action downloads a persistent audio copy. Use Previous and Next for the service's opaque cursor pages. Completed adoptions keep their In library feedback across pages and searches for the current connection revision.
+
+Changing accounts, services, or accepted connection revisions clears private results and feedback. A later search cancels the earlier search and pending selection. A later player command supersedes delayed provider Play; playback continues through page navigation. A failed search or selection offers Refresh services, which reloads accepted connections while preserving the search draft. Unavailable adopted tracks remain in the library and explain why playback cannot start.
 
 ## Ownership and recovery
 
@@ -87,11 +95,11 @@ The media client has a two-second connect deadline, ten-second header deadline, 
 
 Connection removal, service withdrawal, credential changes, capability withdrawal, and lost source ownership cancel active requests and bodies. A database-backed monitor checks unread streams every 250 ms with a one-second authorization-query deadline. Checks also surround each body read. Changes made by a separately opened service instance are visible. A cached readiness change prevents new opens but does not interrupt a healthy current stream. An unchanged connection check can advance its revision without revoking an existing stream. Transfer completion retains the opening log correlation and records only safe outcome, byte count, and elapsed time.
 
-Browser discovery/selection, playback-time source refresh and recovery, conversion, official services, and live-provider checks remain unfinished. This API work is not a completed provider listening experience or a release performance claim.
+Playback-time source refresh and recovery, conversion, official services, and live-provider checks remain unfinished. Fixture-based browser playback does not establish codec compatibility or release performance.
 
 ## HTTP manifest protocol, version 1
 
-This is the deployed connection protocol. The content and relay operations above are implemented in source and await the operational discovery slice before normal deployment.
+The connection, search, adoption, and relay operations are deployed locally. This protocol is still only part of the launch plugin specification.
 
 A base address can use HTTP or HTTPS and a path prefix. It cannot contain user information, a query, or a fragment. Hito normalizes the trailing slash. For `https://provider.example/hito/`, it requests:
 

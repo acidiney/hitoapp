@@ -20,6 +20,8 @@ Media inspection logs cache reuse, verified evidence, unsupported profiles, comm
 
 The browser logs API outcomes, request IDs, user actions, navigation, scan state, and playback commands, source changes, recovery, and failures. Grid/list changes, settings sections, and expanded-player/queue visibility use debug events with static modes. Frequent events use debug. Browser logging uses the local developer console and sends no external telemetry. Set `localStorage["hito-log-level"]` to `debug`, `info`, `warn`, `error`, or `off`, then reload. The default is `info`.
 
+Provider discovery logs HTTP outcomes, result counts/page indexes, and completed save/play actions with durable recording IDs. Playback selection preparation and supersession use debug. Queries, opaque pagination cursors, remote recording/source IDs, provider titles, and rejected response messages stay out of these events. A workflow regression captures successful search plus failed adoption and checks those private sentinels.
+
 ## Redaction
 
 Log semantic operation names, opaque object IDs where useful, counters, durations, and safe error categories. Exclude passwords, authentication tokens, cookies, raw request/response bodies, signed audio URLs, filesystem paths, titles, and search terms. An error message can contain a private path, so logging a raw error object is not automatically safe.
