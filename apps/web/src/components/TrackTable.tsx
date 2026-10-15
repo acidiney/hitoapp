@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
 import { time } from "../format";
 import { usePlayer } from "../player/PlaybackProvider";
@@ -12,6 +13,9 @@ export type TrackRow = Track & {
   row_id: string;
   liked: boolean;
   album?: string | null;
+  release_id?: string | null;
+  disc_number?: number | null;
+  track_number?: number | null;
   resume_ms?: number;
   entry_id?: string;
 };
@@ -67,12 +71,19 @@ export default function TrackTable({
                   disabled={!track.available}
                   onClick={() => play(index)}
                 >
-                  <span>{index + 1 + offset}</span>
+                  <span>
+                    {track.track_number != null
+                      ? `${track.disc_number && track.disc_number > 1 ? `${track.disc_number}.` : ""}${track.track_number}`
+                      : index + 1 + offset}
+                  </span>
                   <Play size={15} />
                 </button>
               </td>
               <td className="track-cell">
-                <Artwork recording={track.id} />
+                <Artwork
+                  release={track.release_id ?? undefined}
+                  recording={track.id}
+                />
                 <div>
                   <button
                     className="track-title"
@@ -88,7 +99,17 @@ export default function TrackTable({
                 </div>
               </td>
               <td className="artist-column muted">{track.artist}</td>
-              <td className="album-column muted">{track.album ?? "—"}</td>
+              <td className="album-column muted">
+                {track.release_id ? (
+                  <Link
+                    href={`/albums/${encodeURIComponent(track.release_id)}`}
+                  >
+                    {track.album ?? "Unknown album"}
+                  </Link>
+                ) : (
+                  (track.album ?? "—")
+                )}
+              </td>
               <td className="duration-column muted">
                 {time(track.duration_ms / 1000)}
               </td>
