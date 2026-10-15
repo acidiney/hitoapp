@@ -37,6 +37,12 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
         ? secondSource
         : `${source}/${id}`;
   const sources = new Set([...records.keys()].map(sourceFor));
+  const sourcePages = new Map<
+    string,
+    { id: string; label: string; ready: boolean }[]
+  >();
+  const failures = new Map<string, number>();
+  const sourceRequests: string[] = [];
   const gates = new Map<
     string,
     { entered: boolean; wait: Promise<void>; release: () => void }
@@ -45,6 +51,7 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
     authorization?: string;
     cookie?: string;
     source: string | null;
+    range?: string;
   }[] = [];
   const server = createServer(async (request, response) => {
     const url = new URL(request.url!, "http://fixture.invalid");
@@ -57,7 +64,14 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
         authorization: request.headers.authorization,
         cookie: request.headers.cookie,
         source: url.searchParams.get("source_id"),
+        range: request.headers.range,
       });
+      const sourceId = url.searchParams.get("source_id") ?? "";
+      const failure = failures.get(sourceId);
+      if (failure) {
+        response.writeHead(failure).end();
+        return;
+      }
       if (!sources.has(url.searchParams.get("source_id") ?? "")) {
         response.writeHead(404).end();
         return;
@@ -85,9 +99,25 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
           ? { "content-range": `bytes ${first}-${last}/${audio.length}` }
           : {}),
       });
-      response.end(
-        request.method === "HEAD" ? undefined : audio.subarray(first, last + 1),
-      );
+      const tail = gates.get(`audio:${sourceId}`);
+      if (tail && last - first + 1 > 320000 && request.method !== "HEAD") {
+        const cutoff = first + 320000;
+        response.write(audio.subarray(first, cutoff));
+        tail.entered = true;
+        await new Promise<void>((resolve) => {
+          response.once("close", resolve);
+          void tail.wait.then(() => {
+            response.off("close", resolve);
+            resolve();
+          });
+        });
+        if (!response.destroyed) response.end(audio.subarray(cutoff, last + 1));
+      } else
+        response.end(
+          request.method === "HEAD"
+            ? undefined
+            : audio.subarray(first, last + 1),
+        );
       return;
     }
     let body = "";
@@ -115,26 +145,37 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
         break;
       case "/fixture/v1/recordings/detail": {
         const id = JSON.parse(body).recording_id;
-        const gate = gates.get(id);
+        const key = `detail:${id}`;
+        const gate = gates.get(key);
         if (gate) {
           gate.entered = true;
           await gate.wait;
-          gates.delete(id);
+          gates.delete(key);
         }
         reply = records.get(id) ?? null;
         break;
       }
-      case "/fixture/v1/sources":
+      case "/fixture/v1/sources": {
+        const id = JSON.parse(body).recording_id;
+        sourceRequests.push(id);
         reply = {
-          items: [
+          items: sourcePages.get(id) ?? [
             {
-              id: sourceFor(JSON.parse(body).recording_id),
+              id: sourceFor(id),
               label: "Original",
               ready: true,
             },
           ],
         };
+        const key = `sources:${id}`;
+        const gate = gates.get(key);
+        if (gate) {
+          gate.entered = true;
+          await gate.wait;
+          gates.delete(key);
+        }
         break;
+      }
       default:
         response.writeHead(404).end();
         return;
@@ -145,6 +186,20 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
       .end(JSON.stringify(reply));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  function hold(key: string) {
+    let release!: () => void;
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const gate = { entered: false, wait, release };
+    gates.set(key, gate);
+    return {
+      get entered() {
+        return gate.entered;
+      },
+      release,
+    };
+  }
   return {
     address: `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture/`,
     token,
@@ -153,20 +208,23 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
     source,
     secondSource,
     requests,
-    holdDetails: (id: string) => {
-      let release!: () => void;
-      const wait = new Promise<void>((done) => {
-        release = done;
-      });
-      const gate = { entered: false, wait, release };
-      gates.set(id, gate);
-      return {
-        get entered() {
-          return gate.entered;
-        },
-        release,
-      };
+    sourceRequests,
+    setSources: (
+      id: string,
+      items: { id: string; label: string; ready: boolean }[],
+    ) => {
+      sourcePages.set(
+        id,
+        items.map((item) => ({ ...item })),
+      );
+      items.forEach((item) => sources.add(item.id));
     },
+    failSource: (id: string, status = 410) => {
+      failures.set(id, status);
+    },
+    holdAudioTail: (id: string) => hold(`audio:${id}`),
+    holdSources: (id: string) => hold(`sources:${id}`),
+    holdDetails: (id: string) => hold(`detail:${id}`),
     close: async () => {
       gates.forEach((gate) => gate.release());
       server.closeAllConnections();
