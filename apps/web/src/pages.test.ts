@@ -139,9 +139,11 @@ test("an old account mutation cannot show an error or clear the new account's pe
 });
 
 test("switching a scan account or library cancels stale completion and allows a new scan", async () => {
-  const old = deferred<Job>();
+  const old = deferred<Job[]>();
   const finished: Job = {
     id: "new-job",
+    library_id: "library",
+    folder_id: "folder",
     kind: "scan",
     state: "complete",
     progress: 2,
@@ -149,7 +151,7 @@ test("switching a scan account or library cancels stale completion and allows a 
   };
   vi.mocked(libraryApi.scan)
     .mockReturnValueOnce(old.promise)
-    .mockResolvedValueOnce(finished);
+    .mockResolvedValueOnce([{ ...finished, state: "queued" }]);
   vi.mocked(libraryApi.job).mockResolvedValue(finished);
   const { result, rerender } = renderHook(
     ({ account, library }) => useScanJob(account, library),
@@ -167,7 +169,7 @@ test("switching a scan account or library cancels stale completion and allows a 
   expect(libraryApi.scan).toHaveBeenCalledTimes(2);
   expect(router.reload).toHaveBeenCalledTimes(1);
   await act(async () => {
-    old.resolve({ ...finished, id: "old-job" });
+    old.resolve([{ ...finished, id: "old-job" }]);
     await previous;
   });
   expect(router.reload).toHaveBeenCalledTimes(1);
@@ -176,7 +178,7 @@ test("switching a scan account or library cancels stale completion and allows a 
 });
 
 test("unmounting a scan ignores a delayed job response", async () => {
-  const pending = deferred<Job>();
+  const pending = deferred<Job[]>();
   vi.mocked(libraryApi.scan).mockReturnValueOnce(pending.promise);
   const { result, unmount } = renderHook(() => useScanJob("alice", "library"), {
     wrapper,
@@ -187,17 +189,59 @@ test("unmounting a scan ignores a delayed job response", async () => {
   });
   unmount();
   await act(async () => {
-    pending.resolve({
-      id: "job",
-      kind: "scan",
-      state: "queued",
-      progress: 0,
-      error: null,
-    });
+    pending.resolve([
+      {
+        library_id: "library",
+        folder_id: "folder",
+        id: "job",
+        kind: "scan",
+        state: "queued",
+        progress: 0,
+        error: null,
+      },
+    ]);
     await scanning;
   });
   expect(libraryApi.job).not.toHaveBeenCalled();
   expect(router.reload).not.toHaveBeenCalled();
+});
+
+test("a library scan waits for every folder before reporting completion", async () => {
+  const second = deferred<Job>();
+  const first: Job = {
+    id: "first",
+    library_id: "library",
+    folder_id: "one",
+    kind: "scan",
+    state: "complete",
+    progress: 2,
+    error: null,
+  };
+  vi.mocked(libraryApi.scan).mockResolvedValueOnce([
+    { ...first, state: "queued" },
+    { ...first, id: "second", folder_id: "two", state: "queued" },
+  ]);
+  vi.mocked(libraryApi.job).mockImplementation(async (_account, id) => {
+    if (id === "first") return first;
+    if (id === "second") return second.promise;
+    throw new Error("Unknown folder scan");
+  });
+  const { result } = renderHook(() => useScanJob("alice", "library"), {
+    wrapper,
+  });
+  let scanning!: Promise<void>;
+  act(() => {
+    scanning = result.current.scan();
+  });
+  await waitFor(() => expect(libraryApi.job).toHaveBeenCalledTimes(2));
+  expect(result.current.scanning).toBe(true);
+  expect(router.reload).not.toHaveBeenCalled();
+  await act(async () => {
+    second.resolve({ ...first, id: "second", folder_id: "two", progress: 3 });
+    await scanning;
+  });
+  expect(router.reload).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("status").textContent).toContain("5 audio files");
 });
 
 test("account management ignores a creation response after changing accounts", async () => {

@@ -35,31 +35,59 @@ export function useScanJob(account: string, library: string | undefined) {
     setScanningScope(scope);
     log.info("scan.started", { account_id: account });
     try {
-      const job = await libraryApi.scan(account, library, signal);
+      const jobs = await libraryApi.scan(account, library, signal);
       if (!request.active()) return;
-      log.info("scan.queued", { account_id: account, job_id: job.id });
+      if (jobs.length === 0) {
+        notice("Add a music folder in Settings to begin.");
+        return;
+      }
+      const states = new Map(jobs.map((job) => [job.id, job]));
+      for (const job of jobs)
+        log.info("scan.queued", { account_id: account, job_id: job.id });
       while (request.active()) {
-        const status = await libraryApi.job(account, job.id, signal);
-        if (!request.active()) return;
-        if (status.state === "complete" || status.state === "failed") {
+        const pending = [...states.values()].filter(
+          (job) => job.state !== "complete" && job.state !== "failed",
+        );
+        for (let offset = 0; offset < pending.length; offset += 8) {
+          const statuses = await Promise.all(
+            pending
+              .slice(offset, offset + 8)
+              .map((job) => libraryApi.job(account, job.id, signal)),
+          );
+          if (!request.active()) return;
+          for (const status of statuses) {
+            states.set(status.id, status);
+            log.debug("scan.progress", {
+              job_id: status.id,
+              count: status.progress,
+              mode: status.state,
+            });
+          }
+        }
+        const statuses = [...states.values()];
+        if (
+          statuses.every(
+            (job) => job.state === "complete" || job.state === "failed",
+          )
+        ) {
+          const failures = statuses.filter((job) => job.state === "failed");
+          const count = statuses.reduce(
+            (total, job) => total + job.progress,
+            0,
+          );
           log.info("scan.finished", {
             account_id: account,
-            job_id: job.id,
-            mode: status.state,
-            count: status.progress,
+            count,
+            mode: failures.length ? "failed" : "complete",
           });
           notice(
-            status.error ??
-              `Scan complete. Read ${status.progress} audio files.`,
+            failures.length
+              ? `${failures.length} folder scan${failures.length === 1 ? "" : "s"} failed. Check Library settings.`
+              : `Scan complete. Read ${count} audio files.`,
           );
           router.reload();
           return;
         }
-        log.debug("scan.progress", {
-          job_id: job.id,
-          count: status.progress,
-          mode: status.state,
-        });
         await waitForPoll(signal);
       }
     } catch (error) {

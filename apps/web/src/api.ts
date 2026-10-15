@@ -63,7 +63,7 @@ export const libraryApi = {
     account: string,
     library: string,
     signal?: AbortSignal,
-  ): Promise<Job> {
+  ): Promise<Job[]> {
     return (
       await request(`/libraries/${part(library)}/scan`, {
         action: "scan.enqueue",
