@@ -149,8 +149,33 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
     .getByLabel("Track title", { exact: true })
     .fill("My fixture title");
   await page
+    .getByLabel("Track artist", { exact: true })
+    .fill("My fixture performer");
+  let releaseRefresh!: () => void;
+  let refreshStarted!: () => void;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  const refreshReached = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  const detailsUrl = page.url();
+  await page.route(
+    (url) => url.href === detailsUrl,
+    async (route) => {
+      const response = await route.fetch();
+      refreshStarted();
+      await refreshGate;
+      await route.fulfill({ response });
+    },
+    { times: 1 },
+  );
+  await page
     .getByRole("button", { name: "Save personal title", exact: true })
     .click();
+  await refreshReached;
+  await expect(page.getByLabel("Track artist", { exact: true })).toBeDisabled();
+  releaseRefresh();
   await expect(
     page.getByRole("heading", {
       name: "My fixture title",
@@ -160,6 +185,9 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   ).toBeVisible();
   await expect(page.locator(".now-playing strong")).toHaveText(
     "My fixture title",
+  );
+  await expect(page.getByLabel("Track artist", { exact: true })).toHaveValue(
+    "My fixture performer",
   );
   await page
     .getByLabel("Track artist", { exact: true })
@@ -217,6 +245,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await page
     .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/albums\/[^/]+$/);
   const albumUrl = page.url();
   await page
     .getByRole("link", { name: "Edit album details", exact: true })
