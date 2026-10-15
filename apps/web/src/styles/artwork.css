@@ -1,0 +1,26 @@
+.artwork {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #282725;
+  color: #8b8881;
+}
+.artwork > svg {
+  width: 45%;
+  height: 45%;
+}
+.artwork > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.artwork.has-image {
+  background: #222;
+}
+.artwork img:not([src]) {
+  visibility: hidden;
+}
