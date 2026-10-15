@@ -28,6 +28,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
     library_id: "library",
     release_id: "album",
     title: "Opening",
+    inherited_title: "Opening",
     artist: "Performer",
     album: "Two discs",
     duration_ms: 1000,
