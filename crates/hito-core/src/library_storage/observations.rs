@@ -1,4 +1,4 @@
-use super::types::IndexedFile;
+use super::types::{IndexedFile, METADATA_VERSION};
 use crate::Result;
 use sha2::{Digest, Sha256};
 use sqlx::{Sqlite, Transaction};
@@ -51,9 +51,11 @@ pub(super) async fn remember(
             .bind(recording).bind(audio.algorithm).bind(&audio.digest).execute(&mut **tx).await?;
     }
     sqlx::query(
-        "INSERT INTO source_metadata(source_id, release_id, title, artist, duration_ms) VALUES (?, ?, ?, ?, ?)
+        "INSERT INTO source_metadata(source_id, release_id, title, artist, duration_ms, disc_number, track_number, inspection_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(source_id) DO UPDATE SET release_id = excluded.release_id, title = excluded.title,
-            artist = excluded.artist, duration_ms = excluded.duration_ms",
-    ).bind(source).bind(release).bind(&file.title).bind(&file.artist).bind(file.duration_ms).execute(&mut **tx).await?;
+            artist = excluded.artist, duration_ms = excluded.duration_ms, disc_number = excluded.disc_number,
+            track_number = excluded.track_number, inspection_version = excluded.inspection_version",
+    ).bind(source).bind(release).bind(&file.title).bind(&file.artist).bind(file.duration_ms)
+        .bind(file.disc_number).bind(file.track_number).bind(METADATA_VERSION).execute(&mut **tx).await?;
     super::metadata_owner::refresh_metadata(tx, recording).await
 }

@@ -10,6 +10,8 @@ pub(crate) struct CachedFile {
     pub album: String,
     pub album_artist: String,
     pub duration_ms: i64,
+    pub disc_number: Option<i64>,
+    pub track_number: Option<i64>,
 }
 
 impl CachedFile {
@@ -27,6 +29,8 @@ impl CachedFile {
             album: self.album,
             album_artist: self.album_artist,
             duration_ms: self.duration_ms,
+            disc_number: self.disc_number,
+            track_number: self.track_number,
         }
     }
 }

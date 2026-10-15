@@ -20,6 +20,9 @@ pub struct ReleaseTrack {
     #[serde(flatten)]
     #[sqlx(flatten)]
     pub recording: Recording,
+    pub entry_id: String,
+    pub disc_number: Option<i64>,
+    pub track_number: Option<i64>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -31,7 +34,7 @@ pub struct ReleaseDetail {
 const ENTRIES: &str = "WITH entries AS (
     SELECT m.release_id, s.recording_id, min(m.source_id) AS source_id
     FROM source_metadata m JOIN sources s ON s.id = m.source_id
-    GROUP BY m.release_id, s.recording_id
+    GROUP BY m.release_id, s.recording_id, m.disc_number, m.track_number
 ) ";
 const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist,
     count(*) AS track_count, sum(m.duration_ms) AS duration_ms,
@@ -89,7 +92,7 @@ impl Catalog {
         push_available(&mut query, &self.host);
         query
             .push(
-                " AS available, COALESCE(l.liked, 0) AS liked FROM entries e
+                " AS available, COALESCE(l.liked, 0) AS liked, m.source_id AS entry_id, m.disc_number, m.track_number FROM entries e
             JOIN releases a ON a.id = e.release_id JOIN recordings r ON r.id = e.recording_id
             JOIN source_metadata m ON m.source_id = e.source_id
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
@@ -99,7 +102,7 @@ impl Catalog {
         query
             .push(" AND a.id = ")
             .push_bind(release.id.clone())
-            .push(" ORDER BY m.title COLLATE NOCASE, r.id LIMIT ")
+            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, m.title COLLATE NOCASE, r.id, m.source_id LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);

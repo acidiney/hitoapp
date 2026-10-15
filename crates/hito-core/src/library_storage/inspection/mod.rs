@@ -82,7 +82,7 @@ impl FileInspector {
         let mut arguments = input(&media.path);
         arguments.extend([
             "-select_streams", "a", "-show_entries",
-            "stream=codec_name,sample_rate,channels,channel_layout,bits_per_sample,bits_per_raw_sample:format=duration:format_tags=title,artist,album,album_artist:stream_tags=title,artist,album,album_artist",
+            "stream=codec_name,sample_rate,channels,channel_layout,bits_per_sample,bits_per_raw_sample:format=duration:format_tags=title,artist,album,album_artist,disc,track:stream_tags=title,artist,album,album_artist,disc,track",
             "-of", "json",
         ].map(OsString::from));
         let bytes = self
@@ -134,6 +134,8 @@ impl FileInspector {
             album_artist,
             album: probe.tag("album").unwrap_or_else(|| "Unknown album".into()),
             duration_ms: probe.duration_ms(),
+            disc_number: probe.number("disc"),
+            track_number: probe.number("track"),
             audio,
         })
     }

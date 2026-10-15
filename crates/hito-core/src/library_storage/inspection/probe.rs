@@ -28,6 +28,17 @@ pub(super) struct Format {
 }
 
 impl Probe {
+    pub(super) fn number(&self, name: &str) -> Option<i64> {
+        self.tag(name)?
+            .split('/')
+            .next()?
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|number| *number > 0)
+            .map(i64::from)
+    }
+
     pub(super) fn tag(&self, name: &str) -> Option<String> {
         self.format
             .tags

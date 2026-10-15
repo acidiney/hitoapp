@@ -5,7 +5,7 @@ use super::{
     lease::Lease,
     local_path, metadata_owner,
     root::Root,
-    types::{AUDIO_ALGORITHM, IndexedFile},
+    types::{AUDIO_ALGORITHM, IndexedFile, METADATA_VERSION},
     walking::{Paths, paths},
 };
 use crate::{Error, Result};
@@ -79,13 +79,13 @@ impl LibraryStorage {
         lease.check_folder(&self.store, folder).await?;
         let relative = relative(root, path)?;
         let cached: Option<CachedFile> = sqlx::query_as(
-            "SELECT f.file_checksum AS checksum, f.audio_digest, m.title, m.artist, m.duration_ms,
+            "SELECT f.file_checksum AS checksum, f.audio_digest, m.title, m.artist, m.duration_ms, m.disc_number, m.track_number,
                 COALESCE(a.title, 'Unknown album') AS album, COALESCE(a.artist, m.artist) AS album_artist
              FROM local_files f JOIN sources s ON s.id = f.source_id
              JOIN source_metadata m ON m.source_id = s.id LEFT JOIN releases a ON a.id = m.release_id
-             WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ?",
+             WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ? AND m.inspection_version = ?",
         ).bind(&folder.id).bind(relative).bind(root.path().to_string_lossy().as_ref())
-            .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).fetch_optional(&self.store.pool).await?;
+            .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).bind(METADATA_VERSION).fetch_optional(&self.store.pool).await?;
         let inspection = self.inspector.inspect(root, path, cached);
         tokio::pin!(inspection);
         loop {

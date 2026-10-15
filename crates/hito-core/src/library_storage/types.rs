@@ -22,6 +22,8 @@ pub(super) struct IndexedFile {
     pub album: String,
     pub album_artist: String,
     pub duration_ms: i64,
+    pub disc_number: Option<i64>,
+    pub track_number: Option<i64>,
     pub size: i64,
 }
 
@@ -31,3 +33,4 @@ pub(super) struct AudioEvidence {
 }
 
 pub(super) const AUDIO_ALGORITHM: &str = "ffmpeg-pcm-f64-v1";
+pub(super) const METADATA_VERSION: i64 = 1;
