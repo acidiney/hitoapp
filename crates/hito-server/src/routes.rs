@@ -53,6 +53,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
         .routes(routes!(api::artwork::artwork))
+        .routes(routes!(api::artwork::release_artwork))
         .routes(routes!(catalog::audio))
         .routes(routes!(jobs::scan))
         .routes(routes!(jobs::job))

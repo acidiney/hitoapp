@@ -135,3 +135,65 @@ async fn artist_and_album_pages_share_the_authorized_json_catalog() {
         );
     }
 }
+
+#[tokio::test]
+async fn release_artwork_is_private_and_requires_library_membership() {
+    let (dir, app, token, _) = indexed_app().await;
+    let cover = include_bytes!("../fixtures/cover.png");
+    std::fs::write(dir.path().join("music/cover.png"), cover).unwrap();
+    let index = call(&app, "GET", "/api/v1/releases", Value::Null, Some(&token))
+        .await
+        .1;
+    let id = index["items"][0]["id"].as_str().unwrap();
+    let path = format!("/api/v1/releases/{id}/artwork");
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(&path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    assert_eq!(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .as_ref(),
+        cover
+    );
+    call(
+        &app,
+        "POST",
+        "/api/v1/users",
+        json!({"username":"listener","password":"listener private password"}),
+        Some(&token),
+    )
+    .await;
+    let session = call(
+        &app,
+        "POST",
+        "/api/v1/login",
+        json!({"username":"listener","password":"listener private password"}),
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(
+        call(&app, "GET", &path, Value::Null, session["token"].as_str())
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        call(&app, "GET", &path, Value::Null, None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+}

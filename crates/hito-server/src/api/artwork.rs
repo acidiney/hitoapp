@@ -20,11 +20,27 @@ pub async fn artwork(
     Account(actor): Account,
     Path(id): Path<String>,
 ) -> ApiResult<Response> {
-    let artwork = services
-        .catalog
-        .artwork(&actor, &id)
-        .await?
-        .ok_or(Error::NotFound)?;
+    let artwork = services.catalog.artwork(&actor, &id).await?;
+    image_response(artwork)
+}
+
+#[utoipa::path(get, path = "/api/v1/releases/{id}/artwork", params(("id" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, description = "Cover from an authorized source on this release",
+        content(("image/png"), ("image/jpeg"), ("image/gif"), ("image/webp")),
+        headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 401, body = ErrorResponse), (status = 404, body = ErrorResponse),
+))]
+pub async fn release_artwork(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Response> {
+    image_response(services.catalog.release_artwork(&actor, &id).await?)
+}
+
+fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<Response> {
+    let artwork = artwork.ok_or(Error::NotFound)?;
     Ok((
         [
             ("content-type", artwork.content_type),
