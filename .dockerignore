@@ -8,3 +8,11 @@ data
 fixtures/generated
 playwright-report
 test-results
+**/test-results
+**/playwright-report
+backups
+fixtures/e2e-generated
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.log
