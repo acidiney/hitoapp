@@ -119,10 +119,11 @@ test("closing after the queue empties focuses an enabled player control", () => 
   );
 });
 
-test("source failure remains visible inside the expanded player", async () => {
+test("exhausted sources remain visible as a failure inside the expanded player", async () => {
   render(createElement(PlayerDock));
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  resolveSources = async () => [];
   await act(async () => {
     audio.dispatchEvent(new Event("error"));
   });
