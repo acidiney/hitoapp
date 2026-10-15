@@ -118,7 +118,7 @@ Artwork stays behind the core's filesystem authorization. The private reader mod
 
 ## Plugin connections
 
-`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. `Catalog` owns transient provider search and durable adoption into owner-only libraries. Its private plugin operations keep approved endpoints and credentials out of the HTTP/UI adapters. Audio uses a separate media client with live authority checks. See [implemented protocol and recovery](plugins.md).
+`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. `Catalog` owns transient provider search, durable adoption into owner-only libraries, and saved-recording source refresh. Its private plugin operations keep approved endpoints and credentials out of the HTTP/UI adapters. Source refresh requests only availability, preserves accepted metadata, and publishes a bounded generation after current authority checks. Cached source reads never contact providers. Audio uses a separate media client with live authority checks. See [implemented protocol and recovery](plugins.md).
 
 ## Provider discovery
 

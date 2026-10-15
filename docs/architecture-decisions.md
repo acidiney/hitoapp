@@ -44,6 +44,12 @@ A recording is a performance, a source supplies it, and a file locator describes
 
 Bounded FFmpeg inspection reads a private owned input copy, with explicit cancellation, output limits, and child reaping. Source metadata observations survive independently of the selected display owner. SQLite identity resolution and metadata selection commit together. [Recording identity](recording-identity.md) documents the algorithm, upgrade witnesses, conservative exceptions, and tested formats.
 
+## Source refresh has separate snapshot ownership
+
+Catalog owns saved source refresh. The private plugin operation supplies current connection authority and bounded source transport. Adoption shares transactional source replacement, but only adoption accepts recording metadata. Immutable provider identity stays in `provider_items`; `provider_source_state` holds the accepted observation and generation. Generation comparisons fence overlapping responses across service instances. Historical bindings remain available for stable identity reuse without entering current playback listings.
+
+`PlaybackSources` owns a recording's cached candidates, one refreshed snapshot, and cancellation. The browser playback controller owns media events, seek position, queue transitions, and retries. Track details use a separate account/recording-scoped availability hook so a recheck cannot reset metadata drafts or interrupt healthy playback. Cached source reads and artwork never trigger provider HTTP.
+
 ## Logs follow workflow boundaries
 
 Structured events and spans make requests, core operations, background jobs, and playback transitions observable. Logs share request IDs across HTTP and browser events. Frequent work uses lower levels. Safe error categories preserve operational evidence without serializing credentials, bodies, paths, or signed audio locations.

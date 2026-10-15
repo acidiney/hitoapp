@@ -1,6 +1,6 @@
 # Plugin connections
 
-Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Discover supports private music search, durable adoption, and playback through authorized audio relay. These workflows are deployed on the normal development server at migration 0020. Catalog browsing capabilities, enrichment, provider playlists, dashboard content, lyrics, and backing tracks remain release work.
+Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Discover supports private music search, durable adoption, and playback through authorized audio relay. These workflows and the source-refresh behavior below are implemented in the development build. Catalog browsing capabilities, enrichment, provider playlists, dashboard content, lyrics, and backing tracks remain release work.
 
 ## Settings
 
@@ -95,7 +95,19 @@ The media client has a two-second connect deadline, ten-second header deadline, 
 
 Connection removal, service withdrawal, credential changes, capability withdrawal, and lost source ownership cancel active requests and bodies. A database-backed monitor checks unread streams every 250 ms with a one-second authorization-query deadline. Checks also surround each body read. Changes made by a separately opened service instance are visible. A cached readiness change prevents new opens but does not interrupt a healthy current stream. An unchanged connection check can advance its revision without revoking an existing stream. Transfer completion retains the opening log correlation and records only safe outcome, byte count, and elapsed time.
 
-Playback-time source refresh and recovery, conversion, official services, and live-provider checks remain unfinished. Fixture-based browser playback does not establish codec compatibility or release performance.
+Browser playback-time refresh and recovery are described below. Conversion, official services, and live-provider checks remain unfinished. Fixture-based playback does not establish codec compatibility or release performance.
+
+## Refreshing playback sources
+
+`GET /api/v1/recordings/{id}/sources` reads the current cached source snapshot. It does not contact a provider, including when artwork uses that lookup. `POST /api/v1/recordings/{id}/sources/refresh` explicitly asks the saved recording's active personal connection for its complete source list. The request takes the durable Hito recording ID, has no JSON body, and uses the existing session, account, and same-origin checks. Local recordings and inactive connections return cached availability without a provider request.
+
+The core resolves the immutable provider binding and accepted metadata observation before HTTP. It requests only `v1/sources`, then rechecks access and connection/service revisions inside a short transaction. A generation comparison rejects responses that overlap a newer accepted refresh or adoption. The entire validated page commits together. Failures, duplicate or reparented IDs, removal, and stale generations leave the prior snapshot intact. Only a successful complete response withdraws omitted sources.
+
+Returned sources keep their durable Hito IDs. Newly discovered sources inherit the last accepted recording observation, including its real album appearance when present. This operation does not refetch details, accept new metadata, create observations, or change personal edits, likes, playlists, or progress. Historical bindings and evidence remain stored, but cached listing and readiness withdrawal visit the current generation. Migration 0022 retains all previous rows and marks only previously ready bindings current. Earlier versions did not distinguish withdrawn history from explicitly unavailable entries; a new validated refresh restores that authoritative distinction. Both publication and current listing are bounded by the provider's 16-source page, independently of retained history.
+
+The browser tries ready cached alternatives first. After exhausting them it refreshes once, and can retry stable source IDs once in that new snapshot. If another request won the refresh race, one final cached read can use that accepted result. The cycle is bounded. Recovery resumes near the current or latest requested seek position, including backward seeks and zero, and keeps playback speed. Selecting another recording or changing accounts aborts pending resolution. Unrecoverable recordings display a failure and allow the queue to continue.
+
+Track details for saved provider recordings offer **Check availability**, with pending, ready, unavailable, and service-error states. Checking preserves metadata drafts and current playback. **Play track** is a separate action after audio becomes ready. No provider request runs merely from viewing details. This is manual rechecking and failure recovery; debrid preparation, track-boundary reconsideration, source ranking/overrides, gapless playback, and native recovery are still unfinished.
 
 ## HTTP manifest protocol, version 1
 
@@ -143,6 +155,8 @@ The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web 
 | `DELETE /api/v1/plugins/{id}` | Removes this account's installation at the expected revision |
 | `POST /api/v1/plugins/{id}/search` | Searches with an expected installation revision, query, optional cursor, and bounded limit; returns transient results |
 | `POST /api/v1/plugins/{id}/recordings` | Adopts or refreshes an opaque provider recording ID at an expected installation revision; returns its durable Hito recording |
+| `GET /api/v1/recordings/{id}/sources` | Reads the current cached source snapshot without provider HTTP |
+| `POST /api/v1/recordings/{id}/sources/refresh` | Refreshes only source availability for a saved authorized recording |
 | `GET /api/v1/sources/{id}/audio` | Streams authorized local or provider audio, including validated single byte ranges |
 | `HEAD /api/v1/sources/{id}/audio` | Returns the authorized representation headers without a body |
 
