@@ -2,7 +2,7 @@
 use axum::{
     Json, Router,
     extract::{OriginalUri, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -11,6 +11,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 
 struct Fixture {
+    audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
     gates: RwLock<HashMap<String, Arc<Gate>>>,
@@ -26,6 +27,7 @@ impl ProviderServer {
     pub async fn start() -> Self {
         let (closed, receiver) = watch::channel(false);
         let state = Arc::new(Fixture {
+            audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
             requests: Default::default(),
             gates: Default::default(),
@@ -37,6 +39,7 @@ impl ProviderServer {
             .route("/prefix/v1/search", post(exchange))
             .route("/prefix/v1/recordings/detail", post(exchange))
             .route("/prefix/v1/sources", post(exchange))
+            .route("/prefix/v1/audio", get(audio))
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}/prefix/", listener.local_addr().unwrap());
@@ -52,6 +55,9 @@ impl ProviderServer {
     }
     pub async fn reply(&self, path: &str, value: Value) {
         self.state.replies.write().await.insert(path.into(), value);
+    }
+    pub async fn audio(&self, status: StatusCode, headers: HeaderMap, bytes: Vec<u8>) {
+        *self.state.audio.write().await = (status, headers, bytes);
     }
     pub async fn hold(&self, path: &str) -> Arc<Gate> {
         let gate = Arc::new(Gate {
@@ -75,6 +81,69 @@ impl ProviderServer {
             .map(|(_, headers, body)| (headers.clone(), body.clone()))
             .collect()
     }
+}
+async fn audio(
+    State(state): State<Arc<Fixture>>,
+    axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    state
+        .requests
+        .lock()
+        .await
+        .push(("v1/audio".into(), headers, {
+            let mut query = json!(query);
+            query["_method"] = json!(method.as_str());
+            query
+        }));
+    let (status, headers, bytes) = state.audio.read().await.clone();
+    if !wait_gate(&state, "v1/audio").await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    let gate = state.gates.read().await.get("audio-body").cloned();
+    let tail = state.gates.read().await.get("audio-tail").cloned();
+    if gate.is_some() || tail.is_some() {
+        use tokio::io::AsyncWriteExt;
+        let (mut writer, reader) = tokio::io::duplex(65536);
+        let mut closed = state.closed.clone();
+        tokio::spawn(async move {
+            let prefix = if tail.is_some() {
+                bytes.len().min(64)
+            } else {
+                bytes.len()
+            };
+            tokio::select! {
+                _ = closed.changed() => return,
+                result = writer.write_all(&bytes[..prefix]) => if result.is_err() { return; },
+            }
+            if let Some(tail) = tail {
+                tail.entered.add_permits(1);
+                tokio::select! {
+                    _ = closed.changed() => return,
+                    result = tail.release.acquire() => result.unwrap().forget(),
+                }
+                tokio::select! {
+                    _ = closed.changed() => return,
+                    result = writer.write_all(&bytes[prefix..]) => if result.is_err() { return; },
+                }
+            }
+            if let Some(gate) = gate {
+                gate.entered.add_permits(1);
+                tokio::select! {
+                    _ = closed.changed() => {},
+                    result = gate.release.acquire() => result.unwrap().forget(),
+                }
+            }
+        });
+        return (
+            status,
+            headers,
+            axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(reader)),
+        )
+            .into_response();
+    }
+    (status, headers, bytes).into_response()
 }
 impl Drop for ProviderServer {
     fn drop(&mut self) {
@@ -101,16 +170,22 @@ async fn exchange(
         .get(path)
         .cloned()
         .unwrap_or(Value::Null);
+    if !wait_gate(&state, path).await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    Json(reply).into_response()
+}
+async fn wait_gate(state: &Fixture, path: &str) -> bool {
     let gate = state.gates.read().await.get(path).cloned();
     if let Some(gate) = gate {
         gate.entered.add_permits(1);
         let mut closed = state.closed.clone();
         tokio::select! {
-            _ = closed.changed() => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+            _ = closed.changed() => return false,
             permit = gate.release.acquire() => permit.unwrap().forget(),
         }
     }
-    Json(reply).into_response()
+    true
 }
 async fn manifest(State(state): State<Arc<Fixture>>) -> Json<Value> {
     Json(

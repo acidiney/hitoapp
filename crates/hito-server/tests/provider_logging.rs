@@ -45,13 +45,25 @@ async fn provider_workflows_log_safe_outcomes_without_private_content_or_credent
         server.reply("v1/sources", serde_json::json!({"items":[{"id":"provider-private-source","label":"provider-private-label","ready":true}]})).await;
         hito.catalog.search_provider(&actor, &installed.id, ProviderSearch { installation_revision:1, query:"provider-private-query".into(), cursor:Some("provider-private-cursor".into()), limit:10 }).await.unwrap();
         let request = || AdoptProviderRecording { installation_revision:1, provider_recording_id:"provider-private-remote-id".into() };
-        hito.catalog.adopt_provider(&actor, &installed.id, request()).await.unwrap();
+        let recording = hito.catalog.adopt_provider(&actor, &installed.id, request()).await.unwrap();
+        let source = hito.catalog.sources(&actor,&recording.id).await.unwrap().remove(0);
+        server.audio(axum::http::StatusCode::OK, axum::http::HeaderMap::from_iter([
+            ("content-type".parse().unwrap(),"audio/wav".parse().unwrap())
+        ]), vec![1,2,3,4]).await;
+        let hito_core::OpenedAudio::Content(mut audio) = hito.catalog.open_audio(&actor,&source.id,Default::default()).await.unwrap() else { panic!("audio must open") };
+        while audio.body.as_mut().unwrap().chunk().await.unwrap().is_some() {}
+        drop(audio);
         server.reply("v1/sources", serde_json::json!({"items":[],"unexpected":"provider-private-rejected-body"})).await;
         assert!(hito.catalog.adopt_provider(&actor, &installed.id, request()).await.is_err());
         let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
         assert!(output.contains("Provider search completed"));
         assert!(output.contains("Provider recording adopted"));
         assert!(output.contains("Provider observation retained"));
+        assert!(output.contains("Audio transfer closed"));
+        let transfer: serde_json::Value = output.lines().filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+            .find(|entry| entry["fields"]["message"]=="Audio transfer closed").unwrap();
+        assert!(transfer["spans"].as_array().is_some_and(|spans| spans.iter().any(|span| span["account_id"]==session.user.id)),
+            "transfer completion must retain its opening account correlation");
         assert!(output.contains("upstream"));
         assert!(output.contains("account_id"));
         assert!(!output.contains("provider-private-"));
