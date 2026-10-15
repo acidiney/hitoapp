@@ -271,6 +271,81 @@ test("provider discovery saves, pages and plays privately with stale selection p
     expect(
       await audio.evaluate((element: HTMLAudioElement) => element.src),
     ).toBe(source);
+    const owned = await (
+      await page.request.get("/api/v1/recordings?q=Discovery")
+    ).json();
+    const artistIndex = await (
+      await page.request.get(
+        `/api/v1/artists?library=${encodeURIComponent(owned.items[0].library_id)}`,
+      )
+    ).json();
+    expect(artistIndex.total).toBe(1);
+    const artistId = artistIndex.items[0].id;
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Artists", exact: true })
+      .click();
+    await page.locator(`a[href="/artists/${artistId}"]`).click();
+    await expect(
+      page.getByRole("heading", {
+        name: fixture.recording.artist,
+        exact: true,
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Tracks", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Albums & appearances", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", {
+        name: `Play ${fixture.second.title}`,
+        exact: true,
+      }),
+    ).toBeEnabled();
+    expect(
+      await audio.evaluate((element: HTMLAudioElement) => element.src),
+    ).toBe(source);
+    await page.screenshot({
+      path: "/workspace/test-results/provider-artist-desktop.png",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const artistPlay = page.getByRole("button", {
+      name: "Play tracks",
+      exact: true,
+    });
+    await artistPlay.evaluate((element) =>
+      element.scrollIntoView({ block: "center" }),
+    );
+    const artistControl = await artistPlay.boundingBox();
+    const artistDock = await page
+      .getByRole("contentinfo", { name: "Audio player" })
+      .boundingBox();
+    expect(artistControl!.y + artistControl!.height).toBeLessThanOrEqual(
+      artistDock!.y,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    ).toBe(false);
+    await page.screenshot({
+      path: "/workspace/test-results/provider-artist-mobile.png",
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page
+      .getByRole("button", {
+        name: `Play ${fixture.recording.title}`,
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(() =>
+        audio.evaluate((element: HTMLAudioElement) => element.currentTime),
+      )
+      .toBeGreaterThan(0.2);
     const created = await page.request.post("/api/v1/users", {
       headers,
       data: {
@@ -305,6 +380,12 @@ test("provider discovery saves, pages and plays privately with stale selection p
           ).json()
         ).total,
       ).toBe(0);
+      expect(
+        (await (await listener.request.get("/api/v1/artists")).json()).total,
+      ).toBe(0);
+      expect(
+        (await listener.request.get(`/api/v1/artists/${artistId}`)).status(),
+      ).toBe(404);
     } finally {
       await other.close();
     }
@@ -332,6 +413,31 @@ test("provider discovery saves, pages and plays privately with stale selection p
         exact: true,
       }),
     ).toBeDisabled();
+    await page.goto(`/artists/${artistId}`);
+    await expect(
+      page.getByRole("heading", {
+        name: fixture.recording.artist,
+        exact: true,
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Play tracks", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: `Play ${fixture.recording.title}`,
+        exact: true,
+      }),
+    ).toBeDisabled();
+    for (const title of [fixture.recording.title, fixture.second.title]) {
+      const row = page.getByRole("row").filter({
+        has: page.getByRole("button", { name: `Play ${title}`, exact: true }),
+      });
+      await expect(
+        row.getByText("Unavailable on this device", { exact: true }),
+      ).toBeVisible();
+    }
     expect(errors).toEqual([]);
   } finally {
     if (connection)
