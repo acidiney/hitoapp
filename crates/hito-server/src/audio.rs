@@ -4,80 +4,123 @@ use axum::{
     http::{Method, Request, StatusCode, header},
     response::Response,
 };
-use hito_core::{AudioFile, Error};
-use std::io::SeekFrom;
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
-use tokio_util::io::ReaderStream;
+use hito_core::{Actor, AudioRequest, ByteRange, Catalog, OpenedAudio};
 
-pub async fn response(audio: AudioFile, request: Request<Body>) -> ApiResult<Response> {
-    let mut start = 0;
-    let mut length = audio.length;
-    let mut status = StatusCode::OK;
-    if request.method() == Method::GET
-        && !request.headers().contains_key(header::IF_RANGE)
-        && let Some(value) = request.headers().get(header::RANGE)
-    {
-        let range = value
-            .to_str()
-            .ok()
-            .and_then(|value| single_range(value, audio.length));
-        let Some(range) = range else {
-            return Ok(Response::builder()
-                .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                .header(header::CONTENT_RANGE, format!("bytes */{}", audio.length))
-                .header(header::CACHE_CONTROL, "private, no-store")
-                .body(Body::empty())
-                .unwrap());
-        };
-        start = *range.start();
-        length = range.end() - start + 1;
-        status = StatusCode::PARTIAL_CONTENT;
-    }
+pub async fn response(
+    catalog: &Catalog,
+    actor: &Actor,
+    source: &str,
+    request: Request<Body>,
+) -> ApiResult<Response> {
+    let head = request.method() == Method::HEAD;
+    let parsed = if head || request.headers().contains_key(header::IF_RANGE) {
+        Ok(None)
+    } else {
+        range(request.headers())
+    };
+    let invalid = parsed.is_err();
+    let opened = catalog
+        .open_audio(
+            actor,
+            source,
+            AudioRequest {
+                head: head || invalid,
+                range: parsed.unwrap_or(None),
+            },
+        )
+        .await?;
+    let mut audio = match opened {
+        OpenedAudio::Unsatisfiable { length } => return Ok(unsatisfiable(length)),
+        OpenedAudio::Content(audio) if invalid => return Ok(unsatisfiable(audio.total_length)),
+        OpenedAudio::Content(audio) => audio,
+    };
     let mut builder = Response::builder()
-        .status(status)
+        .status(if audio.range.is_some() {
+            StatusCode::PARTIAL_CONTENT
+        } else {
+            StatusCode::OK
+        })
         .header(header::CONTENT_TYPE, audio.content_type)
-        .header(header::CONTENT_LENGTH, length)
-        .header(header::ACCEPT_RANGES, "bytes")
+        .header(
+            header::ACCEPT_RANGES,
+            if audio.seekable { "bytes" } else { "none" },
+        )
         .header(header::CACHE_CONTROL, "private, no-store");
-    if status == StatusCode::PARTIAL_CONTENT {
+    if let Some(length) = audio.length {
+        builder = builder.header(header::CONTENT_LENGTH, length);
+    }
+    if let Some(range) = audio.range {
+        let total = audio
+            .total_length
+            .map_or_else(|| "*".into(), |total| total.to_string());
         builder = builder.header(
             header::CONTENT_RANGE,
-            format!("bytes {}-{}/{}", start, start + length - 1, audio.length),
+            format!("bytes {}-{}/{total}", range.start(), range.end()),
         );
     }
-    if request.method() == Method::HEAD {
-        return Ok(builder.body(Body::empty()).unwrap());
-    }
-    let mut file = tokio::fs::File::from_std(audio.file);
-    file.seek(SeekFrom::Start(start))
-        .await
-        .map_err(|_| Error::Internal("Audio could not be read".into()))?;
-    let stream = ReaderStream::with_capacity(file.take(length), 65536);
-    Ok(builder.body(Body::from_stream(stream)).unwrap())
+    let body = audio
+        .body
+        .take()
+        .map(|stream| {
+            Body::from_stream(futures_util::stream::try_unfold(
+                stream,
+                |mut stream| async move {
+                    stream
+                        .chunk()
+                        .await
+                        .map(|chunk| chunk.map(|bytes| (bytes, stream)))
+                },
+            ))
+        })
+        .unwrap_or_else(Body::empty);
+    Ok(builder.body(body).unwrap())
 }
 
-fn single_range(value: &str, length: u64) -> Option<std::ops::RangeInclusive<u64>> {
-    if value.len() > 1024 || length == 0 {
-        return None;
+fn unsatisfiable(length: Option<u64>) -> Response {
+    let mut builder = Response::builder()
+        .status(StatusCode::RANGE_NOT_SATISFIABLE)
+        .header(header::CACHE_CONTROL, "private, no-store")
+        .header(header::CONTENT_LENGTH, 0);
+    if let Some(length) = length {
+        builder = builder.header(header::CONTENT_RANGE, format!("bytes */{length}"));
     }
-    let (unit, value) = value.trim().split_once('=')?;
-    if !unit.eq_ignore_ascii_case("bytes") {
-        return None;
-    }
-    let (first, last) = value.split_once('-')?;
-    if first.is_empty() {
-        let suffix = decimal(last)?;
-        return (suffix > 0).then(|| length.saturating_sub(suffix)..=length - 1);
-    }
-    let first = decimal(first)?;
-    let last = if last.is_empty() {
-        length - 1
-    } else {
-        decimal(last)?.min(length - 1)
+    builder.body(Body::empty()).unwrap()
+}
+
+fn range(headers: &axum::http::HeaderMap) -> Result<Option<ByteRange>, ()> {
+    let mut values = headers.get_all(header::RANGE).iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
     };
-    (first <= last && first < length).then_some(first..=last)
+    if values.next().is_some() {
+        return Err(());
+    }
+    let value = value.to_str().map_err(|_| ())?;
+    if value.len() > 1024 {
+        return Err(());
+    }
+    let (unit, value) = value.trim().split_once('=').ok_or(())?;
+    if !unit.eq_ignore_ascii_case("bytes") {
+        return Ok(None);
+    }
+    let (first, last) = value.split_once('-').ok_or(())?;
+    if first.is_empty() {
+        let length = decimal(last).ok_or(())?;
+        return (length > 0)
+            .then_some(Some(ByteRange::Suffix { length }))
+            .ok_or(());
+    }
+    let first = decimal(first).ok_or(())?;
+    let last = if last.is_empty() {
+        None
+    } else {
+        Some(decimal(last).ok_or(())?)
+    };
+    if last.is_some_and(|last| last < first) {
+        return Err(());
+    }
+    Ok(Some(ByteRange::From { first, last }))
 }
-
 fn decimal(value: &str) -> Option<u64> {
     (!value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
         .then(|| value.parse().unwrap_or(u64::MAX))

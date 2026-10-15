@@ -157,6 +157,7 @@ async fn owned_audio_streams_support_suffix_ranges_and_head_without_reopening_pa
             16044,
         ),
         ("GET", "BYTES=0-2", StatusCode::PARTIAL_CONTENT, 3),
+        ("GET", "items=0-2", StatusCode::OK, 16044),
         ("GET", "bytes=-+20000", StatusCode::RANGE_NOT_SATISFIABLE, 0),
         ("GET", "bytes=-0", StatusCode::RANGE_NOT_SATISFIABLE, 0),
         ("GET", "bytes=16040-", StatusCode::PARTIAL_CONTENT, 4),

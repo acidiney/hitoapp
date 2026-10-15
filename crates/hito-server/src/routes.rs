@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    api::{self, browsing, catalog, collection, identity, jobs, plugins, storage},
+    api::{self, browsing, catalog, collection, identity, jobs, plugins, providers, storage},
     inertia::{self, props::*},
     security, telemetry,
 };
@@ -45,6 +45,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugins::refresh))
         .routes(routes!(plugins::remove))
         .routes(routes!(plugins::clear_credential))
+        .routes(routes!(providers::search))
+        .routes(routes!(providers::adopt))
         .routes(routes!(api::health))
         .routes(routes!(api::contract))
         .routes(routes!(identity::setup_status, identity::setup))
@@ -64,7 +66,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
         .routes(routes!(api::artwork::release_artwork))
-        .routes(routes!(catalog::audio))
+        .routes(routes!(catalog::audio, catalog::audio_head))
         .routes(routes!(jobs::scan))
         .routes(routes!(jobs::job))
         .routes(routes!(storage::directories))

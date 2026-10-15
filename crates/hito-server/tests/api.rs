@@ -4,6 +4,9 @@ mod support;
 #[path = "api/identity.rs"]
 mod identity;
 
+#[path = "api/providers.rs"]
+mod providers;
+
 #[path = "api/catalog.rs"]
 mod catalog;
 

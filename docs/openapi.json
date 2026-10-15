@@ -1510,6 +1510,95 @@
         ]
       }
     },
+    "/api/v1/plugins/{id}/recordings": {
+      "post": {
+        "operationId": "adopt_provider_recording",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptProviderRecording"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recording"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins/{id}/refresh": {
       "post": {
         "operationId": "refresh_plugin",
@@ -1539,6 +1628,95 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PluginRefresh"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/{id}/search": {
+      "post": {
+        "operationId": "search_provider",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderSearch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPage"
                 }
               }
             }
@@ -2423,12 +2601,7 @@
             "content": {
               "application/octet-stream": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0
-                  }
+                  "$ref": "#/components/schemas/AudioStream"
                 }
               }
             }
@@ -2437,12 +2610,7 @@
             "content": {
               "application/octet-stream": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0
-                  }
+                  "$ref": "#/components/schemas/AudioStream"
                 }
               }
             }
@@ -2474,7 +2642,56 @@
               }
             }
           },
-          "416": {}
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {},
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "head": {
+        "operationId": "audio_head",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audio representation headers without a body"
+          },
+          "401": {},
+          "403": {},
+          "404": {},
+          "409": {},
+          "502": {}
         },
         "security": [
           {
@@ -3334,6 +3551,23 @@
           }
         }
       },
+      "AdoptProviderRecording": {
+        "type": "object",
+        "required": [
+          "installation_revision",
+          "provider_recording_id"
+        ],
+        "properties": {
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider_recording_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "AlbumDetailsPageProps": {
         "allOf": [
           {
@@ -3479,6 +3713,10 @@
             }
           }
         ]
+      },
+      "AudioStream": {
+        "type": "string",
+        "format": "binary"
       },
       "AuthSession": {
         "type": "object",
@@ -4774,6 +5012,115 @@
           }
         }
       },
+      "ProviderRecording": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "disc_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "release": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProviderRelease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderRelease": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderSearch": {
+        "type": "object",
+        "required": [
+          "installation_revision",
+          "query",
+          "limit"
+        ],
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "query": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "Recording": {
         "type": "object",
         "required": [
@@ -4990,6 +5337,27 @@
       },
       "ReleasePage": {
         "$ref": "#/components/schemas/Page_Release"
+      },
+      "SearchPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderRecording"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "SettingsPageProps": {
         "allOf": [
