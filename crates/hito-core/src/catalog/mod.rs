@@ -1,5 +1,6 @@
 mod artists;
 mod artwork;
+mod audio;
 mod availability;
 mod browse;
 mod media;
@@ -13,6 +14,7 @@ mod types;
 use crate::{HostDeviceId, store::Store};
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::Artwork;
+pub use audio::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;
 pub use media::AudioFile;

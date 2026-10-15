@@ -17,6 +17,9 @@ pub(crate) struct Operation {
     base_url: String,
     token: Option<Zeroizing<String>>,
     remote: super::transport::ControlClient,
+    media: super::media::MediaClient,
+    store: crate::Store,
+    credential: Option<Vec<u8>>,
 }
 impl Plugins {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -63,10 +66,42 @@ impl Plugins {
             base_url: row.try_get("base_url")?,
             token,
             remote: self.remote.clone(),
+            media: self.media.clone(),
+            store: self.store.clone(),
+            credential,
         })
     }
 }
 impl Operation {
+    pub(crate) async fn audio(
+        &self,
+        source: &str,
+        remote_source: &str,
+        request: crate::AudioRequest,
+    ) -> Result<crate::OpenedAudio> {
+        let authority = super::media::Authority {
+            store: self.store.clone(),
+            account: self.account.clone(),
+            installation: self.installation.clone(),
+            service: self.service.clone(),
+            credential: self.credential.clone(),
+            source: source.into(),
+            remote_source: remote_source.into(),
+        };
+        authority.check().await?;
+        let audio = self
+            .media
+            .open(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+                authority,
+            )
+            .await?;
+        let mut connection = self.store.pool.acquire().await?;
+        self.recheck(&mut connection).await?;
+        Ok(audio)
+    }
     pub(crate) async fn recording(
         &self,
         request: &RecordingRequest,

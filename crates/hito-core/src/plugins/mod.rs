@@ -2,6 +2,7 @@ mod admission;
 mod credentials;
 mod installations;
 mod key_file;
+mod media;
 mod offers;
 mod operation;
 mod refresh;
@@ -11,6 +12,7 @@ mod types;
 mod vault;
 
 use crate::{Result, store::Store};
+pub(crate) use media::RemoteAudio;
 pub use types::{
     InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
     PluginService, PluginSettings, RefreshPlugin,
@@ -20,6 +22,7 @@ pub use types::{
 pub struct Plugins {
     store: Store,
     remote: transport::ControlClient,
+    media: media::MediaClient,
     vault: vault::Vault,
 }
 
@@ -30,6 +33,7 @@ impl Plugins {
             store,
             vault,
             remote: transport::ControlClient::new()?,
+            media: media::MediaClient::new()?,
         })
     }
 }
