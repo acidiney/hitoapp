@@ -1,0 +1,143 @@
+.settings {
+  max-width: 1000px;
+}
+.settings-tabs {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 34px;
+}
+.settings-tabs > button {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 14px;
+  position: relative;
+}
+.settings-tabs > button[aria-selected="true"] {
+  color: var(--primary);
+}
+.settings-tabs > button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  background: var(--primary);
+}
+.settings-intro {
+  margin-bottom: 28px;
+}
+.settings h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.settings p {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 65ch;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 25px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-row h3 {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.setting-value {
+  font-size: 21px;
+}
+.setting-badge {
+  font-size: 12px;
+  color: #c6c6c6;
+  padding: 5px 15px;
+  border-radius: 18px;
+  background: #292929;
+}
+.library-storage-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 0;
+}
+.library-storage-row strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.library-storage-row small {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.storage-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: #252321;
+  border-radius: 10px;
+  color: #c6a89b;
+}
+.storage-help {
+  margin-top: 30px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.storage-help summary {
+  cursor: pointer;
+  color: #ccc;
+}
+.storage-help p {
+  margin-top: 12px;
+}
+.settings code {
+  font-size: 12px;
+  background: #252525;
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+.account-form {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  padding: 26px 0 30px;
+  border-bottom: 1px solid var(--border);
+}
+.account-form label {
+  font-size: 12px;
+  flex: 1;
+}
+.account-form input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+.account-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.account-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.account-list small {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.account-list li > div {
+  display: flex;
+  gap: 8px;
+}
