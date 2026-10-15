@@ -42,8 +42,13 @@ impl Manifest {
         {
             return Err("Plugin IDs must contain 1 to 128 ASCII letters, numbers, dots, hyphens, or underscores".into());
         }
-        if self.name.trim().is_empty() || self.name.len() > 256 {
-            return Err("Plugin names must contain 1 to 256 bytes".into());
+        if self.name.trim().is_empty()
+            || self.name.len() > 256
+            || self.name.chars().any(char::is_control)
+        {
+            return Err(
+                "Plugin names must contain 1 to 256 bytes without control characters".into(),
+            );
         }
         if self.capabilities.is_empty() {
             return Err("Declare at least one capability".into());
