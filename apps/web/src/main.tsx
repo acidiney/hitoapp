@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createInertiaApp } from "@inertiajs/react";
 import CatalogPage from "./pages/CatalogPage";
+import DiscoverPage from "./pages/DiscoverPage";
 import AlbumIndexPage from "./pages/AlbumIndexPage";
 import AlbumPage from "./pages/AlbumPage";
 import AlbumDetailsPage from "./pages/AlbumDetailsPage";
@@ -23,6 +24,7 @@ const layout = (page: ReactNode) => <Shell>{page}</Shell>;
 const pages = {
   LoginPage,
   CatalogPage: Object.assign(CatalogPage, { layout }),
+  DiscoverPage: Object.assign(DiscoverPage, { layout }),
   AlbumIndexPage: Object.assign(AlbumIndexPage, { layout }),
   AlbumPage: Object.assign(AlbumPage, { layout }),
   AlbumDetailsPage: Object.assign(AlbumDetailsPage, { layout }),

@@ -27,16 +27,18 @@ export default function Shell({ children }: { children: ReactNode }) {
         >
           <Sidebar user={user} playlists={playlists} path={url.pathname} />
           <div className="workspace">
-            <LibrarySearch
-              query={url.searchParams.get("q") ?? ""}
-              target={
-                page.component === "AlbumIndexPage"
-                  ? "albums"
-                  : page.component === "ArtistIndexPage"
-                    ? "artists"
-                    : "library"
-              }
-            />
+            {page.component !== "DiscoverPage" && (
+              <LibrarySearch
+                query={url.searchParams.get("q") ?? ""}
+                target={
+                  page.component === "AlbumIndexPage"
+                    ? "albums"
+                    : page.component === "ArtistIndexPage"
+                      ? "artists"
+                      : "library"
+                }
+              />
+            )}
             <NoticeBanner />
             <main id="main" tabIndex={-1}>
               {children}

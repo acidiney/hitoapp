@@ -7,6 +7,7 @@ import {
   Heart,
   History,
   Library,
+  Compass,
   ListMusic,
   LogOut,
   Settings,
@@ -24,6 +25,7 @@ const navigation = [
     group: "Browse",
     items: [
       { href: "/library", label: "Library", icon: Library },
+      { href: "/discover", label: "Discover", icon: Compass },
       { href: "/albums", label: "Albums", icon: Disc3 },
       { href: "/artists", label: "Artists", icon: Mic2 },
       { href: "/playlists", label: "Playlists", icon: ListMusic },
