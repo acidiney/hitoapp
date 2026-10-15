@@ -77,3 +77,42 @@ async fn artist_and_album_queries_treat_search_as_literal_private_input() {
         assert_eq!(releases.total, artists.total);
     }
 }
+
+#[tokio::test]
+async fn search_folds_unicode_without_changing_exact_artist_identity() {
+    let (_dir, hito, actor, library, music) = library("artist-host").await;
+    let file = music.join("track.wav");
+    write_wav(&file, 0);
+    let mut tag = Tag::new(TagType::Id3v2);
+    tag.set_artist("Björk".into());
+    tag.set_album("CÉU".into());
+    tag.save_to_path(file, WriteOptions::default()).unwrap();
+    scan(&hito, &actor, &library).await;
+    let artists = hito
+        .catalog
+        .artists(
+            &actor,
+            Browse {
+                q: Some("BJÖRK".into()),
+                ..Browse::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(artists.total, 1);
+    assert_eq!(artists.items[0].name, "Björk");
+    assert_eq!(
+        hito.catalog
+            .releases(
+                &actor,
+                Browse {
+                    q: Some("céu".into()),
+                    ..Browse::default()
+                }
+            )
+            .await
+            .unwrap()
+            .total,
+        1
+    );
+}

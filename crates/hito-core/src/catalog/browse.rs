@@ -1,4 +1,5 @@
-use crate::{Actor, Error, Result};
+use super::search::search_terms;
+use crate::{Actor, Result};
 use serde::Deserialize;
 use sqlx::{QueryBuilder, Sqlite};
 use utoipa::ToSchema;
@@ -25,7 +26,7 @@ impl Browse {
         query: &mut QueryBuilder<'_, Sqlite>,
         actor: &Actor,
         alias: &str,
-        columns: &str,
+        index: &str,
     ) -> Result<()> {
         query
             .push(" WHERE EXISTS (SELECT 1 FROM library_members access WHERE access.library_id = ")
@@ -40,16 +41,18 @@ impl Browse {
                 .push(".library_id = ")
                 .push_bind(library.clone());
         }
-        if let Some(text) = &self.q {
-            if text.len() > 512 {
-                return Err(Error::Invalid("Search must be at most 512 bytes".into()));
-            }
+        let terms = search_terms(self.q.as_deref().unwrap_or_default())?;
+        if !terms.is_empty() {
             query
-                .push(" AND instr(lower(")
-                .push(columns)
-                .push("), lower(")
-                .push_bind(text.clone())
-                .push(")) > 0");
+                .push(" AND ")
+                .push(alias)
+                .push(".rowid IN (SELECT rowid FROM ")
+                .push(index)
+                .push(" WHERE ")
+                .push(index)
+                .push(" MATCH ")
+                .push_bind(terms)
+                .push(")");
         }
         Ok(())
     }
