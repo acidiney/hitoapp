@@ -4,7 +4,7 @@ import { log } from "./log";
 export type Track = Pick<
   Recording,
   "id" | "title" | "artist" | "duration_ms" | "available"
->;
+> & { inherited_title?: string };
 export type Source = Pick<ApiSource, "id" | "ready">;
 export interface MediaPort extends EventTarget {
   src: string;
@@ -130,6 +130,22 @@ export class Playback {
   private update(patch: Partial<PlaybackState>) {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());
+  }
+
+  setRecordingTitle(
+    recording: string,
+    personal: string | null,
+    inherited: string,
+  ) {
+    const update = (track: Track): Track =>
+      track.id === recording
+        ? { ...track, title: personal ?? track.inherited_title ?? inherited }
+        : track;
+    log.info("playback.title_updated", { recording_id: recording });
+    this.update({
+      queue: this.state.queue.map(update),
+      current: this.state.current ? update(this.state.current) : null,
+    });
   }
 
   async playQueue(queue: Track[], index = 0, position = 0) {

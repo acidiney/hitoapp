@@ -23,6 +23,51 @@ class Media extends EventTarget implements MediaPort {
   }
 }
 
+test("editing and resetting a queued title preserves playback and each release fallback", async () => {
+  const audio = new Media();
+  let resolutions = 0;
+  const player = new Playback(audio, async () => {
+    resolutions++;
+    return [{ id: "source", ready: true }];
+  });
+  await player.playQueue([
+    {
+      id: "same",
+      title: "Original title",
+      inherited_title: "Original title",
+      artist: "Test",
+      duration_ms: 10000,
+      available: true,
+    },
+    {
+      id: "same",
+      title: "Encore",
+      inherited_title: "Encore",
+      artist: "Test",
+      duration_ms: 10000,
+      available: true,
+    },
+  ]);
+  player.seek(4);
+  const source = audio.src;
+  player.setRecordingTitle("same", "Personal title", "Original title");
+  expect(player.snapshot().queue.map((track) => track.title)).toEqual([
+    "Personal title",
+    "Personal title",
+  ]);
+  expect(player.snapshot().current?.title).toBe("Personal title");
+  player.setRecordingTitle("same", null, "Original title");
+  expect(player.snapshot().queue.map((track) => track.title)).toEqual([
+    "Original title",
+    "Encore",
+  ]);
+  expect(player.snapshot().current?.title).toBe("Original title");
+  expect(audio.src).toBe(source);
+  expect(audio.currentTime).toBe(4);
+  expect(audio.paused).toBe(false);
+  expect(resolutions).toBe(1);
+});
+
 test("a failed source recovers the same recording near the current position", async () => {
   const audio = new Media();
   const player = new Playback(audio, async () => [
