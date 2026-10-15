@@ -89,6 +89,17 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             )
             .await
             .unwrap();
+        for path in [
+            "/api/v1/artists?q=search-private-sentinel",
+            "/api/v1/releases?q=search-private-sentinel",
+            "/albums?q=search-private-sentinel",
+            "/artists?q=search-private-sentinel",
+        ] {
+            let response = app.clone().oneshot(Request::builder().uri(path)
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+        }
         for path in ["/api/v1/setup", "/api/v1/login", "/api/v1/users"] {
             let response = app.clone().oneshot(Request::builder().method("POST").uri(path)
                 .header("content-type", "application/json").header("x-hito-request", "1")
@@ -132,6 +143,9 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
         }
         for (method, path, body) in [
             ("GET", "/api/v1/sources/%2Fprivate-identifier-sentinel/audio", "null"),
+            ("GET", "/api/v1/artists/%2Fprivate-identifier-sentinel", "null"),
+            ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel", "null"),
+            ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel/artwork", "null"),
             ("GET", "/api/v1/jobs/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/libraries/%2Fprivate-identifier-sentinel/folders", "null"),
             ("POST", "/api/v1/libraries/%2Fprivate-identifier-sentinel/scan", "null"),
