@@ -12,6 +12,7 @@ pub(crate) struct CachedFile {
     pub duration_ms: i64,
     pub disc_number: Option<i64>,
     pub track_number: Option<i64>,
+    pub tag_details: Option<String>,
 }
 
 impl CachedFile {
@@ -31,6 +32,7 @@ impl CachedFile {
             duration_ms: self.duration_ms,
             disc_number: self.disc_number,
             track_number: self.track_number,
+            tag_details: self.tag_details,
         }
     }
 }

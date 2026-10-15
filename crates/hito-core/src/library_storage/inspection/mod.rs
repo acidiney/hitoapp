@@ -136,6 +136,10 @@ impl FileInspector {
             duration_ms: probe.duration_ms(),
             disc_number: probe.number("disc"),
             track_number: probe.number("track"),
+            tag_details: Some(
+                serde_json::to_string(&probe.tags())
+                    .map_err(|_| Error::Internal("Observed tags could not be encoded".into()))?,
+            ),
             audio,
         })
     }

@@ -22,6 +22,10 @@ pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
     LibraryStorage, MusicFolder, SharedDirectory,
 };
+pub use metadata::{
+    InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
+    ObservedTag, RecordingMetadata, TagLocation, TitleMetadata,
+};
 use store::Store;
 
 #[derive(Clone)]

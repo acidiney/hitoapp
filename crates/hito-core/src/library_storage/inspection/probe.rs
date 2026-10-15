@@ -1,3 +1,4 @@
+use crate::metadata::{InspectedTags, ObservedTag, TagLocation};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -40,12 +41,35 @@ impl Probe {
     }
 
     pub(super) fn tag(&self, name: &str) -> Option<String> {
-        self.format
-            .tags
-            .iter()
-            .chain(self.streams.iter().flat_map(|stream| &stream.tags))
-            .find(|(key, value)| key.eq_ignore_ascii_case(name) && !value.trim().is_empty())
-            .map(|(_, value)| value.clone())
+        self.observed_tag(name).map(|tag| tag.value)
+    }
+
+    pub(super) fn tags(&self) -> InspectedTags {
+        InspectedTags {
+            title: self.observed_tag("title"),
+            artist: self.observed_tag("artist"),
+            album: self.observed_tag("album"),
+            album_artist: self.observed_tag("album_artist"),
+            disc: self.observed_tag("disc"),
+            track: self.observed_tag("track"),
+        }
+    }
+
+    fn observed_tag(&self, name: &str) -> Option<ObservedTag> {
+        let find = |tags: &BTreeMap<String, String>, location| {
+            tags.iter()
+                .find(|(key, value)| key.eq_ignore_ascii_case(name) && !value.trim().is_empty())
+                .map(|(_, value)| ObservedTag {
+                    value: value.clone(),
+                    location,
+                })
+        };
+        find(&self.format.tags, TagLocation::Format).or_else(|| {
+            self.streams
+                .iter()
+                .enumerate()
+                .find_map(|(index, stream)| find(&stream.tags, TagLocation::AudioStream { index }))
+        })
     }
 
     pub(super) fn profile(&self) -> Option<(&str, u32, u32, Option<&str>)> {

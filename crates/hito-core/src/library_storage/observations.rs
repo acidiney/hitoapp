@@ -46,17 +46,18 @@ pub(super) async fn remember(
     release: &str,
     file: &IndexedFile,
 ) -> Result<()> {
+    let observation = observe(tx, recording, source, release, file).await?;
     if let Some(audio) = &file.audio {
         sqlx::query("INSERT OR IGNORE INTO recording_evidence(recording_id, algorithm, digest) VALUES (?, ?, ?)")
             .bind(recording).bind(audio.algorithm).bind(&audio.digest).execute(&mut **tx).await?;
     }
     sqlx::query(
-        "INSERT INTO source_metadata(source_id, release_id, title, artist, duration_ms, disc_number, track_number, inspection_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        "INSERT INTO source_metadata(source_id, release_id, title, artist, duration_ms, disc_number, track_number, inspection_version, observation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(source_id) DO UPDATE SET release_id = excluded.release_id, title = excluded.title,
             artist = excluded.artist, duration_ms = excluded.duration_ms, disc_number = excluded.disc_number,
-            track_number = excluded.track_number, inspection_version = excluded.inspection_version",
+            track_number = excluded.track_number, inspection_version = excluded.inspection_version, observation_id = excluded.observation_id",
     ).bind(source).bind(release).bind(&file.title).bind(&file.artist).bind(file.duration_ms)
-        .bind(file.disc_number).bind(file.track_number).bind(METADATA_VERSION).execute(&mut **tx).await?;
+        .bind(file.disc_number).bind(file.track_number).bind(METADATA_VERSION).bind(observation).execute(&mut **tx).await?;
     let bound = sqlx::query(
         "INSERT INTO source_artist_credits(source_id, artist_id)
          SELECT m.source_id, c.id FROM source_metadata m JOIN sources s ON s.id = m.source_id
@@ -76,4 +77,27 @@ pub(super) async fn remember(
         ));
     }
     super::metadata_owner::refresh_metadata(tx, recording).await
+}
+
+#[tracing::instrument(level = "trace", skip_all, err(Debug))]
+async fn observe(
+    tx: &mut Transaction<'_, Sqlite>,
+    recording: &str,
+    source: &str,
+    release: &str,
+    file: &IndexedFile,
+) -> Result<String> {
+    sqlx::query(
+        "INSERT INTO metadata_observations(id, source_id, recording_id, release_id, provider, origin,
+            observed_at, file_checksum, inspection_version, title, artist, album, album_artist,
+            duration_ms, disc_number, track_number, tags)
+         SELECT ?, s.id, ?, ?, s.provider, 'file_inspection', unixepoch(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         FROM sources s WHERE s.id = ?
+         ON CONFLICT(source_id, file_checksum, inspection_version) DO NOTHING",
+    ).bind(Uuid::new_v4().to_string()).bind(recording).bind(release).bind(&file.checksum)
+        .bind(METADATA_VERSION).bind(&file.title).bind(&file.artist).bind(&file.album).bind(&file.album_artist)
+        .bind(file.duration_ms).bind(file.disc_number).bind(file.track_number).bind(&file.tag_details).bind(source)
+        .execute(&mut **tx).await?;
+    Ok(sqlx::query_scalar("SELECT id FROM metadata_observations WHERE source_id = ? AND file_checksum = ? AND inspection_version = ?")
+        .bind(source).bind(&file.checksum).bind(METADATA_VERSION).fetch_one(&mut **tx).await?)
 }

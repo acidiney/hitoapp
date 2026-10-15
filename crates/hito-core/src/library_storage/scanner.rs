@@ -79,10 +79,11 @@ impl LibraryStorage {
         lease.check_folder(&self.store, folder).await?;
         let relative = relative(root, path)?;
         let cached: Option<CachedFile> = sqlx::query_as(
-            "SELECT f.file_checksum AS checksum, f.audio_digest, m.title, m.artist, m.duration_ms, m.disc_number, m.track_number,
+            "SELECT f.file_checksum AS checksum, f.audio_digest, m.title, m.artist, m.duration_ms, m.disc_number, m.track_number, o.tags AS tag_details,
                 COALESCE(a.title, 'Unknown album') AS album, COALESCE(a.artist, m.artist) AS album_artist
              FROM local_files f JOIN sources s ON s.id = f.source_id
              JOIN source_metadata m ON m.source_id = s.id LEFT JOIN releases a ON a.id = m.release_id
+             LEFT JOIN metadata_observations o ON o.id = m.observation_id
              WHERE f.folder_id = ? AND f.relative_path = ? AND f.scan_root = ? AND s.device_id = ? AND f.inspection_scheme = ? AND m.inspection_version = ?",
         ).bind(&folder.id).bind(relative).bind(root.path().to_string_lossy().as_ref())
             .bind(self.host.as_str()).bind(AUDIO_ALGORITHM).bind(METADATA_VERSION).fetch_optional(&self.store.pool).await?;
