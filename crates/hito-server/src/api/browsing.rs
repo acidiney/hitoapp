@@ -23,7 +23,8 @@ pub struct ArtistPage(pub Page<Artist>);
     ("q" = Option<String>, Query), ("library" = Option<String>, Query), ("artist" = Option<String>, Query),
     ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = ReleasePage), (status = 401, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 200, body = ReleasePage), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn releases(
     State(services): State<Services>,
@@ -38,7 +39,7 @@ pub async fn releases(
 #[utoipa::path(get, path = "/api/v1/releases/{id}", params(
     ("id" = String, Path), ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = ReleaseDetail), (status = 401, body = ErrorResponse),
+    (status = 200, body = ReleaseDetail), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn release(
@@ -54,7 +55,8 @@ pub async fn release(
     ("q" = Option<String>, Query), ("library" = Option<String>, Query),
     ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = ArtistPage), (status = 401, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 200, body = ArtistPage), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn artists(
     State(services): State<Services>,
@@ -69,7 +71,7 @@ pub async fn artists(
 #[utoipa::path(get, path = "/api/v1/artists/{id}", params(
     ("id" = String, Path), ("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query),
 ), security(("session" = []), ("bearer" = [])), responses(
-    (status = 200, body = ArtistDetail), (status = 401, body = ErrorResponse),
+    (status = 200, body = ArtistDetail), (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
     (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn artist(
