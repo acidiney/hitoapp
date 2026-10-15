@@ -1,5 +1,4 @@
 import { router } from "@inertiajs/react";
-import type { RecordingPage } from "../types";
 import { log } from "../log";
 
 export default function Pagination({
@@ -7,14 +6,18 @@ export default function Pagination({
   query,
   path,
 }: {
-  page: RecordingPage;
+  page: { total: number; offset: number; limit: number };
   query: string;
   path: string;
 }) {
   if (page.total <= page.limit) return null;
   function visit(offset: number) {
     log.info("navigation.pagination", { route: path, index: offset });
-    router.get(path, { q: query, offset });
+    const parameters = Object.fromEntries(
+      new URLSearchParams(window.location.search),
+    );
+    if (!Object.hasOwn(parameters, "q") && query) parameters.q = query;
+    router.get(path, { ...parameters, offset });
   }
   return (
     <div className="pagination">
