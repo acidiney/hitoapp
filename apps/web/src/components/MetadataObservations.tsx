@@ -27,7 +27,7 @@ function Observation({
               ? "Local file"
               : observation.provider}
             {selected && (
-              <strong className="metadata-selected">Current source</strong>
+              <strong className="metadata-selected">Current metadata</strong>
             )}
           </span>
           {observation.observed_at === null ? (
@@ -49,6 +49,19 @@ function Observation({
             Original tag details were not recorded. The next successful scan can
             inspect them.
           </p>
+        ) : observation.origin === "provider_response" ? (
+          <dl className="metadata-tag-list">
+            <div>
+              <dt>Provider recording</dt>
+              <dd>{observation.provider_recording_id}</dd>
+            </div>
+            {observation.provider_revision && (
+              <div>
+                <dt>Provider revision</dt>
+                <dd>{observation.provider_revision}</dd>
+              </div>
+            )}
+          </dl>
         ) : (
           <details>
             <summary>Inspected tags</summary>

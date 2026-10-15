@@ -3900,6 +3900,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "personal": {
+            "type": "boolean"
           }
         }
       },
@@ -3964,6 +3967,9 @@
           "origin",
           "observed_at",
           "inspection_version",
+          "plugin_installation_id",
+          "provider_recording_id",
+          "provider_revision",
           "title",
           "artist",
           "album",
@@ -4004,7 +4010,10 @@
             "type": "string"
           },
           "inspection_version": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64"
           },
           "observed_at": {
@@ -4017,8 +4026,26 @@
           "origin": {
             "$ref": "#/components/schemas/ObservationOrigin"
           },
+          "plugin_installation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "provider": {
             "type": "string"
+          },
+          "provider_recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider_revision": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "release_id": {
             "type": [
@@ -4027,7 +4054,10 @@
             ]
           },
           "source_id": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tags": {
             "oneOf": [
@@ -4118,7 +4148,8 @@
         "type": "string",
         "enum": [
           "legacy_normalized",
-          "file_inspection"
+          "file_inspection",
+          "provider_response"
         ]
       },
       "ObservationPage": {

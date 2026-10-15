@@ -49,4 +49,6 @@ pub struct AuthSession {
 pub struct Library {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub personal: bool,
 }

@@ -100,7 +100,7 @@ export default function SettingsPage(props: SettingsPageProps) {
             <AccountSettings
               key={props.user.id}
               account={props.user.id}
-              library={props.libraries[0]?.id}
+              library={props.libraries.find((library) => !library.personal)?.id}
             />
           )}
         </div>

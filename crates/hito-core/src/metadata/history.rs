@@ -50,6 +50,7 @@ pub(super) fn observation(row: SqliteRow) -> Result<MetadataObservation> {
     let origin = match origin {
         "file_inspection" => ObservationOrigin::FileInspection,
         "legacy_normalized" => ObservationOrigin::LegacyNormalized,
+        "provider_response" => ObservationOrigin::ProviderResponse,
         _ => return Err(Error::Internal("Metadata origin could not be read".into())),
     };
     let tags: Option<String> = row.try_get("tags")?;
@@ -66,6 +67,9 @@ pub(super) fn observation(row: SqliteRow) -> Result<MetadataObservation> {
         origin,
         observed_at: row.try_get("observed_at")?,
         inspection_version: row.try_get("inspection_version")?,
+        plugin_installation_id: row.try_get("plugin_installation_id")?,
+        provider_recording_id: row.try_get("provider_recording_id")?,
+        provider_revision: row.try_get("provider_revision")?,
         title: row.try_get("title")?,
         artist: row.try_get("artist")?,
         album: row.try_get("album")?,

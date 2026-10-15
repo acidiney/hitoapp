@@ -6,9 +6,9 @@ impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn libraries(&self, actor: &Actor) -> Result<Vec<Library>> {
         Ok(sqlx::query_as(
-            "SELECT l.id, l.name
+            "SELECT l.id, l.name, l.owner_id IS NOT NULL AS personal
              FROM libraries l JOIN library_members m ON l.id = m.library_id
-             WHERE m.user_id = ? ORDER BY l.name",
+             WHERE m.user_id = ? ORDER BY personal, l.name",
         )
         .bind(actor.id())
         .fetch_all(&self.store.pool)

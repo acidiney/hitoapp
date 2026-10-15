@@ -7,9 +7,9 @@ export default function LibrarySettings({
   user,
   libraries,
 }: SettingsPageProps) {
-  const [selected, select] = useState(libraries[0]?.id);
-  const library =
-    libraries.find((item) => item.id === selected) ?? libraries[0];
+  const shared = libraries.filter((library) => !library.personal);
+  const [selected, select] = useState(shared[0]?.id);
+  const library = shared.find((item) => item.id === selected) ?? shared[0];
   return (
     <section className="settings-panel" aria-labelledby="storage-title">
       <div className="settings-intro">
@@ -21,14 +21,14 @@ export default function LibrarySettings({
       </div>
       {user.admin && library ? (
         <>
-          {libraries.length > 1 && (
+          {shared.length > 1 && (
             <label className="folder-library-select">
               Library
               <select
                 value={library.id}
                 onChange={(event) => select(event.target.value)}
               >
-                {libraries.map((item) => (
+                {shared.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
@@ -58,7 +58,11 @@ export default function LibrarySettings({
               </span>
               <span>
                 <strong>{library.name}</strong>
-                <small>Managed by your administrator</small>
+                <small>
+                  {library.personal
+                    ? "Your connected plugins"
+                    : "Managed by your administrator"}
+                </small>
               </span>
             </div>
           ))}
@@ -69,6 +73,9 @@ export default function LibrarySettings({
             </p>
           )}
         </>
+      )}
+      {user.admin && libraries.some((item) => item.personal) && (
+        <p>Your personal provider library is managed in Plugins.</p>
       )}
     </section>
   );

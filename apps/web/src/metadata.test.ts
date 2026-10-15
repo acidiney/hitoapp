@@ -6,6 +6,7 @@ import { router } from "@inertiajs/react";
 import { change } from "./api";
 import { NoticeProvider } from "./components/Notices";
 import MetadataEditor from "./components/MetadataEditor";
+import MetadataObservations from "./components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "./hooks/useMetadataHistory";
 import { metadataApi } from "./metadataApi";
@@ -20,6 +21,46 @@ vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+test("provider observations show provider provenance without claiming file inspection", () => {
+  render(
+    createElement(MetadataObservations, {
+      account: "alice",
+      target: { kind: "recording", id: "track" },
+      selected: "observation",
+      initial: {
+        next_before: null,
+        items: [
+          {
+            id: "observation",
+            source_id: null,
+            release_id: null,
+            provider: "org.hito.fixture",
+            origin: "provider_response",
+            observed_at: 1,
+            inspection_version: null,
+            plugin_installation_id: "connection",
+            provider_recording_id: "remote-track",
+            provider_revision: "revision-2",
+            title: "Provider title",
+            artist: "Provider artist",
+            album: null,
+            album_artist: null,
+            duration_ms: 0,
+            disc_number: null,
+            track_number: null,
+            tags: null,
+          },
+        ],
+      },
+    }),
+  );
+  expect(screen.getByText("remote-track")).toBeTruthy();
+  expect(screen.getByText("revision-2")).toBeTruthy();
+  expect(screen.getByText("Current metadata")).toBeTruthy();
+  expect(screen.queryByText("Inspected tags")).toBeNull();
+  expect(screen.queryByText("Imported during upgrade")).toBeNull();
 });
 
 test("an accepted title reset updates the queue and reloads details", async () => {

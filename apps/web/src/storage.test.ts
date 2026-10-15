@@ -116,6 +116,32 @@ test("ordinary listeners do not request folder administration", async () => {
   expect(storageApi.directories).not.toHaveBeenCalled();
 });
 
+test("personal provider libraries are excluded from folder administration", async () => {
+  render(
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(LibrarySettings, {
+        ...props,
+        libraries: [
+          { id: "private", name: "Personal providers", personal: true },
+          ...props.libraries,
+        ],
+      }),
+    ),
+  );
+  await screen.findByRole("button", { name: "Add music folder" });
+  expect(storageApi.folders).toHaveBeenCalledWith(
+    "admin",
+    "library",
+    expect.any(AbortSignal),
+  );
+  expect(screen.queryByRole("combobox", { name: "Library" })).toBeNull();
+  expect(
+    screen.getByText("Your personal provider library is managed in Plugins."),
+  ).toBeTruthy();
+});
+
 test("failed folder connection preserves the selection and shows a retryable error", async () => {
   vi.mocked(storageApi.connect).mockRejectedValueOnce(
     new Error("Folder unavailable. Try again."),

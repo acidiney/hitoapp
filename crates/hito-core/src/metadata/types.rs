@@ -46,14 +46,22 @@ pub struct ObservationPage {
 #[derive(Serialize, ToSchema)]
 pub struct MetadataObservation {
     pub id: String,
-    pub source_id: String,
+    #[schema(required = true)]
+    pub source_id: Option<String>,
     #[schema(required = true)]
     pub release_id: Option<String>,
     pub provider: String,
     pub origin: ObservationOrigin,
     #[schema(required = true)]
     pub observed_at: Option<i64>,
-    pub inspection_version: i64,
+    #[schema(required = true)]
+    pub inspection_version: Option<i64>,
+    #[schema(required = true)]
+    pub plugin_installation_id: Option<String>,
+    #[schema(required = true)]
+    pub provider_recording_id: Option<String>,
+    #[schema(required = true)]
+    pub provider_revision: Option<String>,
     pub title: String,
     pub artist: String,
     #[schema(required = true)]
@@ -74,6 +82,7 @@ pub struct MetadataObservation {
 pub enum ObservationOrigin {
     LegacyNormalized,
     FileInspection,
+    ProviderResponse,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]

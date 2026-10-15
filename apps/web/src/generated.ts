@@ -831,6 +831,7 @@ export interface components {
         Library: {
             id: string;
             name: string;
+            personal?: boolean;
         };
         LoginPageProps: {
             errors: {
@@ -855,13 +856,16 @@ export interface components {
             duration_ms: number;
             id: string;
             /** Format: int64 */
-            inspection_version: number;
+            inspection_version: number | null;
             /** Format: int64 */
             observed_at: number | null;
             origin: components["schemas"]["ObservationOrigin"];
+            plugin_installation_id: string | null;
             provider: string;
+            provider_recording_id: string | null;
+            provider_revision: string | null;
             release_id: string | null;
-            source_id: string;
+            source_id: string | null;
             tags: components["schemas"]["InspectedTags"] | null;
             title: string;
             /** Format: int64 */
@@ -882,7 +886,7 @@ export interface components {
             revision: number;
         };
         /** @enum {string} */
-        ObservationOrigin: "legacy_normalized" | "file_inspection";
+        ObservationOrigin: "legacy_normalized" | "file_inspection" | "provider_response";
         ObservationPage: {
             items: components["schemas"]["MetadataObservation"][];
             /** Format: int64 */
