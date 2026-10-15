@@ -1,5 +1,6 @@
 mod installations;
 mod offers;
+mod removal;
 mod transport;
 mod types;
 
