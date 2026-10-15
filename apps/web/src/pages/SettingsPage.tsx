@@ -1,4 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
+import { usePage } from "@inertiajs/react";
 import type { SettingsPageProps } from "../types";
 import AccountSettings from "../components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
@@ -7,7 +8,12 @@ import PageHeading from "../components/PageHeading";
 import { log } from "../log";
 
 export default function SettingsPage(props: SettingsPageProps) {
-  const [selected, setSelected] = useState("library");
+  const { url } = usePage();
+  const [selected, setSelected] = useState(() =>
+    new URL(url, "http://hito.local").searchParams.get("section") === "plugins"
+      ? "plugins"
+      : "library",
+  );
   const navigation = useRef<HTMLDivElement>(null);
   const tabs = [
     { id: "library", label: "Library" },

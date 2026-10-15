@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Link } from "@inertiajs/react";
 import { usePlugins } from "../../hooks/usePlugins";
 import ConnectPlugin from "./ConnectPlugin";
 import PluginConnection from "./PluginConnection";
@@ -34,7 +35,13 @@ function PluginPanel({ account, admin }: { account: string; admin: boolean }) {
           Connect to services offered by your administrator. Each account keeps
           its own connections and credentials.
         </p>
-        <p>Provider content is not available in Hito yet.</p>
+        <p>
+          Search connected music services in{" "}
+          <Link className="text-link" href="/discover">
+            Discover
+          </Link>
+          .
+        </p>
       </div>
       {pending && <p role="status">Working on plugin connection…</p>}
       {error && (

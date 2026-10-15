@@ -58,6 +58,12 @@ test("ordinary accounts connect offered services and retain failed token drafts"
     .mockRejectedValueOnce(new Error("Plugin unavailable"))
     .mockResolvedValue(plugin);
   render(createElement(PluginSettings, { account: "bob", admin: false }));
+  expect(
+    screen.getByRole("link", { name: "Discover" }).getAttribute("href"),
+  ).toBe("/discover");
+  expect(
+    screen.queryByText("Provider content is not available in Hito yet."),
+  ).toBeNull();
   const input = await screen.findByLabelText("Bearer token (optional)");
   fireEvent.change(input, { target: { value: "private-token" } });
   fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
