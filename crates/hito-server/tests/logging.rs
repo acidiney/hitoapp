@@ -115,6 +115,12 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
         for action in [
             json!({"kind":"recording_title_set","recording_id":uuid::Uuid::new_v4(),"title":"personal-title-private-sentinel"}),
             json!({"kind":"recording_title_inherit","recording_id":uuid::Uuid::new_v4()}),
+            json!({"kind":"recording_artist_set","recording_id":uuid::Uuid::new_v4(),"artist":"personal-artist-private-sentinel"}),
+            json!({"kind":"recording_artist_inherit","recording_id":uuid::Uuid::new_v4()}),
+            json!({"kind":"release_title_set","release_id":uuid::Uuid::new_v4(),"title":"album-title-private-sentinel"}),
+            json!({"kind":"release_artist_set","release_id":uuid::Uuid::new_v4(),"artist":"album-artist-private-sentinel"}),
+            json!({"kind":"release_title_inherit","release_id":uuid::Uuid::new_v4()}),
+            json!({"kind":"release_artist_inherit","release_id":uuid::Uuid::new_v4()}),
         ] {
             let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/v1/sync")
                 .header("content-type", "application/json").header("x-hito-request", "1")
@@ -157,6 +163,8 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel/artwork", "null"),
             ("GET", "/api/v1/recordings/%2Fprivate-identifier-sentinel/metadata", "null"),
+            ("GET", "/api/v1/releases/%2Fprivate-identifier-sentinel/metadata", "null"),
+            ("GET", "/albums/%2Fprivate-identifier-sentinel/details", "null"),
             ("GET", "/recordings/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/jobs/%2Fprivate-identifier-sentinel", "null"),
             ("GET", "/api/v1/libraries/%2Fprivate-identifier-sentinel/folders", "null"),
@@ -192,6 +200,9 @@ async fn requests_have_correlated_outcome_logs_without_private_data() {
             "7458972365897458",
             "invalid-sync-private-title-sentinel",
             "personal-title-private-sentinel",
+            "personal-artist-private-sentinel",
+            "album-title-private-sentinel",
+            "album-artist-private-sentinel",
             "invalid-query-private-sentinel",
             "invalid-cursor-private-sentinel",
             "inertia-query-private-sentinel",

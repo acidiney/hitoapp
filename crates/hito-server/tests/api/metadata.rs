@@ -142,6 +142,20 @@ async fn album_details_keep_personal_fields_private_and_preserve_track_performer
     assert_eq!(detail["artist"]["value"], "My album credit");
     assert_eq!(detail["artist"]["inherited"], original["artist"]["value"]);
     assert_eq!(detail["observations"], original["observations"]);
+    let invalid = json!({"device_id":"metadata-client","operations":[
+        {"id":Uuid::new_v4(),"action":{"kind":"release_title_set","release_id":release,"title":"Rolled back album"}},
+        {"id":Uuid::new_v4(),"action":{"kind":"release_artist_set","release_id":release,"artist":"Invalid\ncredit"}}
+    ]});
+    assert_eq!(
+        call(&app, "POST", "/api/v1/sync", invalid, Some(&token))
+            .await
+            .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        call(&app, "GET", &path, Value::Null, Some(&token)).await.1,
+        detail
+    );
     let track = call(
         &app,
         "GET",
@@ -186,6 +200,20 @@ async fn album_details_keep_personal_fields_private_and_preserve_track_performer
     )
     .await;
     let bob_token = session["token"].as_str().unwrap();
+    for action in [
+        json!({"kind":"release_title_set","release_id":release,"title":"Forbidden"}),
+        json!({"kind":"release_artist_set","release_id":release,"artist":"Forbidden"}),
+        json!({"kind":"release_title_inherit","release_id":release}),
+        json!({"kind":"release_artist_inherit","release_id":release}),
+    ] {
+        let batch = json!({"device_id":"bob-metadata-client","operations":[{"id":Uuid::new_v4(),"action":action}]});
+        assert_eq!(
+            call(&app, "POST", "/api/v1/sync", batch, Some(bob_token))
+                .await
+                .0,
+            StatusCode::NOT_FOUND
+        );
+    }
     assert_eq!(
         call(&app, "GET", &path, Value::Null, Some(bob_token))
             .await
