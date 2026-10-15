@@ -1,4 +1,5 @@
-import { FolderSync } from "lucide-react";
+import { Link } from "@inertiajs/react";
+import { FolderPlus, FolderSync } from "lucide-react";
 import type { CatalogPageProps } from "../types";
 import { useScanJob } from "../hooks/useScanJob";
 import CatalogResults from "../components/CatalogResults";
@@ -11,16 +12,23 @@ export default function CatalogPage(props: CatalogPageProps) {
   return (
     <>
       <PageHeading title="Your library" description={description}>
-        {props.user.admin && props.libraries.length > 0 && (
-          <button
-            className="button"
-            disabled={scanning}
-            onClick={() => void scan()}
-          >
-            <FolderSync size={17} />
-            {scanning ? "Scanning music…" : "Scan music folder"}
-          </button>
-        )}
+        {props.user.admin &&
+          props.libraries.length > 0 &&
+          (props.recordings.total === 0 && !props.query ? (
+            <Link className="button primary" href="/settings">
+              <FolderPlus size={17} />
+              Add music folder
+            </Link>
+          ) : (
+            <button
+              className="button"
+              disabled={scanning}
+              onClick={() => void scan()}
+            >
+              <FolderSync size={17} />
+              {scanning ? "Scanning music…" : "Scan music"}
+            </button>
+          ))}
       </PageHeading>
       {!props.query && props.recordings.offset === 0 && (
         <LibrarySpotlight
@@ -39,7 +47,7 @@ export default function CatalogPage(props: CatalogPageProps) {
         }
         emptyText={
           props.user.admin
-            ? "Connect your music folder, then scan it to fill your library."
+            ? "Add your music folders in Settings. Hito will scan them to fill your library."
             : "Ask your administrator to give you access to a music library."
         }
       />
