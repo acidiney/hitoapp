@@ -46,6 +46,7 @@ services:
       target: runtime
     environment:
       HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_STORAGE_MANIFEST: /music/storage.json
       HITO_LOG_FORMAT: json
       RUST_LOG: info,hito_core=debug,hito_server=debug
     volumes:

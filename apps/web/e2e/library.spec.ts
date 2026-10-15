@@ -18,7 +18,54 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Scan music folder" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Settings", exact: true })
+    .click();
+  for (const folder of ["Music", "Archive"]) {
+    await page.getByRole("button", { name: "Add music folder" }).click();
+    const picker = page.getByRole("dialog", { name: "Add a music folder" });
+    await picker
+      .getByRole("button", { name: `Open ${folder}`, exact: true })
+      .click();
+    await expect(
+      picker.getByText("This folder has no subfolders."),
+    ).toBeVisible();
+    await picker.getByRole("button", { name: "Use this folder" }).click();
+    await expect(picker).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add music folder" }),
+    ).toBeFocused();
+  }
+  await expect(page.locator(".music-folders-list > li")).toHaveCount(2);
+  await expect(
+    page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
+  ).toHaveCount(2, { timeout: 20000 });
+  await page.screenshot({
+    path: "/workspace/test-results/folders-desktop.png",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Add music folder" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Add a music folder" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/workspace/test-results/folder-picker-mobile.png",
+  });
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Add a music folder" }),
+  ).not.toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Library", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeEnabled({ timeout: 20000 });
