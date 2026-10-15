@@ -16,4 +16,4 @@ fixtures/e2e-generated
 **/*.db-shm
 **/*.db-wal
 **/*.log
-*.plugin-key
+**/*.plugin-key

@@ -64,7 +64,7 @@ test("personal plugin connections review changes and remain private across accou
     await page
       .getByRole("button", { name: "Offer service", exact: true })
       .click();
-    await expect(page.getByLabel("Service", { exact: true })).toHaveValue(/.+/);
+    await expect(page.getByRole("combobox", { name: "Service", exact: true })).toHaveValue(/.+/);
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(expectedToken!);
@@ -113,6 +113,9 @@ test("personal plugin connections review changes and remain private across accou
         exact: true,
       }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Check connection", exact: true }),
+    ).toBeFocused();
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByText("Connection settings", { exact: true }).click();
     await page
@@ -142,6 +145,9 @@ test("personal plugin connections review changes and remain private across accou
       page.getByText("No token saved", { exact: true }),
     ).toBeVisible();
     expect(requests.length).toBe(beforeClear);
+    await expect(
+      page.getByRole("button", { name: "Check connection", exact: true }),
+    ).toBeFocused();
     expectedToken = null;
     await page
       .getByRole("button", { name: "Check connection", exact: true })
@@ -194,6 +200,9 @@ test("personal plugin connections review changes and remain private across accou
         exact: true,
       }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Your plugins", exact: true }),
+    ).toBeFocused();
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await signIn(page, "admin", "docker browser test password");
     await expect(
@@ -215,6 +224,9 @@ test("personal plugin connections review changes and remain private across accou
         exact: true,
       }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Your plugins", exact: true }),
+    ).toBeFocused();
     expect(errors).toEqual([]);
   } finally {
     await new Promise<void>((resolve, reject) =>

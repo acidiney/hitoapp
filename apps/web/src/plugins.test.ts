@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -137,7 +138,7 @@ test("old account responses cannot add private connections after an account chan
     createElement(PluginSettings, { account: "bob", admin: false }),
   );
   await screen.findByRole("button", { name: "Connect service" });
-  resolve(plugin);
+  await act(async () => resolve(plugin));
   await waitFor(() => expect(signal.aborted).toBe(true));
   expect(
     screen.queryByRole("heading", { name: "Fixture provider" }),
@@ -206,7 +207,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
   await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
   fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
   await screen.findByRole("heading", { name: "Fixture provider" });
-  finish(initial);
+  await act(async () => finish(initial));
   await waitFor(() =>
     expect(
       screen.getByRole("heading", { name: "Fixture provider" }),
