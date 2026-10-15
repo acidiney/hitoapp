@@ -44,7 +44,7 @@ impl HostDeviceId {
 
 pub struct CoreConfig {
     pub database: PathBuf,
-    pub music_root: PathBuf,
+    pub storage: StorageConfig,
     pub host_device: HostDeviceId,
     pub media_tools: MediaTools,
 }
@@ -53,9 +53,35 @@ impl CoreConfig {
     pub fn new(database: PathBuf, music_root: PathBuf, host_device: HostDeviceId) -> Self {
         Self {
             database,
-            music_root,
+            storage: StorageConfig::LegacyFolder(music_root),
             host_device,
             media_tools: MediaTools::default(),
         }
     }
+
+    pub fn with_shared_directories(
+        database: PathBuf,
+        host_device: HostDeviceId,
+        directories: Vec<SharedDirectoryConfig>,
+    ) -> Self {
+        Self {
+            database,
+            storage: StorageConfig::SharedDirectories(directories),
+            host_device,
+            media_tools: MediaTools::default(),
+        }
+    }
+}
+
+pub enum StorageConfig {
+    LegacyFolder(PathBuf),
+    SharedDirectories(Vec<SharedDirectoryConfig>),
+}
+
+#[derive(Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SharedDirectoryConfig {
+    pub id: String,
+    pub name: String,
+    pub root: PathBuf,
 }

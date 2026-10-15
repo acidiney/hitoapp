@@ -1,3 +1,4 @@
+mod directories;
 mod inspection;
 mod legacy;
 mod observations;
@@ -11,14 +12,15 @@ mod walking;
 mod worker;
 
 use crate::{HostDeviceId, store::Store};
+pub(crate) use directories::Directories;
+pub use directories::SharedDirectory;
 pub(crate) use inspection::FileInspector;
-use std::path::PathBuf;
 pub use types::Job;
 
 #[derive(Clone)]
 pub struct LibraryStorage {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
-    pub(crate) music_root: PathBuf,
+    pub(crate) directories: Directories,
     pub(crate) inspector: FileInspector,
 }

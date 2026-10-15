@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use tokio::sync::Semaphore;
 
 #[derive(Clone)]
 pub(super) struct Root {
@@ -14,9 +15,15 @@ pub(super) struct Root {
 }
 
 impl Root {
-    pub async fn open(path: &Path) -> crate::Result<Self> {
+    pub async fn open(path: &Path, slots: &Arc<Semaphore>) -> crate::Result<Self> {
+        let permit = slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| unavailable())?;
         let path = path.to_owned();
         tokio::task::spawn_blocking(move || {
+            let _permit = permit;
             let path = path.canonicalize()?;
             let directory = Dir::open_ambient_dir(&path, cap_std::ambient_authority())?;
             Ok::<_, io::Error>(Self {

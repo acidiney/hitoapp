@@ -18,7 +18,12 @@ impl LibraryStorage {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub(super) async fn scan(&self, job: &str, library: &str) -> Result<i64> {
         self.inspector.check_tools().await?;
-        let root = Root::open(&self.music_root).await?;
+        if self.directories.legacy.is_none() {
+            return Err(Error::Invalid(
+                "Connect a music folder before scanning".into(),
+            ));
+        }
+        let root = self.directories.open("legacy-music").await?;
         let mut heartbeat = tokio::time::interval(Duration::from_secs(30));
         self.adopt_legacy(job, library, &root, &mut heartbeat)
             .await?;

@@ -12,10 +12,10 @@ pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
     SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
-pub use context::{CoreConfig, HostDeviceId, MediaTools};
+pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
-pub use library_storage::{Job, LibraryStorage};
+pub use library_storage::{Job, LibraryStorage, SharedDirectory};
 use store::Store;
 
 #[derive(Clone)]
@@ -29,6 +29,7 @@ pub struct Services {
 
 #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = config.host_device.as_str()))]
 pub async fn open(config: CoreConfig) -> Result<Services> {
+    let directories = library_storage::Directories::new(config.storage)?;
     let store = Store::open(&config.database).await?;
     tracing::info!("Core services ready");
     Ok(Services {
@@ -47,7 +48,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         storage: LibraryStorage {
             store: store.clone(),
             host: config.host_device,
-            music_root: config.music_root,
+            directories,
             inspector: library_storage::FileInspector::new(config.media_tools),
         },
         store,
