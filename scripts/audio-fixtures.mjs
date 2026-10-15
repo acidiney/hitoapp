@@ -18,7 +18,18 @@ for (const frequency of [440, 660]) {
   buffer.writeUInt32LE(rate, 24); buffer.writeUInt32LE(rate * 2, 28); buffer.writeUInt16LE(2, 32); buffer.writeUInt16LE(16, 34);
   buffer.write('data', 36); buffer.writeUInt32LE(samples * 2, 40);
   for (let sample = 0; sample < samples; sample++) buffer.writeInt16LE(Math.round(Math.sin(2 * Math.PI * frequency * sample / rate) * 4096), 44 + sample * 2);
-  writeFileSync(`${destination}/Fixture ${frequency} Hz.wav`, buffer);
+  const fields = [['INAM', `Fixture ${frequency} Hz`], ['IART', 'Hito test fixtures'], ['IPRD', `Fixture collection ${frequency} Hz`]];
+  const tags = fields.map(([key, value]) => {
+    const text = Buffer.from(`${value}\0`);
+    const chunk = Buffer.alloc(8 + text.length + text.length % 2);
+    chunk.write(key); chunk.writeUInt32LE(text.length, 4); text.copy(chunk, 8);
+    return chunk;
+  });
+  const list = Buffer.concat([Buffer.from('LIST\0\0\0\0INFO', 'binary'), ...tags]);
+  list.writeUInt32LE(list.length - 8, 4);
+  const audio = Buffer.concat([buffer, list]);
+  audio.writeUInt32LE(audio.length - 8, 4);
+  writeFileSync(`${destination}/Fixture ${frequency} Hz.wav`, audio);
 }
 if (arguments_.includes('--e2e')) writeFileSync(`${output}/storage.json`, JSON.stringify({ version: 1, directories: [
   { id: 'fixture-music', name: 'Music', root: '/music/Music' },

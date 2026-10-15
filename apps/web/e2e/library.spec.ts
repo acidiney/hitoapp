@@ -83,6 +83,52 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   const before = await page
     .locator("audio")
     .evaluate((audio: HTMLAudioElement) => audio.currentTime);
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Albums", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".album-card")).toHaveCount(2);
+  await page.screenshot({ path: "/workspace/test-results/albums-desktop.png" });
+  await page
+    .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Fixture collection 440 Hz",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".track-table tbody tr")).toHaveCount(1);
+  await page.screenshot({ path: "/workspace/test-results/album-desktop.png" });
+  await page
+    .getByRole("link", { name: "Hito test fixtures", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Hito test fixtures", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".album-card")).toHaveCount(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/workspace/test-results/artist-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await navigation.getByRole("link", { name: "Artists", exact: true }).click();
+  await expect(page.locator(".artist-card")).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page
+        .locator("audio")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(before);
+  await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Library spotlight" }),
   ).toBeVisible();
