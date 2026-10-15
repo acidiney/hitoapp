@@ -80,7 +80,8 @@ export default function Sidebar({
               const selected =
                 path === href ||
                 path.startsWith(`${href}/`) ||
-                (path === "/" && href === "/library");
+                ((path === "/" || path.startsWith("/recordings/")) &&
+                  href === "/library");
               return (
                 <Link
                   key={href}

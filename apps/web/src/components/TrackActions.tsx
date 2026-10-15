@@ -1,5 +1,5 @@
-import { router } from "@inertiajs/react";
-import { Heart, X } from "lucide-react";
+import { Link, router } from "@inertiajs/react";
+import { Heart, Info, X } from "lucide-react";
 import type { Action, Playlist } from "../types";
 import type { Mutate } from "../hooks/useMutation";
 import type { TrackRow } from "./TrackTable";
@@ -22,6 +22,13 @@ export default function TrackActions({
   }
   return (
     <div className="track-actions">
+      <Link
+        className="icon-button"
+        href={`/recordings/${encodeURIComponent(track.id)}`}
+        aria-label={`Details for ${track.title}`}
+      >
+        <Info size={17} />
+      </Link>
       <button
         className={`icon-button ${track.liked ? "selected" : ""}`}
         aria-label={`${track.liked ? "Unlike" : "Like"} ${track.title}`}

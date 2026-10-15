@@ -6,6 +6,7 @@ import AlbumIndexPage from "./pages/AlbumIndexPage";
 import AlbumPage from "./pages/AlbumPage";
 import ArtistIndexPage from "./pages/ArtistIndexPage";
 import ArtistPage from "./pages/ArtistPage";
+import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import HistoryPage from "./pages/HistoryPage";
 import LikesPage from "./pages/LikesPage";
 import LoginPage from "./pages/LoginPage";
@@ -25,6 +26,7 @@ const pages = {
   AlbumPage: Object.assign(AlbumPage, { layout }),
   ArtistIndexPage: Object.assign(ArtistIndexPage, { layout }),
   ArtistPage: Object.assign(ArtistPage, { layout }),
+  RecordingDetailsPage: Object.assign(RecordingDetailsPage, { layout }),
   LikesPage: Object.assign(LikesPage, { layout }),
   PlaylistIndexPage: Object.assign(PlaylistIndexPage, { layout }),
   PlaylistPage: Object.assign(PlaylistPage, { layout }),
