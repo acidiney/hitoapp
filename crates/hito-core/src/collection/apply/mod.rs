@@ -3,13 +3,21 @@ mod likes;
 mod playlists;
 mod progress;
 
-use super::Action;
+use super::{Action, Operation};
 use crate::{Actor, Result};
 type Transaction<'a> = sqlx::Transaction<'a, sqlx::Sqlite>;
 
-#[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), action_kind = action.kind()))]
-pub(super) async fn action(tx: &mut Transaction<'_>, actor: &Actor, action: &Action) -> Result<()> {
-    match action {
+#[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), action_kind = operation.action.kind(), operation_id = %operation.id))]
+pub(super) async fn action(
+    tx: &mut Transaction<'_>,
+    actor: &Actor,
+    operation: &Operation,
+) -> Result<()> {
+    match &operation.action {
+        Action::RecordingTitleSet {
+            recording_id,
+            title,
+        } => crate::metadata::set_title(tx, actor, recording_id, Some(title), &operation.id).await,
         Action::LikeSet {
             recording_id,
             liked,

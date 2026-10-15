@@ -1,5 +1,5 @@
 use super::{Collection, Playlist, PlaylistDetail};
-use crate::{Actor, Error, Result, catalog::push_available};
+use crate::{Actor, Error, Result, catalog::push_available, metadata};
 use sqlx::QueryBuilder;
 
 impl Collection {
@@ -28,7 +28,7 @@ impl Collection {
         let mut query = QueryBuilder::new(
             "SELECT e.id AS entry_id, e.recording_id, e.position,
                     COALESCE(k.liked, 0) AS liked,
-                    CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE r.title END AS title,
+                    CASE WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE COALESCE(personal_title.override_title, r.title) END AS title,
                     CASE WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS artist,
                     CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
                     (m.user_id IS NOT NULL AND ",
@@ -44,8 +44,11 @@ impl Collection {
             .push_bind(actor.id().to_owned())
             .push(
                 " LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = m.user_id
-              WHERE e.playlist_id = ",
-            )
+              ",
+            );
+        metadata::join_title(&mut query, actor);
+        query
+            .push(" WHERE e.playlist_id = ")
             .push_bind(id.to_owned())
             .push(" AND e.deleted = 0 ORDER BY e.position, e.id LIMIT 10000");
         let entries = query.build_query_as().fetch_all(&self.store.pool).await?;

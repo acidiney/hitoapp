@@ -4,6 +4,7 @@ mod context;
 mod error;
 mod identity;
 mod library_storage;
+mod metadata;
 mod store;
 
 pub use catalog::{

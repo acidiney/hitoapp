@@ -1,5 +1,5 @@
 use super::{Browse, Catalog, Page, Recording, push_available};
-use crate::{Actor, Error, Result};
+use crate::{Actor, Error, Result, metadata};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
 use utoipa::ToSchema;
@@ -82,7 +82,10 @@ impl Catalog {
             .ok_or(Error::NotFound)?;
         tracing::Span::current().record("release_id", &release.id);
         let mut query = selected(actor, &Browse::default(), Some(&release.id))?;
-        query.push("SELECT r.id, r.library_id, a.id AS release_id, m.title, m.artist, a.title AS album, m.duration_ms, ");
+        query
+            .push("SELECT r.id, r.library_id, a.id AS release_id, ")
+            .push(metadata::APPEARANCE_TITLE)
+            .push(" AS title, m.artist, a.title AS album, m.duration_ms, ");
         push_available(&mut query, &self.host);
         query
             .push(
@@ -92,8 +95,9 @@ impl Catalog {
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
             )
             .push_bind(actor.id().to_owned());
+        metadata::join_title(&mut query, actor);
         query
-            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, m.title COLLATE NOCASE, r.id, m.source_id LIMIT ")
+            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, title COLLATE NOCASE, r.id, m.source_id LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);

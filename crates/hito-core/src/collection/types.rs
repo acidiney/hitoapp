@@ -12,6 +12,10 @@ pub struct Operation {
 #[derive(ToSchema, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    RecordingTitleSet {
+        recording_id: Uuid,
+        title: String,
+    },
     LikeSet {
         recording_id: Uuid,
         liked: bool,
@@ -52,6 +56,7 @@ pub enum Action {
 impl Action {
     pub(crate) fn kind(&self) -> &'static str {
         match self {
+            Self::RecordingTitleSet { .. } => "recording_title_set",
             Self::LikeSet { .. } => "like_set",
             Self::ProgressSet { .. } => "progress_set",
             Self::PlaylistCreate { .. } => "playlist_create",

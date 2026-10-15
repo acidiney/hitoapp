@@ -20,22 +20,31 @@ impl Catalog {
         let offset = search.offset.unwrap_or(0).max(0);
         let limit = search.limit.unwrap_or(100).clamp(1, 200);
         let terms = search_terms(search.q.as_deref().unwrap_or_default())?;
-        let mut count = QueryBuilder::new("SELECT count(*)");
-        filters(&mut count, actor, &search, &terms, false);
+        let mut count = QueryBuilder::new("SELECT sum(n) FROM (SELECT count(*) AS n");
+        filters(&mut count, actor, &search, &terms, false, false);
+        count.push(" UNION ALL SELECT count(*) AS n");
+        filters(&mut count, actor, &search, &terms, true, false);
+        count.push(")");
         let total = count
             .build_query_scalar()
             .fetch_one(&self.store.pool)
             .await?;
 
-        let mut query = QueryBuilder::new(
-            "SELECT r.id, r.library_id, r.release_id, r.title, r.artist,
-                    a.title AS album, r.duration_ms, ",
-        );
-        push_available(&mut query, &self.host);
-        query.push(" AS available, COALESCE(l.liked, 0) AS liked");
-        filters(&mut query, actor, &search, &terms, true);
+        let mut query = QueryBuilder::new("");
+        for personal in [false, true] {
+            if personal {
+                query.push(" UNION ALL ");
+            }
+            query
+                .push("SELECT r.id, r.library_id, r.release_id, ")
+                .push(if personal { "p.title" } else { "r.title" })
+                .push(" AS title, r.artist, a.title AS album, r.duration_ms, ");
+            push_available(&mut query, &self.host);
+            query.push(" AS available, COALESCE(l.liked, 0) AS liked");
+            filters(&mut query, actor, &search, &terms, personal, true);
+        }
         query
-            .push(" ORDER BY r.title COLLATE NOCASE, r.id LIMIT ")
+            .push(" ORDER BY title COLLATE NOCASE, r.id LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
@@ -66,9 +75,16 @@ fn filters(
     actor: &Actor,
     search: &Search,
     terms: &str,
+    personal: bool,
     ordered: bool,
 ) {
-    query.push(" FROM recordings r");
+    if personal {
+        query.push(
+            " FROM personal_recording_titles p CROSS JOIN recordings r ON r.id = p.recording_id",
+        );
+    } else {
+        query.push(" FROM recordings r");
+    }
     if ordered {
         query.push(" LEFT JOIN releases a ON a.id = r.release_id");
     }
@@ -85,14 +101,22 @@ fn filters(
         )
         .push_bind(actor.id().to_owned())
         .push(")");
-    if !terms.is_empty() {
+    if personal {
         query
-            .push(
-                " AND r.rowid IN (
-                 SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ",
-            )
-            .push_bind(terms.to_owned())
-            .push(")");
+            .push(" AND p.user_id = ")
+            .push_bind(actor.id().to_owned());
+    } else {
+        query
+            .push(" AND NOT EXISTS (SELECT 1 FROM personal_recording_titles p WHERE p.user_id = ")
+            .push_bind(actor.id().to_owned())
+            .push(" AND p.recording_id = r.id)");
+    }
+    if !terms.is_empty() {
+        query.push(if personal {
+            " AND p.id IN (SELECT rowid FROM personal_titles_fts WHERE personal_titles_fts MATCH "
+        } else {
+            " AND r.rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH "
+        }).push_bind(terms.to_owned()).push(")");
     }
     if search.liked == Some(true) {
         query.push(" AND l.liked = 1");

@@ -59,7 +59,7 @@ async fn apply_batch(
             acknowledged.push(operation.id);
             continue;
         }
-        apply::action(tx, actor, &operation.action).await?;
+        apply::action(tx, actor, &operation).await?;
         sqlx::query(
             "INSERT INTO sync_operations(user_id, device_id, operation_id, payload)
                  VALUES (?, ?, ?, ?)",
