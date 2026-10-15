@@ -23,7 +23,7 @@ pub(super) async fn indexed_flac() -> (tempfile::TempDir, Router, String, String
         Some(&token),
     )
     .await;
-    assert!(core.indexer.run_next_job().await.unwrap());
+    assert!(core.storage.run_next_job().await.unwrap());
     let (_, recordings) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
     let recording = recordings["items"][0]["id"].as_str().unwrap().to_owned();
     (dir, app, token, recording)

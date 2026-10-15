@@ -1,6 +1,6 @@
 mod file;
 
-use crate::{Error, Result, indexing::root::Root};
+use crate::{Error, Result, library_storage::root::Root};
 use std::{
     path::{Path, PathBuf},
     sync::{

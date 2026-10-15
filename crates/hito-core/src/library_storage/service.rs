@@ -1,8 +1,8 @@
-use super::{Indexer, Job};
+use super::{Job, LibraryStorage};
 use crate::{Actor, Error, Result, identity::library_access};
 use uuid::Uuid;
 
-impl Indexer {
+impl LibraryStorage {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
     pub async fn enqueue_scan(&self, actor: &Actor, library: &str) -> Result<Job> {
         actor.require_admin()?;

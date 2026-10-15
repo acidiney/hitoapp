@@ -108,7 +108,7 @@ pub(super) async fn indexed_app() -> (tempfile::TempDir, Router, String, String)
         Some(&token),
     )
     .await;
-    hito.indexer.run_next_job().await.unwrap();
+    hito.storage.run_next_job().await.unwrap();
     let (_, tracks) = call(&app, "GET", "/api/v1/recordings", Value::Null, Some(&token)).await;
     let recording = tracks["items"][0]["id"].as_str().unwrap().to_string();
     (dir, app, token, recording)

@@ -1,5 +1,5 @@
 use super::{
-    Indexer, observations,
+    LibraryStorage, observations,
     root::Root,
     types::{AUDIO_ALGORITHM, IndexedFile},
     walking,
@@ -9,7 +9,7 @@ use sqlx::{Sqlite, Transaction};
 use std::path::Path;
 use tokio::time::Interval;
 
-impl Indexer {
+impl LibraryStorage {
     pub(super) async fn adopt_legacy(
         &self,
         job: &str,

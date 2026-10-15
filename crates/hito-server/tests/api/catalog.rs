@@ -21,7 +21,7 @@ async fn scanned_audio_is_searchable_seekable_and_private() {
     let scan = format!("/api/v1/libraries/{library}/scan");
     let (status, job) = call(&app, "POST", &scan, Value::Null, Some(&admin)).await;
     assert_eq!(status, StatusCode::ACCEPTED);
-    assert!(hito.indexer.run_next_job().await.unwrap());
+    assert!(hito.storage.run_next_job().await.unwrap());
     let (_, job) = call(
         &app,
         "GET",

@@ -21,7 +21,7 @@ pub async fn scan(
 ) -> ApiResult<(StatusCode, Json<Job>)> {
     Ok((
         StatusCode::ACCEPTED,
-        Json(services.indexer.enqueue_scan(&actor, &library).await?),
+        Json(services.storage.enqueue_scan(&actor, &library).await?),
     ))
 }
 
@@ -35,5 +35,5 @@ pub async fn job(
     Account(actor): Account,
     Path(id): Path<String>,
 ) -> ApiResult<Json<Job>> {
-    Ok(Json(services.indexer.job(&actor, &id).await?))
+    Ok(Json(services.storage.job(&actor, &id).await?))
 }

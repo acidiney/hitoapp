@@ -3,7 +3,7 @@ mod collection;
 mod context;
 mod error;
 mod identity;
-mod indexing;
+mod library_storage;
 mod media_file;
 mod store;
 
@@ -15,7 +15,7 @@ pub use collection::{
 pub use context::{CoreConfig, HostDeviceId, MediaTools};
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
-pub use indexing::{Indexer, Job};
+pub use library_storage::{Job, LibraryStorage};
 use store::Store;
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
     pub collection: Collection,
-    pub indexer: Indexer,
+    pub storage: LibraryStorage,
     store: Store,
 }
 
@@ -44,11 +44,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             store: store.clone(),
             host: config.host_device.clone(),
         },
-        indexer: Indexer {
+        storage: LibraryStorage {
             store: store.clone(),
             host: config.host_device,
             music_root: config.music_root,
-            inspector: indexing::FileInspector::new(config.media_tools),
+            inspector: library_storage::FileInspector::new(config.media_tools),
         },
         store,
     })

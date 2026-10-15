@@ -1,5 +1,5 @@
 use super::{
-    Indexer,
+    LibraryStorage,
     inspection::CachedFile,
     observations,
     root::Root,
@@ -14,7 +14,7 @@ use std::{
 };
 use tokio::{sync::mpsc::Receiver, time::Interval};
 
-impl Indexer {
+impl LibraryStorage {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub(super) async fn scan(&self, job: &str, library: &str) -> Result<i64> {
         self.inspector.check_tools().await?;

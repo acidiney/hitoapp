@@ -16,7 +16,7 @@ use std::path::PathBuf;
 pub use types::Job;
 
 #[derive(Clone)]
-pub struct Indexer {
+pub struct LibraryStorage {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) music_root: PathBuf,

@@ -1,5 +1,5 @@
 use super::{Control, MediaSnapshot, Mode, Prepared, Snapshot, changed, unreadable};
-use crate::{Result, indexing::root::Root};
+use crate::{Result, library_storage::root::Root};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{File, Metadata},

@@ -1,5 +1,5 @@
 use super::snapshot::Snapshot;
-use crate::indexing::types::{AUDIO_ALGORITHM, AudioEvidence, IndexedFile};
+use crate::library_storage::types::{AUDIO_ALGORITHM, AudioEvidence, IndexedFile};
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct CachedFile {

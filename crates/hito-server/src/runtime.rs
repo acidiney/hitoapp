@@ -23,7 +23,7 @@ pub async fn run(
     let services = hito_core::open(config.core).await?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let (stop, mut stopped) = tokio::sync::watch::channel(false);
-    let indexer = services.indexer.clone();
+    let indexer = services.storage.clone();
     let worker = tokio::spawn(async move {
         tracing::info!(event = "worker_started", "Indexing worker started");
         let mut interval = tokio::time::interval(Duration::from_secs(1));

@@ -31,9 +31,9 @@ pub async fn library(host: &str) -> (tempfile::TempDir, Services, Actor, String,
 }
 
 pub async fn scan(hito: &Services, actor: &Actor, library: &str) {
-    let job = hito.indexer.enqueue_scan(actor, library).await.unwrap();
-    assert!(hito.indexer.run_next_job().await.unwrap());
-    let job = hito.indexer.job(actor, &job.id).await.unwrap();
+    let job = hito.storage.enqueue_scan(actor, library).await.unwrap();
+    assert!(hito.storage.run_next_job().await.unwrap());
+    let job = hito.storage.job(actor, &job.id).await.unwrap();
     assert_eq!(job.state, "complete", "{:?}", job.error);
 }
 
@@ -86,10 +86,10 @@ pub async fn catalog() -> (tempfile::TempDir, Services, Actor, String) {
         .unwrap();
     let actor = hito.identity.authenticate(&session.token).await.unwrap();
     let library = hito.catalog.libraries(&actor).await.unwrap().remove(0).id;
-    let job = hito.indexer.enqueue_scan(&actor, &library).await.unwrap();
-    assert!(hito.indexer.run_next_job().await.unwrap());
+    let job = hito.storage.enqueue_scan(&actor, &library).await.unwrap();
+    assert!(hito.storage.run_next_job().await.unwrap());
     assert_eq!(
-        hito.indexer.job(&actor, &job.id).await.unwrap().state,
+        hito.storage.job(&actor, &job.id).await.unwrap().state,
         "complete"
     );
     (dir, hito, actor, library)

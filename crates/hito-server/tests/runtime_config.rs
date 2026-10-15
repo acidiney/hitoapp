@@ -54,8 +54,8 @@ async fn legacy_audio_remains_playable_after_identity_adoption_and_restart() {
         .unwrap();
     let actor = legacy.identity.authenticate(&session.token).await.unwrap();
     let library = legacy.catalog.libraries(&actor).await.unwrap().remove(0).id;
-    legacy.indexer.enqueue_scan(&actor, &library).await.unwrap();
-    assert!(legacy.indexer.run_next_job().await.unwrap());
+    legacy.storage.enqueue_scan(&actor, &library).await.unwrap();
+    assert!(legacy.storage.run_next_job().await.unwrap());
     drop(legacy);
     assert!(!database.with_extension("device-id").exists());
 

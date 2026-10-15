@@ -1,7 +1,7 @@
-use super::Indexer;
+use super::LibraryStorage;
 use crate::Result;
 
-impl Indexer {
+impl LibraryStorage {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub async fn run_next_job(&self) -> Result<bool> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;

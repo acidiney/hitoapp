@@ -1,5 +1,5 @@
 use super::{
-    Indexer, observations,
+    LibraryStorage, observations,
     resolution::{self, LocalIdentity},
     types::{AUDIO_ALGORITHM, IndexedFile},
 };
@@ -7,7 +7,7 @@ use crate::Result;
 use std::path::Path;
 use uuid::Uuid;
 
-impl Indexer {
+impl LibraryStorage {
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub(super) async fn index_file(
         &self,
