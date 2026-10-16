@@ -159,3 +159,45 @@ async fn observations_have_bounded_capacity_and_dropping_a_response_releases_its
     drop(responses);
     owner.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn logging_out_closes_an_existing_stream_without_another_player_command() {
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner) = Player::start(f.services.clone());
+    let app = hito_server::router_with_player(f.services.clone(), Default::default(), player);
+    let inspected = http::call(&app, "GET", "/api/v1/player", Value::Null, Some(&f.token))
+        .await
+        .1;
+    let attached = http::call(
+        &app,
+        "POST",
+        "/api/v1/player/claim",
+        json!({"epoch":inspected["epoch"]}),
+        Some(&f.token),
+    )
+    .await
+    .1;
+    let mut observed = observation(&app, &f.token, &attached["lease"], "state")
+        .await
+        .into_body();
+    frame(&mut observed).await;
+    assert_eq!(
+        http::call(&app, "POST", "/api/v1/logout", Value::Null, Some(&f.token))
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), observed.frame())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        observation(&app, &f.token, &attached["lease"], "state")
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    owner.close().await.unwrap();
+}
