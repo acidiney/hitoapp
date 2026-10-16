@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.plugin-folder
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-cargo-${COMPOSE_PROJECT_NAME:-hito-plugin-folder}
     ports:
       - "127.0.0.1:8091:8090"
     read_only: true
