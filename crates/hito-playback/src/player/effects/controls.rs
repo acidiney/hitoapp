@@ -41,7 +41,7 @@ impl Controls {
     pub fn sync(&mut self, session: &Arc<Session>, target: &Target) {
         let snapshot = session.snapshot();
         if snapshot.status == Status::Ready
-            && !snapshot.ended
+            && (!snapshot.ended || !self.configured)
             && self.pending.is_none()
             && (!self.configured
                 || snapshot.playing != target.playing
