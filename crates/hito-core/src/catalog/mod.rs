@@ -10,6 +10,7 @@ mod provider;
 pub use provider::{AdoptProviderRecording, ProviderSearch};
 mod releases;
 mod search;
+mod selection;
 mod sources;
 mod types;
 
