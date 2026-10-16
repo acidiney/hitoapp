@@ -1,5 +1,7 @@
+mod authorization;
 mod content;
 mod playlists;
+pub use authorization::Authorization;
 pub use content::{
     AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
     ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
@@ -25,6 +27,8 @@ pub struct Manifest {
     pub name: String,
     pub protocol_version: u32,
     pub capabilities: BTreeSet<Capability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization: Option<Authorization>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -65,6 +69,9 @@ impl Manifest {
         }
         if self.capabilities.is_empty() {
             return Err("Declare at least one capability".into());
+        }
+        if let Some(authorization) = &self.authorization {
+            authorization.validate().map_err(str::to_owned)?;
         }
         Ok(())
     }

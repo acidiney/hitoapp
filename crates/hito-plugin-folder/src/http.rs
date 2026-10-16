@@ -46,6 +46,7 @@ async fn manifest() -> Json<Manifest> {
         name: "Hito music folder".into(),
         protocol_version: 1,
         capabilities: [Capability::Search, Capability::Sources].into(),
+        authorization: None,
     })
 }
 async fn search(
