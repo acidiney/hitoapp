@@ -32,16 +32,16 @@ Remote input bridges core's asynchronous body into the blocking decoder. It reta
 
 ## Session lifetime
 
-With the `device` feature, `Session::start(grant)` creates the retained supervisor before asynchronous opening begins. `ready()` observes startup, `command()` sends bounded controls, `snapshot()` and `subscribe()` expose state, and `close()` waits for joined cleanup. `Session::open(grant).await` combines start and readiness.
+With the `device` feature, `Session::start(grant)` creates the retained supervisor before asynchronous opening begins. `ready()` observes startup, `command()` sends bounded controls, `snapshot()` and `subscribe()` expose state, and `close()` waits for joined cleanup. `Session::open(grant).await` combines start and readiness. `stop()` requests terminal cancellation immediately, including during input opening or decoder startup, without consuming the session or requiring a close observer. After stop, readiness cannot report success from an older ready snapshot. `close()` still joins the retained owner.
 
 ```mermaid
 stateDiagram-v2
   [*] --> Opening
   Opening --> Starting: Input opened
   Starting --> Ready: Paused engine ready and grant rechecked
-  Opening --> Stopped: Owner dropped or closed
-  Starting --> Stopped: Owner dropped or closed
-  Ready --> Stopped: Owner dropped or closed
+  Opening --> Stopped: Stop, drop, or close
+  Starting --> Stopped: Stop, drop, or close
+  Ready --> Stopped: Stop, drop, or close
   Opening --> Revoked: Authorization withdrawn
   Starting --> Revoked: Authorization withdrawn
   Ready --> Revoked: Authorization withdrawn
@@ -69,8 +69,10 @@ After building the Docker Rust and desktop images, run:
 sh scripts/check-playback.sh
 ```
 
-The desktop check includes this script. Default tests cover local decode/seeking, approved provider decode, pending-read cancellation, valid short-range continuation, and failed-range persistence. Actual CPAL monitor tests cover local logout without another command, cancellation of a close observer during blocked startup, paused provider withdrawal, transport controls, and safe logging across async, blocking, and native threads. They use temporary SQLite and owned synthetic audio through a private clocked PulseAudio sink.
+The desktop check includes this script. Default tests cover local decode/seeking, approved provider decode, pending-read cancellation, valid short-range continuation, and failed-range persistence. Actual CPAL monitor tests cover local logout without another command, cancellation of a close observer during blocked startup, terminal stop during opening, readiness after stop, paused provider withdrawal, transport controls, and safe logging across async, blocking, and native threads. They use temporary SQLite and owned synthetic audio through a private clocked PulseAudio sink.
 
 The public `Session` API is backend-only. It does not authenticate a new caller for each command. Before exposing commands, the application coordinator must fence account/session changes, reject stale work, and apply ordinary HTTP authentication and local process protection. Queue ordering, source ranking/failover, progress persistence, account switching, host shutdown integration, and the shared UI adapter remain unfinished.
+
+Core now supplies a bounded ordered `recordings_by_ids` lookup and opaque `Actor::same_session` comparison. Equality does not prove a session is live; retained owners use `Identity::check_session`. Collection writes and provider-source publication recheck sessions inside their existing transactions. The [selected application coordinator design](native-coordinator.md) records how these boundaries will connect to queues, HTTP, and the host.
 
 These fixtures establish ownership and cancellation behavior in Linux Docker. They do not establish sustained throughput, p95 latency, physical audio timing, gapless transitions, FFmpeg fallback, playback speed, or macOS/Windows acceptance. See [engine limits](native-audio.md) and the full [release plan](release-plan.md).

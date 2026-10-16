@@ -22,6 +22,8 @@ The native audio engine adds decoder readiness, transport controls, output start
 
 The native playback owner adds input opening/ranges, cancellation, readiness, revocation/failure, and joined session cleanup. A process-local numeric session ID correlates async supervision, blocking controls, and the native worker. Spawned work retains the tracing subscriber as well as its span. An actual device workflow captures TRACE logs, requires the supervisor and engine cleanup events, and rejects session-token, credential, and private-path sentinels.
 
+Ordered recording selection logs only account ID and batch count. Retained-session validation uses trace events with safe error categories. Provider-source refresh emits debug events for cancellation before publication and write admission, followed by its existing safe completion or failure. It logs no source-page body or credentials. The SQLite publication fixture observes the write event under an account-scoped capture of the global subscriber.
+
 ## Browser
 
 The browser logs API outcomes, request IDs, user actions, navigation, scan state, and playback commands, source changes, recovery, and failures. Grid/list changes, settings sections, and expanded-player/queue visibility use debug events with static modes. Frequent events use debug. Browser logging uses the local developer console and sends no external telemetry. Set `localStorage["hito-log-level"]` to `debug`, `info`, `warn`, `error`, or `off`, then reload. The default is `info`.
