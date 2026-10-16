@@ -4,9 +4,11 @@ import type {
   PlaybackView,
   QueuePage,
   QueueView,
+  Player,
 } from "../model";
 import type { Position, Snapshot } from "./api";
 import { NativeSession, type Failure } from "./Session";
+import { NativeCommands } from "./NativeCommands";
 
 function emptyView(): PlaybackView {
   return {
@@ -22,7 +24,7 @@ function emptyView(): PlaybackView {
   };
 }
 
-export class NativePlayback {
+export class NativePlayback implements Player {
   readonly mode = "native";
   readonly supports = {
     previous: false,
@@ -44,6 +46,24 @@ export class NativePlayback {
   private wire: Snapshot | null = null;
   private latestPosition: Position | null = null;
   private metadata: AbortController | null = null;
+  private intents = new NativeCommands(
+    () => this.session,
+    () => this.wire,
+    (error) => this.update({ error }),
+  );
+  playQueue = this.intents.playQueue;
+  prepareSelection = this.intents.prepareSelection;
+  selectEntry = this.intents.selectEntry;
+  removeEntry = this.intents.removeEntry;
+  toggle = this.intents.toggle;
+  next = this.intents.next;
+  previous = this.intents.previous;
+  seek = this.intents.seek;
+  volume = this.intents.volume;
+  clear = this.intents.clear;
+  speed = this.intents.speed;
+  shuffle = this.intents.shuffle;
+  repeat = this.intents.repeat;
 
   constructor(private account: string) {}
   snapshot = () => this.view;
@@ -74,6 +94,16 @@ export class NativePlayback {
       },
       failure: (kind) => {
         if (this.session === session) this.failed(kind);
+      },
+      connection: (ready) => {
+        if (this.session !== session) return;
+        this.update({
+          connection: ready ? "ready" : "disconnected",
+          ...(ready &&
+          this.view.error === "Playback connection interrupted. Reconnecting…"
+            ? { error: "" }
+            : {}),
+        });
       },
     });
     this.session = session;
@@ -141,13 +171,13 @@ export class NativePlayback {
           ? this.view.current
           : null,
       playing: value.playing,
+      desiredPlaying: value.desired_playing,
       loading:
         value.phase === "resolving" ||
         value.phase === "opening" ||
         value.phase === "releasing" ||
         value.seeking,
       volume: value.volume / 1000,
-      connection: "ready",
       error: value.persistence_error
         ? "Listening progress could not be saved. Hito will retry."
         : value.error
@@ -236,11 +266,17 @@ export class NativePlayback {
     this.view = { ...this.view, ...patch };
     this.listeners.forEach((listener) => listener());
   }
+  setRecordingField() {
+    this.queueView = { ...this.queueView, version: this.queueView.version + 1 };
+    this.loadCurrent();
+    this.listeners.forEach((listener) => listener());
+  }
   private updatePosition(value: PlaybackPosition) {
     this.position = value;
     this.positionListeners.forEach((listener) => listener());
   }
   close() {
+    this.intents.invalidate();
     this.session?.close();
     this.session = null;
     this.metadata?.abort();

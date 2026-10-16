@@ -1,8 +1,99 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { NativePlayback } from "./NativePlayback";
 import type { Snapshot } from "./api";
+import { nativeService } from "./fixtures/service";
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("a position-only interruption recovers without claiming again or a structural change", async () => {
+  const service = nativeService();
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() => expect(player.snapshot().connection).toBe("ready"));
+    service.end("position");
+    await vi.waitFor(() =>
+      expect(player.snapshot().connection).toBe("disconnected"),
+    );
+    await vi.waitFor(() => expect(service.subscriptions.position).toBe(2));
+    await vi.waitFor(() => expect(player.snapshot().connection).toBe("ready"));
+    expect(service.subscriptions.state).toBe(1);
+    expect(service.claims).toBe(1);
+  } finally {
+    player.close();
+  }
+});
+
+test("ownership rejection clears private views and drops later commands without reclaiming", async () => {
+  const service = nativeService();
+  Object.assign(service.state, {
+    revision: 1,
+    selection: 1,
+    queue_len: 1,
+    current_index: 0,
+    current: { id: "entry-0", recording_id: "recording-0" },
+  });
+  service.command = async () => new Response(null, { status: 409 });
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() =>
+      expect(player.snapshot().current?.id).toBe("recording-0"),
+    );
+    await Promise.all([player.toggle(), player.next()]);
+    expect(service.commands).toHaveLength(1);
+    expect(service.claims).toBe(1);
+    expect(player.snapshot().connection).toBe("disconnected");
+    expect(player.snapshot().current).toBeNull();
+    expect(player.queueSnapshot().total).toBe(0);
+    expect(player.positionSnapshot().position).toBe(0);
+  } finally {
+    player.close();
+  }
+});
+
+test("an old metadata response cannot replace a reattached selection", async () => {
+  const service = nativeService();
+  Object.assign(service.state, {
+    revision: 1,
+    selection: 1,
+    queue_len: 2,
+    current_index: 0,
+    current: { id: "entry-0", recording_id: "recording-0" },
+  });
+  const queue = service.queue;
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reads = 0;
+  service.queue = async (query) => {
+    if (++reads === 1) await blocked;
+    return queue(query);
+  };
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() => expect(reads).toBe(1));
+    Object.assign(service.state, {
+      selection: 2,
+      current_index: 1,
+      current: { id: "entry-1", recording_id: "recording-1" },
+    });
+    await player.reconnect();
+    await vi.waitFor(() =>
+      expect(player.snapshot().current?.id).toBe("recording-1"),
+    );
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(player.snapshot().current?.id).toBe("recording-1");
+    expect(player.queueSnapshot().currentEntry).toBe("entry-1");
+    expect(service.claims).toBe(2);
+  } finally {
+    release();
+    player.close();
+  }
+});
 
 test("native views page a large queue and isolate position frames from queue and metadata state", async () => {
   const streams = new Map<
