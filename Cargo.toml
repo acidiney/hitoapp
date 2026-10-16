@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hito-core", "crates/hito-server", "crates/hito-plugin-sdk", "crates/hito-desktop", "crates/hito-audio"]
+members = ["crates/hito-core", "crates/hito-server", "crates/hito-plugin-sdk", "crates/hito-desktop", "crates/hito-audio", "crates/hito-playback"]
 resolver = "3"
 
 [workspace.package]

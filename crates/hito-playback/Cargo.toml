@@ -1,0 +1,26 @@
+[package]
+name = "hito-playback"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+device = ["hito-audio/device"]
+
+[dependencies]
+hito-audio = { path = "../hito-audio" }
+hito-core = { path = "../hito-core" }
+tokio.workspace = true
+bytes.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
+axum.workspace = true
+tokio-util.workspace = true
+tracing-subscriber.workspace = true

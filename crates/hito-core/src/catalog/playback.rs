@@ -95,6 +95,10 @@ impl Catalog {
 }
 
 impl PlaybackSource {
+    pub fn is_local(&self) -> bool {
+        matches!(self.binding, Binding::Local(_))
+    }
+
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(playback_grant = self.id))]
     pub async fn check(&self) -> Result<()> {
         if self.revoked.load(Ordering::Acquire) {
