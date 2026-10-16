@@ -34,7 +34,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Persist observed native progress with ordered idempotent checkpoints, bounded backpressure, account isolation, and joined writes.
 - [x] Expose authenticated native commands, paged queues, separate private observation streams, and retained desktop shutdown with library ownership.
 - [x] Connect the shared React player to the native command/observation API while preserving the browser implementation. Verify actual Linux Tauri output, reload, controls, and Rust-owned progress.
-- [ ] Add native Previous based on played history, shuffle, repeat, playback speed, and saved-position loading.
+- [x] Add native Previous using bounded played-occurrence history, stable duplicate entries, restart semantics, queue-end availability, and preserved pause state.
+- [ ] Add native shuffle, repeat, playback speed, and saved-position loading; verify traversal behavior in both clients.
 - [x] Preserve process-local private queue state across temporary authority/database failures while suspending output and rejecting unverified commands. Revalidate before recovery; clear on definitive session rejection.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
