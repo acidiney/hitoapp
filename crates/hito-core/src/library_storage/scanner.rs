@@ -19,7 +19,12 @@ use tokio::time::Interval;
 impl LibraryStorage {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(host_device = self.host.as_str(), job_id = %lease.job, folder_id = %lease.folder.id))]
     pub(super) async fn scan(&self, lease: &Lease, root: Root) -> Result<i64> {
-        self.inspector.check_tools().await?;
+        lease.check_running()?;
+        tokio::select! {
+            biased;
+            _ = lease.cancelled() => return Err(super::lease::stopped()),
+            result = self.inspector.check_tools() => result?,
+        }
         let mut heartbeat = tokio::time::interval(Duration::from_secs(1));
         if self
             .legacy_evidence_pending(&lease.folder.library_id)
@@ -46,9 +51,11 @@ impl LibraryStorage {
                 .await
             {
                 Ok(file) => {
+                    lease.check_running()?;
                     self.index_file(lease, &root, file).await?;
                     count += 1;
                 }
+                Err(error) if lease.is_stopping() => return Err(error),
                 Err(error @ Error::Database(_)) => return Err(error),
                 Err(error) => {
                     self.invalidate_path(lease, &root, &path).await?;
@@ -91,6 +98,8 @@ impl LibraryStorage {
         tokio::pin!(inspection);
         loop {
             tokio::select! {
+                biased;
+                _ = lease.cancelled() => return Err(super::lease::stopped()),
                 result = &mut inspection => return result,
                 _ = heartbeat.tick() => {
                     lease.renew(&self.store, count).await?;
@@ -113,6 +122,8 @@ impl LibraryStorage {
         tokio::pin!(next);
         loop {
             tokio::select! {
+                biased;
+                _ = lease.cancelled() => return Err(super::lease::stopped()),
                 path = &mut next => return path,
                 _ = heartbeat.tick() => {
                     lease.renew(&self.store, count).await?;
@@ -135,6 +146,8 @@ impl LibraryStorage {
         tokio::pin!(checksum);
         loop {
             tokio::select! {
+                biased;
+                _ = lease.cancelled() => return Err(super::lease::stopped()),
                 result = &mut checksum => return result,
                 _ = heartbeat.tick() => {
                     lease.renew(&self.store, 0).await?;
@@ -161,6 +174,7 @@ impl LibraryStorage {
         let mut cursor = String::new();
         let mut stale = 0;
         loop {
+            lease.check_running()?;
             lease.renew(&self.store, count).await?;
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
             lease.guard(&mut tx).await?;

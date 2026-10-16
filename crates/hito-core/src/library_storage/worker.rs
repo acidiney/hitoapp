@@ -3,8 +3,44 @@ use crate::{Error, Result};
 use uuid::Uuid;
 
 impl LibraryStorage {
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn finish_indexing(&self) -> Result<()> {
+        self.inspector.settle_commands().await?;
+        tracing::info!(
+            event = "indexing_cleanup_finished",
+            "Media inspection cleanup finished"
+        );
+        Ok(())
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
     pub async fn run_next_job(&self) -> Result<bool> {
+        self.run_next_job_until(std::future::pending()).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(host_device = self.host.as_str()))]
+    pub async fn run_next_job_until(
+        &self,
+        shutdown: impl std::future::Future<Output = ()> + Send,
+    ) -> Result<bool> {
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let (done, finished) = tokio::sync::oneshot::channel::<()>();
+        let job = async move {
+            let result = self.run_job(stopped).await;
+            drop(done);
+            result
+        };
+        let cancellation = async move {
+            tokio::select! {
+                _ = shutdown => {stop.send_replace(true);},
+                _ = finished => {},
+            }
+        };
+        let (result, ()) = tokio::join!(job, cancellation);
+        result
+    }
+
+    async fn run_job(&self, stop: tokio::sync::watch::Receiver<bool>) -> Result<bool> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let id: Option<String> = sqlx::query_scalar(
             "SELECT j.id FROM jobs j JOIN music_folders f ON f.id = j.folder_id
@@ -13,6 +49,7 @@ impl LibraryStorage {
              ORDER BY j.rowid LIMIT 1",
         ).bind(self.host.as_str()).fetch_optional(&mut *tx).await?;
         let Some(id) = id else {
+            tx.rollback().await?;
             return Ok(false);
         };
         let folder: Folder = sqlx::query_as(
@@ -29,29 +66,41 @@ impl LibraryStorage {
             job: id,
             token,
             folder,
+            stop,
         };
         tracing::info!(job_id = %lease.job, folder_id = %lease.folder.id, generation = lease.folder.generation, "Scan lease acquired");
-        let outcome = self.scan_folder(&lease).await;
+        let result = self.scan_folder(&lease).await;
+        let outcome = if lease.is_stopping() {
+            None
+        } else {
+            Some(result)
+        };
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         if let Err(error) = lease.guard(&mut tx).await {
             if !matches!(error, Error::Conflict(_)) {
                 return Err(error);
             }
             tracing::info!(job_id = %lease.job, event = "scan_superseded", "Scan attempt no longer owns its target");
+            tx.rollback().await?;
             return Ok(true);
         }
         match outcome {
-            Ok(count) => {
+            Some(Ok(count)) => {
                 sqlx::query("UPDATE jobs SET state = 'complete', progress = ?, lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
                     .bind(count).bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
                 sqlx::query("UPDATE music_folders SET last_scan_at = unixepoch() WHERE id = ? AND generation = ?")
                     .bind(&lease.folder.id).bind(lease.folder.generation).execute(&mut *tx).await?;
                 tracing::info!(job_id = %lease.job, files_read = count, "Scan completed");
             }
-            Err(error) => {
+            Some(Err(error)) => {
                 sqlx::query("UPDATE jobs SET state = 'failed', error = 'Music scan failed. Check the connected folder and installed FFmpeg tools.', lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
                     .bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
                 tracing::warn!(job_id = %lease.job, error_code = error.code(), "Scan failed");
+            }
+            None => {
+                sqlx::query("UPDATE jobs SET state = 'queued', lease_until = NULL, lease_token = NULL WHERE id = ? AND lease_token = ?")
+                    .bind(&lease.job).bind(&lease.token).execute(&mut *tx).await?;
+                tracing::info!(event = "scan_interrupted", job_id = %lease.job, "Interrupted scan queued for restart");
             }
         }
         tx.commit().await?;
@@ -62,6 +111,9 @@ impl LibraryStorage {
         let root = match self.open_scan_root(lease, &lease.folder).await {
             Ok(root) => root,
             Err(error) => {
+                if lease.is_stopping() {
+                    return Err(error);
+                }
                 let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
                 lease.guard(&mut tx).await?;
                 sqlx::query("UPDATE sources SET ready = 0 WHERE id IN (SELECT source_id FROM local_files WHERE folder_id = ?)")
@@ -86,6 +138,8 @@ impl LibraryStorage {
         let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(1));
         loop {
             tokio::select! {
+                biased;
+                _ = lease.cancelled() => return Err(super::lease::stopped()),
                 root = &mut opening => return root,
                 _ = heartbeat.tick() => {
                     lease.renew(&self.store, 0).await?;

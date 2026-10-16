@@ -29,6 +29,10 @@ enum AudioInspection {
 }
 
 impl FileInspector {
+    pub(super) async fn settle_commands(&self) -> Result<()> {
+        self.commands.settle().await
+    }
+
     pub(crate) fn new(tools: MediaTools) -> Self {
         Self {
             tools,

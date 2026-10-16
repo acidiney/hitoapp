@@ -6,9 +6,29 @@ pub(super) struct Lease {
     pub job: String,
     pub token: String,
     pub folder: Folder,
+    pub stop: tokio::sync::watch::Receiver<bool>,
 }
 
 impl Lease {
+    pub fn is_stopping(&self) -> bool {
+        *self.stop.borrow()
+    }
+
+    pub fn check_running(&self) -> Result<()> {
+        if self.is_stopping() {
+            Err(stopped())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub async fn cancelled(&self) {
+        let mut stop = self.stop.clone();
+        if !*stop.borrow() {
+            let _ = stop.changed().await;
+        }
+    }
+
     pub async fn check_folder(&self, store: &Store, folder: &Folder) -> Result<()> {
         let active: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM music_folders WHERE id = ? AND generation = ? AND connected = 1 AND bound = 1)")
             .bind(&folder.id).bind(folder.generation).fetch_one(&store.pool).await?;

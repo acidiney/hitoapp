@@ -17,6 +17,15 @@ impl Commands {
         Self(Arc::new(Semaphore::new(2)))
     }
 
+    pub(super) async fn settle(&self) -> Result<()> {
+        let _idle = self
+            .0
+            .acquire_many(2)
+            .await
+            .map_err(|_| Error::Internal("Media inspection stopped".into()))?;
+        Ok(())
+    }
+
     pub(super) async fn run(
         &self,
         program: &Path,
