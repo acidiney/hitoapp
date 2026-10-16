@@ -113,7 +113,7 @@ async fn upgrade_preserves_source_identity_and_keeps_historical_bindings_out_of_
             .unwrap()
             .entries[0]
             .recording_id,
-        legacy::RECORDING
+        Some(legacy::RECORDING.to_string())
     );
     assert!(
         started.elapsed() < Duration::from_secs(15),

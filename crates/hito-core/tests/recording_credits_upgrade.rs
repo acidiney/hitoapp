@@ -98,6 +98,6 @@ async fn upgrade_exposes_existing_albumless_recordings_and_preserves_private_cre
             .unwrap()
             .entries[0]
             .recording_id,
-        legacy::RECORDING
+        Some(legacy::RECORDING.to_string())
     );
 }

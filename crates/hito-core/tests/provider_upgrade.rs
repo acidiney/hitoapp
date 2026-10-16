@@ -82,8 +82,8 @@ async fn provider_schema_upgrade_preserves_file_evidence_references_and_search()
             .unwrap()
             .entries[0]
             .recording_id
-            .as_str(),
-        legacy::RECORDING
+            .as_deref(),
+        Some(legacy::RECORDING)
     );
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("INSERT INTO recordings(id,library_id,title,artist,initial_file_checksum,provenance) VALUES ('provider-probe',?,'Provider track','Provider artist',NULL,'provider_response')").bind(legacy::LIBRARY).execute(&mut *tx).await.expect("recordings without file evidence need a real NULL checksum");
