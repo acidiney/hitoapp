@@ -118,6 +118,9 @@
   gap: 18px;
   margin-bottom: 24px;
 }
+.list-toolbar > .button {
+  min-height: 44px;
+}
 .list-toolbar > .muted {
   font-size: 11px;
 }
@@ -198,6 +201,10 @@
   gap: 2px;
   align-items: center;
   justify-content: flex-end;
+}
+.track-actions .icon-button {
+  min-width: 44px;
+  min-height: 44px;
 }
 .add-to-playlist {
   font-size: 10px;
