@@ -53,6 +53,7 @@ test("checking a saved track refreshes only its own sources and leaves playback 
     "/api/v1/recordings/saved/sources/refresh",
     expect.objectContaining({
       method: "POST",
+      body: undefined,
       credentials: "same-origin",
       headers: expect.objectContaining({
         "x-hito-account": "alice",

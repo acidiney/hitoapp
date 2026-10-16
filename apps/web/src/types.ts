@@ -19,6 +19,7 @@ export type TextMetadata = Schema["TextMetadata"];
 export type MetadataObservation = Schema["MetadataObservation"];
 export type ObservationPage = Schema["ObservationPage"];
 export type Source = Schema["Source"];
+export type RefreshSources = Schema["RefreshSources"];
 export type Job = Schema["Job"];
 export type MusicFolder = Schema["MusicFolder"];
 export type SharedDirectory = Schema["SharedDirectory"];
