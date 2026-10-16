@@ -89,7 +89,7 @@ fn scan_with_inspector(
         }
     }
     inspection::check(deadline)?;
-    crate::releases::assign(&mut observations);
+    crate::releases::assign_scan(&mut observations);
     let mut tracks = BTreeMap::new();
     for track in &observations {
         tracks

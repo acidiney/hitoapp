@@ -68,6 +68,9 @@ pub(crate) async fn reconcile(
                 source
             };
         }
+    }
+    crate::releases::reconcile(connection, &mut observations, bootstrap).await?;
+    for track in &mut observations {
         let mut detail = track.recording();
         detail.revision = None;
         let revision = serde_json::to_vec(&(&detail, &track.source, &track.checksum))
@@ -99,6 +102,7 @@ pub(crate) async fn reconcile(
             .bind(&track.id).bind(&track.checksum).bind(detail).bind(&track.locator)
             .execute(&mut *connection).await.map_err(state_error)?;
     }
+    crate::releases::state::observe(connection, &observations).await?;
     let mut active = BTreeMap::new();
     for track in &observations {
         sqlx::query("INSERT OR IGNORE INTO evidence VALUES (?, 'file-v1', ?)")
@@ -139,9 +143,9 @@ pub(crate) async fn reconcile(
         .map_err(state_error)?;
     for track in &observations {
         let detail = serde_json::to_string(&track.recording()).map_err(io::Error::other)?;
-        sqlx::query("INSERT INTO observations (locator, recording_id, source_id, checksum, evidence_kind, evidence_digest, detail) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        sqlx::query("INSERT INTO observations (locator, recording_id, source_id, checksum, evidence_kind, evidence_digest, detail, release_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
             .bind(&track.locator).bind(&track.id).bind(&track.source).bind(&track.checksum)
-            .bind(track.evidence.as_ref().map(|_| pcm::ALGORITHM)).bind(&track.evidence).bind(detail)
+            .bind(track.evidence.as_ref().map(|_| pcm::ALGORITHM)).bind(&track.evidence).bind(detail).bind(&track.release_id)
             .execute(&mut *connection).await.map_err(state_error)?;
     }
     for table in ["evidence", "representations"] {
