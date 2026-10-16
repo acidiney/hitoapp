@@ -35,7 +35,14 @@ impl Queue {
         let current = self.current_entry();
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
-            PlayerAction::Pause => return Ok(()),
+            PlayerAction::Pause | PlayerAction::Volume { .. } => return Ok(()),
+            PlayerAction::Seek { .. } => {
+                return if self.current.is_some() {
+                    Ok(())
+                } else {
+                    Err(PlayerError::Invalid)
+                };
+            }
             PlayerAction::Resume => {
                 if self.current.is_some() || self.entries.is_empty() {
                     return Ok(());

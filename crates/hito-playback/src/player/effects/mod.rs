@@ -18,6 +18,7 @@ pub(super) struct Update {
     pub source_id: Option<String>,
     pub position_ms: u64,
     pub duration_ms: Option<u64>,
+    pub seek_id: Option<Uuid>,
     pub ended: bool,
     pub exhausted: bool,
     pub error: Option<PlayerError>,

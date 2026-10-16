@@ -37,7 +37,7 @@ impl From<hito_core::Error> for PlayerError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerSnapshot {
     pub revision: u64,
     pub selection: u64,
@@ -46,9 +46,29 @@ pub struct PlayerSnapshot {
     pub source_id: Option<String>,
     pub desired_playing: bool,
     pub playing: bool,
+    pub seeking: bool,
+    pub volume: u16,
     pub phase: PlayerPhase,
     pub error: Option<PlayerError>,
     pub last_failure: Option<PlayerFailure>,
+}
+impl Default for PlayerSnapshot {
+    fn default() -> Self {
+        Self {
+            revision: 0,
+            selection: 0,
+            queue_len: 0,
+            current: None,
+            source_id: None,
+            desired_playing: false,
+            playing: false,
+            seeking: false,
+            volume: 1000,
+            phase: PlayerPhase::Idle,
+            error: None,
+            last_failure: None,
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerFailure {
@@ -94,6 +114,8 @@ pub struct PlayerCommand {
 pub enum PlayerAction {
     Resume,
     Pause,
+    Seek { position_ms: u64 },
+    Volume { level: u16 },
     Next,
     Clear,
     Append { recordings: Vec<Uuid> },
@@ -107,6 +129,8 @@ impl PlayerAction {
         match self {
             Self::Resume => "resume",
             Self::Pause => "pause",
+            Self::Seek { .. } => "seek",
+            Self::Volume { .. } => "volume",
             Self::Next => "next",
             Self::Clear => "clear",
             Self::Append { .. } => "append",
@@ -135,6 +159,13 @@ pub struct PlayerPosition {
     pub selection: u64,
     pub position_ms: u64,
     pub duration_ms: Option<u64>,
+    pub seek_id: Option<Uuid>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) struct Seek {
+    pub id: Uuid,
+    pub position_ms: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerReceipt {

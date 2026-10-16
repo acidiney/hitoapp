@@ -12,19 +12,27 @@ pub(crate) struct Target {
     pub recording: Uuid,
     pub playing: bool,
     pub play_revision: u64,
+    pub seek: Option<super::super::types::Seek>,
+    pub volume: u16,
+}
+struct Applied {
+    seek_id: Option<Uuid>,
+    volume: u16,
 }
 pub(crate) struct Native {
     sources: Sources,
     target: Option<Target>,
     session: Option<Arc<Session>>,
     observed: Option<watch::Receiver<crate::Snapshot>>,
-    control: Option<Pending<crate::Result<()>>>,
+    control: Option<Pending<crate::Result<Applied>>>,
     closing: Option<Pending<()>>,
     failed: bool,
     update: Option<Update>,
     resume_at: Duration,
     duration: Option<Duration>,
     configured: bool,
+    applied_seek: Option<Uuid>,
+    applied_volume: Option<u16>,
 }
 impl Native {
     pub fn new(catalog: Catalog) -> Self {
@@ -40,6 +48,8 @@ impl Native {
             resume_at: Duration::ZERO,
             duration: None,
             configured: false,
+            applied_seek: None,
+            applied_volume: None,
         }
     }
     pub fn sync(&mut self, target: Option<Target>) {
@@ -50,6 +60,23 @@ impl Native {
             self.failed = false;
             self.resume_at = Duration::ZERO;
             self.duration = None;
+            self.applied_seek = None;
+        }
+        if let Some(seek) = target.as_ref().and_then(|target| target.seek)
+            && self.target.as_ref().and_then(|target| target.seek) != Some(seek)
+        {
+            if self.control.is_some() {
+                self.retire();
+            }
+            self.resume_at = Duration::from_millis(seek.position_ms);
+            self.configured = false;
+        } else if target.as_ref().is_some_and(|next| {
+            self.target
+                .as_ref()
+                .is_some_and(|old| old.volume != next.volume)
+        }) && self.control.is_some()
+        {
+            self.retire();
         } else if target.as_ref().is_some_and(|next| {
             !next.playing && self.target.as_ref().is_some_and(|old| old.playing)
         }) && self.control.is_some()
@@ -78,6 +105,7 @@ impl Native {
                 self.observed = Some(session.subscribe());
                 self.session = Some(session);
                 self.configured = false;
+                self.applied_volume = None;
                 self.update = Some(self.status(PlayerPhase::Opening, None));
                 return;
             }
@@ -93,11 +121,17 @@ impl Native {
             if snapshot.status == Status::Ready
                 && !snapshot.ended
                 && self.control.is_none()
-                && (!self.configured || snapshot.playing != target.playing)
+                && (!self.configured
+                    || snapshot.playing != target.playing
+                    || self.applied_volume != Some(target.volume))
                 && !self.failed
             {
                 let session = session.clone();
-                let seek = if self.configured {
+                let seek_id = target.seek.map(|seek| seek.id);
+                let volume = target.volume;
+                let seek = if self.configured
+                    || (self.resume_at.is_zero() && seek_id == self.applied_seek)
+                {
                     None
                 } else {
                     Some(self.resume_at)
@@ -108,10 +142,14 @@ impl Native {
                     crate::Command::Pause
                 };
                 self.control = Some(Box::pin(async move {
-                    if let Some(position) = seek.filter(|position| !position.is_zero()) {
+                    session
+                        .command(crate::Command::Volume(f32::from(volume) / 1000.))
+                        .await?;
+                    if let Some(position) = seek {
                         session.command(crate::Command::Seek(position)).await?;
                     }
-                    session.command(command).await
+                    session.command(command).await?;
+                    Ok(Applied { seek_id, volume })
                 }));
             }
         }
@@ -138,9 +176,9 @@ impl Native {
                 },
                 result = async { self.control.as_mut().unwrap().await }, if self.control.is_some() => {
                     self.control = None;
-                    if result.is_err() {
-                        return self.recover();
-                    }
+                    let Ok(applied) = result else { return self.recover(); };
+                    self.applied_seek = applied.seek_id;
+                    self.applied_volume = Some(applied.volume);
                     self.configured = true;
                     return self.snapshot();
                 },
@@ -181,6 +219,7 @@ impl Native {
                 .format
                 .and_then(|format| format.duration)
                 .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
+            seek_id: self.applied_seek,
             ended: snapshot.ended,
             exhausted: false,
             error: if phase == PlayerPhase::Failed {
@@ -203,6 +242,7 @@ impl Native {
             duration_ms: self
                 .duration
                 .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
+            seek_id: self.applied_seek,
             ended: false,
             exhausted: false,
             error,

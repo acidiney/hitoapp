@@ -18,6 +18,9 @@ pub(super) struct Owned {
     pub(super) desired_playing: bool,
     pub(super) play_revision: u64,
     pub(super) playing: bool,
+    pub(super) seek: Option<super::types::Seek>,
+    pub(super) applied_seek: Option<Uuid>,
+    pub(super) volume: u16,
     pub(super) source_id: Option<String>,
     pub(super) phase: PlayerPhase,
     pub(super) error: Option<PlayerError>,
@@ -37,6 +40,9 @@ impl Owned {
             desired_playing: false,
             play_revision: 0,
             playing: false,
+            seek: None,
+            applied_seek: None,
+            volume: 1000,
             source_id: None,
             phase: PlayerPhase::Idle,
             error: None,
@@ -49,6 +55,8 @@ impl Owned {
         PlayerSnapshot {
             desired_playing: self.desired_playing,
             playing: self.playing,
+            seeking: self.seek.map(|seek| seek.id) != self.applied_seek,
+            volume: self.volume,
             source_id: self.source_id.clone(),
             phase: self.phase,
             error: self.error,
@@ -82,6 +90,8 @@ impl Owned {
         self.playing = false;
         self.source_id = None;
         self.error = None;
+        self.seek = None;
+        self.applied_seek = None;
     }
     pub(super) fn check(&self, command: &PlayerCommand) -> Result<Option<PlayerReceipt>> {
         if let Some((accepted, receipt)) = self

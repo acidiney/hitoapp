@@ -136,6 +136,12 @@ impl Player {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, command_id = %command.id, sequence = command.sequence, action = command.action.name()))]
     pub async fn submit(&self, actor: &Actor, command: PlayerCommand) -> Result<PlayerReceipt> {
         match &command.action {
+            PlayerAction::Volume { level } if *level > 1000 => {
+                return Err(PlayerError::Invalid);
+            }
+            PlayerAction::Seek { position_ms } if *position_ms > 9_007_199_254_740_991 => {
+                return Err(PlayerError::Invalid);
+            }
             PlayerAction::Append { recordings }
                 if recordings.is_empty() || recordings.len() > 1000 =>
             {

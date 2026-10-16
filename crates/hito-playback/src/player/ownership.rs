@@ -19,8 +19,13 @@ impl State {
                 if self.owned(actor, command.lease)?.check(command)?.is_some() {
                     return Ok(Vec::new());
                 }
-                if matches!(command.action, PlayerAction::Resume | PlayerAction::Pause)
-                    && !self.native
+                if matches!(
+                    command.action,
+                    PlayerAction::Resume
+                        | PlayerAction::Pause
+                        | PlayerAction::Seek { .. }
+                        | PlayerAction::Volume { .. }
+                ) && !self.native
                 {
                     return Err(PlayerError::Unsupported);
                 }
@@ -131,6 +136,15 @@ impl State {
                 if matches!(command.action, PlayerAction::Pause) {
                     owned.desired_playing = false;
                 }
+                if let PlayerAction::Volume { level } = command.action {
+                    owned.volume = level;
+                }
+                if let PlayerAction::Seek { position_ms } = command.action {
+                    owned.seek = Some(super::types::Seek {
+                        id: command.id,
+                        position_ms,
+                    });
+                }
                 if before != owned.queue.snapshot().selection {
                     owned.selected(self.native);
                 }
@@ -199,6 +213,7 @@ impl State {
                 selection: update.key.selection,
                 position_ms: update.position_ms,
                 duration_ms: update.duration_ms,
+                seek_id: update.seek_id,
             };
             if *position == next {
                 false
@@ -211,6 +226,7 @@ impl State {
         owned.playing = update.playing;
         owned.source_id = update.source_id;
         owned.error = update.error;
+        owned.applied_seek = update.seek_id;
         if update.exhausted {
             owned.last_failure = snapshot.current.map(|entry| super::PlayerFailure {
                 entry,
@@ -244,6 +260,8 @@ impl State {
             recording: current.recording_id,
             playing: owned.desired_playing,
             play_revision: owned.play_revision,
+            seek: owned.seek,
+            volume: owned.volume,
         })
     }
 }
