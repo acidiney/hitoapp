@@ -1808,6 +1808,7 @@ dependencies = [
  "hito-plugin-sdk",
  "http-body-util",
  "libc",
+ "libsqlite3-sys",
  "lofty",
  "serde",
  "serde_json",

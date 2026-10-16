@@ -1,4 +1,4 @@
-use crate::catalog::Catalog;
+use crate::{catalog::Catalog, startup::Cancellation};
 use futures_util::TryStreamExt;
 use hito_plugin_sdk::ProviderRecording;
 use sqlx::{ConnectOptions, Connection, Row, SqliteConnection, sqlite::SqliteConnectOptions};
@@ -17,8 +17,14 @@ pub(crate) struct Registry {
 }
 
 impl Registry {
-    pub async fn open(path: &Path, initialize: bool) -> io::Result<Self> {
+    pub async fn open(
+        path: &Path,
+        initialize: bool,
+        cancellation: &Cancellation,
+    ) -> io::Result<Self> {
+        cancellation.check()?;
         let claim = Arc::new(Claim::acquire(path, initialize)?);
+        cancellation.check()?;
         let options = SqliteConnectOptions::new()
             .filename(claim.database_path())
             .create_if_missing(false)
@@ -30,6 +36,7 @@ impl Registry {
             .await
             .map_err(database_error)?;
         let admitted = async {
+            cancellation.check()?;
             let budget = PageBudget::configure(&mut connection).await?;
             let version = if !initialize {
                 let row = sqlx::query("SELECT version FROM registry WHERE singleton = 1")
@@ -57,6 +64,7 @@ impl Registry {
             } else {
                 0
             };
+            cancellation.check()?;
             Ok::<_, io::Error>((budget, version))
         }
         .await;
@@ -82,8 +90,12 @@ impl Registry {
         result
     }
 
-    pub async fn commit(mut self, catalog: &mut Catalog) -> io::Result<()> {
-        let staged = self.write_generation(catalog).await;
+    pub async fn commit(
+        mut self,
+        catalog: &mut Catalog,
+        cancellation: &Cancellation,
+    ) -> io::Result<()> {
+        let staged = self.write_generation(catalog, cancellation).await;
         let closed = self.connection.close().await.map_err(database_error);
         let generation = staged?;
         closed?;
@@ -99,9 +111,15 @@ impl Registry {
         Ok(())
     }
 
-    async fn write_generation(&mut self, catalog: &mut Catalog) -> io::Result<Generation> {
+    async fn write_generation(
+        &mut self,
+        catalog: &mut Catalog,
+        cancellation: &Cancellation,
+    ) -> io::Result<Generation> {
+        cancellation.check()?;
         let mut transaction = self.connection.begin().await.map_err(database_error)?;
         let staged = async {
+            cancellation.check()?;
             if !self.initialized {
                 sqlx::query("CREATE TABLE registry (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), version INTEGER NOT NULL, identity TEXT NOT NULL, generation INTEGER NOT NULL)")
                     .execute(&mut *transaction).await.map_err(database_error)?;
@@ -181,6 +199,7 @@ impl Registry {
             let generation: i64 = row.get(1);
             self.budget.check(&mut transaction).await?;
             self.claim.check_database()?;
+            cancellation.check()?;
             Ok::<_, io::Error>(Generation {
                 retained,
                 fingerprint: format!("{identity}-{generation}-{snapshot}"),
@@ -199,8 +218,8 @@ impl Registry {
             }
         }
     }
-    pub fn claim(&self) -> Arc<Claim> {
-        self.claim.clone()
+    pub fn claim(&self) -> &Claim {
+        &self.claim
     }
 }
 
