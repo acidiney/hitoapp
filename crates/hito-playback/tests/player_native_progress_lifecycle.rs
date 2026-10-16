@@ -5,6 +5,7 @@ mod fixture;
 mod progress_events;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
+use hito_core::SyncEvent;
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use uuid::Uuid;
@@ -128,15 +129,23 @@ async fn canceling_close_observation_keeps_admitted_progress_owned_until_commit_
         journal
             .operations
             .iter()
-            .filter(|event| event.operation.id == operation)
+            .filter(|event| {
+                let SyncEvent::Operation {
+                    operation: saved, ..
+                } = event
+                else {
+                    panic!("the native client journal contained a publication");
+                };
+                saved.id == operation
+            })
             .count(),
         1
     );
-    assert!(
-        journal
-            .operations
-            .iter()
-            .all(|event| event.device_id.starts_with("native-") && event.device_id != "playback")
-    );
+    assert!(journal.operations.iter().all(|event| {
+        let SyncEvent::Operation { device_id, .. } = event else {
+            panic!("the native client journal contained a publication");
+        };
+        device_id.starts_with("native-") && device_id != "playback"
+    }));
     pool.close().await;
 }

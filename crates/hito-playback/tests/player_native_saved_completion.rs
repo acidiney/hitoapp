@@ -3,7 +3,7 @@
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_core::Action;
+use hito_core::{Action, SyncEvent};
 use hito_playback::{PlayerAction, PlayerPhase};
 use std::time::Duration;
 use uuid::Uuid;
@@ -131,7 +131,15 @@ async fn restored_end_and_beyond_end_advance_without_a_checkpoint_or_played_occu
             .events(&f.source.actor, before)
             .await
             .unwrap();
-        assert!(journal.operations.iter().all(|e| !matches!(e.operation.action, Action::ProgressSet { position_ms, .. } if position_ms >= 10_000)), "restored completion must not manufacture listening progress");
+        assert!(
+            journal.operations.iter().all(|event| {
+                let SyncEvent::Operation { operation, .. } = event else {
+                    panic!("the native client journal contained a publication");
+                };
+                !matches!(operation.action, Action::ProgressSet { position_ms, .. } if position_ms >= 10_000)
+            }),
+            "restored completion must not manufacture listening progress"
+        );
     }
 }
 

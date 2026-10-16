@@ -5,7 +5,7 @@ mod fixture;
 mod progress_events;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_core::Credentials;
+use hito_core::{Credentials, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use uuid::Uuid;
@@ -168,7 +168,15 @@ async fn pending_old_account_progress_never_changes_the_new_accounts_activity_or
         journal
             .operations
             .iter()
-            .filter(|event| event.operation.id == operation)
+            .filter(|event| {
+                let SyncEvent::Operation {
+                    operation: saved, ..
+                } = event
+                else {
+                    panic!("the native client journal contained a publication");
+                };
+                saved.id == operation
+            })
             .count(),
         1
     );

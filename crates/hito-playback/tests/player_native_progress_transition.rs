@@ -3,7 +3,7 @@
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_core::{Action, Search};
+use hito_core::{Action, Search, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use uuid::Uuid;
@@ -110,7 +110,10 @@ async fn skipping_a_recording_saves_its_position_before_the_next_recording_finis
     let journal = f.services.collection.events(&f.actor, 0).await.unwrap();
     let mut next_seen = false;
     for event in journal.operations {
-        let Action::ProgressSet { recording_id, .. } = event.operation.action else {
+        let SyncEvent::Operation { operation, .. } = event else {
+            panic!("the native client journal contained a publication");
+        };
+        let Action::ProgressSet { recording_id, .. } = operation.action else {
             panic!("the native client wrote a non-progress operation");
         };
         if recording_id.to_string() == next.id {

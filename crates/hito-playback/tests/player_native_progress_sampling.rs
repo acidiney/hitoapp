@@ -3,7 +3,7 @@
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_core::Action;
+use hito_core::{Action, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use uuid::Uuid;
@@ -87,11 +87,16 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
     let journal = f.services.collection.events(&f.actor, 0).await.unwrap();
     assert!((2..=3).contains(&journal.operations.len()));
     assert!(!journal.has_more);
-    assert!(journal.operations.iter().all(|event| matches!(
-        event.operation.action,
-        Action::ProgressSet { recording_id, speed: 1.0, .. }
-            if recording_id.to_string() == f.recording
-    )));
+    assert!(journal.operations.iter().all(|event| {
+        let SyncEvent::Operation { operation, .. } = event else {
+            panic!("the native client journal contained a publication");
+        };
+        matches!(
+            operation.action,
+            Action::ProgressSet { recording_id, speed: 1.0, .. }
+                if recording_id.to_string() == f.recording
+        )
+    }));
     owner.close().await.unwrap();
     let activity = f.services.collection.activity(&f.actor).await.unwrap();
     assert_eq!(activity.history.len(), 1);
