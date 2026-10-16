@@ -3,6 +3,7 @@ use super::{
     Result,
 };
 use hito_core::Recording;
+use std::collections::VecDeque;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -11,6 +12,7 @@ pub(super) struct Queue {
     selection: u64,
     entries: Vec<PlayerEntryRef>,
     current: Option<usize>,
+    history: VecDeque<Uuid>,
 }
 impl Queue {
     pub fn snapshot(&self) -> PlayerSnapshot {
@@ -19,6 +21,7 @@ impl Queue {
             selection: self.selection,
             queue_len: self.entries.len(),
             current_index: self.current,
+            can_previous: self.current.is_some() || !self.history.is_empty(),
             current: self
                 .current
                 .and_then(|index| self.entries.get(index))
@@ -28,6 +31,26 @@ impl Queue {
     }
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    pub fn previous_entry(&self) -> Option<Uuid> {
+        self.history
+            .iter()
+            .rev()
+            .find(|id| Some(**id) != self.current_entry())
+            .copied()
+    }
+
+    pub fn played(&mut self) {
+        if let Some(entry) = self.current_entry()
+            && self.history.back() != Some(&entry)
+        {
+            if self.history.len() == 100_000 {
+                self.history.pop_front();
+            }
+            self.history.push_back(entry);
+            tracing::debug!(event = "player_entry_played", entry_id = %entry, retained = self.history.len(), "Played queue occurrence retained");
+        }
     }
 
     pub fn apply(&mut self, action: PlayerAction) -> Result<()> {
@@ -52,6 +75,7 @@ impl Queue {
             }
             PlayerAction::Clear {} => {
                 self.entries.clear();
+                self.history.clear();
                 self.current = None;
             }
             PlayerAction::Select { entry } => self.current = Some(self.index(entry)?),
@@ -71,7 +95,17 @@ impl Queue {
                     .filter(|index| *index + 1 < self.entries.len())
                     .map(|index| index + 1)
             }
+            PlayerAction::Previous {} => {
+                let Some(entry) = self.previous_entry() else {
+                    return Ok(());
+                };
+                self.current = Some(self.index(entry)?);
+                while self.history.back() != Some(&entry) {
+                    self.history.pop_back();
+                }
+            }
             PlayerAction::Replace { start, recordings } => {
+                self.history.clear();
                 self.entries = recordings
                     .into_iter()
                     .map(|recording_id| PlayerEntryRef {
@@ -99,6 +133,7 @@ impl Queue {
             PlayerAction::Remove { entry } => {
                 let index = self.index(entry)?;
                 self.entries.remove(index);
+                self.history.retain(|played| *played != entry);
                 self.current = self.current.and_then(|current| {
                     if current > index {
                         Some(current - 1)

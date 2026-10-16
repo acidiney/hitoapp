@@ -25,6 +25,7 @@ impl State {
                         | PlayerAction::Pause {}
                         | PlayerAction::Seek { .. }
                         | PlayerAction::Volume { .. }
+                        | PlayerAction::Previous {}
                 ) && !self.native
                 {
                     return Err(PlayerError::Unsupported);
@@ -142,7 +143,20 @@ impl State {
                 }
                 let owned = self.owner.as_mut().unwrap();
                 let before = owned.queue.snapshot().selection;
-                owned.queue.apply(command.action.clone())?;
+                let position = owned
+                    .seek
+                    .filter(|seek| Some(seek.id) != owned.applied_seek)
+                    .map(|seek| seek.position_ms)
+                    .unwrap_or(owned.position.borrow().position_ms);
+                let action = if matches!(command.action, PlayerAction::Previous {})
+                    && owned.queue.snapshot().current.is_some()
+                    && (position > 3000 || owned.queue.previous_entry().is_none())
+                {
+                    PlayerAction::Seek { position_ms: 0 }
+                } else {
+                    command.action.clone()
+                };
+                owned.queue.apply(action.clone())?;
                 if matches!(command.action, PlayerAction::Resume {}) {
                     owned.desired_playing = owned.queue.snapshot().current.is_some();
                     owned.play_revision += 1;
@@ -153,7 +167,7 @@ impl State {
                 if let PlayerAction::Volume { level } = command.action {
                     owned.volume = level;
                 }
-                if let PlayerAction::Seek { position_ms } = command.action {
+                if let PlayerAction::Seek { position_ms } = action {
                     owned.seek = Some(super::types::Seek {
                         id: command.id,
                         position_ms,
@@ -210,6 +224,13 @@ impl State {
         if update.error == Some(PlayerError::Unavailable) {
             owned.authority(false, self.native);
             return;
+        }
+        if update.phase == super::PlayerPhase::Ready
+            && update.error.is_none()
+            && (update.playing || (update.ended && owned.desired_playing))
+            && update.seek_id == owned.seek.map(|seek| seek.id)
+        {
+            owned.queue.played();
         }
         if owned.phase != update.phase
             || owned.playing != update.playing
