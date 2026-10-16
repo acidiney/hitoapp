@@ -1,6 +1,8 @@
+mod artwork;
 mod authorization;
 mod content;
 mod playlists;
+pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use authorization::Authorization;
 pub use content::{
     AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
@@ -40,6 +42,7 @@ pub enum Capability {
     Metadata,
     Sources,
     Playlists,
+    Artwork,
     Dashboard,
     Lyrics,
     BackingTracks,
