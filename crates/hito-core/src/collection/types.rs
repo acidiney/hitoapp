@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SavedPosition {
+    pub position_ms: u64,
+}
+
 #[derive(ToSchema, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Operation {

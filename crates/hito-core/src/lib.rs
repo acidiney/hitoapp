@@ -15,7 +15,7 @@ pub use catalog::{
 };
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
-    SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};
