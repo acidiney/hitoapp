@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hito",
+  "version": "0.1.0-dev",
+  "identifier": "org.hito.audio",
+  "build": { "frontendDist": "../../apps/web/dist" },
+  "app": { "windows": [], "security": { "capabilities": [] } },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": { "../../apps/web/dist/": "web/" },
+    "icon": [],
+    "category": "Music",
+    "shortDescription": "Your audio library and player"
+  }
+}
