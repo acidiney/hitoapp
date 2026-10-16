@@ -136,15 +136,69 @@ Services must return a successful status with `Content-Type: application/json`, 
 }
 ```
 
-The manifest permits only these fields. IDs contain 1–128 ASCII letters, numbers, dots, hyphens, or underscores. Names contain 1–256 bytes, cannot be blank, and cannot contain control characters. At least one known capability is required. Supported declarations are `search`, `catalog`, `metadata`, `sources`, `playlists`, `dashboard`, `lyrics`, and `backing_tracks`. Unknown capabilities and unsupported protocol versions are rejected.
+The manifest requires these fields and permits the optional authorization declaration below. IDs contain 1–128 ASCII letters, numbers, dots, hyphens, or underscores. Names contain 1–256 bytes, cannot be blank, and cannot contain control characters. At least one known capability is required. Supported declarations are `search`, `catalog`, `metadata`, `sources`, `playlists`, `dashboard`, `lyrics`, and `backing_tracks`. Unknown capabilities and unsupported protocol versions are rejected.
 
 The remote manifest ID, administrator service ID, and personal installation ID are separate. The reviewed digest is SHA-256 over a domain prefix and canonical SDK serialization, with capabilities sorted. JSON whitespace and capability ordering do not require review; semantic changes do.
 
 The client disables automatic redirects, system proxies, and retries. It uses a two-second connection deadline, a ten-second total request deadline, four simultaneous requests globally, and one per account. Busy requests fail promptly. Private/self-hosted service addresses are supported because choosing an address is an administrator operation. Use HTTPS for services across untrusted networks. A service receives only the configured token and Hito protocol headers, never the browser's session cookie.
 
+### Optional authorization declaration
+
+The development SDK accepts an `oauth2_pkce` declaration. The development branch can also begin and inspect a pending authorization attempt, as described below. This groundwork is not a completed Spotify connection or a feature deployed on the normal local server. A declaration alone does not obtain or store an access token.
+
+```json
+{
+  "id": "org.example.spotify",
+  "name": "Spotify playlists",
+  "protocol_version": 1,
+  "capabilities": ["playlists"],
+  "authorization": {
+    "kind": "oauth2_pkce",
+    "client_id": "public-application-client-id",
+    "authorization_endpoint": "https://accounts.spotify.com/authorize",
+    "scopes": ["playlist-read-private"]
+  }
+}
+```
+
+All declaration fields are public. The client ID contains 1–256 visible ASCII bytes. The authorization endpoint is at most 2,048 bytes, uses HTTPS, and has a host. Literal IPv4 or IPv6 loopback addresses may use HTTP for local protocol fixtures. Endpoints cannot contain credentials, a query, a fragment, whitespace, or control characters.
+
+Scopes contain at most 32 distinct tokens. Each token contains 1–128 visible ASCII bytes except double quotes and backslashes; spaces are invalid. An empty scope set is valid for providers that need no scopes. The SDK sorts scopes during serialization. Unknown authorization kinds or fields are rejected, including `client_secret` and `token_endpoint`.
+
+Manifests without authorization continue to omit the field when serialized, preserving their existing wire representation and reviewed digest. Adding, removing, or changing an authorization declaration changes that digest and requires review. Scope ordering alone does not.
+
+### Pending authorization attempts in development
+
+The development branch adds `POST /api/v1/plugins/{id}/authorization` with the expected installation `revision`. It returns an attempt ID, authorization URL and expiry. Core uses the accepted manifest to generate fresh state and an S256 PKCE challenge. State and verifier are encrypted in the private vault, bound to the account, installation, service and attempt. The browser receives state only as part of the authorization URL; it never receives the verifier.
+
+The callback address is fixed to `/api/v1/plugin-authorization/callback` beneath `HITO_PUBLIC_ORIGIN`. The configured origin must use HTTPS or a literal loopback IP over HTTP, with no credentials, path prefix, query or fragment. Neither request bodies nor incoming host headers choose the callback. The callback handler itself is not implemented yet.
+
+```mermaid
+flowchart LR
+  Renderer[Renderer] --> Begin[Authenticated begin route]
+  Begin --> Core[Core pending attempt]
+  Core --> Vault[Encrypted state and verifier]
+  Core --> URL[Authorization URL with S256 challenge]
+  URL --> Renderer
+  Session[Original authenticated session] --> Status[Status route]
+  Status --> Core
+  Core --> Safe[Attempt ID, pending and expiry]
+  Safe --> Session
+```
+
+Attempts last ten minutes, with at most eight live attempts per account. `GET /api/v1/plugins/{id}/authorization/{attempt}` returns only the attempt ID, `pending` status and expiry. It requires the original live session and matching active installation/service revisions. Another session of the same account cannot inspect the attempt. Restart preserves a valid attempt; expiry, logout or changed authority makes it unavailable. Both routes return `Cache-Control: no-store`.
+
+Callback validation, one-time code exchange, access/refresh-token handling, the connection UI and the desktop browser launcher remain unfinished. These routes do not make Spotify connection or playlist import usable. The normal local deployment remains on migration 0024 without this authorization work.
+
+### Spotify adapter groundwork
+
+A separate development adapter implements playlist detail against Spotify-shaped upstream responses. Four owned TCP tests verify metadata normalization, exact canonical-reference validation before upstream requests, missing or null contents versus accessible empty contents, and useful INFO workflow logs without private data at TRACE. Strict all-target Clippy and two independent reviews pass. Its `Spotify` attribution label is provisional.
+
+The adapter does not yet provide a manifest, playlist items or authorization exchange. Branding, linkback, live-account checks and deployment remain unfinished. It cannot yet be installed as a usable Spotify service.
+
 ## Application API
 
-The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract.
+The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table below describes the deployed routes; the development-only authorization routes are described above.
 
 | Route                                          | Behavior                                                                                                                     |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -168,11 +222,11 @@ Mutation JSON rejects unknown fields. Refresh returns `updated` or `review_requi
 
 Bearer tokens are encrypted using RustCrypto XChaCha20-Poly1305 with a fresh random nonce and authenticated account/installation/service context. The versioned envelope includes a key fingerprint. Tokens are limited to 4,096 visible ASCII characters. They are not logged, returned, or saved in browser storage.
 
-The key lives beside the configured database, replacing its extension with `.plugin-key`. The default is `/data/hito.plugin-key`. A new key is published atomically only when there are no encrypted credentials and no existing key. Linux/macOS readers reject symlinks, non-regular files, invalid length, and group/other permissions. The generated key uses mode 0600. Windows ACL and native recovery acceptance remain release gates.
+The key lives beside the configured database, replacing its extension with `.plugin-key`. The default is `/data/hito.plugin-key`. A new key is published atomically only when there are no encrypted credentials and no existing key. The development authorization branch also protects live pending attempts from key replacement; expired attempts alone do not block creation. Linux/macOS readers reject symlinks, non-regular files, invalid length, and group/other permissions. The generated key uses mode 0600. Windows ACL and native recovery acceptance remain release gates.
 
 Back up the complete stopped data volume, including SQLite WAL files, `hito.device-id`, and `hito.plugin-key`. See [operations](operations.md). A database-only backup cannot recover its encrypted plugin tokens.
 
-A missing, malformed, inaccessible, or mismatched key disables credential storage and checks that need saved tokens. It does not prevent core startup or local playback. Settings still lists connections and allows clearing tokens or removing installations. Restore the matching private key with the server's ownership/permissions, then restart. Hito does not silently replace a bad key or overwrite encrypted credentials. If every saved credential is deliberately cleared, a missing key can be regenerated on restart. An existing invalid key still requires operator repair/removal while the server is stopped.
+A missing, malformed, inaccessible, or mismatched key disables credential storage and checks that need saved tokens. It does not prevent core startup or local playback. Settings still lists connections and allows clearing tokens or removing installations. Restore the matching private key with the server's ownership/permissions, then restart. Hito does not silently replace a bad key or overwrite encrypted credentials. If every saved credential is deliberately cleared, a missing key can be regenerated on restart. In the development authorization branch, no live pending attempt may remain either. An existing invalid key still requires operator repair/removal while the server is stopped.
 
 ## Verification limits
 
