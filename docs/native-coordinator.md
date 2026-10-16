@@ -17,13 +17,17 @@ flowchart TB
   State --> Catalog[Concrete core Catalog]
   State --> Authority[One retained authority check / suspended queue]
   Authority --> Catalog
-  State --> Native[Latest desired transport / owned native session]
+  State --> Saved[One saved-position loader / explicit output gate]
+  Saved --> Collection
+  Saved -->|fixed watermark| Progress
+  Saved -->|output gate| Native[Latest desired transport / owned native session]
+  State --> Native
   State --> History[Canonical queue / bounded played occurrences]
   History --> Traversal[Playback permutation / repeat / bounded failed occurrences]
   Native -->|fenced observations| State
   Native --> Catalog
   Native --> Join[Stop and join before replacement output]
-  Native --> Controls[One pending control / saved cursor / applied seek ID]
+  Native --> Controls[One pending control / restoration baseline / applied seek ID]
   Native --> Refresh[One retained source-refresh operation]
   State --> Progress[Observed progress / bounded ordered checkpoints]
   Progress --> Collection[Concrete core Collection]
@@ -45,9 +49,9 @@ The current Rust operations are:
 
 Same-session attachment preserves the queue and selection while rotating the command lease and closing previous observations. A different login session begins empty, including another login for the same account. Inspection returns no private state for a different session. A separate monitor checks retained session authority every 250 ms through core's one-second query deadline. Definitive session rejection clears ownership and closes its private observations. Temporary authority failures suspend output while preserving the exact queue and attachment.
 
-Commands support Replace, Append, Select, Next, Previous, Move, Remove, Clear, Resume, Pause, Seek, Volume, Speed, Shuffle, and Repeat. Queue mutations increment the revision. Controls leave it unchanged unless they select an entry. Previous changes revision when it selects a past occurrence; restarting the current one is a seek. Shuffle toggles the playback permutation. Repeat cycles off, all, one, then off. Both run at the Rust owner, so immutable retries cannot change a mode twice and rapid clicks do not depend on delayed UI snapshots. Mode changes preserve selection, position, source, and desired play/pause. Seek uses nonnegative integer milliseconds within JavaScript's exact integer range and requires a selected entry. Volume uses an integer level from 0 to 1,000, where 0 is mute and 1,000 is full volume. Speed uses an integer rate from 500 to 3,000, divided by 1,000 for the engine. It preserves selection, queue revision, and desired play/pause. Native controls return Unsupported on the queue-only owner. Selection has a separate generation: moving or appending keeps it, selecting or restarting an occurrence advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
+Commands support Replace, Append, Select, Next, Previous, Move, Remove, Clear, Resume, ResumeSaved, Pause, Seek, Volume, Speed, Shuffle, and Repeat. Queue mutations increment the revision. Controls leave it unchanged unless they select an entry. Previous changes revision when it selects a past occurrence; restarting the current one is a seek. Shuffle toggles the playback permutation. Repeat cycles off, all, one, then off. Both run at the Rust owner, so immutable retries cannot change a mode twice and rapid clicks do not depend on delayed UI snapshots. Mode changes preserve selection, position, source, and desired play/pause. Seek uses nonnegative integer milliseconds within JavaScript's exact integer range and requires a selected entry. Volume uses an integer level from 0 to 1,000, where 0 is mute and 1,000 is full volume. Speed uses an integer rate from 500 to 3,000, divided by 1,000 for the engine. It preserves selection, queue revision, and desired play/pause. Native controls return Unsupported on the queue-only owner. Selection has a separate generation: moving or appending keeps it, selecting or restarting an occurrence advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
 
-Same-session attachment preserves desired play/pause, selection, observed position, and accepted native work. Changing sessions requests terminal stop on the old engine and retains it until joined. Native updates carry an ownership scope, selection generation, and entry ID; a lease rotation for the same session does not restart output. Device epoch, command lease, queue revision, selection generation, and future source attempts identify different kinds of ordering; one counter cannot replace all of them.
+Same-session attachment preserves desired play/pause, selection, observed position, and accepted native work. Changing sessions requests terminal stop on the old engine and retains it until joined. Native updates carry an ownership scope, selection generation, entry ID, and saved-start generation; a lease rotation for the same session does not restart output. Device epoch, command lease, queue revision, selection generation, and future source attempts identify different kinds of ordering; one counter cannot replace all of them.
 
 The native React adapter serializes acceptance receipts for causal queue mutations. Receipts do not wait for decoding or playback. This permits Next to supersede an opening source while preserving Play-then-Next order. Exact immutable retries use the retained receipt so a lost response cannot apply Next twice. Discovery selection tickets prevent late adoption from replacing a newer intention.
 
@@ -69,13 +73,14 @@ Repeat-one applies only to natural completion. Requested Next and source exhaust
 
 Canonical and shuffle positions have UUID indexes. Ordinary forward advancement starts from the current index, rather than scanning the queue prefix. A failed pass skips excluded successors and ends after a bounded wrap. Replacements, selections, moves, removals and mode changes can rebuild indexes in linear work. These bounds are not a release latency benchmark. Batched native replacements finalize with Select after all Append commands, including starts inside the first batch, so the complete replacement receives one shuffle cycle anchored at its requested start.
 
-The browser has a corresponding private traversal policy for stable occurrence order and finite failures. It resets failures on observed positive playback progress or explicit selection/traversal, preserves canonical pages, and selects shuffled successors on failure/removal. Browser Previous retains its existing canonical-neighbor behavior; native Previous uses observed history. These policies remain process-local. Durable queues, saved-position loading, gapless output and release performance acceptance remain unfinished.
+The browser has a corresponding private traversal policy for stable occurrence order and finite failures. It resets failures on observed positive playback progress or explicit selection/traversal, preserves canonical pages, and selects shuffled successors on failure/removal. Browser Previous retains its existing canonical-neighbor behavior; native Previous uses observed history. These policies remain process-local. Durable queues, gapless output and release performance acceptance remain unfinished.
 
 The supervisor keeps fixed effect lanes selectable beside admission, session monitoring, and shutdown:
 
 | Work | Ownership and bound |
 | --- | --- |
 | Read-only selection/admission | One replaceable lookup or source-grant operation, with core deadlines |
+| Saved position | One replaceable read behind a fixed FIFO writer watermark, with core's one-second lookup deadline |
 | Native device | One active/opening session or retiring session; replacement waits for the previous join |
 | Native control | One in-flight control, desired play/pause/volume/speed, and a retained explicit seek target |
 | Provider refresh | One retained operation, canceled by signal before publication, plus latest pending demand |
@@ -92,6 +97,42 @@ Core's opaque `PlaybackCandidates` cursor selects ready local grants for the own
 After cached candidates fail, native recovery attempts one provider refresh and rereads current candidates once, even if refresh fails. A refreshed source may reuse the same Hito source ID with new authority. Recovery stops and joins the previous session, restores its observed position, and applies current play/pause before playback. A paused source withdrawal can recover without producing audio. A source's withdrawal does not end account ownership. Unauthorized results clear ownership. Unavailable candidate authorization or a revoked native grant suspends output and command admission before trying fresh sources.
 
 Structural snapshots expose the current Hito source ID and the latest exhausted-entry failure as typed error and stable entry/recording references. This is one bounded failure record, not durable history. Exhaustion while playing continues to the next occurrence; a queue of failed duplicates finishes finitely. Manual Resume can retry a paused failed entry. Source preferences, manual overrides, debrid preparation, and deferred-track reconsideration remain unfinished.
+
+## Explicit saved starts
+
+History row playback carries a typed saved-start intent. Native queue assembly pauses, replaces/appends, finalizes the selected occurrence, and submits `ResumeSaved {}`. It never supplies the rendered History cursor as a native user Seek. History toolbar playback, ordinary Play, Select, Next, Previous and repeat retain their existing restart rules. Browser History keeps its rendered cursor behavior. Neither implementation restores the saved speed; the current owner preference remains authoritative.
+
+`Collection::saved_position` returns only the account's position or no saved row. One targeted recording/membership query joins that account's progress, independently of History's 200-row window. Live session checks surround it, with a one-second deadline covering the whole lookup. Missing progress differs from missing membership or a rejected session. SQL remains private to core. This adds no HTTP endpoint, migration, service forwarding method, or recording cache.
+
+The owner admits ResumeSaved promptly through ordinary ordered receipt replay and requires a selected occurrence. It seals the previous observed sample, captures the FIFO writer's fixed watermark, and retains one replaceable loader. The writer remains independently polled. All earlier checkpoints must settle before the read begins; later checkpoints do not extend that watermark. Immutable retries keep their UUID, payload, actor, synchronization identity, ordinal and FIFO position. The saved-start gate holds output without representing an authority failure or consuming a second writer.
+
+```mermaid
+sequenceDiagram
+  participant UI as History row
+  participant Owner as Native owner
+  participant Writer as FIFO progress writer
+  participant Core as Collection
+  participant Audio as Paused native session
+  UI->>Owner: ResumeSaved for selected occurrence
+  Owner-->>UI: Acceptance receipt
+  Owner->>Owner: Gate output and capture fixed watermark
+  Writer->>Core: Commit earlier immutable checkpoints
+  Writer-->>Owner: Watermark settled
+  Owner->>Core: Account-private saved_position lookup
+  Core-->>Owner: Position or missing row
+  Owner->>Audio: Apply restoration while paused
+  Audio-->>Owner: Applied restoration ID and actual clamped baseline
+  Owner->>Audio: Apply latest desired play/pause and current speed
+  Audio-->>Owner: Presented media observations
+```
+
+Each admitted saved start gets a fresh private generation, even if a client reuses a command UUID after reattachment. Results and observations must match ownership scope, selection, stable occurrence and that generation. Same-session reattachment retains the operation. Takeover, Clear, selection changes or a newer saved start discard its application. Move, Append and mode changes retain it. A later explicit seek cancels the loader permanently, including zero and backward targets. Pause while loading changes desired transport and remains paused when the cursor arrives. Recovery uses the resolved cursor and later presented observations rather than reading progress again.
+
+Restoration has its own internal applied marker and actual clamped baseline. It never acknowledges a user `seek_id`. Ready/playing at the restored cursor, a paused restoration, and a restored end marker create neither progress checkpoints nor played-occurrence history. Presented media must advance past that baseline first. This comparison keeps full media-time precision; conversion to milliseconds happens at the public position/progress boundaries, so a genuine sub-millisecond clip still counts as listening. A restored at-end or beyond-end cursor may traverse through normal completion rules without inventing listening. Ordinary user Seek and ordinary completion keep their existing observation rules.
+
+A failed read keeps the output gate closed and reports `PlayerError::Resume`, separately from progress-write failure. It never falls back to zero. The shared player shows a load-specific message and a Retry saved position action that submits a fresh ResumeSaved. Ordinary Resume cannot bypass a failed read. A result arriving during access suspension retains the access phase/error; fresh authority recovery then exposes any retained load failure. Shutdown cancels the read-only loader and joins native cleanup and admitted writes.
+
+Focused public core, native monitor, shared UI and protected HTTP fixtures cover these rules with owned audio and temporary SQLite. The delayed-read fixture uses a bounded recursive view in its own database to exercise cancellation and suspension ordering. These checks do not establish filesystem failure recovery, crash durability, or platform acceptance.
 
 ## Played occurrences and Previous
 
@@ -128,9 +169,9 @@ Owned temporary SQLite fixtures rename authority tables to cause real query fail
 
 `Catalog::refresh_sources_until` observes a supplied cancellation future during read-only preparation/provider work and immediately before publication. It returns `None` when canceled before publication. The native owner uses `refresh_playback_sources_until`, which shares the same publication behavior and returns completion without materializing retained source history. After publication admission, both operations complete commit or explicit rollback. The coordinator signals cancellation and retains/polls the operation until completion, including after a canceled close observer. Dropping or aborting the whole future is outside this contract.
 
-Progress accepts only Ready observations for the current ownership scope, selection, entry, and applied seek identity. Opening cursors and superseded seek frames cannot become saved progress. Merely selecting a paused recording creates no history. The first playing observation creates a checkpoint; a first observation that already reports completion does too. Subsequent position ticks coalesce into one sample. A five-second timer enqueues that sample when the writer has no backlog. Pause, completed seek, observed speed change, selection exit, natural completion, and shutdown checkpoint the latest observed position. Zero and backward seeks remain valid values.
+Progress accepts only Ready observations for the current ownership scope, selection, entry, and applied seek identity. Opening cursors and superseded seek frames cannot become saved progress. Merely selecting a paused recording creates no history. Outside saved restoration, the first playing observation creates a checkpoint; a first observation that already reports completion does too. Subsequent position ticks coalesce into one sample. A five-second timer enqueues that sample when the writer has no backlog. Pause, completed seek, observed speed change, selection exit, natural completion, and shutdown checkpoint the latest observed position. Zero and backward seeks remain valid values.
 
-The writer submits immutable `ProgressSet` operations through core `Collection::apply`, which owns the transaction, session check, and recording access check. It retries the same UUID, payload, and synchronization client identity in FIFO order after a 250 ms delay. This `native-<UUID>` client identity belongs to the player owner and is separate from backend `HostDeviceId`. Each checkpoint retains source position and the rate of the presented audio together. An accepted rate change alone cannot change saved speed. The writer does not load saved positions when starting a new selection.
+The writer submits immutable `ProgressSet` operations through core `Collection::apply`, which owns the transaction, session check, and recording access check. It retries the same UUID, payload, and synchronization client identity in FIFO order after a 250 ms delay. This `native-<UUID>` client identity belongs to the player owner and is separate from backend `HostDeviceId`. Each checkpoint retains source position and the rate of the presented audio together. An accepted rate change alone cannot change saved speed. Ordinary selections start at zero; only explicit saved starts use the separate read lane.
 
 Memory is bounded to 64 queued/active checkpoints plus one retained sample. Ordinary command admission returns Busy at 60 checkpoints, reserving room for terminal events. Pause, Volume, and Clear remain available. If the buffer fills, the latest dirty sample stays retained and a different selection cannot start until capacity returns. Periodic ticks do not queue behind terminal checkpoints. Persistence failures are visible through `PlayerSnapshot.persistence_error`; a successful write for the same ownership scope clears that status. Old-account results cannot change a new account's status or activity.
 
@@ -176,7 +217,7 @@ flowchart LR
 
 `NativeSession` owns the attachment, stream lifetimes, command lane, and exact retries. `NativeCommands` translates shared user actions and fences asynchronous discovery adoption. `NativePlayback` projects snapshots into shared structural and position stores and resolves current metadata through fresh authorized queue reads. Leases remain in private request bodies and memory; they are not persisted or logged. Account replacement aborts the old client and clears private views. Ownership rejection closes the client and drops queued intentions. Automatic observation reconnection reuses the same lease; an explicit reconnect performs a new inspect/claim.
 
-At most 32 intention jobs retain 100,000 recording IDs in total. A large play selection reserves its command tickets at user intent, pauses, replaces/appends batches of at most 1,000 IDs, selects the requested stable entry, applies any requested seek, and resumes. Later intentions wait for this acceptance chain, never for decoding. A failed chain invalidates later intentions already queued behind it. Metadata requests retain one current-entry read and bounded visible queue pages: 50 full rows or four preview rows. Position frames cannot invalidate those pages or render the catalog. A failed visible page offers an independent retry.
+At most 32 intention jobs retain 100,000 recording IDs in total. A large play selection reserves its command tickets at user intent, pauses, replaces/appends batches of at most 1,000 IDs, selects the requested stable entry, then submits ResumeSaved for a History row or applies an explicit cursor and Resume for ordinary playback. Later intentions wait for this acceptance chain, never for decoding. A failed chain invalidates later intentions already queued behind it. Metadata requests retain one current-entry read and bounded visible queue pages: 50 full rows or four preview rows. Position frames cannot invalidate those pages or render the catalog. A failed visible page offers an independent retry.
 
 Both observation streams must be healthy before transport controls are enabled. Either stream can reconnect without a structural change or a new claim. Native Pause and Next depend on the authoritative selected entry, and Previous uses the authoritative availability flag, so delayed metadata cannot disable them. Shuffle and repeat use authoritative mode fields and remain available for a nonempty queue after completion. Preparing audio can be paused using desired play state. The speed selector uses the authoritative desired rate and sends an ordered command. It is disabled while disconnected or authority is suspended. Queue movement has a Rust command but no shared drag/reorder interaction yet. Native Next and Previous preserve current desired play/pause.
 
