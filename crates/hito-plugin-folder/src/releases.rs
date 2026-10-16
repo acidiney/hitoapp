@@ -48,6 +48,7 @@ pub(crate) async fn reconcile(
     let groups = groups(tracks);
     let prior = state::load(connection).await?;
     let mut occurrences = BTreeMap::<(String, String), BTreeSet<usize>>::new();
+    let mut witnessed = BTreeMap::<String, BTreeSet<usize>>::new();
     let mut current = BTreeMap::<String, BTreeSet<usize>>::new();
     let mut legacy = BTreeMap::<String, usize>::new();
     for (group, indexes) in groups.iter().enumerate() {
@@ -65,6 +66,7 @@ pub(crate) async fn reconcile(
                         && previous.evidence.as_ref() == Some(evidence)
                 });
                 if previous.recording == track.id && (previous.checksum == track.checksum || pcm) {
+                    witnessed.entry(track.id.clone()).or_default().insert(group);
                     occurrences
                         .entry((previous.release.clone(), track.id.clone()))
                         .or_default()
@@ -78,9 +80,8 @@ pub(crate) async fn reconcile(
     let mut visits = 0usize;
     for (recording, releases) in &prior.memberships {
         for release in releases {
-            let matched = occurrences
-                .get(&(release.clone(), recording.clone()))
-                .or_else(|| current.get(recording));
+            let occurrence = occurrences.get(&(release.clone(), recording.clone()));
+            let matched = occurrence.or_else(|| current.get(recording));
             if let Some(matched) = matched {
                 for group in matched {
                     visits += 1;
@@ -88,6 +89,13 @@ pub(crate) async fn reconcile(
                         return Err(io::Error::other(
                             "Folder release witness work limit exceeded",
                         ));
+                    }
+                    if occurrence.is_none()
+                        && witnessed
+                            .get(recording)
+                            .is_some_and(|groups| groups.contains(group))
+                    {
+                        continue;
                     }
                     relations.entry(release.clone()).or_default().insert(*group);
                     candidates[*group].insert(release.clone());
