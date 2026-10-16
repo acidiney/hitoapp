@@ -11,6 +11,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 
 struct Fixture {
+    offline: RwLock<bool>,
     range_chunk: RwLock<Option<usize>>,
     held_range: RwLock<Option<std::ops::Range<usize>>>,
     broken_tail: RwLock<Option<usize>>,
@@ -30,6 +31,7 @@ impl ProviderServer {
     pub async fn start() -> Self {
         let (closed, receiver) = watch::channel(false);
         let state = Arc::new(Fixture {
+            offline: RwLock::new(false),
             range_chunk: RwLock::new(None),
             held_range: RwLock::new(None),
             broken_tail: RwLock::new(None),
@@ -63,6 +65,9 @@ impl ProviderServer {
     }
     pub async fn reply(&self, path: &str, value: Value) {
         self.state.replies.write().await.insert(path.into(), value);
+    }
+    pub async fn offline(&self) {
+        *self.state.offline.write().await = true;
     }
     pub async fn audio(&self, status: StatusCode, headers: HeaderMap, bytes: Vec<u8>) {
         *self.state.audio.write().await = (status, headers, bytes);
@@ -120,6 +125,9 @@ async fn audio(
             query["_method"] = json!(method.as_str());
             query
         }));
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let first = range
         .as_deref()
         .and_then(|range| range.strip_prefix("bytes="))
@@ -240,6 +248,9 @@ async fn exchange(
         .lock()
         .await
         .push((path.into(), headers, body));
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let reply = state
         .replies
         .read()
@@ -264,7 +275,10 @@ async fn wait_gate(state: &Fixture, path: &str) -> bool {
     }
     true
 }
-async fn manifest(State(state): State<Arc<Fixture>>) -> Json<Value> {
+async fn manifest(State(state): State<Arc<Fixture>>) -> Response {
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     Json(
         state
             .replies
@@ -274,6 +288,7 @@ async fn manifest(State(state): State<Arc<Fixture>>) -> Json<Value> {
             .cloned()
             .unwrap(),
     )
+    .into_response()
 }
 pub struct Gate {
     entered: Semaphore,
