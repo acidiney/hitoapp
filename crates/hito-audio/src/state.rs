@@ -1,6 +1,6 @@
 use crate::{AudioFormat, Error};
 use std::{
-    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering, fence},
     time::Duration,
 };
 
@@ -19,14 +19,16 @@ pub struct Snapshot {
 
 pub(crate) struct State {
     pub playing: AtomicBool,
-    pub speed: AtomicU32,
+    speed: AtomicU32,
     pub stopped: AtomicBool,
     pub seek_requested: AtomicBool,
     pub epoch: AtomicU64,
-    pub position_epoch: AtomicU64,
-    pub position: AtomicU64,
-    pub base: AtomicU64,
-    pub ended: AtomicU64,
+    position_epoch: AtomicU64,
+    position: AtomicU64,
+    base: AtomicU64,
+    ended: AtomicU64,
+    presented_sequence: AtomicU64,
+    reset_sequence: AtomicU64,
     pub volume: AtomicU32,
     pub failure: AtomicU8,
     pub underruns: AtomicU64,
@@ -49,6 +51,8 @@ impl State {
             position: AtomicU64::new(0),
             base: AtomicU64::new(0),
             ended: AtomicU64::new(0),
+            presented_sequence: AtomicU64::new(0),
+            reset_sequence: AtomicU64::new(0),
             volume: AtomicU32::new(1_f32.to_bits()),
             failure: AtomicU8::new(0),
             underruns: AtomicU64::new(0),
@@ -92,15 +96,28 @@ impl State {
     }
 
     pub fn snapshot(&self, format: AudioFormat) -> Snapshot {
-        let epoch = self.epoch.load(Ordering::Acquire);
-        let position_epoch = self.position_epoch.load(Ordering::Acquire);
-        let position = self.position.load(Ordering::Acquire);
-        let position = if epoch == self.epoch.load(Ordering::Acquire) && position_epoch == epoch {
-            position
-        } else {
-            self.base.load(Ordering::Acquire)
+        let (position, speed, ended) = loop {
+            let presented = self.presented_sequence.load(Ordering::Acquire);
+            let reset = self.reset_sequence.load(Ordering::Acquire);
+            if presented % 2 != 0 || reset % 2 != 0 {
+                std::hint::spin_loop();
+                continue;
+            }
+            let epoch = self.epoch.load(Ordering::Acquire);
+            let position = if self.position_epoch.load(Ordering::Relaxed) == epoch {
+                self.position.load(Ordering::Relaxed)
+            } else {
+                self.base.load(Ordering::Relaxed)
+            };
+            let speed = f32::from_bits(self.speed.load(Ordering::Relaxed));
+            let ended = self.ended.load(Ordering::Relaxed) == epoch;
+            fence(Ordering::Acquire);
+            if self.presented_sequence.load(Ordering::Relaxed) == presented
+                && self.reset_sequence.load(Ordering::Relaxed) == reset
+            {
+                break (position, speed, ended);
+            }
         };
-        let ended = self.ended.load(Ordering::Acquire) == epoch;
         let error = self.error();
         Snapshot {
             playing: self.playing.load(Ordering::Acquire)
@@ -109,7 +126,7 @@ impl State {
                 && error.is_none(),
             ended,
             position: Duration::from_nanos(position),
-            speed: f32::from_bits(self.speed.load(Ordering::Acquire)),
+            speed,
             format,
             error,
             underruns: self.underruns.load(Ordering::Relaxed),
@@ -123,5 +140,27 @@ impl State {
             },
             notices: self.notices.load(Ordering::Relaxed),
         }
+    }
+
+    pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool) {
+        // One callback writes observations; worker resets have their own publication sequence.
+        self.presented_sequence.fetch_add(1, Ordering::AcqRel);
+        self.position.store(position, Ordering::Relaxed);
+        if let Some(speed) = speed {
+            self.speed.store(speed.to_bits(), Ordering::Relaxed);
+        }
+        self.position_epoch.store(epoch, Ordering::Relaxed);
+        if ended {
+            self.ended.store(epoch, Ordering::Relaxed);
+        }
+        self.presented_sequence.fetch_add(1, Ordering::Release);
+    }
+
+    pub fn reset(&self, position: u64) -> u64 {
+        self.reset_sequence.fetch_add(1, Ordering::AcqRel);
+        self.base.store(position, Ordering::Relaxed);
+        let epoch = self.epoch.fetch_add(1, Ordering::AcqRel) + 1;
+        self.reset_sequence.fetch_add(1, Ordering::Release);
+        epoch
     }
 }

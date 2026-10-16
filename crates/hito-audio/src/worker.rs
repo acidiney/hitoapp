@@ -185,12 +185,7 @@ pub(crate) fn run(
 
 fn reposition(decoder: &mut Tempo, state: &State, position: Duration) -> Result<u64> {
     decoder.seek(position)?;
-    Ok(reset(state, position))
-}
-
-fn reset(state: &State, position: Duration) -> u64 {
-    state.base.store(nanos(position), Ordering::Release);
-    state.epoch.fetch_add(1, Ordering::AcqRel) + 1
+    Ok(state.reset(nanos(position)))
 }
 
 fn nanos(position: Duration) -> u64 {

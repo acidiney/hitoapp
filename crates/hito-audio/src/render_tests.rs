@@ -109,3 +109,57 @@ fn overlapping_startup_timestamps_do_not_overlap_submitted_buffers() {
     render.fill(&mut [0_f32; 1], &info(1400, 1400));
     assert!(state.snapshot(format()).ended);
 }
+
+#[test]
+fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() {
+    let state = Arc::new(State::new());
+    state.playing.store(true, Ordering::Release);
+    let done = std::sync::atomic::AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let callback_state = state.clone();
+        let done = &done;
+        scope.spawn(move || {
+            let (mut producer, consumer) = rtrb::RingBuffer::new(2);
+            let mut render = Render::new(consumer, callback_state, format());
+            for position in 1..=100_000 {
+                producer
+                    .push(Frame::Audio {
+                        samples: [0.5; 2],
+                        speed: if position % 2 == 0 { 2. } else { 0.5 },
+                        position,
+                        epoch: 1,
+                    })
+                    .unwrap();
+                render.fill(&mut [0_f32; 1], &info(position * 100, position * 100));
+            }
+            producer
+                .push(Frame::End {
+                    position: 100_000,
+                    epoch: 1,
+                })
+                .unwrap();
+            render.fill(&mut [0_f32; 1], &info(10_000_100, 10_000_100));
+            render.fill(&mut [0_f32; 1], &info(10_000_200, 10_000_200));
+            done.store(true, Ordering::Release);
+        });
+        while !done.load(Ordering::Acquire) {
+            let snapshot = state.snapshot(format());
+            let position = snapshot.position.as_nanos();
+            let expected = if position == 0 {
+                1.
+            } else if position % 2 == 0 {
+                2.
+            } else {
+                0.5
+            };
+            assert_eq!(
+                snapshot.speed, expected,
+                "mixed presented position {position} and rate"
+            );
+            if snapshot.ended {
+                assert_eq!(position, 100_000);
+            }
+        }
+    });
+    assert!(state.snapshot(format()).ended);
+}

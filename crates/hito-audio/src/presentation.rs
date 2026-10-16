@@ -55,14 +55,7 @@ impl Presentation {
             self.head = (self.head + 1) % self.pending.len();
             self.count -= 1;
             if point.epoch == epoch {
-                state.position.store(point.position, Ordering::Release);
-                if let Some(speed) = point.speed {
-                    state.speed.store(speed.to_bits(), Ordering::Release);
-                }
-                state.position_epoch.store(point.epoch, Ordering::Release);
-                if point.ended {
-                    state.ended.store(point.epoch, Ordering::Release);
-                }
+                state.present(point.epoch, point.position, point.speed, point.ended);
             }
         }
     }
