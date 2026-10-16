@@ -124,6 +124,7 @@ test.each(["delayed", "failed"])(
       current: { id: "entry-0", recording_id: "recording-0" },
       phase: "opening",
       desired_playing: true,
+      can_previous: true,
     });
     service.queue = async () =>
       outcome === "failed"
@@ -144,6 +145,9 @@ test.each(["delayed", "failed"])(
       "disabled",
       false,
     );
+    expect(
+      screen.getByRole("button", { name: "Previous track" }),
+    ).toHaveProperty("disabled", false);
     fireEvent.click(pause);
     await vi.waitFor(() =>
       expect(service.commands[0]?.action).toEqual({ kind: "pause" }),
