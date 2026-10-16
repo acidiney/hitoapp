@@ -27,6 +27,9 @@ services:
     working_dir: /workspace
     environment:
       CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
     volumes:
       - .:/workspace
       - cargo-registry:/usr/local/cargo/registry
@@ -83,6 +86,9 @@ services:
     environment:
       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
       CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
     command: cargo test --locked -p hito-desktop --features gui
 volumes:
   hito-data:
