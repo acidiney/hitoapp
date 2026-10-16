@@ -25,16 +25,33 @@ test("a person installs the real folder demo, discovers, adopts, plays, seeks, a
   await page.goto("/settings");
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await page.getByText("Services for this server", { exact: true }).click();
-  await page.getByLabel("Service name", { exact: true }).fill("Folder demo");
   await page
     .getByLabel("Service address", { exact: true })
     .fill("http://plugin-folder:8090/");
+  const offeredResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/v1/plugins/services" &&
+      response.request().method() === "POST",
+  );
   await page
     .getByRole("button", { name: "Offer service", exact: true })
     .click();
+  const offered = await offeredResponse;
+  expect(offered.status()).toBe(201);
+  expect(offered.request().postDataJSON()).toEqual({
+    base_url: "http://plugin-folder:8090/",
+  });
+  expect(await offered.json()).toMatchObject({
+    name: "Hito music folder",
+    base_url: "http://plugin-folder:8090/",
+  });
   await expect(
     page.getByRole("combobox", { name: "Service", exact: true }),
   ).toHaveValue(/.+/);
+  await expect(
+    page.getByRole("combobox", { name: "Service", exact: true }),
+  ).toContainText("Hito music folder");
+  await page.getByText("Services for this server", { exact: true }).click();
   await page
     .getByRole("button", { name: "Connect service", exact: true })
     .click();

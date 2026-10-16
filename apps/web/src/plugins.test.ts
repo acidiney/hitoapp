@@ -53,6 +53,76 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+test("administrators offer an address and connect separately using its manifest name", async () => {
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    services: [],
+  });
+  vi.mocked(pluginsApi.offer).mockResolvedValue({
+    ...service,
+    name: "Fixture provider",
+  });
+  render(createElement(PluginSettings, { account: "admin", admin: true }));
+  fireEvent.click(await screen.findByText("Services for this server"));
+
+  const address = screen.getByRole("textbox", { name: "Service address" });
+  expect(screen.queryByRole("textbox", { name: "Service name" })).toBeNull();
+  expect(
+    address.closest("form")?.querySelectorAll("input:required"),
+  ).toHaveLength(1);
+  expect((address as HTMLInputElement).required).toBe(true);
+  fireEvent.change(address, {
+    target: { value: service.base_url },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Offer service" }));
+
+  await screen.findByRole("option", { name: "Fixture provider" });
+  expect(pluginsApi.offer).toHaveBeenCalledExactlyOnceWith(
+    "admin",
+    { base_url: service.base_url },
+    expect.any(AbortSignal),
+  );
+  expect(screen.getByLabelText("Service").textContent).toBe("Fixture provider");
+  expect(screen.getByRole("button", { name: "Connect service" })).toBeTruthy();
+  expect(pluginsApi.install).not.toHaveBeenCalled();
+  expect(screen.getByText("No plugins connected to this account.")).toBeTruthy();
+  expect((address as HTMLInputElement).value).toBe("");
+});
+
+test("invalid nonempty custom labels reach server validation and retain the draft", async () => {
+  const name = "\u00a0".repeat(129);
+  const validationError =
+    "Use a service name of 1 to 256 bytes without control characters";
+  vi.mocked(pluginsApi.settings).mockResolvedValue({
+    ...initial,
+    services: [],
+  });
+  vi.mocked(pluginsApi.offer).mockRejectedValue(new Error(validationError));
+  render(createElement(PluginSettings, { account: "admin", admin: true }));
+  fireEvent.click(await screen.findByText("Services for this server"));
+  fireEvent.click(screen.getByText("Advanced settings"));
+  const label = screen.getByRole("textbox", {
+    name: "Custom label (optional)",
+  });
+  fireEvent.change(label, { target: { value: name } });
+  fireEvent.change(screen.getByRole("textbox", { name: "Service address" }), {
+    target: { value: service.base_url },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Offer service" }));
+
+  await screen.findByRole("alert");
+  expect(pluginsApi.offer).toHaveBeenCalledExactlyOnceWith(
+    "admin",
+    { base_url: service.base_url, name },
+    expect.any(AbortSignal),
+  );
+  expect(screen.getByRole("alert").textContent).toContain(validationError);
+  expect((label as HTMLInputElement).value).toBe(name);
+  expect(screen.queryByRole("button", { name: "Connect service" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Withdraw service" })).toBeNull();
+  expect(pluginsApi.install).not.toHaveBeenCalled();
+});
+
 test("ordinary accounts connect offered services and retain failed token drafts", async () => {
   vi.mocked(pluginsApi.install)
     .mockRejectedValueOnce(new Error("Plugin unavailable"))

@@ -16,7 +16,12 @@ export default function PluginServices({
   const [confirm, setConfirm] = useState<string | null>(null);
   async function offer(event: FormEvent) {
     event.preventDefault();
-    if (await actions.offer({ name, base_url: address })) {
+    if (
+      await actions.offer({
+        base_url: address,
+        ...(name ? { name } : {}),
+      })
+    ) {
       setName("");
       setAddress("");
     }
@@ -26,19 +31,9 @@ export default function PluginServices({
       <summary>Services for this server</summary>
       <p>
         Offer trusted plugin services for accounts to connect. Hito will contact
-        these addresses from the server.
+        these addresses from the server and get their names automatically.
       </p>
       <form className="plugin-form" onSubmit={offer}>
-        <label>
-          Service name
-          <input
-            required
-            maxLength={256}
-            value={name}
-            disabled={actions.pending}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
         <label>
           Service address
           <input
@@ -51,6 +46,22 @@ export default function PluginServices({
             onChange={(event) => setAddress(event.target.value)}
           />
         </label>
+        <details>
+          <summary>Advanced settings</summary>
+          <label>
+            Custom label (optional)
+            <input
+              maxLength={256}
+              value={name}
+              disabled={actions.pending}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <p>
+            Use a label for services that require a token before sharing their
+            name.
+          </p>
+        </details>
         <button className="button" disabled={actions.pending}>
           Offer service
         </button>

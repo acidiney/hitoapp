@@ -158,9 +158,6 @@ test("a public Spotify link becomes a complete private editable metadata copy wi
     await page.goto("/settings");
     await page.getByRole("tab", { name: "Plugins", exact: true }).click();
     await page.getByText("Services for this server", { exact: true }).click();
-    await page
-      .getByLabel("Service name", { exact: true })
-      .fill("Spotify public playlists");
     await page.getByLabel("Service address", { exact: true }).fill(pluginAddress);
     const offeredResponse = page.waitForResponse(
       (response) =>
@@ -170,9 +167,15 @@ test("a public Spotify link becomes a complete private editable metadata copy wi
     await page.getByRole("button", { name: "Offer service", exact: true }).click();
     const offered = await offeredResponse;
     expect(offered.status()).toBe(201);
+    expect(offered.request().postDataJSON()).toEqual({ base_url: pluginAddress });
     const service = await json<Schema["PluginService"]>(offered);
+    expect(service.name).toBe("Spotify public playlists");
+    expect(service.base_url).toBe(pluginAddress);
     await expect(page.getByRole("combobox", { name: "Service", exact: true }))
       .toHaveValue(service.id);
+    await expect(page.getByRole("combobox", { name: "Service", exact: true }))
+      .toContainText("Spotify public playlists");
+    await page.getByText("Services for this server", { exact: true }).click();
 
     phase = "connecting the personal service with an empty token";
     const bearer = page.getByLabel("Bearer token (optional)", { exact: true });
