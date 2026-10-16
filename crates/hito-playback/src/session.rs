@@ -70,6 +70,13 @@ impl Session {
         let mut state = self.state.clone();
         loop {
             let snapshot = *state.borrow_and_update();
+            if matches!(
+                snapshot.status,
+                Status::Opening | Status::Starting | Status::Ready
+            ) && self.cancel.requested()
+            {
+                return Err(Error::Stopped);
+            }
             match snapshot.status {
                 Status::Ready => return Ok(()),
                 Status::Opening | Status::Starting => (),
@@ -81,6 +88,11 @@ impl Session {
 
     pub fn snapshot(&self) -> Snapshot {
         *self.state.borrow()
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(native_session = self.id))]
+    pub fn stop(&self) {
+        self.cancel.request();
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(native_session = self.id))]

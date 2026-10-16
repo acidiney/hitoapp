@@ -13,9 +13,11 @@ pub(crate) async fn own(
     state: watch::Sender<Snapshot>,
     mut stopped: oneshot::Receiver<()>,
 ) {
+    let input_stop = cancel.input();
     let input = tokio::select! {
         biased;
         _ = &mut stopped => { finish(&state, Status::Stopped, None); return; },
+        _ = input_stop.cancelled() => { finish(&state, Status::Stopped, None); return; },
         _ = grant.revoked() => { finish(&state, Status::Revoked, Some(Error::Access)); return; },
         result = Source::open_with_stop(grant.clone(), cancel.input()) => match result {
             Ok(input) => input,
@@ -51,6 +53,7 @@ pub(crate) async fn own(
         tokio::select! {
             biased;
             _ = &mut stopped => break (Status::Stopped, None, false),
+            _ = input_stop.cancelled() => break (Status::Stopped, None, false),
             _ = grant.revoked() => break (Status::Revoked, Some(Error::Access), false),
             result = &mut worker => {
                 if grant.check().await.is_err() { break (Status::Revoked, Some(Error::Access), true); }

@@ -95,3 +95,50 @@ async fn cancelling_the_close_waiter_still_reclaims_an_owner_blocked_during_star
     drop((first, second));
     gate.release();
 }
+
+#[tokio::test]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn a_queue_owner_can_stop_pending_startup_before_waiting_for_cleanup() {
+    let f = audio_fixture::AudioLibrary::start().await;
+    f.ready().await;
+    let gate = f.server.hold("audio-tail").await;
+    let grant = f
+        .hito
+        .catalog
+        .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
+        .await
+        .unwrap();
+    let session = Session::start(grant);
+    let mut observed = session.subscribe();
+    gate.entered().await;
+    session.stop();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        observed.wait_for(|state| state.status == Status::Stopped),
+    )
+    .await
+    .expect("stop must cancel startup independently of a close waiter")
+    .unwrap();
+    assert!(session.ready().await.is_err());
+    session.close().await.unwrap();
+    gate.release();
+}
+
+#[tokio::test]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn readiness_cannot_succeed_after_a_ready_session_has_been_stopped() {
+    let f = local_fixture::LocalPlayback::start().await;
+    let grant = f
+        .services
+        .catalog
+        .playback_source(&f.actor, &f.recording, &f.source)
+        .await
+        .unwrap();
+    let session = Session::open(grant).await.unwrap();
+    session.stop();
+    assert!(
+        session.ready().await.is_err(),
+        "stop must immediately fence readiness observers"
+    );
+    session.close().await.unwrap();
+}
