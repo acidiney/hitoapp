@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { monitorAudio } from "./audio-monitor.mjs";
 import {
   start,
   open,
@@ -40,6 +41,11 @@ await copyFile(
 const runtime = join(temporary, "runtime");
 await mkdir(runtime, { mode: 0o700 });
 const socket = join(temporary, "pulse.sock");
+const alsa = join(temporary, "asound.conf");
+await writeFile(
+  alsa,
+  "pcm.!default { type pulse }\nctl.!default { type pulse }\n",
+);
 const sound = spawn(
   "pulseaudio",
   [
@@ -48,7 +54,7 @@ const sound = spawn(
     "--exit-idle-time=-1",
     "--use-pid-file=no",
     "--log-target=stderr",
-    "--load=module-null-sink sink_name=hito-test",
+    "--load=module-null-sink sink_name=hito-test rate=48000 channels=2",
     `--load=module-native-protocol-unix socket=${socket} auth-anonymous=1`,
   ],
   { env: { ...process.env, XDG_RUNTIME_DIR: runtime }, stdio: "ignore" },
@@ -59,7 +65,25 @@ start({
   XDG_DATA_HOME: join(temporary, "data"),
   XDG_RUNTIME_DIR: runtime,
   PULSE_SERVER: `unix:${socket}`,
+  ALSA_CONFIG_PATH: alsa,
 });
+let monitor;
+const playerState = () =>
+  execute('return fetch("/api/v1/player").then(r=>r.json())');
+const uiPosition = () =>
+  execute(
+    'return Number(document.querySelector("input[aria-label=Seek]")?.value ?? 0)',
+  );
+const noBrowserAudio = async () =>
+  assert.equal(
+    await execute('return document.querySelectorAll("audio").length'),
+    0,
+  );
+const audible = () => monitor.energy() > 0.001;
+const silent = () => {
+  const energy = monitor.energy();
+  return energy !== null && energy < 0.000001;
+};
 async function close(origin) {
   const window = execFileSync(
     "xdotool",
@@ -93,6 +117,7 @@ try {
       return false;
     }
   }, "the clocked test audio sink");
+  monitor = monitorAudio(socket);
   await wait(async () => {
     try {
       return (await request("GET", "/status")).ready;
@@ -159,18 +184,16 @@ try {
     () => exists('button[aria-label="Play Fixture 440 Hz"]'),
     "the indexed local track",
   );
-  await execute(
-    'window.__desktopEvents = []; for(const name of ["playing","ended","error","emptied"]) document.querySelector("audio").addEventListener(name,()=>window.__desktopEvents.push(name));',
-  );
+  await noBrowserAudio();
   await click('button[aria-label="Play Fixture 440 Hz"]');
   await wait(
-    () => execute('return document.querySelector("audio")?.currentTime > 0.2'),
-    "decoded WebKit playback with the clocked test sink",
+    async () => (await uiPosition()) > 0.2 && audible(),
+    "native UI position and actual CPAL output",
   );
-  const source = await execute('return document.querySelector("audio").src');
-  const position = await execute(
-    'return document.querySelector("audio").currentTime',
-  );
+  const initial = await playerState();
+  assert.equal(initial.native, true);
+  assert.equal(initial.state.playing, true);
+  const position = await uiPosition();
   await click('nav[aria-label="Main navigation"] a[href="/albums"]');
   await wait(
     () =>
@@ -178,15 +201,42 @@ try {
     "album navigation",
   );
   assert.equal(
-    await execute('return document.querySelector("audio").src'),
-    source,
+    (await playerState()).state.current.id,
+    initial.state.current.id,
   );
+  assert.equal((await playerState()).state.source_id, initial.state.source_id);
+  await wait(
+    async () => (await uiPosition()) > position + 0.2 && audible(),
+    "uninterrupted playback during navigation",
+  );
+  const beforeReload = await uiPosition();
+  await execute("location.reload(); return true;");
+  await wait(
+    async () => (await uiPosition()) > beforeReload + 0.2 && audible(),
+    "native player reattachment after WebView reload",
+  );
+  assert.equal(
+    (await playerState()).state.current.id,
+    initial.state.current.id,
+  );
+  assert.equal((await playerState()).state.source_id, initial.state.source_id);
+  await noBrowserAudio();
+  await click('button[aria-label="Pause"]');
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return !state.desired_playing && !state.playing && silent();
+  }, "native pause and silent output");
   await wait(
     () =>
       execute(
-        `return document.querySelector("audio").currentTime > ${position + 0.2}`,
+        'return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200))',
       ),
-    "uninterrupted playback during navigation",
+    "Rust-owned listening progress persistence",
+  );
+  await click('.player button[aria-label="Play"]');
+  await wait(
+    async () => (await playerState()).state.playing && audible(),
+    "native resume and actual output",
   );
   execFileSync(
     "import",
@@ -203,12 +253,10 @@ try {
     ),
     true,
   );
-  assert.equal(
-    await execute('return document.querySelectorAll("audio").length'),
-    1,
-  );
+  await noBrowserAudio();
   const origin = await execute("return location.origin");
   await close(origin);
+  await wait(silent, "silent output after joined native shutdown");
   const previousStops = logs().split('"event":"desktop_stopped"').length;
   await open();
   await wait(
@@ -224,6 +272,14 @@ try {
   );
   const restartedOrigin = await execute("return location.origin");
   assert.notEqual(restartedOrigin, origin);
+  await noBrowserAudio();
+  assert.equal((await playerState()).state.queue_len, 0);
+  assert.equal(
+    await execute(
+      'return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200))',
+    ),
+    true,
+  );
   await close(restartedOrigin);
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
@@ -232,14 +288,16 @@ try {
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   console.log(
-    "Standalone Tauri setup, scan, WebKit playback, navigation, persistence and joined shutdown passed.",
+    "Standalone Tauri setup, scan, native output, navigation, reload, pause/resume, progress, persistence and joined shutdown passed.",
   );
 } catch (error) {
   try {
     const state = await execute(
-      'return (()=>{const a=document.querySelector("audio");return a ? {paused:a.paused,ended:a.ended,time:a.currentTime,duration:a.duration,ready:a.readyState,error:a.error?.code,events:window.__desktopEvents} : null})()',
+      'return fetch("/api/v1/player").then(r=>r.json()).then(p=>({native:p.native,phase:p.state?.phase,playing:p.state?.playing,desired:p.state?.desired_playing,queue:p.state?.queue_len,position:Number(document.querySelector("input[aria-label=Seek]")?.value??0),audio:document.querySelectorAll("audio").length,connection:document.querySelector(".playback-status")?.textContent}))',
     );
-    console.error("WebKit audio diagnostic", state);
+    console.error("Native player diagnostic", state, {
+      output: monitor?.energy(),
+    });
   } catch {}
   {
     try {
@@ -253,6 +311,7 @@ try {
   throw error;
 } finally {
   await stop();
+  await monitor?.close();
   manager.kill("SIGTERM");
   sound.kill("SIGTERM");
   await writeFile("/workspace/test-results/desktop/driver.log", logs(), {
