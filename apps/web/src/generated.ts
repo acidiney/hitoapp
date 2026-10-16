@@ -956,7 +956,7 @@ export interface components {
             offset?: number | null;
         };
         /** @enum {string} */
-        Capability: "search" | "catalog" | "metadata" | "sources" | "playlists" | "dashboard" | "lyrics" | "backing_tracks";
+        Capability: "search" | "catalog" | "metadata" | "sources" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks";
         CatalogPageProps: components["schemas"]["SharedPageProps"] & {
             query: string;
             recordings: components["schemas"]["RecordingPage"];
