@@ -68,9 +68,15 @@ async fn previous_retries_a_failed_paused_occurrence_without_starting_output() {
         Duration::from_secs(3),
         position.wait_for(|p| p.seek_id == Some(previous.id)),
     )
-    .await.is_ok();
+    .await
+    .is_ok();
     let requests = f.server.requests("v1/audio").await.len();
-    assert!(applied, "state={:?}; position={:?}; audio_requests={requests}", *state.borrow(), *position.borrow());
+    assert!(
+        applied,
+        "state={:?}; position={:?}; audio_requests={requests}",
+        *state.borrow(),
+        *position.borrow()
+    );
     tokio::time::timeout(
         Duration::from_secs(3),
         state.wait_for(|s| s.phase == PlayerPhase::Ready && !s.playing),
