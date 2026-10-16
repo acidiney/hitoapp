@@ -17,6 +17,12 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
         .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
         .await
         .unwrap();
+    let mut position = player
+        .subscribe_position(&f.actor, attached.lease)
+        .await
+        .unwrap();
+    // The periodic owner timer can start before playback is requested.
+    tokio::time::sleep(Duration::from_millis(1500)).await;
     for (sequence, revision, action) in [
         (
             1,
@@ -42,9 +48,18 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
             .await
             .unwrap();
     }
+    tokio::time::timeout(
+        Duration::from_secs(7),
+        position.wait_for(|position| position.position_ms >= 4_000),
+    )
+    .await
+    .expect("native output must present the position before checking its checkpoint")
+    .unwrap();
+    let mut last_saved = None;
     let saved = tokio::time::timeout(Duration::from_secs(7), async {
         loop {
             let activity = f.services.collection.activity(&f.actor).await.unwrap();
+            last_saved = activity.history.first().map(|entry| entry.position_ms);
             if let Some(entry) = activity.history.first()
                 && entry.position_ms >= 4_000
             {
@@ -54,7 +69,12 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
         }
     })
     .await
-    .unwrap();
+    .unwrap_or_else(|_| {
+        panic!(
+            "periodic checkpoint did not reach presented audio: position_ms={} saved_ms={last_saved:?}",
+            position.borrow().position_ms
+        )
+    });
     assert!(
         player
             .inspect(&f.actor)
