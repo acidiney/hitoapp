@@ -70,3 +70,29 @@ test("browser shuffle visits each occurrence once and stops with repeat off", as
     (await player.queuePage(0, 50)).entries.map((entry) => entry.id),
   ).toEqual(canonical);
 });
+
+test("browser source exhaustion follows shuffled successors instead of canonical neighbors", async () => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  const audio = document.createElement("audio");
+  vi.spyOn(audio, "load").mockImplementation(() => {});
+  vi.spyOn(audio, "pause").mockImplementation(() => {});
+  vi.spyOn(audio, "play").mockResolvedValue();
+  const player = new Playback(audio, async (id) =>
+    id === "failed" ? [] : [{ id: "source", ready: true }],
+  );
+  const track = (id: string) => ({
+    id,
+    title: id,
+    artist: "Fixture",
+    duration_ms: 10000,
+    available: true,
+  });
+  await player.playQueue(
+    [track("healthy"), track("failed"), track("start")],
+    2,
+  );
+  player.shuffle();
+  await player.next();
+  expect(player.snapshot().current?.id).toBe("healthy");
+  expect(player.snapshot().error).toContain("Audio is unavailable");
+});

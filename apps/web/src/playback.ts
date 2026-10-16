@@ -66,7 +66,6 @@ export class Playback implements Player {
   private lastSavedPosition = 0;
   private pendingSeek: number | null = null;
   private activeSource = false;
-  private failed = new Set<number>();
 
   constructor(
     private media: MediaPort,
@@ -89,6 +88,8 @@ export class Playback implements Player {
       }
     });
     media.addEventListener("timeupdate", () => {
+      if (this.activeSource && !media.paused && media.currentTime > 0)
+        this.traversal.resetFailures();
       this.update({ position: media.currentTime });
       if (Math.abs(media.currentTime - this.lastSavedPosition) >= 10)
         this.persist();
@@ -161,7 +162,7 @@ export class Playback implements Player {
   async selectEntry(entry: string) {
     const index = this.entryIds.indexOf(entry);
     if (index < 0) return;
-    this.failed.clear();
+    this.traversal.resetFailures();
     this.update({ error: "" });
     await this.open(index);
   }
@@ -239,7 +240,6 @@ export class Playback implements Player {
       index,
       position_ms: Math.floor(position * 1000),
     });
-    this.failed.clear();
     this.update({ queue: [...queue], index, error: "" });
     await this.open(index, position);
   }
@@ -353,15 +353,17 @@ export class Playback implements Player {
       recording_id: this.state.current?.id,
       index: this.state.index,
     });
-    this.failed.add(this.state.index);
     this.update({
       error: `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
       loading: false,
     });
-    const next = this.state.queue.findIndex(
-      (_, i) => i > this.state.index && !this.failed.has(i),
+    const next = this.traversal.next(
+      this.entryIds,
+      this.entryIds[this.state.index],
+      this.state.repeat,
+      "failed",
     );
-    if (next >= 0) await this.open(next);
+    if (next) await this.open(this.entryIds.indexOf(next));
     else {
       this.media.pause();
       this.update({ playing: false, loading: false });
@@ -444,6 +446,7 @@ export class Playback implements Player {
   }
   async previous() {
     this.selection++;
+    this.traversal.resetFailures();
     log.info("queue.previous", { index: this.state.index });
     if (this.media.currentTime > 3) this.seek(0);
     else await this.open(Math.max(0, this.state.index - 1));
@@ -457,7 +460,7 @@ export class Playback implements Player {
       this.entryIds,
       this.entryIds[this.state.index],
       this.state.repeat,
-      ended,
+      ended ? "completed" : "requested",
     );
     await this.open(
       entry ? this.entryIds.indexOf(entry) : this.state.queue.length,
