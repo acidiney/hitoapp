@@ -1,3 +1,5 @@
+#[path = "fixtures/authority_outage.rs"]
+mod authority_outage;
 #[path = "../../hito-core/tests/fixtures/playback.rs"]
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
@@ -79,9 +81,28 @@ async fn queue_workflow_logs_retain_safe_correlation_and_exclude_private_input()
         .with_subscriber(dispatch.clone())
         .await
         .unwrap();
+    let mut observed = player.subscribe(&f.actor, attached.lease).await.unwrap();
+    let outage = authority_outage::Outage::start(f.directory.path()).await;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        observed.wait_for(|state| state.phase == hito_playback::PlayerPhase::Suspended),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    outage.restore().await;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        observed.wait_for(|state| state.phase != hito_playback::PlayerPhase::Suspended),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     owner.close().with_subscriber(dispatch).await.unwrap();
     let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
     assert!(logs.contains("player_command_accepted"));
+    assert!(logs.contains("player_authority_suspended"));
+    assert!(logs.contains("player_authority_restored"));
     let events = logs
         .lines()
         .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
