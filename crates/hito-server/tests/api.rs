@@ -22,6 +22,12 @@ mod collection;
 #[path = "api/playlist_import.rs"]
 mod playlist_import;
 
+#[path = "api/playlist_fixture.rs"]
+mod playlist_fixture;
+
+#[path = "api/playlist_import_replay.rs"]
+mod playlist_import_replay;
+
 #[path = "api/playlist_pages.rs"]
 mod playlist_pages;
 
