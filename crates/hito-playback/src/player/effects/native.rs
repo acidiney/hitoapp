@@ -23,6 +23,9 @@ pub(crate) struct Native {
     closing: Option<Pending<()>>,
     failed: bool,
     update: Option<Update>,
+    resume_at: Duration,
+    duration: Option<Duration>,
+    configured: bool,
 }
 impl Native {
     pub fn new(catalog: Catalog) -> Self {
@@ -36,10 +39,22 @@ impl Native {
             closing: None,
             failed: false,
             update: None,
+            resume_at: Duration::ZERO,
+            duration: None,
+            configured: false,
         }
     }
     pub fn sync(&mut self, target: Option<Target>) {
         if self.target.as_ref().map(|target| target.key) != target.as_ref().map(|target| target.key)
+        {
+            self.retire();
+            self.lookup = None;
+            self.failed = false;
+            self.resume_at = Duration::ZERO;
+            self.duration = None;
+        } else if target.as_ref().is_some_and(|next| {
+            !next.playing && self.target.as_ref().is_some_and(|old| old.playing)
+        }) && self.control.is_some()
         {
             self.retire();
             self.lookup = None;
@@ -86,16 +101,26 @@ impl Native {
             if snapshot.status == Status::Ready
                 && !snapshot.ended
                 && self.control.is_none()
-                && snapshot.playing != target.playing
+                && (!self.configured || snapshot.playing != target.playing)
                 && !self.failed
             {
                 let session = session.clone();
+                let seek = if self.configured {
+                    None
+                } else {
+                    Some(self.resume_at)
+                };
                 let command = if target.playing {
                     crate::Command::Resume
                 } else {
                     crate::Command::Pause
                 };
-                self.control = Some(Box::pin(async move { session.command(command).await }));
+                self.control = Some(Box::pin(async move {
+                    if let Some(position) = seek.filter(|position| !position.is_zero()) {
+                        session.command(crate::Command::Seek(position)).await?;
+                    }
+                    session.command(command).await
+                }));
             }
         }
     }
@@ -108,7 +133,9 @@ impl Native {
                 biased;
                 _ = async { self.closing.as_mut().unwrap().await }, if self.closing.is_some() => {
                     self.closing = None;
-                    if self.target.is_some() { return self.status(PlayerPhase::Resolving, None); }
+                    if self.target.is_some() {
+                        return if self.failed { self.status(PlayerPhase::Failed, Some(PlayerError::Playback)) } else { self.status(PlayerPhase::Resolving, None) };
+                    }
                 },
                 grant = async { self.lookup.as_mut().unwrap().await }, if self.lookup.is_some() => {
                     self.lookup = None;
@@ -117,6 +144,7 @@ impl Native {
                             let session = Arc::new(Session::start(grant));
                             self.observed = Some(session.subscribe());
                             self.session = Some(session);
+                            self.configured = false;
                             return self.status(PlayerPhase::Opening, None);
                         },
                         Err(error) => { self.failed = true; return self.status(PlayerPhase::Failed, Some(error)); },
@@ -129,6 +157,7 @@ impl Native {
                         self.retire();
                         return self.status(PlayerPhase::Failed, Some(PlayerError::Playback));
                     }
+                    self.configured = true;
                     return self.snapshot();
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
@@ -170,14 +199,19 @@ impl Native {
             key: self.target.as_ref().unwrap().key,
             phase,
             playing: false,
-            position_ms: 0,
-            duration_ms: None,
+            position_ms: self.resume_at.as_millis().min(u64::MAX as u128) as u64,
+            duration_ms: self
+                .duration
+                .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
             ended: false,
             error,
         }
     }
     fn retire(&mut self) {
         if let Some(session) = self.session.as_ref() {
+            let snapshot = session.snapshot();
+            self.resume_at = snapshot.position;
+            self.duration = snapshot.format.and_then(|format| format.duration);
             session.stop();
         }
         self.control = None;

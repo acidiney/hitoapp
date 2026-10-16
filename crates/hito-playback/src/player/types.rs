@@ -86,6 +86,7 @@ pub struct PlayerCommand {
 #[derive(Clone, PartialEq, Eq)]
 pub enum PlayerAction {
     Resume,
+    Pause,
     Next,
     Clear,
     Append { recordings: Vec<Uuid> },
@@ -98,6 +99,7 @@ impl PlayerAction {
     pub(super) fn name(&self) -> &'static str {
         match self {
             Self::Resume => "resume",
+            Self::Pause => "pause",
             Self::Next => "next",
             Self::Clear => "clear",
             Self::Append { .. } => "append",

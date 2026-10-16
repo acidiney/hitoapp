@@ -19,7 +19,9 @@ impl State {
                 if self.owned(actor, command.lease)?.check(command)?.is_some() {
                     return Ok(Vec::new());
                 }
-                if matches!(command.action, PlayerAction::Resume) && !self.native {
+                if matches!(command.action, PlayerAction::Resume | PlayerAction::Pause)
+                    && !self.native
+                {
                     return Err(PlayerError::Unsupported);
                 }
                 match &command.action {
@@ -125,6 +127,9 @@ impl State {
                 if matches!(command.action, PlayerAction::Resume) {
                     owned.desired_playing = owned.queue.snapshot().current.is_some();
                     owned.play_revision += 1;
+                }
+                if matches!(command.action, PlayerAction::Pause) {
+                    owned.desired_playing = false;
                 }
                 if before != owned.queue.snapshot().selection {
                     owned.selected(self.native);
