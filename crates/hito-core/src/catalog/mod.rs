@@ -6,6 +6,7 @@ mod browse;
 mod media;
 mod playback;
 pub use playback::PlaybackSource;
+mod preferred;
 mod provider;
 pub use provider::{AdoptProviderRecording, ProviderSearch};
 mod releases;

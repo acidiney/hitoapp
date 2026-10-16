@@ -78,21 +78,10 @@ impl Native {
             let actor = target.actor.clone();
             let recording = target.recording.to_string();
             self.lookup = Some(Box::pin(async move {
-                tokio::time::timeout(Duration::from_secs(2), async {
-                    let source = catalog
-                        .sources(&actor, &recording)
-                        .await
-                        .map_err(PlayerError::from)?
-                        .into_iter()
-                        .find(|source| source.ready)
-                        .ok_or(PlayerError::NotFound)?;
-                    catalog
-                        .playback_source(&actor, &recording, &source.id)
-                        .await
-                        .map_err(PlayerError::from)
-                })
-                .await
-                .unwrap_or(Err(PlayerError::Unavailable))
+                catalog
+                    .preferred_playback_source(&actor, &recording)
+                    .await
+                    .map_err(PlayerError::from)
             }));
             self.update = Some(self.status(PlayerPhase::Resolving, None));
         }
