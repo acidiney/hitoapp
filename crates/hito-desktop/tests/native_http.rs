@@ -114,6 +114,17 @@ async fn the_protected_desktop_api_drives_native_output_controls_progress_and_jo
         .await;
     capture.after(capture.mark(), 0.2);
     assert!(capture::energy(&capture.recent(0.1)) > 0.00001);
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let activity = app.call("GET", "api/v1/activity", Value::Null).await;
+            if activity["history"][0]["speed"].as_f64() == Some(2.) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
     app.host.take().unwrap().shutdown().await.unwrap();
     capture.after(capture.mark(), 0.3);
     assert!(capture::energy(&capture.recent(0.1)) < 0.000001);

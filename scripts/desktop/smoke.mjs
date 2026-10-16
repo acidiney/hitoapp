@@ -304,7 +304,10 @@ try {
     "native resume and actual output",
   );
   await wait(
-    () => execute('return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200 && h.speed === 1.5))'),
+    () =>
+      execute(
+        'return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200 && h.speed === 1.5))',
+      ),
     "Rust-owned native speed and progress persistence",
   );
   execFileSync(

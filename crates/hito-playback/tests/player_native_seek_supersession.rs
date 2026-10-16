@@ -17,7 +17,8 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
-async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the_new_target() {
+async fn speed_pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the_new_target()
+{
     let f = audio_fixture::AudioLibrary::start().await;
     let mut wave = audio_support::wave(48_000, 1, 48_000 * 10, |frame, _| {
         ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 13_000.) as i16
@@ -99,6 +100,19 @@ async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the
                 lease: attached.lease,
                 sequence: 4,
                 revision: 1,
+                action: PlayerAction::Speed { rate: 2000 },
+            },
+        )
+        .await
+        .unwrap();
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 5,
+                revision: 1,
                 action: PlayerAction::Pause {},
             },
         )
@@ -110,7 +124,7 @@ async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the
             PlayerCommand {
                 id: Uuid::new_v4(),
                 lease: attached.lease,
-                sequence: 5,
+                sequence: 6,
                 revision: 1,
                 action: PlayerAction::Seek { position_ms: 0 },
             },
@@ -138,6 +152,7 @@ async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the
     .unwrap()
     .unwrap();
     assert_eq!(position.borrow().position_ms, 0);
+    assert_eq!(state.borrow().speed, 2000);
     gate.open();
     capture.after(capture.mark(), 0.3);
     assert!(capture::energy(&capture.recent(0.1)) < 0.000001);

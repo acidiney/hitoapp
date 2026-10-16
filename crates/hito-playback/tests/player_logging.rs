@@ -190,7 +190,8 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
     for (sequence, action) in [
         (2, PlayerAction::Shuffle {}),
         (3, PlayerAction::Repeat {}),
-        (4, PlayerAction::Resume {}),
+        (4, PlayerAction::Speed { rate: 2000 }),
+        (5, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -243,12 +244,31 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .expect("native transitions need workflow logs");
     assert!(transition["span"]["player_owner"].is_number());
     assert!(transition["fields"]["selection"].is_number());
-    for name in ["player_shuffle_changed", "player_repeat_changed"] {
+    for name in [
+        "player_shuffle_changed",
+        "player_repeat_changed",
+        "player_speed_changed",
+        "player_controls_applied",
+    ] {
         let changed = events
             .iter()
             .find(|event| event["fields"]["event"] == name)
             .expect("mode changes need workflow logs");
         assert!(changed["span"]["player_owner"].is_number());
+    }
+    for name in ["audio_speed_changed", "audio_tempo_segment_started"] {
+        let changed = events
+            .iter()
+            .find(|event| event["fields"]["event"] == name)
+            .expect("engine speed needs workflow logs");
+        assert_eq!(changed["fields"]["speed"], 2.);
+        assert!(
+            changed["spans"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|span| { span["audio_id"].is_number() })
+        );
     }
     let played = events
         .iter()

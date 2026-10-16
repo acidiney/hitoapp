@@ -218,6 +218,7 @@ fn an_actual_device_underrun_recovers_at_the_presented_position() {
         ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
     }))
     .unwrap();
+    player.speed(2.).unwrap();
     player.resume().unwrap();
     wait(|| player.snapshot().position > Duration::from_millis(200));
     let position = player.snapshot().position;
@@ -273,6 +274,7 @@ fn an_actual_device_underrun_recovers_at_the_presented_position() {
         player.snapshot().error
     );
     assert!(player.snapshot().error.is_none());
+    assert_eq!(player.snapshot().speed, 2.);
     capture.after(capture.mark(), 0.2);
     assert!(amplitude(&capture.recent(0.1), 440.) > 0.4);
     player.close().unwrap();
