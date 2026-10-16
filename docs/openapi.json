@@ -5671,6 +5671,20 @@
               "kind": {
                 "type": "string",
                 "enum": [
+                  "previous"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
                   "clear"
                 ]
               }
@@ -6081,6 +6095,7 @@
           "revision",
           "selection",
           "queue_len",
+          "can_previous",
           "desired_playing",
           "playing",
           "seeking",
@@ -6088,6 +6103,9 @@
           "phase"
         ],
         "properties": {
+          "can_previous": {
+            "type": "boolean"
+          },
           "current": {
             "oneOf": [
               {

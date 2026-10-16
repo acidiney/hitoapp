@@ -1161,6 +1161,9 @@ export interface components {
             kind: "next";
         } | {
             /** @enum {string} */
+            kind: "previous";
+        } | {
+            /** @enum {string} */
             kind: "clear";
         } | {
             /** @enum {string} */
@@ -1271,6 +1274,7 @@ export interface components {
             sequence: number;
         };
         PlayerSnapshot: {
+            can_previous: boolean;
             current?: components["schemas"]["PlayerEntryRef"] | null;
             current_index?: number | null;
             desired_playing: boolean;
