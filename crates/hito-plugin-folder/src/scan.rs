@@ -168,6 +168,7 @@ fn observation_bytes(track: &crate::catalog::Track) -> usize {
         + track.evidence.as_ref().map_or(0, String::len)
         + track.locator.len()
         + track.name.as_encoded_bytes().len()
+        + track.chunks.len() * std::mem::size_of::<crate::representation::ChunkDigest>()
         + 512
 }
 
