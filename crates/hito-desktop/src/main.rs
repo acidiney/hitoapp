@@ -10,8 +10,10 @@ use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWin
 struct Desktop(Mutex<Lifecycle>);
 
 fn main() {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "hito_desktop=info,hito_server=info,hito_core=info".into());
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        "hito_desktop=info,hito_server=info,hito_core=info,hito_playback=info,hito_audio=info"
+            .into()
+    });
     let _ = tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(filter)

@@ -1697,10 +1697,12 @@ version = "0.1.0-dev"
 dependencies = [
  "axum",
  "hito-core",
+ "hito-playback",
  "hito-server",
  "reqwest",
  "serde",
  "serde_json",
+ "sqlx",
  "subtle",
  "tauri",
  "tauri-build",

@@ -1,8 +1,9 @@
 use crate::{Error, Paths, Result, access::Access, storage};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
+use tracing::{Instrument, instrument::WithSubscriber};
 use url::Url;
 
-type Serving = JoinHandle<std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>>;
+type Serving = JoinHandle<Result<()>>;
 
 pub struct LocalHost {
     entry: Url,
@@ -38,16 +39,21 @@ impl LocalHost {
         config.http.origin = origin.origin().ascii_serialization();
         let (access, entry) = Access::new(&origin);
         let storage = services.storage.clone();
-        let app = access.protect(hito_server::router_with_config(services, config.http));
+        #[cfg(feature = "device")]
+        let (player, owner) = hito_playback::Player::native(services.clone());
+        #[cfg(not(feature = "device"))]
+        let (player, owner) = hito_playback::Player::start(services.clone());
+        let app = access.protect(hito_server::router_with_player(
+            services,
+            config.http,
+            player,
+        ));
         let (stop, stopped) = oneshot::channel();
-        let serving = tokio::spawn(async move {
-            let result = hito_server::serve(listener, app, storage, async {
-                let _ = stopped.await;
-            })
-            .await;
-            drop(lock);
-            result
-        });
+        let serving = tokio::spawn(
+            crate::backend::run(listener, app, storage, owner, stopped, lock)
+                .instrument(tracing::Span::current())
+                .with_current_subscriber(),
+        );
         tracing::info!(
             event = "desktop_backend_ready",
             "Private local backend started"
