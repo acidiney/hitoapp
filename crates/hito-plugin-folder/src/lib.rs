@@ -7,6 +7,7 @@ mod inspection;
 mod pcm;
 mod registry;
 mod releases;
+mod representation;
 mod scan;
 mod search;
 mod startup;

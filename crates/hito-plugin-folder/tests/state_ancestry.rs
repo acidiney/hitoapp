@@ -117,3 +117,95 @@ async fn a_state_directory_under_a_writable_ancestor_is_rejected_without_changin
     assert!(sources.items[0].ready);
     service.stop();
 }
+
+#[tokio::test]
+async fn a_replaceable_parent_alias_cannot_admit_another_private_state_directory() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o755)).unwrap();
+    let music = directory.path().join("private-music");
+    fs::create_dir(&music).unwrap();
+    let title = "Retained parent alias recording";
+    support::write_wav(&music.join("private-recording.wav"), Some(title), 440);
+    let parent = directory.path().join("private-parent");
+    fs::create_dir(&parent).unwrap();
+    fs::set_permissions(&parent, fs::Permissions::from_mode(0o700)).unwrap();
+    let state = parent.join("private-state");
+    Folder::initialize(&music, &state).await.unwrap();
+
+    let service =
+        binary::Service::start(&music, &state, &directory.path().join("alias-before.jsonl"));
+    let before: SearchPage =
+        service.post("/v1/search", serde_json::json!({"query":title,"limit":20}));
+    before.validate(20).unwrap();
+    assert_eq!(before.items.len(), 1);
+    let recording = &before.items[0];
+    let original_recording = serde_json::to_value(recording).unwrap();
+    let sources: SourcePage = service.post(
+        "/v1/sources",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    sources.validate().unwrap();
+    assert_eq!(sources.items.len(), 1);
+    assert!(sources.items[0].ready);
+    let original_source = sources.items[0].id.clone();
+    service.stop();
+
+    let database = state.join("identity.sqlite");
+    let original_database = fs::read(&database).unwrap();
+    let lock = state.join("owner.lock");
+    let original_lock = fs::metadata(&lock).unwrap();
+    let shared = directory.path().join("shared-parent");
+    fs::create_dir(&shared).unwrap();
+    fs::set_permissions(&shared, fs::Permissions::from_mode(0o777)).unwrap();
+    let alias = shared.join("alias");
+    symlink(&parent, &alias).unwrap();
+    let shared_metadata = fs::metadata(&shared).unwrap();
+    assert_eq!(shared_metadata.mode() & 0o1000, 0);
+    assert_eq!(shared_metadata.mode() & 0o003, 0o003);
+    assert_eq!(fs::symlink_metadata(&alias).unwrap().uid(), unsafe {
+        libc::geteuid()
+    });
+    assert_eq!(fs::metadata(&state).unwrap().mode() & 0o777, 0o700);
+    let aliased_state = alias.join("private-state");
+
+    let rejected = Folder::open(&music, &aliased_state).await;
+    assert!(
+        rejected.is_err(),
+        "a trusted canonical target does not protect an alias replaceable by another UID"
+    );
+    assert_eq!(fs::read(&database).unwrap(), original_database);
+    let lock_metadata = fs::metadata(&lock).unwrap();
+    assert_eq!(lock_metadata.dev(), original_lock.dev());
+    assert_eq!(lock_metadata.ino(), original_lock.ino());
+    assert_eq!(lock_metadata.mode(), original_lock.mode());
+    assert_eq!(lock_metadata.uid(), original_lock.uid());
+    assert_eq!(lock_metadata.len(), original_lock.len());
+    assert_eq!(
+        lock_metadata.modified().unwrap(),
+        original_lock.modified().unwrap()
+    );
+
+    fs::set_permissions(&shared, fs::Permissions::from_mode(0o700)).unwrap();
+    let service = binary::Service::start(
+        &music,
+        &aliased_state,
+        &directory.path().join("alias-recovered.jsonl"),
+    );
+    let recovered: ProviderRecording = service.post(
+        "/v1/recordings/detail",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    recovered.validate().unwrap();
+    assert_eq!(serde_json::to_value(recovered).unwrap(), original_recording);
+    let sources: SourcePage = service.post(
+        "/v1/sources",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    sources.validate().unwrap();
+    assert_eq!(sources.items.len(), 1);
+    assert_eq!(sources.items[0].id, original_source);
+    assert!(sources.items[0].ready);
+    service.stop();
+}

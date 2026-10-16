@@ -1,3 +1,4 @@
+use crate::representation::{AudioFile, ChunkDigest};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{Dir, OpenOptions};
 use hito_plugin_sdk::{ProviderRecording, ProviderRelease};
@@ -5,7 +6,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs::{File, Metadata},
-    io::{self, Read, Seek, SeekFrom},
+    io,
     sync::Arc,
     time::{Instant, SystemTime},
 };
@@ -28,33 +29,6 @@ pub(crate) struct SourceFile {
     pub file: AudioFile,
     pub length: u64,
     pub mime: &'static str,
-}
-pub(crate) struct AudioFile {
-    file: File,
-    expected_stamp: Stamp,
-}
-impl AudioFile {
-    fn check(&self) -> io::Result<()> {
-        if Stamp::read(&self.file.metadata()?)? != self.expected_stamp {
-            return Err(io::Error::other(
-                "Audio changed; restart the folder service",
-            ));
-        }
-        Ok(())
-    }
-}
-impl Read for AudioFile {
-    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        self.check()?;
-        let count = self.file.read(bytes)?;
-        self.check()?;
-        Ok(count)
-    }
-}
-impl Seek for AudioFile {
-    fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
-        self.file.seek(position)
-    }
 }
 impl Catalog {
     pub fn index_sources(&mut self) -> io::Result<()> {
@@ -108,6 +82,7 @@ impl Catalog {
 pub(crate) struct Track {
     pub id: String,
     pub checksum: String,
+    pub chunks: Arc<[ChunkDigest]>,
     pub evidence: Option<String>,
     pub source: String,
     pub revision: String,
@@ -148,12 +123,11 @@ impl Track {
         }
     }
     pub fn open(&self) -> io::Result<AudioFile> {
-        let file = AudioFile {
-            file: open(&self.directory, &self.name)?,
-            expected_stamp: self.stamp.clone(),
-        };
-        file.check()?;
-        Ok(file)
+        AudioFile::new(
+            open(&self.directory, &self.name)?,
+            self.stamp.clone(),
+            self.chunks.clone(),
+        )
     }
 }
 #[derive(Clone, PartialEq, Eq)]

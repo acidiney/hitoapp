@@ -1,4 +1,7 @@
-use crate::catalog::{Stamp, Track};
+use crate::{
+    catalog::{Stamp, Track},
+    representation::{CHUNK_BYTES, ChunkDigest},
+};
 use lofty::{
     config::ParseOptions,
     file::{AudioFile, FileType, TaggedFileExt},
@@ -76,7 +79,7 @@ pub(crate) fn inspect_snapshot(
     if Stamp::read(&current.metadata()?)? != track.stamp {
         return Err(InspectionError::Changed);
     }
-    let checksum = checksum(&mut current, track.stamp.size, deadline, work)?;
+    let (checksum, _) = checksum(&mut current, track.stamp.size, deadline, work)?;
     if checksum != track.checksum || Stamp::read(&current.metadata()?)? != track.stamp {
         return Err(InspectionError::Changed);
     }
@@ -134,7 +137,7 @@ fn inspect_file(
         _ => return Err(InspectionError::Unavailable),
     };
     reader.file.rewind()?;
-    let checksum = checksum(&mut reader.file, stamp.size, deadline, reader.work)?;
+    let (checksum, chunks) = checksum(&mut reader.file, stamp.size, deadline, reader.work)?;
     if Stamp::read(&reader.file.metadata()?)? != input_stamp {
         return Err(InspectionError::Changed);
     }
@@ -165,6 +168,7 @@ fn inspect_file(
         source: format!("source-{id}"),
         revision: id.clone(),
         checksum,
+        chunks,
         evidence: None,
         locator: Vec::new(),
         id,
@@ -301,21 +305,20 @@ fn checksum(
     size: u64,
     deadline: Instant,
     work: &mut WorkBudget,
-) -> Result<String, InspectionError> {
+) -> Result<(String, Arc<[ChunkDigest]>), InspectionError> {
     let mut hash = Sha256::new();
+    let mut chunks = Vec::<ChunkDigest>::new();
     let mut remaining = size;
-    let mut buffer = [0; 65536];
+    let mut buffer = [0; CHUNK_BYTES];
     while remaining > 0 {
         check(deadline)?;
         let wanted = remaining.min(buffer.len() as u64) as usize;
-        let count = work.read(file, &mut buffer[..wanted])?;
-        if count == 0 {
-            return Err(InspectionError::Changed);
-        }
-        hash.update(&buffer[..count]);
-        remaining -= count as u64;
+        work.read_exact(file, &mut buffer[..wanted], deadline)?;
+        hash.update(&buffer[..wanted]);
+        chunks.push(Sha256::digest(&buffer[..wanted]).into());
+        remaining -= wanted as u64;
     }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok((format!("{:x}", hash.finalize()), Arc::from(chunks)))
 }
 
 #[derive(Debug)]
