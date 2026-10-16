@@ -4,7 +4,7 @@
 
 ## Ownership
 
-The engine accepts `std::fs::File`, not a path, URL, account string, or renderer-supplied authority. It cannot open another file or make a network request. A future playback coordinator must obtain audio through core's catalog and supervise live session and source access. `Actor` and an opened file alone do not provide revocation.
+The engine accepts `std::fs::File`, not a path, URL, account string, or renderer-supplied authority. It cannot open another file or make a network request. A future playback coordinator must obtain audio through core's catalog and supervise its [playback access grant](playback-access.md). An opened file alone does not provide revocation.
 
 ```mermaid
 flowchart LR
