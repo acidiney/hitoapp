@@ -11,7 +11,8 @@ flowchart LR
   Catalog[Core catalog / authorized grant] --> Session[hito-playback session and owned input]
   Session --> Player[hito-audio Player]
   Player --> Decoder[Owned decoder worker / Symphonia]
-  Decoder --> PCM[Bounded 100 ms PCM ring / generation tags and end marker]
+  Decoder --> Tempo[Worker-owned SoundTouch / bounded tempo segments]
+  Tempo --> PCM[Bounded 100 ms PCM ring / generation, source time and rate tags]
   PCM --> Render[CPAL callback / fixed presentation queue]
   Render --> Device[Native output device]
   Render --> State[Atomic position, completion and failure state]
@@ -21,11 +22,28 @@ flowchart LR
 
 `Decoder` exposes the actual decoded sample rate and channel count, interleaved float samples, seeking, and interruptible packet scanning. It preserves high-resolution samples. It rejects nonfinite PCM and changes in rate or channel count during a stream. Public errors contain static categories.
 
-`Player` opens one input, starts paused, and owns resume, pause, seek, volume, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The native session owner calls them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
+`Player` opens one input, starts paused, and owns resume, pause, seek, volume, speed, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The native session owner calls them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
 
 The output starts with silence and waits for two callbacks before returning readiness. This primes the device before application audio. Device selection requests a 20 ms period within its advertised bounds; the negotiated callback size may differ. Output currently requires the source's exact rate and one or two channels, with float32, signed 16-bit, or unsigned 16-bit samples. No resampling or channel conversion is implemented yet.
 
 The PCM ring holds 100 ms of frames. The callback performs no allocation, locking, decoding, filesystem access, networking, or logging. Its fixed presentation queue holds at most 1,024 points. Overflow becomes a typed output failure. Stale-frame work is bounded by ring capacity for each callback.
+
+## Tempo and media time
+
+Native speed accepts finite rates from 0.5 to 3.0. The decoder worker uses bundled SoundTouch 2.3.2 through the pinned `soundtouch` wrapper to change tempo while preserving pitch. A 1.0 rate bypasses processing. SoundTouch owns its processing buffers on the worker; the callback only reads prepared frames. The dependency and license are recorded in [third-party notices](third-party-notices.md).
+
+Each transition drains the current processor before starting the latest requested rate. Already prepared audio keeps its original rate tag. The worker retains any unread raw samples, including when returning to 1.0 or reversing a pending transition. Changing speed neither seeks the input nor changes play/pause, so forward-only streams remain usable. Processing consumes chunks of at most 10 ms and returns at most 4,096 frames at a time. Input reads and output buffering can delay the rate becoming audible; a successful control reply acknowledges the request, not its presentation.
+
+```mermaid
+flowchart LR
+  Source[Decoded source frames / media time] --> Segment[Tempo segment / captured rate]
+  Segment --> Output[Processed output frames / device time]
+  Output --> Tags[PCM with source position and actual rate]
+  Tags --> Callback[Callback presentation timeline]
+  Callback --> Observed[Observed source position and rate]
+```
+
+Positions, seeks, and duration use source media time. At 2.0, four seconds of source audio produce about two seconds of device audio. Each frame carries its source cursor and segment rate. Snapshots publish that rate when the corresponding audio is estimated to have played. A completion marker only advances position/completion and preserves the last presented rate, including a short clip ending within one callback or a seek directly to the end. Before any audio is presented, the observed rate starts at 1.0. Seeking resets the processor and generation while retaining the latest requested rate; output recovery uses the same reset at the last presented cursor.
 
 ## Position and completion
 
@@ -71,14 +89,14 @@ The desktop verification script also runs this check. Ordinary workspace builds 
 
 The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Opus explicitly returns unsupported until fallback exists.
 
-The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
+The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery at 2.0. Tempo checks measure preserved pitch and output duration, source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
 
-Vendor diagnostics are suppressed only around Symphonia calls because malformed media can enter its log messages. Hito retains safe decoder readiness, seek, output, recovery, failure, and cleanup events. Player spans use a process-local audio ID. No media bytes or private paths enter those events.
+Vendor diagnostics are suppressed only around Symphonia calls because malformed media can enter its log messages. Hito retains safe decoder readiness, seek, speed requests, tempo transitions, output, recovery, failure, and cleanup events. Player spans use a process-local audio ID. No media bytes or private paths enter those events.
 
 ## Remaining integration
 
-The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. Native speed, resampling, FFmpeg fallback, gapless, and platform/hardware acceptance remain unfinished.
+The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. Saved-position loading, resampling, FFmpeg fallback, gapless, and platform/hardware acceptance remain unfinished.
 
-FFmpeg fallback, resampling, channel conversion, pitch-preserving speed, gapless preparation, device selection/media controls, desktop integration, platform verification, and release latency targets remain unfinished. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+FFmpeg fallback, resampling, channel conversion, gapless preparation, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.
