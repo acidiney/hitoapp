@@ -1,0 +1,84 @@
+# Native audio engine
+
+`hito-audio` decodes an owned file with Symphonia and, with its `device` feature, sends PCM through CPAL. It is an engine boundary under development. The Tauri application still uses its browser player. Native queues, source recovery, session ownership, and UI commands have not been connected to this crate.
+
+## Ownership
+
+The engine accepts `std::fs::File`, not a path, URL, account string, or renderer-supplied authority. It cannot open another file or make a network request. A future playback coordinator must obtain audio through core's catalog and supervise live session and source access. `Actor` and an opened file alone do not provide revocation.
+
+```mermaid
+flowchart LR
+  Catalog[Core catalog / authorized owned file] -. planned integration .-> Coordinator[Planned Rust queue and source coordinator]
+  Coordinator -. owned input .-> Player[hito-audio Player]
+  Player --> Decoder[Owned decoder worker / Symphonia]
+  Decoder --> PCM[Bounded 100 ms PCM ring / generation tags and end marker]
+  PCM --> Render[CPAL callback / fixed presentation queue]
+  Render --> Device[Native output device]
+  Render --> State[Atomic position, completion and failure state]
+  State --> Player
+  Player --> Join[Close or Drop / stop and join worker, release output]
+```
+
+`Decoder` exposes the actual decoded sample rate and channel count, interleaved float samples, seeking, and interruptible packet scanning. It preserves high-resolution samples. It rejects nonfinite PCM and changes in rate or channel count during a stream. Public errors contain static categories.
+
+`Player` opens one input, starts paused, and owns resume, pause, seek, volume, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The future coordinator must call them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
+
+The output starts with silence and waits for two callbacks before returning readiness. This primes the device before application audio. Device selection requests a 20 ms period within its advertised bounds; the negotiated callback size may differ. Output currently requires the source's exact rate and one or two channels, with float32, signed 16-bit, or unsigned 16-bit samples. No resampling or channel conversion is implemented yet.
+
+The PCM ring holds 100 ms of frames. The callback performs no allocation, locking, decoding, filesystem access, networking, or logging. Its fixed presentation queue holds at most 1,024 points. Overflow becomes a typed output failure. Stale-frame work is bounded by ring capacity for each callback.
+
+## Position and completion
+
+Decoder read-ahead does not advance playback position. The callback schedules source positions and the ordered end marker against CPAL's playback timestamps. Consecutive buffers cannot overlap, including the initial silent buffers. Later callbacks publish points after their estimated presentation time. Completion therefore follows the final marker rather than an empty producer observation.
+
+This is an estimate from the selected backend's clock, not proof of physical speaker timing. The Linux monitor test verifies the emitted signal. Other drivers and platforms need their own acceptance checks.
+
+```mermaid
+sequenceDiagram
+  participant Owner as Player owner
+  participant Decode as Decoder worker
+  participant Ring as PCM ring
+  participant Device as CPAL callback and device
+  Owner->>Decode: Seek to requested position
+  Decode->>Decode: Reset decoder and increment generation
+  Decode->>Ring: New generation frames
+  Decode-->>Owner: Seek applied
+  Device->>Ring: Discard older frames, retain newer frames
+  Decode->>Ring: Ordered end marker after final sample
+  Device->>Device: Submit audio and schedule presentation
+  Device->>Owner: Publish position and completion after presentation time
+  Owner->>Decode: Stop
+  Decode->>Device: Release output stream
+  Decode->>Decode: Release decoder and input
+  Decode-->>Owner: Worker joined after cleanup
+```
+
+An ALSA underrun is recoverable. Its callback records a counter. The worker releases the broken stream, seeks to the last presented position, opens a fresh output stream and PCM ring, and acknowledges recovery. It allows at most three consecutive resets without 200 ms of playback progress. The output suppresses old queued audio until acknowledgment and resets its presentation timeline. Error handling is scoped to each stream so a fatal replacement error cannot disappear during recovery. Other device failures stop output and remain visible in snapshots. Full source failover belongs to the planned coordinator.
+
+Close and Drop request stop and join the worker. It releases the decoder, input, and output stream before the join returns. Packet scanning checks interruption between demuxed packets, including packets for other tracks. A blocked operating-system read or an internal container seek cannot be forcibly interrupted by this implementation. Real disconnected-drive behavior remains a release gate.
+
+## Verification
+
+After building the Docker tools images, run:
+
+```sh
+docker compose --profile tools build rust
+docker compose --profile desktop build desktop
+sh scripts/check-audio.sh
+```
+
+The desktop verification script also runs this check. Ordinary workspace builds keep CPAL disabled and need no ALSA development package.
+
+The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Opus explicitly returns unsupported until fallback exists.
+
+The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
+
+Vendor diagnostics are suppressed only around Symphonia calls because malformed media can enter its log messages. Hito retains safe decoder readiness, seek, output, recovery, failure, and cleanup events. Player spans use a process-local audio ID. No media bytes or private paths enter those events.
+
+## Remaining integration
+
+The next step is a Rust coordinator with authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and live session/source revocation. Its HTTP adapter must reuse server authentication and local process protection. React should send commands and render snapshots through a high-level player interface. Its browser implementation keeps the existing audio adapter.
+
+FFmpeg fallback, remote range input, resampling, channel conversion, pitch-preserving speed, gapless preparation, device selection/media controls, desktop integration, platform verification, and release latency targets remain unfinished. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+
+The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.

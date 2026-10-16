@@ -50,7 +50,7 @@ docker compose --profile tools run --rm node npm run build
 
 `./scripts/verify.sh` runs the full development check. See [development](docs/development.md) for the pinned Rust toolchain, editor setup, and generated API contracts.
 
-`./scripts/check-desktop.sh` builds the standalone Tauri development host and exercises its actual Linux WebView in Docker. It uses temporary local storage and synthetic audio. Native playback and installers are still in development. See [desktop ownership and limits](docs/desktop.md).
+`./scripts/check-desktop.sh` checks the native audio engine through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The UI still uses browser audio; native integration and installers remain in development. See [desktop ownership](docs/desktop.md) and [native audio limits](docs/native-audio.md).
 
 The browser test uses a separate server with temporary storage. It creates its own accounts and never changes the normal server database:
 
@@ -65,15 +65,16 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 
 ## Repository
 
-| Directory | Responsibility |
-| --- | --- |
-| `crates/hito-core` | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
-| `crates/hito-server` | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle |
-| `crates/hito-desktop` | Standalone local backend, private WebView access, application storage and exit lifecycle |
-| `crates/hito-plugin-sdk` | Apache-2.0 plugin manifest and capability contract |
-| `apps/web` | Shared React UI and browser playback implementation |
-| `scripts` | Deterministic audio fixtures |
-| `docs` | Architecture, API contracts, operations, release scope, and verification evidence |
+| Directory                | Responsibility                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `crates/hito-core`       | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
+| `crates/hito-server`     | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
+| `crates/hito-desktop`    | Standalone local backend, private WebView access, application storage and exit lifecycle                |
+| `crates/hito-audio`      | Owned-file decoding, optional native device output, transport controls and joined cleanup               |
+| `crates/hito-plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
+| `apps/web`               | Shared React UI and browser playback implementation                                                     |
+| `scripts`                | Deterministic audio fixtures                                                                            |
+| `docs`                   | Architecture, API contracts, operations, release scope, and verification evidence                       |
 
 See the actual [TODO checklist](TODO.md), [architecture](docs/architecture.md), [operations](docs/operations.md), [API](docs/api.md), and [implementation status](docs/status.md).
 

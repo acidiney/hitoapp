@@ -18,6 +18,8 @@ Media inspection logs cache reuse, verified evidence, unsupported profiles, comm
 
 The standalone desktop host writes structured JSON to stderr. Events cover startup, private window bootstrap, access/navigation rejection, backend readiness, interrupted-scan requeue, command cleanup, forced HTTP drain, and joined application shutdown. Bootstrap query rejection uses a static message before Axum can render or trace submitted fields. A TRACE regression checks private query sentinels and the ticket. Bootstrap tickets and process cookies must never be logged. Desktop file rotation and user-facing diagnostic export remain release work.
 
+The native audio engine adds decoder readiness, transport controls, output startup/cleanup, typed worker failures, and underrun recovery. Its spans use a process-local audio ID. Device callbacks update counters without logging. Vendor diagnostics are suppressed around Symphonia calls because unknown media chunks can otherwise enter logs. A trace-level regression retains Hito's readiness event while rejecting a media-byte sentinel.
+
 ## Browser
 
 The browser logs API outcomes, request IDs, user actions, navigation, scan state, and playback commands, source changes, recovery, and failures. Grid/list changes, settings sections, and expanded-player/queue visibility use debug events with static modes. Frequent events use debug. Browser logging uses the local developer console and sends no external telemetry. Set `localStorage["hito-log-level"]` to `debug`, `info`, `warn`, `error`, or `off`, then reload. The default is `info`.

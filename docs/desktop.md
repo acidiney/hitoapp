@@ -26,6 +26,8 @@ The local listener binds only `127.0.0.1` on an operating-system-assigned port. 
 
 The WebView loads the local application and denies navigation to another origin or opening new windows. The configuration grants no native IPC capabilities. Renderer input cannot select a filesystem path or impersonate an account through a native command. A future playback adapter must preserve those boundaries and authorize stable source IDs through the local account session.
 
+The separate [native audio engine](native-audio.md) now accepts owned files and controls decoding/output lifetime. It has no renderer routes and is not connected to this host yet. Its device verification is separate from the WebKit workflow below.
+
 ```mermaid
 sequenceDiagram
   participant User

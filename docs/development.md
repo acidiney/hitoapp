@@ -13,6 +13,8 @@ Browser fixtures live in `fixtures/e2e-generated`, distinct from development mus
 
 The standalone Tauri development host has a separate `desktop` Compose profile and Cargo target. Run `./scripts/check-desktop.sh` for GUI-feature checks and an isolated Linux WebView workflow. See [desktop ownership and remaining work](desktop.md).
 
+The desktop check also runs `scripts/check-audio.sh`. It decodes deterministic codec fixtures and measures CPAL output through a private clocked PulseAudio monitor. Run that script separately after building the Rust and desktop tools images to focus on the engine. The application still uses WebKit audio. See [native audio ownership and limits](native-audio.md).
+
 ## Rust editor support
 
 Local editors need the pinned toolchain to load build scripts and procedural macros. Rustup selects it automatically inside this repository. Install it without changing your global default:
