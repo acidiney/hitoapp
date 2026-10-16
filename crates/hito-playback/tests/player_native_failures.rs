@@ -121,6 +121,45 @@ async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_
     assert_eq!(f.server.requests("v1/audio").await.len(), 2);
     capture.after(capture.mark(), 0.1);
     assert!(capture::amplitude(&capture.recent(0.05), 440.) > 0.2);
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 3,
+                revision: 2,
+                action: PlayerAction::Pause {},
+            },
+        )
+        .await
+        .unwrap();
+    let previous = player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 4,
+                revision: 2,
+                action: PlayerAction::Previous {},
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(previous.revision, 2);
+    let current = player.inspect(&f.actor).await.unwrap().state.unwrap();
+    assert_eq!(current.current.unwrap().recording_id.to_string(), next.id);
+    assert!(!current.desired_playing);
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        position.wait_for(|p| p.seek_id == Some(previous.id)),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(f.server.requests("v1/sources").await.len(), 2);
+    assert_eq!(f.server.requests("v1/audio").await.len(), 2);
     owner.close().await.unwrap();
 }
 

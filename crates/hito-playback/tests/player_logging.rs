@@ -187,6 +187,20 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .with_subscriber(dispatch.clone())
         .await
         .unwrap();
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 2,
+                revision: 1,
+                action: PlayerAction::Resume {},
+            },
+        )
+        .with_subscriber(dispatch.clone())
+        .await
+        .unwrap();
     let mut state = player
         .subscribe(&f.actor, attached.lease)
         .with_subscriber(dispatch.clone())
@@ -194,7 +208,7 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .unwrap();
     tokio::time::timeout(
         std::time::Duration::from_secs(3),
-        state.wait_for(|state| state.phase == hito_playback::PlayerPhase::Ready),
+        state.wait_for(|state| state.phase == hito_playback::PlayerPhase::Ready && state.playing),
     )
     .await
     .unwrap()
@@ -211,6 +225,13 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .expect("native transitions need workflow logs");
     assert!(transition["span"]["player_owner"].is_number());
     assert!(transition["fields"]["selection"].is_number());
+    let played = events
+        .iter()
+        .find(|event| event["fields"]["event"] == "player_entry_played")
+        .expect("played occurrences need workflow logs");
+    assert!(played["span"]["player_owner"].is_number());
+    assert_eq!(played["fields"]["retained"], 1);
+    assert!(Uuid::parse_str(played["fields"]["entry_id"].as_str().unwrap()).is_ok());
     assert!(logs.contains("native_session_finished"));
     assert!(logs.contains("audio_player_closed"));
     assert!(logs.contains("player_owner_closed"));
