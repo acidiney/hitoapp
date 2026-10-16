@@ -233,9 +233,28 @@ try {
       ),
     "Rust-owned listening progress persistence",
   );
+  const paused = (await playerState()).state;
+  await click('button[aria-label="Previous track"]');
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return (
+      !state.playing &&
+      !state.desired_playing &&
+      state.phase === "ready" &&
+      (await uiPosition()) < 0.05 &&
+      silent()
+    );
+  }, "native Previous restarts without unpausing");
+  const returned = (await playerState()).state;
+  assert.equal(returned.current.id, paused.current.id);
+  assert.equal(returned.revision, paused.revision);
+  assert.equal(returned.selection, paused.selection);
   await click('.player button[aria-label="Play"]');
   await wait(
-    async () => (await playerState()).state.playing && audible(),
+    async () =>
+      (await playerState()).state.playing &&
+      (await uiPosition()) > 0.3 &&
+      audible(),
     "native resume and actual output",
   );
   execFileSync(
@@ -288,7 +307,7 @@ try {
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   console.log(
-    "Standalone Tauri setup, scan, native output, navigation, reload, pause/resume, progress, persistence and joined shutdown passed.",
+    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, pause/resume, progress, persistence and joined shutdown passed.",
   );
 } catch (error) {
   try {
