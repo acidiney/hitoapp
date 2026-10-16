@@ -54,7 +54,7 @@ async fn observe(request: Request, next: Next) -> Response {
     async move {
         let started = Instant::now();
         let response = next.run(request).await;
-        tracing::debug!(
+        tracing::info!(
             event = "youtube_request_complete",
             status = response.status().as_u16(),
             elapsed_ms = started.elapsed().as_millis() as u64

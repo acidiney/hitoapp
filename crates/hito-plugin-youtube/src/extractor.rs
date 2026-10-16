@@ -45,7 +45,7 @@ impl Extractor {
                 let result = run(executable, request.query, request.limit, sender.closed())
                     .await
                     .and_then(|bytes| normalize(&bytes, request.limit));
-                tracing::debug!(
+                tracing::info!(
                     event = "youtube_search_complete",
                     outcome = result
                         .as_ref()

@@ -10,6 +10,7 @@ use tower::ServiceExt;
 
 #[cfg(target_os = "linux")]
 mod lifecycle;
+mod logging;
 
 #[tokio::test]
 async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
