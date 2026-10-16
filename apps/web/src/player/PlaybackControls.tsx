@@ -13,6 +13,10 @@ import { usePlayer } from "./PlaybackProvider";
 export default function PlaybackControls() {
   const player = usePlayer();
   const state = useSyncExternalStore(player.subscribe, player.snapshot);
+  const position = useSyncExternalStore(
+    player.subscribePosition,
+    player.positionSnapshot,
+  );
   return (
     <div className="transport">
       <div className="transport-buttons">
@@ -60,18 +64,18 @@ export default function PlaybackControls() {
         </button>
       </div>
       <div className="seek">
-        <span>{time(state.position)}</span>
+        <span>{time(position.position)}</span>
         <input
           aria-label="Seek"
           type="range"
           min="0"
-          max={state.duration || 1}
+          max={position.duration || 1}
           step="0.1"
-          value={Math.min(state.position, state.duration || 0)}
+          value={Math.min(position.position, position.duration || 0)}
           disabled={!state.current}
           onChange={(event) => player.seek(+event.target.value)}
         />
-        <span>{time(state.duration)}</span>
+        <span>{time(position.duration)}</span>
       </div>
     </div>
   );

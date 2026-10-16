@@ -50,6 +50,8 @@ export class Playback {
     speed: 1,
   };
   private listeners = new Set<() => void>();
+  private position = { position: 0, duration: 0 };
+  private positionListeners = new Set<() => void>();
   private sources: PlaybackSources | null = null;
   private generation = 0;
   private selection = 0;
@@ -125,6 +127,13 @@ export class Playback {
   }
 
   snapshot = () => this.state;
+  positionSnapshot = () => this.position;
+  subscribePosition = (listener: () => void) => {
+    this.positionListeners.add(listener);
+    return () => {
+      this.positionListeners.delete(listener);
+    };
+  };
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
@@ -132,8 +141,20 @@ export class Playback {
     };
   };
   private update(patch: Partial<PlaybackState>) {
+    const { position, duration, ...structure } = patch;
+    const moved =
+      (position !== undefined && position !== this.position.position) ||
+      (duration !== undefined && duration !== this.position.duration);
     this.state = { ...this.state, ...patch };
-    this.listeners.forEach((listener) => listener());
+    if (moved) {
+      this.position = {
+        position: this.state.position,
+        duration: this.state.duration,
+      };
+      this.positionListeners.forEach((listener) => listener());
+    }
+    if (Object.keys(structure).length)
+      this.listeners.forEach((listener) => listener());
   }
 
   setRecordingField(
