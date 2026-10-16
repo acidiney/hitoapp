@@ -1,0 +1,17 @@
+services:
+  rust:
+    image: hito-rust:latest
+    environment:
+      CARGO_TARGET_DIR: /build/plugin-folder-target
+      CARGO_INCREMENTAL: "0"
+      CARGO_BUILD_JOBS: "2"
+volumes:
+  cargo-registry:
+    external: true
+    name: hito_cargo-registry
+  cargo-git:
+    external: true
+    name: hito_cargo-git
+  rust-target:
+    external: true
+    name: hito_rust-target

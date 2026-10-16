@@ -1,0 +1,33 @@
+services:
+  plugin-folder-e2e-server:
+    profiles: [e2e]
+    image: hito-e2e-server:latest
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/plugin-folder-e2e.db
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700
+      - /music:uid=10001,gid=10001,mode=0700
+    depends_on:
+      plugin-folder:
+        condition: service_healthy
+  plugin-folder-browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    working_dir: /workspace/apps/web
+    volumes:
+      - .:/workspace
+      - plugin-folder-node-modules:/workspace/apps/web/node_modules
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+    network_mode: service:plugin-folder-e2e-server
+    depends_on:
+      plugin-folder-e2e-server:
+        condition: service_healthy
+    command: ["sh", "-c", "npx tsc -p /workspace/scripts/plugins/tsconfig.e2e.json && npx playwright test --config /workspace/scripts/plugins/playwright.config.ts"]
+volumes:
+  plugin-folder-node-modules:
+    external: true
+    name: hito_node-modules
