@@ -2,6 +2,7 @@ use super::{Collection, PlaylistImportReceipt, import_persist, import_receipts};
 use crate::{Actor, Error, Result};
 use hito_plugin_sdk::{Capability, PlaylistDetailRequest};
 use serde::{Deserialize, Serialize};
+use sqlx::Connection;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -60,7 +61,12 @@ impl Collection {
         let snapshot = operation
             .playlist_snapshot(request.playlist_reference.clone())
             .await?;
-        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let mut connection = self.store.pool.acquire().await?;
+        tracing::debug!(
+            event = "playlist_import_write_started",
+            "Publishing provider playlist copy"
+        );
+        let mut tx = connection.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         if let Some(receipt) =
             import_receipts::lookup(&mut tx, actor.id(), request.request_id, &digest).await?

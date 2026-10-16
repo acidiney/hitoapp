@@ -1,5 +1,8 @@
 use crate::Result;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::{
+    Connection, TransactionManager,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteTransactionManager},
+};
 use std::{path::Path, time::Duration};
 
 #[derive(Clone)]
@@ -18,6 +21,20 @@ impl Store {
             .busy_timeout(Duration::from_secs(10));
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
+            .after_release(|connection, _| {
+                Box::pin(async move {
+                    connection.ping().await?;
+                    let reusable = SqliteTransactionManager::get_transaction_depth(connection) == 0;
+                    if !reusable {
+                        tracing::warn!(
+                            event = "sqlite_connection_discarded",
+                            reason = "open_transaction",
+                            "Discarding returned SQLite connection with an open transaction"
+                        );
+                    }
+                    Ok(reusable)
+                })
+            })
             .connect_with(options)
             .await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
