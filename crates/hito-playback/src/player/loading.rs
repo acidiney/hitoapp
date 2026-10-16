@@ -12,6 +12,7 @@ use uuid::Uuid;
 #[derive(Clone, Copy)]
 pub(super) struct Restoration {
     pub id: Uuid,
+    #[cfg_attr(not(feature = "device"), allow(dead_code))]
     pub position_ms: u64,
 }
 #[derive(Clone, Copy)]

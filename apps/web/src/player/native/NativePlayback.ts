@@ -23,6 +23,7 @@ function emptyView(): PlaybackView {
     speed: 1,
     volume: 1,
     connection: "connecting",
+    resumeFailed: false,
   };
 }
 
