@@ -1,7 +1,8 @@
 mod content;
 pub use content::{
-    AUDIO_PATH, DETAIL_PATH, ProviderRecording, ProviderRelease, ProviderSource, RecordingRequest,
-    SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
+    AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
+    ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
+    SourcePage,
 };
 
 use serde::{Deserialize, Serialize};

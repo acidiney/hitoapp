@@ -40,6 +40,18 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
             support::audio_bytes(grant.open_file().await.unwrap()),
             f.original
         );
+        let mut candidates = f
+            .services
+            .catalog
+            .playback_candidates(&f.actor, &f.recording)
+            .await
+            .unwrap();
+        let grant = candidates.next().await.unwrap().unwrap();
+        assert_eq!(
+            support::audio_bytes(grant.open_file().await.unwrap()),
+            f.original
+        );
+        assert!(candidates.next().await.unwrap().is_none());
     }
     f.services
         .identity

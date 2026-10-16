@@ -95,6 +95,10 @@ impl Catalog {
 }
 
 impl PlaybackSource {
+    pub fn source_id(&self) -> &str {
+        &self.source
+    }
+
     pub fn is_local(&self) -> bool {
         matches!(self.binding, Binding::Local(_))
     }

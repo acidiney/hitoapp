@@ -14,6 +14,16 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
         .preferred_playback_source(&f.actor, &f.source.recording_id)
         .await
         .unwrap();
+    let mut candidates = f
+        .hito
+        .catalog
+        .playback_candidates(&f.actor, &f.source.recording_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        candidates.next().await.unwrap().unwrap().source_id(),
+        f.source.id
+    );
     assert!(!grant.is_local());
     let opened = grant.open(Default::default()).await.unwrap();
     let hito_core::OpenedAudio::Content(mut content) = opened else {
@@ -34,6 +44,7 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
         .refresh_sources(&f.actor, &f.source.recording_id)
         .await
         .unwrap();
+    assert!(candidates.next().await.unwrap().is_none());
     assert!(matches!(
         f.hito
             .catalog

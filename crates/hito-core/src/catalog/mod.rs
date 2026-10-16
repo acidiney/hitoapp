@@ -3,6 +3,8 @@ mod artwork;
 mod audio;
 mod availability;
 mod browse;
+mod candidates;
+pub use candidates::PlaybackCandidates;
 mod media;
 mod playback;
 pub use playback::PlaybackSource;

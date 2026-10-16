@@ -5,6 +5,7 @@ pub const SEARCH_PATH: &str = "v1/search";
 pub const DETAIL_PATH: &str = "v1/recordings/detail";
 pub const SOURCES_PATH: &str = "v1/sources";
 pub const AUDIO_PATH: &str = "v1/audio";
+pub const MAX_SOURCES_PER_RECORDING: usize = 16;
 
 #[derive(Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
@@ -77,7 +78,7 @@ impl RecordingRequest {
 
 impl SourcePage {
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.items.len() > 16 {
+        if self.items.len() > MAX_SOURCES_PER_RECORDING {
             return Err("The provider returned too many sources");
         }
         let mut ids = HashSet::new();

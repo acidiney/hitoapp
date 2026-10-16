@@ -10,8 +10,8 @@ mod store;
 
 pub use catalog::{
     AdoptProviderRecording, Artist, ArtistDetail, Artwork, AudioContent, AudioFile, AudioRequest,
-    AudioStream, Browse, ByteRange, Catalog, OpenedAudio, Page, PlaybackSource, ProviderSearch,
-    Recording, Release, ReleaseDetail, ReleaseTrack, Search, Source,
+    AudioStream, Browse, ByteRange, Catalog, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
+    ProviderSearch, Recording, Release, ReleaseDetail, ReleaseTrack, Search, Source,
 };
 pub use collection::{
     Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
