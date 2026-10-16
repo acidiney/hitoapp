@@ -23,8 +23,10 @@ pub(super) struct ArtistPagination {
 
 pub async fn page(
     State(services): State<Services>,
-    Extension(config): Extension<Config>,
-    Extension(playback): Extension<crate::api::player::Playback>,
+    (Extension(config), Extension(playback)): (
+        Extension<Config>,
+        Extension<crate::api::player::Playback>,
+    ),
     OptionalAccount(actor): OptionalAccount,
     OriginalUri(uri): OriginalUri,
     headers: HeaderMap,
