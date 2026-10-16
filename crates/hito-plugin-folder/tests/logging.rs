@@ -66,9 +66,6 @@ async fn real_network_audio_keeps_scoped_logging_and_server_shutdown_releases_ow
         Some("private-network-title-sentinel"),
         440,
     );
-    let app = Folder::scan(directory.path()).unwrap().router();
-    let page = support::search(&app, "private-network-title-sentinel", None, 1).await;
-    let source_id = format!("source-{}", page.items[0].id);
     let logs = Capture::default();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::fmt()
@@ -77,6 +74,13 @@ async fn real_network_audio_keeps_scoped_logging_and_server_shutdown_releases_ow
         .with_writer(move || captured.clone())
         .finish();
     let dispatch = tracing::Dispatch::new(subscriber);
+    let app = tracing::dispatcher::with_default(&dispatch, || {
+        Folder::scan(directory.path()).unwrap().router()
+    });
+    let page = support::search(&app, "private-network-title-sentinel", None, 1)
+        .with_subscriber(dispatch.clone())
+        .await;
+    let source_id = format!("source-{}", page.items[0].id);
     let app = app.layer(axum::middleware::from_fn(
         move |request: axum::extract::Request, next: axum::middleware::Next| {
             let dispatch = dispatch.clone();
@@ -123,6 +127,7 @@ async fn real_network_audio_keeps_scoped_logging_and_server_shutdown_releases_ow
         .unwrap();
     assert!(tokio::net::TcpStream::connect(address).await.is_err());
     let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    assert!(output.contains("folder_scan_complete"));
     let entry: serde_json::Value = output
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
