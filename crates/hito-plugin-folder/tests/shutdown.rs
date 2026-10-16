@@ -1,4 +1,7 @@
 #![cfg(unix)]
+#[allow(dead_code)]
+#[path = "support/binary.rs"]
+mod binary;
 use hito_plugin_sdk::{SearchPage, SourcePage};
 use std::{
     fs::{self, File},
@@ -38,6 +41,8 @@ fn sigterm_drains_an_active_audio_response_and_joins_the_binary() {
     audio.write_all(&header).unwrap();
     audio.set_len(u64::from(size) + 44).unwrap();
     drop(audio);
+    let state = directory.path().join("state");
+    binary::initialize(&music, &state);
     let reservation = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = reservation.local_addr().unwrap();
     drop(reservation);
@@ -46,6 +51,8 @@ fn sigterm_drains_an_active_audio_response_and_joins_the_binary() {
     let child = Command::new(env!("CARGO_BIN_EXE_hito-plugin-folder"))
         .arg("--music")
         .arg(&music)
+        .arg("--state")
+        .arg(&state)
         .arg("--listen")
         .arg(address.to_string())
         .env("RUST_LOG", "trace")

@@ -26,22 +26,23 @@ pub(crate) async fn audio(
     let Ok(permit) = state.audio_slots.clone().try_acquire_owned() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    let Some(id) = request.source_id.strip_prefix("source-") else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
     let catalog = state.catalog.clone();
-    let id = id.to_owned();
+    let source = request.source_id;
     let Ok(file_permit) = state.file_slots.clone().try_acquire_owned() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     let opened = tokio::task::spawn_blocking(move || {
         let _file_permit = file_permit;
-        let track = catalog.tracks.get(&id)?;
-        Some((track.open().ok()?, track.stamp.size, track.mime, permit))
+        catalog
+            .open_source(&source, deadline)
+            .map(|opened| opened.map(|opened| (opened.file, opened.length, opened.mime, permit)))
     })
     .await;
-    let Ok(Some((file, total, mime, permit))) = opened else {
-        return StatusCode::NOT_FOUND.into_response();
+    let (file, total, mime, permit) = match opened {
+        Ok(Ok(Some(opened))) => opened,
+        Ok(Ok(None)) => return StatusCode::NOT_FOUND.into_response(),
+        _ => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
     };
     let mut first = 0;
     let mut length = total;

@@ -26,11 +26,15 @@ async fn main() {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let shutdown = shutdown_signal()?;
     let mut music = PathBuf::from("/demo");
+    let mut state = PathBuf::from("/state");
+    let mut initialize = false;
     let mut listen: SocketAddr = "127.0.0.1:8090".parse()?;
     let mut arguments = std::env::args_os().skip(1);
     while let Some(argument) = arguments.next() {
         match argument.to_str() {
             Some("--music") => music = arguments.next().ok_or("Missing folder")?.into(),
+            Some("--state") => state = arguments.next().ok_or("Missing state folder")?.into(),
+            Some("--initialize-state") => initialize = true,
             Some("--listen") => {
                 listen = arguments
                     .next()
@@ -38,10 +42,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .ok_or("Missing address")?
                     .parse()?
             }
-            _ => return Err("Use --music <folder> --listen <address>".into()),
+            _ => return Err("Invalid folder service arguments".into()),
         }
     }
-    let folder = tokio::task::spawn_blocking(move || Folder::scan(&music)).await??;
+    if initialize {
+        Folder::initialize(&music, &state).await?;
+        tracing::info!(event = "folder_state_initialized", outcome = "initialized");
+        return Ok(());
+    }
+    let folder = Folder::open(&music, &state).await?;
     let listener = tokio::net::TcpListener::bind(listen).await?;
     tracing::info!(
         event = "folder_service_ready",

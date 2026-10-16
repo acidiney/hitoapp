@@ -3,6 +3,7 @@ use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use hito_plugin_sdk::{
@@ -56,14 +57,14 @@ async fn search(
 async fn detail(
     State(state): State<Arc<HttpState>>,
     JsonBody(request): JsonBody<RecordingRequest>,
-) -> Result<Json<hito_plugin_sdk::ProviderRecording>, StatusCode> {
+) -> Result<Response, StatusCode> {
     let catalog = &state.catalog;
     request.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let track = catalog
-        .tracks
+    let recording = catalog
+        .retained
         .get(&request.recording_id)
         .ok_or(StatusCode::NOT_FOUND)?;
-    Ok(Json(track.recording()))
+    Ok(Json(recording).into_response())
 }
 async fn sources(
     State(state): State<Arc<HttpState>>,
@@ -71,33 +72,41 @@ async fn sources(
 ) -> Result<Json<SourcePage>, StatusCode> {
     let catalog = &state.catalog;
     request.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let track = catalog
-        .tracks
+    if !catalog.retained.contains_key(&request.recording_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let ids = catalog
+        .recording_sources
         .get(&request.recording_id)
-        .ok_or(StatusCode::NOT_FOUND)?;
-    let id = track.id.clone();
+        .cloned()
+        .unwrap_or_default();
+    if ids.is_empty() {
+        return Ok(Json(SourcePage { items: Vec::new() }));
+    }
     let owned = state.catalog.clone();
     let permit = state
         .file_slots
         .clone()
         .try_acquire_owned()
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let ready = tokio::task::spawn_blocking(move || {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let page = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        owned
-            .tracks
-            .get(&id)
-            .is_some_and(|track| track.open().is_ok())
+        let mut items = Vec::with_capacity(ids.len());
+        for id in ids {
+            let ready = owned.open_source(&id, deadline)?.is_some();
+            items.push(ProviderSource {
+                id,
+                label: "Original folder audio".into(),
+                ready,
+            });
+        }
+        Ok::<_, std::io::Error>(SourcePage { items })
     })
     .await
+    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
     .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    Ok(Json(SourcePage {
-        items: vec![ProviderSource {
-            id: track.source_id(),
-            label: "Original folder audio".into(),
-            ready,
-        }],
-    }))
+    Ok(Json(page))
 }
 
 async fn observe(
