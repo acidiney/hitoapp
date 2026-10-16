@@ -9,6 +9,8 @@ docker compose --profile tools run --rm node npm run build
 docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs --e2e
 docker compose --profile desktop run --rm desktop cargo clippy --locked -p hito-desktop --features gui --all-targets -- -D warnings
 docker compose --profile desktop run --rm desktop cargo test --locked -p hito-desktop --features gui
+sh scripts/run-audio-test.sh hito-desktop native_http
+sh scripts/run-audio-test.sh hito-desktop native_lifecycle
 docker compose --profile desktop run --rm desktop cargo build --locked -p hito-desktop --features gui
 docker compose --profile desktop run --rm desktop sh -c '
   mkdir -p /workspace/test-results/desktop
