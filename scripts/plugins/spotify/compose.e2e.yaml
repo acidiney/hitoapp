@@ -1,0 +1,35 @@
+services:
+  spotify-plugin-e2e-server:
+    profiles: [e2e]
+    image: hito-e2e-server:latest
+    user: "10001:10001"
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/spotify-e2e.db
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700
+      - /music:uid=10001,gid=10001,mode=0700
+    depends_on:
+      plugin-spotify:
+        condition: service_healthy
+  spotify-plugin-browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    working_dir: /workspace/apps/web
+    volumes:
+      - .:/workspace
+      - spotify-plugin-node-modules:/workspace/apps/web/node_modules
+    environment:
+      - HITO_SPOTIFY_TEST_PLAYLIST
+      - HITO_SPOTIFY_TEST_TRACKS
+    network_mode: service:spotify-plugin-e2e-server
+    depends_on:
+      spotify-plugin-e2e-server:
+        condition: service_healthy
+    command: ["sh", "-c", "npx tsc -p /workspace/scripts/plugins/spotify/tsconfig.e2e.json && npx playwright test --config /workspace/scripts/plugins/spotify/playwright.config.ts"]
+volumes:
+  spotify-plugin-node-modules:
+    external: true
+    name: hito_node-modules
