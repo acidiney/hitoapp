@@ -12,8 +12,12 @@ pub(crate) enum Error {
     Unauthorized,
     #[error("Spotify does not allow this account to read the playlist contents")]
     AccessDenied,
+    #[error("Spotify does not allow public access to this playlist")]
+    PublicAccessDenied,
     #[error("The Spotify playlist was not found")]
     NotFound,
+    #[error("This playlist snapshot is no longer available. Import the playlist again")]
+    SnapshotUnavailable,
     #[error("The Spotify service is busy. Try again later")]
     Busy,
     #[error("Spotify could not be reached")]
@@ -29,8 +33,9 @@ impl IntoResponse for Error {
         let status = match self {
             Self::InvalidRequest => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::AccessDenied => StatusCode::FORBIDDEN,
+            Self::AccessDenied | Self::PublicAccessDenied => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::SnapshotUnavailable => StatusCode::GONE,
             Self::Busy | Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::InvalidResponse => StatusCode::BAD_GATEWAY,
             Self::Deadline => StatusCode::GATEWAY_TIMEOUT,

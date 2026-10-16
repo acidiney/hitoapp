@@ -63,6 +63,7 @@ async fn inaccessible_playlist_contents_are_distinct_from_an_empty_playlist() {
         let plugin = Server::start(
             router(Config {
                 api_base: spotify.url.join("v1/").unwrap(),
+                ..Config::default()
             })
             .unwrap(),
         )

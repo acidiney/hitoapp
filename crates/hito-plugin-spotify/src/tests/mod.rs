@@ -1,6 +1,9 @@
 mod access;
 mod detail;
 mod logging;
+mod manifest;
+mod public_fixture;
+mod public_playlist;
 mod reference;
 
 use axum::Router;

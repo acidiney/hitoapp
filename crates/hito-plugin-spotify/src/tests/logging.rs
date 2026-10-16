@@ -83,6 +83,7 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
         .await;
         let app = router(Config {
             api_base: spotify.url.join("v1/").unwrap(),
+            ..Config::default()
         })
         .unwrap()
         .layer(axum::middleware::from_fn(

@@ -1,14 +1,18 @@
-use crate::{Config, InitError, client::Client, detail, error::Error};
+use crate::{Config, InitError, client::Client, detail, error::Error, public};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
     http::HeaderMap,
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
-use hito_plugin_sdk::{PlaylistDetailRequest, ProviderPlaylist};
+use hito_plugin_sdk::{
+    Capability, Manifest, PROTOCOL_VERSION, PlaylistDetailRequest, PlaylistItemsRequest,
+    PlaylistPage, ProviderPlaylist,
+};
 use std::{
+    collections::BTreeSet,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -18,20 +22,45 @@ use std::{
 use tracing::Instrument;
 
 pub fn router(config: Config) -> Result<Router, InitError> {
-    let client = Arc::new(Client::new(config)?);
+    let public = public::Client::new(&config)?;
+    let client = Arc::new(Clients {
+        api: Client::new(config)?,
+        public,
+    });
     Ok(Router::new()
+        .route("/v1/manifest", get(manifest))
         .route("/v1/playlists/detail", post(playlist_detail))
+        .route("/v1/playlists/items", post(playlist_items))
         .layer(DefaultBodyLimit::max(4096))
         .layer(from_fn(observe))
         .with_state(client))
 }
 
+struct Clients {
+    api: Client,
+    public: public::Client,
+}
+
+async fn manifest() -> Json<Manifest> {
+    Json(Manifest {
+        id: "org.hito.spotify".into(),
+        name: "Spotify public playlists".into(),
+        protocol_version: PROTOCOL_VERSION,
+        capabilities: BTreeSet::from([Capability::Playlists]),
+        authorization: None,
+    })
+}
+
 async fn playlist_detail(
-    State(client): State<Arc<Client>>,
+    State(client): State<Arc<Clients>>,
     headers: HeaderMap,
     payload: Result<Json<PlaylistDetailRequest>, JsonRejection>,
 ) -> Result<Json<ProviderPlaylist>, Error> {
     let values = headers.get_all("authorization");
+    if values.iter().next().is_none() {
+        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+        return client.public.read(request).await.map(Json);
+    }
     if values.iter().count() != 1 {
         return Err(Error::Unauthorized);
     }
@@ -47,14 +76,24 @@ async fn playlist_detail(
         })
         .ok_or(Error::Unauthorized)?;
     let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    detail::read(&client, token, request).await.map(Json)
+    detail::read(&client.api, token, request).await.map(Json)
+}
+
+async fn playlist_items(
+    State(client): State<Arc<Clients>>,
+    payload: Result<Json<PlaylistItemsRequest>, JsonRejection>,
+) -> Result<Json<PlaylistPage>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
+    client.public.items(request).map(Json)
 }
 
 async fn observe(request: Request, next: Next) -> Response {
     static SEQUENCE: AtomicU64 = AtomicU64::new(1);
     let request_id = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let operation = match request.uri().path() {
+        "/v1/manifest" => "manifest",
         "/v1/playlists/detail" => "playlist_detail",
+        "/v1/playlists/items" => "playlist_items",
         _ => "unknown",
     };
     let span = tracing::info_span!("spotify_request", request_id, operation);

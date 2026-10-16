@@ -43,6 +43,7 @@ async fn noncanonical_playlist_references_are_rejected_without_an_upstream_reque
     let plugin = Server::start(
         router(Config {
             api_base: spotify.url.join("v1/").unwrap(),
+            ..Config::default()
         })
         .unwrap(),
     )

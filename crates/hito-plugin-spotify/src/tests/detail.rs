@@ -43,6 +43,7 @@ async fn canonical_playlist_link_returns_current_spotify_metadata() {
     let plugin = Server::start(
         router(Config {
             api_base: spotify.url.join("v1/").unwrap(),
+            ..Config::default()
         })
         .unwrap(),
     )
