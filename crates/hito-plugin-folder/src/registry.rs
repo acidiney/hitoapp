@@ -28,8 +28,6 @@ impl Registry {
         let options = SqliteConnectOptions::new()
             .filename(claim.database_path())
             .create_if_missing(false)
-            .journal_mode(sqlx::sqlite::SqliteJournalMode::Delete)
-            .synchronous(sqlx::sqlite::SqliteSynchronous::Full)
             .busy_timeout(std::time::Duration::ZERO)
             .disable_statement_logging();
         let mut connection = SqliteConnection::connect_with(&options)
@@ -37,6 +35,14 @@ impl Registry {
             .map_err(database_error)?;
         let admitted = async {
             cancellation.check()?;
+            sqlx::query("PRAGMA journal_mode = DELETE")
+                .execute(&mut connection)
+                .await
+                .map_err(database_error)?;
+            sqlx::query("PRAGMA synchronous = FULL")
+                .execute(&mut connection)
+                .await
+                .map_err(database_error)?;
             let budget = PageBudget::configure(&mut connection).await?;
             let version = if !initialize {
                 let row = sqlx::query("SELECT version FROM registry WHERE singleton = 1")

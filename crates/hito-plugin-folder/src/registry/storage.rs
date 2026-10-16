@@ -3,6 +3,8 @@ use cap_std::fs::{Dir, OpenOptions};
 use sqlx::SqliteConnection;
 use std::{fs::File, io, path::Path};
 
+mod ancestry;
+
 const MAX_STATE_BYTES: u64 = 64 * 1024 * 1024;
 
 pub(super) struct PageBudget {
@@ -63,7 +65,7 @@ pub(crate) struct Claim {
 
 impl Claim {
     pub(super) fn database_path(&self) -> std::path::PathBuf {
-        database_path(&self.path, &self.directory)
+        self.path.join("identity.sqlite")
     }
     pub(super) fn check_database(&self) -> io::Result<()> {
         let file = self
@@ -89,21 +91,7 @@ impl Claim {
         Ok(file)
     }
     pub(super) fn acquire(path: &Path, initialize: bool) -> io::Result<Self> {
-        if initialize {
-            let mut builder = std::fs::DirBuilder::new();
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::DirBuilderExt;
-                builder.mode(0o700);
-            }
-            match builder.create(path) {
-                Ok(()) => {}
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
-                Err(error) => return Err(error),
-            }
-        }
-        let directory = crate::scan::open_root(path)?;
-        validate_private(&directory.try_clone()?.into_std_file().metadata()?, true)?;
+        let (directory, path) = ancestry::open(path, initialize)?;
         let mut options = private_options();
         options.read(true).write(true).create(true);
         let lock = directory.open_with("owner.lock", &options)?.into_std();
@@ -112,7 +100,7 @@ impl Claim {
             .map_err(|_| io::Error::other("Folder state is already owned"))?;
         let claim = Self {
             directory,
-            path: path.to_owned(),
+            path,
             _lock: lock,
         };
         if initialize {
@@ -152,17 +140,9 @@ fn validate_private(metadata: &std::fs::Metadata, directory: bool) -> io::Result
 }
 
 #[cfg(target_os = "linux")]
-fn database_path(path: &Path, directory: &Dir) -> std::path::PathBuf {
-    state_path(path, directory).join("identity.sqlite")
-}
-#[cfg(target_os = "linux")]
 fn state_path(_: &Path, directory: &Dir) -> std::path::PathBuf {
     use std::os::fd::AsRawFd;
     format!("/proc/self/fd/{}", directory.as_raw_fd()).into()
-}
-#[cfg(not(target_os = "linux"))]
-fn database_path(path: &Path, _: &Dir) -> std::path::PathBuf {
-    path.join("identity.sqlite")
 }
 #[cfg(not(target_os = "linux"))]
 fn state_path(path: &Path, _: &Dir) -> std::path::PathBuf {
