@@ -71,7 +71,7 @@ async fn ready_without_presented_progress_cannot_reset_repeat_failure_exclusions
             }),
         )
         .await
-        .is_ok();
+        .is_ok_and(|result| result.is_ok());
         if !ready {
             let snapshot = state.borrow().clone();
             let cursor = *position.borrow();
@@ -89,7 +89,7 @@ async fn ready_without_presented_progress_cannot_reset_repeat_failure_exclusions
         state.wait_for(|s| s.current.is_none()),
     )
     .await
-    .is_ok();
+    .is_ok_and(|result| result.is_ok());
     owner.close().await.unwrap();
     assert_eq!(
         starts,

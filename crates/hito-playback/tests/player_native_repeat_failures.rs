@@ -57,7 +57,7 @@ async fn repeat_modes_cannot_loop_an_unavailable_queue_and_repeat_all_checks_the
             state.wait_for(|state| state.current.is_none()),
         )
         .await
-        .is_ok();
+        .is_ok_and(|result| result.is_ok());
         owner.close().await.unwrap();
         assert!(
             ended,

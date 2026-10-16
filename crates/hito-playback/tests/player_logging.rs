@@ -221,6 +221,7 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
     .unwrap();
     let mut position = player
         .subscribe_position(&f.actor, attached.lease)
+        .with_subscriber(dispatch.clone())
         .await
         .unwrap();
     tokio::time::timeout(
