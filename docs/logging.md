@@ -24,6 +24,8 @@ The native playback owner adds input opening/ranges, cancellation, readiness, re
 
 Ordered recording selection logs only account ID and batch count. Retained-session validation uses trace events with safe error categories. Provider-source refresh emits debug events for cancellation before publication and write admission, followed by its existing safe completion or failure. It logs no source-page body or credentials. The SQLite publication fixture observes the write event under an account-scoped capture of the global subscriber.
 
+The in-process command/queue owner adds a numeric `player_owner` correlation, account and command IDs, intent sequence, static action names, accepted revision, request outcome, elapsed milliseconds, session withdrawal, and joined admission shutdown. Frequent requests use debug spans/events. Queue snapshots, metadata, lease values, and tokens are never logged. Its JSON capture test verifies correlation through the retained supervisor and rejects private title, lease, credential, and filesystem sentinels. This owner is not connected to native output or HTTP yet.
+
 ## Browser
 
 The browser logs API outcomes, request IDs, user actions, navigation, scan state, and playback commands, source changes, recovery, and failures. Grid/list changes, settings sections, and expanded-player/queue visibility use debug events with static modes. Frequent events use debug. Browser logging uses the local developer console and sends no external telemetry. Set `localStorage["hito-log-level"]` to `debug`, `info`, `warn`, `error`, or `off`, then reload. The default is `info`.

@@ -1,10 +1,10 @@
 # Native application coordination
 
-This is the selected design for connecting native playback to the desktop application. The coordinator, HTTP routes, and React adapter are not implemented yet. The current [native session](native-playback.md) owns one authorized input and device lifetime. Core now supplies ordered recording lookup, opaque session comparison, live session checks, transactional progress/refresh fencing, and cooperative refresh cancellation.
+`hito-playback::Player` now owns authenticated command admission and an in-memory queue. It does not yet drive audio. Native effects, progress persistence, HTTP routes, desktop lifecycle wiring, and the React adapter remain planned below. The existing [native session](native-playback.md) separately owns one authorized input and device lifetime.
 
 ## Public boundary
 
-The application will own one cloneable `Player` handle and a retained `PlayerOwner`. The handle accepts authenticated actors and high-level queue actions. The owner stops admission, requests silence, and joins native work and started writes. Renderer input consists of recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
+The cloneable `Player` handle accepts authenticated core actors and typed queue actions. A retained `PlayerOwner` joins the admission supervisor. At present, shutdown cancels read-only preparation and closes observation channels; it has no native session or started write to join. The application will retain this owner through audio cleanup and admitted transactions when those effects are connected. Renderer input will contain recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
 
 ```mermaid
 flowchart TB
@@ -12,9 +12,9 @@ flowchart TB
   Access[Desktop process cookie / Host and Origin policy] -. protects .-> HTTP
   HTTP -. optional Player handle .-> Admission[Bounded command admission / claims and revisions]
   Host[Retained desktop lifecycle / library claim] -. owns .-> Owner[PlayerOwner]
-  Owner -. supervises .-> Admission
-  Admission -. desired queue and controls .-> State[Private state for one authenticated session]
-  State -. stable IDs .-> Catalog[Concrete core Catalog]
+  Owner --> Admission
+  Admission --> State[Private state for one authenticated session]
+  State --> Catalog[Concrete core Catalog]
   State -. latest desired transport .-> Native[Owned native session / stop and join]
   State -. cancellation signal .-> Refresh[One retained source-refresh operation]
   State -. ordered checkpoints .-> Progress[One retained collection write]
@@ -23,27 +23,34 @@ flowchart TB
   Progress --> DB
 ```
 
-One retained supervisor owns claims, commands, and concrete core services. Device substitution can be added when a second implementation or deterministic scheduling test requires it. Actual CPAL fixtures remain the evidence for silence and native cleanup.
+Solid arrows show current command/queue ownership and core reads. Dashed arrows show unfinished application integration and effects. One retained supervisor owns claims, commands, and concrete core services. Device substitution can be added when a second implementation or deterministic scheduling test requires it. Actual CPAL fixtures remain the separate evidence for silence and native session cleanup.
 
-The planned operations are:
+The current Rust operations are:
 
 - Inspect the device epoch and return private state only for the matching authenticated session. Inspection never claims playback.
 - Claim using the observed epoch. Compare it at admission after authentication, rotate the command lease, and return an authoritative attachment. A stale claim fails without a blind retry.
-- Submit a typed command with the lease, a client sequence allocated at user intent, and the queue revision for relative edits. Commands never claim implicitly.
+- Submit a typed command with the lease, a client sequence allocated at user intent, and the current revision. Commands never claim implicitly.
 - Read or subscribe using the exact actor/session and lease. Old account subscriptions close before another account's state is published.
-- Stop and join through the retained lifecycle owner, independently of HTTP response observers.
+- Page queue metadata through a fresh core catalog lookup using the lease and expected revision.
+- Close the retained lifecycle owner. Dropping the owner also signals shutdown; the surrounding host must retain its runtime until cleanup finishes.
 
-Same-session attachment preserves the queue, desired controls, and accepted native work while rotating the command lease. A different login session begins empty, including another login for the same account. The old engine stops immediately and remains owned until joined. Device epoch, command lease, queue revision, selection generation, and native attempt identify different kinds of ordering; one counter cannot replace all of them.
+Same-session attachment preserves the queue and selection while rotating the command lease and closing previous observations. A different login session begins empty, including another login for the same account. Inspection returns no private state for a different session. A separate monitor checks retained session authority every 250 ms through core's one-second deadline. A failed check currently clears ownership and the queue, including a transient authority failure. Protected queue recovery across such failures remains work before release.
+
+Commands currently support Replace, Append, Select, Next, Move, Remove, and Clear. Each accepted command increments the revision. Selection has a separate generation: moving or appending keeps it, selecting or changing the current entry advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
+
+When native effects are connected, same-session attachment must also preserve desired controls and accepted native work. Changing sessions must stop the old engine immediately and retain it until joined. Device epoch, command lease, queue revision, selection generation, and native attempt identify different kinds of ordering; one counter cannot replace all of them.
 
 The native React adapter will serialize acceptance receipts for causal queue mutations. Receipts do not wait for decoding or playback. This permits Next to supersede an opening source while preserving Play-then-Next order. Repeated requests need bounded receipt replay so a lost response cannot apply Next twice. Existing discovery selection tickets must still prevent late adoption from replacing a newer intention.
 
 ## Queue and effect ownership
 
-Every occurrence receives its own stable entry ID, including duplicate recordings. Core resolves IDs with `Catalog::recordings_by_ids`. A lookup accepts at most 1,000 IDs, preserves order and duplicates, checks current session/membership, and returns account-effective metadata. It rejects an entire missing or inaccessible batch. That is a lookup batch limit, not a chosen final queue limit. Larger queues need bounded batching and paged presentation.
+Every occurrence receives its own stable entry ID, including duplicate recordings. The queue retains only entry and recording UUIDs. Structural snapshots contain counters and the current reference, without copied metadata or position ticks. Queue pages resolve metadata through `Catalog::recordings_by_ids`, preserving order, duplicates, account-effective fields, and current membership checks. A missing or inaccessible batch is rejected as a whole. Queue mutation admission checks session liveness and rechecks ownership and ordering after preparation.
 
-Move and remove address entry IDs. Moving the current entry preserves its engine. Removing it selects its successor. Canonical queue order stays separate from shuffle traversal and played history. Previous follows actual history. Repeat-one applies to natural completion; explicit navigation still advances. Automatic failure traversal visits eligible entries finitely, so repeat/shuffle cannot create an endless failure loop.
+Replace/Append accept at most 1,000 IDs each. The current queue limit is 100,000 entries; pages contain 1 to 1,000 entries. Admission retains at most 32 queued requests and one in-flight read-only preparation. Session checks have their own lane. Public fixtures exercise 100,000 queue occurrences of one owned recording, separate pages, input/capacity rejection, account transfer, and live metadata withdrawal. The separate core fixture directly seeds 100,000 recording rows in SQLite; it does not scan 100,000 audio files. Neither establishes release throughput or p95 latency.
 
-The supervisor keeps fixed work lanes selectable beside admission, authorization, cancellation, and shutdown:
+Move and remove address entry IDs. Moving preserves the current selection; removing it selects its successor or leaves no current entry at the end. Appending does not select or start an item. Previous, shuffle traversal, repeat, natural completion, and failure traversal remain unimplemented. They must follow actual played history, keep canonical order separate, apply repeat-one only to natural completion, and visit failed entries finitely.
+
+The remaining native supervisor will keep fixed effect lanes selectable beside the implemented admission, session monitoring, and shutdown:
 
 | Work | Ownership and bound |
 | --- | --- |
