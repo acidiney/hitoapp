@@ -1,0 +1,24 @@
+services:
+  plugin-spotify:
+    profiles: [plugins]
+    image: hito-plugin-spotify:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.plugin-spotify
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-spotify-public-${COMPOSE_PROJECT_NAME:-hito}
+    ports:
+      - "127.0.0.1:${HITO_SPOTIFY_PORT:-8092}:8092"
+    environment:
+      RUST_LOG: info
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
