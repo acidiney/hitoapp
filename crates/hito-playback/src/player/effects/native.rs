@@ -51,6 +51,11 @@ impl Native {
             if self.controls.busy() {
                 self.retire();
             }
+            if self.failed {
+                self.sources.reset(target.as_ref().map(|target| target.key));
+                self.failed = false;
+                tracing::debug!(event = "player_failed_seek_retry", command_id = %seek.id, "Retrying authorized input after an explicit seek");
+            }
             self.controls.request_seek(seek.position_ms);
         } else if target.as_ref().is_some_and(|next| {
             self.target
