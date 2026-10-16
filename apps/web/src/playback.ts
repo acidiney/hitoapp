@@ -1,13 +1,9 @@
-import type { Recording } from "./types";
+import type { PlaybackView, Player, QueueView, Track } from "./player/model";
+export type { Track } from "./player/model";
 import { log } from "./log";
 import { PlaybackSources, type SourceResolver } from "./playbackSources";
 export type { Source } from "./playbackSources";
 
-export type Track = Pick<
-  Recording,
-  "id" | "title" | "artist" | "duration_ms" | "available"
-> &
-  Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
 export interface MediaPort extends EventTarget {
   src: string;
   currentTime: number;
@@ -21,21 +17,21 @@ export interface MediaPort extends EventTarget {
   load(): void;
   removeAttribute(name: string): void;
 }
-export type PlaybackState = {
-  current: Track | null;
+export type PlaybackState = PlaybackView & {
   queue: Track[];
   index: number;
-  playing: boolean;
-  loading: boolean;
   position: number;
   duration: number;
-  error: string;
-  repeat: "off" | "all" | "one";
-  shuffle: boolean;
-  speed: number;
 };
 
-export class Playback {
+export class Playback implements Player {
+  readonly mode = "browser";
+  readonly supports = {
+    previous: true,
+    shuffle: true,
+    repeat: true,
+    speed: true,
+  };
   private state: PlaybackState = {
     current: null,
     queue: [],
@@ -48,6 +44,15 @@ export class Playback {
     repeat: "off",
     shuffle: false,
     speed: 1,
+    volume: 1,
+    connection: "ready",
+  };
+  private entryIds: string[] = [];
+  private queueView: QueueView = {
+    version: 0,
+    total: 0,
+    currentIndex: null,
+    currentEntry: null,
   };
   private listeners = new Set<() => void>();
   private position = { position: 0, duration: 0 };
@@ -127,6 +132,40 @@ export class Playback {
   }
 
   snapshot = () => this.state;
+  queueSnapshot = () => this.queueView;
+  async queuePage(offset: number, limit: number, signal?: AbortSignal) {
+    signal?.throwIfAborted();
+    if (
+      !Number.isInteger(offset) ||
+      offset < 0 ||
+      offset > this.state.queue.length ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 1000
+    )
+      throw new Error("The queue page is invalid.");
+    return {
+      version: this.queueView.version,
+      total: this.state.queue.length,
+      offset,
+      entries: this.state.queue
+        .slice(offset, offset + limit)
+        .map((recording, index) => ({
+          id: this.entryIds[offset + index],
+          recording,
+        })),
+    };
+  }
+  async selectEntry(entry: string) {
+    const index = this.entryIds.indexOf(entry);
+    if (index < 0) return;
+    this.failed.clear();
+    await this.open(index);
+  }
+  removeEntry(entry: string) {
+    const index = this.entryIds.indexOf(entry);
+    if (index >= 0) this.remove(index);
+  }
   positionSnapshot = () => this.position;
   subscribePosition = (listener: () => void) => {
     this.positionListeners.add(listener);
@@ -146,6 +185,15 @@ export class Playback {
       (position !== undefined && position !== this.position.position) ||
       (duration !== undefined && duration !== this.position.duration);
     this.state = { ...this.state, ...patch };
+    if (patch.queue !== undefined || patch.index !== undefined) {
+      const current = this.entryIds[this.state.index];
+      this.queueView = {
+        version: this.queueView.version + 1,
+        total: this.state.queue.length,
+        currentIndex: current ? this.state.index : null,
+        currentEntry: current ?? null,
+      };
+    }
     if (moved) {
       this.position = {
         position: this.state.position,
@@ -181,6 +229,7 @@ export class Playback {
   }
 
   async playQueue(queue: Track[], index = 0, position = 0) {
+    this.entryIds = queue.map(() => crypto.randomUUID());
     log.info("queue.play", {
       count: queue.length,
       index,
@@ -367,6 +416,7 @@ export class Playback {
   volume(value: number) {
     log.debug("playback.volume", { volume: value });
     this.media.volume = value;
+    this.update({ volume: value });
   }
   repeat() {
     log.info("queue.repeat", { mode: this.state.repeat });
@@ -409,6 +459,7 @@ export class Playback {
   remove(index: number) {
     log.info("queue.remove", { index });
     const queue = this.state.queue.filter((_, i) => i !== index);
+    this.entryIds.splice(index, 1);
     if (index === this.state.index) {
       this.update({ queue });
       void this.open(Math.min(index, queue.length - 1));
@@ -420,6 +471,7 @@ export class Playback {
       });
   }
   clear() {
+    this.entryIds = [];
     this.selection++;
     log.info("queue.clear", { count: this.state.queue.length });
     this.generation++;
