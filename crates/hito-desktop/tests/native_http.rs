@@ -97,15 +97,20 @@ async fn the_protected_desktop_api_drives_native_output_controls_progress_and_jo
         let observed = state.until(|state| state["repeat"] == mode).await;
         assert_eq!(observed["desired_playing"], false);
     }
-    app.command(lease, 10, 1, json!({"kind":"volume", "level":0}))
+    app.command(lease, 10, 1, json!({"kind":"speed", "rate":2000}))
         .await;
-    app.command(lease, 11, 1, json!({"kind":"resume"})).await;
+    state
+        .until(|state| state["speed"] == 2000 && state["desired_playing"] == false)
+        .await;
+    app.command(lease, 11, 1, json!({"kind":"volume", "level":0}))
+        .await;
+    app.command(lease, 12, 1, json!({"kind":"resume"})).await;
     state
         .until(|state| state["playing"] == true && state["volume"] == 0)
         .await;
     capture.after(capture.mark(), 0.2);
     assert!(capture::energy(&capture.recent(0.1)) < 0.000001);
-    app.command(lease, 12, 1, json!({"kind":"volume", "level":750}))
+    app.command(lease, 13, 1, json!({"kind":"volume", "level":750}))
         .await;
     capture.after(capture.mark(), 0.2);
     assert!(capture::energy(&capture.recent(0.1)) > 0.00001);

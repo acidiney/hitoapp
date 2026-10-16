@@ -31,6 +31,7 @@ sh scripts/run-audio-test.sh hito-playback player_native_refresh_supersession "$
 sh scripts/run-audio-test.sh hito-playback player_native_recovery_join "$@"
 sh scripts/run-audio-test.sh hito-playback player_native_seek "$@"
 sh scripts/run-audio-test.sh hito-playback player_native_volume "$@"
+sh scripts/run-audio-test.sh hito-playback player_native_speed "$@"
 sh scripts/run-audio-test.sh hito-playback player_native_seek_supersession "$@"
 sh scripts/run-audio-test.sh hito-playback player_native_seek_recovery "$@"
 sh scripts/run-audio-test.sh hito-playback player_native_seek_completion "$@"

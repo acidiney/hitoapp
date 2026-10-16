@@ -234,6 +234,16 @@ try {
     "Rust-owned listening progress persistence",
   );
   const paused = (await playerState()).state;
+  await execute(`
+    const control = document.querySelector('select[aria-label="Playback speed"]');
+    control.value = '1.5';
+    control.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  `);
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return state.speed === 1500 && !state.desired_playing && silent();
+  }, "native speed without unpausing");
   await click('button[aria-label="Shuffle"]');
   await click('button[aria-label="Repeat: off"]');
   await wait(async () => {
@@ -241,6 +251,7 @@ try {
     return (
       state.shuffle &&
       state.repeat === "all" &&
+      state.speed === 1500 &&
       !state.desired_playing &&
       silent()
     );
@@ -251,6 +262,7 @@ try {
     return (
       state.shuffle &&
       state.repeat === "all" &&
+      state.speed === 1500 &&
       !state.desired_playing &&
       silent() &&
       (await execute(
@@ -291,6 +303,10 @@ try {
       audible(),
     "native resume and actual output",
   );
+  await wait(
+    () => execute('return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200 && h.speed === 1.5))'),
+    "Rust-owned native speed and progress persistence",
+  );
   execFileSync(
     "import",
     [
@@ -329,7 +345,7 @@ try {
   assert.equal((await playerState()).state.queue_len, 0);
   assert.equal(
     await execute(
-      'return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200))',
+      'return fetch("/api/v1/activity").then(r=>r.json()).then(a=>a.history.some(h=>h.position_ms > 200 && h.speed === 1.5))',
     ),
     true,
   );
@@ -341,7 +357,7 @@ try {
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   console.log(
-    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, pause/resume, progress, persistence and joined shutdown passed.",
+    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, persistence and joined shutdown passed.",
   );
 } catch (error) {
   try {
