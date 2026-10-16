@@ -2,6 +2,7 @@
 set -eu
 
 docker compose --profile desktop build desktop
+sh ./scripts/check-audio.sh
 docker compose --profile tools run --rm node npm ci
 docker compose --profile tools run --rm node npm run build
 docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs --e2e
