@@ -5,6 +5,20 @@ on:
 permissions:
   contents: read
 jobs:
+  desktop-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Linux desktop in Docker
+        run: ./scripts/check-desktop.sh
+      - name: Upload desktop evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-evidence
+          path: test-results/desktop/
+          retention-days: 7
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
