@@ -12,6 +12,7 @@ use std::{
 
 pub(crate) struct Catalog {
     pub tracks: BTreeMap<String, Track>,
+    pub retained: BTreeMap<String, ProviderRecording>,
     pub observations: Vec<Track>,
     pub sources: BTreeMap<String, CurrentSource>,
     pub recording_sources: BTreeMap<String, Vec<String>>,

@@ -1,8 +1,10 @@
 use crate::catalog::Catalog;
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{Dir, OpenOptions};
+use futures_util::TryStreamExt;
+use hito_plugin_sdk::ProviderRecording;
 use sqlx::{ConnectOptions, Connection, Row, SqliteConnection, sqlite::SqliteConnectOptions};
-use std::{fs::File, io, path::Path, sync::Arc};
+use std::{collections::BTreeMap, fs::File, io, path::Path, sync::Arc};
 
 pub(crate) struct Registry {
     connection: SqliteConnection,
@@ -29,7 +31,11 @@ impl Registry {
             .directory
             .open_with("identity.sqlite", private_options().read(true))?
             .into_std();
-        validate_private(&file.metadata()?, false)?;
+        let metadata = file.metadata()?;
+        validate_private(&metadata, false)?;
+        if metadata.len() > 64 * 1024 * 1024 {
+            return Err(io::Error::other("Folder state file limit exceeded"));
+        }
         let filename = database_path(path, &claim.directory);
         let options = SqliteConnectOptions::new()
             .filename(filename)
@@ -121,6 +127,7 @@ impl Registry {
         if count > 10000 {
             return Err(io::Error::other("Folder state recording limit exceeded"));
         }
+        let retained = retained_metadata(&mut transaction).await?;
         let updated = sqlx::query("UPDATE registry SET generation = generation + 1 WHERE singleton = 1 AND generation < 9223372036854775807")
             .execute(&mut *transaction).await.map_err(database_error)?;
         if updated.rows_affected() != 1 {
@@ -134,6 +141,7 @@ impl Registry {
         let generation: i64 = row.get(1);
         transaction.commit().await.map_err(database_error)?;
         self.connection.close().await.map_err(database_error)?;
+        catalog.retained = retained;
         catalog.fingerprint = format!("{identity}-{generation}");
         catalog.claim = Some(self.claim);
         tracing::info!(
@@ -146,6 +154,39 @@ impl Registry {
     pub fn claim(&self) -> Arc<Claim> {
         self.claim.clone()
     }
+}
+
+async fn retained_metadata(
+    connection: &mut SqliteConnection,
+) -> io::Result<BTreeMap<String, ProviderRecording>> {
+    let bounds = sqlx::query("SELECT count(*), coalesce(sum(length(CAST(detail AS BLOB))), 0), coalesce(max(length(CAST(detail AS BLOB))), 0), coalesce(max(length(CAST(id AS BLOB))), 0) FROM recordings")
+        .fetch_one(&mut *connection).await.map_err(database_error)?;
+    let count: i64 = bounds.try_get(0).map_err(database_error)?;
+    let bytes: i64 = bounds.try_get(1).map_err(database_error)?;
+    let maximum: i64 = bounds.try_get(2).map_err(database_error)?;
+    let maximum_id: i64 = bounds.try_get(3).map_err(database_error)?;
+    if count > 10000 || bytes > 32 * 1024 * 1024 || maximum > 32768 || maximum_id > 256 {
+        return Err(io::Error::other("Folder retained metadata limit exceeded"));
+    }
+    let mut retained = BTreeMap::new();
+    let mut rows =
+        sqlx::query("SELECT id, detail FROM recordings ORDER BY id").fetch(&mut *connection);
+    while let Some(row) = rows.try_next().await.map_err(database_error)? {
+        let id: String = row.try_get(0).map_err(database_error)?;
+        let detail: String = row.try_get(1).map_err(database_error)?;
+        let recording: ProviderRecording = serde_json::from_str(&detail)
+            .map_err(|_| io::Error::other("Invalid retained folder metadata"))?;
+        recording
+            .validate()
+            .map_err(|_| io::Error::other("Invalid retained folder metadata"))?;
+        if recording.id != id {
+            return Err(io::Error::other(
+                "Folder retained recording binding changed",
+            ));
+        }
+        retained.insert(id, recording);
+    }
+    Ok(retained)
 }
 
 impl Claim {

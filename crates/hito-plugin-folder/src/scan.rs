@@ -113,6 +113,10 @@ fn scan_with_inspector(
     let mut catalog = Catalog {
         sources: BTreeMap::new(),
         recording_sources: BTreeMap::new(),
+        retained: tracks
+            .iter()
+            .map(|(id, track)| (id.clone(), track.recording()))
+            .collect(),
         tracks,
         observations,
         fingerprint: format!("{:x}", fingerprint.finalize()),

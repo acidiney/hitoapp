@@ -3,6 +3,7 @@ use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use hito_plugin_sdk::{
@@ -56,14 +57,14 @@ async fn search(
 async fn detail(
     State(state): State<Arc<HttpState>>,
     JsonBody(request): JsonBody<RecordingRequest>,
-) -> Result<Json<hito_plugin_sdk::ProviderRecording>, StatusCode> {
+) -> Result<Response, StatusCode> {
     let catalog = &state.catalog;
     request.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let track = catalog
-        .tracks
+    let recording = catalog
+        .retained
         .get(&request.recording_id)
         .ok_or(StatusCode::NOT_FOUND)?;
-    Ok(Json(track.recording()))
+    Ok(Json(recording).into_response())
 }
 async fn sources(
     State(state): State<Arc<HttpState>>,
@@ -71,7 +72,7 @@ async fn sources(
 ) -> Result<Json<SourcePage>, StatusCode> {
     let catalog = &state.catalog;
     request.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
-    if !catalog.tracks.contains_key(&request.recording_id) {
+    if !catalog.retained.contains_key(&request.recording_id) {
         return Err(StatusCode::NOT_FOUND);
     }
     let ids = catalog
@@ -79,6 +80,9 @@ async fn sources(
         .get(&request.recording_id)
         .cloned()
         .unwrap_or_default();
+    if ids.is_empty() {
+        return Ok(Json(SourcePage { items: Vec::new() }));
+    }
     let owned = state.catalog.clone();
     let permit = state
         .file_slots
