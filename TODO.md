@@ -69,6 +69,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; notify the user here when installation, discovery, adoption, playback, and seeking are verified.
 - [ ] Add playlist Import a copy and read-only Follow playlist.
 - [ ] Import Spotify playlists as editable Hito copies, preserving order, duplicate entries, Spotify identifiers, and metadata provenance; verify current Spotify authorization and API restrictions.
+- [ ] Follow Spotify playlists with a UI-configured hourly/daily refresh interval and persistent scheduled jobs; synchronize additions, removals, order, and duplicate occurrences while retaining stable entry IDs and the last good snapshot after failed or incomplete refreshes. Followed playlists stay read-only; imported copies stay independent and editable. Release unneeded download references without deleting originals or library records.
 - [ ] Play imported Spotify playlist tracks through the yt-dlp YouTube plugin, with visible unavailable tracks and review of uncertain matches rather than silent substitutions.
 - [ ] Add podcast RSS subscriptions, updates, progress, and downloads.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
