@@ -1,0 +1,199 @@
+mod owner;
+mod ownership;
+mod queue;
+mod types;
+use hito_core::Actor;
+use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::{
+    sync::{mpsc, oneshot, watch},
+    task::JoinHandle,
+};
+use tracing::{Instrument, instrument::WithSubscriber};
+pub use types::{
+    PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerInspection,
+    PlayerQueueEntry, PlayerQueuePage, PlayerReceipt, PlayerSnapshot,
+};
+use uuid::Uuid;
+
+type Result<T> = std::result::Result<T, PlayerError>;
+static NEXT_PLAYER: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Clone)]
+pub struct Player {
+    id: u64,
+    requests: mpsc::Sender<Request>,
+}
+
+pub struct PlayerOwner {
+    stop: Option<oneshot::Sender<()>>,
+    task: Option<JoinHandle<()>>,
+}
+
+enum Action {
+    Inspect,
+    Claim(Uuid),
+    Subscribe(Uuid),
+    Submit(PlayerCommand),
+    Queue {
+        lease: Uuid,
+        revision: u64,
+        offset: usize,
+        limit: usize,
+    },
+}
+enum Response {
+    Inspection(PlayerInspection),
+    Attachment(PlayerAttachment),
+    Observation(watch::Receiver<PlayerSnapshot>),
+    Receipt(PlayerReceipt),
+    Queue(PlayerQueuePage),
+}
+struct Request {
+    actor: Actor,
+    action: Action,
+    reply: oneshot::Sender<Result<Response>>,
+    span: tracing::Span,
+    started: std::time::Instant,
+}
+
+impl Player {
+    #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
+    pub fn start(services: hito_core::Services) -> (Self, PlayerOwner) {
+        let id = NEXT_PLAYER.fetch_add(1, Ordering::Relaxed);
+        tracing::Span::current().record("player_owner", id);
+        let (requests, received) = mpsc::channel(32);
+        let (stop, stopped) = oneshot::channel();
+        let task = tokio::spawn(
+            owner::run(services, received, stopped)
+                .instrument(tracing::Span::current())
+                .with_current_subscriber(),
+        );
+        (
+            Self { id, requests },
+            PlayerOwner {
+                stop: Some(stop),
+                task: Some(task),
+            },
+        )
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    pub async fn inspect(&self, actor: &Actor) -> Result<PlayerInspection> {
+        match self.request(actor, Action::Inspect).await? {
+            Response::Inspection(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    pub async fn claim(&self, actor: &Actor, epoch: Uuid) -> Result<PlayerAttachment> {
+        match self.request(actor, Action::Claim(epoch)).await? {
+            Response::Attachment(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    pub async fn subscribe(
+        &self,
+        actor: &Actor,
+        lease: Uuid,
+    ) -> Result<watch::Receiver<PlayerSnapshot>> {
+        match self.request(actor, Action::Subscribe(lease)).await? {
+            Response::Observation(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, command_id = %command.id, sequence = command.sequence, action = command.action.name()))]
+    pub async fn submit(&self, actor: &Actor, command: PlayerCommand) -> Result<PlayerReceipt> {
+        match &command.action {
+            PlayerAction::Append { recordings }
+                if recordings.is_empty() || recordings.len() > 1000 =>
+            {
+                return Err(PlayerError::Invalid);
+            }
+            PlayerAction::Replace { recordings, start }
+                if recordings.is_empty()
+                    || recordings.len() > 1000
+                    || *start >= recordings.len() =>
+            {
+                return Err(PlayerError::Invalid);
+            }
+            _ => (),
+        }
+        if command.sequence == 0 || command.sequence > 9_007_199_254_740_991 {
+            return Err(PlayerError::Invalid);
+        }
+        match self.request(actor, Action::Submit(command)).await? {
+            Response::Receipt(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, offset, limit))]
+    pub async fn queue(
+        &self,
+        actor: &Actor,
+        lease: Uuid,
+        revision: u64,
+        offset: usize,
+        limit: usize,
+    ) -> Result<PlayerQueuePage> {
+        if limit == 0 || limit > 1000 {
+            return Err(PlayerError::Invalid);
+        }
+        match self
+            .request(
+                actor,
+                Action::Queue {
+                    lease,
+                    revision,
+                    offset,
+                    limit,
+                },
+            )
+            .await?
+        {
+            Response::Queue(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    async fn request(&self, actor: &Actor, action: Action) -> Result<Response> {
+        let (reply, received) = oneshot::channel();
+        self.requests
+            .try_send(Request {
+                actor: actor.clone(),
+                action,
+                reply,
+                span: tracing::Span::current(),
+                started: std::time::Instant::now(),
+            })
+            .map_err(|error| match error {
+                mpsc::error::TrySendError::Full(_) => PlayerError::Busy,
+                mpsc::error::TrySendError::Closed(_) => PlayerError::Closed,
+            })?;
+        received.await.map_err(|_| PlayerError::Closed)?
+    }
+}
+
+impl PlayerOwner {
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn close(mut self) -> Result<()> {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+        if let Some(task) = self.task.take() {
+            task.await.map_err(|_| PlayerError::Closed)?;
+        }
+        Ok(())
+    }
+}
+impl Drop for PlayerOwner {
+    fn drop(&mut self) {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+    }
+}

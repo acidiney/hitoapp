@@ -1,7 +1,13 @@
 mod cancel;
+mod player;
 mod seeking;
 mod source;
 pub use cancel::SourceStop;
+pub use player::{
+    Player, PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError,
+    PlayerInspection, PlayerOwner, PlayerQueueEntry, PlayerQueuePage, PlayerReceipt,
+    PlayerSnapshot,
+};
 pub use source::Source;
 #[cfg(feature = "device")]
 mod session;
