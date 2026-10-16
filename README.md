@@ -50,7 +50,7 @@ docker compose --profile tools run --rm node npm run build
 
 `./scripts/verify.sh` runs the full development check. See [development](docs/development.md) for the pinned Rust toolchain, editor setup, and generated API contracts.
 
-`./scripts/check-desktop.sh` checks the native audio engine, authorized playback owner, and protected desktop HTTP workflows through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The UI still uses browser audio; its native adapter and installers remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md), and [engine limits](docs/native-audio.md).
+`./scripts/check-desktop.sh` checks the native audio engine, authorized playback owner, and protected desktop HTTP workflows through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The shared UI uses Rust playback in desktop and browser audio on the web. The WebView check verifies actual native output, reload without restarting playback, pause/resume, persisted progress, and joined shutdown. Installers and platform acceptance remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md), and [engine limits](docs/native-audio.md).
 
 The browser test uses a separate server with temporary storage. It creates its own accounts and never changes the normal server database:
 
@@ -73,7 +73,7 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 | `crates/hito-audio`      | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
 | `crates/hito-playback`   | Authenticated queues, authorized native playback, revocation, and joined cleanup               |
 | `crates/hito-plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
-| `apps/web`               | Shared React UI and browser playback implementation                                                     |
+| `apps/web`               | Shared React UI with browser and native player implementations                                                     |
 | `scripts`                | Deterministic audio fixtures                                                                            |
 | `docs`                   | Architecture, API contracts, operations, release scope, and verification evidence                       |
 

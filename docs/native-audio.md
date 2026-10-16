@@ -1,6 +1,6 @@
 # Native audio engine
 
-`hito-audio` decodes an owned input with Symphonia and, with its `device` feature, sends PCM through CPAL. The [native playback owner](native-playback.md) now supervises authorized local/provider input and session revocation around this engine. The Tauri application still uses its browser player. Native queues, source recovery, and UI commands have not been connected.
+`hito-audio` decodes an owned input with Symphonia and, with its `device` feature, sends PCM through CPAL. The [native playback owner](native-playback.md) now supervises authorized local/provider input and session revocation around this engine. The Tauri shared UI uses authenticated native commands and observations. Rust owns queues, source recovery, output, and listening progress; ordinary web sessions retain browser playback.
 
 ## Ownership
 
@@ -77,7 +77,7 @@ Vendor diagnostics are suppressed only around Symphonia calls because malformed 
 
 ## Remaining integration
 
-The next step is an application coordinator with authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. It must retain the native session through host shutdown. Its HTTP adapter must reuse server authentication and local process protection. React should send commands and render snapshots through a high-level player interface. Its browser implementation keeps the existing audio adapter.
+The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. Native speed, resampling, FFmpeg fallback, gapless, and platform/hardware acceptance remain unfinished.
 
 FFmpeg fallback, resampling, channel conversion, pitch-preserving speed, gapless preparation, device selection/media controls, desktop integration, platform verification, and release latency targets remain unfinished. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 

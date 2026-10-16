@@ -1,6 +1,6 @@
 # Playback access
 
-`Catalog::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. The [native playback owner](native-playback.md) now uses it for authorized input and output supervision. The desktop UI still uses browser audio and does not call this boundary yet.
+`Catalog::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. The [native playback owner](native-playback.md) now uses it for authorized input and output supervision. The desktop shared UI uses authenticated commands; its Rust queue owner calls this boundary. The renderer never receives the trusted grant or private locator.
 
 An authenticated `Actor` retains a private session fingerprint. It is neither serialized nor included in Debug output. Ordinary application requests still authenticate through the shared HTTP extractor. A long-running playback owner must retain the grant and supervise `revoked()` while starting, playing, paused, or draining buffered audio.
 
@@ -42,4 +42,4 @@ Migration 0023 adds durable identities beside existing library memberships. It b
 
 Public capability fixtures cover logout with a retained actor, idle expiry notification, cross-instance membership revoke/restore, exact recording/source and account isolation, folder reconnect/rescan, provider credential removal, pending-handshake cancellation, harmless refresh, capability withdrawal/restoration, and a populated upgrade. Tests use temporary SQLite and owned deterministic audio through Docker.
 
-`hito-playback` supplies bounded local/range input and supervision of actual CPAL output, with canceled-observer cleanup tests. The application queue/source coordinator, authenticated native commands/snapshots, account-switch fencing, progress persistence, host shutdown integration, and React integration remain unfinished. See [native playback ownership](native-playback.md) and the [release plan](release-plan.md).
+`hito-playback` supplies bounded local/range input and supervision of actual CPAL output, with canceled-observer cleanup tests. The application coordinator, authenticated native commands/observations, account-switch fencing, ordered progress, retained host shutdown, and shared React native client are implemented. Durable offline state, downloads, full native transport features, and release acceptance remain unfinished. See [native playback ownership](native-playback.md) and the [release plan](release-plan.md).
