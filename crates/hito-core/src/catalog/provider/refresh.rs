@@ -14,6 +14,7 @@ struct Binding {
 impl Catalog {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn refresh_sources(&self, actor: &Actor, recording: &str) -> Result<Vec<Source>> {
+        actor.check_session(&self.store).await?;
         let mut connection = self.store.pool.acquire().await?;
         recording_access(&mut connection, actor, recording).await?;
         let binding: Option<Binding> = sqlx::query_as(
@@ -41,6 +42,7 @@ impl Catalog {
             })
             .await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
         recording_access(&mut tx, actor, recording).await?;
         let ids = super::sources::replace(

@@ -6,6 +6,70 @@ use fixture::Fixture;
 use serde_json::json;
 
 #[tokio::test]
+async fn logout_fences_a_pending_refresh_commit_and_prevents_another_provider_request() {
+    let f = Fixture::start(
+        json!({"items":[{"id":"original/audio", "label":"Original", "ready":true}]}),
+    )
+    .await;
+    let session = f
+        .hito
+        .identity
+        .login(hito_core::Credentials {
+            username: "admin".into(),
+            password: "indexing test password".into(),
+        })
+        .await
+        .unwrap();
+    let actor = f.hito.identity.authenticate(&session.token).await.unwrap();
+    let before = f
+        .hito
+        .catalog
+        .sources(&f.actor, &f.recording.id)
+        .await
+        .unwrap();
+    f.server
+        .reply(
+            "v1/sources",
+            json!({"items":[{"id":"replacement/audio", "label":"Replacement", "ready":true}]}),
+        )
+        .await;
+    let gate = f.server.hold("v1/sources").await;
+    let pending = {
+        let catalog = f.hito.catalog.clone();
+        let actor = actor.clone();
+        let id = f.recording.id.clone();
+        tokio::spawn(async move { catalog.refresh_sources(&actor, &id).await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(3), gate.entered())
+        .await
+        .unwrap();
+    f.hito.identity.logout(&session.token).await.unwrap();
+    gate.release();
+    assert!(matches!(
+        pending.await.unwrap(),
+        Err(hito_core::Error::Unauthorized)
+    ));
+    let after = f
+        .hito
+        .catalog
+        .sources(&f.actor, &f.recording.id)
+        .await
+        .unwrap();
+    assert_eq!(after.len(), 1);
+    assert_eq!(after[0].id, before[0].id);
+    assert!(after[0].ready);
+    let count = f.server.requests("v1/sources").await.len();
+    assert!(matches!(
+        f.hito
+            .catalog
+            .refresh_sources(&actor, &f.recording.id)
+            .await,
+        Err(hito_core::Error::Unauthorized)
+    ));
+    assert_eq!(f.server.requests("v1/sources").await.len(), count);
+}
+
+#[tokio::test]
 async fn invalid_source_pages_preserve_the_last_accepted_sources_and_metadata() {
     let f = Fixture::start(
         json!({"items":[{"id":"original/audio", "label":"Original", "ready":true}]}),

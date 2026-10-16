@@ -24,6 +24,10 @@ impl std::fmt::Debug for Actor {
 }
 
 impl Actor {
+    pub fn same_session(&self, other: &Self) -> bool {
+        self.user.id == other.user.id && self.session_hash == other.session_hash
+    }
+
     pub fn user(&self) -> &User {
         &self.user
     }

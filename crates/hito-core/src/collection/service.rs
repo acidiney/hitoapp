@@ -29,6 +29,7 @@ async fn apply_batch(
     actor: &Actor,
     batch: SyncBatch,
 ) -> Result<SyncReceipt> {
+    actor.check_session_on(tx).await?;
     let mut acknowledged = Vec::with_capacity(batch.operations.len());
     for operation in batch.operations {
         let id = operation.id.to_string();

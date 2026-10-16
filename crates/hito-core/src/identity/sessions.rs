@@ -4,6 +4,18 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 impl Identity {
+    #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn check_session(&self, actor: &Actor) -> Result<()> {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            actor.check_session(&self.store),
+        )
+        .await
+        .unwrap_or(Err(Error::Upstream(
+            "Session authorization could not be checked in time",
+        )))
+    }
+
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn login(&self, credentials: Credentials) -> Result<AuthSession> {
         if credentials.password.len() > 1024 || credentials.username.len() > 64 {
@@ -69,8 +81,16 @@ impl Identity {
 
 impl Actor {
     pub(crate) async fn check_session(&self, store: &crate::Store) -> Result<()> {
+        self.check_session_on(&mut *store.pool.acquire().await?)
+            .await
+    }
+
+    pub(crate) async fn check_session_on(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> Result<()> {
         let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ? AND user_id = ? AND expires_at > unixepoch())")
-            .bind(&self.session_hash).bind(self.id()).fetch_one(&store.pool).await?;
+            .bind(&self.session_hash).bind(self.id()).fetch_one(connection).await?;
         if valid {
             Ok(())
         } else {
