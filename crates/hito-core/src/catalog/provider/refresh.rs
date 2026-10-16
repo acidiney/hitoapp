@@ -2,6 +2,8 @@ use super::Catalog;
 use crate::{Actor, Error, Result, Source, identity::recording_access, plugins::Operation};
 use hito_plugin_sdk::{Capability, RecordingRequest, SourcePage};
 
+mod playback;
+
 #[derive(sqlx::FromRow)]
 struct Binding {
     binding_id: String,
@@ -53,21 +55,6 @@ impl Catalog {
             },
             RefreshOutcome::Published => self.sources(actor, recording).await.map(Some),
         }
-    }
-
-    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub async fn refresh_playback_sources_until(
-        &self,
-        actor: &Actor,
-        recording: &str,
-        cancelled: impl std::future::Future<Output = ()> + Send,
-    ) -> Result<bool> {
-        tokio::pin!(cancelled);
-        Ok(!matches!(
-            self.refresh_state_until(actor, recording, cancelled.as_mut())
-                .await?,
-            RefreshOutcome::Canceled
-        ))
     }
 
     async fn refresh_state_until(

@@ -6,6 +6,9 @@ use hito_plugin_sdk::{
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod source_batch;
+pub(crate) use source_batch::SourceBatch;
+
 pub(super) struct Admission {
     _account: OwnedSemaphorePermit,
     _global: OwnedSemaphorePermit,
@@ -139,11 +142,21 @@ impl ControlClient {
         token: Option<&str>,
         request: &RecordingRequest,
     ) -> Result<SourcePage> {
+        let _admission = self.admit(account)?;
+        self.source_page(base_url, token, request).await
+    }
+
+    async fn source_page(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &RecordingRequest,
+    ) -> Result<SourcePage> {
         let body = serde_json::to_value(request)
             .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
+        let mut remaining = 32768;
         let sources: SourcePage = self
-            .exchange(
-                account,
+            .exchange_admitted(
                 base_url,
                 token,
                 Call {
@@ -151,6 +164,7 @@ impl ControlClient {
                     body: Some(body),
                     maximum: 32768,
                 },
+                &mut remaining,
             )
             .await?;
         sources

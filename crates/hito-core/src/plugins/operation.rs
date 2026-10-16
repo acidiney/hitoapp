@@ -23,6 +23,15 @@ pub(crate) struct Operation {
     audio_generation: i64,
 }
 impl Plugins {
+    pub(crate) async fn source_batch(
+        &self,
+        actor: &Actor,
+        bindings: usize,
+    ) -> Result<super::SourceBatch> {
+        actor.check_session(&self.store).await?;
+        self.remote.source_batch(actor.id(), bindings)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub(crate) async fn operation(
         &self,
@@ -157,6 +166,21 @@ impl Operation {
     pub(crate) async fn sources(&self, request: &RecordingRequest) -> Result<SourcePage> {
         self.remote
             .sources(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
+    pub(crate) async fn sources_in_batch(
+        &self,
+        batch: &super::SourceBatch,
+        request: &RecordingRequest,
+    ) -> Result<SourcePage> {
+        self.remote
+            .sources_in_batch(
+                batch,
                 &self.account,
                 &self.base_url,
                 self.token.as_deref().map(String::as_str),
