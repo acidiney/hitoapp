@@ -65,7 +65,7 @@ async fn pending_old_account_progress_never_changes_the_new_accounts_activity_or
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -123,7 +123,7 @@ async fn pending_old_account_progress_never_changes_the_new_accounts_activity_or
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

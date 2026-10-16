@@ -101,7 +101,7 @@ async fn cancelling_close_observation_retains_admitted_source_publication_until_
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

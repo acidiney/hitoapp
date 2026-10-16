@@ -38,7 +38,7 @@ async fn canceling_close_observation_keeps_admitted_progress_owned_until_commit_
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -96,7 +96,7 @@ async fn canceling_close_observation_keeps_admitted_progress_owned_until_commit_
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

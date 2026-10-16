@@ -105,7 +105,7 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
                     lease: attached.lease,
                     sequence,
                     revision: 1,
-                    action: PlayerAction::Next,
+                    action: PlayerAction::Next {},
                 }
             )
             .await,
@@ -124,9 +124,9 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
         .unwrap();
     assert_eq!(events.started()[1], first);
     for action in [
-        PlayerAction::Pause,
+        PlayerAction::Pause {},
         PlayerAction::Volume { level: 0 },
-        PlayerAction::Clear,
+        PlayerAction::Clear {},
     ] {
         player
             .submit(

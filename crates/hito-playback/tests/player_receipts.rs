@@ -72,7 +72,7 @@ async fn receipt_replay_is_bounded_and_cannot_cross_a_reattachment() {
         lease: attached.lease,
         sequence: 1,
         revision: 0,
-        action: PlayerAction::Clear,
+        action: PlayerAction::Clear {},
     };
     player.submit(&f.actor, first.clone()).await.unwrap();
     let mut last = first.clone();
@@ -82,7 +82,7 @@ async fn receipt_replay_is_bounded_and_cannot_cross_a_reattachment() {
             lease: attached.lease,
             sequence,
             revision: sequence - 1,
-            action: PlayerAction::Clear,
+            action: PlayerAction::Clear {},
         };
         player.submit(&f.actor, last.clone()).await.unwrap();
     }

@@ -80,7 +80,7 @@ async fn append_preserves_existing_entries_and_selection_while_select_and_clear_
                 lease,
                 sequence: 4,
                 revision: 3,
-                action: PlayerAction::Clear,
+                action: PlayerAction::Clear {},
             },
         )
         .await

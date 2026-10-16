@@ -99,7 +99,7 @@ async fn next_cancels_refresh_before_publication_and_late_provider_data_cannot_r
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -116,7 +116,7 @@ async fn next_cancels_refresh_before_publication_and_late_provider_data_cannot_r
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Next,
+                action: PlayerAction::Next {},
             },
         )
         .await

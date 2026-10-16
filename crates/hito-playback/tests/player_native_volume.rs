@@ -31,7 +31,7 @@ async fn volume_is_applied_before_start_and_survives_same_session_reattachment()
                 start: 0,
             },
         ),
-        (3, 1, PlayerAction::Resume),
+        (3, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(

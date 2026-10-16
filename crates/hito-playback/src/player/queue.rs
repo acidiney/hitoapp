@@ -35,7 +35,7 @@ impl Queue {
         let current = self.current_entry();
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
-            PlayerAction::Pause | PlayerAction::Volume { .. } => return Ok(()),
+            PlayerAction::Pause {} | PlayerAction::Volume { .. } => return Ok(()),
             PlayerAction::Seek { .. } => {
                 return if self.current.is_some() {
                     Ok(())
@@ -43,13 +43,13 @@ impl Queue {
                     Err(PlayerError::Invalid)
                 };
             }
-            PlayerAction::Resume => {
+            PlayerAction::Resume {} => {
                 if self.current.is_some() || self.entries.is_empty() {
                     return Ok(());
                 }
                 self.current = Some(0);
             }
-            PlayerAction::Clear => {
+            PlayerAction::Clear {} => {
                 self.entries.clear();
                 self.current = None;
             }
@@ -64,7 +64,7 @@ impl Queue {
                         recording_id,
                     }));
             }
-            PlayerAction::Next => {
+            PlayerAction::Next {} => {
                 self.current = self
                     .current
                     .filter(|index| *index + 1 < self.entries.len())

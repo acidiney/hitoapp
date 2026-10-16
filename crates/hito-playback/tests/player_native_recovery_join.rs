@@ -79,7 +79,7 @@ async fn a_completed_old_refresh_cannot_start_output_before_current_retirement_j
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Next,
+                action: PlayerAction::Next {},
             },
         )
         .await

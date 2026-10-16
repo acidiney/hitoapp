@@ -29,7 +29,7 @@ async fn a_failed_final_checkpoint_reports_storage_failure_after_output_and_obse
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(

@@ -134,12 +134,12 @@ pub struct PlayerCommand {
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlayerAction {
-    Resume,
-    Pause,
+    Resume {},
+    Pause {},
     Seek { position_ms: u64 },
     Volume { level: u16 },
-    Next,
-    Clear,
+    Next {},
+    Clear {},
     Append { recordings: Vec<Uuid> },
     Select { entry: Uuid },
     Move { entry: Uuid, before: Option<Uuid> },
@@ -149,12 +149,12 @@ pub enum PlayerAction {
 impl PlayerAction {
     pub(super) fn name(&self) -> &'static str {
         match self {
-            Self::Resume => "resume",
-            Self::Pause => "pause",
+            Self::Resume {} => "resume",
+            Self::Pause {} => "pause",
             Self::Seek { .. } => "seek",
             Self::Volume { .. } => "volume",
-            Self::Next => "next",
-            Self::Clear => "clear",
+            Self::Next {} => "next",
+            Self::Clear {} => "clear",
             Self::Append { .. } => "append",
             Self::Select { .. } => "select",
             Self::Move { .. } => "move",

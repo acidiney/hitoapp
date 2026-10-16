@@ -88,7 +88,7 @@ async fn relative_navigation_rejects_stale_revisions_and_delayed_sequences_and_n
         lease,
         sequence: 2,
         revision: 1,
-        action: PlayerAction::Next,
+        action: PlayerAction::Next {},
     };
     let accepted = player.submit(&f.actor, next.clone()).await.unwrap();
     assert_eq!(player.submit(&f.actor, next).await.unwrap(), accepted);
@@ -114,7 +114,7 @@ async fn relative_navigation_rejects_stale_revisions_and_delayed_sequences_and_n
                         lease,
                         sequence,
                         revision,
-                        action: PlayerAction::Next,
+                        action: PlayerAction::Next {},
                     }
                 )
                 .await,
@@ -133,7 +133,7 @@ async fn relative_navigation_rejects_stale_revisions_and_delayed_sequences_and_n
                 lease,
                 sequence: 3,
                 revision: 2,
-                action: PlayerAction::Next,
+                action: PlayerAction::Next {},
             },
         )
         .await

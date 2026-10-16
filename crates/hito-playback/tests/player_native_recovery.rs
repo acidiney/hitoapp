@@ -59,7 +59,7 @@ async fn a_missing_first_copy_falls_back_to_another_verified_source_of_the_recor
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

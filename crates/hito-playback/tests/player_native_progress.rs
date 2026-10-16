@@ -25,7 +25,7 @@ async fn pause_and_zero_seek_persist_observed_progress_and_close_waits_for_the_f
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -61,7 +61,7 @@ async fn pause_and_zero_seek_persist_observed_progress_and_close_waits_for_the_f
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

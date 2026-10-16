@@ -52,7 +52,7 @@ async fn natural_completion_plays_the_next_occurrence_and_finishes_the_queue() {
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

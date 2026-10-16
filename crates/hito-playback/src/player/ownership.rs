@@ -21,8 +21,8 @@ impl State {
                 }
                 if matches!(
                     command.action,
-                    PlayerAction::Resume
-                        | PlayerAction::Pause
+                    PlayerAction::Resume {}
+                        | PlayerAction::Pause {}
                         | PlayerAction::Seek { .. }
                         | PlayerAction::Volume { .. }
                 ) && !self.native
@@ -130,7 +130,9 @@ impl State {
                 if !progress_ready
                     && !matches!(
                         command.action,
-                        PlayerAction::Pause | PlayerAction::Clear | PlayerAction::Volume { .. }
+                        PlayerAction::Pause {}
+                            | PlayerAction::Clear {}
+                            | PlayerAction::Volume { .. }
                     )
                 {
                     return Err(PlayerError::Busy);
@@ -138,11 +140,11 @@ impl State {
                 let owned = self.owner.as_mut().unwrap();
                 let before = owned.queue.snapshot().selection;
                 owned.queue.apply(command.action.clone())?;
-                if matches!(command.action, PlayerAction::Resume) {
+                if matches!(command.action, PlayerAction::Resume {}) {
                     owned.desired_playing = owned.queue.snapshot().current.is_some();
                     owned.play_revision += 1;
                 }
-                if matches!(command.action, PlayerAction::Pause) {
+                if matches!(command.action, PlayerAction::Pause {}) {
                     owned.desired_playing = false;
                 }
                 if let PlayerAction::Volume { level } = command.action {
@@ -243,7 +245,7 @@ impl State {
             });
         }
         if update.ended || (update.exhausted && owned.desired_playing) {
-            if owned.queue.apply(PlayerAction::Next).is_err() {
+            if owned.queue.apply(PlayerAction::Next {}).is_err() {
                 owned.error = Some(PlayerError::Invalid);
             }
             owned.selected(self.native);

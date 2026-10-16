@@ -41,7 +41,7 @@ async fn skipping_a_recording_saves_its_position_before_the_next_recording_finis
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -77,7 +77,7 @@ async fn skipping_a_recording_saves_its_position_before_the_next_recording_finis
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Next,
+                action: PlayerAction::Next {},
             },
         )
         .await

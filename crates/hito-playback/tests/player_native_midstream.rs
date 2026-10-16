@@ -44,7 +44,7 @@ async fn withdrawing_the_playing_copy_recovers_another_source_near_the_observed_
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -132,7 +132,7 @@ async fn withdrawing_a_paused_copy_recovers_without_starting_output() {
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -156,7 +156,7 @@ async fn withdrawing_a_paused_copy_recovers_without_starting_output() {
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

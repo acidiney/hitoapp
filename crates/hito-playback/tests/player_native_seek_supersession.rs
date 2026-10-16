@@ -43,7 +43,7 @@ async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -99,7 +99,7 @@ async fn pause_and_zero_seek_supersede_a_blocked_forward_seek_without_losing_the
                 lease: attached.lease,
                 sequence: 4,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

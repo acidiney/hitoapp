@@ -42,7 +42,7 @@ async fn a_failed_zero_seek_recovers_at_zero_instead_of_the_older_observed_posit
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -78,7 +78,7 @@ async fn a_failed_zero_seek_recovers_at_zero_instead_of_the_older_observed_posit
                 lease: attached.lease,
                 sequence: 3,
                 revision: 1,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await

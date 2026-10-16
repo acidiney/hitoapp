@@ -142,7 +142,7 @@ async fn a_queue_without_native_output_reports_its_capability_and_rejects_resume
                     lease: attached.lease,
                     sequence: 1,
                     revision: 0,
-                    action: PlayerAction::Resume,
+                    action: PlayerAction::Resume {},
                 }
             )
             .await,

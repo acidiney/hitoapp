@@ -77,7 +77,7 @@ async fn completion_before_the_first_playing_observation_still_saves_the_finishe
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

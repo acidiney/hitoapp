@@ -44,7 +44,7 @@ async fn authenticated_queue_commands_drive_actual_output_and_join_it_on_close()
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -102,7 +102,7 @@ async fn pause_preserves_position_and_reattachment_keeps_the_same_audio_selectio
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -126,7 +126,7 @@ async fn pause_preserves_position_and_reattachment_keeps_the_same_audio_selectio
                 lease: attached.lease,
                 sequence: 3,
                 revision: playing.revision,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await
@@ -161,7 +161,7 @@ async fn pause_preserves_position_and_reattachment_keeps_the_same_audio_selectio
                 lease: renewed.lease,
                 sequence: 1,
                 revision: paused.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

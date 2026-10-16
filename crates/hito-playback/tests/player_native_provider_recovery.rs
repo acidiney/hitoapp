@@ -54,7 +54,7 @@ async fn an_expired_provider_source_is_refreshed_once_and_can_reuse_the_same_sou
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

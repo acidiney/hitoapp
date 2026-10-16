@@ -87,7 +87,7 @@ async fn next_cancels_held_provider_startup_without_waiting_for_its_reply_or_lea
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -104,7 +104,7 @@ async fn next_cancels_held_provider_startup_without_waiting_for_its_reply_or_lea
                 lease: attached.lease,
                 sequence: 3,
                 revision: playing.revision,
-                action: PlayerAction::Next,
+                action: PlayerAction::Next {},
             },
         )
         .await
@@ -194,7 +194,7 @@ async fn close_joins_held_provider_startup_without_waiting_for_the_provider_resp
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

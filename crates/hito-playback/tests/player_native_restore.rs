@@ -54,7 +54,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -95,7 +95,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
                 lease: attached.lease,
                 sequence: 3,
                 revision: queued.revision,
-                action: PlayerAction::Pause,
+                action: PlayerAction::Pause {},
             },
         )
         .await
@@ -126,7 +126,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
                 lease: attached.lease,
                 sequence: 4,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

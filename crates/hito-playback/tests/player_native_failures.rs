@@ -92,7 +92,7 @@ async fn exhausted_cached_and_refreshed_sources_report_failure_and_continue_the_
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -164,7 +164,7 @@ async fn an_all_failed_queue_ends_after_one_cached_and_one_refreshed_pass_per_oc
                 lease: attached.lease,
                 sequence: 2,
                 revision: 1,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await

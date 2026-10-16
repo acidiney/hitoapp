@@ -39,7 +39,7 @@ async fn playing(f: &fixture::LocalPlayback, player: &Player) -> hito_playback::
                 lease: attached.lease,
                 sequence: 2,
                 revision: queued.revision,
-                action: PlayerAction::Resume,
+                action: PlayerAction::Resume {},
             },
         )
         .await
@@ -104,7 +104,7 @@ async fn another_login_claim_stops_old_output_and_closes_old_private_observation
                     lease: attached.lease,
                     sequence: 3,
                     revision: 1,
-                    action: PlayerAction::Resume,
+                    action: PlayerAction::Resume {},
                 }
             )
             .await,

@@ -44,7 +44,7 @@ async fn a_seek_accepted_as_audio_finishes_applies_without_stalling_or_advancing
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(

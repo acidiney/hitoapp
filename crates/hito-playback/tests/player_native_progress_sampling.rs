@@ -26,7 +26,7 @@ async fn continuous_playback_coalesces_position_ticks_and_saves_periodic_progres
                 start: 0,
             },
         ),
-        (2, 1, PlayerAction::Resume),
+        (2, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
