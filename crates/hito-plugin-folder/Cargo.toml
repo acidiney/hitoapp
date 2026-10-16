@@ -1,0 +1,27 @@
+[package]
+name = "hito-plugin-folder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+lofty.workspace = true
+cap-std.workspace = true
+cap-fs-ext.workspace = true
+libc = "0.2"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio-util.workspace = true
+futures-util.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tower.workspace = true
+http-body-util.workspace = true
