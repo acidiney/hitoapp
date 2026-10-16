@@ -5931,7 +5931,8 @@
           "opening",
           "ready",
           "releasing",
-          "failed"
+          "failed",
+          "suspended"
         ]
       },
       "PlayerPosition": {

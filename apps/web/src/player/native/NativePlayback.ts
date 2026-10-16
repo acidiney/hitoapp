@@ -25,13 +25,15 @@ function emptyView(): PlaybackView {
 }
 
 function playbackError(value: Snapshot | null) {
-  return value?.persistence_error
-    ? "Listening progress could not be saved. Hito will retry."
-    : value?.error
-      ? "Audio could not be played. Try selecting the track again."
-      : value?.last_failure
-        ? "Audio was unavailable for a queued track."
-        : "";
+  return value?.phase === "suspended"
+    ? "Playback paused while Hito checks access. Your queue is unchanged."
+    : value?.persistence_error
+      ? "Listening progress could not be saved. Hito will retry."
+      : value?.error
+        ? "Audio could not be played. Try selecting the track again."
+        : value?.last_failure
+          ? "Audio was unavailable for a queued track."
+          : "";
 }
 
 export class NativePlayback implements Player {

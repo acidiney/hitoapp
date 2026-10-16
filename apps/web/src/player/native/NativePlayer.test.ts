@@ -17,6 +17,49 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test("native authority suspension explains stopped output and retains the progress warning after recovery", async () => {
+  const service = nativeService();
+  Object.assign(service.state, {
+    revision: 1,
+    selection: 1,
+    queue_len: 1,
+    current_index: 0,
+    current: { id: "entry-0", recording_id: "recording-0" },
+    phase: "suspended",
+    desired_playing: true,
+    error: "unavailable",
+    persistence_error: "persistence",
+  });
+  render(
+    createElement(PlaybackProvider, {
+      account: "alice",
+      native: true,
+      children: createElement(PlayerDock),
+    }),
+  );
+  await vi.waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain(
+      "Playback paused while Hito checks access. Your queue is unchanged.",
+    ),
+  );
+  await act(async () => {
+    Object.assign(service.state, {
+      phase: "ready",
+      desired_playing: false,
+      error: null,
+    });
+    service.emit("state", service.state);
+  });
+  await vi.waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain(
+      "Listening progress could not be saved",
+    ),
+  );
+  expect(service.claims).toBe(1);
+  expect(service.commands).toHaveLength(0);
+  expect(document.querySelectorAll("audio")).toHaveLength(0);
+});
+
 test.each(["delayed", "failed"])(
   "native transport stays available with %s metadata",
   async (outcome) => {

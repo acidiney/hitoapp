@@ -1229,7 +1229,7 @@ export interface components {
             lease: string;
         };
         /** @enum {string} */
-        PlayerPhase: "idle" | "resolving" | "opening" | "ready" | "releasing" | "failed";
+        PlayerPhase: "idle" | "resolving" | "opening" | "ready" | "releasing" | "failed" | "suspended";
         PlayerPosition: {
             /** Format: int64 */
             duration_ms?: number | null;
