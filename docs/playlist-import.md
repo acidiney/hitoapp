@@ -1,0 +1,86 @@
+# Playlist import
+
+Import a copy is implemented in the isolated integration source with real SQLite and loopback-provider fixtures. Its HTTP route, generated contracts and React workflow are present. It is not deployed to the normal development server or accepted as a completed release feature. Current evidence and remaining gates are in [status](status.md).
+
+## An independent editable copy
+
+The Playlists page offers import for personally connected services whose accepted manifest declares `playlists`. The listener chooses a service and supplies a playlist link or identifier. Hito creates a local editable playlist; later provider changes do not update it. The current music-folder plugin declares only `search` and `sources`, so it is not a playlist-import provider.
+
+Import copies track details, order and provenance, without downloading audio. A known recording gets a real Hito recording ID. Repeated occurrences share that recording but have distinct stable playlist-entry UUIDs. An unavailable or unknown provider item remains an ordered entry with explicit origin and no fabricated recording ID. Retained rows display the available provider text or a neutral label, show a dash for unknown duration, and offer entry removal rather than recording actions.
+
+Playlist detail retains the provider identity, canonical playlist ID, snapshot, accepted connection/service revisions, attribution and import time after connection removal. Each occurrence retains its supplied provider recording/occurrence IDs and kind. Real recordings still follow library permissions: losing library membership redacts their metadata and occurrence provenance rather than exposing it through a retained playlist.
+
+Importing an already adopted item reuses its Hito recording identity. It preserves verified existing source identities/readiness, likes, progress and personal metadata overrides. A metadata-only import creates no ready source and does not withdraw legitimate prior sources. Playback still requires a separately authorized available source. No Spotify adapter, live Spotify authorization, Follow scheduler, YouTube matching, yt-dlp playback or download workflow is established by this slice.
+
+## From reference to complete snapshot
+
+The Apache-2.0 SDK defines structured data at fixed provider paths:
+
+| Request                                                            | Purpose                                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `POST v1/playlists/detail` with `PlaylistDetailRequest::Reference` | Resolve an opaque supplied reference into canonical playlist detail |
+| `POST v1/playlists/items` with `PlaylistItemsRequest`              | Read a bounded page for that canonical ID and snapshot token        |
+| `POST v1/playlists/detail` with `PlaylistDetailRequest::Canonical` | Recheck the complete detail before publication                      |
+
+The supplied reference is bounded text, up to 2,048 UTF-8 bytes without control characters. Hito passes it as data to the approved service. Hito does not fetch it as a URL or parse a provider-specific playlist ID. The provider returns the canonical ID, snapshot token, name, total count and attribution. Every item page must bind the same ID and token. The final canonical detail must equal the initial detail.
+
+The SDK permits recording, unavailable and unknown items. Hito rejects the whole snapshot for inconsistent counts, repeated cursors or occurrence IDs, conflicting metadata for one recording, changed canonical identity/version, or an incomplete ending. It never treats a partial result as a complete copy. Network reads finish outside the publication transaction.
+
+| Bound                                   | Current limit                                         |
+| --------------------------------------- | ----------------------------------------------------- |
+| Complete snapshot                       | 10,000 occurrences, at most 100 pages                 |
+| Item page                               | 100 occurrences and 1 MiB response bytes              |
+| Each detail response                    | 32 KiB                                                |
+| All detail/page response bytes together | 16 MiB                                                |
+| Complete read                           | 60 seconds, within ordinary control-request deadlines |
+| Control admission                       | Four global requests, one per account                 |
+
+The existing transport supplies the approved address and saved credentials. Playlist data cannot supply arbitrary fetch URLs or headers. These limits bound provider input separately from the encoded synchronization publication.
+
+## Retry the same request or create a new copy
+
+The application endpoint is `POST /api/v1/plugins/{id}/playlists/import`, where `id` is the personal installation. Its typed body contains `request_id`, `installation_revision` and `playlist_reference`. The successful receipt is compact: `{request_id, playlist_id}`. Entry UUIDs are available through playlist detail and the immutable publication.
+
+A request UUID names one immutable attempt for that account. Exact retry uses the original installation, revision and reference. Reusing the UUID with changed contents conflicts. A new UUID explicitly requests another independent copy, even for the same reference.
+
+```mermaid
+sequenceDiagram
+    participant Listener
+    participant Core as Core collection capability
+    participant Store as Private SQLite store
+    participant Provider as Approved playlist service
+    Listener->>Core: Import or retry immutable request
+    Core->>Store: Validate live session and look up account receipt
+    alt Exact receipt exists
+        Store-->>Core: Original playlist UUID
+    else New attempt
+        Core->>Provider: Resolve, read complete snapshot, recheck detail
+        Core->>Store: Begin atomic publication
+        Note over Core,Store: Recheck session, receipt and provider authority
+        Core->>Store: Save metadata, playlist, entries, origin, receipt and feed event
+        Store-->>Core: Commit
+    end
+    Core-->>Listener: Original or newly committed receipt
+```
+
+Live session validation precedes receipt lookup. A committed exact retry returns the original playlist UUID before provider admission or HTTP, even if the service is offline, the connection revision changed, or the connection was removed. If the playlist was deleted, replay returns its original receipt and does not resurrect it. The transaction repeats receipt lookup to resolve concurrent retries without publishing a second copy.
+
+The React workflow keeps the failed attempt unchanged for **Retry import**. **Import a new copy** uses the current field, current revision and a fresh UUID. Account/installation ownership and request generations fence late results; an accepted revision change cancels stale display work while preserving the original attempt for exact retry. This attempt memory is not a durable offline outbox and does not survive a full page reload.
+
+## Atomic publication and feed authority
+
+One core transaction publishes owner-private catalog metadata, the local playlist, entry UUIDs, durable provenance, receipt and immutable `PlaylistImported` publication. Session and accepted installation/service authority are checked again inside that transaction. Rejection or cancellation before COMMIT is submitted rolls back the transaction. Once COMMIT is executing, it can finish durably even if the caller drops its await; exact retry then recovers the immutable receipt. No partial copy is published. A later retry after a rejected oversized publication can succeed with corrected provider data.
+
+The read feed distinguishes two `SyncEvent` shapes. Ordinary events retain `{sequence, device_id, operation}`. A server publication has `{sequence, publication}` and includes the accepted snapshot, stable identities, deduplicated recording metadata and compact occurrence provenance. Later edits or deletion do not rewrite that publication. The ledger preserves historical sequence numbers and the deleted sequence high-water mark during upgrade.
+
+`Action`, `Operation` and `SyncBatch` remain client input types with strict unknown-field rejection. A client cannot submit a publication, raw read event or extra origin fields through `/api/v1/sync`. A device named `server` remains an ordinary client identity; it grants no server authority. Persisted event origin determines authority, and client-operation and publication UUID namespaces are separate. This read contract provides replication data; a durable client replica is still release work.
+
+Each encoded feed page is bounded to 16 MiB and 200 events. Reads check stored payload lengths before loading large values and then account for the actual encoded event. An individual publication payload must leave room for its feed envelope. Provider input can fit its own 16 MiB budget yet exceed the publication limit after durable identities and provenance are added; that import fails atomically. Paging preserves event order, cursor and `has_more` without skipping or duplicating a publication.
+
+Accounts have separate personal provider libraries, playlists, receipts, effective metadata and feeds. Matching provider IDs or request UUIDs across accounts does not merge their private identities or expose personal fields. Logs retain safe correlation IDs, outcomes, counts and timings rather than references, titles, credentials or raw provider responses.
+
+## Evidence and unfinished acceptance
+
+Public core and HTTP fixtures cover duplicate and retained entries, durable attribution, source/personal-state preservation, account isolation, offline/deleted-playlist replay, changed-request conflicts, held-response authority checks, network cancellation, protocol inconsistency, encoded feed paging, oversized-publication rollback and old-ledger high-water preservation. A public cancellation regression also covers the acknowledged custom-BEGIN ownership gap; the shared core pool now discards a returned connection whose transaction remains open after queued work is flushed. That narrow result does not prove arbitrary SQLite or startup cancellation.
+
+HTTP fixtures cover actual import/retry and strict rejection of client publication injection. Frontend fixtures cover nullable rows and import ownership, including immutable retry bodies and late results. The fresh combined Rust workspace result is recorded in [status](status.md). Complete frontend/build checks, regenerated-contract checks, isolated browser, independent review, platform and release acceptance remain pending. Follow, scheduling, official provider credentials/live checks, matching and persistent downloads remain separate unfinished work.
