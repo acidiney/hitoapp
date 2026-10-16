@@ -171,6 +171,22 @@ impl State {
         {
             return;
         }
+        if owned.phase != update.phase
+            || owned.playing != update.playing
+            || owned.error != update.error
+            || update.ended
+        {
+            tracing::debug!(
+                event = "player_output_changed",
+                account_id = owned.actor.user().id,
+                selection = update.key.selection,
+                phase = ?update.phase,
+                playing = update.playing,
+                ended = update.ended,
+                error = ?update.error,
+                "Native output changed"
+            );
+        }
         owned.position.send_if_modified(|position| {
             let next = PlayerPosition {
                 entry: Some(update.key.entry),

@@ -118,3 +118,90 @@ async fn queue_workflow_logs_retain_safe_correlation_and_exclude_private_input()
         );
     }
 }
+
+#[cfg(feature = "device")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_logs() {
+    let f = fixture::LocalPlayback::start().await;
+    let captured = Arc::new(Mutex::new(Vec::new()));
+    let writer = captured.clone();
+    let dispatch = tracing::Dispatch::new(
+        tracing_subscriber::fmt()
+            .json()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || Sink(writer.clone()))
+            .finish(),
+    );
+    let (player, owner) =
+        tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));
+    let attached = player
+        .claim(
+            &f.actor,
+            player
+                .inspect(&f.actor)
+                .with_subscriber(dispatch.clone())
+                .await
+                .unwrap()
+                .epoch,
+        )
+        .with_subscriber(dispatch.clone())
+        .await
+        .unwrap();
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 1,
+                revision: 0,
+                action: PlayerAction::Replace {
+                    recordings: vec![Uuid::parse_str(&f.recording).unwrap()],
+                    start: 0,
+                },
+            },
+        )
+        .with_subscriber(dispatch.clone())
+        .await
+        .unwrap();
+    let mut state = player
+        .subscribe(&f.actor, attached.lease)
+        .with_subscriber(dispatch.clone())
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        state.wait_for(|state| state.phase == hito_playback::PlayerPhase::Ready),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    owner.close().with_subscriber(dispatch).await.unwrap();
+    let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+    let events = logs
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    let transition = events
+        .iter()
+        .find(|event| event["fields"]["event"] == "player_output_changed")
+        .expect("native transitions need workflow logs");
+    assert!(transition["span"]["player_owner"].is_number());
+    assert!(transition["fields"]["selection"].is_number());
+    assert!(logs.contains("native_session_finished"));
+    assert!(logs.contains("audio_player_closed"));
+    assert!(logs.contains("player_owner_closed"));
+    for private in [
+        &f.token,
+        &attached.lease.to_string(),
+        f.directory.path().to_str().unwrap(),
+        "indexing test password",
+    ] {
+        assert!(
+            !logs.contains(private),
+            "a private sentinel reached native logs"
+        );
+    }
+}
