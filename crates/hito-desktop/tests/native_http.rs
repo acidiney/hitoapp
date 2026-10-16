@@ -13,7 +13,12 @@ async fn the_protected_desktop_api_drives_native_output_controls_progress_and_jo
     let inspected = app.call("GET", "api/v1/player", Value::Null).await;
     assert_eq!(inspected["native"], true);
     assert!(inspected["state"].is_null());
-    let page = app.request("GET", "library", Value::Null).await.text().await.unwrap();
+    let page = app
+        .request("GET", "library", Value::Null)
+        .await
+        .text()
+        .await
+        .unwrap();
     assert!(page.contains("\"native_playback\":true"));
     assert_eq!(
         app.client
