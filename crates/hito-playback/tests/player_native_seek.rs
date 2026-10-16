@@ -3,7 +3,7 @@
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerPhase};
+use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerError, PlayerPhase};
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -16,6 +16,21 @@ async fn paused_seeks_apply_forward_backward_and_zero_without_changing_queue_ord
         .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
         .await
         .unwrap();
+    assert_eq!(
+        player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 1,
+                    revision: 0,
+                    action: PlayerAction::Seek { position_ms: 0 },
+                }
+            )
+            .await,
+        Err(PlayerError::Invalid)
+    );
     let queued = player
         .submit(
             &f.actor,
