@@ -99,6 +99,32 @@ fn volume_changes_actual_output_and_invalid_values_do_not_replace_it() {
 }
 
 #[test]
+#[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
+fn a_revocation_owner_can_stop_output_without_acquiring_the_player() {
+    let capture = Capture::open();
+    let mut player = Player::open(support::wave(48_000, 2, 240_000, |frame, _| {
+        ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
+    }))
+    .unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().position > Duration::from_millis(200));
+    let stop = player.stop_handle();
+    std::thread::spawn(move || stop.request()).join().unwrap();
+    assert!(!player.snapshot().playing);
+    assert!(matches!(
+        player.resume(),
+        Err(hito_audio::Error::Interrupted)
+    ));
+    assert!(matches!(
+        player.seek(Duration::ZERO),
+        Err(hito_audio::Error::Interrupted)
+    ));
+    capture.after(capture.mark(), 0.3);
+    assert!(energy(&capture.recent(0.1)) < 0.000001);
+    player.close().unwrap();
+}
+
+#[test]
 #[cfg(target_os = "linux")]
 #[ignore = "requires the isolated clocked PulseAudio monitor in scripts/check-audio.sh"]
 fn closing_or_dropping_joins_the_worker_and_releases_its_owned_input() {

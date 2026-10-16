@@ -1,10 +1,9 @@
 use crate::{
-    AudioFormat, Decoder, Error, Result, Snapshot,
+    AudioFormat, Decoder, Error, Input, Result, Snapshot,
     state::State,
     worker::{self, Control},
 };
 use std::{
-    fs::File,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -16,6 +15,28 @@ use std::{
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
+#[derive(Clone)]
+pub struct Stop {
+    id: u64,
+    state: Arc<State>,
+    commands: SyncSender<Control>,
+}
+
+impl Stop {
+    #[tracing::instrument(level = "debug", skip_all, fields(audio_id = self.id))]
+    pub fn request(&self) {
+        if self.state.stopped.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        self.state.playing.store(false, Ordering::Release);
+        let _ = self.commands.try_send(Control::Stop);
+        tracing::debug!(
+            event = "audio_stop_requested",
+            "Audio output stop requested"
+        );
+    }
+}
+
 pub struct Player {
     id: u64,
     format: AudioFormat,
@@ -26,17 +47,19 @@ pub struct Player {
 
 impl Player {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
-    pub fn open(file: File) -> Result<Self> {
+    pub fn open(input: impl Input + 'static) -> Result<Self> {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("audio_id", id);
-        let decoder = Decoder::open(file)?;
+        let decoder = Decoder::open(input)?;
         let format = decoder.format();
         let state = Arc::new(State::new());
         let (commands, receiver) = mpsc::sync_channel(1);
         let (ready, started) = mpsc::sync_channel(1);
         let worker_state = state.clone();
         let span = tracing::debug_span!("audio_worker", audio_id = id);
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
         let worker = thread::Builder::new().name("hito-audio".into()).spawn(move || {
+            tracing::dispatcher::with_default(&dispatch, || {
             let _entered = span.enter();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 worker::run(decoder, receiver, worker_state.clone(), ready.clone())
@@ -47,6 +70,7 @@ impl Player {
                 tracing::warn!(event = "audio_worker_failed", error_kind = ?error, "Audio worker failed");
             }
             result
+            })
         }).map_err(|_| Error::Worker)?;
         let result = started.recv().unwrap_or(Err(Error::Worker));
         if let Err(error) = result {
@@ -68,8 +92,19 @@ impl Player {
         self.state.snapshot(self.format)
     }
 
+    pub fn stop_handle(&self) -> Stop {
+        Stop {
+            id: self.id,
+            state: self.state.clone(),
+            commands: self.commands.clone(),
+        }
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
     pub fn resume(&mut self) -> Result<()> {
+        if self.state.stopped.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
@@ -100,6 +135,9 @@ impl Player {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
     pub fn seek(&mut self, position: Duration) -> Result<()> {
+        if self.state.stopped.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
         let snapshot = self.snapshot();
         if let Some(error) = snapshot.error {
             return Err(error);
@@ -140,9 +178,7 @@ impl Player {
         if self.worker.is_none() {
             return Ok(());
         }
-        self.state.playing.store(false, Ordering::Release);
-        self.state.stopped.store(true, Ordering::Release);
-        let _ = self.commands.try_send(Control::Stop);
+        self.stop_handle().request();
         let result = self
             .worker
             .take()

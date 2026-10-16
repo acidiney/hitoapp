@@ -3,6 +3,7 @@ mod error;
 
 pub use decoding::{AudioFormat, Decoded, Decoder};
 pub use error::{Error, Result};
+pub use symphonia::core::io::MediaSource as Input;
 
 #[cfg(feature = "device")]
 mod device;
@@ -18,6 +19,6 @@ mod state;
 mod worker;
 
 #[cfg(feature = "device")]
-pub use player::Player;
+pub use player::{Player, Stop};
 #[cfg(feature = "device")]
 pub use state::Snapshot;

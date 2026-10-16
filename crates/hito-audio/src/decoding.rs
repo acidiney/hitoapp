@@ -1,5 +1,5 @@
-use crate::{Error, Result};
-use std::{fs::File, sync::LazyLock, time::Duration};
+use crate::{Error, Input, Result};
+use std::{sync::LazyLock, time::Duration};
 use symphonia::core::{
     codecs::audio::AudioDecoder,
     common::Limit,
@@ -42,11 +42,11 @@ pub struct Decoder {
 
 impl Decoder {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub fn open(file: File) -> Result<Self> {
+    pub fn open(input: impl Input + 'static) -> Result<Self> {
         let reader = vendor(|| {
             symphonia::default::get_probe().probe(
                 &Hint::new(),
-                MediaSourceStream::new(Box::new(file), Default::default()),
+                MediaSourceStream::new(Box::new(input), Default::default()),
                 Default::default(),
                 MetadataOptions::default()
                     .limit_tag_bytes(Limit::Maximum(0))

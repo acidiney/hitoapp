@@ -100,7 +100,10 @@ impl State {
         let ended = self.ended.load(Ordering::Acquire) == epoch;
         let error = self.error();
         Snapshot {
-            playing: self.playing.load(Ordering::Acquire) && !ended && error.is_none(),
+            playing: self.playing.load(Ordering::Acquire)
+                && !self.stopped.load(Ordering::Acquire)
+                && !ended
+                && error.is_none(),
             ended,
             position: Duration::from_nanos(position),
             format,
