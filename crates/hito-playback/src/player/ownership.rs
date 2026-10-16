@@ -229,7 +229,10 @@ impl State {
         }
         if update.phase == super::PlayerPhase::Ready
             && update.error.is_none()
-            && (update.playing || (update.ended && owned.desired_playing))
+            && ((update.ended && owned.desired_playing)
+                || (update.playing
+                    && update.seek_id == owned.applied_seek
+                    && update.position_ms > owned.position.borrow().position_ms))
             && update.seek_id == owned.seek.map(|seek| seek.id)
         {
             owned.queue.played();

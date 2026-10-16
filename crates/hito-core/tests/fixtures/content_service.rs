@@ -13,6 +13,7 @@ use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 struct Fixture {
     range_chunk: RwLock<Option<usize>>,
     held_range: RwLock<Option<std::ops::Range<usize>>>,
+    broken_tail: RwLock<Option<usize>>,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
@@ -31,6 +32,7 @@ impl ProviderServer {
         let state = Arc::new(Fixture {
             range_chunk: RwLock::new(None),
             held_range: RwLock::new(None),
+            broken_tail: RwLock::new(None),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
             requests: Default::default(),
@@ -81,6 +83,10 @@ impl ProviderServer {
     pub async fn hold_range(&self, range: std::ops::Range<usize>) -> Arc<Gate> {
         *self.state.held_range.write().await = Some(range);
         self.hold("audio-range").await
+    }
+    pub async fn hold_broken_tail(&self, prefix: usize) -> Arc<Gate> {
+        *self.state.broken_tail.write().await = Some(prefix);
+        self.hold("audio-tail").await
     }
     pub async fn requests(&self, path: &str) -> Vec<(HeaderMap, Value)> {
         self.state
@@ -152,13 +158,14 @@ async fn audio(
     }
     let gate = state.gates.read().await.get("audio-body").cloned();
     let tail = state.gates.read().await.get("audio-tail").cloned();
+    let broken_tail = *state.broken_tail.read().await;
     if gate.is_some() || tail.is_some() {
         use tokio::io::AsyncWriteExt;
         let (mut writer, reader) = tokio::io::duplex(65536);
         let mut closed = state.closed.clone();
         tokio::spawn(async move {
             let prefix = if tail.is_some() {
-                bytes.len().min(64)
+                bytes.len().min(broken_tail.unwrap_or(64))
             } else {
                 bytes.len()
             };
@@ -172,9 +179,11 @@ async fn audio(
                     _ = closed.changed() => return,
                     result = tail.release.acquire() => if let Ok(permit) = result { permit.forget(); },
                 }
-                tokio::select! {
-                    _ = closed.changed() => return,
-                    result = writer.write_all(&bytes[prefix..]) => if result.is_err() { return; },
+                if broken_tail.is_none() {
+                    tokio::select! {
+                        _ = closed.changed() => return,
+                        result = writer.write_all(&bytes[prefix..]) => if result.is_err() { return; },
+                    }
                 }
             }
             if let Some(gate) = gate {
@@ -185,14 +194,31 @@ async fn audio(
                 }
             }
         });
-        return (
-            status,
-            headers,
-            axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(reader)),
-        )
-            .into_response();
+        let body = if broken_tail.is_some() {
+            axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(BrokenTail(reader)))
+        } else {
+            axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(reader))
+        };
+        return (status, headers, body).into_response();
     }
     (status, headers, bytes).into_response()
+}
+
+struct BrokenTail(tokio::io::DuplexStream);
+impl tokio::io::AsyncRead for BrokenTail {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buffer: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        let before = buffer.filled().len();
+        match std::pin::Pin::new(&mut self.0).poll_read(cx, buffer) {
+            std::task::Poll::Ready(Ok(())) if buffer.filled().len() == before => {
+                std::task::Poll::Ready(Err(std::io::Error::other("Fixture interrupted body")))
+            }
+            result => result,
+        }
+    }
 }
 impl Drop for ProviderServer {
     fn drop(&mut self) {
