@@ -4,6 +4,37 @@ import type { Action, Playlist } from "../types";
 import type { Mutate } from "../hooks/useMutation";
 import type { TrackRow } from "./TrackTable";
 
+export function PlaylistEntryRemove({
+  entryId,
+  title,
+  playlist,
+  mutate,
+}: {
+  entryId: string;
+  title: string;
+  playlist: Playlist;
+  mutate: Mutate;
+}) {
+  if (playlist.kind !== "local") return null;
+  async function remove() {
+    const result = await mutate({
+      kind: "entry_remove",
+      playlist_id: playlist.id,
+      entry_id: entryId,
+    });
+    if (result.ok) router.reload();
+  }
+  return (
+    <button
+      className="icon-button"
+      aria-label={`Remove ${title} from playlist`}
+      onClick={() => void remove()}
+    >
+      <X size={16} />
+    </button>
+  );
+}
+
 export default function TrackActions({
   track,
   playlists,
@@ -43,21 +74,13 @@ export default function TrackActions({
         <Heart size={17} fill={track.liked ? "currentColor" : "none"} />
       </button>
       {playlist
-        ? playlist.kind === "local" &&
-          entryId && (
-            <button
-              className="icon-button"
-              aria-label={`Remove ${track.title} from playlist`}
-              onClick={() =>
-                void update({
-                  kind: "entry_remove",
-                  playlist_id: playlist.id,
-                  entry_id: entryId,
-                })
-              }
-            >
-              <X size={16} />
-            </button>
+        ? entryId && (
+            <PlaylistEntryRemove
+              entryId={entryId}
+              title={track.title}
+              playlist={playlist}
+              mutate={mutate}
+            />
           )
         : editable.length > 0 && (
             <select

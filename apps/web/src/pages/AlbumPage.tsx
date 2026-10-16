@@ -3,7 +3,7 @@ import type { AlbumPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import { time } from "../format";
 import Artwork from "../components/Artwork";
-import TrackTable from "../components/TrackTable";
+import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import Pagination from "../components/Pagination";
 import EmptyState from "../components/EmptyState";
@@ -53,7 +53,10 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
             }
           />
           <TrackTable
-            tracks={tracks}
+            rows={tracks.map<TrackTableRow>((track) => ({
+              kind: "recording",
+              track,
+            }))}
             offset={page.offset}
             playlists={playlists}
             mutate={mutate}
