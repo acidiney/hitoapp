@@ -359,11 +359,11 @@ export class Playback implements Player {
     });
     const next = this.traversal.next(
       this.entryIds,
-      this.entryIds[this.state.index],
+      this.state.index,
       this.state.repeat,
       "failed",
     );
-    if (next) await this.open(this.entryIds.indexOf(next));
+    if (next !== null) await this.open(next);
     else {
       this.media.pause();
       this.update({ playing: false, loading: false });
@@ -456,15 +456,13 @@ export class Playback implements Player {
       index: this.state.index,
       reason: ended ? "ended" : "requested",
     });
-    const entry = this.traversal.next(
+    const index = this.traversal.next(
       this.entryIds,
-      this.entryIds[this.state.index],
+      this.state.index,
       this.state.repeat,
       ended ? "completed" : "requested",
     );
-    await this.open(
-      entry ? this.entryIds.indexOf(entry) : this.state.queue.length,
-    );
+    await this.open(index ?? this.state.queue.length);
   }
   remove(index: number) {
     log.info("queue.remove", { index });
@@ -472,18 +470,24 @@ export class Playback implements Player {
       index === this.state.index
         ? this.traversal.next(
             this.entryIds,
-            this.entryIds[index],
+            index,
             this.state.repeat,
             "requested",
           )
         : null;
     const queue = this.state.queue.filter((_, i) => i !== index);
-    this.traversal.remove(this.entryIds[index]);
+    const entry = this.entryIds[index];
     this.entryIds.splice(index, 1);
+    this.traversal.remove(entry, this.entryIds);
     if (index === this.state.index) {
       this.update({ queue });
-      const successor = next ? this.entryIds.indexOf(next) : -1;
-      void this.open(successor >= 0 ? successor : queue.length);
+      const successor =
+        next === null || next === index
+          ? queue.length
+          : next > index
+            ? next - 1
+            : next;
+      void this.open(successor);
     } else
       this.update({
         queue,
