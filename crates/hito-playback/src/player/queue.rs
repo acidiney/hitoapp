@@ -74,7 +74,9 @@ impl Queue {
                 self.traversal.cycle_repeat();
                 return Ok(());
             }
-            PlayerAction::Pause {} | PlayerAction::Volume { .. } | PlayerAction::Speed { .. } => return Ok(()),
+            PlayerAction::Pause {} | PlayerAction::Volume { .. } | PlayerAction::Speed { .. } => {
+                return Ok(());
+            }
             PlayerAction::Seek { .. } => {
                 self.traversal.reset_failures();
                 return if self.current.is_some() {

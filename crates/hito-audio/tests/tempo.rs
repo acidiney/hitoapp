@@ -20,8 +20,12 @@ impl std::io::Seek for Forward {
     }
 }
 impl hito_audio::Input for Forward {
-    fn is_seekable(&self) -> bool { false }
-    fn byte_len(&self) -> Option<u64> { None }
+    fn is_seekable(&self) -> bool {
+        false
+    }
+    fn byte_len(&self) -> Option<u64> {
+        None
+    }
 }
 
 #[test]
@@ -77,7 +81,10 @@ fn speed_changes_preserve_pause_cursor_and_seek_without_stale_processed_audio() 
     let before = player.snapshot().position;
     capture.after(capture.mark(), 0.6);
     let distance = player.snapshot().position - before;
-    assert!((0.2..0.45).contains(&distance.as_secs_f64()), "slow source-time distance: {distance:?}");
+    assert!(
+        (0.2..0.45).contains(&distance.as_secs_f64()),
+        "slow source-time distance: {distance:?}"
+    );
     assert!(amplitude(&capture.recent(0.2), 880.) > 0.4);
     assert!(amplitude(&capture.recent(0.2), 440.) < 0.001);
     player.speed(2.).unwrap();
@@ -85,7 +92,10 @@ fn speed_changes_preserve_pause_cursor_and_seek_without_stale_processed_audio() 
     let before = player.snapshot().position;
     capture.after(capture.mark(), 0.6);
     let distance = player.snapshot().position - before;
-    assert!((0.8..1.4).contains(&distance.as_secs_f64()), "fast source-time distance: {distance:?}");
+    assert!(
+        (0.8..1.4).contains(&distance.as_secs_f64()),
+        "fast source-time distance: {distance:?}"
+    );
     player.seek(Duration::ZERO).unwrap();
     wait(|| player.snapshot().position > Duration::from_millis(400));
     capture.after(capture.mark(), 0.2);
@@ -106,14 +116,19 @@ fn a_nonseekable_stream_changes_speed_without_losing_or_replaying_audio() {
     let mut player = Player::open(Forward(input)).unwrap();
     player.resume().unwrap();
     wait(|| player.snapshot().position > Duration::from_millis(200));
-    player.speed(2.).expect("speed does not require a seekable input");
+    player
+        .speed(2.)
+        .expect("speed does not require a seekable input");
     wait(|| player.snapshot().ended);
     assert!((player.snapshot().position.as_secs_f64() - 4.).abs() < 0.001);
     player.close().unwrap();
     capture.after(capture.mark(), 0.2);
     let samples = capture.all();
     let active = samples.iter().filter(|sample| sample.abs() > 0.01).count();
-    assert!((93_000..126_000).contains(&active), "active output frames: {active}");
+    assert!(
+        (93_000..126_000).contains(&active),
+        "active output frames: {active}"
+    );
     assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
 }
 

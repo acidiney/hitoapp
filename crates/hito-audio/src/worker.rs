@@ -212,7 +212,11 @@ fn send(
         if let Some(error) = state.error() {
             return Err(error);
         }
-        if let Some(control) = commands.try_recv().ok().and_then(|control| defer_speed(control, pending_speed)) {
+        if let Some(control) = commands
+            .try_recv()
+            .ok()
+            .and_then(|control| defer_speed(control, pending_speed))
+        {
             return Ok(Some(control));
         }
         if state.xruns.load(Ordering::Acquire) != xruns {
@@ -222,7 +226,11 @@ fn send(
             Ok(()) => return Ok(None),
             Err(rtrb::PushError::Full(value)) => frame = value,
         }
-        if let Some(control) = commands.recv_timeout(Duration::from_millis(2)).ok().and_then(|control| defer_speed(control, pending_speed)) {
+        if let Some(control) = commands
+            .recv_timeout(Duration::from_millis(2))
+            .ok()
+            .and_then(|control| defer_speed(control, pending_speed))
+        {
             return Ok(Some(control));
         }
     }

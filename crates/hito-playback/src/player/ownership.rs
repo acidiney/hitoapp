@@ -172,7 +172,11 @@ impl State {
                 }
                 if let PlayerAction::Speed { rate } = command.action {
                     owned.speed = rate;
-                    tracing::debug!(event = "player_speed_changed", rate, "Native playback speed requested");
+                    tracing::debug!(
+                        event = "player_speed_changed",
+                        rate,
+                        "Native playback speed requested"
+                    );
                 }
                 if let PlayerAction::Seek { position_ms } = action {
                     owned.seek = Some(super::types::Seek {

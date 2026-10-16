@@ -75,10 +75,16 @@ impl Controls {
                     session.command(crate::Command::Seek(position)).await?;
                 }
                 if change_speed {
-                    session.command(crate::Command::Speed(f32::from(speed) / 1000.)).await?;
+                    session
+                        .command(crate::Command::Speed(f32::from(speed) / 1000.))
+                        .await?;
                 }
                 session.command(command).await?;
-                Ok(Applied { seek_id, volume, speed })
+                Ok(Applied {
+                    seek_id,
+                    volume,
+                    speed,
+                })
             }));
         }
     }

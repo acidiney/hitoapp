@@ -109,7 +109,9 @@ impl Progress {
         }
         let position = update.position_ms.min(i64::MAX as u64) as i64;
         let changed = self.current.as_ref().is_none_or(|sample| {
-            sample.checkpoint.position != position || sample.seek_id != update.seek_id || sample.checkpoint.speed != update.speed
+            sample.checkpoint.position != position
+                || sample.seek_id != update.seek_id
+                || sample.checkpoint.speed != update.speed
         });
         let terminal = update.ended
             || self
@@ -117,7 +119,11 @@ impl Progress {
                 .as_ref()
                 .is_some_and(|sample| sample.playing && !update.playing)
             || self.current.as_ref().map(|sample| sample.seek_id) != Some(update.seek_id);
-        let terminal = terminal || self.current.as_ref().is_some_and(|sample| sample.checkpoint.speed != update.speed);
+        let terminal = terminal
+            || self
+                .current
+                .as_ref()
+                .is_some_and(|sample| sample.checkpoint.speed != update.speed);
         let dirty = changed || self.current.as_ref().is_some_and(|sample| sample.dirty);
         self.current = Some(Sample {
             checkpoint: Checkpoint {

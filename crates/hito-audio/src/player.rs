@@ -187,10 +187,7 @@ impl Player {
         }
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
-            .send(Control::Speed {
-                value,
-                reply,
-            })
+            .send(Control::Speed { value, reply })
             .map_err(|_| Error::Worker)?;
         let result = applied.recv().map_err(|_| Error::Worker)?;
         if let Err(error) = result {

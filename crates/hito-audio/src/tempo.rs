@@ -47,7 +47,11 @@ impl Tempo {
     }
 
     fn configure(&mut self, speed: f32) {
-        tracing::debug!(event = "audio_tempo_segment_started", speed, "Audio tempo segment configured");
+        tracing::debug!(
+            event = "audio_tempo_segment_started",
+            speed,
+            "Audio tempo segment configured"
+        );
         self.speed = speed;
         self.position = self.consumed;
         self.flushed = false;
@@ -99,7 +103,12 @@ impl Tempo {
                     stretch.flush();
                 }
                 self.flushed = true;
-                tracing::debug!(event = "audio_tempo_segment_draining", speed = self.speed, next_speed = self.requested, "Draining the previous tempo segment");
+                tracing::debug!(
+                    event = "audio_tempo_segment_draining",
+                    speed = self.speed,
+                    next_speed = self.requested,
+                    "Draining the previous tempo segment"
+                );
             }
             let step = f64::from(self.speed) / f64::from(format.sample_rate);
             if let Some(stretch) = &mut self.stretch {
@@ -138,8 +147,8 @@ impl Tempo {
                 self.input_offset = 0;
             }
             let start = self.input_offset;
-            let count = ((format.sample_rate / 100) as usize * channels)
-                .min(self.input.len() - start);
+            let count =
+                ((format.sample_rate / 100) as usize * channels).min(self.input.len() - start);
             self.input_offset += count;
             self.consumed = self.input_position
                 + Duration::from_secs_f64(
