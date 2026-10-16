@@ -1272,6 +1272,7 @@ export interface components {
         };
         PlayerSnapshot: {
             current?: components["schemas"]["PlayerEntryRef"] | null;
+            current_index?: number | null;
             desired_playing: boolean;
             error?: components["schemas"]["PlayerError"] | null;
             last_failure?: components["schemas"]["PlayerFailure"] | null;
@@ -1463,6 +1464,7 @@ export interface components {
                 [key: string]: string;
             };
             libraries: components["schemas"]["Library"][];
+            native_playback: boolean;
             playlists: components["schemas"]["Playlist"][];
             user: components["schemas"]["User"];
         };

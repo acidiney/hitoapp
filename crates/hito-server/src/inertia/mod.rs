@@ -24,6 +24,7 @@ pub(super) struct ArtistPagination {
 pub async fn page(
     State(services): State<Services>,
     Extension(config): Extension<Config>,
+    Extension(playback): Extension<crate::api::player::Playback>,
     OptionalAccount(actor): OptionalAccount,
     OriginalUri(uri): OriginalUri,
     headers: HeaderMap,
@@ -46,7 +47,14 @@ pub async fn page(
     let props = match actor {
         Some(actor) => {
             screen
-                .props(&services, &actor, search, pagination, &protocol)
+                .props(
+                    &services,
+                    &actor,
+                    search,
+                    pagination,
+                    &protocol,
+                    playback.native_enabled(),
+                )
                 .await?
         }
         None => {

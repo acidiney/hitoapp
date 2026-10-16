@@ -35,6 +35,7 @@ async fn inertia_serves_html_json_partial_props_and_asset_version_conflicts() {
     )
     .unwrap();
     assert!(html.contains("data-page=\"app\""));
+    assert!(html.contains("\"native_playback\":false"));
     let response = app
         .clone()
         .oneshot(
@@ -140,7 +141,13 @@ async fn inertia_evaluates_only_requested_page_data() {
 async fn inertia_pages_only_include_the_data_for_their_screen() {
     let (_dir, app) = app().await;
     let token = admin(&app).await;
-    let shared = vec!["errors", "libraries", "playlists", "user"];
+    let shared = vec![
+        "errors",
+        "libraries",
+        "native_playback",
+        "playlists",
+        "user",
+    ];
     for (path, component, fields) in [
         (
             "/library",
@@ -148,6 +155,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             vec![
                 "errors",
                 "libraries",
+                "native_playback",
                 "playlists",
                 "query",
                 "recordings",
@@ -160,6 +168,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             vec![
                 "errors",
                 "libraries",
+                "native_playback",
                 "playlists",
                 "query",
                 "recordings",
@@ -170,7 +179,14 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
         (
             "/history",
             "HistoryPage",
-            vec!["activity", "errors", "libraries", "playlists", "user"],
+            vec![
+                "activity",
+                "errors",
+                "libraries",
+                "native_playback",
+                "playlists",
+                "user",
+            ],
         ),
         ("/settings", "SettingsPage", shared),
     ] {

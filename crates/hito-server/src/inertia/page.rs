@@ -71,8 +71,12 @@ impl<'a> Screen<'a> {
         mut search: Search,
         pagination: super::ArtistPagination,
         fields: &Protocol,
+        native_playback: bool,
     ) -> ApiResult<PageProps> {
-        let shared = shared(services, actor, fields).await?;
+        let mut shared = shared(services, actor, fields).await?;
+        shared.native_playback = fields
+            .requested("native_playback")
+            .then_some(native_playback);
         match self {
             Self::AlbumDetails(id) => {
                 let detail = if fields.requested("detail") {
@@ -256,6 +260,7 @@ async fn shared(
     };
     Ok(SharedPageProps {
         errors: Default::default(),
+        native_playback: None,
         user: fields.requested("user").then(|| actor.user().clone()),
         libraries,
         playlists,

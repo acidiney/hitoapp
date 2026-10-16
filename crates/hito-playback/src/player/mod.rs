@@ -25,6 +25,7 @@ static NEXT_PLAYER: AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct Player {
     id: u64,
+    native: bool,
     requests: mpsc::Sender<Request>,
 }
 
@@ -76,6 +77,7 @@ impl Player {
     }
 
     fn spawn(services: hito_core::Services, effects: effects::Effects) -> (Self, PlayerOwner) {
+        let native = effects.enabled();
         let id = NEXT_PLAYER.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("player_owner", id);
         let (requests, received) = mpsc::channel(32);
@@ -86,12 +88,20 @@ impl Player {
                 .with_current_subscriber(),
         );
         (
-            Self { id, requests },
+            Self {
+                id,
+                native,
+                requests,
+            },
             PlayerOwner {
                 stop: Some(stop),
                 task: Some(task),
             },
         )
+    }
+
+    pub fn native_enabled(&self) -> bool {
+        self.native
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]

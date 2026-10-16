@@ -6097,6 +6097,13 @@
               }
             ]
           },
+          "current_index": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
           "desired_playing": {
             "type": "boolean"
           },
@@ -6869,6 +6876,7 @@
         "type": "object",
         "required": [
           "errors",
+          "native_playback",
           "user",
           "libraries",
           "playlists"
@@ -6888,6 +6896,9 @@
             "items": {
               "$ref": "#/components/schemas/Library"
             }
+          },
+          "native_playback": {
+            "type": "boolean"
           },
           "playlists": {
             "type": "array",

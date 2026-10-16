@@ -11,6 +11,9 @@ pub struct SharedPageProps {
     pub errors: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
+    pub native_playback: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
     pub user: Option<User>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]

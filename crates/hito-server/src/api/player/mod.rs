@@ -19,6 +19,9 @@ impl Playback {
             streams: std::sync::Arc::new(tokio::sync::Semaphore::new(32)),
         }
     }
+    pub(crate) fn native_enabled(&self) -> bool {
+        self.player.as_ref().is_some_and(Player::native_enabled)
+    }
     fn player(&self) -> Result<&Player, Error> {
         self.player
             .as_ref()
