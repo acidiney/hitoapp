@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = []
-device = ["dep:cpal", "dep:rtrb"]
+device = ["dep:cpal", "dep:rtrb", "dep:soundtouch"]
 
 [dependencies]
 symphonia = { version = "=0.6.1", features = ["all"] }
@@ -15,6 +15,7 @@ thiserror.workspace = true
 tracing.workspace = true
 cpal = { version = "=0.18.2", optional = true }
 rtrb = { version = "0.4", optional = true }
+soundtouch = { version = "=0.5.4", default-features = false, features = ["bundled"], optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
