@@ -110,3 +110,52 @@ async fn append_move_and_current_removal_preserve_live_shuffle_successors() {
     );
     f.owner.close().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn replace_and_clear_append_rebuild_shuffle_without_old_occurrences() {
+    let mut f = fixture::Navigation::start(3, 0).await;
+    f.send(shuffle()).await;
+    let recording = f.entries[0].recording.id.parse().unwrap();
+    for replace in [true, false] {
+        if replace {
+            f.send(PlayerAction::Replace {
+                recordings: vec![recording; 3],
+                start: 2,
+            })
+            .await;
+        } else {
+            f.send(PlayerAction::Clear {}).await;
+            f.send(PlayerAction::Append {
+                recordings: vec![recording; 3],
+            })
+            .await;
+            f.send(PlayerAction::Resume {}).await;
+            f.send(PlayerAction::Pause {}).await;
+        }
+        let revision = f.state.borrow().revision;
+        let page = f
+            .player
+            .queue(&f.source.actor, f.lease, revision, 0, 3)
+            .await
+            .unwrap();
+        assert!(
+            page.entries
+                .iter()
+                .all(|entry| !f.entries.iter().any(|old| old.id == entry.id))
+        );
+        let mut visited = HashSet::from([f.state.borrow().current.unwrap().id]);
+        for _ in 1..3 {
+            f.send(PlayerAction::Next {}).await;
+            assert!(visited.insert(f.state.borrow().current.unwrap().id));
+        }
+        assert_eq!(visited, page.entries.iter().map(|entry| entry.id).collect());
+        f.send(PlayerAction::Next {}).await;
+        assert!(f.state.borrow().current.is_none());
+        assert_eq!(
+            serde_json::to_value(&*f.state.borrow()).unwrap()["shuffle"],
+            true
+        );
+    }
+    f.owner.close().await.unwrap();
+}

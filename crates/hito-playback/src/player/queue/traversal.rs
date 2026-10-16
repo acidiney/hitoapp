@@ -25,22 +25,42 @@ impl Traversal {
         self.order = if self.order.is_some() {
             None
         } else {
-            let mut order = entries
-                .iter()
-                .map(|entry| entry.id)
-                .filter(|id| Some(*id) != current)
-                .collect::<Vec<_>>();
-            order.shuffle(&mut rand::thread_rng());
-            if let Some(current) = current {
-                order.insert(0, current);
-            }
-            Some(order)
+            Some(Self::shuffled_order(entries, current))
         };
         tracing::debug!(
             event = "player_shuffle_changed",
             enabled = self.shuffled(),
             "Shuffle mode changed"
         );
+    }
+
+    fn shuffled_order(entries: &[PlayerEntryRef], current: Option<Uuid>) -> Vec<Uuid> {
+        let mut order = entries
+            .iter()
+            .map(|entry| entry.id)
+            .filter(|id| Some(*id) != current)
+            .collect::<Vec<_>>();
+        order.shuffle(&mut rand::thread_rng());
+        if let Some(current) = current {
+            order.insert(0, current);
+        }
+        order
+    }
+
+    pub fn replace(&mut self, entries: &[PlayerEntryRef], current: Option<Uuid>) {
+        self.reset_failures();
+        if self.order.is_some() {
+            self.order = Some(Self::shuffled_order(entries, current));
+            tracing::debug!(
+                event = "player_shuffle_rebuilt",
+                count = entries.len(),
+                "Shuffle order rebuilt for a new queue"
+            );
+        }
+    }
+
+    pub fn first(&self, entries: &[PlayerEntryRef]) -> Option<Uuid> {
+        self.entries(entries).next()
     }
 
     fn entries<'a>(&'a self, entries: &'a [PlayerEntryRef]) -> impl Iterator<Item = Uuid> + 'a {

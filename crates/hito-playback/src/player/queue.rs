@@ -87,13 +87,16 @@ impl Queue {
                 if self.current.is_some() || self.entries.is_empty() {
                     return Ok(());
                 }
-                self.current = Some(0);
+                self.current = self
+                    .traversal
+                    .first(&self.entries)
+                    .and_then(|id| self.entries.iter().position(|entry| entry.id == id));
             }
             PlayerAction::Clear {} => {
                 self.entries.clear();
                 self.history.clear();
-                self.traversal.reset_failures();
                 self.current = None;
+                self.traversal.replace(&self.entries, None);
             }
             PlayerAction::Select { entry } => {
                 self.current = Some(self.index(entry)?);
@@ -124,7 +127,6 @@ impl Queue {
             }
             PlayerAction::Replace { start, recordings } => {
                 self.history.clear();
-                self.traversal.reset_failures();
                 self.entries = recordings
                     .into_iter()
                     .map(|recording_id| PlayerEntryRef {
@@ -133,6 +135,7 @@ impl Queue {
                     })
                     .collect();
                 self.current = Some(start);
+                self.traversal.replace(&self.entries, self.current_entry());
             }
             PlayerAction::Move { entry, before } => {
                 let from = self.index(entry)?;
