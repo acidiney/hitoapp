@@ -22,6 +22,7 @@ impl State {
                 if matches!(
                     command.action,
                     PlayerAction::Resume {}
+                        | PlayerAction::ResumeSaved {}
                         | PlayerAction::Pause {}
                         | PlayerAction::Seek { .. }
                         | PlayerAction::Volume { .. }
@@ -160,9 +161,20 @@ impl State {
                     command.action.clone()
                 };
                 owned.queue.apply(action.clone())?;
-                if matches!(command.action, PlayerAction::Resume {}) {
+                if matches!(
+                    command.action,
+                    PlayerAction::Resume {} | PlayerAction::ResumeSaved {}
+                ) {
                     owned.desired_playing = owned.queue.snapshot().current.is_some();
                     owned.play_revision += 1;
+                }
+                if matches!(command.action, PlayerAction::ResumeSaved {}) {
+                    owned.saved = Some(super::loading::SavedStart::new(command.id));
+                    owned.seek = None;
+                    owned.applied_seek = None;
+                    owned.playing = false;
+                    owned.phase = super::PlayerPhase::Loading;
+                    owned.error = None;
                 }
                 if matches!(command.action, PlayerAction::Pause {}) {
                     owned.desired_playing = false;
@@ -179,6 +191,13 @@ impl State {
                     );
                 }
                 if let PlayerAction::Seek { position_ms } = action {
+                    if let Some(saved) = &mut owned.saved {
+                        saved.supersede();
+                    }
+                    if owned.error == Some(PlayerError::Resume) {
+                        owned.error = None;
+                        owned.phase = super::PlayerPhase::Resolving;
+                    }
                     owned.seek = Some(super::types::Seek {
                         id: command.id,
                         position_ms,
@@ -218,10 +237,7 @@ impl State {
             return;
         };
         let snapshot = owned.queue.snapshot();
-        if owned.scope != update.key.scope
-            || snapshot.selection != update.key.selection
-            || snapshot.current.map(|entry| entry.id) != Some(update.key.entry)
-        {
+        if owned.key() != Some(update.key) {
             return;
         }
         if update.error == Some(PlayerError::Unauthorized) {
@@ -236,7 +252,15 @@ impl State {
             owned.authority(false, self.native);
             return;
         }
-        if update.phase == super::PlayerPhase::Ready
+        if owned.saved.as_ref().is_some_and(|saved| saved.blocked()) {
+            return;
+        }
+        let listening = owned.listening(&update);
+        if listening && let Some(saved) = &mut owned.saved {
+            saved.listened = true;
+        }
+        if listening
+            && update.phase == super::PlayerPhase::Ready
             && update.error.is_none()
             && ((update.ended && owned.desired_playing)
                 || (update.playing
@@ -308,16 +332,14 @@ impl State {
         let snapshot = owned.queue.snapshot();
         let current = snapshot.current?;
         Some(super::effects::Target {
-            key: super::effects::Key {
-                scope: owned.scope,
-                selection: snapshot.selection,
-                entry: current.id,
-            },
+            key: owned.key()?,
             actor: owned.actor.clone(),
             recording: current.recording_id,
             playing: owned.desired_playing,
             play_revision: owned.play_revision,
             seek: owned.seek,
+            restoration: owned.saved.as_ref().and_then(|saved| saved.restoration()),
+            output: owned.saved.as_ref().is_none_or(|saved| !saved.blocked()),
             volume: owned.volume,
             speed: owned.speed,
             permitted: owned.authority_available,

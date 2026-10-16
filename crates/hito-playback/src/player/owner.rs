@@ -21,9 +21,11 @@ pub(super) async fn run(
     let mut pending: Option<Admission> = None;
     let mut authority = super::authority::Monitor::new(&services);
     let mut progress = super::progress::Progress::new(services.collection.clone());
+    let mut loader = super::loading::Loader::new(services.collection.clone());
     loop {
         authority.sync(&state);
         progress.sync(&state);
+        loader.sync(&state, &mut progress);
         effects.sync(&state, progress.can_play(&state));
         tokio::select! {
             biased;
@@ -35,6 +37,7 @@ pub(super) async fn run(
                     owned.publish();
                 }
             },
+            report = loader.next() => { state.loaded(report); },
             report = authority.next() => {
                 state.checked_session(report.lease, report.recovering, report.result);
             },
@@ -67,6 +70,7 @@ pub(super) async fn run(
     drop(requests);
     drop(pending);
     drop(authority);
+    drop(loader);
     state.owner = None;
     let (_, saved) = tokio::join!(effects.close(), progress.close());
     tracing::info!(event = "player_owner_closed", "Playback admission joined");

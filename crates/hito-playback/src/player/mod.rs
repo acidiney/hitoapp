@@ -1,6 +1,7 @@
 mod attachment;
 mod authority;
 mod effects;
+mod loading;
 mod owner;
 mod ownership;
 mod progress;

@@ -21,7 +21,12 @@ pub struct Navigation {
 }
 impl Navigation {
     pub async fn start(count: usize, start: usize) -> Self {
-        let source = recovery::Recovery::start().await;
+        Self::with_source(recovery::Recovery::start().await, count, start).await
+    }
+    pub async fn split() -> Self {
+        Self::with_source(recovery::Recovery::start_split().await, 1, 0).await
+    }
+    async fn with_source(source: recovery::Recovery, count: usize, start: usize) -> Self {
         let (player, owner) = Player::native(source.services.clone());
         let lease = player
             .claim(

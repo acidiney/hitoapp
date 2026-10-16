@@ -12,6 +12,8 @@ pub(super) struct Target {
     pub playing: bool,
     pub play_revision: u64,
     pub seek: Option<super::types::Seek>,
+    pub restoration: Option<super::loading::Restoration>,
+    pub output: bool,
     pub volume: u16,
     pub speed: u16,
     pub permitted: bool,
@@ -25,6 +27,7 @@ pub(super) struct Key {
     pub scope: Uuid,
     pub selection: u64,
     pub entry: Uuid,
+    pub start: Option<Uuid>,
 }
 pub(super) struct Update {
     pub key: Key,
@@ -35,6 +38,7 @@ pub(super) struct Update {
     pub position_ms: u64,
     pub duration_ms: Option<u64>,
     pub seek_id: Option<Uuid>,
+    pub restored: Option<super::loading::Restoration>,
     pub ended: bool,
     pub exhausted: bool,
     pub error: Option<PlayerError>,
@@ -59,7 +63,7 @@ impl Effects {
             }
             #[cfg(feature = "device")]
             Self::Native(native) => native.sync(state.target().map(|mut target| {
-                target.permitted &= can_play;
+                target.output &= can_play;
                 target
             })),
         }

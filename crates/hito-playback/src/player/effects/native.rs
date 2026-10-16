@@ -45,6 +45,24 @@ impl Native {
             self.target = target;
             return;
         }
+        if target.as_ref().is_some_and(|target| !target.output) {
+            if self.session.is_some() {
+                self.retire();
+                self.sources.reset(target.as_ref().map(|target| target.key));
+            }
+            self.target = target;
+            return;
+        }
+        if let Some(restoration) = target.as_ref().and_then(|target| target.restoration)
+            && self
+                .target
+                .as_ref()
+                .and_then(|target| target.restoration)
+                .map(|r| r.id)
+                != Some(restoration.id)
+        {
+            self.controls.request_restoration(restoration);
+        }
         if let Some(seek) = target.as_ref().and_then(|target| target.seek)
             && self.target.as_ref().and_then(|target| target.seek) != Some(seek)
         {

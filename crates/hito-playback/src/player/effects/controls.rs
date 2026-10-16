@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 struct Applied {
+    restored: Option<super::super::loading::Restoration>,
     seek_id: Option<Uuid>,
     volume: u16,
     speed: u16,
@@ -12,6 +13,8 @@ struct Applied {
 #[derive(Default)]
 pub(super) struct Controls {
     configured: bool,
+    restoration: Option<super::super::loading::Restoration>,
+    restored: Option<super::super::loading::Restoration>,
     applied_seek: Option<Uuid>,
     applied_volume: Option<u16>,
     applied_speed: Option<u16>,
@@ -23,7 +26,13 @@ impl Controls {
     pub fn busy(&self) -> bool {
         self.pending.is_some()
     }
+    pub fn request_restoration(&mut self, restoration: super::super::loading::Restoration) {
+        self.request_seek(restoration.position_ms);
+        self.restoration = Some(restoration);
+    }
     pub fn request_seek(&mut self, position_ms: u64) {
+        self.restoration = None;
+        self.restored = None;
         self.resume_at = Duration::from_millis(position_ms);
         self.configured = false;
     }
@@ -54,6 +63,8 @@ impl Controls {
             let session = session.clone();
             let seek_id = target.seek.map(|seek| seek.id);
             let volume = target.volume;
+            let restoration = self.restoration;
+            let restored = self.restored;
             let speed = target.speed;
             let change_speed = self.applied_speed != Some(speed);
             let seek =
@@ -74,6 +85,18 @@ impl Controls {
                 if let Some(position) = seek {
                     session.command(crate::Command::Seek(position)).await?;
                 }
+                let restored = if let Some(restoration) = restoration {
+                    Some(super::super::loading::Restoration {
+                        id: restoration.id,
+                        position_ms: session
+                            .snapshot()
+                            .position
+                            .as_millis()
+                            .min(u64::MAX as u128) as u64,
+                    })
+                } else {
+                    restored
+                };
                 if change_speed {
                     session
                         .command(crate::Command::Speed(f32::from(speed) / 1000.))
@@ -81,6 +104,7 @@ impl Controls {
                 }
                 session.command(command).await?;
                 Ok(Applied {
+                    restored,
                     seek_id,
                     volume,
                     speed,
@@ -95,6 +119,8 @@ impl Controls {
         };
         self.pending = None;
         let applied = result?;
+        self.restored = applied.restored;
+        self.restoration = None;
         self.applied_seek = applied.seek_id;
         self.applied_volume = Some(applied.volume);
         self.applied_speed = Some(applied.speed);
@@ -132,6 +158,7 @@ impl Controls {
                 .and_then(|format| format.duration)
                 .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
             seek_id: self.applied_seek,
+            restored: self.restored,
             ended: snapshot.ended,
             exhausted: false,
             error: if phase == PlayerPhase::Failed {
@@ -159,6 +186,7 @@ impl Controls {
                 .duration
                 .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
             seek_id: self.applied_seek,
+            restored: self.restored,
             ended: false,
             exhausted: false,
             error,

@@ -47,6 +47,13 @@ impl Progress {
             sample_at: Instant::now() + Duration::from_secs(5),
         }
     }
+    pub fn barrier(&mut self) -> u64 {
+        self.finish();
+        self.writer.watermark()
+    }
+    pub fn settled(&self, watermark: u64) -> bool {
+        self.writer.settled(watermark)
+    }
     pub fn ready(&self) -> bool {
         self.writer.load() < CHECKPOINT_CAPACITY - STOP_RESERVE
     }
@@ -58,13 +65,7 @@ impl Progress {
         }
     }
     fn key(state: &State) -> Option<Key> {
-        let owned = state.owner.as_ref()?;
-        let snapshot = owned.queue.snapshot();
-        Some(Key {
-            scope: owned.scope,
-            selection: snapshot.selection,
-            entry: snapshot.current?.id,
-        })
+        state.owner.as_ref()?.key()
     }
     pub fn sync(&mut self, state: &State) {
         if state
@@ -91,7 +92,7 @@ impl Progress {
             return;
         }
         let owned = state.owner.as_ref().unwrap();
-        if owned.seek.map(|seek| seek.id) != update.seek_id {
+        if !owned.listening(update) || owned.seek.map(|seek| seek.id) != update.seek_id {
             return;
         }
         if self

@@ -19,6 +19,7 @@ pub(super) struct Owned {
     pub(super) desired_playing: bool,
     pub(super) play_revision: u64,
     pub(super) playing: bool,
+    pub(super) saved: Option<super::loading::SavedStart>,
     pub(super) seek: Option<super::types::Seek>,
     pub(super) applied_seek: Option<Uuid>,
     pub(super) volume: u16,
@@ -44,6 +45,7 @@ impl Owned {
             desired_playing: false,
             play_revision: 0,
             playing: false,
+            saved: None,
             seek: None,
             applied_seek: None,
             volume: 1000,
@@ -125,6 +127,7 @@ impl Owned {
         self.playing = false;
         self.source_id = None;
         self.error = None;
+        self.saved = None;
         self.seek = None;
         self.applied_seek = None;
     }

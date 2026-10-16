@@ -25,6 +25,8 @@ pub enum PlayerError {
     Playback,
     #[error("Listening progress could not be saved")]
     Persistence,
+    #[error("Saved playback position could not be loaded. Try again.")]
+    Resume,
 }
 impl From<hito_core::Error> for PlayerError {
     fn from(error: hito_core::Error) -> Self {
@@ -145,6 +147,7 @@ pub struct PlayerCommand {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlayerAction {
     Resume {},
+    ResumeSaved {},
     Pause {},
     Seek { position_ms: u64 },
     Volume { level: u16 },
@@ -164,6 +167,7 @@ impl PlayerAction {
     pub(super) fn name(&self) -> &'static str {
         match self {
             Self::Resume {} => "resume",
+            Self::ResumeSaved {} => "resume_saved",
             Self::Pause {} => "pause",
             Self::Seek { .. } => "seek",
             Self::Volume { .. } => "volume",
@@ -199,6 +203,7 @@ pub enum PlayerPhase {
     #[default]
     Idle,
     Resolving,
+    Loading,
     Opening,
     Ready,
     Releasing,

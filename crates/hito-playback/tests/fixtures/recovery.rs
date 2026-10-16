@@ -17,6 +17,12 @@ impl Recovery {
         Self::start_with_wave(48_000, 48_000 * 10).await
     }
     pub async fn start_with_wave(rate: u32, frames: u32) -> Self {
+        Self::start_signal(rate, frames, false).await
+    }
+    pub async fn start_split() -> Self {
+        Self::start_signal(48_000, 48_000 * 10, true).await
+    }
+    async fn start_signal(rate: u32, frames: u32, split: bool) -> Self {
         let (directory, services, actor, library, music) = support::library("recovery").await;
         let shared = services
             .storage
@@ -26,8 +32,13 @@ impl Recovery {
             .remove(0)
             .id;
         let mut wave = audio::wave(rate, 1, frames, |frame, _| {
-            ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin() * 13_000.)
-                as i16
+            let frequency = if split && frame >= rate * 5 {
+                880.
+            } else {
+                440.
+            };
+            ((f64::from(frame) * frequency * std::f64::consts::TAU / f64::from(rate)).sin()
+                * 13_000.) as i16
         });
         let mut bytes = Vec::new();
         std::io::Read::read_to_end(&mut wave, &mut bytes).unwrap();
