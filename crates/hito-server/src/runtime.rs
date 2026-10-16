@@ -1,5 +1,6 @@
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
 use std::{future::Future, time::Duration};
+use tracing::{Instrument, instrument::WithSubscriber};
 
 pub async fn run(
     config: RuntimeConfig,
@@ -39,12 +40,16 @@ pub async fn serve(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (cancel, cancelled) = tokio::sync::oneshot::channel::<()>();
-    let serving = tokio::spawn(serve_owned(listener, app, indexer, async move {
-        tokio::select! {
-            _ = shutdown => {},
-            _ = cancelled => {},
-        }
-    }));
+    let serving = tokio::spawn(
+        serve_owned(listener, app, indexer, async move {
+            tokio::select! {
+                _ = shutdown => {},
+                _ = cancelled => {},
+            }
+        })
+        .instrument(tracing::Span::current())
+        .with_current_subscriber(),
+    );
     let result = serving.await?;
     drop(cancel);
     result

@@ -4,6 +4,7 @@ use hyper::server::conn::http1;
 use hyper_util::{rt::TokioIo, service::TowerToHyperService};
 use std::{future::Future, time::Duration};
 use tokio::{net::TcpListener, sync::watch, task::JoinSet};
+use tracing::instrument::WithSubscriber;
 
 pub(crate) async fn serve(
     listener: TcpListener,
@@ -45,7 +46,7 @@ pub(crate) async fn serve(
                     if result.is_err() {
                         tracing::debug!(event = "connection_closed", "HTTP connection ended before completion");
                     }
-                });
+                }.with_current_subscriber());
             }
         }
     }
