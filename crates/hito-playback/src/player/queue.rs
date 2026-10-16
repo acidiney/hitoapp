@@ -3,7 +3,7 @@ use super::{
     Result,
 };
 use hito_core::Recording;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use uuid::Uuid;
 mod traversal;
 use traversal::{Advance, Traversal};
@@ -13,6 +13,7 @@ pub(super) struct Queue {
     revision: u64,
     selection: u64,
     entries: Vec<PlayerEntryRef>,
+    positions: HashMap<Uuid, usize>,
     current: Option<usize>,
     history: VecDeque<Uuid>,
     traversal: Traversal,
@@ -90,10 +91,11 @@ impl Queue {
                 self.current = self
                     .traversal
                     .first(&self.entries)
-                    .and_then(|id| self.entries.iter().position(|entry| entry.id == id));
+                    .and_then(|id| self.positions.get(&id).copied());
             }
             PlayerAction::Clear {} => {
                 self.entries.clear();
+                self.positions.clear();
                 self.history.clear();
                 self.current = None;
                 self.traversal.replace(&self.entries, None);
@@ -113,6 +115,9 @@ impl Queue {
                         recording_id,
                     }));
                 self.traversal.append(&self.entries[offset..]);
+                for (index, entry) in self.entries[offset..].iter().enumerate() {
+                    self.positions.insert(entry.id, offset + index);
+                }
             }
             PlayerAction::Next {} => return self.advance(Advance::Requested),
             PlayerAction::Previous {} => {
@@ -135,6 +140,7 @@ impl Queue {
                     })
                     .collect();
                 self.current = Some(start);
+                self.reindex();
                 self.traversal.replace(&self.entries, self.current_entry());
             }
             PlayerAction::Move { entry, before } => {
@@ -148,24 +154,24 @@ impl Queue {
                         .and_then(|id| self.entries.iter().position(|entry| entry.id == id))
                         .unwrap_or(self.entries.len());
                     self.entries.insert(to, moved);
-                    self.current =
-                        current.and_then(|id| self.entries.iter().position(|entry| entry.id == id));
+                    self.reindex();
+                    self.current = current.and_then(|id| self.positions.get(&id).copied());
                 }
             }
             PlayerAction::Remove { entry } => {
                 let index = self.index(entry)?;
                 let next = if current == Some(entry) {
                     self.traversal
-                        .next(&self.entries, current, Advance::Requested)
+                        .next(&self.entries, self.current, Advance::Requested)
                         .filter(|id| *id != entry)
                 } else {
                     current
                 };
                 self.entries.remove(index);
+                self.reindex();
                 self.history.retain(|played| *played != entry);
                 self.traversal.remove(entry);
-                self.current =
-                    next.and_then(|id| self.entries.iter().position(|entry| entry.id == id));
+                self.current = next.and_then(|id| self.positions.get(&id).copied());
             }
         }
         if self.current_entry() != current || restart {
@@ -189,8 +195,8 @@ impl Queue {
         let current = self.current_entry();
         self.current = self
             .traversal
-            .next(&self.entries, current, reason)
-            .and_then(|id| self.entries.iter().position(|entry| entry.id == id));
+            .next(&self.entries, self.current, reason)
+            .and_then(|id| self.positions.get(&id).copied());
         if current.is_some() || self.current.is_some() {
             self.selection = selection;
         }
@@ -203,10 +209,20 @@ impl Queue {
     }
 
     fn index(&self, id: Uuid) -> Result<usize> {
-        self.entries
-            .iter()
-            .position(|entry| entry.id == id)
+        self.positions
+            .get(&id)
+            .copied()
             .ok_or(PlayerError::NotFound)
+    }
+
+    fn reindex(&mut self) {
+        self.positions.clear();
+        self.positions.extend(
+            self.entries
+                .iter()
+                .enumerate()
+                .map(|(index, entry)| (entry.id, index)),
+        );
     }
 
     pub fn references(
