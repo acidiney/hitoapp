@@ -1,10 +1,12 @@
 use super::{
-    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueuePage, PlayerRepeat,
-    PlayerSnapshot, Result,
+    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueuePage, PlayerSnapshot,
+    Result,
 };
 use hito_core::Recording;
 use std::collections::VecDeque;
 use uuid::Uuid;
+mod traversal;
+use traversal::{Advance, Traversal};
 
 #[derive(Default)]
 pub(super) struct Queue {
@@ -13,7 +15,7 @@ pub(super) struct Queue {
     entries: Vec<PlayerEntryRef>,
     current: Option<usize>,
     history: VecDeque<Uuid>,
-    repeat: PlayerRepeat,
+    traversal: Traversal,
 }
 impl Queue {
     pub fn snapshot(&self) -> PlayerSnapshot {
@@ -23,7 +25,7 @@ impl Queue {
             queue_len: self.entries.len(),
             current_index: self.current,
             can_previous: self.current.is_some() || !self.history.is_empty(),
-            repeat: self.repeat,
+            repeat: self.traversal.repeat,
             current: self
                 .current
                 .and_then(|index| self.entries.get(index))
@@ -44,6 +46,7 @@ impl Queue {
     }
 
     pub fn played(&mut self) {
+        self.traversal.reset_failures();
         if let Some(entry) = self.current_entry()
             && self.history.back() != Some(&entry)
         {
@@ -62,16 +65,12 @@ impl Queue {
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
             PlayerAction::Repeat {} => {
-                self.repeat = match self.repeat {
-                    PlayerRepeat::Off => PlayerRepeat::All,
-                    PlayerRepeat::All => PlayerRepeat::One,
-                    PlayerRepeat::One => PlayerRepeat::Off,
-                };
-                tracing::debug!(event = "player_repeat_changed", mode = ?self.repeat, "Repeat mode changed");
+                self.traversal.cycle_repeat();
                 return Ok(());
             }
             PlayerAction::Pause {} | PlayerAction::Volume { .. } => return Ok(()),
             PlayerAction::Seek { .. } => {
+                self.traversal.reset_failures();
                 return if self.current.is_some() {
                     Ok(())
                 } else {
@@ -79,6 +78,7 @@ impl Queue {
                 };
             }
             PlayerAction::Resume {} => {
+                self.traversal.reset_failures();
                 if self.current.is_some() || self.entries.is_empty() {
                     return Ok(());
                 }
@@ -87,9 +87,13 @@ impl Queue {
             PlayerAction::Clear {} => {
                 self.entries.clear();
                 self.history.clear();
+                self.traversal.reset_failures();
                 self.current = None;
             }
-            PlayerAction::Select { entry } => self.current = Some(self.index(entry)?),
+            PlayerAction::Select { entry } => {
+                self.current = Some(self.index(entry)?);
+                self.traversal.reset_failures();
+            }
             PlayerAction::Append { recordings } => {
                 if self.entries.len() + recordings.len() > 100_000 {
                     return Err(PlayerError::Invalid);
@@ -100,26 +104,20 @@ impl Queue {
                         recording_id,
                     }));
             }
-            PlayerAction::Next {} => {
-                self.current = self.current.and_then(|index| {
-                    if index + 1 < self.entries.len() {
-                        Some(index + 1)
-                    } else {
-                        (self.repeat == PlayerRepeat::All).then_some(0)
-                    }
-                });
-            }
+            PlayerAction::Next {} => return self.advance(Advance::Requested),
             PlayerAction::Previous {} => {
                 let Some(entry) = self.previous_entry() else {
                     return Ok(());
                 };
                 self.current = Some(self.index(entry)?);
+                self.traversal.reset_failures();
                 while self.history.back() != Some(&entry) {
                     self.history.pop_back();
                 }
             }
             PlayerAction::Replace { start, recordings } => {
                 self.history.clear();
+                self.traversal.reset_failures();
                 self.entries = recordings
                     .into_iter()
                     .map(|recording_id| PlayerEntryRef {
@@ -148,6 +146,7 @@ impl Queue {
                 let index = self.index(entry)?;
                 self.entries.remove(index);
                 self.history.retain(|played| *played != entry);
+                self.traversal.remove(entry);
                 self.current = self.current.and_then(|current| {
                     if current > index {
                         Some(current - 1)
@@ -166,11 +165,27 @@ impl Queue {
         Ok(())
     }
 
-    pub fn completed(&mut self) -> Result<()> {
-        match (self.repeat, self.current_entry()) {
-            (PlayerRepeat::One, Some(entry)) => self.apply(PlayerAction::Select { entry }),
-            _ => self.apply(PlayerAction::Next {}),
+    pub fn finish(&mut self, failed: bool) -> Result<()> {
+        self.advance(if failed {
+            Advance::Failed
+        } else {
+            Advance::Completed
+        })
+    }
+
+    fn advance(&mut self, reason: Advance) -> Result<()> {
+        let revision = self.revision.checked_add(1).ok_or(PlayerError::Invalid)?;
+        let selection = self.selection.checked_add(1).ok_or(PlayerError::Invalid)?;
+        let current = self.current_entry();
+        self.current = self
+            .traversal
+            .next(&self.entries, current, reason)
+            .and_then(|id| self.entries.iter().position(|entry| entry.id == id));
+        if current.is_some() || self.current.is_some() {
+            self.selection = selection;
         }
+        self.revision = revision;
+        Ok(())
     }
 
     fn current_entry(&self) -> Option<Uuid> {

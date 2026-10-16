@@ -277,11 +277,7 @@ impl State {
             });
         }
         if update.ended || (update.exhausted && owned.desired_playing) {
-            let advanced = if update.ended {
-                owned.queue.completed()
-            } else {
-                owned.queue.apply(PlayerAction::Next {})
-            };
+            let advanced = owned.queue.finish(!update.ended);
             if advanced.is_err() {
                 owned.error = Some(PlayerError::Invalid);
             }
