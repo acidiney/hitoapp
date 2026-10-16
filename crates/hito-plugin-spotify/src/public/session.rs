@@ -108,8 +108,11 @@ fn script_contents(html: &str) -> Result<&str, Error> {
 
 fn next_data_id(mut attributes: &str) -> Result<bool, Error> {
     let mut selected = false;
-    while !attributes.trim().is_empty() {
+    loop {
         attributes = attributes.trim_start();
+        if attributes.is_empty() {
+            break;
+        }
         let end = attributes
             .find(|character: char| character.is_ascii_whitespace() || character == '=')
             .unwrap_or(attributes.len());
