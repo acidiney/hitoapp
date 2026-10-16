@@ -60,7 +60,7 @@ impl Native {
         } else if target.as_ref().is_some_and(|next| {
             self.target
                 .as_ref()
-                .is_some_and(|old| old.volume != next.volume)
+                .is_some_and(|old| old.volume != next.volume || old.speed != next.speed)
         }) && self.controls.busy()
         {
             self.retire();

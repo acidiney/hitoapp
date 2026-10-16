@@ -63,7 +63,7 @@ impl Writer {
                                 action: Action::ProgressSet {
                                     recording_id: checkpoint.recording,
                                     position_ms: checkpoint.position,
-                                    speed: 1.0,
+                                    speed: f64::from(checkpoint.speed) / 1000.,
                                 },
                             }],
                         },

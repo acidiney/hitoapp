@@ -151,6 +151,9 @@ impl Player {
             PlayerAction::Volume { level } if *level > 1000 => {
                 return Err(PlayerError::Invalid);
             }
+            PlayerAction::Speed { rate } if !(500..=3000).contains(rate) => {
+                return Err(PlayerError::Invalid);
+            }
             PlayerAction::Seek { position_ms } if *position_ms > 9_007_199_254_740_991 => {
                 return Err(PlayerError::Invalid);
             }

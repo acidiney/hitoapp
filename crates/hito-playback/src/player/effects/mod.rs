@@ -13,6 +13,7 @@ pub(super) struct Target {
     pub play_revision: u64,
     pub seek: Option<super::types::Seek>,
     pub volume: u16,
+    pub speed: u16,
     pub permitted: bool,
 }
 
@@ -29,6 +30,7 @@ pub(super) struct Update {
     pub key: Key,
     pub phase: PlayerPhase,
     pub playing: bool,
+    pub speed: u16,
     pub source_id: Option<String>,
     pub position_ms: u64,
     pub duration_ms: Option<u64>,

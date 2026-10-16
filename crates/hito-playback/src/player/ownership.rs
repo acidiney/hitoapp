@@ -25,6 +25,7 @@ impl State {
                         | PlayerAction::Pause {}
                         | PlayerAction::Seek { .. }
                         | PlayerAction::Volume { .. }
+                        | PlayerAction::Speed { .. }
                         | PlayerAction::Previous {}
                         | PlayerAction::Repeat {}
                         | PlayerAction::Shuffle {}
@@ -169,6 +170,10 @@ impl State {
                 if let PlayerAction::Volume { level } = command.action {
                     owned.volume = level;
                 }
+                if let PlayerAction::Speed { rate } = command.action {
+                    owned.speed = rate;
+                    tracing::debug!(event = "player_speed_changed", rate, "Native playback speed requested");
+                }
                 if let PlayerAction::Seek { position_ms } = action {
                     owned.seek = Some(super::types::Seek {
                         id: command.id,
@@ -310,6 +315,7 @@ impl State {
             play_revision: owned.play_revision,
             seek: owned.seek,
             volume: owned.volume,
+            speed: owned.speed,
             permitted: owned.authority_available,
         })
     }

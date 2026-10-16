@@ -6,6 +6,7 @@ pub enum Command {
     Pause,
     Seek(Duration),
     Volume(f32),
+    Speed(f32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]

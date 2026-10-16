@@ -120,6 +120,7 @@ fn command(player: &mut hito_audio::Player, command: Command) -> Result<()> {
         }
         Command::Seek(position) => player.seek(position),
         Command::Volume(volume) => player.volume(volume),
+        Command::Speed(speed) => player.speed(speed),
     };
     result.map_err(Error::Native)
 }

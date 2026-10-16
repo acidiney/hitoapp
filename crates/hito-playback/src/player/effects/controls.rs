@@ -7,12 +7,14 @@ type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 struct Applied {
     seek_id: Option<Uuid>,
     volume: u16,
+    speed: u16,
 }
 #[derive(Default)]
 pub(super) struct Controls {
     configured: bool,
     applied_seek: Option<Uuid>,
     applied_volume: Option<u16>,
+    applied_speed: Option<u16>,
     resume_at: Duration,
     duration: Option<Duration>,
     pending: Option<Pending<crate::Result<Applied>>>,
@@ -28,6 +30,7 @@ impl Controls {
     pub fn opened(&mut self) {
         self.configured = false;
         self.applied_volume = None;
+        self.applied_speed = Some(1000);
     }
     pub fn retire(&mut self, snapshot: Option<crate::Snapshot>) {
         if let Some(snapshot) = snapshot {
@@ -45,11 +48,14 @@ impl Controls {
             && self.pending.is_none()
             && (!self.configured
                 || snapshot.playing != target.playing
-                || self.applied_volume != Some(target.volume))
+                || self.applied_volume != Some(target.volume)
+                || self.applied_speed != Some(target.speed))
         {
             let session = session.clone();
             let seek_id = target.seek.map(|seek| seek.id);
             let volume = target.volume;
+            let speed = target.speed;
+            let change_speed = self.applied_speed != Some(speed);
             let seek =
                 if self.configured || (self.resume_at.is_zero() && seek_id == self.applied_seek) {
                     None
@@ -68,8 +74,11 @@ impl Controls {
                 if let Some(position) = seek {
                     session.command(crate::Command::Seek(position)).await?;
                 }
+                if change_speed {
+                    session.command(crate::Command::Speed(f32::from(speed) / 1000.)).await?;
+                }
                 session.command(command).await?;
-                Ok(Applied { seek_id, volume })
+                Ok(Applied { seek_id, volume, speed })
             }));
         }
     }
@@ -82,8 +91,9 @@ impl Controls {
         let applied = result?;
         self.applied_seek = applied.seek_id;
         self.applied_volume = Some(applied.volume);
+        self.applied_speed = Some(applied.speed);
         self.configured = true;
-        tracing::debug!(event = "player_controls_applied", seek_id = ?applied.seek_id, volume = applied.volume, "Native controls applied");
+        tracing::debug!(event = "player_controls_applied", seek_id = ?applied.seek_id, volume = applied.volume, speed = applied.speed, "Native controls applied");
         Ok(())
     }
     pub fn snapshot(
@@ -108,6 +118,7 @@ impl Controls {
             key: target.key,
             phase,
             playing: snapshot.playing,
+            speed: self.applied_speed.unwrap_or(1000),
             source_id,
             position_ms: snapshot.position.as_millis().min(u64::MAX as u128) as u64,
             duration_ms: snapshot
@@ -135,6 +146,7 @@ impl Controls {
             key: target.key,
             phase,
             playing: false,
+            speed: self.applied_speed.unwrap_or(1000),
             source_id,
             position_ms: self.resume_at.as_millis().min(u64::MAX as u128) as u64,
             duration_ms: self
