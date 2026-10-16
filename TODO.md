@@ -36,7 +36,9 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Connect the shared React player to the native command/observation API while preserving the browser implementation. Verify actual Linux Tauri output, reload, controls, and Rust-owned progress.
 - [x] Add native Previous using bounded played-occurrence history, stable duplicate entries, restart semantics, queue-end availability, and preserved pause state.
 - [x] Add native shuffle and repeat with stable queue occurrences, finite failure traversal, and matching browser traversal checks.
-- [ ] Add native playback speed and saved-position loading.
+- [x] Add native 0.5–3× playback speed for supported 8–192 kHz mono/stereo sources, preserving pitch, command ordering and observed progress rate.
+- [ ] Load current authorized saved positions for explicit native History resume, with pending-write and stale-result fencing.
+- [ ] Add seamless source-specific speed capability negotiation and conversion for unsupported representations; current nonunit playback above 192 kHz fails visibly and can retry at 1×.
 - [x] Preserve process-local private queue state across temporary authority/database failures while suspending output and rejecting unverified commands. Revalidate before recovery; clear on definitive session rejection.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
