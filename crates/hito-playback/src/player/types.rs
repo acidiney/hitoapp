@@ -20,6 +20,8 @@ pub enum PlayerError {
     Unsupported,
     #[error("Audio could not be played")]
     Playback,
+    #[error("Listening progress could not be saved")]
+    Persistence,
 }
 impl From<hito_core::Error> for PlayerError {
     fn from(error: hito_core::Error) -> Self {
@@ -51,6 +53,7 @@ pub struct PlayerSnapshot {
     pub phase: PlayerPhase,
     pub error: Option<PlayerError>,
     pub last_failure: Option<PlayerFailure>,
+    pub persistence_error: Option<PlayerError>,
 }
 impl Default for PlayerSnapshot {
     fn default() -> Self {
@@ -67,6 +70,7 @@ impl Default for PlayerSnapshot {
             phase: PlayerPhase::Idle,
             error: None,
             last_failure: None,
+            persistence_error: None,
         }
     }
 }

@@ -13,7 +13,7 @@ pub(super) async fn run(
     mut requests: mpsc::Receiver<Request>,
     mut stopped: oneshot::Receiver<()>,
     mut effects: super::effects::Effects,
-) {
+) -> Result<()> {
     let mut state = State {
         epoch: Uuid::new_v4(),
         owner: None,
@@ -21,14 +21,22 @@ pub(super) async fn run(
     };
     let mut pending: Option<Admission> = None;
     let mut checking: Option<SessionCheck> = None;
+    let mut progress = super::progress::Progress::new(services.collection.clone());
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
-        effects.sync(&state);
+        progress.sync(&state);
+        effects.sync(&state, progress.can_play(&state));
         tokio::select! {
             biased;
             _ = &mut stopped => break,
-            update = effects.next() => state.update(update),
+            update = effects.next() => { progress.observe(&state, &update); state.update(update); },
+            report = progress.next() => {
+                if let Some(owned) = &mut state.owner && owned.scope == report.scope {
+                    owned.persistence_error = report.failed.then_some(PlayerError::Persistence);
+                    owned.publish();
+                }
+            },
             (lease, result) = async { checking.as_mut().unwrap().await }, if checking.is_some() => {
                 checking = None;
                 if result.is_err() && state.owner.as_ref().is_some_and(|owned| owned.lease == lease) {
@@ -40,7 +48,7 @@ pub(super) async fn run(
             (request, result) = async { pending.as_mut().unwrap().await }, if pending.is_some() => {
                 pending = None;
                 let _span = request.span.enter();
-                let response = result.and_then(|recordings| state.accept(&request.actor, request.action, recordings));
+                let response = result.and_then(|recordings| state.accept(&request.actor, request.action, recordings, progress.ready()));
                 tracing::debug!(event = "player_request_finished", elapsed_ms = request.started.elapsed().as_millis() as u64, success = response.is_ok(), "Playback request finished");
                 let _ = request.reply.send(response);
             },
@@ -76,6 +84,7 @@ pub(super) async fn run(
     drop(pending);
     drop(checking);
     state.owner = None;
-    effects.close().await;
+    let (_, saved) = tokio::join!(effects.close(), progress.close());
     tracing::info!(event = "player_owner_closed", "Playback admission joined");
+    saved
 }

@@ -2,6 +2,7 @@ mod attachment;
 mod effects;
 mod owner;
 mod ownership;
+mod progress;
 mod queue;
 mod types;
 use hito_core::Actor;
@@ -29,7 +30,7 @@ pub struct Player {
 
 pub struct PlayerOwner {
     stop: Option<oneshot::Sender<()>>,
-    task: Option<JoinHandle<()>>,
+    task: Option<JoinHandle<Result<()>>>,
 }
 
 enum Action {
@@ -219,7 +220,7 @@ impl PlayerOwner {
             let _ = stop.send(());
         }
         if let Some(task) = self.task.take() {
-            task.await.map_err(|_| PlayerError::Closed)?;
+            task.await.map_err(|_| PlayerError::Closed)??;
         }
         Ok(())
     }

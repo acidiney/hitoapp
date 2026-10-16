@@ -25,6 +25,7 @@ pub(super) struct Owned {
     pub(super) phase: PlayerPhase,
     pub(super) error: Option<PlayerError>,
     pub(super) last_failure: Option<super::PlayerFailure>,
+    pub(super) persistence_error: Option<PlayerError>,
     pub(super) position: watch::Sender<PlayerPosition>,
 }
 impl Owned {
@@ -47,6 +48,7 @@ impl Owned {
             phase: PlayerPhase::Idle,
             error: None,
             last_failure: None,
+            persistence_error: None,
             position: watch::channel(PlayerPosition::default()).0,
         }
     }
@@ -61,6 +63,7 @@ impl Owned {
             phase: self.phase,
             error: self.error,
             last_failure: self.last_failure.clone(),
+            persistence_error: self.persistence_error,
             ..self.queue.snapshot()
         }
     }

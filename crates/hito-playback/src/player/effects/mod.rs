@@ -49,13 +49,13 @@ impl Effects {
     pub fn enabled(&self) -> bool {
         !matches!(self, Self::Disabled)
     }
-    pub fn sync(&mut self, state: &State) {
+    pub fn sync(&mut self, state: &State, can_play: bool) {
         match self {
             Self::Disabled => {
-                let _ = state;
+                let _ = (state, can_play);
             }
             #[cfg(feature = "device")]
-            Self::Native(native) => native.sync(state.target()),
+            Self::Native(native) => native.sync(state.target().filter(|_| can_play)),
         }
     }
     pub async fn next(&mut self) -> Update {

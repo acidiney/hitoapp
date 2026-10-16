@@ -63,6 +63,7 @@ impl State {
         actor: &Actor,
         action: Action,
         recordings: Vec<Recording>,
+        progress_ready: bool,
     ) -> Result<Response> {
         match action {
             Action::Inspect => Ok(Response::Inspection(PlayerInspection {
@@ -125,6 +126,14 @@ impl State {
             Action::Submit(command) => {
                 if let Some(receipt) = self.owned(actor, command.lease)?.check(&command)? {
                     return Ok(Response::Receipt(receipt));
+                }
+                if !progress_ready
+                    && !matches!(
+                        command.action,
+                        PlayerAction::Pause | PlayerAction::Clear | PlayerAction::Volume { .. }
+                    )
+                {
+                    return Err(PlayerError::Busy);
                 }
                 let owned = self.owner.as_mut().unwrap();
                 let before = owned.queue.snapshot().selection;
