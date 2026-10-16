@@ -67,6 +67,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
 - [ ] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; notify the user here when installation, discovery, adoption, playback, and seeking are verified.
+- [ ] Give the folder plugin durable recording and release identities across tag edits and catalog membership changes; its first immutable demo uses content identities and requires a restart to rescan.
 - [ ] Add playlist Import a copy and read-only Follow playlist.
 - [ ] Import Spotify playlists as editable Hito copies, preserving order, duplicate entries, Spotify identifiers, and metadata provenance; verify current Spotify authorization and API restrictions.
 - [ ] Follow Spotify playlists with a UI-configured hourly/daily refresh interval and persistent scheduled jobs; synchronize additions, removals, order, and duplicate occurrences while retaining stable entry IDs and the last good snapshot after failed or incomplete refreshes. Followed playlists stay read-only; imported copies stay independent and editable. Release unneeded download references without deleting originals or library records.
