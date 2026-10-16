@@ -1,9 +1,10 @@
-use super::{evidence, persist};
+use super::{bindings, evidence, persist};
 use crate::Result;
 use hito_plugin_sdk::ProviderRecording;
 use sqlx::{Sqlite, Transaction};
 
 pub(crate) struct ProviderMetadata {
+    pub(super) binding: bindings::Binding,
     pub(crate) recording_id: String,
     pub(crate) release_id: Option<String>,
     pub(crate) observation_id: String,
@@ -16,22 +17,34 @@ pub(crate) async fn publish(
     provider: &str,
     details: &ProviderRecording,
 ) -> Result<ProviderMetadata> {
-    let release_id = persist::release(tx, library, installation, details.release.as_ref()).await?;
-    let recording_id = persist::recording(tx, library, installation, details).await?;
-    let observation_id = evidence::observe(
+    let binding = bindings::adopt(tx, library, installation, details).await?;
+    let owns_metadata: bool =
+        sqlx::query_scalar("SELECT metadata_binding_id IS ? FROM recordings WHERE id = ?")
+            .bind(&binding.id)
+            .bind(&binding.recording_id)
+            .fetch_one(&mut **tx)
+            .await?;
+    let publication = if owns_metadata {
+        persist::ReleasePublication::PublishInherited
+    } else {
+        persist::ReleasePublication::PreserveExisting
+    };
+    let release_id = persist::release(
         tx,
+        library,
         installation,
-        provider,
-        &recording_id,
-        release_id.as_deref(),
-        details,
+        details.release.as_ref(),
+        publication,
     )
     .await?;
-    sqlx::query("UPDATE recordings SET release_id = ?, title = ?, artist = ?, duration_ms = ?, metadata_observation_id = ? WHERE id = ?")
+    let observation_id =
+        evidence::observe(tx, &binding, provider, release_id.as_deref(), details).await?;
+    sqlx::query("UPDATE recordings SET release_id = ?, title = ?, artist = ?, duration_ms = ?, metadata_observation_id = ? WHERE id = ? AND metadata_binding_id = ?")
         .bind(&release_id).bind(&details.title).bind(&details.artist).bind(details.duration_ms.unwrap_or(0) as i64)
-        .bind(&observation_id).bind(&recording_id).execute(&mut **tx).await?;
+        .bind(&observation_id).bind(&binding.recording_id).bind(&binding.id).execute(&mut **tx).await?;
     Ok(ProviderMetadata {
-        recording_id,
+        recording_id: binding.recording_id.clone(),
+        binding,
         release_id,
         observation_id,
     })

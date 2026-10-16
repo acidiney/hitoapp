@@ -54,8 +54,13 @@ impl Catalog {
     ) -> Result<PlaybackSource> {
         actor.check_session(&self.store).await?;
         let membership = self.playback_membership(actor, recording, source).await?;
-        let binding = if let Some((operation, remote)) = self.provider_audio(actor, source).await? {
-            Binding::Provider(operation.audio_authority(source, &remote))
+        let binding = if let Some(provider) = self.provider_audio(actor, source).await? {
+            Binding::Provider(provider.operation.audio_authority(
+                source,
+                &provider.remote,
+                &provider.binding_id,
+                provider.binding_revision,
+            ))
         } else {
             Binding::Local(self.media_location(actor, source).await?)
         };

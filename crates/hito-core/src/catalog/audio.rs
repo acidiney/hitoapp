@@ -25,6 +25,22 @@ pub struct AudioContent {
     pub body: Option<AudioStream>,
 }
 
+pub(super) struct ProviderAudio {
+    pub operation: crate::plugins::Operation,
+    pub remote: String,
+    pub binding_id: String,
+    pub binding_revision: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct ProviderAudioBinding {
+    installation_id: String,
+    provider_source_id: String,
+    installation_revision: i64,
+    binding_id: String,
+    binding_revision: i64,
+}
+
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn open_audio(
@@ -33,8 +49,17 @@ impl Catalog {
         source: &str,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
-        if let Some((operation, remote)) = self.provider_audio(actor, source).await? {
-            return operation.audio(source, &remote, request).await;
+        if let Some(provider) = self.provider_audio(actor, source).await? {
+            return provider
+                .operation
+                .audio(
+                    source,
+                    &provider.remote,
+                    &provider.binding_id,
+                    provider.binding_revision,
+                    request,
+                )
+                .await;
         }
         let audio = self.audio_file(actor, source).await?;
         let total = audio.length;
@@ -75,26 +100,33 @@ impl Catalog {
         &self,
         actor: &Actor,
         source: &str,
-    ) -> Result<Option<(crate::plugins::Operation, String)>> {
-        let binding: Option<(String,String,i64)> = sqlx::query_as("SELECT ps.installation_id,ps.provider_source_id,p.revision
+    ) -> Result<Option<ProviderAudio>> {
+        let binding: Option<ProviderAudioBinding> = sqlx::query_as("SELECT ps.installation_id,ps.provider_source_id,p.revision AS installation_revision,item.id AS binding_id,item.revision AS binding_revision
             FROM provider_sources ps JOIN sources s ON s.id=ps.source_id AND s.ready=1
+            JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
+            JOIN provider_source_state state ON state.binding_id=item.id AND state.generation=ps.generation
             JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id
             JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=m.user_id AND p.active=1
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1
             WHERE ps.source_id=? AND m.user_id=?")
             .bind(source).bind(actor.id()).fetch_optional(&self.store.pool).await?;
-        let Some((installation, remote, revision)) = binding else {
+        let Some(binding) = binding else {
             return Ok(None);
         };
         let operation = self
             .plugins
             .operation(
                 actor,
-                &installation,
-                revision,
+                &binding.installation_id,
+                binding.installation_revision,
                 &[hito_plugin_sdk::Capability::Sources],
             )
             .await?;
-        Ok(Some((operation, remote)))
+        Ok(Some(ProviderAudio {
+            operation,
+            remote: binding.provider_source_id,
+            binding_id: binding.binding_id,
+            binding_revision: binding.binding_revision,
+        }))
     }
 }

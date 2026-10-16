@@ -5,6 +5,7 @@ pub use content::ProviderServer;
 use hito_core::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};
 use serde_json::{Value, json};
 
+#[allow(dead_code)]
 pub async fn connect(
     hito: &Services,
     actor: &Actor,

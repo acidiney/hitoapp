@@ -33,6 +33,8 @@ pub(crate) fn push_source_access(
     query.push(
         " AND (s.provider != 'plugin' OR EXISTS (
         SELECT 1 FROM provider_sources ps
+        JOIN provider_items item ON item.id = ps.binding_id AND item.retired = 0
+        JOIN provider_source_state state ON state.binding_id = item.id AND state.generation = ps.generation
         JOIN plugin_installations p ON p.id = ps.installation_id AND p.active = 1
         JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
         WHERE ps.source_id = s.id AND EXISTS (

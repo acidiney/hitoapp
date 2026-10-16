@@ -92,6 +92,8 @@ impl Operation {
         &self,
         source: &str,
         remote_source: &str,
+        binding: &str,
+        binding_revision: i64,
     ) -> super::AudioAuthority {
         super::media::Authority {
             store: self.store.clone(),
@@ -102,15 +104,19 @@ impl Operation {
             source: source.into(),
             remote_source: remote_source.into(),
             generation: self.audio_generation,
+            binding: binding.into(),
+            binding_revision,
         }
     }
     pub(crate) async fn audio(
         &self,
         source: &str,
         remote_source: &str,
+        binding: &str,
+        binding_revision: i64,
         request: crate::AudioRequest,
     ) -> Result<crate::OpenedAudio> {
-        let authority = self.audio_authority(source, remote_source);
+        let authority = self.audio_authority(source, remote_source, binding, binding_revision);
         authority.check().await?;
         let audio = self
             .media
