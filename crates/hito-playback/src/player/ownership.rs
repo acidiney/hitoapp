@@ -27,6 +27,7 @@ impl State {
                         | PlayerAction::Volume { .. }
                         | PlayerAction::Previous {}
                         | PlayerAction::Repeat {}
+                        | PlayerAction::Shuffle {}
                 ) && !self.native
                 {
                     return Err(PlayerError::Unsupported);

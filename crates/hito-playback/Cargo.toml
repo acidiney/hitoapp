@@ -19,6 +19,7 @@ tracing.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 serde.workspace = true
+rand.workspace = true
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]

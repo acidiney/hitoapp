@@ -26,6 +26,7 @@ impl Queue {
             current_index: self.current,
             can_previous: self.current.is_some() || !self.history.is_empty(),
             repeat: self.traversal.repeat,
+            shuffle: self.traversal.shuffled(),
             current: self
                 .current
                 .and_then(|index| self.entries.get(index))
@@ -64,6 +65,10 @@ impl Queue {
         let current = self.current_entry();
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
+            PlayerAction::Shuffle {} => {
+                self.traversal.toggle_shuffle(&self.entries, current);
+                return Ok(());
+            }
             PlayerAction::Repeat {} => {
                 self.traversal.cycle_repeat();
                 return Ok(());

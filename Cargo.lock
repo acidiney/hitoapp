@@ -1723,6 +1723,7 @@ dependencies = [
  "bytes",
  "hito-audio",
  "hito-core",
+ "rand",
  "serde",
  "serde_json",
  "sqlx",

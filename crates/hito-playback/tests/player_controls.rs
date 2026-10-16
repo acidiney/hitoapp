@@ -21,6 +21,7 @@ async fn unsupported_and_invalid_controls_do_not_advance_command_or_queue_order(
         (PlayerAction::Volume { level: 0 }, PlayerError::Unsupported),
         (PlayerAction::Previous {}, PlayerError::Unsupported),
         (PlayerAction::Repeat {}, PlayerError::Unsupported),
+        (PlayerAction::Shuffle {}, PlayerError::Unsupported),
         (
             PlayerAction::Seek {
                 position_ms: u64::MAX,
