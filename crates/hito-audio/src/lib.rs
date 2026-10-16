@@ -15,7 +15,8 @@ mod presentation;
 mod processor;
 #[cfg(feature = "device")]
 mod render;
-#[cfg(feature = "device")]
+#[cfg(any(feature = "device", loom))]
+#[cfg_attr(loom, allow(dead_code))]
 mod state;
 #[cfg(feature = "device")]
 mod tempo;

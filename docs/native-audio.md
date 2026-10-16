@@ -53,6 +53,8 @@ Decoder read-ahead does not advance playback position. The callback schedules so
 
 This is an estimate from the selected backend's clock, not proof of physical speaker timing. The Linux monitor test verifies the emitted signal. Other drivers and platforms need their own acceptance checks.
 
+The Loom model uses the actual `State::present`, `reset`, and single observation-read attempt with modeled atomics. It checks presentation, resetting an ended observation, and a retiring callback concurrent with reset. Each writer performs one operation and the reader makes one attempt, with at most two thread preemptions and a [1,000-thread-switch execution limit](https://docs.rs/loom/0.7.2/loom/model/struct.Builder.html#structfield.max_branches). It checks observation consistency rather than progress of the retry loop. [Loom cannot model every relaxed-memory execution](https://docs.rs/loom/0.7.2/loom/#relaxed-memory-ordering), so this is bounded regression evidence, not proof for every platform. Run it separately with `sh scripts/check-audio-model.sh`; it uses `/build/loom-target` and does not compile CPAL, SoundTouch, or Tauri.
+
 ```mermaid
 sequenceDiagram
   participant Owner as Player owner

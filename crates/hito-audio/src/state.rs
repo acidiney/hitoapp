@@ -1,8 +1,9 @@
 use crate::{AudioFormat, Error};
-use std::{
-    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering, fence},
-    time::Duration,
-};
+#[cfg(loom)]
+use loom::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering, fence};
+#[cfg(not(loom))]
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering, fence};
+use std::time::Duration;
 
 pub struct Snapshot {
     pub playing: bool,
@@ -97,26 +98,10 @@ impl State {
 
     pub fn snapshot(&self, format: AudioFormat) -> Snapshot {
         let (position, speed, ended) = loop {
-            let presented = self.presented_sequence.load(Ordering::Acquire);
-            let reset = self.reset_sequence.load(Ordering::Acquire);
-            if !presented.is_multiple_of(2) || !reset.is_multiple_of(2) {
-                std::hint::spin_loop();
-                continue;
+            if let Some(observation) = self.try_observation() {
+                break observation;
             }
-            let epoch = self.epoch.load(Ordering::Acquire);
-            let position = if self.position_epoch.load(Ordering::Relaxed) == epoch {
-                self.position.load(Ordering::Relaxed)
-            } else {
-                self.base.load(Ordering::Relaxed)
-            };
-            let speed = f32::from_bits(self.speed.load(Ordering::Relaxed));
-            let ended = self.ended.load(Ordering::Relaxed) == epoch;
-            fence(Ordering::Acquire);
-            if self.presented_sequence.load(Ordering::Relaxed) == presented
-                && self.reset_sequence.load(Ordering::Relaxed) == reset
-            {
-                break (position, speed, ended);
-            }
+            std::hint::spin_loop();
         };
         let error = self.error();
         Snapshot {
@@ -140,6 +125,26 @@ impl State {
             },
             notices: self.notices.load(Ordering::Relaxed),
         }
+    }
+
+    fn try_observation(&self) -> Option<(u64, f32, bool)> {
+        let presented = self.presented_sequence.load(Ordering::Acquire);
+        let reset = self.reset_sequence.load(Ordering::Acquire);
+        if !presented.is_multiple_of(2) || !reset.is_multiple_of(2) {
+            return None;
+        }
+        let epoch = self.epoch.load(Ordering::Acquire);
+        let position = if self.position_epoch.load(Ordering::Relaxed) == epoch {
+            self.position.load(Ordering::Relaxed)
+        } else {
+            self.base.load(Ordering::Relaxed)
+        };
+        let speed = f32::from_bits(self.speed.load(Ordering::Relaxed));
+        let ended = self.ended.load(Ordering::Relaxed) == epoch;
+        fence(Ordering::Acquire);
+        (self.presented_sequence.load(Ordering::Relaxed) == presented
+            && self.reset_sequence.load(Ordering::Relaxed) == reset)
+            .then_some((position, speed, ended))
     }
 
     pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool) {
@@ -166,3 +171,7 @@ impl State {
         epoch
     }
 }
+
+#[cfg(all(test, loom))]
+#[path = "state_model.rs"]
+mod state_model;
