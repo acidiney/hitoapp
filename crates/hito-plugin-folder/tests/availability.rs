@@ -92,3 +92,62 @@ fn a_known_recording_keeps_detail_and_returns_empty_complete_sources_after_its_l
     );
     service.stop();
 }
+
+#[test]
+fn identical_current_copies_keep_one_source_ready_until_the_last_locator_disappears() {
+    let directory = tempfile::tempdir().unwrap();
+    let music = directory.path().join("private-root");
+    fs::create_dir(&music).unwrap();
+    let preferred = music.join("a-private-preferred.wav");
+    let remaining = music.join("z-private-fallback.wav");
+    let title = "Runtime duplicate locator fallback";
+    let bytes = support::write_wav(&preferred, Some(title), 660);
+    fs::write(&remaining, &bytes).unwrap();
+    assert_eq!(fs::read(&remaining).unwrap(), bytes);
+    let first = bytes
+        .windows(title.len())
+        .position(|bytes| bytes == title.as_bytes())
+        .unwrap();
+    let end = first + title.len();
+    assert_eq!(&bytes[first..end], title.as_bytes());
+    let state = directory.path().join("private-state");
+    binary::initialize(&music, &state);
+    let service = binary::Service::start(&music, &state, &directory.path().join("runtime.jsonl"));
+    let page: SearchPage =
+        service.post("/v1/search", serde_json::json!({"query":title,"limit":20}));
+    page.validate(20).unwrap();
+    assert_eq!(page.items.len(), 1);
+    let recording = &page.items[0].id;
+    let initial: SourcePage =
+        service.post("/v1/sources", serde_json::json!({"recording_id":recording}));
+    initial.validate().unwrap();
+    assert_eq!(initial.items.len(), 1);
+    assert!(initial.items[0].ready);
+    let source = &initial.items[0].id;
+    assert_eq!(
+        service.audio(source, first, end),
+        (206, bytes[first..end].to_vec())
+    );
+
+    fs::remove_file(preferred).unwrap();
+    let fallback: SourcePage =
+        service.post("/v1/sources", serde_json::json!({"recording_id":recording}));
+    fallback.validate().unwrap();
+    assert_eq!(fallback.items.len(), 1);
+    assert_eq!(fallback.items[0].id, *source);
+    assert!(fallback.items[0].ready);
+    assert_eq!(
+        service.audio(source, first, end),
+        (206, bytes[first..end].to_vec())
+    );
+
+    fs::remove_file(remaining).unwrap();
+    let unavailable: SourcePage =
+        service.post("/v1/sources", serde_json::json!({"recording_id":recording}));
+    unavailable.validate().unwrap();
+    assert_eq!(unavailable.items.len(), 1);
+    assert_eq!(unavailable.items[0].id, *source);
+    assert!(!unavailable.items[0].ready);
+    assert_eq!(service.audio(source, first, end).0, 404);
+    service.stop();
+}
