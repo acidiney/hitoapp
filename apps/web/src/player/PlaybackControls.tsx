@@ -46,7 +46,7 @@ export default function PlaybackControls() {
         <button
           className="icon-button"
           disabled={
-            !selected ||
+            !(state.canPrevious ?? selected) ||
             !player.supports.previous ||
             state.connection !== "ready"
           }

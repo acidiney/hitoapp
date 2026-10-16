@@ -17,6 +17,41 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test("native Previous remains available after queue completion without current metadata", async () => {
+  const service = nativeService();
+  Object.assign(service.state, {
+    revision: 3,
+    selection: 3,
+    queue_len: 2,
+    can_previous: true,
+  });
+  render(
+    createElement(PlaybackProvider, {
+      account: "alice",
+      native: true,
+      children: createElement(PlayerDock),
+    }),
+  );
+  await vi.waitFor(() => expect(service.subscriptions.position).toBe(1));
+  const previous = screen.getByRole("button", { name: "Previous track" });
+  await vi.waitFor(() => expect(previous).toHaveProperty("disabled", false));
+  fireEvent.click(previous);
+  await vi.waitFor(() =>
+    expect(service.commands[0]?.action).toEqual({ kind: "previous" }),
+  );
+  await act(async () => {
+    Object.assign(service.state, {
+      revision: 4,
+      can_previous: false,
+      queue_len: 0,
+    });
+    service.emit("state", service.state);
+  });
+  expect(previous).toHaveProperty("disabled", true);
+  expect(service.claims).toBe(1);
+  expect(document.querySelectorAll("audio")).toHaveLength(0);
+});
+
 test("native authority suspension explains stopped output and retains the progress warning after recovery", async () => {
   const service = nativeService();
   Object.assign(service.state, {
@@ -142,7 +177,7 @@ test("native preparation remains pausable and unsupported controls are explicit"
   await vi.waitFor(() =>
     expect(service.commands[0].action).toEqual({ kind: "pause" }),
   );
-  for (const name of ["Previous track", "Shuffle", "Repeat: off"])
+  for (const name of ["Shuffle", "Repeat: off"])
     expect(screen.getByRole("button", { name })).toHaveProperty(
       "disabled",
       true,

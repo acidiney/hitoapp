@@ -78,7 +78,7 @@ export class NativeCommands {
   };
   previous = async () => {
     this.intention++;
-    this.unsupported("Previous track");
+    await this.run([{ kind: "previous" }]);
   };
   speed = (_value: number) => this.unsupported("Playback speed");
   repeat = () => this.unsupported("Repeat");

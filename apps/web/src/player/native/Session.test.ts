@@ -16,6 +16,7 @@ test("a lost command response retries its exact payload before a later relative 
     revision: 0,
     selection: 0,
     queue_len: 0,
+    can_previous: false,
     current_index: null,
     current: null,
     source_id: null,

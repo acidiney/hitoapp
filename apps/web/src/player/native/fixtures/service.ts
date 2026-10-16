@@ -8,6 +8,7 @@ export function nativeService() {
     queue_len: 0,
     current_index: null,
     current: null,
+    can_previous: false,
     source_id: null,
     desired_playing: false,
     playing: false,

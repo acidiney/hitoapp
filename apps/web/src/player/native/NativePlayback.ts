@@ -15,6 +15,7 @@ function emptyView(): PlaybackView {
   return {
     current: null,
     playing: false,
+    canPrevious: false,
     loading: false,
     error: "",
     repeat: "off",
@@ -40,7 +41,7 @@ function playbackError(value: Snapshot | null) {
 export class NativePlayback implements Player {
   readonly mode = "native";
   readonly supports = {
-    previous: false,
+    previous: true,
     shuffle: false,
     repeat: false,
     speed: false,
@@ -185,6 +186,7 @@ export class NativePlayback implements Player {
           : null,
       playing: value.playing,
       desiredPlaying: value.desired_playing,
+      canPrevious: value.can_previous,
       loading:
         value.phase === "resolving" ||
         value.phase === "opening" ||
