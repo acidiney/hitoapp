@@ -77,6 +77,8 @@ The service skips symlinks and non-regular files. An owned parent handle opens t
 
 JSON bodies are limited to 4 KiB, search results to the protocol's 256 KiB budget, and request handling to 16 concurrent requests with ten-second handler/body deadlines. Four file-open workers and eight audio streams have separate admission limits. Streaming reads at most 64 KiB at a time and respects backpressure. Each blocking read worker owns its file and admission permit. If a consumer closes during a pending read, capacity remains occupied until that read finishes and the worker closes the file. Logs use safe operation categories, correlation IDs, outcomes and timings. Input rejection omits parser details even at TRACE. Production logging also hard-filters all dependency diagnostics, including parser messages bridged from `log`, independently of `RUST_LOG`; safe plugin-owned counts and outcomes remain available.
 
+SIGINT and Docker's default SIGTERM request graceful HTTP drain. Signal handlers are installed before startup work. Responsive active responses finish or close before the server stops. A filesystem read blocked inside the kernel cannot be cancelled by this service; its worker retains admission and can delay process exit beyond Docker's stop grace period. The tested shutdown case uses responsive owned local audio.
+
 ## Identity work still open
 
 Current recording and source IDs derive from the exact file bytes. Moves and renamed roots keep these IDs. Retagging changes bytes, so the current service creates a different provider recording identity after restart. Hito will retain the earlier adopted recording, but this demo does not reconcile it with the retagged file. Do not treat this as completed recording identity or acoustic matching.
@@ -93,7 +95,7 @@ The focused check uses the existing Hito tools image and volumes, a separate `/b
 ./scripts/check-plugin-folder.sh
 ```
 
-The recorded focused run passed sixteen folder-service tests and one SDK contract test, with formatting and strict Clippy clean. A real TCP test also verifies deferred stream logging retains request correlation and a scoped subscriber, then checks graceful server shutdown. Boundary tests cover the real SDK contract, complete paging, large-tag response limits, conservative matching, coherent releases, root moves, symlinks, special files, traversal, changed sources, malformed requests, TRACE privacy, single ranges, HEAD and abandoned-stream cleanup.
+The recorded focused run passed seventeen folder-service tests and one SDK contract test, with formatting and strict Clippy clean. A real TCP test also verifies deferred stream logging retains request correlation and a scoped subscriber, then checks graceful server shutdown. Boundary tests cover the real SDK contract, complete paging, large-tag response limits, conservative matching, coherent releases, root moves, symlinks, special files, traversal, changed sources, malformed requests, TRACE privacy, single ranges, HEAD and abandoned-stream cleanup.
 
 For the isolated browser flow, first have Hito's development tools and `hito-e2e-server:latest` image available. This browser configuration mounts the existing `hito_node-modules` dependency volume. It uses a fresh tmpfs database and its own administrator account, never the normal server volume:
 
