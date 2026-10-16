@@ -14,6 +14,9 @@ pub struct Recovery {
 }
 impl Recovery {
     pub async fn start() -> Self {
+        Self::start_with_wave(48_000, 48_000 * 10).await
+    }
+    pub async fn start_with_wave(rate: u32, frames: u32) -> Self {
         let (directory, services, actor, library, music) = support::library("recovery").await;
         let shared = services
             .storage
@@ -22,8 +25,9 @@ impl Recovery {
             .unwrap()
             .remove(0)
             .id;
-        let mut wave = audio::wave(48_000, 1, 48_000 * 10, |frame, _| {
-            ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 13_000.) as i16
+        let mut wave = audio::wave(rate, 1, frames, |frame, _| {
+            ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin() * 13_000.)
+                as i16
         });
         let mut bytes = Vec::new();
         std::io::Read::read_to_end(&mut wave, &mut bytes).unwrap();

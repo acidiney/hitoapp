@@ -11,4 +11,4 @@ These files are copied without modification from `include/` in the `soundtouch-2
 
 The Rust dependency supplies the matching compiled library. These local headers compile Hito's C ABI adapter against that exact class declaration without relying on dependency-cache paths or guessing C++ layout. Any dependency upgrade must update and verify this header set together.
 
-SoundTouch is Copyright Olli Parviainen and licensed under LGPL-2.1-or-later. See the preserved header notices and the complete [LGPL 2.1 text](../../../../../docs/licenses/LGPL-2.1.txt). Distribution requirements and current packaging limits are recorded in [third-party notices](../../../../../docs/third-party-notices.md).
+SoundTouch is Copyright Olli Parviainen and licensed under LGPL-2.1-or-later. See the preserved header notices and the complete [LGPL 2.1 text](../../../../docs/licenses/LGPL-2.1.txt). Distribution requirements and current packaging limits are recorded in [third-party notices](../../../../docs/third-party-notices.md).

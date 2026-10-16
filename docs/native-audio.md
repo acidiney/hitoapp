@@ -30,9 +30,9 @@ The PCM ring holds 100 ms of frames. The callback performs no allocation, lockin
 
 ## Tempo and media time
 
-Native speed accepts finite rates from 0.5 to 3.0. The decoder worker uses bundled SoundTouch 2.3.2 through the pinned `soundtouch` wrapper to change tempo while preserving pitch. A 1.0 rate bypasses processing. SoundTouch owns its processing buffers on the worker; the callback only reads prepared frames. The dependency and license are recorded in [third-party notices](third-party-notices.md).
+Native speed accepts finite rates from 0.5 to 3.0. The decoder worker uses bundled SoundTouch 2.3.2 through a private C ABI adapter and the pinned `soundtouch-ffi` library to change tempo while preserving pitch. A 1.0 rate bypasses processing. C++ constructs and deletes each processor; Rust owns its opaque handle through unconditional Drop. The C ABI contains native exceptions. SoundTouch owns its processing buffers on the worker; the callback only reads prepared frames. The dependency and license are recorded in [third-party notices](third-party-notices.md).
 
-Each transition drains the current processor before starting the latest requested rate. Already prepared audio keeps its original rate tag. The worker retains any unread raw samples, including when returning to 1.0 or reversing a pending transition. Changing speed neither seeks the input nor changes play/pause, so forward-only streams remain usable. Processing consumes chunks of at most 10 ms and returns at most 4,096 frames at a time. Input reads and output buffering can delay the rate becoming audible; a successful control reply acknowledges the request, not its presentation.
+Each transition drains the current processor before starting the latest requested rate. The adapter calculates the expected segment output from genuine input frames and tempo, supplies bounded silence using the configured initial latency and input sequence size, verifies that the expected output exists, and trims padding before delivery. Failure to drain is an output error, never a successful empty ending. Padding does not advance media time. Already prepared audio keeps its original rate tag. The worker retains any unread raw samples, including when returning to 1.0 or reversing a pending transition. Changing speed neither seeks the input nor changes play/pause, so forward-only streams remain usable. Processing consumes chunks of at most 10 ms and returns at most 4,096 frames at a time. Input reads and output buffering can delay the rate becoming audible; a successful control reply acknowledges the request, not its presentation.
 
 ```mermaid
 flowchart LR
@@ -43,11 +43,13 @@ flowchart LR
   Callback --> Observed[Observed source position and rate]
 ```
 
+Nonunit tempo is unsupported above 192 kHz because the bundled processor rejects those sample rates. The engine rejects such a speed request before changing its rate or playback state, preserving unit-speed playback. The coordinator currently reports a visible playback failure after finite source attempts; choosing 1.0 and Resume can retry the same paused occurrence. Source-specific speed negotiation and seamless rejection while preserving active playback remain unfinished. Monitor fixtures cover tempo at 8, 16, 44.1, 48, 96, and 192 kHz, with 384 kHz rejection followed by actual unit-speed output.
+
 Positions, seeks, and duration use source media time. At 2.0, four seconds of source audio produce about two seconds of device audio. Each frame carries its source cursor and segment rate. Snapshots publish that rate when the corresponding audio is estimated to have played. A completion marker only advances position/completion and preserves the last presented rate, including a short clip ending within one callback or a seek directly to the end. Before any audio is presented, the observed rate starts at 1.0. Seeking resets the processor and generation while retaining the latest requested rate; output recovery uses the same reset at the last presented cursor.
 
 ## Position and completion
 
-Decoder read-ahead does not advance playback position. The callback schedules source positions and the ordered end marker against CPAL's playback timestamps. Consecutive buffers cannot overlap, including the initial silent buffers. Later callbacks publish points after their estimated presentation time. Completion therefore follows the final marker rather than an empty producer observation.
+Decoder read-ahead does not advance playback position. The callback schedules source positions and the ordered end marker against CPAL's playback timestamps. Consecutive buffers cannot overlap, including the initial silent buffers. Later callbacks publish points after their estimated presentation time. One callback-owned atomic sequence publishes position, rate, and completion together. Worker seeks/recovery use a separate sequence for the base cursor and generation. Snapshot readers retry if either publication is incomplete or changed; the callback takes no lock. Completion therefore follows the final marker rather than an empty producer observation.
 
 This is an estimate from the selected backend's clock, not proof of physical speaker timing. The Linux monitor test verifies the emitted signal. Other drivers and platforms need their own acceptance checks.
 

@@ -185,6 +185,9 @@ impl Player {
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
+        if value != 1. && self.format.sample_rate > 192_000 {
+            return Err(Error::Unsupported);
+        }
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
             .send(Control::Speed { value, reply })

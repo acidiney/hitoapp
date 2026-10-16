@@ -30,6 +30,68 @@ impl hito_audio::Input for Forward {
 
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
+fn unsupported_high_rate_tempo_preserves_unit_speed_audio_and_cleanup() {
+    let capture = Capture::open();
+    let input = support::wave(384_000, 2, 3840, |frame, _| {
+        ((f64::from(frame) * 440. * std::f64::consts::TAU / 384_000.).sin() * 16_000.) as i16
+    });
+    let mut player = Player::open(input).unwrap();
+    assert_eq!(player.speed(0.5), Err(hito_audio::Error::Unsupported));
+    assert_eq!(player.snapshot().speed, 1.);
+    assert!(!player.snapshot().playing);
+    assert!(!player.snapshot().ended);
+    assert!(player.snapshot().error.is_none());
+    player.speed(1.).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().ended);
+    assert_eq!(player.snapshot().position, Duration::from_millis(10));
+    player.close().unwrap();
+    capture.after(capture.mark(), 0.2);
+    let active = capture
+        .all()
+        .iter()
+        .filter(|sample| sample.abs() > 0.01)
+        .count();
+    assert!(
+        active > 150,
+        "a 10 ms unit-speed clip emitted only {active} active monitor frames"
+    );
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn supported_short_clips_drain_audio_at_the_minimum_and_maximum_tempo() {
+    for rate in [8_000, 16_000, 44_100, 48_000, 96_000, 192_000] {
+        for speed in [0.5, 3.] {
+            let capture = Capture::open();
+            let input = support::wave(rate, 2, rate / 100, |frame, _| {
+                ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin()
+                    * 16_000.) as i16
+            });
+            let mut player = Player::open(input).unwrap();
+            player.speed(speed).unwrap();
+            player.resume().unwrap();
+            wait(|| player.snapshot().ended);
+            assert_eq!(player.snapshot().position, Duration::from_millis(10));
+            assert_eq!(player.snapshot().speed, speed);
+            player.close().unwrap();
+            capture.after(capture.mark(), 0.2);
+            let active = capture
+                .all()
+                .iter()
+                .filter(|sample| sample.abs() > 0.01)
+                .count();
+            let expected = 480. / f64::from(speed);
+            assert!(
+                active as f64 > expected * 0.2 && (active as f64) < expected * 1.5 + 32.,
+                "{rate} Hz at {speed} emitted {active} active monitor frames, expected about {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
 fn short_clip_completion_retains_the_speed_of_its_presented_audio() {
     let input = support::wave(48_000, 2, 480, |frame, _| {
         ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
@@ -164,18 +226,26 @@ fn a_nonseekable_stream_changes_speed_without_losing_or_replaying_audio() {
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
 fn reversing_a_pending_rate_change_does_not_end_the_stream_early() {
-    let capture = Capture::open();
-    let input = support::wave(48_000, 2, 96_000, |frame, _| {
-        ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
-    });
-    let mut player = Player::open(Forward(input)).unwrap();
-    player.speed(0.5).unwrap();
-    player.resume().unwrap();
-    wait(|| player.snapshot().position > Duration::from_millis(200));
-    player.speed(2.).unwrap();
-    capture.after(capture.mark(), 0.03);
-    player.speed(0.5).unwrap();
-    wait(|| player.snapshot().ended);
-    assert!((player.snapshot().position.as_secs_f64() - 2.).abs() < 0.001);
-    player.close().unwrap();
+    for rate in [48_000, 192_000] {
+        let capture = Capture::open();
+        let input = support::wave(rate, 2, rate * 2, |frame, _| {
+            ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin() * 16_000.)
+                as i16
+        });
+        let mut player = Player::open(Forward(input)).unwrap();
+        player.speed(0.5).unwrap();
+        player.resume().unwrap();
+        wait(|| player.snapshot().position > Duration::from_millis(200));
+        player.speed(2.).unwrap();
+        capture.after(capture.mark(), 0.03);
+        player.speed(0.5).unwrap();
+        wait(|| player.snapshot().ended);
+        assert!((player.snapshot().position.as_secs_f64() - 2.).abs() < 0.001);
+        assert_eq!(player.snapshot().speed, 0.5);
+        player.close().unwrap();
+        capture.after(capture.mark(), 0.2);
+        let samples = capture.all();
+        assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
+        assert!(samples.iter().filter(|sample| sample.abs() > 0.01).count() > 48_000);
+    }
 }
