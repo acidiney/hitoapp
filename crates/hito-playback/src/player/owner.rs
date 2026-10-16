@@ -6,7 +6,6 @@ use tracing::Instrument;
 use uuid::Uuid;
 
 type Admission = Pin<Box<dyn Future<Output = (Request, Result<Vec<Recording>>)> + Send>>;
-type SessionCheck = Pin<Box<dyn Future<Output = (Uuid, Result<()>)> + Send>>;
 
 pub(super) async fn run(
     services: Services,
@@ -20,11 +19,10 @@ pub(super) async fn run(
         native: effects.enabled(),
     };
     let mut pending: Option<Admission> = None;
-    let mut checking: Option<SessionCheck> = None;
+    let mut authority = super::authority::Monitor::new(&services);
     let mut progress = super::progress::Progress::new(services.collection.clone());
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
+        authority.sync(&state);
         progress.sync(&state);
         effects.sync(&state, progress.can_play(&state));
         tokio::select! {
@@ -37,26 +35,16 @@ pub(super) async fn run(
                     owned.publish();
                 }
             },
-            (lease, result) = async { checking.as_mut().unwrap().await }, if checking.is_some() => {
-                checking = None;
-                state.checked_session(lease, result);
+            report = authority.next() => {
+                state.checked_session(report.lease, report.recovering, report.result);
             },
             (request, result) = async { pending.as_mut().unwrap().await }, if pending.is_some() => {
                 pending = None;
                 let _span = request.span.enter();
+                if let Err(error) = &result { state.failed_request(&request.actor, *error); }
                 let response = result.and_then(|recordings| state.accept(&request.actor, request.action, recordings, progress.ready()));
                 tracing::debug!(event = "player_request_finished", elapsed_ms = request.started.elapsed().as_millis() as u64, success = response.is_ok(), "Playback request finished");
                 let _ = request.reply.send(response);
-            },
-            _ = interval.tick(), if checking.is_none() => {
-                if let Some(owned) = &state.owner {
-                    let identity = services.identity.clone();
-                    let actor = owned.actor.clone();
-                    let lease = owned.lease;
-                    checking = Some(Box::pin(async move {
-                        (lease, identity.check_session(&actor).await.map_err(PlayerError::from))
-                    }));
-                }
             },
             request = requests.recv(), if pending.is_none() => {
                 let Some(request) = request else { break; };
@@ -78,7 +66,7 @@ pub(super) async fn run(
     requests.close();
     drop(requests);
     drop(pending);
-    drop(checking);
+    drop(authority);
     state.owner = None;
     let (_, saved) = tokio::join!(effects.close(), progress.close());
     tracing::info!(event = "player_owner_closed", "Playback admission joined");

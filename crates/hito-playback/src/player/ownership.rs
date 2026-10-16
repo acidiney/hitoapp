@@ -13,22 +13,6 @@ pub(super) struct State {
     pub native: bool,
 }
 impl State {
-    pub fn checked_session(&mut self, lease: Uuid, result: Result<()>) {
-        let Some(owned) = self.owner.as_mut().filter(|owned| owned.lease == lease) else {
-            return;
-        };
-        match result {
-            Err(PlayerError::Unauthorized) => {
-                self.owner = None;
-                self.epoch = Uuid::new_v4();
-                tracing::info!(
-                    event = "player_session_withdrawn",
-                    "Playback ownership cleared"
-                );
-            }
-            result => owned.authority(result.is_ok(), self.native),
-        }
-    }
     pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<Vec<Uuid>> {
         match action {
             Action::Submit(command) => {

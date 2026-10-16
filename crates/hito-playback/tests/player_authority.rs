@@ -97,3 +97,78 @@ async fn temporary_authority_failure_preserves_the_queue_lease_and_accepted_rece
     );
     owner.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn failed_queue_authorization_suspends_mutation_until_the_selected_recording_can_be_checked()
+{
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner) = Player::start(f.services.clone());
+    let attached = player
+        .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+        .await
+        .unwrap();
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: attached.lease,
+                sequence: 1,
+                revision: 0,
+                action: PlayerAction::Replace {
+                    recordings: vec![Uuid::parse_str(&f.recording).unwrap(); 2],
+                    start: 0,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
+    let current = state.borrow().current;
+    let outage = authority_outage::Outage::recordings(f.directory.path()).await;
+    f.services.identity.check_session(&f.actor).await.unwrap();
+    assert!(matches!(
+        player.queue(&f.actor, attached.lease, 1, 0, 10).await,
+        Err(PlayerError::Unavailable)
+    ));
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        state.wait_for(|state| state.error == Some(PlayerError::Unavailable)),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert_eq!(state.borrow().error, Some(PlayerError::Unavailable));
+    assert_eq!(state.borrow().current, current);
+    assert_eq!(
+        player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 2,
+                    revision: 1,
+                    action: PlayerAction::Next {}
+                }
+            )
+            .await,
+        Err(PlayerError::Unavailable)
+    );
+    outage.restore().await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        state.wait_for(|state| state.error.is_none()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(state.borrow().current, current);
+    assert_eq!(state.borrow().revision, 1);
+    assert_eq!(
+        player.inspect(&f.actor).await.unwrap().epoch,
+        attached.epoch
+    );
+    owner.close().await.unwrap();
+}

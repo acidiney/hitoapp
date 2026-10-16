@@ -1,4 +1,5 @@
 mod attachment;
+mod authority;
 mod effects;
 mod owner;
 mod ownership;
