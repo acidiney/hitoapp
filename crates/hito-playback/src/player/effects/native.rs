@@ -36,6 +36,15 @@ impl Native {
             self.failed = false;
             self.controls = Controls::default();
         }
+        if target.as_ref().is_some_and(|target| !target.permitted) {
+            if self.target.as_ref().is_none_or(|target| target.permitted) {
+                self.retire();
+                self.sources.reset(target.as_ref().map(|target| target.key));
+                self.failed = false;
+            }
+            self.target = target;
+            return;
+        }
         if let Some(seek) = target.as_ref().and_then(|target| target.seek)
             && self.target.as_ref().and_then(|target| target.seek) != Some(seek)
         {

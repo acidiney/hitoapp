@@ -177,6 +177,7 @@ pub enum PlayerPhase {
     Ready,
     Releasing,
     Failed,
+    Suspended,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]

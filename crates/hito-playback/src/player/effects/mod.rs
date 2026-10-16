@@ -13,6 +13,7 @@ pub(super) struct Target {
     pub play_revision: u64,
     pub seek: Option<super::types::Seek>,
     pub volume: u16,
+    pub permitted: bool,
 }
 
 use super::{PlayerError, PlayerPhase, ownership::State};
@@ -55,7 +56,10 @@ impl Effects {
                 let _ = (state, can_play);
             }
             #[cfg(feature = "device")]
-            Self::Native(native) => native.sync(state.target().filter(|_| can_play)),
+            Self::Native(native) => native.sync(state.target().map(|mut target| {
+                target.permitted &= can_play;
+                target
+            })),
         }
     }
     pub async fn next(&mut self) -> Update {

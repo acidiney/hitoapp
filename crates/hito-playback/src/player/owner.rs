@@ -39,11 +39,7 @@ pub(super) async fn run(
             },
             (lease, result) = async { checking.as_mut().unwrap().await }, if checking.is_some() => {
                 checking = None;
-                if result.is_err() && state.owner.as_ref().is_some_and(|owned| owned.lease == lease) {
-                    state.owner = None;
-                    state.epoch = Uuid::new_v4();
-                    tracing::info!(event = "player_session_withdrawn", "Playback ownership cleared");
-                }
+                state.checked_session(lease, result);
             },
             (request, result) = async { pending.as_mut().unwrap().await }, if pending.is_some() => {
                 pending = None;

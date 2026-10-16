@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 pub(super) struct Owned {
     pub(super) actor: Actor,
+    pub(super) authority_available: bool,
     pub(super) lease: Uuid,
     pub(super) queue: Queue,
     pub(super) sequence: u64,
@@ -32,6 +33,7 @@ impl Owned {
     pub(super) fn new(actor: Actor) -> Self {
         Self {
             actor,
+            authority_available: true,
             lease: Uuid::new_v4(),
             queue: Queue::default(),
             sequence: 0,
@@ -77,6 +79,33 @@ impl Owned {
                 true
             }
         });
+    }
+    pub(super) fn authority(&mut self, available: bool, native: bool) {
+        if self.authority_available == available {
+            return;
+        }
+        self.authority_available = available;
+        self.playing = false;
+        self.source_id = None;
+        self.phase = if !available {
+            PlayerPhase::Suspended
+        } else if native && self.queue.snapshot().current.is_some() {
+            PlayerPhase::Resolving
+        } else {
+            PlayerPhase::Idle
+        };
+        self.error = (!available).then_some(PlayerError::Unavailable);
+        self.publish();
+        tracing::info!(
+            event = if available {
+                "player_authority_restored"
+            } else {
+                "player_authority_suspended"
+            },
+            account_id = self.actor.user().id,
+            available,
+            "Playback authority availability changed"
+        );
     }
     pub(super) fn selected(&mut self, native: bool) {
         let snapshot = self.queue.snapshot();

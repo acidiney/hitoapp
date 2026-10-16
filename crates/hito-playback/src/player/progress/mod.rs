@@ -66,15 +66,26 @@ impl Progress {
         })
     }
     pub fn sync(&mut self, state: &State) {
-        if self
-            .current
+        if state
+            .owner
             .as_ref()
-            .is_some_and(|sample| Some(sample.checkpoint.key) != Self::key(state))
+            .is_some_and(|owned| !owned.authority_available)
+            || self
+                .current
+                .as_ref()
+                .is_some_and(|sample| Some(sample.checkpoint.key) != Self::key(state))
         {
             self.finish();
         }
     }
     pub fn observe(&mut self, state: &State, update: &Update) {
+        if state
+            .owner
+            .as_ref()
+            .is_none_or(|owned| !owned.authority_available)
+        {
+            return;
+        }
         if Self::key(state) != Some(update.key) || update.phase != PlayerPhase::Ready {
             return;
         }
