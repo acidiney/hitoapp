@@ -1,9 +1,9 @@
 #![cfg(feature = "device")]
-#[path = "fixtures/accepted_seek.rs"]
-mod accepted_seek;
 #[path = "../../hito-audio/tests/support/capture.rs"]
 #[allow(dead_code)]
 mod capture;
+#[path = "fixtures/event_gate.rs"]
+mod event_gate;
 #[path = "../../hito-core/tests/fixtures/playback.rs"]
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
@@ -17,7 +17,7 @@ use uuid::Uuid;
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn a_seek_accepted_as_audio_finishes_applies_without_stalling_or_advancing_the_queue() {
     let f = fixture::LocalPlayback::start().await;
-    let gate = accepted_seek::AcceptedSeek::default();
+    let gate = event_gate::EventGate::new("player_command_accepted");
     let _release = gate.guard();
     let writer = gate.clone();
     let dispatch = tracing::Dispatch::new(

@@ -7,19 +7,28 @@ use std::{
 };
 use tokio::sync::Notify;
 
-#[derive(Clone, Default)]
-pub struct AcceptedSeek {
+#[derive(Clone)]
+pub struct EventGate {
+    event: &'static str,
     entered: Arc<Notify>,
     released: Arc<(Mutex<bool>, Condvar)>,
     armed: Arc<AtomicBool>,
 }
-pub struct Release(AcceptedSeek);
+pub struct Release(EventGate);
 impl Drop for Release {
     fn drop(&mut self) {
         self.0.release();
     }
 }
-impl AcceptedSeek {
+impl EventGate {
+    pub fn new(event: &'static str) -> Self {
+        Self {
+            event,
+            entered: Arc::default(),
+            released: Arc::default(),
+            armed: Arc::default(),
+        }
+    }
     pub fn arm(&self) {
         self.armed.store(true, Ordering::Release);
     }
@@ -34,14 +43,12 @@ impl AcceptedSeek {
         self.released.1.notify_all();
     }
 }
-impl Write for AcceptedSeek {
+impl Write for EventGate {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         let Ok(event) = serde_json::from_slice::<serde_json::Value>(bytes) else {
             return Ok(bytes.len());
         };
-        if event["fields"]["event"] == "player_command_accepted"
-            && self.armed.swap(false, Ordering::AcqRel)
-        {
+        if event["fields"]["event"] == self.event && self.armed.swap(false, Ordering::AcqRel) {
             self.entered.notify_one();
             tokio::task::block_in_place(|| {
                 let mut released = self.released.0.lock().unwrap();
