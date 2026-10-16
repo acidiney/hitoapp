@@ -8,7 +8,7 @@ pub(crate) struct Point {
     pub epoch: u64,
     pub position: u64,
     pub ended: bool,
-    pub speed: f32,
+    pub speed: Option<f32>,
 }
 
 pub(crate) struct Presentation {
@@ -56,7 +56,9 @@ impl Presentation {
             self.count -= 1;
             if point.epoch == epoch {
                 state.position.store(point.position, Ordering::Release);
-                state.speed.store(point.speed.to_bits(), Ordering::Release);
+                if let Some(speed) = point.speed {
+                    state.speed.store(speed.to_bits(), Ordering::Release);
+                }
                 state.position_epoch.store(point.epoch, Ordering::Release);
                 if point.ended {
                     state.ended.store(point.epoch, Ordering::Release);

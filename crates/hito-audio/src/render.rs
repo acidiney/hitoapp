@@ -148,7 +148,7 @@ impl Render {
                         epoch,
                         position,
                         ended: false,
-                        speed,
+                        speed: Some(speed),
                     });
                 }
                 Frame::End { position, epoch } => {
@@ -160,7 +160,7 @@ impl Render {
                         epoch,
                         position,
                         ended: true,
-                        speed: f32::from_bits(self.state.speed.load(Ordering::Relaxed)),
+                        speed: None,
                     });
                     self.scheduled_end = epoch;
                 }

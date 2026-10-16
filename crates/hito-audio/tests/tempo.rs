@@ -30,6 +30,34 @@ impl hito_audio::Input for Forward {
 
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
+fn short_clip_completion_retains_the_speed_of_its_presented_audio() {
+    let input = support::wave(48_000, 2, 480, |frame, _| {
+        ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
+    });
+    let mut player = Player::open(input).unwrap();
+    player.speed(2.).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().ended);
+    let ended = player.snapshot();
+    assert_eq!(ended.position, Duration::from_millis(10));
+    assert_eq!(ended.speed, 2.);
+    player.speed(3.).unwrap();
+    player.seek(Duration::from_millis(10)).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().ended);
+    assert_eq!(player.snapshot().position, Duration::from_millis(10));
+    assert_eq!(player.snapshot().speed, 2.);
+    player.speed(0.5).unwrap();
+    player.seek(Duration::ZERO).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().ended);
+    assert_eq!(player.snapshot().position, Duration::from_millis(10));
+    assert_eq!(player.snapshot().speed, 0.5);
+    player.close().unwrap();
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
 fn double_speed_preserves_pitch_and_reports_source_time_through_completion() {
     let capture = Capture::open();
     let input = support::wave(48_000, 2, 192_000, |frame, _| {
@@ -42,6 +70,7 @@ fn double_speed_preserves_pitch_and_reports_source_time_through_completion() {
     let snapshot = player.snapshot();
     assert_eq!(snapshot.format.duration, Some(Duration::from_secs(4)));
     assert!((snapshot.position.as_secs_f64() - 4.).abs() < 0.001);
+    assert_eq!(snapshot.speed, 2.);
     player.close().unwrap();
     capture.after(capture.mark(), 0.2);
     let samples = capture.all();
