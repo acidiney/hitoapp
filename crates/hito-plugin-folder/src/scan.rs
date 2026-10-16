@@ -1,4 +1,4 @@
-use crate::{catalog::Catalog, inspection};
+use crate::{catalog::Catalog, inspection, startup::Cancellation};
 use cap_fs_ext::DirExt;
 use cap_std::fs::Dir;
 use sha2::{Digest, Sha256};
@@ -11,13 +11,21 @@ use std::{
 };
 
 pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
-    scan_with_inspector(path, inspection::inspect)
+    scan_with_inspector(path, inspection::inspect, None)
 }
-pub(crate) fn scan_owned(path: &Path, claim: Arc<crate::registry::Claim>) -> io::Result<Catalog> {
-    let mut work = inspection::WorkBudget::new();
-    scan_with_inspector(path, |directory, name, deadline| {
-        inspection::inspect_snapshot(directory, name, deadline, &claim, &mut work)
-    })
+pub(crate) fn scan_owned(
+    path: &Path,
+    claim: &crate::registry::Claim,
+    cancellation: &Cancellation,
+) -> io::Result<Catalog> {
+    let mut work = inspection::WorkBudget::owned(cancellation.clone());
+    scan_with_inspector(
+        path,
+        |directory, name, deadline| {
+            inspection::inspect_snapshot(directory, name, deadline, claim, &mut work)
+        },
+        Some(cancellation),
+    )
 }
 fn scan_with_inspector(
     path: &Path,
@@ -26,7 +34,11 @@ fn scan_with_inspector(
         std::ffi::OsString,
         Instant,
     ) -> Result<crate::catalog::Track, inspection::InspectionError>,
+    cancellation: Option<&Cancellation>,
 ) -> io::Result<Catalog> {
+    if let Some(cancellation) = cancellation {
+        cancellation.check()?;
+    }
     let started = Instant::now();
     let deadline = started + Duration::from_secs(300);
     let root = Arc::new(open_root(path)?);
@@ -38,11 +50,17 @@ fn scan_with_inspector(
     let mut skipped = 0;
     let mut retained_bytes = 0usize;
     while let Some((directory, depth, relative)) = pending.pop() {
+        if let Some(cancellation) = cancellation {
+            cancellation.check()?;
+        }
         folders += 1;
         if folders > 1024 {
             return Err(io::Error::other("Folder count exceeds scan limit"));
         }
         for entry in directory.entries()? {
+            if let Some(cancellation) = cancellation {
+                cancellation.check()?;
+            }
             inspection::check(deadline)?;
             visited += 1;
             if visited > 50000 {
@@ -89,6 +107,9 @@ fn scan_with_inspector(
         }
     }
     inspection::check(deadline)?;
+    if let Some(cancellation) = cancellation {
+        cancellation.check()?;
+    }
     crate::releases::assign_scan(&mut observations);
     let mut tracks = BTreeMap::new();
     for track in &observations {
@@ -101,6 +122,9 @@ fn scan_with_inspector(
         fingerprint.update(id.as_bytes());
     }
     inspection::check(deadline)?;
+    if let Some(cancellation) = cancellation {
+        cancellation.check()?;
+    }
     tracing::info!(
         event = "folder_scan_complete",
         recordings = tracks.len(),
@@ -178,12 +202,16 @@ mod tests {
             440,
         );
         let mut inspected = 0;
-        let result = scan_with_inspector(directory.path(), |directory, name, deadline| {
-            let track = inspection::inspect(directory, name, deadline)?;
-            assert_eq!(track.title, "Deadline fixture");
-            inspected += 1;
-            Err(inspection::InspectionError::Deadline)
-        });
+        let result = scan_with_inspector(
+            directory.path(),
+            |directory, name, deadline| {
+                let track = inspection::inspect(directory, name, deadline)?;
+                assert_eq!(track.title, "Deadline fixture");
+                inspected += 1;
+                Err(inspection::InspectionError::Deadline)
+            },
+            None,
+        );
         assert_eq!(inspected, 1);
         assert_eq!(
             result

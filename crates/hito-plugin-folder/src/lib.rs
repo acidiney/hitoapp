@@ -9,6 +9,7 @@ mod registry;
 mod releases;
 mod scan;
 mod search;
+mod startup;
 mod stream;
 
 use axum::Router;
@@ -20,29 +21,12 @@ impl Folder {
         scan::scan(path).map(|catalog| Self(Arc::new(catalog)))
     }
     pub async fn initialize(path: &Path, state: &Path) -> io::Result<()> {
-        let registry = registry::Registry::open(state, true).await?;
-        Self::commit_scan(path, registry).await.map(|_| ())
+        startup::load(path, state, true).await.map(|_| ())
     }
     pub async fn open(path: &Path, state: &Path) -> io::Result<Self> {
-        let registry = registry::Registry::open(state, false).await?;
-        Self::commit_scan(path, registry).await
-    }
-    async fn commit_scan(path: &Path, registry: registry::Registry) -> io::Result<Self> {
-        let path = path.to_owned();
-        let claim = registry.claim();
-        let scanned = tokio::task::spawn_blocking(move || scan::scan_owned(&path, claim))
+        startup::load(path, state, false)
             .await
-            .map_err(|_| io::Error::other("Folder scan worker failed"))
-            .and_then(|result| result);
-        let mut catalog = match scanned {
-            Ok(catalog) => catalog,
-            Err(error) => {
-                registry.close().await?;
-                return Err(error);
-            }
-        };
-        registry.commit(&mut catalog).await?;
-        Ok(Self(Arc::new(catalog)))
+            .map(|catalog| Self(Arc::new(catalog)))
     }
     pub fn router(self) -> Router {
         http::router(self.0)

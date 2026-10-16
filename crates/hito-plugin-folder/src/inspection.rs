@@ -39,6 +39,7 @@ pub(crate) fn inspect_snapshot(
     work: &mut WorkBudget,
 ) -> Result<Track, InspectionError> {
     check(deadline)?;
+    work.check()?;
     let mut original = crate::catalog::open(&directory, &name)?;
     let stamp = Stamp::read(&original.metadata()?)?;
     if stamp.size == 0 || stamp.size > 1024 * 1024 * 1024 {
@@ -90,6 +91,7 @@ fn inspect_file(
     deadline: Instant,
     work: &mut WorkBudget,
 ) -> Result<Track, InspectionError> {
+    work.check()?;
     if stamp.size == 0 || stamp.size > 1024 * 1024 * 1024 {
         return Err(InspectionError::Unavailable);
     }
@@ -109,6 +111,7 @@ fn inspect_file(
                 .read()
                 .map_err(|_| io::Error::other("Unsupported media"))
         });
+    reader.work.check()?;
     check(deadline)?;
     if reader.work.exhausted {
         return Err(InspectionError::WorkBudget);
@@ -225,6 +228,7 @@ impl Read for Budget<'_> {
 impl Seek for Budget<'_> {
     fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
         check(self.deadline)?;
+        self.work.check().map_err(io::Error::from)?;
         self.file.seek(position)
     }
 }
@@ -233,6 +237,7 @@ pub(crate) struct WorkBudget {
     remaining: u64,
     exhausted: bool,
     failed: bool,
+    cancellation: Option<crate::startup::Cancellation>,
 }
 impl WorkBudget {
     pub fn new() -> Self {
@@ -240,9 +245,23 @@ impl WorkBudget {
             remaining: 16 * 1024 * 1024 * 1024,
             exhausted: false,
             failed: false,
+            cancellation: None,
         }
     }
+    pub fn owned(cancellation: crate::startup::Cancellation) -> Self {
+        Self {
+            cancellation: Some(cancellation),
+            ..Self::new()
+        }
+    }
+    pub fn check(&self) -> Result<(), InspectionError> {
+        if let Some(cancellation) = &self.cancellation {
+            cancellation.check()?;
+        }
+        Ok(())
+    }
     pub fn read(&mut self, file: &mut File, bytes: &mut [u8]) -> Result<usize, InspectionError> {
+        self.check()?;
         if bytes.is_empty() {
             return Ok(0);
         }
@@ -255,6 +274,7 @@ impl WorkBudget {
             self.failed = true;
             InspectionError::Snapshot
         })?;
+        self.check()?;
         self.remaining -= count as u64;
         Ok(count)
     }
@@ -301,6 +321,7 @@ fn checksum(
 #[derive(Debug)]
 pub(crate) enum InspectionError {
     Unavailable,
+    Cancelled,
     Deadline,
     MetadataBudget,
     WorkBudget,
@@ -311,6 +332,7 @@ impl InspectionError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
             Self::Deadline => "deadline",
             Self::MetadataBudget => "metadata_budget",
             Self::WorkBudget => "work_budget",
@@ -321,10 +343,10 @@ impl InspectionError {
 }
 impl From<io::Error> for InspectionError {
     fn from(error: io::Error) -> Self {
-        if error.kind() == io::ErrorKind::TimedOut {
-            Self::Deadline
-        } else {
-            Self::Unavailable
+        match error.kind() {
+            io::ErrorKind::TimedOut => Self::Deadline,
+            io::ErrorKind::ConnectionAborted => Self::Cancelled,
+            _ => Self::Unavailable,
         }
     }
 }
@@ -332,6 +354,9 @@ impl From<InspectionError> for io::Error {
     fn from(error: InspectionError) -> Self {
         match error {
             InspectionError::Unavailable => Self::other("Media is unavailable"),
+            InspectionError::Cancelled => {
+                Self::new(io::ErrorKind::ConnectionAborted, "Folder startup cancelled")
+            }
             InspectionError::Deadline => {
                 Self::new(io::ErrorKind::TimedOut, "Folder scan deadline exceeded")
             }
