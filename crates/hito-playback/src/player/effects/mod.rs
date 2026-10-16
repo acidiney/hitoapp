@@ -1,7 +1,20 @@
 #[cfg(feature = "device")]
+mod controls;
+#[cfg(feature = "device")]
 pub(super) mod native;
 #[cfg(feature = "device")]
 mod sources;
+#[cfg(feature = "device")]
+pub(super) struct Target {
+    pub key: Key,
+    pub actor: hito_core::Actor,
+    pub recording: Uuid,
+    pub playing: bool,
+    pub play_revision: u64,
+    pub seek: Option<super::types::Seek>,
+    pub volume: u16,
+}
+
 use super::{PlayerError, PlayerPhase, ownership::State};
 use uuid::Uuid;
 

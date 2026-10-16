@@ -1,38 +1,19 @@
-use super::{Key, Update, sources::Sources};
-use crate::{PlayerError, PlayerPhase, Session, Status};
-use hito_core::{Actor, Catalog};
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use super::{Target, Update, controls::Controls, sources::Sources};
+use crate::{PlayerError, PlayerPhase, Session};
+use hito_core::Catalog;
+use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::watch;
-use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
-pub(crate) struct Target {
-    pub key: Key,
-    pub actor: Actor,
-    pub recording: Uuid,
-    pub playing: bool,
-    pub play_revision: u64,
-    pub seek: Option<super::super::types::Seek>,
-    pub volume: u16,
-}
-struct Applied {
-    seek_id: Option<Uuid>,
-    volume: u16,
-}
 pub(crate) struct Native {
     sources: Sources,
     target: Option<Target>,
     session: Option<Arc<Session>>,
     observed: Option<watch::Receiver<crate::Snapshot>>,
-    control: Option<Pending<crate::Result<Applied>>>,
+    controls: Controls,
     closing: Option<Pending<()>>,
     failed: bool,
     update: Option<Update>,
-    resume_at: Duration,
-    duration: Option<Duration>,
-    configured: bool,
-    applied_seek: Option<Uuid>,
-    applied_volume: Option<u16>,
 }
 impl Native {
     pub fn new(catalog: Catalog) -> Self {
@@ -41,15 +22,10 @@ impl Native {
             target: None,
             session: None,
             observed: None,
-            control: None,
+            controls: Controls::default(),
             closing: None,
             failed: false,
             update: None,
-            resume_at: Duration::ZERO,
-            duration: None,
-            configured: false,
-            applied_seek: None,
-            applied_volume: None,
         }
     }
     pub fn sync(&mut self, target: Option<Target>) {
@@ -58,28 +34,25 @@ impl Native {
             self.retire();
             self.sources.reset(target.as_ref().map(|target| target.key));
             self.failed = false;
-            self.resume_at = Duration::ZERO;
-            self.duration = None;
-            self.applied_seek = None;
+            self.controls = Controls::default();
         }
         if let Some(seek) = target.as_ref().and_then(|target| target.seek)
             && self.target.as_ref().and_then(|target| target.seek) != Some(seek)
         {
-            if self.control.is_some() {
+            if self.controls.busy() {
                 self.retire();
             }
-            self.resume_at = Duration::from_millis(seek.position_ms);
-            self.configured = false;
+            self.controls.request_seek(seek.position_ms);
         } else if target.as_ref().is_some_and(|next| {
             self.target
                 .as_ref()
                 .is_some_and(|old| old.volume != next.volume)
-        }) && self.control.is_some()
+        }) && self.controls.busy()
         {
             self.retire();
         } else if target.as_ref().is_some_and(|next| {
             !next.playing && self.target.as_ref().is_some_and(|old| old.playing)
-        }) && self.control.is_some()
+        }) && self.controls.busy()
         {
             self.retire();
             self.failed = false;
@@ -104,8 +77,7 @@ impl Native {
                 let session = Arc::new(Session::start(grant.clone()));
                 self.observed = Some(session.subscribe());
                 self.session = Some(session);
-                self.configured = false;
-                self.applied_volume = None;
+                self.controls.opened();
                 self.update = Some(self.status(PlayerPhase::Opening, None));
                 return;
             }
@@ -116,42 +88,10 @@ impl Native {
                 self.update = Some(self.status(PlayerPhase::Resolving, None));
             }
         }
-        if let Some(session) = &self.session {
-            let snapshot = session.snapshot();
-            if snapshot.status == Status::Ready
-                && !snapshot.ended
-                && self.control.is_none()
-                && (!self.configured
-                    || snapshot.playing != target.playing
-                    || self.applied_volume != Some(target.volume))
-                && !self.failed
-            {
-                let session = session.clone();
-                let seek_id = target.seek.map(|seek| seek.id);
-                let volume = target.volume;
-                let seek = if self.configured
-                    || (self.resume_at.is_zero() && seek_id == self.applied_seek)
-                {
-                    None
-                } else {
-                    Some(self.resume_at)
-                };
-                let command = if target.playing {
-                    crate::Command::Resume
-                } else {
-                    crate::Command::Pause
-                };
-                self.control = Some(Box::pin(async move {
-                    session
-                        .command(crate::Command::Volume(f32::from(volume) / 1000.))
-                        .await?;
-                    if let Some(position) = seek {
-                        session.command(crate::Command::Seek(position)).await?;
-                    }
-                    session.command(command).await?;
-                    Ok(Applied { seek_id, volume })
-                }));
-            }
+        if let Some(session) = &self.session
+            && !self.failed
+        {
+            self.controls.sync(session, target);
         }
     }
     pub async fn next(&mut self) -> Update {
@@ -174,12 +114,8 @@ impl Native {
                         Err(error) => return self.exhausted(error),
                     }
                 },
-                result = async { self.control.as_mut().unwrap().await }, if self.control.is_some() => {
-                    self.control = None;
-                    let Ok(applied) = result else { return self.recover(); };
-                    self.applied_seek = applied.seek_id;
-                    self.applied_volume = Some(applied.volume);
-                    self.configured = true;
+                result = self.controls.next() => {
+                    if result.is_err() { return self.recover(); }
                     return self.snapshot();
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
@@ -193,71 +129,30 @@ impl Native {
         }
     }
     fn snapshot(&self) -> Update {
-        let snapshot = self.session.as_ref().unwrap().snapshot();
-        let phase = match snapshot.status {
-            Status::Ready => PlayerPhase::Ready,
-            Status::Opening | Status::Starting => PlayerPhase::Opening,
-            _ => PlayerPhase::Failed,
-        };
-        if !self.configured {
-            return if phase == PlayerPhase::Failed {
-                self.status(phase, Some(PlayerError::Playback))
-            } else {
-                self.status(PlayerPhase::Opening, None)
-            };
-        }
-        Update {
-            key: self.target.as_ref().unwrap().key,
-            phase,
-            playing: snapshot.playing,
-            source_id: self
-                .sources
+        self.controls.snapshot(
+            self.target.as_ref().unwrap(),
+            self.sources
                 .current()
                 .map(|grant| grant.source_id().to_owned()),
-            position_ms: snapshot.position.as_millis().min(u64::MAX as u128) as u64,
-            duration_ms: snapshot
-                .format
-                .and_then(|format| format.duration)
-                .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
-            seek_id: self.applied_seek,
-            ended: snapshot.ended,
-            exhausted: false,
-            error: if phase == PlayerPhase::Failed {
-                Some(PlayerError::Playback)
-            } else {
-                None
-            },
-        }
+            self.session.as_ref().unwrap().snapshot(),
+        )
     }
     fn status(&self, phase: PlayerPhase, error: Option<PlayerError>) -> Update {
-        Update {
-            key: self.target.as_ref().unwrap().key,
-            phase,
-            playing: false,
-            source_id: self
-                .sources
+        self.controls.status(
+            self.target.as_ref().unwrap(),
+            self.sources
                 .current()
                 .map(|grant| grant.source_id().to_owned()),
-            position_ms: self.resume_at.as_millis().min(u64::MAX as u128) as u64,
-            duration_ms: self
-                .duration
-                .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),
-            seek_id: self.applied_seek,
-            ended: false,
-            exhausted: false,
+            phase,
             error,
-        }
+        )
     }
     fn retire(&mut self) {
-        if let Some(session) = self.session.as_ref() {
-            let snapshot = session.snapshot();
-            if self.configured {
-                self.resume_at = snapshot.position;
-            }
-            self.duration = snapshot.format.and_then(|format| format.duration);
+        let snapshot = self.session.as_ref().map(|session| session.snapshot());
+        if let Some(session) = &self.session {
             session.stop();
         }
-        self.control = None;
+        self.controls.retire(snapshot);
         self.observed = None;
         if let Some(session) = self.session.take() {
             let session =

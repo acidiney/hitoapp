@@ -246,11 +246,11 @@ impl State {
     }
 
     #[cfg(feature = "device")]
-    pub fn target(&self) -> Option<super::effects::native::Target> {
+    pub fn target(&self) -> Option<super::effects::Target> {
         let owned = self.owner.as_ref()?;
         let snapshot = owned.queue.snapshot();
         let current = snapshot.current?;
-        Some(super::effects::native::Target {
+        Some(super::effects::Target {
             key: super::effects::Key {
                 scope: owned.scope,
                 selection: snapshot.selection,
