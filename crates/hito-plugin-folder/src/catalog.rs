@@ -5,7 +5,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs::{File, Metadata},
-    io,
+    io::{self, Read, Seek, SeekFrom},
     sync::Arc,
     time::{Instant, SystemTime},
 };
@@ -25,9 +25,36 @@ pub(crate) struct CurrentSource {
     locations: Vec<usize>,
 }
 pub(crate) struct SourceFile {
-    pub file: File,
+    pub file: AudioFile,
     pub length: u64,
     pub mime: &'static str,
+}
+pub(crate) struct AudioFile {
+    file: File,
+    expected_stamp: Stamp,
+}
+impl AudioFile {
+    fn check(&self) -> io::Result<()> {
+        if Stamp::read(&self.file.metadata()?)? != self.expected_stamp {
+            return Err(io::Error::other(
+                "Audio changed; restart the folder service",
+            ));
+        }
+        Ok(())
+    }
+}
+impl Read for AudioFile {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.check()?;
+        let count = self.file.read(bytes)?;
+        self.check()?;
+        Ok(count)
+    }
+}
+impl Seek for AudioFile {
+    fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+        self.file.seek(position)
+    }
 }
 impl Catalog {
     pub fn index_sources(&mut self) -> io::Result<()> {
@@ -120,13 +147,12 @@ impl Track {
             revision: Some(self.revision.clone()),
         }
     }
-    pub fn open(&self) -> io::Result<File> {
-        let file = open(&self.directory, &self.name)?;
-        if Stamp::read(&file.metadata()?)? != self.stamp {
-            return Err(io::Error::other(
-                "Audio changed; restart the folder service",
-            ));
-        }
+    pub fn open(&self) -> io::Result<AudioFile> {
+        let file = AudioFile {
+            file: open(&self.directory, &self.name)?,
+            expected_stamp: self.stamp.clone(),
+        };
+        file.check()?;
         Ok(file)
     }
 }
