@@ -34,6 +34,7 @@ const connection: PluginInstallation = {
 };
 const props: DiscoverPageProps = {
   errors: {},
+  native_playback: false,
   user: { id: "alice", username: "Alice", admin: false },
   libraries: [],
   playlists: [],

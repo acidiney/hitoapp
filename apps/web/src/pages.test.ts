@@ -42,6 +42,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 const shared = {
   errors: {},
+  native_playback: false,
   user: { id: "alice", username: "Alice", admin: true },
   libraries: [],
   playlists: [],

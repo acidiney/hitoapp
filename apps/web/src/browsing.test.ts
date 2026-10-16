@@ -44,6 +44,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
   render(
     createElement(AlbumPage, {
       errors: {},
+      native_playback: false,
       user: { id: "account", username: "Listener", admin: false },
       libraries: [],
       playlists: [],
@@ -141,6 +142,7 @@ test("albumless artist tracks play only their page and keep album pagination sep
   render(
     createElement(ArtistPage, {
       errors: {},
+      native_playback: false,
       user: { id: "account", username: "Listener", admin: false },
       libraries: [],
       playlists: [],
