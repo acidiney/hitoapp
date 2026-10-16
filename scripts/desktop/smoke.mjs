@@ -12,6 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { monitorAudio } from "./audio-monitor.mjs";
 import {
+  armSavedStart,
+  savedStartObservation,
+  stopSavedStartObservation,
+} from "./saved-start-observer.mjs";
+import {
   start,
   open,
   endSession,
@@ -375,16 +380,22 @@ try {
   `),
     true,
   );
+  await armSavedStart(6000, process.env.HITO_TEST_SAVED_START === "zero");
   await click('button[aria-label="Play Fixture 440 Hz"]');
   await wait(async () => {
+    const proof = await savedStartObservation();
+    assert.equal(proof.error, null);
     const state = (await playerState()).state;
     return (
+      proof.armed &&
+      proof.playingPosition !== null &&
       state.playing &&
       state.speed === 1000 &&
       (await uiPosition()) >= 6.1 &&
       audible()
     );
   }, "History loads the current Rust cursor over stale rendered History and keeps current speed");
+  await stopSavedStartObservation();
   await noBrowserAudio();
   await close(restartedOrigin);
   assert.equal(
