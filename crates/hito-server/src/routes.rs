@@ -1,6 +1,8 @@
 use crate::{
     Config,
-    api::{self, browsing, catalog, collection, identity, jobs, plugins, providers, storage},
+    api::{
+        self, browsing, catalog, collection, identity, jobs, player, plugins, providers, storage,
+    },
     inertia::{self, props::*},
     security, telemetry,
 };
@@ -80,6 +82,13 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(collection::playlist))
         .routes(routes!(collection::sync, collection::sync_events))
         .routes(routes!(collection::activity));
+    router = router
+        .routes(routes!(player::inspect))
+        .routes(routes!(player::claim))
+        .routes(routes!(player::submit))
+        .routes(routes!(player::queue))
+        .routes(routes!(player::observations::state))
+        .routes(routes!(player::observations::position));
     if let Some(components) = router.get_openapi_mut().components.as_mut() {
         components.add_security_scheme(
             "session",
@@ -102,6 +111,22 @@ pub fn router(services: Services) -> Router {
 }
 
 pub fn router_with_config(services: Services, config: Config) -> Router {
+    application(services, config, None)
+}
+
+pub fn router_with_player(
+    services: Services,
+    config: Config,
+    player: hito_playback::Player,
+) -> Router {
+    application(services, config, Some(player))
+}
+
+fn application(
+    services: Services,
+    config: Config,
+    player: Option<hito_playback::Player>,
+) -> Router {
     let (api, document) = api_routes().split_for_parts();
     Router::new()
         .route("/", get(inertia::page))
@@ -126,6 +151,7 @@ pub fn router_with_config(services: Services, config: Config) -> Router {
         .layer(axum::extract::DefaultBodyLimit::max(262144))
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))
+        .layer(Extension(player::Playback::new(player)))
         .layer(middleware::from_fn_with_state(
             security::Security::new(config),
             security::browser_security,

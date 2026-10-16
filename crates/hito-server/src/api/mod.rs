@@ -5,6 +5,7 @@ pub mod collection;
 pub mod identity;
 pub mod jobs;
 pub mod metadata;
+pub mod player;
 pub mod plugins;
 pub mod providers;
 pub mod storage;
