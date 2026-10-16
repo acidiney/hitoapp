@@ -4,6 +4,8 @@ mod audio;
 mod availability;
 mod browse;
 mod media;
+mod playback;
+pub use playback::PlaybackSource;
 mod provider;
 pub use provider::{AdoptProviderRecording, ProviderSearch};
 mod releases;

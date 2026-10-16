@@ -33,23 +33,7 @@ impl Catalog {
         source: &str,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
-        let binding: Option<(String,String,i64)> = sqlx::query_as("SELECT ps.installation_id,ps.provider_source_id,p.revision
-            FROM provider_sources ps JOIN sources s ON s.id=ps.source_id AND s.ready=1
-            JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id
-            JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=m.user_id AND p.active=1
-            JOIN plugin_services service ON service.id=p.service_id AND service.active=1
-            WHERE ps.source_id=? AND m.user_id=?")
-            .bind(source).bind(actor.id()).fetch_optional(&self.store.pool).await?;
-        if let Some((installation, remote, revision)) = binding {
-            let operation = self
-                .plugins
-                .operation(
-                    actor,
-                    &installation,
-                    revision,
-                    &[hito_plugin_sdk::Capability::Sources],
-                )
-                .await?;
+        if let Some((operation, remote)) = self.provider_audio(actor, source).await? {
             return operation.audio(source, &remote, request).await;
         }
         let audio = self.audio_file(actor, source).await?;
@@ -85,5 +69,32 @@ impl Catalog {
             seekable: true,
             body,
         })))
+    }
+
+    pub(super) async fn provider_audio(
+        &self,
+        actor: &Actor,
+        source: &str,
+    ) -> Result<Option<(crate::plugins::Operation, String)>> {
+        let binding: Option<(String,String,i64)> = sqlx::query_as("SELECT ps.installation_id,ps.provider_source_id,p.revision
+            FROM provider_sources ps JOIN sources s ON s.id=ps.source_id AND s.ready=1
+            JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id
+            JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=m.user_id AND p.active=1
+            JOIN plugin_services service ON service.id=p.service_id AND service.active=1
+            WHERE ps.source_id=? AND m.user_id=?")
+            .bind(source).bind(actor.id()).fetch_optional(&self.store.pool).await?;
+        let Some((installation, remote, revision)) = binding else {
+            return Ok(None);
+        };
+        let operation = self
+            .plugins
+            .operation(
+                actor,
+                &installation,
+                revision,
+                &[hito_plugin_sdk::Capability::Sources],
+            )
+            .await?;
+        Ok(Some((operation, remote)))
     }
 }

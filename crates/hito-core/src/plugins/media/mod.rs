@@ -2,7 +2,7 @@ mod authority;
 mod body;
 mod headers;
 use crate::{AudioRequest, AudioStream, Error, OpenedAudio, Result};
-pub(super) use authority::Authority;
+pub(crate) use authority::Authority;
 pub(crate) use body::RemoteAudio;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};

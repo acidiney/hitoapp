@@ -43,16 +43,17 @@ impl Identity {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn authenticate(&self, token: &str) -> Result<Actor> {
+        let session_hash = token_hash(token);
         let user = sqlx::query_as(
             "SELECT u.id, u.username, u.admin
              FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.token_hash = ? AND s.expires_at > unixepoch()",
         )
-        .bind(token_hash(token))
+        .bind(&session_hash)
         .fetch_optional(&self.store.pool)
         .await?
         .ok_or(Error::Unauthorized)?;
-        Ok(Actor { user })
+        Ok(Actor { user, session_hash })
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
@@ -63,6 +64,18 @@ impl Identity {
             .await?;
         tracing::info!("Session revoked");
         Ok(())
+    }
+}
+
+impl Actor {
+    pub(crate) async fn check_session(&self, store: &crate::Store) -> Result<()> {
+        let valid: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ? AND user_id = ? AND expires_at > unixepoch())")
+            .bind(&self.session_hash).bind(self.id()).fetch_one(&store.pool).await?;
+        if valid {
+            Ok(())
+        } else {
+            Err(Error::Unauthorized)
+        }
     }
 }
 

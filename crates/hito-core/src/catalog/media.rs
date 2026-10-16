@@ -11,7 +11,7 @@ pub struct AudioFile {
     pub content_type: &'static str,
 }
 
-type Location = (String, String, String, i64);
+pub(super) type Location = (String, String, String, i64);
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), source_id))]
@@ -65,7 +65,7 @@ impl Catalog {
         Ok(media)
     }
 
-    async fn media_location(&self, actor: &Actor, source: &str) -> Result<Location> {
+    pub(super) async fn media_location(&self, actor: &Actor, source: &str) -> Result<Location> {
         let mut query = QueryBuilder::new(
             "SELECT f.relative_path, folder.directory_id, folder.relative_path, folder.generation
              FROM local_files f JOIN music_folders folder ON folder.id = f.folder_id

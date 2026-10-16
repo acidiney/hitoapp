@@ -20,6 +20,7 @@ pub(crate) struct Operation {
     media: super::media::MediaClient,
     store: crate::Store,
     credential: Option<Vec<u8>>,
+    audio_generation: i64,
 }
 impl Plugins {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -30,7 +31,7 @@ impl Plugins {
         expected_revision: i64,
         capabilities: &[Capability],
     ) -> Result<Operation> {
-        let row = sqlx::query("SELECT p.revision,p.service_id,p.manifest,p.credential,s.revision AS service_revision,s.base_url
+        let row = sqlx::query("SELECT p.revision,p.service_id,p.manifest,p.credential,p.audio_generation,s.revision AS service_revision,s.base_url
             FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
             WHERE p.id = ? AND p.user_id = ? AND p.active = 1")
             .bind(id).bind(actor.id()).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
@@ -69,17 +70,17 @@ impl Plugins {
             media: self.media.clone(),
             store: self.store.clone(),
             credential,
+            audio_generation: row.try_get("audio_generation")?,
         })
     }
 }
 impl Operation {
-    pub(crate) async fn audio(
+    pub(crate) fn audio_authority(
         &self,
         source: &str,
         remote_source: &str,
-        request: crate::AudioRequest,
-    ) -> Result<crate::OpenedAudio> {
-        let authority = super::media::Authority {
+    ) -> super::AudioAuthority {
+        super::media::Authority {
             store: self.store.clone(),
             account: self.account.clone(),
             installation: self.installation.clone(),
@@ -87,7 +88,16 @@ impl Operation {
             credential: self.credential.clone(),
             source: source.into(),
             remote_source: remote_source.into(),
-        };
+            generation: self.audio_generation,
+        }
+    }
+    pub(crate) async fn audio(
+        &self,
+        source: &str,
+        remote_source: &str,
+        request: crate::AudioRequest,
+    ) -> Result<crate::OpenedAudio> {
+        let authority = self.audio_authority(source, remote_source);
         authority.check().await?;
         let audio = self
             .media

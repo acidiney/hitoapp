@@ -12,7 +12,8 @@ mod types;
 mod vault;
 
 use crate::{Result, store::Store};
-pub(crate) use media::RemoteAudio;
+pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
+pub(crate) use operation::Operation;
 pub use types::{
     InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
     PluginService, PluginSettings, RefreshPlugin,

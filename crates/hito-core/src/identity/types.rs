@@ -9,9 +9,18 @@ pub struct User {
     pub admin: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Actor {
     pub(super) user: User,
+    pub(super) session_hash: String,
+}
+
+impl std::fmt::Debug for Actor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Actor")
+            .field("user", &self.user)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Actor {
