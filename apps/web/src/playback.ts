@@ -2,6 +2,7 @@ import type { PlaybackView, Player, QueueView, Track } from "./player/model";
 export type { Track } from "./player/model";
 import { log } from "./log";
 import { PlaybackSources, type SourceResolver } from "./playbackSources";
+import { BrowserTraversal } from "./player/BrowserTraversal";
 export type { Source } from "./playbackSources";
 
 export interface MediaPort extends EventTarget {
@@ -48,6 +49,7 @@ export class Playback implements Player {
     connection: "ready",
   };
   private entryIds: string[] = [];
+  private traversal = new BrowserTraversal();
   private queueView: QueueView = {
     version: 0,
     total: 0,
@@ -231,6 +233,7 @@ export class Playback implements Player {
 
   async playQueue(queue: Track[], index = 0, position = 0) {
     this.entryIds = queue.map(() => crypto.randomUUID());
+    this.traversal.reset(this.entryIds, this.entryIds[index]);
     log.info("queue.play", {
       count: queue.length,
       index,
@@ -432,7 +435,12 @@ export class Playback implements Player {
   }
   shuffle() {
     log.info("queue.shuffle", { enabled: !this.state.shuffle });
-    this.update({ shuffle: !this.state.shuffle });
+    this.update({
+      shuffle: this.traversal.toggle(
+        this.entryIds,
+        this.entryIds[this.state.index],
+      ),
+    });
   }
   async previous() {
     this.selection++;
@@ -445,21 +453,20 @@ export class Playback implements Player {
       index: this.state.index,
       reason: ended ? "ended" : "requested",
     });
-    let index = this.state.index + 1;
-    if (ended && this.state.repeat === "one") index = this.state.index;
-    else if (this.state.shuffle && this.state.queue.length > 1)
-      index =
-        (this.state.index +
-          1 +
-          Math.floor(Math.random() * (this.state.queue.length - 1))) %
-        this.state.queue.length;
-    else if (index >= this.state.queue.length && this.state.repeat === "all")
-      index = 0;
-    await this.open(index);
+    const entry = this.traversal.next(
+      this.entryIds,
+      this.entryIds[this.state.index],
+      this.state.repeat,
+      ended,
+    );
+    await this.open(
+      entry ? this.entryIds.indexOf(entry) : this.state.queue.length,
+    );
   }
   remove(index: number) {
     log.info("queue.remove", { index });
     const queue = this.state.queue.filter((_, i) => i !== index);
+    this.traversal.remove(this.entryIds[index]);
     this.entryIds.splice(index, 1);
     if (index === this.state.index) {
       this.update({ queue });
@@ -473,6 +480,7 @@ export class Playback implements Player {
   }
   clear() {
     this.entryIds = [];
+    this.traversal.reset(this.entryIds);
     this.selection++;
     log.info("queue.clear", { count: this.state.queue.length });
     this.generation++;
