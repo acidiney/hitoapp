@@ -700,6 +700,8 @@ dependencies = [
  "hito-core",
  "hito-plugin-sdk",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "lofty",
  "serde",
  "serde_json",
