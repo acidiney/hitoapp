@@ -123,3 +123,62 @@ test("Playlists imports an editable provider copy and navigates only after its r
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(screen.getByRole("button", { name: "Create playlist" })).toBeTruthy();
 });
+
+test("an ambiguous playlist import retries its original request after the connection revision changes", async () => {
+  let resolveRetry!: (response: Response) => void;
+  const retryResponse = new Promise<Response>((done) => {
+    resolveRetry = done;
+  });
+  const fetch = vi
+    .fn()
+    .mockRejectedValueOnce(new TypeError("The response was lost."))
+    .mockReturnValueOnce(retryResponse);
+  vi.stubGlobal("fetch", fetch);
+  const view = render(createElement(PlaylistIndexPage, props), {
+    wrapper: ({ children }) => createElement(NoticeProvider, null, children),
+  });
+  const reference =
+    "https://provider.invalid/playlists/private-original-reference";
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Playlist link or identifier" }),
+    { target: { value: reference } },
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Import a copy" }));
+  await screen.findByRole("alert");
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const original = JSON.parse(fetch.mock.calls[0][1].body);
+  expect(original).toEqual({
+    request_id: expect.any(String),
+    installation_revision: 3,
+    playlist_reference: reference,
+  });
+  expect(router.visit).not.toHaveBeenCalled();
+  view.rerender(
+    createElement(PlaylistIndexPage, {
+      ...props,
+      connections: props.connections.map((item) =>
+        item.id === connection.id ? { ...item, revision: 4 } : item,
+      ),
+    }),
+  );
+  expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Retry import" }));
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  expect(fetch.mock.calls[1][0]).toBe(fetch.mock.calls[0][0]);
+  expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual(original);
+  expect(fetch.mock.calls[1][1].signal).not.toBe(fetch.mock.calls[0][1].signal);
+  expect(fetch.mock.calls[1][1].signal.aborted).toBe(false);
+  expect(router.visit).not.toHaveBeenCalled();
+  const receipt = {
+    request_id: original.request_id,
+    playlist_id: "a307ca25-1106-4d19-ab85-3060f8c623d2",
+  } satisfies components["schemas"]["PlaylistImportReceipt"];
+  await act(async () => resolveRetry(new Response(JSON.stringify(receipt))));
+  await waitFor(() =>
+    expect(router.visit).toHaveBeenCalledExactlyOnceWith(
+      `/playlists/${receipt.playlist_id}`,
+    ),
+  );
+  expect(fetch).toHaveBeenCalledTimes(2);
+});

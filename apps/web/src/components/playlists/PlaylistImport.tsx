@@ -67,9 +67,29 @@ export default function PlaylistImport({
             type="submit"
             disabled={workflow.pending || !reference.trim()}
           >
-            {workflow.pending ? "Importing…" : "Import a copy"}
+            {workflow.pending
+              ? "Importing…"
+              : workflow.hasAttempt
+                ? "Import a new copy"
+                : "Import a copy"}
           </button>
           {workflow.error && <p role="alert">{workflow.error}</p>}
+          {workflow.hasAttempt && !workflow.pending && (
+            <div className="playlist-import-recovery">
+              <p className="muted">
+                Retry recovers the previous import. Import a new copy uses the
+                current playlist field.
+              </p>
+              <button
+                className="button"
+                type="button"
+                disabled={workflow.pending}
+                onClick={() => void workflow.retry()}
+              >
+                Retry import
+              </button>
+            </div>
+          )}
         </form>
       ) : (
         <div>

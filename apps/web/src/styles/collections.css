@@ -50,6 +50,13 @@
 .playlist-import-form [role="alert"] {
   grid-column: 1 / -1;
 }
+.playlist-import-recovery {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
 @media (max-width: 760px) {
   .playlist-import-form {
     grid-template-columns: minmax(0, 1fr);
