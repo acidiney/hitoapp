@@ -49,6 +49,10 @@ async fn authenticated_player_commands_replay_and_queue_pages_keep_their_lease_a
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(accepted["revision"], 1);
+    let observed = http::call(&app, "GET", "/api/v1/player", Value::Null, Some(&f.token))
+        .await
+        .1;
+    assert_eq!(observed["state"]["current_index"], 0);
     assert_eq!(
         http::call(
             &app,

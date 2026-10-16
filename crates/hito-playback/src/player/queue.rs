@@ -18,6 +18,7 @@ impl Queue {
             revision: self.revision,
             selection: self.selection,
             queue_len: self.entries.len(),
+            current_index: self.current,
             current: self
                 .current
                 .and_then(|index| self.entries.get(index))
