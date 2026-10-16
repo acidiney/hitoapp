@@ -71,33 +71,38 @@ async fn sources(
 ) -> Result<Json<SourcePage>, StatusCode> {
     let catalog = &state.catalog;
     request.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
-    let track = catalog
-        .tracks
+    if !catalog.tracks.contains_key(&request.recording_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let ids = catalog
+        .recording_sources
         .get(&request.recording_id)
-        .ok_or(StatusCode::NOT_FOUND)?;
-    let id = track.id.clone();
+        .cloned()
+        .unwrap_or_default();
     let owned = state.catalog.clone();
     let permit = state
         .file_slots
         .clone()
         .try_acquire_owned()
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    let ready = tokio::task::spawn_blocking(move || {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let page = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        owned
-            .tracks
-            .get(&id)
-            .is_some_and(|track| track.open().is_ok())
+        let mut items = Vec::with_capacity(ids.len());
+        for id in ids {
+            let ready = owned.open_source(&id, deadline)?.is_some();
+            items.push(ProviderSource {
+                id,
+                label: "Original folder audio".into(),
+                ready,
+            });
+        }
+        Ok::<_, std::io::Error>(SourcePage { items })
     })
     .await
+    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
     .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    Ok(Json(SourcePage {
-        items: vec![ProviderSource {
-            id: track.source_id(),
-            label: "Original folder audio".into(),
-            ready,
-        }],
-    }))
+    Ok(Json(page))
 }
 
 async fn observe(

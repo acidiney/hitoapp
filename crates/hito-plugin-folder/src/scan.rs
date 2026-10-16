@@ -110,16 +110,16 @@ fn scan_with_inspector(
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Folder catalog ready"
     );
-    Ok(Catalog {
-        sources: tracks
-            .values()
-            .map(|track| (track.source_id(), track.id.clone()))
-            .collect(),
+    let mut catalog = Catalog {
+        sources: BTreeMap::new(),
+        recording_sources: BTreeMap::new(),
         tracks,
         observations,
         fingerprint: format!("{:x}", fingerprint.finalize()),
         claim: None,
-    })
+    };
+    catalog.index_sources()?;
+    Ok(catalog)
 }
 
 fn observation_bytes(track: &crate::catalog::Track) -> usize {

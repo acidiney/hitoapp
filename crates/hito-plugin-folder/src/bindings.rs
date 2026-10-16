@@ -78,11 +78,25 @@ pub(crate) async fn reconcile(
     for (index, track) in observations.iter().enumerate() {
         selected.entry(track.id.clone()).or_insert(index);
     }
+    for (recording, selected_index) in &mut selected {
+        let previous: Option<Option<Vec<u8>>> =
+            sqlx::query_scalar("SELECT owner_locator FROM recordings WHERE id = ?")
+                .bind(recording)
+                .fetch_optional(&mut *connection)
+                .await
+                .map_err(state_error)?;
+        if let Some(Some(locator)) = previous
+            && let Ok(index) = observations.binary_search_by(|track| track.locator.cmp(&locator))
+            && observations[index].id == *recording
+        {
+            *selected_index = index;
+        }
+    }
     for index in selected.values() {
         let track = &observations[*index];
         let detail = serde_json::to_string(&track.recording()).map_err(io::Error::other)?;
-        sqlx::query("INSERT INTO recordings (id, checksum, detail) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET detail = excluded.detail")
-            .bind(&track.id).bind(&track.checksum).bind(detail)
+        sqlx::query("INSERT INTO recordings (id, checksum, detail, owner_locator) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET detail = excluded.detail, owner_locator = excluded.owner_locator")
+            .bind(&track.id).bind(&track.checksum).bind(detail).bind(&track.locator)
             .execute(&mut *connection).await.map_err(state_error)?;
     }
     let mut active = BTreeMap::new();
@@ -145,11 +159,20 @@ pub(crate) async fn reconcile(
         .map(|(id, index)| (id, observations[index].clone()))
         .collect();
     catalog.observations = observations;
-    catalog.sources = catalog
-        .tracks
-        .values()
-        .map(|track| (track.source_id(), track.id.clone()))
-        .collect();
+    catalog.index_sources()
+}
+
+pub(crate) async fn create_owners(connection: &mut SqliteConnection) -> Result<(), sqlx::Error> {
+    sqlx::query("ALTER TABLE recordings ADD COLUMN owner_locator BLOB")
+        .execute(&mut *connection)
+        .await?;
+    sqlx::query(
+        "CREATE INDEX observation_recording_locator ON observations(recording_id, locator)",
+    )
+    .execute(&mut *connection)
+    .await?;
+    sqlx::query("UPDATE recordings SET owner_locator = (SELECT locator FROM observations WHERE observations.recording_id = recordings.id AND observations.detail = recordings.detail ORDER BY locator LIMIT 1)")
+        .execute(&mut *connection).await?;
     Ok(())
 }
 

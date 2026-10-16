@@ -330,3 +330,237 @@ fn legacy_equal_pcm_aliases_retain_distinct_bindings_after_exact_byte_collision(
     }
     service.stop();
 }
+
+#[test]
+fn an_unknown_native_locator_with_ambiguous_historical_bytes_stays_separate_after_restart() {
+    use std::{collections::BTreeMap, ffi::OsString, os::unix::ffi::OsStringExt};
+    let directory = tempfile::tempdir().unwrap();
+    let music = directory.path().join("private-root");
+    fs::create_dir(&music).unwrap();
+    let native_name =
+        |suffix| OsString::from_vec([b"private-alias-".as_slice(), &[suffix], b".wav"].concat());
+    let file_a = music.join(native_name(0xff));
+    let file_b = music.join(native_name(0xfe));
+    let bytes_a = support::write_wav(&file_a, Some("Ambiguous alias A"), 440);
+    let bytes_b = support::write_wav(&file_b, Some("Ambiguous alias B"), 440);
+    let recording_a = format!("recording-{:x}", Sha256::digest(&bytes_a));
+    let recording_b = format!("recording-{:x}", Sha256::digest(&bytes_b));
+    assert_ne!(recording_a, recording_b);
+    let state = directory.path().join("private-state");
+    binary::initialize(&music, &state);
+    fs::write(&file_a, &bytes_b).unwrap();
+    assert_eq!(fs::read(&file_a).unwrap(), fs::read(&file_b).unwrap());
+    let source_for = |service: &binary::Service, recording: &str| {
+        let sources: SourcePage =
+            service.post("/v1/sources", serde_json::json!({"recording_id":recording}));
+        sources.validate().unwrap();
+        assert_eq!(sources.items.len(), 1);
+        assert!(sources.items[0].ready);
+        sources.items[0].id.clone()
+    };
+    let service = binary::Service::start(&music, &state, &directory.path().join("aliases.jsonl"));
+    let aliases: SearchPage = service.post(
+        "/v1/search",
+        serde_json::json!({"query":"Ambiguous alias","limit":20}),
+    );
+    aliases.validate(20).unwrap();
+    assert_eq!(
+        aliases
+            .items
+            .iter()
+            .map(|item| item.id.clone())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([recording_a.clone(), recording_b.clone()])
+    );
+    let mut expected_sources = BTreeMap::from([
+        (recording_a.clone(), source_for(&service, &recording_a)),
+        (recording_b.clone(), source_for(&service, &recording_b)),
+    ]);
+    assert_ne!(
+        expected_sources[&recording_a],
+        expected_sources[&recording_b]
+    );
+    service.stop();
+
+    let unknown = music.join(native_name(0xfd));
+    fs::write(&unknown, &bytes_b).unwrap();
+    let first = bytes_b
+        .windows(b"Ambiguous alias B".len())
+        .position(|bytes| bytes == b"Ambiguous alias B")
+        .unwrap();
+    let end = first + b"Ambiguous alias B".len();
+    for restart in 0..2 {
+        let service = binary::Service::start(
+            &music,
+            &state,
+            &directory.path().join(format!("unknown-{restart}.jsonl")),
+        );
+        let page: SearchPage = service.post(
+            "/v1/search",
+            serde_json::json!({"query":"Ambiguous alias","limit":20}),
+        );
+        page.validate(20).unwrap();
+        assert_eq!(page.items.len(), 3);
+        assert!(
+            !serde_json::to_string(&page)
+                .unwrap()
+                .contains("private-alias")
+        );
+        let ids = page
+            .items
+            .iter()
+            .map(|item| item.id.clone())
+            .collect::<BTreeSet<_>>();
+        assert!(ids.contains(&recording_a));
+        assert!(ids.contains(&recording_b));
+        if restart == 0 {
+            let separate = ids
+                .iter()
+                .find(|id| !expected_sources.contains_key(*id))
+                .unwrap();
+            assert_ne!(separate, &recording_a);
+            assert_ne!(separate, &recording_b);
+            let source = source_for(&service, separate);
+            assert!(
+                expected_sources
+                    .values()
+                    .all(|previous| previous != &source)
+            );
+            expected_sources.insert(separate.clone(), source);
+        }
+        assert_eq!(
+            ids,
+            expected_sources.keys().cloned().collect::<BTreeSet<_>>()
+        );
+        for (recording, source) in &expected_sources {
+            assert_eq!(source_for(&service, recording), *source);
+            assert_eq!(
+                service.audio(source, first, end),
+                (206, bytes_b[first..end].to_vec())
+            );
+        }
+        service.stop();
+    }
+}
+
+#[test]
+fn current_representations_keep_their_own_bytes_and_metadata_falls_back_when_owner_disappears() {
+    let directory = tempfile::tempdir().unwrap();
+    let music = directory.path().join("private-root");
+    fs::create_dir(&music).unwrap();
+    let incumbent = music.join("private-z-incumbent.wav");
+    let original = support::write_wav(&incumbent, Some("Metadata owner Z"), 440);
+    let first = original
+        .windows(b"Metadata owner Z".len())
+        .position(|bytes| bytes == b"Metadata owner Z")
+        .unwrap();
+    let end = first + b"Metadata owner Z".len();
+    let state = directory.path().join("private-state");
+    binary::initialize(&music, &state);
+    let service = binary::Service::start(&music, &state, &directory.path().join("incumbent.jsonl"));
+    let before: SearchPage = service.post(
+        "/v1/search",
+        serde_json::json!({"query":"Metadata owner","limit":20}),
+    );
+    before.validate(20).unwrap();
+    assert_eq!(before.items.len(), 1);
+    let recording = &before.items[0];
+    assert_eq!(recording.title, "Metadata owner Z");
+    assert!(recording.revision.is_some());
+    let sources: SourcePage = service.post(
+        "/v1/sources",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    sources.validate().unwrap();
+    assert_eq!(sources.items.len(), 1);
+    let incumbent_source = &sources.items[0].id;
+    assert!(sources.items[0].ready);
+    assert_eq!(
+        service.audio(incumbent_source, first, end),
+        (206, original[first..end].to_vec())
+    );
+    service.stop();
+
+    let alternate_folder = music.join("private-a-alternate");
+    fs::create_dir(&alternate_folder).unwrap();
+    let alternate = support::write_wav(
+        &alternate_folder.join("copy.wav"),
+        Some("Metadata owner A"),
+        440,
+    );
+    assert_ne!(alternate[first..end], original[first..end]);
+    let service = binary::Service::start(&music, &state, &directory.path().join("both.jsonl"));
+    let both: SourcePage = service.post(
+        "/v1/sources",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    both.validate().unwrap();
+    assert_eq!(
+        both.items.len(),
+        2,
+        "complete page must include both current representations"
+    );
+    assert!(both.items.iter().all(|source| source.ready));
+    assert!(
+        both.items
+            .iter()
+            .any(|source| &source.id == incumbent_source)
+    );
+    let alternate_source = both
+        .items
+        .iter()
+        .find(|source| &source.id != incumbent_source)
+        .unwrap()
+        .id
+        .clone();
+    assert_eq!(
+        service.audio(incumbent_source, first, end),
+        (206, original[first..end].to_vec())
+    );
+    assert_eq!(
+        service.audio(&alternate_source, first, end),
+        (206, alternate[first..end].to_vec())
+    );
+    let retained: hito_plugin_sdk::ProviderRecording = service.post(
+        "/v1/recordings/detail",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    assert_eq!(retained.id, recording.id);
+    assert_eq!(retained.title, "Metadata owner Z");
+    assert_eq!(retained.revision, recording.revision);
+    service.stop();
+
+    fs::remove_file(&incumbent).unwrap();
+    let service = binary::Service::start(&music, &state, &directory.path().join("fallback.jsonl"));
+    let after: hito_plugin_sdk::ProviderRecording = service.post(
+        "/v1/recordings/detail",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    assert_eq!(after.id, recording.id);
+    assert_eq!(after.title, "Metadata owner A");
+    assert!(after.revision.is_some());
+    assert_ne!(after.revision, recording.revision);
+    let current: SourcePage = service.post(
+        "/v1/sources",
+        serde_json::json!({"recording_id":recording.id}),
+    );
+    current.validate().unwrap();
+    assert_eq!(current.items.len(), 1);
+    assert_eq!(current.items[0].id, alternate_source);
+    assert!(current.items[0].ready);
+    assert_eq!(service.audio(incumbent_source, first, end).0, 404);
+    assert_eq!(
+        service.audio(&alternate_source, first, end),
+        (206, alternate[first..end].to_vec())
+    );
+    let page: SearchPage = service.post(
+        "/v1/search",
+        serde_json::json!({"query":"Metadata owner","limit":20}),
+    );
+    page.validate(20).unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].id, after.id);
+    assert_eq!(page.items[0].title, after.title);
+    assert_eq!(page.items[0].revision, after.revision);
+    service.stop();
+}

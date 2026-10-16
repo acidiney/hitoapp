@@ -7,15 +7,74 @@ use std::{
     fs::{File, Metadata},
     io,
     sync::Arc,
-    time::SystemTime,
+    time::{Instant, SystemTime},
 };
 
 pub(crate) struct Catalog {
     pub tracks: BTreeMap<String, Track>,
     pub observations: Vec<Track>,
-    pub sources: BTreeMap<String, String>,
+    pub sources: BTreeMap<String, CurrentSource>,
+    pub recording_sources: BTreeMap<String, Vec<String>>,
     pub fingerprint: String,
     pub claim: Option<Arc<crate::registry::Claim>>,
+}
+pub(crate) struct CurrentSource {
+    recording: String,
+    checksum: String,
+    locations: Vec<usize>,
+}
+pub(crate) struct SourceFile {
+    pub file: File,
+    pub length: u64,
+    pub mime: &'static str,
+}
+impl Catalog {
+    pub fn index_sources(&mut self) -> io::Result<()> {
+        let mut sources = BTreeMap::<String, CurrentSource>::new();
+        let mut recordings = BTreeMap::<String, Vec<String>>::new();
+        for (index, track) in self.observations.iter().enumerate() {
+            let source = sources
+                .entry(track.source.clone())
+                .or_insert_with(|| CurrentSource {
+                    recording: track.id.clone(),
+                    checksum: track.checksum.clone(),
+                    locations: Vec::new(),
+                });
+            if source.recording != track.id || source.checksum != track.checksum {
+                return Err(io::Error::other("Folder source binding changed"));
+            }
+            if source.locations.is_empty() {
+                let ids = recordings.entry(track.id.clone()).or_default();
+                ids.push(track.source.clone());
+                if ids.len() > hito_plugin_sdk::MAX_SOURCES_PER_RECORDING {
+                    return Err(io::Error::other("Folder current source limit exceeded"));
+                }
+            }
+            source.locations.push(index);
+        }
+        self.sources = sources;
+        self.recording_sources = recordings;
+        Ok(())
+    }
+    pub fn open_source(&self, id: &str, deadline: Instant) -> io::Result<Option<SourceFile>> {
+        let Some(source) = self.sources.get(id) else {
+            return Ok(None);
+        };
+        for index in &source.locations {
+            crate::inspection::check(deadline)?;
+            let track = &self.observations[*index];
+            let opened = track.open();
+            crate::inspection::check(deadline)?;
+            if let Ok(file) = opened {
+                return Ok(Some(SourceFile {
+                    file,
+                    length: track.stamp.size,
+                    mime: track.mime,
+                }));
+            }
+        }
+        Ok(None)
+    }
 }
 #[derive(Clone)]
 pub(crate) struct Track {
@@ -59,9 +118,6 @@ impl Track {
             track_number: self.track_number,
             revision: Some(self.revision.clone()),
         }
-    }
-    pub fn source_id(&self) -> String {
-        self.source.clone()
     }
     pub fn open(&self) -> io::Result<File> {
         let file = open(&self.directory, &self.name)?;
