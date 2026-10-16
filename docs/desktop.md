@@ -1,6 +1,6 @@
 # Standalone desktop host
 
-The first development host runs the shared Hito UI in Tauri with its own Rust backend and SQLite library. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. This is an early desktop step. Native playback, offline synchronization, downloads, native folder selection, installers, and platform acceptance remain unfinished.
+The first development host runs the shared Hito UI in Tauri with its own Rust backend and SQLite library. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. This is an early desktop step. Authenticated native HTTP and retained playback cleanup are implemented. The shared UI still uses browser audio. Its native adapter, offline synchronization, downloads, native folder selection, installers, and platform acceptance remain unfinished.
 
 ```mermaid
 flowchart LR
@@ -12,7 +12,10 @@ flowchart LR
   Window --> BrowserAudio[Current browser audio adapter]
   HTTP --> Audio[Authorized local audio responses]
   Audio --> BrowserAudio
-  Window -. future commands and events .-> Native[Rust playback owner / not connected]
+  Window -. planned native commands and events .-> HTTP
+  HTTP --> Native[Rust playback owner]
+  Native --> Core
+  Native --> Engine[Native session / Symphonia and CPAL]
   Core -. future sync API .-> Remote[Optional Hito server]
 ```
 
@@ -24,9 +27,9 @@ flowchart LR
 
 The local listener binds only `127.0.0.1` on an operating-system-assigned port. The initial WebView URL contains a random single-use ticket. Claiming it redirects to `/library` and sets an HttpOnly, SameSite=Strict process cookie. Every other route requires that cookie, the exact Host authority, and an absent or matching Origin. Ordinary Hito account authentication still applies. Restarting the backend invalidates the previous process cookie.
 
-The WebView loads the local application and denies navigation to another origin or opening new windows. The configuration grants no native IPC capabilities. Renderer input cannot select a filesystem path or impersonate an account through a native command. A future playback adapter must preserve those boundaries and authorize stable source IDs through the local account session.
+The WebView loads the local application and denies navigation to another origin or opening new windows. The configuration grants no native IPC capabilities. Renderer input cannot select a filesystem path or impersonate an account through a native command. The native API preserves those boundaries. Commands carry recording and queue-entry IDs; core chooses and authorizes sources through the local account session.
 
-The separate [native playback owner](native-playback.md) accepts core grants, opens owned local/provider input, and supervises the [audio engine](native-audio.md). It stops output on session/source revocation and joins cleanup even after an observer disappears. It has no renderer routes and is not connected to this host yet. Its device verification is separate from the WebKit workflow below. Host integration must retain sessions and the library lock until native cleanup finishes.
+The [native coordinator](native-coordinator.md) supplies authenticated commands, private paged queues, and separate state/position streams. Its native sessions accept core grants, open owned local/provider input, and supervise the [audio engine](native-audio.md). They stop output on session/source revocation and join cleanup even after an observer disappears. The host retains PlayerOwner alongside HTTP/indexing cleanup and keeps its library claim until both join. The `gui` feature enables native output; headless builds without `device` expose only queue behavior and report native output unavailable.
 
 ```mermaid
 sequenceDiagram
@@ -35,14 +38,17 @@ sequenceDiagram
   participant Host as Local lifecycle / library lock
   participant HTTP as Owned HTTP connections
   participant Scan as Indexing / inspection supervisors
+  participant Player as Native owner / session / progress writer
   User->>Window: Close application
   Window->>Host: Request shutdown once
   Window->>Window: Reject repeated exits while stopping
   Host->>HTTP: Stop accepting and begin graceful drain
   Host->>Scan: Cancel the active scan future
+  Host->>Player: Stop output and flush admitted progress
   HTTP->>HTTP: After five seconds, cancel and join remaining connections
   Scan->>Scan: Kill and reap inspection processes, release private inputs
-  Host->>Host: Release library lock after cleanup
+  Player->>Player: Join native cleanup and admitted writes
+  Host->>Host: Release library lock after all cleanup
   Host-->>Window: Shutdown complete
   Window->>Window: Exit process
 ```
@@ -62,7 +68,7 @@ Run both checks from the repository root:
 
 The desktop profile compiles Tauri only when the `gui` feature is enabled. Ordinary server builds do not need GTK or WebKit. Its Cargo target is `/build/desktop-target`, separate from the ordinary tools target. The source checkout and dependency caches are shared.
 
-The desktop script builds the shared UI and a Linux debug executable, then runs an actual Tauri WebView through `tauri-driver`, WebKitWebDriver, Xvfb, and a window manager. It uses an unprivileged container user, owned temporary application directories, and synthetic audio. The normal server volume and personal Music directory are never mounted into this test. Evidence is written under ignored `test-results/desktop/`.
+The desktop script verifies protected HTTP controls, observed progress, redacted network logs, and retained library ownership during canceled shutdown. It builds the shared UI and a Linux debug executable, then runs an actual Tauri WebView through `tauri-driver`, WebKitWebDriver, Xvfb, and a window manager. It uses an unprivileged container user, owned temporary application directories, and synthetic audio. The normal server volume and personal Music directory are never mounted into this test. Evidence is written under ignored `test-results/desktop/`.
 
 The release resource configuration includes the built UI under `web/`. Debug builds can read `apps/web/dist` from the checkout. Packaged release resources, upgrades, macOS and Windows WebViews, physical audio output, signing, and installers still require acceptance. The current PNG icon exports the existing Lucide waveform without changing the brand. The requested logo redesign remains in [the backlog](../TODO.md).
 

@@ -50,7 +50,7 @@ docker compose --profile tools run --rm node npm run build
 
 `./scripts/verify.sh` runs the full development check. See [development](docs/development.md) for the pinned Rust toolchain, editor setup, and generated API contracts.
 
-`./scripts/check-desktop.sh` checks the native audio engine and authorized playback owner through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The UI still uses browser audio; native integration and installers remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md), and [engine limits](docs/native-audio.md).
+`./scripts/check-desktop.sh` checks the native audio engine, authorized playback owner, and protected desktop HTTP workflows through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The UI still uses browser audio; its native adapter and installers remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md), and [engine limits](docs/native-audio.md).
 
 The browser test uses a separate server with temporary storage. It creates its own accounts and never changes the normal server database:
 

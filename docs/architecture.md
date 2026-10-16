@@ -26,7 +26,7 @@ flowchart LR
 
 The solid lines describe the initial implementation. Dashed connections are planned boundaries. `docs/status.md` records which portions exist and which are verified.
 
-The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. Native application queue/source coordination, desktop integration, and the synchronization client remain planned.
+The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The authenticated native API exposes Rust-owned commands, paged queues, and separate structural/position observations. The desktop retains playback cleanup alongside HTTP/indexing before releasing its library claim. The shared native UI and synchronization client remain unfinished.
 
 ## Data ownership
 

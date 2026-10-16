@@ -52,7 +52,7 @@ Catalog owns saved source refresh. The private plugin operation supplies current
 
 ## Native coordination owns playback effects
 
-Rust's `Player` owns authenticated command admission, a private reference-only queue, native source/session lifetimes, and observed progress checkpoints. Its concrete effect modules retain admitted provider and collection writes through commit or rollback. Core Catalog and Collection still own source authority, SQLite, and transactions. Sampling coalesces frequent position observations; a bounded FIFO writer preserves terminal checkpoint order and retry identity. [Native coordination](native-coordinator.md) records the bounds and remaining host/HTTP/UI work.
+Rust's `Player` owns authenticated command admission, a private reference-only queue, native source/session lifetimes, and observed progress checkpoints. Its concrete effect modules retain admitted provider and collection writes through commit or rollback. Core Catalog and Collection still own source authority, SQLite, and transactions. Sampling coalesces frequent position observations; a bounded FIFO writer preserves terminal checkpoint order and retry identity. [Native coordination](native-coordinator.md) records the bounds, authenticated HTTP and desktop ownership, and remaining shared UI work.
 
 ## Logs follow workflow boundaries
 
