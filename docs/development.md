@@ -11,6 +11,8 @@ The verification script checks formatting, Rust tests, Clippy, generated API con
 
 Browser fixtures live in `fixtures/e2e-generated`, distinct from development music in `fixtures/generated`. The verification script generates them with `audio-fixtures.mjs --e2e`. Do not mount personal music into the browser test server. Rust indexing tests use owned temporary WAV fixtures and protocol-boundary media-tool scripts, with FFmpeg supplied by the tools image.
 
+The standalone Tauri development host has a separate `desktop` Compose profile and Cargo target. Run `./scripts/check-desktop.sh` for GUI-feature checks and an isolated Linux WebView workflow. See [desktop ownership and remaining work](desktop.md).
+
 ## Rust editor support
 
 Local editors need the pinned toolchain to load build scripts and procedural macros. Rustup selects it automatically inside this repository. Install it without changing your global default:

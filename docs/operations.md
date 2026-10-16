@@ -37,7 +37,7 @@ docker compose up --build -d server
 
 The data volume survives both commands. Do not run `docker compose down -v` against a library you want to keep. Desktop update approval, signed packages, and automated rollback verification are still release work.
 
-Unix binaries handle SIGTERM and SIGINT; Windows uses Ctrl+C. The server and indexing worker log shutdown lifecycle events. CLI tests and an isolated production container verify clean idle shutdown. Bounded shutdown during active long scans and streams remains part of the recovery release gates.
+Unix binaries handle SIGTERM and SIGINT; Windows uses Ctrl+C. Shutdown stops accepting connections, allows five seconds for HTTP responses to drain, then cancels and joins remaining connections. The core finishes transaction boundaries, requeues interrupted scans, and reaps inspection subprocesses before the host finishes. Public regressions cover active inspection, pending HTTP handlers and bodies, and restart ownership. Disconnected-drive behavior and full recovery acceptance remain release gates.
 
 ## Backups
 

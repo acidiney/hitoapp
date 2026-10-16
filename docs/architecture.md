@@ -19,15 +19,14 @@ flowchart LR
   Storage --> Store
   Store --> DB[(SQLite / WAL)]
   Storage --> Music[Granted read-only music folders]
-  Desktop[Planned Tauri local backend] -.-> Identity
-  Desktop -.-> Catalog
-  Desktop -.-> Collection
-  Desktop -.-> Storage
+  Desktop[Tauri development host / private local backend] --> HTTP
   Catalog -->|private search, adoption and relay| Provider
   Catalog -. opt-in .-> Community[Planned community service]
 ```
 
 The solid lines describe the initial implementation. Dashed connections are planned boundaries. `docs/status.md` records which portions exist and which are verified.
+
+The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The Rust playback engine and synchronization client remain planned.
 
 ## Data ownership
 
