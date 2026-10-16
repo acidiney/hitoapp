@@ -12,6 +12,7 @@ use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 
 struct Fixture {
     range_chunk: RwLock<Option<usize>>,
+    held_range: RwLock<Option<std::ops::Range<usize>>>,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
@@ -29,6 +30,7 @@ impl ProviderServer {
         let (closed, receiver) = watch::channel(false);
         let state = Arc::new(Fixture {
             range_chunk: RwLock::new(None),
+            held_range: RwLock::new(None),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
             requests: Default::default(),
@@ -76,6 +78,10 @@ impl ProviderServer {
             .insert(path.into(), gate.clone());
         gate
     }
+    pub async fn hold_range(&self, range: std::ops::Range<usize>) -> Arc<Gate> {
+        *self.state.held_range.write().await = Some(range);
+        self.hold("audio-range").await
+    }
     pub async fn requests(&self, path: &str) -> Vec<(HeaderMap, Value)> {
         self.state
             .requests
@@ -106,16 +112,15 @@ async fn audio(
             query["_method"] = json!(method.as_str());
             query
         }));
+    let first = range
+        .as_deref()
+        .and_then(|range| range.strip_prefix("bytes="))
+        .and_then(|range| range.split_once('-'))
+        .and_then(|(first, _)| first.parse::<usize>().ok());
     let (mut status, mut headers, mut bytes) = state.audio.read().await.clone();
     if let Some(maximum) = *state.range_chunk.read().await {
         headers.insert("accept-ranges", "bytes".parse().unwrap());
-        if let Some(range) = range {
-            let first: usize = range
-                .strip_prefix("bytes=")
-                .unwrap()
-                .trim_end_matches('-')
-                .parse()
-                .unwrap();
+        if let Some(first) = first {
             let total = bytes.len();
             if first >= total {
                 headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
@@ -134,6 +139,15 @@ async fn audio(
         headers.insert("content-length", bytes.len().to_string().parse().unwrap());
     }
     if !wait_gate(&state, "v1/audio").await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    let held_range = state.held_range.read().await.clone();
+    if first.is_some_and(|first| {
+        held_range
+            .as_ref()
+            .is_none_or(|range| range.contains(&first))
+    }) && !wait_gate(&state, "audio-range").await
+    {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
     let gate = state.gates.read().await.get("audio-body").cloned();
@@ -156,7 +170,7 @@ async fn audio(
                 tail.entered.add_permits(1);
                 tokio::select! {
                     _ = closed.changed() => return,
-                    result = tail.release.acquire() => result.unwrap().forget(),
+                    result = tail.release.acquire() => if let Ok(permit) = result { permit.forget(); },
                 }
                 tokio::select! {
                     _ = closed.changed() => return,
@@ -167,7 +181,7 @@ async fn audio(
                 gate.entered.add_permits(1);
                 tokio::select! {
                     _ = closed.changed() => {},
-                    result = gate.release.acquire() => result.unwrap().forget(),
+                    result = gate.release.acquire() => if let Ok(permit) = result { permit.forget(); },
                 }
             }
         });
@@ -217,7 +231,7 @@ async fn wait_gate(state: &Fixture, path: &str) -> bool {
         let mut closed = state.closed.clone();
         tokio::select! {
             _ = closed.changed() => return false,
-            permit = gate.release.acquire() => permit.unwrap().forget(),
+            permit = gate.release.acquire() => if let Ok(permit) = permit { permit.forget(); },
         }
     }
     true
@@ -238,6 +252,9 @@ pub struct Gate {
     release: Semaphore,
 }
 impl Gate {
+    pub fn open(&self) {
+        self.release.close();
+    }
     pub async fn entered(&self) {
         self.entered.acquire().await.unwrap().forget();
     }

@@ -177,6 +177,13 @@ impl Native {
             Status::Opening | Status::Starting => PlayerPhase::Opening,
             _ => PlayerPhase::Failed,
         };
+        if !self.configured {
+            return if phase == PlayerPhase::Failed {
+                self.status(phase, Some(PlayerError::Playback))
+            } else {
+                self.status(PlayerPhase::Opening, None)
+            };
+        }
         Update {
             key: self.target.as_ref().unwrap().key,
             phase,
@@ -210,7 +217,9 @@ impl Native {
     fn retire(&mut self) {
         if let Some(session) = self.session.as_ref() {
             let snapshot = session.snapshot();
-            self.resume_at = snapshot.position;
+            if self.configured {
+                self.resume_at = snapshot.position;
+            }
             self.duration = snapshot.format.and_then(|format| format.duration);
             session.stop();
         }
