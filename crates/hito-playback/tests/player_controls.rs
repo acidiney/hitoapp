@@ -19,6 +19,7 @@ async fn unsupported_and_invalid_controls_do_not_advance_command_or_queue_order(
             PlayerError::Unsupported,
         ),
         (PlayerAction::Volume { level: 0 }, PlayerError::Unsupported),
+        (PlayerAction::Speed { rate: 1500 }, PlayerError::Unsupported),
         (PlayerAction::Previous {}, PlayerError::Unsupported),
         (PlayerAction::Repeat {}, PlayerError::Unsupported),
         (PlayerAction::Shuffle {}, PlayerError::Unsupported),
@@ -29,6 +30,8 @@ async fn unsupported_and_invalid_controls_do_not_advance_command_or_queue_order(
             PlayerError::Invalid,
         ),
         (PlayerAction::Volume { level: 1001 }, PlayerError::Invalid),
+        (PlayerAction::Speed { rate: 499 }, PlayerError::Invalid),
+        (PlayerAction::Speed { rate: 3001 }, PlayerError::Invalid),
     ] {
         assert_eq!(
             player
@@ -65,6 +68,7 @@ async fn unsupported_and_invalid_controls_do_not_advance_command_or_queue_order(
     assert_eq!(accepted.revision, 1);
     let state = player.inspect(&f.actor).await.unwrap().state.unwrap();
     assert_eq!(state.volume, 1000);
+    assert_eq!(state.speed, 1000);
     assert!(!state.seeking);
     owner.close().await.unwrap();
 }

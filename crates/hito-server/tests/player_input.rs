@@ -67,6 +67,20 @@ async fn unexpected_action_fields_do_not_mutate_the_queue_or_consume_command_ord
     let state = http::call(&app, "GET", "/api/v1/player", Value::Null, Some(&f.token))
         .await
         .1;
+    command["action"] =
+        json!({"kind":"speed", "rate":1500, "source_url":"https://private.invalid/audio"});
+    assert_eq!(
+        http::call(
+            &app,
+            "POST",
+            "/api/v1/player/commands",
+            command.clone(),
+            Some(&f.token)
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
     assert_eq!(state["state"]["queue_len"], 1);
     assert_eq!(state["state"]["revision"], 1);
     assert_eq!(state["state"]["desired_playing"], false);

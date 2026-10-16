@@ -15,6 +15,7 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
     let mut f = fixture::Navigation::start(3, 0).await;
     f.send(PlayerAction::Shuffle {}).await;
     f.send(PlayerAction::Repeat {}).await;
+    f.send(PlayerAction::Speed { rate: 1500 }).await;
     f.send(PlayerAction::Resume {}).await;
     f.playing(f.entries[0].id).await;
     f.send(PlayerAction::Select {
@@ -30,10 +31,12 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
     assert!(attached.state.can_previous);
     assert!(attached.state.shuffle);
     assert_eq!(attached.state.repeat, PlayerRepeat::All);
+    assert_eq!(attached.state.speed, 1500);
     for stale in [
         stale,
         f.request(PlayerAction::Shuffle {}),
         f.request(PlayerAction::Repeat {}),
+        f.request(PlayerAction::Speed { rate: 2000 }),
     ] {
         assert_eq!(
             f.player.submit(&f.source.actor, stale).await,
@@ -85,6 +88,7 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
     assert!(!attached.state.can_previous);
     assert!(!attached.state.shuffle);
     assert_eq!(attached.state.repeat, PlayerRepeat::Off);
+    assert_eq!(attached.state.speed, 1000);
     assert_eq!(attached.state.queue_len, 0);
     f.player
         .submit(
@@ -118,6 +122,7 @@ async fn authority_suspension_rejects_previous_and_recovery_keeps_the_same_playe
     let mut f = fixture::Navigation::start(3, 0).await;
     f.send(PlayerAction::Shuffle {}).await;
     f.send(PlayerAction::Repeat {}).await;
+    f.send(PlayerAction::Speed { rate: 750 }).await;
     f.send(PlayerAction::Resume {}).await;
     f.playing(f.entries[0].id).await;
     f.send(PlayerAction::Select {
@@ -137,6 +142,7 @@ async fn authority_suspension_rejects_previous_and_recovery_keeps_the_same_playe
         PlayerAction::Previous {},
         PlayerAction::Shuffle {},
         PlayerAction::Repeat {},
+        PlayerAction::Speed { rate: 2000 },
     ] {
         assert_eq!(
             f.player.submit(&f.source.actor, f.request(action)).await,
@@ -145,6 +151,7 @@ async fn authority_suspension_rejects_previous_and_recovery_keeps_the_same_playe
     }
     assert!(f.state.borrow().shuffle);
     assert_eq!(f.state.borrow().repeat, PlayerRepeat::All);
+    assert_eq!(f.state.borrow().speed, 750);
     assert_eq!(f.state.borrow().current.unwrap().id, f.entries[2].id);
     assert_eq!(f.state.borrow().revision, 2);
     outage.restore().await;
