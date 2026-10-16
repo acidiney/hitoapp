@@ -6,7 +6,7 @@ use super::{
     progress::Progress,
 };
 use hito_core::{Collection, SavedPosition};
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, time::Duration};
 use uuid::Uuid;
 
 #[derive(Clone, Copy)]
@@ -17,7 +17,7 @@ pub(super) struct Restoration {
 #[derive(Clone, Copy)]
 pub(super) struct Restored {
     pub id: Uuid,
-    pub baseline_ms: u64,
+    pub baseline: Duration,
 }
 enum Status {
     Waiting,
@@ -84,7 +84,7 @@ impl Owned {
                 saved.listened
                     || saved.restoration().zip(update.restored).is_some_and(
                         |(desired, restored)| {
-                            restored.id == desired.id && update.position_ms > restored.baseline_ms
+                            restored.id == desired.id && update.position > restored.baseline
                         },
                     )
             }

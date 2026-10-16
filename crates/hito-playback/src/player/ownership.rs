@@ -265,7 +265,7 @@ impl State {
             && ((update.ended && owned.desired_playing)
                 || (update.playing
                     && update.seek_id == owned.applied_seek
-                    && update.position_ms > owned.position.borrow().position_ms))
+                    && update.position_ms() > owned.position.borrow().position_ms))
             && update.seek_id == owned.seek.map(|seek| seek.id)
         {
             owned.queue.played();
@@ -291,7 +291,7 @@ impl State {
             let next = PlayerPosition {
                 entry: Some(update.key.entry),
                 selection: update.key.selection,
-                position_ms: update.position_ms,
+                position_ms: update.position_ms(),
                 duration_ms: update.duration_ms,
                 seek_id: update.seek_id,
             };

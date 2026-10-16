@@ -108,7 +108,7 @@ impl Progress {
         if self.current.is_none() && !update.playing && !update.ended && update.seek_id.is_none() {
             return;
         }
-        let position = update.position_ms.min(i64::MAX as u64) as i64;
+        let position = update.position_ms().min(i64::MAX as u64) as i64;
         let changed = self.current.as_ref().is_none_or(|sample| {
             sample.checkpoint.position != position
                 || sample.seek_id != update.seek_id

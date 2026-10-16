@@ -89,11 +89,7 @@ impl Controls {
                 let restored = if let Some(restoration) = restoration {
                     Some(Restored {
                         id: restoration.id,
-                        baseline_ms: session
-                            .snapshot()
-                            .position
-                            .as_millis()
-                            .min(u64::MAX as u128) as u64,
+                        baseline: session.snapshot().position,
                     })
                 } else {
                     restored
@@ -153,7 +149,7 @@ impl Controls {
             playing: snapshot.playing,
             speed: snapshot.speed,
             source_id,
-            position_ms: snapshot.position.as_millis().min(u64::MAX as u128) as u64,
+            position: snapshot.position,
             duration_ms: snapshot
                 .format
                 .and_then(|format| format.duration)
@@ -182,7 +178,7 @@ impl Controls {
             playing: false,
             speed: self.applied_speed.unwrap_or(1000),
             source_id,
-            position_ms: self.resume_at.as_millis().min(u64::MAX as u128) as u64,
+            position: self.resume_at,
             duration_ms: self
                 .duration
                 .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64),

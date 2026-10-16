@@ -23,6 +23,9 @@ impl Navigation {
     pub async fn start(count: usize, start: usize) -> Self {
         Self::with_source(recovery::Recovery::start().await, count, start).await
     }
+    pub async fn short() -> Self {
+        Self::with_source(recovery::Recovery::start_with_wave(48_000, 24).await, 1, 0).await
+    }
     pub async fn split() -> Self {
         Self::with_source(recovery::Recovery::start_split().await, 1, 0).await
     }

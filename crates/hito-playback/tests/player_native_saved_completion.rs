@@ -10,6 +10,49 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
+async fn genuine_submillisecond_audio_after_a_saved_start_counts_as_listening() {
+    let mut f = fixture::Navigation::short().await;
+    let entry = f.entries[0].id;
+    f.send(PlayerAction::ResumeSaved {}).await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        f.state.wait_for(|s| s.current.is_none()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    f.send(PlayerAction::Previous {}).await;
+    assert_eq!(f.state.borrow().current.map(|e| e.id), Some(entry));
+    f.owner.close().await.unwrap();
+    assert_eq!(
+        f.source
+            .services
+            .collection
+            .events(&f.source.actor, 0)
+            .await
+            .unwrap()
+            .operations
+            .len(),
+        1
+    );
+    assert_eq!(
+        f.source
+            .services
+            .collection
+            .saved_position(
+                &f.source.actor,
+                Uuid::parse_str(&f.source.recording).unwrap()
+            )
+            .await
+            .unwrap()
+            .unwrap()
+            .position_ms,
+        0
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
 async fn restored_end_and_beyond_end_advance_without_a_checkpoint_or_played_occurrence() {
     for position_ms in [10_000, 15_000] {
         let mut f = fixture::Navigation::start(3, 0).await;

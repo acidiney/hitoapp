@@ -20,6 +20,7 @@ pub(super) struct Target {
 }
 
 use super::{PlayerError, PlayerPhase, ownership::State};
+use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -35,13 +36,18 @@ pub(super) struct Update {
     pub playing: bool,
     pub speed: u16,
     pub source_id: Option<String>,
-    pub position_ms: u64,
+    pub position: Duration,
     pub duration_ms: Option<u64>,
     pub seek_id: Option<Uuid>,
     pub restored: Option<super::loading::Restored>,
     pub ended: bool,
     pub exhausted: bool,
     pub error: Option<PlayerError>,
+}
+impl Update {
+    pub fn position_ms(&self) -> u64 {
+        self.position.as_millis().min(u64::MAX as u128) as u64
+    }
 }
 pub(super) enum Effects {
     Disabled,
