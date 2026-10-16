@@ -1164,6 +1164,12 @@ export interface components {
             kind: "previous";
         } | {
             /** @enum {string} */
+            kind: "repeat";
+        } | {
+            /** @enum {string} */
+            kind: "shuffle";
+        } | {
+            /** @enum {string} */
             kind: "clear";
         } | {
             /** @enum {string} */
@@ -1273,6 +1279,8 @@ export interface components {
             /** Format: int64 */
             sequence: number;
         };
+        /** @enum {string} */
+        PlayerRepeat: "off" | "all" | "one";
         PlayerSnapshot: {
             can_previous: boolean;
             current?: components["schemas"]["PlayerEntryRef"] | null;
@@ -1284,11 +1292,13 @@ export interface components {
             phase: components["schemas"]["PlayerPhase"];
             playing: boolean;
             queue_len: number;
+            repeat: components["schemas"]["PlayerRepeat"];
             /** Format: int64 */
             revision: number;
             seeking: boolean;
             /** Format: int64 */
             selection: number;
+            shuffle: boolean;
             source_id?: string | null;
             /** Format: int32 */
             volume: number;

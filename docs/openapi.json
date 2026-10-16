@@ -5685,6 +5685,34 @@
               "kind": {
                 "type": "string",
                 "enum": [
+                  "repeat"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "shuffle"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
                   "clear"
                 ]
               }
@@ -6089,6 +6117,14 @@
           }
         }
       },
+      "PlayerRepeat": {
+        "type": "string",
+        "enum": [
+          "off",
+          "all",
+          "one"
+        ]
+      },
       "PlayerSnapshot": {
         "type": "object",
         "required": [
@@ -6096,6 +6132,8 @@
           "selection",
           "queue_len",
           "can_previous",
+          "repeat",
+          "shuffle",
           "desired_playing",
           "playing",
           "seeking",
@@ -6166,6 +6204,9 @@
             "type": "integer",
             "minimum": 0
           },
+          "repeat": {
+            "$ref": "#/components/schemas/PlayerRepeat"
+          },
           "revision": {
             "type": "integer",
             "format": "int64",
@@ -6178,6 +6219,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "shuffle": {
+            "type": "boolean"
           },
           "source_id": {
             "type": [
