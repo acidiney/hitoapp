@@ -1,4 +1,5 @@
 import { log } from "../../log";
+import { HttpError } from "../../http";
 import type {
   PlaybackPosition,
   PlaybackView,
@@ -221,12 +222,18 @@ export class NativePlayback implements Player {
             duration: track.duration_ms / 1000,
           });
       })
-      .catch(() => {
-        if (!controller.signal.aborted && queue === this.queueView)
-          this.update({
-            current: null,
-            error: "The selected track is unavailable to this account.",
-          });
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || queue !== this.queueView) return;
+        const denied =
+          error instanceof HttpError && [401, 403, 404].includes(error.status);
+        this.update({
+          ...(denied ? { current: null } : {}),
+          error:
+            playbackError(this.wire) ||
+            (denied
+              ? "The selected track is unavailable to this account."
+              : "Track details could not be loaded. Playback controls are still available."),
+        });
       });
   }
 

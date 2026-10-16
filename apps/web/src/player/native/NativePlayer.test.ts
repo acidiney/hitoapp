@@ -25,9 +25,8 @@ test("native authority suspension explains stopped output and retains the progre
     queue_len: 1,
     current_index: 0,
     current: { id: "entry-0", recording_id: "recording-0" },
-    phase: "suspended",
+    phase: "ready",
     desired_playing: true,
-    error: "unavailable",
     persistence_error: "persistence",
   });
   render(
@@ -37,11 +36,29 @@ test("native authority suspension explains stopped output and retains the progre
       children: createElement(PlayerDock),
     }),
   );
+  await screen.findByText("Track 0");
+  const queue = service.queue;
+  let failedReads = 0;
+  service.queue = async () => {
+    failedReads++;
+    return new Response(null, { status: 503 });
+  };
+  await act(async () => {
+    Object.assign(service.state, {
+      phase: "suspended",
+      error: "unavailable",
+    });
+    service.emit("state", service.state);
+  });
+  await vi.waitFor(() => expect(failedReads).toBeGreaterThan(0));
+  await act(async () => {});
   await vi.waitFor(() =>
     expect(screen.getByRole("status").textContent).toContain(
       "Playback paused while Hito checks access. Your queue is unchanged.",
     ),
   );
+  expect(screen.getByText("Track 0")).toBeTruthy();
+  service.queue = queue;
   await act(async () => {
     Object.assign(service.state, {
       phase: "ready",
