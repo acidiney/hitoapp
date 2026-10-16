@@ -219,6 +219,17 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
     .await
     .unwrap()
     .unwrap();
+    let mut position = player
+        .subscribe_position(&f.actor, attached.lease)
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        position.wait_for(|p| p.position_ms >= 100),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     owner.close().with_subscriber(dispatch).await.unwrap();
     let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
     let events = logs
