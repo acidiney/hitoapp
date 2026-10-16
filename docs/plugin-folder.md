@@ -105,6 +105,8 @@ docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/
 docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e down
 ```
 
-The browser test uses real UI offer/install, search, adoption without autoplay, playback, seek, relayed byte ranges, one shared durable album, and personal removal with durable recording IDs retained. Screenshots go to `test-results/plugins-folder/`. The reused Hito integration image for the recorded run was `sha256:028340162faea37e3309a6bdc6db029977aaf727ef367b2974de185bd8300dbe`, built on 2026-10-16. This proves the existing HTTP plugin boundary, not newer native-speed changes or a public release.
+The browser test uses real UI offer/install, search, adoption without autoplay, playback, seek, relayed byte ranges, one shared durable album, and personal removal with durable recording IDs retained. Screenshots go to `test-results/plugins-folder/`. Root rebuilt the integrated source and reran this workflow on 2026-10-16. The folder image was `sha256:85b970e4b01157c0941b3b4493e74d51a76dc3739fce321fb96b55b06575f9b6`; the Hito image was `sha256:8e2ad1ed7e68e3ed692777ca4544a7c15b7650987551c5785b22827cae2a978b`. The workflow passed in 3.9 seconds. Docker stop also exited successfully with the graceful lifecycle event. This proves the HTTP plugin boundary, not native desktop speed or a public release.
+
+That exact folder image is running on the normal local Compose network. Both its internal manifest and localhost port mapping returned the expected identity. The user was notified here with installation steps. No connection was installed into the normal application account by the agent. The isolated browser account and database were removed after the test.
 
 Jamendo, YouTube/yt-dlp, debrid, community, mobile, cross-platform packages, large-library performance and the rest of the release plan remain separate work.
