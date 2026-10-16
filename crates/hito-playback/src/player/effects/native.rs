@@ -36,6 +36,16 @@ impl Native {
             self.failed = false;
             self.controls = Controls::default();
         }
+        if let Some(restoration) = target.as_ref().and_then(|target| target.restoration)
+            && self
+                .target
+                .as_ref()
+                .and_then(|target| target.restoration)
+                .map(|r| r.id)
+                != Some(restoration.id)
+        {
+            self.controls.request_restoration(restoration);
+        }
         if target.as_ref().is_some_and(|target| !target.permitted) {
             if self.target.as_ref().is_none_or(|target| target.permitted) {
                 self.retire();
@@ -52,16 +62,6 @@ impl Native {
             }
             self.target = target;
             return;
-        }
-        if let Some(restoration) = target.as_ref().and_then(|target| target.restoration)
-            && self
-                .target
-                .as_ref()
-                .and_then(|target| target.restoration)
-                .map(|r| r.id)
-                != Some(restoration.id)
-        {
-            self.controls.request_restoration(restoration);
         }
         if let Some(seek) = target.as_ref().and_then(|target| target.seek)
             && self.target.as_ref().and_then(|target| target.seek) != Some(seek)

@@ -34,6 +34,35 @@ impl SavedStore {
             .await
             .unwrap();
     }
+    pub async fn reading(&self) {
+        sqlx::query("PRAGMA busy_timeout = 0")
+            .execute(&self.pool)
+            .await
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let (busy, _, _): (i64, i64, i64) =
+                    sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
+                        .fetch_one(&self.pool)
+                        .await
+                        .unwrap();
+                if busy != 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                    let (busy, _, _): (i64, i64, i64) =
+                        sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
+                            .fetch_one(&self.pool)
+                            .await
+                            .unwrap();
+                    if busy != 0 {
+                        return;
+                    }
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the bounded fixture lookup must hold its read snapshot");
+    }
     pub async fn restore(self) {
         sqlx::query("DROP VIEW IF EXISTS listening_progress")
             .execute(&self.pool)
