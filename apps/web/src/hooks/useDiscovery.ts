@@ -8,7 +8,7 @@ import type {
   ProviderRecording,
   Recording,
 } from "../types";
-import type { Playback } from "../playback";
+import type { Player } from "../player/model";
 
 type Work = {
   generation: number;
@@ -39,7 +39,7 @@ type Results = {
 export function useDiscovery(
   account: string,
   connection: PluginInstallation | null,
-  player: Pick<Playback, "prepareSelection">,
+  player: Pick<Player, "prepareSelection">,
 ) {
   const scope = useRequestScope(
     JSON.stringify([account, connection?.id, connection?.revision]),

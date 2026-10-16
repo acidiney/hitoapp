@@ -9,10 +9,11 @@ import { change, libraryApi } from "../api";
 import { errorMessage } from "../format";
 import { useNotice } from "../components/Notices";
 import { Playback } from "../playback";
+import type { Player } from "./model";
 import { log } from "../log";
 import { useRequestScope } from "../hooks/useRequestScope";
 
-const PlaybackContext = createContext<Playback | null>(null);
+const PlaybackContext = createContext<Player | null>(null);
 
 export function PlaybackProvider({
   account,

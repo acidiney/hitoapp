@@ -78,8 +78,10 @@ test.each([
   "View now playing artwork",
 ])(
   "closing now playing restores its actual %s opener after the footer returns",
-  (label) => {
-    render(createElement(PlayerDock, { showListeningPanel: true }));
+  async (label) => {
+    await act(async () => {
+      render(createElement(PlayerDock, { showListeningPanel: true }));
+    });
     const opener = screen.getByRole("button", { name: label });
     opener.focus();
     fireEvent.click(opener);
@@ -93,8 +95,10 @@ test.each([
   },
 );
 
-test("a native dialog close restores focus to the button that opened it", () => {
-  render(createElement(PlayerDock));
+test("a native dialog close restores focus to the button that opened it", async () => {
+  await act(async () => {
+    render(createElement(PlayerDock));
+  });
   const opener = screen.getByRole("button", { name: "Expand player" });
   opener.focus();
   fireEvent.click(opener);
@@ -104,12 +108,16 @@ test("a native dialog close restores focus to the button that opened it", () => 
   expect(document.activeElement).toBe(opener);
 });
 
-test("closing after the queue empties focuses an enabled player control", () => {
-  render(createElement(PlayerDock));
+test("closing after the queue empties focuses an enabled player control", async () => {
+  await act(async () => {
+    render(createElement(PlayerDock));
+  });
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   fireEvent.click(
-    within(dialog).getByRole("button", { name: "Remove Fixture from queue" }),
+    await within(dialog).findByRole("button", {
+      name: "Remove Fixture from queue",
+    }),
   );
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Close now playing" }),
@@ -120,7 +128,9 @@ test("closing after the queue empties focuses an enabled player control", () => 
 });
 
 test("exhausted sources remain visible as a failure inside the expanded player", async () => {
-  render(createElement(PlayerDock));
+  await act(async () => {
+    render(createElement(PlayerDock));
+  });
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   resolveSources = async () => [];
@@ -133,7 +143,9 @@ test("exhausted sources remain visible as a failure inside the expanded player",
 });
 
 test("pending source resolution is announced inside the expanded player", async () => {
-  render(createElement(PlayerDock));
+  await act(async () => {
+    render(createElement(PlayerDock));
+  });
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   let release: ((sources: Source[]) => void) | undefined;
@@ -162,8 +174,8 @@ test("pending source resolution is announced inside the expanded player", async 
   expect(within(dialog).queryByRole("status")).toBeNull();
 });
 
-test("disposing the player closes its native dialog and removes its opener", () => {
-  const { unmount } = render(createElement(PlayerDock));
+test("disposing the player closes its native dialog and removes its opener", async () => {
+  const { unmount } = await act(async () => render(createElement(PlayerDock)));
   const opener = screen.getByRole("button", { name: "Expand player" });
   fireEvent.click(opener);
   const dialog = screen.getByRole("dialog", { name: "Now playing" });

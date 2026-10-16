@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Playback } from "../playback";
@@ -45,7 +46,15 @@ test("position updates move the seek control without rendering a thousand queued
   render(createElement(PlayerDock));
   fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
   const queue = screen.getByRole("complementary", { name: "Playback queue" });
-  expect(queue.querySelectorAll("li")).toHaveLength(1000);
+  await waitFor(() => expect(queue.querySelectorAll("li")).toHaveLength(50));
+  fireEvent.click(screen.getByRole("button", { name: "Next queue page" }));
+  await waitFor(() =>
+    expect(queue.querySelector("li strong")?.textContent).toBe("Track 50"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Previous queue page" }));
+  await waitFor(() =>
+    expect(queue.querySelector("li strong")?.textContent).toBe("Track 0"),
+  );
   queuedRowReads = 0;
   for (let tick = 1; tick <= 10; tick++) {
     act(() => {

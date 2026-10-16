@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { change, libraryApi } from "../api";
 import { NoticeBanner, NoticeProvider } from "../components/Notices";
-import type { Playback } from "../playback";
+import type { Player } from "./model";
 import type { SyncReceipt } from "../types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 
@@ -37,7 +37,7 @@ test("account playback aborts progress and replaces its account-bound resources"
       failProgress = reject;
     }),
   );
-  let player!: Playback;
+  let player!: Player;
   function Capture() {
     player = usePlayer();
     return null;
@@ -46,7 +46,10 @@ test("account playback aborts progress and replaces its account-bound resources"
     createElement(
       NoticeProvider,
       null,
-      createElement(PlaybackProvider, { account, children: createElement(Capture) }),
+      createElement(PlaybackProvider, {
+        account,
+        children: createElement(Capture),
+      }),
       createElement(NoticeBanner),
     );
   const { rerender } = render(view("alice"));
