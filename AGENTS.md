@@ -8,6 +8,8 @@ Run application builds and tests through Docker Compose. Host tools may edit and
 
 Give source snapshots and worktrees separate Cargo target directories. Mounting different source trees at `/workspace` with a shared target can reuse stale timestamp-based artifacts.
 
+Keep Docker development/test debug information and incremental compilation disabled. Run compiler-heavy checks sequentially. Check host free space and Hito target sizes before and during large builds: retain at least 40 GiB of host headroom and keep combined Hito Cargo targets within 10 GiB. If either bound is reached, stop starting builds and reclaim only inactive, regenerable Hito output. Never use a global Docker prune or remove another project's artifacts or application data.
+
 ## Structure
 
 - Core capability services own identity, catalog, collection transactions, and indexing. Service composition contains no business forwarding methods.
