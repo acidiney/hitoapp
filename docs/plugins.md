@@ -190,11 +190,11 @@ Attempts last ten minutes, with at most eight live attempts per account. `GET /a
 
 Callback validation, one-time code exchange, access/refresh-token handling, the connection UI and the desktop browser launcher remain unfinished. These routes do not make Spotify connection or playlist import usable. The normal local deployment remains on migration 0024 without this authorization work.
 
-### Spotify adapter groundwork
+### Public Spotify playlist import
 
-A separate development adapter implements playlist detail against Spotify-shaped upstream responses. Four owned TCP tests verify metadata normalization, exact canonical-reference validation before upstream requests, missing or null contents versus accessible empty contents, and useful INFO workflow logs without private data at TRACE. Strict all-target Clippy and two independent reviews pass. Its `Spotify` attribution label is provisional.
+The separate [Spotify plugin](plugin-spotify.md) is being built for public shared-link import without a Spotify account, developer application, OAuth connection, or personal bearer token. It imports metadata into an editable private Hito playlist. It provides no Spotify audio, previews, or downloads; playback needs a separately verified source. The optional authorization groundwork above is separate from this path.
 
-The adapter does not yet provide a manifest, playlist items or authorization exchange. Branding, linkback, live-account checks and deployment remain unfinished. It cannot yet be installed as a usable Spotify service.
+The service is running in the local development deployment. Ten owned TCP tests cover the public manifest, complete pagination, pinned SDK pages, duplicates, unknown entries, malformed tracks, incomplete refreshes and private logs. Strict all-target Clippy passes. A release-image Chromium case connected the service with an empty token, imported a complete live playlist, and verified order, private ownership, disabled playback, retention after disconnection and editing. Follow and YouTube matching remain planned work. See [setup and limits](plugin-spotify.md).
 
 ## Application API
 

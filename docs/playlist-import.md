@@ -1,6 +1,6 @@
 # Playlist import
 
-Import a copy is deployed on the local development server at migration 0024. The SDK, core, HTTP, generated contracts and React workflow have real SQLite and loopback-provider fixture coverage, including three release-image browser cases. There is no official playlist provider or Spotify authorization yet. Public-release acceptance remains open. Current evidence and remaining gates are in [status](status.md).
+Import a copy is deployed on the local development server at migration 0024. The SDK, core, HTTP, generated contracts and React workflow have real SQLite and loopback-provider fixture coverage, including three release-image browser cases. The separate [public Spotify plugin](plugin-spotify.md) also passed a complete live UI import without account authorization and is available locally. Public-release acceptance remains open. Current evidence and remaining gates are in [status](status.md).
 
 ## An independent editable copy
 
@@ -10,7 +10,7 @@ Import copies track details, order and provenance, without downloading audio. A 
 
 Playlist detail retains the provider identity, canonical playlist ID, snapshot, accepted connection/service revisions, attribution and import time after connection removal. Each occurrence retains its supplied provider recording/occurrence IDs and kind. Real recordings still follow library permissions: losing library membership redacts their metadata and occurrence provenance rather than exposing it through a retained playlist.
 
-Importing an already adopted item reuses its Hito recording identity. It preserves verified existing source identities/readiness, likes, progress and personal metadata overrides. A metadata-only import creates no ready source and does not withdraw legitimate prior sources. Playback still requires a separately authorized available source. No Spotify adapter, live Spotify authorization, Follow scheduler, YouTube matching, yt-dlp playback or download workflow is established by this slice.
+Importing an already adopted item reuses its Hito recording identity. It preserves verified existing source identities/readiness, likes, progress and personal metadata overrides. A metadata-only import creates no ready source and does not withdraw legitimate prior sources. Playback still requires a separately authorized available source. Follow scheduling, YouTube matching, yt-dlp playback and downloads remain separate unfinished work.
 
 ## From reference to complete snapshot
 
@@ -148,9 +148,9 @@ Accounts have separate personal provider libraries, playlists, receipts, effecti
 
 Follow remains planned. A followed playlist will be read-only and use durable hourly/daily refresh jobs chosen in the UI. Reconciliation must preserve stable occurrence IDs, including duplicates, and keep the last complete snapshot after failed or incomplete refreshes. Imported copies remain independent and editable. Download reference updates must preserve originals and library records.
 
-The Spotify workflow should accept a public shared playlist link without requiring a developer application or account connection. The public-page adapter is being investigated; it must obtain the complete list before publishing a copy. A public page or embed can expose only an initial subset, so visible tracks alone do not prove a complete import. Ordinary share links may include tracking parameters; the adapter should discard them before making fixed-host requests.
+The Spotify workflow accepts a public shared playlist link without a developer application or account connection. The public adapter obtains the complete paged list before publishing a copy and discards tracking parameters before fixed-host requests. A page or embed can expose only an initial subset; visible tracks alone do not prove a complete import. The owned fixtures and live browser case exercise the complete list.
 
-Account authorization remains optional, separate work. If an adapter uses Spotify's official Web API, its [playlist items endpoint](https://developer.spotify.com/documentation/web-api/reference/get-playlists-items) permits contents only for playlists the current user owns or collaborates on. Those API constraints do not establish what a public-page adapter can retrieve. Neither path has completed live import acceptance yet.
+Account authorization remains optional, separate work. The deployed public adapter reads anonymous web metadata and has no Spotify Web API compatibility branch. Its successful live import does not establish private-playlist access or completion of the optional authorization flow.
 
 YouTube matching and yt-dlp playback remain separate provider work. Unavailable items must stay visible, and uncertain matches require review rather than silent substitutions. No current copy operation downloads audio.
 

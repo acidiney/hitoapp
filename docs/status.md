@@ -14,7 +14,7 @@ The shared player uses browser audio on the web and a Rust command owner in desk
 
 ## Running local deployment
 
-The normal server is healthy on migration 0024 and release image `sha256:efdd68dbbc536749aaa777291aee7593bdeae3f2b105c2e171fd33b35c879c8d`. Playlist Import a copy is deployed. It currently has fixture-backed protocol and browser evidence; no official playlist provider or Spotify authorization is available in this deployment.
+The normal server is healthy on migration 0024 and release image `sha256:efdd68dbbc536749aaa777291aee7593bdeae3f2b105c2e171fd33b35c879c8d`. Playlist Import a copy is deployed. The public Spotify playlist service is available separately, without account authorization.
 
 A stopped whole-volume backup preceded migration. The backup `backups/hito-before-plugin-integration-20261016T200032Z.tar.gz` is mode 0600 in a mode-0700 directory. The private read-only audit accounts for all 64 old tables and 67 current tables. The 62 otherwise unchanged tables retain their definitions, prior rows and row IDs, including the prior migration-ledger rows. All 204 old synchronization operations map exactly to `client_operation` events in `sync_events`, preserving sequence numbers, the deleted-event high-water mark and other autoincrement values. The three new import tables are empty. SQLx migration SHA-384 checksums were verified. The private credential key and backend host identity are unchanged; database integrity, foreign keys and six FTS checks pass. Runtime OpenAPI matches the generated contract; served JS/CSS match the verified 139-test frontend build. Effective mounts, environment, ports, entrypoint, command and runtime user were preserved. Unauthenticated `GET /api/v1/player` returns 401. No normal listener was authenticated and no account import, plugin installation or scan was performed during deployment.
 
@@ -22,9 +22,19 @@ The [development music-folder demo](plugin-folder.md#running-development-demo) i
 
 These are local development deployments, not completed public releases.
 
+## Public Spotify import
+
+The [public Spotify plugin](plugin-spotify.md) is healthy on the normal local network at `http://plugin-spotify:8092/`, with its host manifest at `http://localhost:8092/v1/manifest`. It runs release image `sha256:3b06cf67cf197f9e253a1be4256dc7b6643db24f878c9b0406de8de6bf238598`, as UID 10001 with a read-only root, no data mounts, dropped capabilities, loopback host binding and a 256 MiB memory limit. Only the new plugin was started. The server and folder service retain their prior images and remain healthy. No normal listener account was authenticated or modified.
+
+The public manifest declares only playlists and no authorization. Ten owned TCP cases pass, including two-page order and duplicates, pinned snapshots, null/future entries, malformed tracks, incomplete/failed later pages, last-good snapshot retention, invalid cursors, inaccessible versus empty contents and INFO/TRACE privacy. Formatting and strict all-target Clippy pass in Docker. Independent security and correctness reviews pass. Performance review found a quadratic bootstrap-attribute scan; the forward-only fix passed its second review and a 1.5 MiB HTTP fixture twice.
+
+The release image passed startup, manifest and graceful SIGTERM shutdown. A live Chromium case passed against a fresh temporary Hito server on migration 0024. It offered and connected the real service with no bearer token, imported a complete public shared link against an independently obtained count, compared every ordered item and metadata field with pinned SDK pages, and verified private account ownership, no audio sources, disabled playback, reload, provider disconnection and editing. The live example had no duplicate recordings; duplicate preservation has owned fixture evidence. The run took 42 seconds, not a release latency benchmark. It does not establish server-restart durability.
+
+The service imports metadata only. YouTube playback, hourly/daily Follow, remaining cache expiry/saturation/cancellation boundaries, branding and broader platform/public-release acceptance remain open. The undocumented upstream has no atomic snapshot guarantee; Hito compares two complete normalized observations before publication. Compatibility can change independently of Hito.
+
 ## Provider authorization in development
 
-The current priority is Spotify import from a public shared link without a developer application or account connection. Public-page extraction still needs complete pagination and live verification. The authorization work below is separate groundwork and does not establish that public-link workflow.
+Public shared-link import is deployed independently of the authorization work below. Optional account authorization is separate groundwork.
 
 The development branch adds optional PKCE manifest declarations and authenticated begin/status routes. Core persists ten-minute attempts, limits each account to eight live attempts, and encrypts state and verifier in the existing vault. The callback address comes from the configured HTTPS or literal-loopback HTTP origin. Status exposes only ID, `pending` and expiry to the original live session, and rechecks installation/service authority. See [the authorization contract and data flow](plugins.md#pending-authorization-attempts-in-development).
 
@@ -34,9 +44,7 @@ The SDK's five declaration cases and legacy manifest case passed with schema gen
 
 A scoped Docker SQLite 3.40.1 query check used 100,000 credentials and 100,000 expired attempts. The first and last credential-fingerprint index seeks each took fewer than 100 VM steps. The live-pending range excluded the expired rows; 80 live rows took about 400 VM steps. A session-child index supports logout cleanup. This verifies specific query shapes, not release latency or constant work as accounts grow.
 
-The normal server remains on migration 0024 and does not include this branch's migration 0025 or authorization routes. Callback validation, code exchange, token refresh, connection UI, desktop browser launch and usable Spotify import remain unfinished. No live Spotify account or completed consent flow has been verified.
-
-A separate Spotify adapter passes four owned TCP tests for playlist detail, exact canonical references, inaccessible versus empty contents, and private INFO/TRACE workflow logs. Strict all-target Clippy and two independent reviews pass. Its attribution label is provisional. Manifest, item pages, authorization exchange, branding/linkback, live accounts and deployment remain unfinished.
+The normal server remains on migration 0024 and does not include this branch's migration 0025 or authorization routes. Callback validation, code exchange, token refresh, connection UI and desktop browser launch remain unfinished. No live Spotify account or completed consent flow has been verified. These are not prerequisites for public import.
 
 ## Isolated plugin integration checkpoint
 
@@ -88,7 +96,7 @@ Other public-boundary fixtures establish the following development behavior:
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:
 
 - Completing folder-registry and playlist-copy public-release acceptance, including broader recovery/codec/upgrade fixtures, full native/GUI and platform checks, and official playlist-provider authorization/live checks. Local development deployment and the release-image browser workflows pass.
-- Read-only Follow playlists with durable hourly/daily refresh, stable duplicate occurrences and retention of the last complete snapshot. Spotify authorization/import and YouTube/yt-dlp playback remain unfinished external-provider work.
+- Read-only Follow playlists with durable hourly/daily refresh, stable duplicate occurrences and retention of the last complete snapshot. Optional Spotify account authorization and YouTube/yt-dlp playback remain unfinished external-provider work.
 - MusicBrainz/provider matching and optional enrichment, uncertain-match review, appearance corrections, unlinking/splitting/undo and administrator promotion.
 - Durable offline replicas, standalone import preview, reconnect/account isolation, device-local availability and concurrent edit/delete handling.
 - Persistent downloads, transfer recovery, followed-download references, original preservation, disk exhaustion and a separate temporary cache.
