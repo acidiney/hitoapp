@@ -21,6 +21,7 @@ pub fn initialize(music: &Path, state: &Path) {
         .arg("--state")
         .arg(state)
         .arg("--initialize-state")
+        .env("RUST_LOG", "trace")
         .stdout(Stdio::from(output.try_clone().unwrap()))
         .stderr(Stdio::from(output.try_clone().unwrap()))
         .spawn()
@@ -86,11 +87,35 @@ impl Service {
 
     pub fn post<T: serde::de::DeserializeOwned>(&self, path: &str, body: serde_json::Value) -> T {
         let body = body.to_string();
+        let (status, body) = self.request("POST", path, &body, None);
+        assert_eq!(status, 200);
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    pub fn audio(&self, source_id: &str, first: usize, end: usize) -> (u16, Vec<u8>) {
+        assert!(first < end);
+        let encoded = source_id
+            .bytes()
+            .map(|byte| format!("%{byte:02X}"))
+            .collect::<String>();
+        self.request(
+            "GET",
+            &format!("/v1/audio?source_id={encoded}"),
+            "",
+            Some(&format!("bytes={first}-{}", end - 1)),
+        )
+    }
+
+    fn request(&self, method: &str, path: &str, body: &str, range: Option<&str>) -> (u16, Vec<u8>) {
         let mut connection = TcpStream::connect(self.address).unwrap();
         connection
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
-        write!(connection,"POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+        write!(connection,"{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n",body.len()).unwrap();
+        if let Some(range) = range {
+            write!(connection, "Range: {range}\r\n").unwrap();
+        }
+        write!(connection, "\r\n{body}").unwrap();
         let mut response = Vec::new();
         connection.take(263168).read_to_end(&mut response).unwrap();
         let offset = response
@@ -98,8 +123,11 @@ impl Service {
             .position(|part| part == b"\r\n\r\n")
             .unwrap()
             + 4;
-        assert!(response.starts_with(b"HTTP/1.1 200"));
-        serde_json::from_slice(&response[offset..]).unwrap()
+        let status = std::str::from_utf8(&response[9..12])
+            .unwrap()
+            .parse()
+            .unwrap();
+        (status, response[offset..].to_owned())
     }
 
     pub fn stop(mut self) {

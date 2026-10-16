@@ -8,7 +8,7 @@ use lofty::{
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
-    io::{self, BufReader, Read, Seek, SeekFrom},
+    io::{self, BufReader, Read, Seek, SeekFrom, Write},
     sync::Arc,
     time::Instant,
 };
@@ -21,14 +21,85 @@ pub(crate) fn inspect(
     check(deadline)?;
     let file = crate::catalog::open(&directory, &name)?;
     let stamp = Stamp::read(&file.metadata()?)?;
+    inspect_file(
+        directory,
+        name,
+        file,
+        stamp,
+        deadline,
+        &mut WorkBudget::new(),
+    )
+}
+
+pub(crate) fn inspect_snapshot(
+    directory: Arc<cap_std::fs::Dir>,
+    name: std::ffi::OsString,
+    deadline: Instant,
+    claim: &crate::registry::Claim,
+    work: &mut WorkBudget,
+) -> Result<Track, InspectionError> {
+    check(deadline)?;
+    let mut original = crate::catalog::open(&directory, &name)?;
+    let stamp = Stamp::read(&original.metadata()?)?;
     if stamp.size == 0 || stamp.size > 1024 * 1024 * 1024 {
         return Err(InspectionError::Unavailable);
     }
+    let mut snapshot = claim.snapshot().map_err(|error| {
+        tracing::debug!(event = "folder_input_failed", stage = "snapshot_create", error_kind = ?error.kind());
+        InspectionError::Snapshot
+    })?;
+    let mut remaining = stamp.size;
+    let mut buffer = [0; 65536];
+    while remaining > 0 {
+        check(deadline)?;
+        let wanted = remaining.min(buffer.len() as u64) as usize;
+        let count = work.read(&mut original, &mut buffer[..wanted])?;
+        if count == 0 {
+            return Err(InspectionError::Changed);
+        }
+        snapshot
+            .write_all(&buffer[..count])
+            .map_err(|_| InspectionError::Snapshot)?;
+        remaining -= count as u64;
+    }
+    if Stamp::read(&original.metadata()?)? != stamp {
+        return Err(InspectionError::Changed);
+    }
+    snapshot.rewind().map_err(|_| InspectionError::Snapshot)?;
+    let evidence = crate::pcm::evidence(&mut snapshot, stamp.size, deadline, work)?;
+    snapshot.rewind().map_err(|_| InspectionError::Snapshot)?;
+    let mut track = inspect_file(directory, name, snapshot, stamp, deadline, work)?;
+    track.evidence = evidence;
+    let mut current = crate::catalog::open(&track.directory, &track.name)
+        .map_err(|_| InspectionError::Changed)?;
+    if Stamp::read(&current.metadata()?)? != track.stamp {
+        return Err(InspectionError::Changed);
+    }
+    let checksum = checksum(&mut current, track.stamp.size, deadline, work)?;
+    if checksum != track.checksum || Stamp::read(&current.metadata()?)? != track.stamp {
+        return Err(InspectionError::Changed);
+    }
+    Ok(track)
+}
+
+fn inspect_file(
+    directory: Arc<cap_std::fs::Dir>,
+    name: std::ffi::OsString,
+    file: File,
+    stamp: Stamp,
+    deadline: Instant,
+    work: &mut WorkBudget,
+) -> Result<Track, InspectionError> {
+    if stamp.size == 0 || stamp.size > 1024 * 1024 * 1024 {
+        return Err(InspectionError::Unavailable);
+    }
+    let input_stamp = Stamp::read(&file.metadata()?)?;
     let mut reader = Budget {
         file,
         remaining: 8 * 1024 * 1024,
         deadline,
         exhausted: false,
+        work,
     };
     let result = Probe::new(BufReader::new(&mut reader))
         .options(ParseOptions::new().read_cover_art(false))
@@ -39,6 +110,12 @@ pub(crate) fn inspect(
                 .map_err(|_| io::Error::other("Unsupported media"))
         });
     check(deadline)?;
+    if reader.work.exhausted {
+        return Err(InspectionError::WorkBudget);
+    }
+    if reader.work.failed {
+        return Err(InspectionError::Snapshot);
+    }
     if reader.exhausted {
         return Err(InspectionError::MetadataBudget);
     }
@@ -54,23 +131,11 @@ pub(crate) fn inspect(
         _ => return Err(InspectionError::Unavailable),
     };
     reader.file.rewind()?;
-    let mut hasher = Sha256::new();
-    let mut remaining = stamp.size;
-    let mut buffer = [0; 65536];
-    while remaining > 0 {
-        check(deadline)?;
-        let wanted = remaining.min(buffer.len() as u64) as usize;
-        let count = reader.file.read(&mut buffer[..wanted])?;
-        if count == 0 {
-            return Err(InspectionError::Unavailable);
-        }
-        hasher.update(&buffer[..count]);
-        remaining -= count as u64;
+    let checksum = checksum(&mut reader.file, stamp.size, deadline, reader.work)?;
+    if Stamp::read(&reader.file.metadata()?)? != input_stamp {
+        return Err(InspectionError::Changed);
     }
-    if Stamp::read(&reader.file.metadata()?)? != stamp {
-        return Err(InspectionError::Unavailable);
-    }
-    let id = format!("recording-{:x}", hasher.finalize());
+    let id = format!("recording-{checksum}");
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
     let title = tag
         .and_then(|tag| text(tag.title().as_deref()))
@@ -94,6 +159,10 @@ pub(crate) fn inspect(
     check(deadline)?;
     Ok(Track {
         searchable,
+        source: format!("source-{id}"),
+        revision: id.clone(),
+        checksum,
+        evidence: None,
         id,
         title,
         artist,
@@ -126,13 +195,14 @@ pub(crate) fn check(deadline: Instant) -> io::Result<()> {
         Ok(())
     }
 }
-struct Budget {
+struct Budget<'a> {
     file: File,
     remaining: usize,
     deadline: Instant,
     exhausted: bool,
+    work: &'a mut WorkBudget,
 }
-impl Read for Budget {
+impl Read for Budget<'_> {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         check(self.deadline)?;
         if buffer.is_empty() {
@@ -143,16 +213,88 @@ impl Read for Budget {
             return Err(io::Error::other("Metadata budget exceeded"));
         }
         let maximum = buffer.len().min(self.remaining);
-        let count = self.file.read(&mut buffer[..maximum])?;
+        let count = self
+            .work
+            .read(&mut self.file, &mut buffer[..maximum])
+            .map_err(io::Error::from)?;
         self.remaining -= count;
         Ok(count)
     }
 }
-impl Seek for Budget {
+impl Seek for Budget<'_> {
     fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
         check(self.deadline)?;
         self.file.seek(position)
     }
+}
+
+pub(crate) struct WorkBudget {
+    remaining: u64,
+    exhausted: bool,
+    failed: bool,
+}
+impl WorkBudget {
+    pub fn new() -> Self {
+        Self {
+            remaining: 16 * 1024 * 1024 * 1024,
+            exhausted: false,
+            failed: false,
+        }
+    }
+    pub fn read(&mut self, file: &mut File, bytes: &mut [u8]) -> Result<usize, InspectionError> {
+        if bytes.is_empty() {
+            return Ok(0);
+        }
+        if self.remaining == 0 {
+            self.exhausted = true;
+            return Err(InspectionError::WorkBudget);
+        }
+        let wanted = self.remaining.min(bytes.len() as u64) as usize;
+        let count = file.read(&mut bytes[..wanted]).map_err(|_| {
+            self.failed = true;
+            InspectionError::Snapshot
+        })?;
+        self.remaining -= count as u64;
+        Ok(count)
+    }
+    pub fn read_exact(
+        &mut self,
+        file: &mut File,
+        mut bytes: &mut [u8],
+        deadline: Instant,
+    ) -> Result<(), InspectionError> {
+        while !bytes.is_empty() {
+            check(deadline)?;
+            let count = self.read(file, bytes)?;
+            if count == 0 {
+                return Err(InspectionError::Changed);
+            }
+            bytes = &mut bytes[count..];
+        }
+        Ok(())
+    }
+}
+
+fn checksum(
+    file: &mut File,
+    size: u64,
+    deadline: Instant,
+    work: &mut WorkBudget,
+) -> Result<String, InspectionError> {
+    let mut hash = Sha256::new();
+    let mut remaining = size;
+    let mut buffer = [0; 65536];
+    while remaining > 0 {
+        check(deadline)?;
+        let wanted = remaining.min(buffer.len() as u64) as usize;
+        let count = work.read(file, &mut buffer[..wanted])?;
+        if count == 0 {
+            return Err(InspectionError::Changed);
+        }
+        hash.update(&buffer[..count]);
+        remaining -= count as u64;
+    }
+    Ok(format!("{:x}", hash.finalize()))
 }
 
 #[derive(Debug)]
@@ -160,6 +302,21 @@ pub(crate) enum InspectionError {
     Unavailable,
     Deadline,
     MetadataBudget,
+    WorkBudget,
+    Snapshot,
+    Changed,
+}
+impl InspectionError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Unavailable => "unavailable",
+            Self::Deadline => "deadline",
+            Self::MetadataBudget => "metadata_budget",
+            Self::WorkBudget => "work_budget",
+            Self::Snapshot => "input_failed",
+            Self::Changed => "changed",
+        }
+    }
 }
 impl From<io::Error> for InspectionError {
     fn from(error: io::Error) -> Self {
@@ -180,6 +337,9 @@ impl From<InspectionError> for io::Error {
             InspectionError::MetadataBudget => {
                 Self::new(io::ErrorKind::InvalidData, "Metadata byte budget exceeded")
             }
+            InspectionError::WorkBudget => Self::other("Folder inspection read budget exceeded"),
+            InspectionError::Snapshot => Self::other("Folder inspection input failed"),
+            InspectionError::Changed => Self::other("Folder media changed during inspection"),
         }
     }
 }

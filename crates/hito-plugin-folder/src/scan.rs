@@ -13,6 +13,12 @@ use std::{
 pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
     scan_with_inspector(path, inspection::inspect)
 }
+pub(crate) fn scan_owned(path: &Path, claim: Arc<crate::registry::Claim>) -> io::Result<Catalog> {
+    let mut work = inspection::WorkBudget::new();
+    scan_with_inspector(path, |directory, name, deadline| {
+        inspection::inspect_snapshot(directory, name, deadline, &claim, &mut work)
+    })
+}
 fn scan_with_inspector(
     path: &Path,
     mut inspect: impl FnMut(
@@ -64,7 +70,10 @@ fn scan_with_inspector(
                         tracks.entry(track.id.clone()).or_insert(track);
                     }
                     Err(inspection::InspectionError::Unavailable) => skipped += 1,
-                    Err(error) => return Err(error.into()),
+                    Err(error) => {
+                        tracing::debug!(event = "folder_scan_failed", outcome = error.code());
+                        return Err(error.into());
+                    }
                 }
             }
         }
@@ -85,6 +94,10 @@ fn scan_with_inspector(
         "Folder catalog ready"
     );
     Ok(Catalog {
+        sources: tracks
+            .values()
+            .map(|track| (track.source_id(), track.id.clone()))
+            .collect(),
         tracks,
         fingerprint: format!("{:x}", fingerprint.finalize()),
         claim: None,

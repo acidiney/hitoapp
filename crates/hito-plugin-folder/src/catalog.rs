@@ -12,11 +12,16 @@ use std::{
 
 pub(crate) struct Catalog {
     pub tracks: BTreeMap<String, Track>,
+    pub sources: BTreeMap<String, String>,
     pub fingerprint: String,
     pub claim: Option<Arc<crate::registry::Claim>>,
 }
 pub(crate) struct Track {
     pub id: String,
+    pub checksum: String,
+    pub evidence: Option<String>,
+    pub source: String,
+    pub revision: String,
     pub title: String,
     pub searchable: String,
     pub artist: String,
@@ -49,11 +54,11 @@ impl Track {
                 }),
             disc_number: self.disc_number,
             track_number: self.track_number,
-            revision: Some(self.id.clone()),
+            revision: Some(self.revision.clone()),
         }
     }
     pub fn source_id(&self) -> String {
-        format!("source-{}", self.id)
+        self.source.clone()
     }
     pub fn open(&self) -> io::Result<File> {
         let file = open(&self.directory, &self.name)?;

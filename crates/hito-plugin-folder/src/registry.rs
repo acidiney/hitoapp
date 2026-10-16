@@ -8,10 +8,12 @@ pub(crate) struct Registry {
     connection: SqliteConnection,
     claim: Arc<Claim>,
     initialized: bool,
+    version: i64,
 }
 
 pub(crate) struct Claim {
     directory: Dir,
+    path: std::path::PathBuf,
     _lock: File,
 }
 
@@ -47,19 +49,24 @@ impl Registry {
             .execute(&mut connection)
             .await
             .map_err(database_error)?;
-        if !initialize {
+        let version = if !initialize {
             let row = sqlx::query("SELECT version FROM registry WHERE singleton = 1")
                 .fetch_one(&mut connection)
                 .await
                 .map_err(database_error)?;
-            if row.get::<i64, _>(0) != 1 {
+            let version = row.get::<i64, _>(0);
+            if !matches!(version, 1 | 2) {
                 return Err(io::Error::other("Unsupported folder state version"));
             }
-        }
+            version
+        } else {
+            0
+        };
         Ok(Self {
             connection,
             claim,
             initialized: !initialize,
+            version,
         })
     }
 
@@ -74,8 +81,17 @@ impl Registry {
                 .execute(&mut *transaction)
                 .await
                 .map_err(database_error)?;
-            sqlx::query("INSERT INTO registry VALUES (1, 1, ?, 0)")
+            sqlx::query("INSERT INTO registry VALUES (1, 2, ?, 0)")
                 .bind(uuid::Uuid::new_v4().to_string())
+                .execute(&mut *transaction)
+                .await
+                .map_err(database_error)?;
+        }
+        if self.version < 2 {
+            crate::bindings::create(&mut transaction)
+                .await
+                .map_err(database_error)?;
+            sqlx::query("UPDATE registry SET version = 2 WHERE singleton = 1")
                 .execute(&mut *transaction)
                 .await
                 .map_err(database_error)?;
@@ -87,14 +103,7 @@ impl Registry {
         if count > 10000 || catalog.tracks.len() > 10000 {
             return Err(io::Error::other("Folder state recording limit exceeded"));
         }
-        for track in catalog.tracks.values() {
-            let detail = serde_json::to_string(&track.recording()).map_err(io::Error::other)?;
-            sqlx::query("INSERT INTO recordings (id, checksum, detail) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET detail = excluded.detail")
-                .bind(&track.id)
-                .bind(&track.id)
-                .bind(detail)
-                .execute(&mut *transaction).await.map_err(database_error)?;
-        }
+        crate::bindings::reconcile(&mut transaction, catalog, !self.initialized).await?;
         let count: i64 = sqlx::query_scalar("SELECT count(*) FROM recordings")
             .fetch_one(&mut *transaction)
             .await
@@ -124,9 +133,23 @@ impl Registry {
         );
         Ok(())
     }
+    pub fn claim(&self) -> Arc<Claim> {
+        self.claim.clone()
+    }
 }
 
 impl Claim {
+    pub fn snapshot(&self) -> io::Result<File> {
+        let file = tempfile::tempfile_in(state_path(&self.path, &self.directory))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        validate_private(&file.metadata()?, false)?;
+        tracing::trace!(event = "folder_snapshot_created", outcome = "private");
+        Ok(file)
+    }
     fn acquire(path: &Path, initialize: bool) -> io::Result<Self> {
         if initialize {
             let mut builder = std::fs::DirBuilder::new();
@@ -151,6 +174,7 @@ impl Claim {
             .map_err(|_| io::Error::other("Folder state is already owned"))?;
         Ok(Self {
             directory,
+            path: path.to_owned(),
             _lock: lock,
         })
     }
@@ -183,13 +207,21 @@ fn validate_private(metadata: &std::fs::Metadata, directory: bool) -> io::Result
 }
 
 #[cfg(target_os = "linux")]
-fn database_path(_: &Path, directory: &Dir) -> std::path::PathBuf {
+fn database_path(path: &Path, directory: &Dir) -> std::path::PathBuf {
+    state_path(path, directory).join("identity.sqlite")
+}
+#[cfg(target_os = "linux")]
+fn state_path(_: &Path, directory: &Dir) -> std::path::PathBuf {
     use std::os::fd::AsRawFd;
-    format!("/proc/self/fd/{}/identity.sqlite", directory.as_raw_fd()).into()
+    format!("/proc/self/fd/{}", directory.as_raw_fd()).into()
 }
 #[cfg(not(target_os = "linux"))]
 fn database_path(path: &Path, _: &Dir) -> std::path::PathBuf {
     path.join("identity.sqlite")
+}
+#[cfg(not(target_os = "linux"))]
+fn state_path(path: &Path, _: &Dir) -> std::path::PathBuf {
+    path.to_owned()
 }
 
 fn database_error(_: sqlx::Error) -> io::Error {

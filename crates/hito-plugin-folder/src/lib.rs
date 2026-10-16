@@ -1,8 +1,10 @@
 mod audio;
+mod bindings;
 mod catalog;
 mod extract;
 mod http;
 mod inspection;
+mod pcm;
 mod registry;
 mod releases;
 mod scan;
@@ -27,7 +29,8 @@ impl Folder {
     }
     async fn commit_scan(path: &Path, registry: registry::Registry) -> io::Result<Self> {
         let path = path.to_owned();
-        let mut catalog = tokio::task::spawn_blocking(move || scan::scan(&path))
+        let claim = registry.claim();
+        let mut catalog = tokio::task::spawn_blocking(move || scan::scan_owned(&path, claim))
             .await
             .map_err(|_| io::Error::other("Folder scan worker failed"))??;
         registry.commit(&mut catalog).await?;
