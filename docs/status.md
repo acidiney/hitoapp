@@ -40,6 +40,18 @@ The release image passed startup, manifest and graceful SIGTERM shutdown. The la
 
 The service imports metadata only. YouTube playback, hourly/daily Follow, remaining cache expiry/saturation/cancellation boundaries, branding and broader platform/public-release acceptance remain open. The undocumented upstream has no atomic snapshot guarantee; Hito compares two complete normalized observations before publication. Compatibility can change independently of Hito.
 
+## Provider playback and artwork work in progress
+
+These checks use isolated development branches and temporary databases. They have not changed the normal installation described above. Launch functionality and release verification take priority over visual polish.
+
+Multi-provider recording bindings retain independent metadata and source ownership. The development core passed 171 unique cases, with the usual filesystem-fault case ignored. Automatic playback recovery now contacts up to two providers concurrently and can return after the first ready source publication; an owned HTTP test completed in 0.31 seconds while another provider remained held. Ten HTTP compatibility cases preserve manual bodyless, null and empty requests and reject invalid bodies before provider I/O. The browser sends an explicit playback purpose; that branch passed 140 frontend cases, both TypeScript checks and its production build.
+
+Review found a missing authority check between recording details and the subsequent source request. Four regressions reproduced that extra outbound request after logout or connection removal. The fix and two connection-revision countercases passed, together with 26 focused core cases, all 75 server cases and strict core/server all-target Clippy. Second-round performance and correctness/ownership reviews passed. Reviewed source attachment still needs its HTTP routes, functional UI and complete browser workflow. The two-provider concurrency limit, control admission and waiting for started SQLite publication remain latency qualifications; no release p95 result is claimed.
+
+The Spotify artwork adapter passed 14 Docker cases and strict all-target Clippy. These include byte-derived JPEG/PNG responses, entity identity checks, invalid images and origins, animated PNG rejection, retained response-buffer admission and log privacy. A separate core test retrieved artwork into private storage, preserved two independent playlist copies and four stable entry IDs, retained personal metadata, likes and progress, then read the cached image after reopening with the provider offline and after connection removal. Durable job authority, validation, quotas, cleanup, server lifecycle, HTTP/UI backfill and migration acceptance are still being verified. Covers are not yet deployed to normal imports.
+
+The isolated YouTube container runs hash-pinned yt-dlp and Deno releases and has completed real public search. Its manifest advertises search only. Detail, AAC/M4A sources, bounded audio relay, seeking and native decoding are the next linked fixture workflow. Playable YouTube audio and Spotify-to-YouTube matching remain unfinished.
+
 ## Provider authorization in development
 
 Public shared-link import is deployed independently of the authorization work below. Optional account authorization is separate groundwork.
