@@ -34,6 +34,8 @@ Prefer clear names and explicit types. Keep code comments minimal; comments shou
 
 Use plain language and maintain diagrams where they explain ownership or data flow. Distinguish current behavior, tested evidence, planned behavior, and external dependencies. Never describe a local development deployment as a completed public release.
 
+Keep `.agents/meta/` notes local and untracked. Do not stage or force-add agent planning, review, or coordination notes from that directory. Product documentation belongs in `docs/`.
+
 ## Commits
 
 Make small, focused commits with single-line messages. Do not sign commits. Disable signing for each commit without changing the user's global Git settings.
