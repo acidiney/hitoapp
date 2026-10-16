@@ -109,3 +109,27 @@ async fn repeat_all_wraps_natural_and_requested_advancement_without_reordering_o
     );
     f.owner.close().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn repeat_all_restarts_a_single_occurrence_and_next_preserves_pause() {
+    let mut f = fixture::Navigation::start(1, 0).await;
+    f.send(PlayerAction::Repeat {}).await;
+    f.send(PlayerAction::Resume {}).await;
+    f.playing(f.entries[0].id).await;
+    f.send(PlayerAction::Seek { position_ms: 9900 }).await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        f.state.wait_for(|s| s.selection == 2 && s.playing),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(f.state.borrow().current.unwrap().id, f.entries[0].id);
+    f.send(PlayerAction::Pause {}).await;
+    f.send(PlayerAction::Next {}).await;
+    assert_eq!(f.state.borrow().selection, 3);
+    assert_eq!(f.state.borrow().current.unwrap().id, f.entries[0].id);
+    assert!(!f.state.borrow().desired_playing);
+    f.owner.close().await.unwrap();
+}

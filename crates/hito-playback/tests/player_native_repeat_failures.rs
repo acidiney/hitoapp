@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn repeat_modes_cannot_loop_an_unavailable_queue_and_repeat_all_checks_the_wrapped_entries() {
-    for cycles in [1, 2] {
+    for (cycles, shuffled) in [(1, false), (2, false), (1, true), (2, true)] {
         let f = audio_fixture::AudioLibrary::start().await;
         f.server
             .audio(
@@ -31,6 +31,9 @@ async fn repeat_modes_cannot_loop_an_unavailable_queue_and_repeat_all_checks_the
             recordings: vec![Uuid::parse_str(&f.source.recording_id).unwrap(); 2],
             start: usize::from(cycles == 1),
         }];
+        if shuffled {
+            actions.push(PlayerAction::Shuffle {});
+        }
         actions.extend(std::iter::repeat_n(PlayerAction::Repeat {}, cycles));
         actions.push(PlayerAction::Resume {});
         for (sequence, action) in actions.into_iter().enumerate() {

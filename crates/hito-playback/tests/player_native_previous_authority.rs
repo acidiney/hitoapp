@@ -5,7 +5,7 @@ mod fixture;
 mod outage;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_playback::{PlayerAction, PlayerCommand, PlayerError, PlayerPhase};
+use hito_playback::{PlayerAction, PlayerCommand, PlayerError, PlayerPhase, PlayerRepeat};
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -13,6 +13,8 @@ use uuid::Uuid;
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn same_session_reattachment_preserves_history_and_another_login_cannot_recover_it() {
     let mut f = fixture::Navigation::start(3, 0).await;
+    f.send(PlayerAction::Shuffle {}).await;
+    f.send(PlayerAction::Repeat {}).await;
     f.send(PlayerAction::Resume {}).await;
     f.playing(f.entries[0].id).await;
     f.send(PlayerAction::Select {
@@ -26,10 +28,18 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
     let attached = f.player.claim(&f.source.actor, epoch).await.unwrap();
     assert_eq!(attached.state.current.unwrap().id, f.entries[2].id);
     assert!(attached.state.can_previous);
-    assert_eq!(
-        f.player.submit(&f.source.actor, stale).await,
-        Err(PlayerError::Conflict)
-    );
+    assert!(attached.state.shuffle);
+    assert_eq!(attached.state.repeat, PlayerRepeat::All);
+    for stale in [
+        stale,
+        f.request(PlayerAction::Shuffle {}),
+        f.request(PlayerAction::Repeat {}),
+    ] {
+        assert_eq!(
+            f.player.submit(&f.source.actor, stale).await,
+            Err(PlayerError::Conflict)
+        );
+    }
     f.player
         .submit(
             &f.source.actor,
@@ -73,6 +83,8 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
     assert!(inspected.state.is_none());
     let attached = f.player.claim(&another, inspected.epoch).await.unwrap();
     assert!(!attached.state.can_previous);
+    assert!(!attached.state.shuffle);
+    assert_eq!(attached.state.repeat, PlayerRepeat::Off);
     assert_eq!(attached.state.queue_len, 0);
     f.player
         .submit(
@@ -104,6 +116,8 @@ async fn same_session_reattachment_preserves_history_and_another_login_cannot_re
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn authority_suspension_rejects_previous_and_recovery_keeps_the_same_played_history() {
     let mut f = fixture::Navigation::start(3, 0).await;
+    f.send(PlayerAction::Shuffle {}).await;
+    f.send(PlayerAction::Repeat {}).await;
     f.send(PlayerAction::Resume {}).await;
     f.playing(f.entries[0].id).await;
     f.send(PlayerAction::Select {
@@ -119,12 +133,18 @@ async fn authority_suspension_rejects_previous_and_recovery_keeps_the_same_playe
     .await
     .unwrap()
     .unwrap();
-    assert_eq!(
-        f.player
-            .submit(&f.source.actor, f.request(PlayerAction::Previous {}))
-            .await,
-        Err(PlayerError::Unavailable)
-    );
+    for action in [
+        PlayerAction::Previous {},
+        PlayerAction::Shuffle {},
+        PlayerAction::Repeat {},
+    ] {
+        assert_eq!(
+            f.player.submit(&f.source.actor, f.request(action)).await,
+            Err(PlayerError::Unavailable)
+        );
+    }
+    assert!(f.state.borrow().shuffle);
+    assert_eq!(f.state.borrow().repeat, PlayerRepeat::All);
     assert_eq!(f.state.borrow().current.unwrap().id, f.entries[2].id);
     assert_eq!(f.state.borrow().revision, 2);
     outage.restore().await;
