@@ -16,11 +16,11 @@ Importing an already adopted item reuses its Hito recording identity. It preserv
 
 The Apache-2.0 SDK defines structured data at fixed provider paths:
 
-| Request                                                            | Purpose                                                             |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `POST v1/playlists/detail` with `PlaylistDetailRequest::Reference` | Resolve an opaque supplied reference into canonical playlist detail |
-| `POST v1/playlists/items` with `PlaylistItemsRequest`              | Read a bounded page for that canonical ID and snapshot token        |
-| `POST v1/playlists/detail` with `PlaylistDetailRequest::Canonical` | Recheck the complete detail before publication                      |
+| Request                    | JSON body                                               | Purpose                                                     |
+| -------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
+| `POST v1/playlists/detail` | `{"kind":"reference","reference":"supplied-reference"}` | Resolve a supplied reference into canonical playlist detail |
+| `POST v1/playlists/items`  | See the page request below                              | Read a bounded page for the canonical ID and snapshot token |
+| `POST v1/playlists/detail` | `{"kind":"canonical","playlist_id":"playlist-17"}`      | Recheck the complete detail before publication              |
 
 The supplied reference is bounded text, up to 2,048 UTF-8 bytes without control characters. Hito passes it as data to the approved service. Hito does not fetch it as a URL or parse a provider-specific playlist ID. The provider returns the canonical ID, snapshot token, name, total count and attribution. Every item page must bind the same ID and token. The final canonical detail must equal the initial detail.
 
@@ -36,6 +36,71 @@ The SDK permits recording, unavailable and unknown items. Hito rejects the whole
 | Control admission                       | Four global requests, one per account                 |
 
 The existing transport supplies the approved address and saved credentials. Playlist data cannot supply arbitrary fetch URLs or headers. These limits bound provider input separately from the encoded synchronization publication.
+
+### Provider JSON examples
+
+These illustrative bodies follow the [SDK wire types](../crates/hito-plugin-sdk/src/playlists.rs). Return uncompressed UTF-8 JSON with `Content-Type: application/json`; unknown fields are rejected. Both detail request kinds return the same detail shape:
+
+```json
+{
+  "id": "playlist-17",
+  "name": "Example playlist",
+  "snapshot": "revision-4",
+  "total_count": 3,
+  "attribution": { "label": "Example service playlist" }
+}
+```
+
+Hito uses that `id` as `playlist_id` and that `snapshot` unchanged in the first items request:
+
+```json
+{
+  "playlist_id": "playlist-17",
+  "snapshot": "revision-4",
+  "cursor": null,
+  "limit": 100
+}
+```
+
+This complete page contains one of each item kind. `total_count` counts all occurrences, including unavailable and unknown rows. Absent optional values are shown as `null`:
+
+```json
+{
+  "playlist_id": "playlist-17",
+  "snapshot": "revision-4",
+  "items": [
+    {
+      "occurrence_id": "entry-1",
+      "item": {
+        "kind": "recording",
+        "recording": {
+          "id": "recording-5",
+          "title": "Generated example tone",
+          "artist": "Example artist",
+          "duration_ms": 20000,
+          "release": null,
+          "disc_number": null,
+          "track_number": null,
+          "revision": "track-revision-2"
+        }
+      }
+    },
+    {
+      "occurrence_id": "entry-2",
+      "item": {
+        "kind": "unavailable",
+        "provider_recording_id": "recording-8",
+        "title": "Unavailable example item",
+        "artist": null
+      }
+    },
+    { "occurrence_id": null, "item": { "kind": "unknown" } }
+  ],
+  "next_cursor": null
+}
+```
+
+A nonfinal page returns an opaque `next_cursor`, which Hito sends as the next request's `cursor`. A supplied occurrence ID must be unique across the whole snapshot; repeated recordings can use distinct occurrence IDs or leave them absent. After the final page, the canonical detail recheck must return the original detail unchanged.
 
 ## Retry the same request or create a new copy
 

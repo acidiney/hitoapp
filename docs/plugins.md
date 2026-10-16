@@ -2,6 +2,8 @@
 
 Hito connects to separately hosted HTTP services. It does not download or execute plugin code. Settings supports service offers, personal installation, manifest validation/review, credential storage, and removal. Discover supports private music search, durable adoption, and playback through authorized audio relay. These workflows and the source-refresh behavior below are implemented in the development build. Catalog browsing capabilities, enrichment, provider playlists, dashboard content, lyrics, and backing tracks remain release work.
 
+The isolated integration source adds playlist Import a copy, which is not deployed to the normal server. See its [provider JSON examples](playlist-import.md#provider-json-examples), [copy/retry behavior](playlist-import.md#retry-the-same-request-or-create-a-new-copy) and current [acceptance limits](status.md#isolated-plugin-integration-checkpoint). Follow remains unfinished.
+
 ## Settings
 
 Open Settings → Plugins. An administrator can expand **Services for this server** to offer a name and base address. Offers are shared choices, not shared credentials or automatic installations. Only administrators can choose addresses that Hito will contact. Ordinary accounts select an offered service and optionally enter its bearer token. No environment-variable editing is needed.
@@ -61,11 +63,11 @@ Provider observations record the accepted manifest ID, installation, remote reco
 
 The outgoing JSON protocol uses these fixed paths relative to the approved base address:
 
-| Operation | Request | Response limit |
-| --- | --- | --- |
-| `POST v1/search` | `query`, optional `cursor`, `limit` | 262,144 bytes, at most 50 items |
-| `POST v1/recordings/detail` | `recording_id` | 32,768 bytes, one matching recording |
-| `POST v1/sources` | `recording_id` | 32,768 bytes, complete list of at most 16 sources |
+| Operation                   | Request                             | Response limit                                    |
+| --------------------------- | ----------------------------------- | ------------------------------------------------- |
+| `POST v1/search`            | `query`, optional `cursor`, `limit` | 262,144 bytes, at most 50 items                   |
+| `POST v1/recordings/detail` | `recording_id`                      | 32,768 bytes, one matching recording              |
+| `POST v1/sources`           | `recording_id`                      | 32,768 bytes, complete list of at most 16 sources |
 
 Detail returns `id`, `title`, `artist`, optional `duration_ms`, optional `release` with `id/title/artist`, optional positive disc/track numbers, and optional `revision`. Search returns `items` with the same recording fields plus optional `next_cursor`. Sources returns `items` containing `id`, `label`, and `ready`. No operation returns stream URLs or arbitrary request headers. The SDK validates these language-neutral JSON contracts.
 
@@ -144,21 +146,21 @@ The client disables automatic redirects, system proxies, and retries. It uses a 
 
 The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract.
 
-| Route | Behavior |
-| --- | --- |
-| `GET /api/v1/plugins` | Offered services, this account's installations, credential-storage readiness |
-| `POST /api/v1/plugins/services` | Administrator offers a name and base address |
-| `DELETE /api/v1/plugins/services/{id}` | Administrator withdraws the expected revision |
-| `POST /api/v1/plugins` | Installs an offered service revision with an optional write-only bearer token |
-| `POST /api/v1/plugins/{id}/refresh` | Checks an expected installation revision; optional reviewed digest and keep/replace credential action |
-| `DELETE /api/v1/plugins/{id}/credential` | Clears this account's credential at the expected revision |
-| `DELETE /api/v1/plugins/{id}` | Removes this account's installation at the expected revision |
-| `POST /api/v1/plugins/{id}/search` | Searches with an expected installation revision, query, optional cursor, and bounded limit; returns transient results |
-| `POST /api/v1/plugins/{id}/recordings` | Adopts or refreshes an opaque provider recording ID at an expected installation revision; returns its durable Hito recording |
-| `GET /api/v1/recordings/{id}/sources` | Reads the current cached source snapshot without provider HTTP |
-| `POST /api/v1/recordings/{id}/sources/refresh` | Refreshes only source availability for a saved authorized recording |
-| `GET /api/v1/sources/{id}/audio` | Streams authorized local or provider audio, including validated single byte ranges |
-| `HEAD /api/v1/sources/{id}/audio` | Returns the authorized representation headers without a body |
+| Route                                          | Behavior                                                                                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/plugins`                          | Offered services, this account's installations, credential-storage readiness                                                 |
+| `POST /api/v1/plugins/services`                | Administrator offers a name and base address                                                                                 |
+| `DELETE /api/v1/plugins/services/{id}`         | Administrator withdraws the expected revision                                                                                |
+| `POST /api/v1/plugins`                         | Installs an offered service revision with an optional write-only bearer token                                                |
+| `POST /api/v1/plugins/{id}/refresh`            | Checks an expected installation revision; optional reviewed digest and keep/replace credential action                        |
+| `DELETE /api/v1/plugins/{id}/credential`       | Clears this account's credential at the expected revision                                                                    |
+| `DELETE /api/v1/plugins/{id}`                  | Removes this account's installation at the expected revision                                                                 |
+| `POST /api/v1/plugins/{id}/search`             | Searches with an expected installation revision, query, optional cursor, and bounded limit; returns transient results        |
+| `POST /api/v1/plugins/{id}/recordings`         | Adopts or refreshes an opaque provider recording ID at an expected installation revision; returns its durable Hito recording |
+| `GET /api/v1/recordings/{id}/sources`          | Reads the current cached source snapshot without provider HTTP                                                               |
+| `POST /api/v1/recordings/{id}/sources/refresh` | Refreshes only source availability for a saved authorized recording                                                          |
+| `GET /api/v1/sources/{id}/audio`               | Streams authorized local or provider audio, including validated single byte ranges                                           |
+| `HEAD /api/v1/sources/{id}/audio`              | Returns the authorized representation headers without a body                                                                 |
 
 Mutation JSON rejects unknown fields. Refresh returns `updated` or `review_required`. Responses expose only whether a credential is saved, never a token or encrypted credential. Conflicts require reloading current state; upstream failures return a safe 502 explanation without the service's response body. Browser mutations retain the existing same-origin/account checks and private no-store response policy.
 
