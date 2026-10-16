@@ -24,6 +24,7 @@ fn a_callback_with_an_old_epoch_preserves_future_frames() {
     producer
         .push(Frame::Audio {
             samples: [0.5; 2],
+            speed: 1.,
             position: 20_833,
             epoch: 2,
         })
@@ -46,6 +47,7 @@ fn an_empty_read_cannot_publish_completion_ahead_of_late_final_frames() {
     producer
         .push(Frame::Audio {
             samples: [0.25; 2],
+            speed: 1.,
             position: 20_833,
             epoch: 1,
         })
@@ -53,6 +55,7 @@ fn an_empty_read_cannot_publish_completion_ahead_of_late_final_frames() {
     producer
         .push(Frame::Audio {
             samples: [0.5; 2],
+            speed: 1.,
             position: 41_667,
             epoch: 1,
         })
@@ -88,6 +91,7 @@ fn overlapping_startup_timestamps_do_not_overlap_submitted_buffers() {
     producer
         .push(Frame::Audio {
             samples: [0.5; 2],
+            speed: 1.,
             position: 20_833,
             epoch: 1,
         })

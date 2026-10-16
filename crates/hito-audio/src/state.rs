@@ -8,6 +8,7 @@ pub struct Snapshot {
     pub playing: bool,
     pub ended: bool,
     pub position: Duration,
+    pub speed: f32,
     pub format: AudioFormat,
     pub error: Option<Error>,
     pub underruns: u64,
@@ -18,6 +19,7 @@ pub struct Snapshot {
 
 pub(crate) struct State {
     pub playing: AtomicBool,
+    pub speed: AtomicU32,
     pub stopped: AtomicBool,
     pub seek_requested: AtomicBool,
     pub epoch: AtomicU64,
@@ -39,6 +41,7 @@ impl State {
     pub fn new() -> Self {
         Self {
             playing: AtomicBool::new(false),
+            speed: AtomicU32::new(1_f32.to_bits()),
             stopped: AtomicBool::new(false),
             seek_requested: AtomicBool::new(false),
             epoch: AtomicU64::new(1),
@@ -106,6 +109,7 @@ impl State {
                 && error.is_none(),
             ended,
             position: Duration::from_nanos(position),
+            speed: f32::from_bits(self.speed.load(Ordering::Acquire)),
             format,
             error,
             underruns: self.underruns.load(Ordering::Relaxed),

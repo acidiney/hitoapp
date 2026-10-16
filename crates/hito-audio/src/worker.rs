@@ -16,10 +16,10 @@ pub(crate) enum Control {
     },
     Speed {
         value: f32,
-        position: Duration,
         reply: SyncSender<Result<()>>,
     },
     Stop,
+    Wake,
     Recover,
 }
 
@@ -39,10 +39,15 @@ pub(crate) fn run(
     let mut xruns = 0;
     let mut notices = 0;
     let mut finished = false;
+    let mut started = false;
     let mut pending = None;
+    let mut pending_speed = None;
     let mut resets = 0;
     let mut last_reset = Duration::ZERO;
     'decode: loop {
+        if let Some(speed) = pending_speed.take() {
+            decoder.speed(speed);
+        }
         if state.stopped.load(Ordering::Acquire) {
             return Ok(());
         }
@@ -61,7 +66,7 @@ pub(crate) fn run(
         if let Some(control) = pending.take().or_else(|| commands.try_recv().ok()) {
             match control {
                 Control::Stop => return Ok(()),
-                Control::Recover => (),
+                Control::Recover | Control::Wake => (),
                 Control::Seek {
                     position: target,
                     reply,
@@ -75,19 +80,9 @@ pub(crate) fn run(
                     let _ = reply.send(result.map(|_| ()));
                     result?;
                 }
-                Control::Speed {
-                    value,
-                    position: target,
-                    reply,
-                } => {
-                    let result = decoder.speed(value, target).map(|_| reset(&state, target));
-                    if let Ok(next) = result {
-                        epoch = next;
-                    }
-                    finished = false;
-                    state.seek_requested.store(false, Ordering::Release);
-                    let _ = reply.send(result.map(|_| ()));
-                    result?;
+                Control::Speed { value, reply } => {
+                    decoder.speed(value);
+                    let _ = reply.send(Ok(()));
                 }
             }
         }
@@ -116,6 +111,13 @@ pub(crate) fn run(
                 xruns,
                 "Audio output underrun recovered at the last presented position"
             );
+        }
+        if !started {
+            if !state.playing.load(Ordering::Acquire) {
+                pending = commands.recv_timeout(Duration::from_millis(100)).ok();
+                continue;
+            }
+            started = true;
         }
         if finished {
             match commands.recv_timeout(Duration::from_millis(100)) {
@@ -151,11 +153,13 @@ pub(crate) fn run(
                         samples: audio,
                         position,
                         epoch,
+                        speed: block.speed,
                     },
                     &mut producer,
                     &commands,
                     &state,
                     xruns,
+                    &mut pending_speed,
                 )? {
                     pending = Some(control);
                     continue 'decode;
@@ -169,6 +173,7 @@ pub(crate) fn run(
                 &commands,
                 &state,
                 xruns,
+                &mut pending_speed,
             )? {
                 pending = Some(control);
                 continue;
@@ -198,6 +203,7 @@ fn send(
     commands: &Receiver<Control>,
     state: &State,
     xruns: u64,
+    pending_speed: &mut Option<f32>,
 ) -> Result<Option<Control>> {
     loop {
         if state.stopped.load(Ordering::Acquire) {
@@ -206,7 +212,7 @@ fn send(
         if let Some(error) = state.error() {
             return Err(error);
         }
-        if let Ok(control) = commands.try_recv() {
+        if let Some(control) = commands.try_recv().ok().and_then(|control| defer_speed(control, pending_speed)) {
             return Ok(Some(control));
         }
         if state.xruns.load(Ordering::Acquire) != xruns {
@@ -216,8 +222,20 @@ fn send(
             Ok(()) => return Ok(None),
             Err(rtrb::PushError::Full(value)) => frame = value,
         }
-        if let Ok(control) = commands.recv_timeout(Duration::from_millis(2)) {
+        if let Some(control) = commands.recv_timeout(Duration::from_millis(2)).ok().and_then(|control| defer_speed(control, pending_speed)) {
             return Ok(Some(control));
         }
+    }
+}
+
+fn defer_speed(control: Control, pending: &mut Option<f32>) -> Option<Control> {
+    match control {
+        Control::Speed { value, reply } => {
+            *pending = Some(value);
+            let _ = reply.send(Ok(()));
+            None
+        }
+        Control::Wake => None,
+        control => Some(control),
     }
 }

@@ -118,7 +118,7 @@ impl Controls {
             key: target.key,
             phase,
             playing: snapshot.playing,
-            speed: self.applied_speed.unwrap_or(1000),
+            speed: snapshot.speed,
             source_id,
             position_ms: snapshot.position.as_millis().min(u64::MAX as u128) as u64,
             duration_ms: snapshot

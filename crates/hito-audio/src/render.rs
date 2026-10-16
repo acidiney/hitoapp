@@ -14,6 +14,7 @@ use std::{
 pub(crate) enum Frame {
     Audio {
         samples: [f32; 2],
+        speed: f32,
         position: u64,
         epoch: u64,
     },
@@ -135,6 +136,7 @@ impl Render {
             match frame {
                 Frame::Audio {
                     samples,
+                    speed,
                     position,
                     epoch,
                 } => {
@@ -146,6 +148,7 @@ impl Render {
                         epoch,
                         position,
                         ended: false,
+                        speed,
                     });
                 }
                 Frame::End { position, epoch } => {
@@ -157,6 +160,7 @@ impl Render {
                         epoch,
                         position,
                         ended: true,
+                        speed: f32::from_bits(self.state.speed.load(Ordering::Relaxed)),
                     });
                     self.scheduled_end = epoch;
                 }

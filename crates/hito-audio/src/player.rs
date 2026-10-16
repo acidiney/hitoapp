@@ -109,6 +109,7 @@ impl Player {
             return Err(error);
         }
         self.state.playing.store(true, Ordering::Release);
+        let _ = self.commands.try_send(Control::Wake);
         tracing::debug!(event = "audio_resumed", "Audio playback resumed");
         Ok(())
     }
@@ -181,17 +182,13 @@ impl Player {
         if self.state.stopped.load(Ordering::Acquire) {
             return Err(Error::Interrupted);
         }
-        let snapshot = self.snapshot();
-        if let Some(error) = snapshot.error {
+        if let Some(error) = self.snapshot().error {
             return Err(error);
         }
-        self.state.playing.store(false, Ordering::Release);
-        self.state.seek_requested.store(true, Ordering::Release);
         let (reply, applied) = mpsc::sync_channel(1);
         self.commands
             .send(Control::Speed {
                 value,
-                position: snapshot.position,
                 reply,
             })
             .map_err(|_| Error::Worker)?;
@@ -200,9 +197,6 @@ impl Player {
             self.state.fail(error);
             return Err(error);
         }
-        self.state
-            .playing
-            .store(snapshot.playing, Ordering::Release);
         tracing::debug!(
             event = "audio_speed_changed",
             speed = value,
