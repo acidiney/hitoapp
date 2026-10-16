@@ -8,6 +8,9 @@ use http_body_util::BodyExt;
 use std::{fs, os::unix::fs::PermissionsExt};
 use tower::ServiceExt;
 
+#[cfg(target_os = "linux")]
+mod lifecycle;
+
 #[tokio::test]
 async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
     let directory = tempfile::tempdir().unwrap();

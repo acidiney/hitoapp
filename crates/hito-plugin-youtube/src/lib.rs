@@ -110,5 +110,5 @@ impl IntoResponse for Error {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(all(test, target_os = "linux", not(target_env = "uclibc")))]
 mod tests;

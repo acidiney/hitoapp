@@ -1,5 +1,14 @@
 use crate::Error;
 use hito_plugin_sdk::{ProviderRecording, SearchPage, SearchRequest};
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+use nix::{
+    errno::Errno,
+    sys::{
+        signal::{Signal, killpg},
+        wait::{Id, WaitPidFlag, WaitStatus, waitid},
+    },
+    unistd::Pid,
+};
 use serde::Deserialize;
 use std::{future::Future, path::PathBuf, sync::Arc, time::Instant};
 use tokio::sync::{Semaphore, oneshot};
@@ -52,7 +61,7 @@ impl Extractor {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 async fn run(
     executable: PathBuf,
     query: String,
@@ -93,8 +102,13 @@ async fn run(
         .kill_on_drop(true)
         .process_group(0);
     let mut child = command.spawn().map_err(|_| Error::Unavailable)?;
+    let group = child
+        .id()
+        .and_then(|id| i32::try_from(id).ok())
+        .map(Pid::from_raw)
+        .ok_or(Error::Unavailable)?;
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
-        stop(&mut child).await;
+        stop(&mut child, group).await?;
         return Err(Error::Unavailable);
     };
     let result = {
@@ -103,12 +117,8 @@ async fn run(
                 read_bounded(stdout, 2 * 1024 * 1024),
                 read_bounded(stderr, 65_536),
             )?;
-            let status = child.wait().await.map_err(|_| Error::Unavailable)?;
-            if status.success() {
-                Ok(output)
-            } else {
-                Err(Error::Unavailable)
-            }
+            wait_for_exit(group).await?;
+            Ok(output)
         };
         tokio::pin!(collect);
         tokio::select! {
@@ -118,13 +128,11 @@ async fn run(
             result = &mut collect => result,
         }
     };
-    if result.is_err() {
-        stop(&mut child).await;
-    }
+    stop(&mut child, group).await?;
     result
 }
 
-#[cfg(not(unix))]
+#[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
 async fn run(
     _executable: PathBuf,
     _query: String,
@@ -134,7 +142,7 @@ async fn run(
     Err(Error::Unavailable)
 }
 
-#[cfg(unix)]
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 async fn read_bounded(
     mut reader: impl tokio::io::AsyncRead + Unpin,
     maximum: usize,
@@ -158,16 +166,36 @@ async fn read_bounded(
     }
 }
 
-#[cfg(unix)]
-async fn stop(child: &mut tokio::process::Child) {
-    use nix::{
-        errno::Errno,
-        sys::signal::{Signal, killpg},
-        unistd::Pid,
-    };
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+fn child_status(group: Pid) -> Result<WaitStatus, Error> {
+    loop {
+        match waitid(
+            Id::Pid(group),
+            WaitPidFlag::WEXITED | WaitPidFlag::WNOWAIT | WaitPidFlag::WNOHANG,
+        ) {
+            Err(Errno::EINTR) => continue,
+            result => return result.map_err(|_| Error::Unavailable),
+        }
+    }
+}
 
-    let group_outcome = if let Some(pid) = child.id().and_then(|id| i32::try_from(id).ok()) {
-        let outcome = match killpg(Pid::from_raw(pid), Signal::SIGKILL) {
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+async fn wait_for_exit(group: Pid) -> Result<(), Error> {
+    loop {
+        match child_status(group)? {
+            WaitStatus::StillAlive => {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+            WaitStatus::Exited(_, 0) => return Ok(()),
+            _ => return Err(Error::Unavailable),
+        }
+    }
+}
+
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+async fn stop(child: &mut tokio::process::Child, group: Pid) -> Result<(), Error> {
+    let group_outcome = if child_status(group).is_ok() {
+        let outcome = match killpg(group, Signal::SIGKILL) {
             Ok(()) => "signaled",
             Err(Errno::ESRCH) => "gone",
             Err(_) => "signal_failed",
@@ -175,14 +203,16 @@ async fn stop(child: &mut tokio::process::Child) {
         let _ = child.start_kill();
         outcome
     } else {
-        "gone"
+        "ownership_lost"
     };
-    let outcome = if child.wait().await.is_ok() {
-        "reaped"
-    } else {
-        "reap_failed"
-    };
+    let reaped = child.wait().await.is_ok();
+    let outcome = if reaped { "reaped" } else { "reap_failed" };
     tracing::debug!(event = "youtube_process_stopped", outcome, group_outcome);
+    if reaped && matches!(group_outcome, "signaled" | "gone") {
+        Ok(())
+    } else {
+        Err(Error::Unavailable)
+    }
 }
 
 #[derive(Deserialize)]
