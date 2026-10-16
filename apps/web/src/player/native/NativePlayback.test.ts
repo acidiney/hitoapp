@@ -5,6 +5,28 @@ import { nativeService } from "./fixtures/service";
 
 afterEach(() => vi.unstubAllGlobals());
 
+test("position reconnection preserves an unresolved Rust progress warning", async () => {
+  const service = nativeService();
+  service.state.persistence_error = "persistence";
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    await vi.waitFor(() =>
+      expect(player.snapshot().error).toContain("could not be saved"),
+    );
+    service.end("position");
+    await vi.waitFor(() =>
+      expect(player.snapshot().connection).toBe("disconnected"),
+    );
+    await vi.waitFor(() => expect(service.subscriptions.position).toBe(2));
+    await vi.waitFor(() => expect(player.snapshot().connection).toBe("ready"));
+    expect(player.snapshot().error).toContain("could not be saved");
+    expect(service.claims).toBe(1);
+  } finally {
+    player.close();
+  }
+});
+
 test("a position-only interruption recovers without claiming again or a structural change", async () => {
   const service = nativeService();
   const player = new NativePlayback("alice");

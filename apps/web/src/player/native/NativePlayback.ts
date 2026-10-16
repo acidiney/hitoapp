@@ -24,6 +24,16 @@ function emptyView(): PlaybackView {
   };
 }
 
+function playbackError(value: Snapshot | null) {
+  return value?.persistence_error
+    ? "Listening progress could not be saved. Hito will retry."
+    : value?.error
+      ? "Audio could not be played. Try selecting the track again."
+      : value?.last_failure
+        ? "Audio was unavailable for a queued track."
+        : "";
+}
+
 export class NativePlayback implements Player {
   readonly mode = "native";
   readonly supports = {
@@ -101,7 +111,7 @@ export class NativePlayback implements Player {
           connection: ready ? "ready" : "disconnected",
           ...(ready &&
           this.view.error === "Playback connection interrupted. Reconnecting…"
-            ? { error: "" }
+            ? { error: playbackError(this.wire) }
             : {}),
         });
       },
@@ -178,13 +188,7 @@ export class NativePlayback implements Player {
         value.phase === "releasing" ||
         value.seeking,
       volume: value.volume / 1000,
-      error: value.persistence_error
-        ? "Listening progress could not be saved. Hito will retry."
-        : value.error
-          ? "Audio could not be played. Try selecting the track again."
-          : value.last_failure
-            ? "Audio was unavailable for a queued track."
-            : "",
+      error: playbackError(value),
     });
     if (changed) this.loadCurrent();
     if (this.latestPosition) this.observePosition(this.latestPosition);
