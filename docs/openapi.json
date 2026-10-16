@@ -5603,6 +5603,20 @@
               "kind": {
                 "type": "string",
                 "enum": [
+                  "resume_saved"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
                   "pause"
                 ]
               }
@@ -5954,7 +5968,8 @@
           "invalid",
           "unsupported",
           "playback",
-          "persistence"
+          "persistence",
+          "resume"
         ]
       },
       "PlayerFailure": {
@@ -5990,6 +6005,7 @@
         "enum": [
           "idle",
           "resolving",
+          "loading",
           "opening",
           "ready",
           "releasing",

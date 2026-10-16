@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 import { time } from "../format";
 import { usePlayer } from "../player/PlaybackProvider";
 import type { Track } from "../playback";
+import type { PlaybackStart } from "../player/model";
 import type { Playlist } from "../types";
 import type { Mutate } from "../hooks/useMutation";
 import TrackActions from "./TrackActions";
@@ -16,7 +17,7 @@ export type TrackRow = Track & {
   release_id?: string | null;
   disc_number?: number | null;
   track_number?: number | null;
-  resume_ms?: number;
+  playback_start?: PlaybackStart;
   entry_id?: string;
 };
 
@@ -39,7 +40,7 @@ export default function TrackTable({
     () => player.snapshot().current?.id,
   );
   function play(index: number) {
-    void player.playQueue(tracks, index, (tracks[index].resume_ms ?? 0) / 1000);
+    void player.playQueue(tracks, index, tracks[index].playback_start);
   }
   return (
     <div className="table-scroll">

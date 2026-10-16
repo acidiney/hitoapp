@@ -20,7 +20,7 @@ test("native actions send IDs and controls while keeping source resolution and p
         },
       ],
       0,
-      2.5,
+      { kind: "position", position: 2.5 },
     );
     player.seek(0);
     player.volume(0.25);
@@ -54,7 +54,10 @@ test("native actions send IDs and controls while keeping source resolution and p
     const count = service.commands.length;
     player.speed(1.5);
     await vi.waitFor(() => expect(service.commands).toHaveLength(count + 1));
-    expect(service.commands.at(-1)?.action).toEqual({ kind: "speed", rate: 1500 });
+    expect(service.commands.at(-1)?.action).toEqual({
+      kind: "speed",
+      rate: 1500,
+    });
     expect(player.snapshot().speed).toBe(1);
     service.emit("state", { ...service.state, speed: 1500 });
     await vi.waitFor(() => expect(player.snapshot().speed).toBe(1.5));

@@ -19,6 +19,10 @@ export default function PlaybackStatus({
     player.subscribe,
     () => player.snapshot().connection,
   );
+  const resumeFailed = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().resumeFailed,
+  );
   if (!loading && !error && connection !== "connecting") return null;
   return (
     <div className={className} role="status">
@@ -29,6 +33,14 @@ export default function PlaybackStatus({
             ? "Finding audio…"
             : error}
       </span>
+      {connection === "ready" && resumeFailed && player.retrySaved && (
+        <button
+          className="text-link"
+          onClick={() => void player.retrySaved?.()}
+        >
+          Retry saved position
+        </button>
+      )}
       {connection === "disconnected" && player.reconnect && (
         <button className="text-link" onClick={() => void player.reconnect?.()}>
           Reconnect player

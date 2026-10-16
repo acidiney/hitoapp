@@ -1,5 +1,5 @@
 import { log } from "../../log";
-import type { Track } from "../model";
+import type { PlaybackStart, Track } from "../model";
 import type { Action, Snapshot } from "./api";
 import type { NativeSession, QueueSelection } from "./Session";
 
@@ -11,11 +11,12 @@ export class NativeCommands {
     private report: (message: string) => void,
   ) {}
 
-  playQueue = async (queue: Track[], index = 0, position = 0) => {
+  playQueue = async (queue: Track[], index = 0, start?: PlaybackStart) => {
     this.intention++;
-    await this.play(queue, index, position);
+    await this.play(queue, index, start);
   };
-  private async play(queue: Track[], index: number, position: number) {
+  private async play(queue: Track[], index: number, start?: PlaybackStart) {
+    const position = start?.kind === "saved" ? 0 : (start?.position ?? 0);
     if (
       !queue.length ||
       queue.length > 100000 ||
@@ -32,13 +33,16 @@ export class NativeCommands {
     return this.run({
       recordings: queue.map((track) => track.id),
       start: index,
-      position_ms: Math.round(position * 1000),
+      from:
+        start?.kind === "saved"
+          ? { kind: "saved" }
+          : { kind: "position", position_ms: Math.round(position * 1000) },
     });
   }
   prepareSelection = () => {
     const intention = ++this.intention;
     return async (track: Track) =>
-      intention === this.intention && (await this.play([track], 0, 0));
+      intention === this.intention && (await this.play([track], 0));
   };
   selectEntry = async (entry: string) => {
     this.intention++;
@@ -53,6 +57,10 @@ export class NativeCommands {
     await this.run([
       { kind: this.state()?.desired_playing ? "pause" : "resume" },
     ]);
+  };
+  retrySaved = async () => {
+    this.intention++;
+    await this.run([{ kind: "resume_saved" }]);
   };
   next = async () => {
     this.intention++;

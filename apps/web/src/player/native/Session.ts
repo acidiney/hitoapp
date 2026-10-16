@@ -14,7 +14,7 @@ import { ObservationError } from "./observations";
 export type QueueSelection = {
   recordings: string[];
   start: number;
-  position_ms: number;
+  from: { kind: "saved" } | { kind: "position"; position_ms: number };
 };
 export type Failure = "ownership" | "unavailable" | "protocol";
 type Events = {
@@ -85,7 +85,8 @@ export class NativeSession {
 
   replace(selection: QueueSelection): Promise<Receipt> {
     const recordings = selection.recordings.slice();
-    const { start, position_ms } = selection;
+    const { start, from } = selection;
+    const position_ms = from.kind === "position" ? from.position_ms : 0;
     if (
       !recordings.length ||
       recordings.length > 100000 ||
@@ -120,6 +121,7 @@ export class NativeSession {
           throw new ObservationError();
         await send({ kind: "select", entry: entry.id });
       }
+      if (from.kind === "saved") return send({ kind: "resume_saved" });
       if (position_ms) await send({ kind: "seek", position_ms });
       return send({ kind: "resume" });
     });

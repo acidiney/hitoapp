@@ -6,6 +6,8 @@ export type Track = Pick<
 > &
   Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
 
+export type PlaybackStart = { kind: "saved" | "position"; position: number };
+
 export type PlaybackView = {
   current: Track | null;
   playing: boolean;
@@ -19,6 +21,7 @@ export type PlaybackView = {
   volume: number;
   connection: "connecting" | "ready" | "disconnected";
   controlsAvailable?: boolean;
+  resumeFailed?: boolean;
 };
 export type PlaybackPosition = { position: number; duration: number };
 export type QueueView = {
@@ -54,7 +57,11 @@ export interface Player {
   ): Promise<QueuePage>;
   selectEntry(entry: string): Promise<void>;
   removeEntry(entry: string): void;
-  playQueue(queue: Track[], index?: number, position?: number): Promise<void>;
+  playQueue(
+    queue: Track[],
+    index?: number,
+    start?: PlaybackStart,
+  ): Promise<void>;
   prepareSelection(): (track: Track) => Promise<boolean>;
   toggle(): Promise<void>;
   previous(): Promise<void>;
@@ -72,4 +79,5 @@ export interface Player {
     inherited: string,
   ): void;
   reconnect?(): Promise<void>;
+  retrySaved?(): Promise<void>;
 }

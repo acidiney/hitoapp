@@ -1145,6 +1145,9 @@ export interface components {
             kind: "resume";
         } | {
             /** @enum {string} */
+            kind: "resume_saved";
+        } | {
+            /** @enum {string} */
             kind: "pause";
         } | {
             /** @enum {string} */
@@ -1233,7 +1236,7 @@ export interface components {
             recording_id: string;
         };
         /** @enum {string} */
-        PlayerError: "unauthorized" | "conflict" | "busy" | "closed" | "unavailable" | "not_found" | "invalid" | "unsupported" | "playback" | "persistence";
+        PlayerError: "unauthorized" | "conflict" | "busy" | "closed" | "unavailable" | "not_found" | "invalid" | "unsupported" | "playback" | "persistence" | "resume";
         PlayerFailure: {
             entry: components["schemas"]["PlayerEntryRef"];
             error: components["schemas"]["PlayerError"];
@@ -1243,7 +1246,7 @@ export interface components {
             lease: string;
         };
         /** @enum {string} */
-        PlayerPhase: "idle" | "resolving" | "opening" | "ready" | "releasing" | "failed" | "suspended";
+        PlayerPhase: "idle" | "resolving" | "loading" | "opening" | "ready" | "releasing" | "failed" | "suspended";
         PlayerPosition: {
             /** Format: int64 */
             duration_ms?: number | null;

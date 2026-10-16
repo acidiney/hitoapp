@@ -14,7 +14,10 @@ export default function HistoryPage({
   const tracks = activity.history.map((track) => ({
     ...track,
     row_id: track.id,
-    resume_ms: track.position_ms,
+    playback_start: {
+      kind: "saved" as const,
+      position: track.position_ms / 1000,
+    },
   }));
   return (
     <>

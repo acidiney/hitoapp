@@ -1,4 +1,10 @@
-import type { PlaybackView, Player, QueueView, Track } from "./player/model";
+import type {
+  PlaybackStart,
+  PlaybackView,
+  Player,
+  QueueView,
+  Track,
+} from "./player/model";
 export type { Track } from "./player/model";
 import { log } from "./log";
 import { PlaybackSources, type SourceResolver } from "./playbackSources";
@@ -232,7 +238,8 @@ export class Playback implements Player {
     });
   }
 
-  async playQueue(queue: Track[], index = 0, position = 0) {
+  async playQueue(queue: Track[], index = 0, start?: PlaybackStart) {
+    const position = start?.position ?? 0;
     this.entryIds = queue.map(() => crypto.randomUUID());
     this.traversal.reset(this.entryIds, this.entryIds[index]);
     log.info("queue.play", {

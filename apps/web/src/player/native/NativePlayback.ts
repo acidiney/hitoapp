@@ -29,13 +29,15 @@ function emptyView(): PlaybackView {
 function playbackError(value: Snapshot | null) {
   return value?.phase === "suspended"
     ? "Playback paused while Hito checks access. Your queue is unchanged."
-    : value?.persistence_error
-      ? "Listening progress could not be saved. Hito will retry."
-      : value?.error
-        ? "Audio could not be played. Try selecting the track again."
-        : value?.last_failure
-          ? "Audio was unavailable for a queued track."
-          : "";
+    : value?.error === "resume"
+      ? "Saved playback position could not be loaded. Try again."
+      : value?.persistence_error
+        ? "Listening progress could not be saved. Hito will retry."
+        : value?.error
+          ? "Audio could not be played. Try selecting the track again."
+          : value?.last_failure
+            ? "Audio was unavailable for a queued track."
+            : "";
 }
 
 export class NativePlayback implements Player {
@@ -70,6 +72,7 @@ export class NativePlayback implements Player {
   selectEntry = this.intents.selectEntry;
   removeEntry = this.intents.removeEntry;
   toggle = this.intents.toggle;
+  retrySaved = this.intents.retrySaved;
   next = this.intents.next;
   previous = this.intents.previous;
   seek = this.intents.seek;
@@ -191,7 +194,9 @@ export class NativePlayback implements Player {
       repeat: value.repeat,
       speed: value.speed / 1000,
       controlsAvailable: value.phase !== "suspended",
+      resumeFailed: value.error === "resume" && value.phase !== "suspended",
       loading:
+        value.phase === "loading" ||
         value.phase === "resolving" ||
         value.phase === "opening" ||
         value.phase === "releasing" ||

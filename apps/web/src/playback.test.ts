@@ -23,6 +23,34 @@ class Media extends EventTarget implements MediaPort {
   }
 }
 
+test("browser History retains its rendered saved cursor and current speed preference", async () => {
+  for (const position of [0, 2.5]) {
+    const media = new Media();
+    const player = new Playback(media, async () => [
+      { id: "source", ready: true },
+    ]);
+    player.speed(1.5);
+    await player.playQueue(
+      [
+        {
+          id: "recording",
+          title: "Fixture",
+          artist: "Fixture",
+          duration_ms: 10000,
+          available: true,
+        },
+      ],
+      0,
+      { kind: "saved", position },
+    );
+    media.dispatchEvent(new Event("loadedmetadata"));
+    expect(media.currentTime).toBe(position);
+    expect(media.playbackRate).toBe(1.5);
+    await player.next();
+    expect(player.snapshot().current).toBeNull();
+  }
+});
+
 test("browser repeat modes exhaust unavailable occurrences without looping", async () => {
   for (const shuffled of [false, true])
     for (const cycles of [1, 2]) {
