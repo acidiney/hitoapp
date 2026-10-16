@@ -29,6 +29,10 @@ export default function PlayerDock({
     player.subscribe,
     () => player.snapshot().speed,
   );
+  const controlsAvailable = useSyncExternalStore(player.subscribe, () => {
+    const state = player.snapshot();
+    return state.connection === "ready" && state.controlsAvailable !== false;
+  });
   const [queueOpen, setQueueOpen] = useState(false);
   const volume = useSyncExternalStore(
     player.subscribe,
@@ -97,7 +101,7 @@ export default function PlayerDock({
           <select
             aria-label="Playback speed"
             value={speed}
-            disabled={!player.supports.speed}
+            disabled={!player.supports.speed || !controlsAvailable}
             title={
               !player.supports.speed
                 ? "Playback speed is not available in the desktop player yet"

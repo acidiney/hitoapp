@@ -44,7 +44,7 @@ export class NativePlayback implements Player {
     previous: true,
     shuffle: true,
     repeat: true,
-    speed: false,
+    speed: true,
   };
   private view = emptyView();
   private position: PlaybackPosition = { position: 0, duration: 0 };
@@ -189,6 +189,8 @@ export class NativePlayback implements Player {
       canPrevious: value.can_previous,
       shuffle: value.shuffle,
       repeat: value.repeat,
+      speed: value.speed / 1000,
+      controlsAvailable: value.phase !== "suspended",
       loading:
         value.phase === "resolving" ||
         value.phase === "opening" ||

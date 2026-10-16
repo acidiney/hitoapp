@@ -16,6 +16,7 @@ export function nativeService() {
     playing: false,
     seeking: false,
     volume: 1000,
+    speed: 1000,
     phase: "idle",
     error: null,
     last_failure: null,

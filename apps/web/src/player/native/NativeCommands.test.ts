@@ -53,9 +53,14 @@ test("native actions send IDs and controls while keeping source resolution and p
     ).toBe(true);
     const count = service.commands.length;
     player.speed(1.5);
-    expect(service.commands).toHaveLength(count);
+    await vi.waitFor(() => expect(service.commands).toHaveLength(count + 1));
+    expect(service.commands.at(-1)?.action).toEqual({ kind: "speed", rate: 1500 });
     expect(player.snapshot().speed).toBe(1);
-    expect(player.snapshot().error).toContain("speed");
+    service.emit("state", { ...service.state, speed: 1500 });
+    await vi.waitFor(() => expect(player.snapshot().speed).toBe(1.5));
+    for (const invalid of [NaN, Infinity, 0.49, 3.01]) player.speed(invalid);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(service.commands).toHaveLength(count + 1);
   } finally {
     player.close();
   }

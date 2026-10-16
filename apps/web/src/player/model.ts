@@ -18,6 +18,7 @@ export type PlaybackView = {
   speed: number;
   volume: number;
   connection: "connecting" | "ready" | "disconnected";
+  controlsAvailable?: boolean;
 };
 export type PlaybackPosition = { position: number; duration: number };
 export type QueueView = {

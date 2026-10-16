@@ -103,6 +103,7 @@ test("native authority suspension explains stopped output and retains the progre
     ),
   );
   expect(screen.getByText("Track 0")).toBeTruthy();
+  expect(screen.getByRole("combobox", { name: "Playback speed" })).toHaveProperty("disabled", true);
   service.queue = queue;
   await act(async () => {
     Object.assign(service.state, {
@@ -119,6 +120,7 @@ test("native authority suspension explains stopped output and retains the progre
   );
   expect(service.claims).toBe(1);
   expect(service.commands).toHaveLength(0);
+  expect(screen.getByRole("combobox", { name: "Playback speed" })).toHaveProperty("disabled", false);
   expect(document.querySelectorAll("audio")).toHaveLength(0);
 });
 
@@ -165,7 +167,7 @@ test.each(["delayed", "failed"])(
   },
 );
 
-test("native preparation remains pausable and unsupported speed is explicit", async () => {
+test("native preparation remains pausable with ordered speed controls", async () => {
   const service = nativeService();
   Object.assign(service.state, {
     revision: 1,
@@ -198,7 +200,11 @@ test("native preparation remains pausable and unsupported speed is explicit", as
     );
   expect(
     screen.getByRole("combobox", { name: "Playback speed" }),
-  ).toHaveProperty("disabled", true);
+  ).toHaveProperty("disabled", false);
+  fireEvent.change(screen.getByRole("combobox", { name: "Playback speed" }), {
+    target: { value: "1.5" },
+  });
+  await vi.waitFor(() => expect(service.commands[1]?.action).toEqual({ kind: "speed", rate: 1500 }));
   expect(document.querySelectorAll("audio")).toHaveLength(0);
 });
 

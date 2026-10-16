@@ -80,7 +80,10 @@ export class NativeCommands {
     this.intention++;
     await this.run([{ kind: "previous" }]);
   };
-  speed = (_value: number) => this.unsupported("Playback speed");
+  speed = (value: number) => {
+    if (Number.isFinite(value) && value >= 0.5 && value <= 3)
+      void this.run([{ kind: "speed", rate: Math.round(value * 1000) }]);
+  };
   repeat = () => {
     void this.run([{ kind: "repeat" }]);
   };
@@ -90,10 +93,6 @@ export class NativeCommands {
   invalidate() {
     this.intention++;
   }
-  private unsupported(feature: string) {
-    this.report(`${feature} is not available in the desktop player yet.`);
-  }
-
   private async run(actions: Action[] | QueueSelection) {
     const session = this.session();
     if (!session) {
