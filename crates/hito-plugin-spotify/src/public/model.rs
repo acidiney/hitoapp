@@ -45,14 +45,20 @@ struct Entry {
 
 #[derive(Deserialize)]
 struct Item {
-    data: Track,
+    data: Option<ContentItem>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "__typename")]
+enum ContentItem {
+    Track(Track),
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Track {
-    #[serde(rename = "__typename")]
-    kind: String,
     uri: String,
     name: String,
     artists: Artists,
@@ -106,7 +112,13 @@ pub(super) fn read(bytes: &[u8], id: &str) -> Result<Page, Error> {
         .content
         .items
         .into_iter()
-        .map(|entry| normalize(entry.item.data))
+        .map(|entry| match entry.item.data {
+            Some(ContentItem::Track(track)) => normalize(track),
+            Some(ContentItem::Unknown) | None => Ok(ProviderPlaylistEntry {
+                occurrence_id: None,
+                item: ProviderPlaylistItem::Unknown {},
+            }),
+        })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Page {
         name: playlist.name,
@@ -122,7 +134,7 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
         .strip_prefix("spotify:track:")
         .filter(|id| valid_id(id))
         .ok_or(Error::InvalidResponse)?;
-    if track.kind != "Track" || track.artists.items.is_empty() || track.artists.items.len() > 32 {
+    if track.artists.items.is_empty() || track.artists.items.len() > 32 {
         return Err(Error::InvalidResponse);
     }
     let artist = track

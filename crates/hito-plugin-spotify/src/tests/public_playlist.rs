@@ -1,6 +1,6 @@
 use super::{
     Server,
-    public_fixture::{Fixture, PLAYLIST_ID},
+    public_fixture::{Fixture, PLAYLIST_ID, owned_entry},
 };
 use crate::{Config, router};
 use axum::http::StatusCode;
@@ -185,6 +185,83 @@ async fn public_items_pin_order_and_duplicates_while_canonical_detail_refreshes_
             "query:100"
         ]
     );
+}
+
+#[tokio::test]
+async fn public_items_preserve_unknown_positions_and_reject_malformed_tracks() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
+    for malformed in [false, true] {
+        let mut track = owned_entry(0);
+        if malformed {
+            track["itemV2"]["data"]
+                .as_object_mut()
+                .unwrap()
+                .remove("uri");
+        }
+        let fixture = Fixture::with_entries(vec![
+            track,
+            json!({"itemV2": {"__typename": "PlaylistTrack", "data": null}}),
+            json!({"itemV2": {"__typename": "PlaylistFutureItem", "data": {
+                "__typename": "FutureContent", "name": "Owned unsupported item"
+            }}}),
+            owned_entry(1),
+        ])
+        .await;
+        let plugin = Server::start(
+            router(Config {
+                public_base: fixture.server.url.clone(),
+                query_endpoint: fixture.server.url.join("pathfinder/v2/query").unwrap(),
+            })
+            .unwrap(),
+        )
+        .await;
+        let response = client
+            .post(plugin.url.join("v1/playlists/detail").unwrap())
+            .json(&json!({"kind": "canonical", "playlist_id": PLAYLIST_ID}))
+            .send()
+            .await
+            .unwrap();
+        if malformed {
+            assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+            assert_eq!(
+                response.json::<serde_json::Value>().await.unwrap(),
+                json!({
+                    "error": "Spotify returned an invalid playlist response"
+                })
+            );
+        } else {
+            assert_eq!(response.status(), StatusCode::OK);
+            let playlist = response.json::<ProviderPlaylist>().await.unwrap();
+            playlist.validate().unwrap();
+            assert_eq!(playlist.total_count, 4);
+            let page = read_page(&client, &plugin, &playlist, None).await;
+            assert_eq!(page.items.len(), 4);
+            assert!(page.next_cursor.is_none());
+            assert!(page.items.iter().all(|entry| entry.occurrence_id.is_none()));
+            assert!(matches!(
+                page.items[1].item,
+                ProviderPlaylistItem::Unknown {}
+            ));
+            assert!(matches!(
+                page.items[2].item,
+                ProviderPlaylistItem::Unknown {}
+            ));
+            for (position, number) in [(0, 1), (3, 2)] {
+                let ProviderPlaylistItem::Recording { recording } = &page.items[position].item
+                else {
+                    panic!("Expected an owned recording at its original position");
+                };
+                assert_eq!(recording.id, format!("{number:022}"));
+                recording.validate().unwrap();
+            }
+        }
+        assert_eq!(*fixture.calls.lock().unwrap(), ["embed", "query:0"]);
+    }
 }
 
 async fn read_page(

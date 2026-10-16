@@ -25,6 +25,11 @@ pub(super) struct Fixture {
 
 impl Fixture {
     pub async fn start() -> Self {
+        Self::with_entries((0..101).map(owned_entry).collect()).await
+    }
+
+    pub async fn with_entries(entries: Vec<Value>) -> Self {
+        let entries = Arc::new(entries);
         let calls = Arc::new(Mutex::new(Vec::new()));
         let tail_changed = Arc::new(AtomicBool::new(false));
         let embed_calls = calls.clone();
@@ -50,6 +55,7 @@ impl Fixture {
                     post(move |headers: HeaderMap, uri: Uri, Json(body): Json<Value>| {
                         let calls = query_calls.clone();
                         let changed = changed.clone();
+                        let entries = entries.clone();
                         async move {
                             assert_eq!(uri.path_and_query().unwrap().as_str(), "/pathfinder/v2/query");
                             assert!(headers.get("authorization").is_some_and(|value| value == "Bearer owned-anonymous-bootstrap-token"));
@@ -70,10 +76,11 @@ impl Fixture {
                                 }}
                             }));
                             calls.lock().unwrap().push(format!("query:{offset}"));
-                            let end = (offset + 100).min(101);
+                            let total = entries.len() as u64;
+                            let end = (offset + 100).min(total);
                             let items: Vec<_> = (offset..end)
                                 .map(|position| {
-                                    let mut entry = owned_entry(position);
+                                    let mut entry = entries[position as usize].clone();
                                     if position == 100 && changed.load(Ordering::SeqCst) {
                                         entry["itemV2"]["data"]["uri"] = json!(format!("spotify:track:{:022}", 999));
                                         entry["itemV2"]["data"]["name"] = json!("Owned revised tail recording");
@@ -89,8 +96,8 @@ impl Fixture {
                                     "name": "Owned public playlist fixture",
                                     "content": {
                                         "items": items,
-                                        "totalCount": 101,
-                                        "pagingInfo": {"nextOffset": if end < 101 { Some(end) } else { None }}
+                                        "totalCount": total,
+                                        "pagingInfo": {"nextOffset": if end < total { Some(end) } else { None }}
                                     }
                                 }}
                             }))
@@ -124,7 +131,7 @@ pub(super) fn bootstrap_html(token: &str) -> Html<String> {
     ))
 }
 
-fn owned_entry(position: u64) -> Value {
+pub(super) fn owned_entry(position: u64) -> Value {
     let recording = if position == 100 { 1 } else { position + 1 };
     json!({
         "itemV2": {
