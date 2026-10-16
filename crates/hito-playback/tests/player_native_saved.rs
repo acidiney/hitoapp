@@ -15,6 +15,55 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
+async fn missing_and_saved_zero_positions_start_with_real_audio_at_the_current_speed() {
+    for saved_zero in [false, true] {
+        let mut f = fixture::Navigation::split().await;
+        if saved_zero {
+            support::synchronize(
+                &f.source.services,
+                &f.source.actor,
+                vec![Action::ProgressSet {
+                    recording_id: Uuid::parse_str(&f.source.recording).unwrap(),
+                    position_ms: 0,
+                    speed: 2.5,
+                }],
+            )
+            .await;
+        }
+        f.send(PlayerAction::Speed { rate: 1500 }).await;
+        let capture = capture::Capture::open();
+        f.send(PlayerAction::ResumeSaved {}).await;
+        tokio::time::timeout(
+            Duration::from_secs(3),
+            f.position.wait_for(|p| p.position_ms >= 150),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(f.position.borrow().position_ms < 1000);
+        assert_eq!(f.position.borrow().seek_id, None);
+        assert_eq!(f.state.borrow().speed, 1500);
+        capture.after(capture.mark(), 0.2);
+        assert!(capture::amplitude(&capture.recent(0.1), 440.) > 0.1);
+        f.send(PlayerAction::Pause {}).await;
+        f.owner.close().await.unwrap();
+        let progress = f
+            .source
+            .services
+            .collection
+            .saved_position(
+                &f.source.actor,
+                Uuid::parse_str(&f.source.recording).unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(progress.position_ms >= 150);
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
 async fn saved_start_loads_current_core_position_before_the_first_presented_audio() {
     let mut f = fixture::Navigation::split().await;
     let recording = Uuid::parse_str(&f.source.recording).unwrap();

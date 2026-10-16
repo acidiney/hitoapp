@@ -14,6 +14,11 @@ pub(super) struct Restoration {
     pub id: Uuid,
     pub position_ms: u64,
 }
+#[derive(Clone, Copy)]
+pub(super) struct Restored {
+    pub id: Uuid,
+    pub baseline_ms: u64,
+}
 enum Status {
     Waiting,
     Ready(u64),
@@ -79,7 +84,7 @@ impl Owned {
                 saved.listened
                     || saved.restoration().zip(update.restored).is_some_and(
                         |(desired, restored)| {
-                            restored.id == desired.id && update.position_ms > restored.position_ms
+                            restored.id == desired.id && update.position_ms > restored.baseline_ms
                         },
                     )
             }

@@ -1,3 +1,4 @@
+use super::super::loading::{Restoration, Restored};
 use super::{Target, Update};
 use crate::{PlayerError, PlayerPhase, Session, Status};
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -5,7 +6,7 @@ use uuid::Uuid;
 
 type Pending<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 struct Applied {
-    restored: Option<super::super::loading::Restoration>,
+    restored: Option<Restored>,
     seek_id: Option<Uuid>,
     volume: u16,
     speed: u16,
@@ -13,8 +14,8 @@ struct Applied {
 #[derive(Default)]
 pub(super) struct Controls {
     configured: bool,
-    restoration: Option<super::super::loading::Restoration>,
-    restored: Option<super::super::loading::Restoration>,
+    restoration: Option<Restoration>,
+    restored: Option<Restored>,
     applied_seek: Option<Uuid>,
     applied_volume: Option<u16>,
     applied_speed: Option<u16>,
@@ -26,7 +27,7 @@ impl Controls {
     pub fn busy(&self) -> bool {
         self.pending.is_some()
     }
-    pub fn request_restoration(&mut self, restoration: super::super::loading::Restoration) {
+    pub fn request_restoration(&mut self, restoration: Restoration) {
         self.request_seek(restoration.position_ms);
         self.restoration = Some(restoration);
     }
@@ -86,9 +87,9 @@ impl Controls {
                     session.command(crate::Command::Seek(position)).await?;
                 }
                 let restored = if let Some(restoration) = restoration {
-                    Some(super::super::loading::Restoration {
+                    Some(Restored {
                         id: restoration.id,
-                        position_ms: session
+                        baseline_ms: session
                             .snapshot()
                             .position
                             .as_millis()

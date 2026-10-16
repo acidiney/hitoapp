@@ -38,7 +38,7 @@ pub(super) struct Update {
     pub position_ms: u64,
     pub duration_ms: Option<u64>,
     pub seek_id: Option<Uuid>,
-    pub restored: Option<super::loading::Restoration>,
+    pub restored: Option<super::loading::Restored>,
     pub ended: bool,
     pub exhausted: bool,
     pub error: Option<PlayerError>,
