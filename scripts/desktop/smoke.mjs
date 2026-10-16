@@ -253,7 +253,9 @@ try {
       state.repeat === "all" &&
       !state.desired_playing &&
       silent() &&
-      (await exists('button[aria-label="Repeat: all"]'))
+      (await execute(
+        "return document.querySelector('button[aria-label=\"Repeat: all\"]')?.disabled === false",
+      ))
     );
   }, "native mode reattachment after reload");
   for (const [before, after] of [
