@@ -42,8 +42,8 @@ export class NativePlayback implements Player {
   readonly mode = "native";
   readonly supports = {
     previous: true,
-    shuffle: false,
-    repeat: false,
+    shuffle: true,
+    repeat: true,
     speed: false,
   };
   private view = emptyView();
@@ -187,6 +187,8 @@ export class NativePlayback implements Player {
       playing: value.playing,
       desiredPlaying: value.desired_playing,
       canPrevious: value.can_previous,
+      shuffle: value.shuffle,
+      repeat: value.repeat,
       loading:
         value.phase === "resolving" ||
         value.phase === "opening" ||

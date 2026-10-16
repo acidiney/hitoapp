@@ -9,6 +9,8 @@ export function nativeService() {
     current_index: null,
     current: null,
     can_previous: false,
+    shuffle: false,
+    repeat: "off",
     source_id: null,
     desired_playing: false,
     playing: false,

@@ -22,15 +22,14 @@ export default function PlaybackControls() {
     player.mode === "native"
       ? !!player.queueSnapshot().currentEntry
       : !!state.current;
+  const queued = player.queueSnapshot().total > 0;
   return (
     <div className="transport">
       <div className="transport-buttons">
         <button
           className={`icon-button ${state.shuffle ? "selected" : ""}`}
           disabled={
-            !selected ||
-            !player.supports.shuffle ||
-            state.connection !== "ready"
+            !queued || !player.supports.shuffle || state.connection !== "ready"
           }
           title={
             !player.supports.shuffle
@@ -83,7 +82,7 @@ export default function PlaybackControls() {
         <button
           className={`icon-button ${state.repeat !== "off" ? "selected" : ""}`}
           disabled={
-            !selected || !player.supports.repeat || state.connection !== "ready"
+            !queued || !player.supports.repeat || state.connection !== "ready"
           }
           title={
             !player.supports.repeat

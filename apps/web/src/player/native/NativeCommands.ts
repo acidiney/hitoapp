@@ -81,8 +81,12 @@ export class NativeCommands {
     await this.run([{ kind: "previous" }]);
   };
   speed = (_value: number) => this.unsupported("Playback speed");
-  repeat = () => this.unsupported("Repeat");
-  shuffle = () => this.unsupported("Shuffle");
+  repeat = () => {
+    void this.run([{ kind: "repeat" }]);
+  };
+  shuffle = () => {
+    void this.run([{ kind: "shuffle" }]);
+  };
   invalidate() {
     this.intention++;
   }

@@ -128,6 +128,8 @@ test("native views page a large queue and isolate position frames from queue and
     selection: 1,
     queue_len: 100000,
     can_previous: true,
+    shuffle: false,
+    repeat: "off",
     current_index: 50123,
     current: { id: "entry-50123", recording_id: "recording-50123" },
     source_id: null,
