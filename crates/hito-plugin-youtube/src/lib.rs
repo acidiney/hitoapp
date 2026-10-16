@@ -8,9 +8,9 @@ use axum::{
     http::StatusCode,
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
 };
-use hito_plugin_sdk::{SearchPage, SearchRequest};
+use hito_plugin_sdk::{Capability, Manifest, PROTOCOL_VERSION, SearchPage, SearchRequest};
 use std::{
     path::PathBuf,
     sync::{
@@ -51,6 +51,7 @@ impl Service {
 
     pub fn router(&self) -> Router {
         Router::new()
+            .route("/v1/manifest", get(manifest))
             .route("/v1/search", post(search))
             .layer(DefaultBodyLimit::max(4096))
             .layer(from_fn(observe))
@@ -69,6 +70,16 @@ pub fn router(config: Config) -> Router {
     Service::new(config).router()
 }
 
+async fn manifest() -> Json<Manifest> {
+    Json(Manifest {
+        id: "org.hito.youtube".into(),
+        name: "YouTube".into(),
+        protocol_version: PROTOCOL_VERSION,
+        capabilities: [Capability::Search].into(),
+        authorization: None,
+    })
+}
+
 async fn search(
     State(extractor): State<Arc<extractor::Extractor>>,
     payload: Result<Json<SearchRequest>, JsonRejection>,
@@ -85,6 +96,7 @@ async fn observe(request: Request, next: Next) -> Response {
     static SEQUENCE: AtomicU64 = AtomicU64::new(1);
     let request_id = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let operation = match request.uri().path() {
+        "/v1/manifest" => "manifest",
         "/v1/search" => "search",
         _ => "unknown",
     };
