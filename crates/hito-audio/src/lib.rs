@@ -16,6 +16,8 @@ mod render;
 #[cfg(feature = "device")]
 mod state;
 #[cfg(feature = "device")]
+mod tempo;
+#[cfg(feature = "device")]
 mod worker;
 
 #[cfg(feature = "device")]

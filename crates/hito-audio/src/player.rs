@@ -174,6 +174,44 @@ impl Player {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
+    pub fn speed(&mut self, value: f32) -> Result<()> {
+        if !value.is_finite() || !(0.5..=3.).contains(&value) {
+            return Err(Error::InvalidControl);
+        }
+        if self.state.stopped.load(Ordering::Acquire) {
+            return Err(Error::Interrupted);
+        }
+        let snapshot = self.snapshot();
+        if let Some(error) = snapshot.error {
+            return Err(error);
+        }
+        self.state.playing.store(false, Ordering::Release);
+        self.state.seek_requested.store(true, Ordering::Release);
+        let (reply, applied) = mpsc::sync_channel(1);
+        self.commands
+            .send(Control::Speed {
+                value,
+                position: snapshot.position,
+                reply,
+            })
+            .map_err(|_| Error::Worker)?;
+        let result = applied.recv().map_err(|_| Error::Worker)?;
+        if let Err(error) = result {
+            self.state.fail(error);
+            return Err(error);
+        }
+        self.state
+            .playing
+            .store(snapshot.playing, Ordering::Release);
+        tracing::debug!(
+            event = "audio_speed_changed",
+            speed = value,
+            "Audio playback speed changed"
+        );
+        Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(audio_id = self.id))]
     fn finish(&mut self) -> Result<()> {
         if self.worker.is_none() {
             return Ok(());

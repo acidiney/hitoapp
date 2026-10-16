@@ -1,4 +1,4 @@
-use crate::{Decoder, Error, Result, device::Output, render::Frame, state::State};
+use crate::{Decoder, Error, Result, device::Output, render::Frame, state::State, tempo::Tempo};
 use rtrb::Producer;
 use std::{
     sync::{
@@ -14,16 +14,22 @@ pub(crate) enum Control {
         position: Duration,
         reply: SyncSender<Result<()>>,
     },
+    Speed {
+        value: f32,
+        position: Duration,
+        reply: SyncSender<Result<()>>,
+    },
     Stop,
     Recover,
 }
 
 pub(crate) fn run(
-    mut decoder: Decoder,
+    decoder: Decoder,
     commands: Receiver<Control>,
     state: Arc<State>,
     ready: SyncSender<Result<()>>,
 ) -> Result<()> {
+    let mut decoder = Tempo::new(decoder);
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let (mut producer, output) = Output::start(format, state.clone())?;
@@ -33,7 +39,6 @@ pub(crate) fn run(
     let mut xruns = 0;
     let mut notices = 0;
     let mut finished = false;
-    let mut position = 0;
     let mut pending = None;
     let mut resets = 0;
     let mut last_reset = Duration::ZERO;
@@ -66,7 +71,20 @@ pub(crate) fn run(
                         epoch = next;
                     }
                     finished = false;
-                    position = nanos(target);
+                    state.seek_requested.store(false, Ordering::Release);
+                    let _ = reply.send(result.map(|_| ()));
+                    result?;
+                }
+                Control::Speed {
+                    value,
+                    position: target,
+                    reply,
+                } => {
+                    let result = decoder.speed(value, target).map(|_| reset(&state, target));
+                    if let Ok(next) = result {
+                        epoch = next;
+                    }
+                    finished = false;
                     state.seek_requested.store(false, Ordering::Release);
                     let _ = reply.send(result.map(|_| ()));
                     result?;
@@ -88,7 +106,6 @@ pub(crate) fn run(
             output.take();
             state.output_failure.store(0, Ordering::Release);
             epoch = reposition(&mut decoder, &state, target)?;
-            position = nanos(target);
             finished = false;
             let (next, replacement) = Output::start(format, state.clone())?;
             producer = next;
@@ -123,11 +140,9 @@ pub(crate) fn run(
         };
         if let Some(block) = block {
             for (index, samples) in block.samples.chunks_exact(channels).enumerate() {
-                position = nanos(
-                    block.position
-                        + Duration::from_secs_f64(
-                            (index + 1) as f64 / f64::from(format.sample_rate),
-                        ),
+                let position = nanos(
+                    (block.position + Duration::from_secs_f64((index + 1) as f64 * block.step))
+                        .min(block.end),
                 );
                 let mut audio = [0.; 2];
                 audio[..channels].copy_from_slice(samples);
@@ -147,6 +162,7 @@ pub(crate) fn run(
                 }
             }
         } else {
+            let position = nanos(decoder.end());
             if let Some(control) = send(
                 Frame::End { position, epoch },
                 &mut producer,
@@ -162,10 +178,14 @@ pub(crate) fn run(
     }
 }
 
-fn reposition(decoder: &mut Decoder, state: &State, position: Duration) -> Result<u64> {
+fn reposition(decoder: &mut Tempo, state: &State, position: Duration) -> Result<u64> {
     decoder.seek(position)?;
+    Ok(reset(state, position))
+}
+
+fn reset(state: &State, position: Duration) -> u64 {
     state.base.store(nanos(position), Ordering::Release);
-    Ok(state.epoch.fetch_add(1, Ordering::AcqRel) + 1)
+    state.epoch.fetch_add(1, Ordering::AcqRel) + 1
 }
 
 fn nanos(position: Duration) -> u64 {
