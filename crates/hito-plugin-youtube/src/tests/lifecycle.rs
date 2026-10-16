@@ -162,15 +162,15 @@ async fn shutdown_terminates_and_reaps_owned_work_before_rejecting_new_searches(
     assert_eq!(calls, 2, "Shutdown admitted another executable invocation");
 }
 
-struct ProcessIdentity {
-    pid: u32,
-    group: u32,
+pub(super) struct ProcessIdentity {
+    pub(super) pid: u32,
+    pub(super) group: u32,
     started: u64,
     state: char,
 }
 
 impl ProcessIdentity {
-    fn read(path: &Path) -> io::Result<Self> {
+    pub(super) fn read(path: &Path) -> io::Result<Self> {
         let value = fs::read_to_string(path)?;
         let invalid = || io::Error::other("Invalid owned fixture process identity");
         let pid = value
@@ -204,7 +204,7 @@ impl ProcessIdentity {
         })
     }
 
-    fn running(&self) -> io::Result<bool> {
+    pub(super) fn running(&self) -> io::Result<bool> {
         match Self::read(Path::new(&format!("/proc/{}/stat", self.pid))) {
             Ok(current) => Ok(current.pid == self.pid
                 && current.started == self.started
@@ -214,7 +214,7 @@ impl ProcessIdentity {
         }
     }
 
-    fn present(&self) -> io::Result<bool> {
+    pub(super) fn present(&self) -> io::Result<bool> {
         match Self::read(Path::new(&format!("/proc/{}/stat", self.pid))) {
             Ok(current) => Ok(current.pid == self.pid && current.started == self.started),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
@@ -242,7 +242,7 @@ impl Drop for ReleaseOnDrop {
     }
 }
 
-struct HeldReleaseOnDrop(PathBuf);
+pub(super) struct HeldReleaseOnDrop(pub(super) PathBuf);
 
 impl Drop for HeldReleaseOnDrop {
     fn drop(&mut self) {
