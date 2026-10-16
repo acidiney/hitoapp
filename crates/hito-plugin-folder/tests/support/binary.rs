@@ -94,8 +94,17 @@ impl Service {
         let mut service = Self::spawn(music, state, log);
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
-            if let Some(status) = service.child.try_wait().unwrap() {
-                let logs = fs::read_to_string(log).unwrap();
+            let status = service.child.try_wait().unwrap();
+            let logs = fs::read_to_string(log).unwrap();
+            assert!(
+                !logs.contains("folder_service_ready"),
+                "failed startup published HTTP: {logs}"
+            );
+            assert!(
+                !logs.contains("folder_registry_committed"),
+                "failed startup committed a partial generation: {logs}"
+            );
+            if let Some(status) = status {
                 assert_eq!(status.code(), Some(1), "unexpected startup exit: {logs}");
                 assert!(
                     logs.contains("folder_service_failed"),
@@ -104,14 +113,6 @@ impl Service {
                 assert!(
                     logs.contains("startup_failed"),
                     "missing failure outcome: {logs}"
-                );
-                assert!(
-                    !logs.contains("folder_service_ready"),
-                    "failed startup published HTTP: {logs}"
-                );
-                assert!(
-                    !logs.contains("folder_registry_committed"),
-                    "failed startup committed a partial generation: {logs}"
                 );
                 return;
             }
