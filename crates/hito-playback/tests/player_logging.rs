@@ -191,7 +191,7 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         (2, PlayerAction::Shuffle {}),
         (3, PlayerAction::Repeat {}),
         (4, PlayerAction::Speed { rate: 2000 }),
-        (5, PlayerAction::Resume {}),
+        (5, PlayerAction::ResumeSaved {}),
     ] {
         player
             .submit(
@@ -249,6 +249,8 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         "player_repeat_changed",
         "player_speed_changed",
         "player_controls_applied",
+        "player_saved_load_started",
+        "player_saved_load_finished",
     ] {
         let changed = events
             .iter()

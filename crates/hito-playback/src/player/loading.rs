@@ -75,9 +75,11 @@ impl Owned {
             Status::Superseded => true,
             Status::Ready(_) => {
                 saved.listened
-                    || update.restored.is_some_and(|restored| {
-                        restored.id == saved.id && update.position_ms > restored.position_ms
-                    })
+                    || saved.restoration().zip(update.restored).is_some_and(
+                        |(desired, restored)| {
+                            restored.id == desired.id && update.position_ms > restored.position_ms
+                        },
+                    )
             }
         }
     }

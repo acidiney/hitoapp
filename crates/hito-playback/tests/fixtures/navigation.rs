@@ -65,6 +65,28 @@ impl Navigation {
             .entries;
         fixture
     }
+    pub async fn reattach(&mut self) {
+        let attached = self
+            .player
+            .claim(
+                &self.source.actor,
+                self.player.inspect(&self.source.actor).await.unwrap().epoch,
+            )
+            .await
+            .unwrap();
+        self.lease = attached.lease;
+        self.sequence = 0;
+        self.state = self
+            .player
+            .subscribe(&self.source.actor, self.lease)
+            .await
+            .unwrap();
+        self.position = self
+            .player
+            .subscribe_position(&self.source.actor, self.lease)
+            .await
+            .unwrap();
+    }
     pub fn request(&self, action: PlayerAction) -> PlayerCommand {
         PlayerCommand {
             id: Uuid::new_v4(),
