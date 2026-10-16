@@ -46,6 +46,8 @@ const shared = {
   user: { id: "alice", username: "Alice", admin: true },
   libraries: [],
   playlists: [],
+  connections: [],
+  service_names: {},
 };
 function deferred<T>() {
   let resolve!: (value: T) => void;
