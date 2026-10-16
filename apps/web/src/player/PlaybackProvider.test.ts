@@ -7,6 +7,7 @@ import { NoticeBanner, NoticeProvider } from "../components/Notices";
 import type { Player } from "./model";
 import type { SyncReceipt } from "../types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
+import { nativeService } from "./native/fixtures/service";
 
 vi.mock("../api", () => ({
   change: vi.fn(),
@@ -16,6 +17,57 @@ vi.mock("../api", () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+test("native account playback creates no browser audio and disposes old account commands and streams", async () => {
+  const service = nativeService();
+  const audio = vi.fn(() => {
+    throw new Error("Native playback must not create browser audio");
+  });
+  vi.stubGlobal("Audio", audio);
+  let player!: Player;
+  function Capture() {
+    player = usePlayer();
+    return createElement("span", null, player.mode);
+  }
+  const view = (account: string) =>
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(PlaybackProvider, {
+        account,
+        native: true,
+        children: createElement(Capture),
+      }),
+    );
+  const { rerender } = render(view("alice"));
+  await screen.findByText("native");
+  await vi.waitFor(() => expect(service.claims).toBe(1));
+  const prepared = player.prepareSelection();
+  const signals = vi
+    .mocked(fetch)
+    .mock.calls.filter(
+      ([, options]) =>
+        (options?.headers as Record<string, string>)?.["x-hito-account"] ===
+        "alice",
+    )
+    .map(([, options]) => options?.signal);
+  rerender(view("bob"));
+  await vi.waitFor(() => expect(service.claims).toBe(2));
+  expect(signals.every((signal) => signal?.aborted)).toBe(true);
+  expect(
+    await prepared({
+      id: "late",
+      title: "Private",
+      artist: "Alice",
+      duration_ms: 1,
+      available: true,
+    }),
+  ).toBe(false);
+  expect(audio).not.toHaveBeenCalled();
+  expect(document.querySelectorAll("audio")).toHaveLength(0);
+  expect(service.commands).toHaveLength(0);
 });
 
 test("account playback aborts progress and replaces its account-bound resources", async () => {

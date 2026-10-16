@@ -12,24 +12,31 @@ import { Playback } from "../playback";
 import type { Player } from "./model";
 import { log } from "../log";
 import { useRequestScope } from "../hooks/useRequestScope";
+import { NativePlayback } from "./native/NativePlayback";
 
 const PlaybackContext = createContext<Player | null>(null);
 
 export function PlaybackProvider({
   account,
+  native = false,
   children,
 }: {
   account: string;
+  native?: boolean;
   children: ReactNode;
 }) {
-  return (
-    <AccountPlayback key={account} account={account}>
+  return native ? (
+    <NativeAccountPlayback key={account} account={account}>
       {children}
-    </AccountPlayback>
+    </NativeAccountPlayback>
+  ) : (
+    <BrowserAccountPlayback key={account} account={account}>
+      {children}
+    </BrowserAccountPlayback>
   );
 }
 
-function AccountPlayback({
+function BrowserAccountPlayback({
   account,
   children,
 }: {
@@ -75,6 +82,35 @@ function AccountPlayback({
       audio.remove();
     };
   }, [account, audio, player]);
+  return (
+    <PlaybackContext.Provider value={player}>
+      {children}
+    </PlaybackContext.Provider>
+  );
+}
+
+function NativeAccountPlayback({
+  account,
+  children,
+}: {
+  account: string;
+  children: ReactNode;
+}) {
+  const [player] = useState(() => new NativePlayback(account));
+  useEffect(() => {
+    log.info("playback.account_opened", {
+      account_id: account,
+      mode: "native",
+    });
+    void player.reconnect();
+    return () => {
+      log.info("playback.account_closed", {
+        account_id: account,
+        mode: "native",
+      });
+      player.close();
+    };
+  }, [account, player]);
   return (
     <PlaybackContext.Provider value={player}>
       {children}

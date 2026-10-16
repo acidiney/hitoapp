@@ -58,7 +58,9 @@ export async function request(path: string, options: RequestOptions) {
   };
   if (response.ok) {
     const accepted =
-      options.action === "job.status" || options.action === "progress.save"
+      options.action === "job.status" ||
+      options.action === "progress.save" ||
+      options.action.startsWith("native.")
         ? log.debug
         : log.info;
     accepted("http.response", result);

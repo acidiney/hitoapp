@@ -18,7 +18,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   }, [page.component, page.url, user.id]);
   return (
     <NoticeProvider key={user.id}>
-      <PlaybackProvider account={user.id}>
+      <PlaybackProvider account={user.id} native={page.props.native_playback}>
         <a className="skip-link" href="#main">
           Skip to library
         </a>
