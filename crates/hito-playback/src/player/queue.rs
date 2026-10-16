@@ -101,10 +101,13 @@ impl Queue {
                     }));
             }
             PlayerAction::Next {} => {
-                self.current = self
-                    .current
-                    .filter(|index| *index + 1 < self.entries.len())
-                    .map(|index| index + 1)
+                self.current = self.current.and_then(|index| {
+                    if index + 1 < self.entries.len() {
+                        Some(index + 1)
+                    } else {
+                        (self.repeat == PlayerRepeat::All).then_some(0)
+                    }
+                });
             }
             PlayerAction::Previous {} => {
                 let Some(entry) = self.previous_entry() else {

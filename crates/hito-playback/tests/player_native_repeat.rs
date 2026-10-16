@@ -64,3 +64,48 @@ async fn repeat_one_restarts_only_natural_completion_and_receipt_replay_cannot_c
     assert_eq!(mode(&f.state.borrow()), "off");
     f.owner.close().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn repeat_all_wraps_natural_and_requested_advancement_without_reordering_occurrences() {
+    let mut f = fixture::Navigation::start(2, 1).await;
+    f.send(repeat()).await;
+    f.send(PlayerAction::Resume {}).await;
+    f.playing(f.entries[1].id).await;
+    f.send(PlayerAction::Seek { position_ms: 9900 }).await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        f.state.wait_for(|state| {
+            state.selection == 2
+                && state
+                    .current
+                    .is_some_and(|current| current.id == f.entries[0].id)
+                && state.playing
+        }),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    f.send(PlayerAction::Pause {}).await;
+    f.send(PlayerAction::Select {
+        entry: f.entries[1].id,
+    })
+    .await;
+    f.send(PlayerAction::Next {}).await;
+    assert_eq!(f.state.borrow().current.unwrap().id, f.entries[0].id);
+    assert!(!f.state.borrow().desired_playing);
+    let revision = f.state.borrow().revision;
+    let page = f
+        .player
+        .queue(&f.source.actor, f.lease, revision, 0, 2)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.entries
+            .iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>(),
+        f.entries.iter().map(|entry| entry.id).collect::<Vec<_>>()
+    );
+    f.owner.close().await.unwrap();
+}
