@@ -67,7 +67,9 @@ The normal host inspection address will be `http://localhost:8092/v1/manifest`. 
 http://plugin-spotify:8092/
 ```
 
-An administrator offers that address once in Settings, Plugins, Services for this server. Each listener then selects the offer and uses Connect service with Bearer token empty. Once connected, that listener uses Playlists, Import, and Import a copy. The offer does not install the connection for every account.
+An administrator opens Settings, Plugins, Services for this server, enters `Spotify` as the service name and the internal address above, then selects Offer service. This makes the Connect a service form appear. Each listener selects Spotify there, leaves Bearer token empty, and selects Connect service. Once connected, that listener uses Playlists, Import, and Import a copy. The offer does not install the connection for every account. Automatic naming from the plugin manifest is being added; the deployed form still requires the name.
+
+The deployed import does not yet include playlist or album cover images. Artwork support and adding missing covers to existing copies are tracked in [the backlog](../TODO.md).
 
 The overlay binds the host port to loopback, runs the plugin as a non-root user with a read-only root filesystem, and mounts no Hito data volume. This is a local development configuration. Public release and remote hosting need their own acceptance evidence.
 
