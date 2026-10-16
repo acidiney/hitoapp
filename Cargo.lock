@@ -1721,6 +1721,7 @@ dependencies = [
  "bytes",
  "hito-audio",
  "hito-core",
+ "serde",
  "serde_json",
  "sqlx",
  "tempfile",
@@ -1729,6 +1730,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "utoipa",
  "uuid",
 ]
 
@@ -1749,6 +1751,7 @@ dependencies = [
  "axum",
  "futures-util",
  "hito-core",
+ "hito-playback",
  "hito-plugin-sdk",
  "http-body-util",
  "hyper",

@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 tokio-util.workspace = true
 hito-core = { path = "../hito-core" }
+hito-playback = { path = "../hito-playback", features = ["schema"] }
 hito-plugin-sdk = { path = "../hito-plugin-sdk", features = ["schema"] }
 axum.workspace = true
 tokio.workspace = true

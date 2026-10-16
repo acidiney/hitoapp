@@ -1,6 +1,9 @@
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum PlayerError {
     #[error("Sign in to continue")]
     Unauthorized,
@@ -39,7 +42,8 @@ impl From<hito_core::Error> for PlayerError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerSnapshot {
     pub revision: u64,
     pub selection: u64,
@@ -74,16 +78,21 @@ impl Default for PlayerSnapshot {
         }
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerFailure {
     pub entry: PlayerEntryRef,
     pub error: PlayerError,
 }
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerInspection {
     pub native: bool,
     pub epoch: Uuid,
     pub state: Option<PlayerSnapshot>,
 }
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerAttachment {
     pub native: bool,
     pub epoch: Uuid,
@@ -91,22 +100,29 @@ pub struct PlayerAttachment {
     pub state: PlayerSnapshot,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerEntryRef {
     pub id: Uuid,
     pub recording_id: Uuid,
 }
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerQueueEntry {
     pub id: Uuid,
     pub recording: hito_core::Recording,
 }
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerQueuePage {
     pub revision: u64,
     pub total: usize,
     pub offset: usize,
     pub entries: Vec<PlayerQueueEntry>,
 }
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PlayerCommand {
     pub id: Uuid,
     pub lease: Uuid,
@@ -114,7 +130,9 @@ pub struct PlayerCommand {
     pub revision: u64,
     pub action: PlayerAction,
 }
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlayerAction {
     Resume,
     Pause,
@@ -146,7 +164,9 @@ impl PlayerAction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum PlayerPhase {
     #[default]
     Idle,
@@ -157,7 +177,8 @@ pub enum PlayerPhase {
     Failed,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerPosition {
     pub entry: Option<Uuid>,
     pub selection: u64,
@@ -171,7 +192,8 @@ pub(super) struct Seek {
     pub id: Uuid,
     pub position_ms: u64,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerReceipt {
     pub id: Uuid,
     pub sequence: u64,
