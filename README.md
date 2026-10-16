@@ -71,7 +71,7 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 | `crates/hito-server`     | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
 | `crates/hito-desktop`    | Standalone local backend, private WebView access, application storage and exit lifecycle                |
 | `crates/hito-audio`      | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
-| `crates/hito-playback`   | Authorized local/provider input, native session supervision, revocation and joined cleanup               |
+| `crates/hito-playback`   | Authenticated queues, authorized native playback, revocation, and joined cleanup               |
 | `crates/hito-plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
 | `apps/web`               | Shared React UI and browser playback implementation                                                     |
 | `scripts`                | Deterministic audio fixtures                                                                            |

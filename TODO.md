@@ -27,8 +27,9 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Establish session-bound core playback grants with durable membership/provider revocation and cancellation of pending opens.
 - [x] Add an owned native session with authorized local/provider input, bounded range continuation, independent output revocation, and cleanup after canceled observers. Application integration remains open.
 - [x] Add bounded ordered recording lookup, retained-session write guards, cooperative provider refresh cancellation, and terminal native startup cancellation for application coordination.
-- [x] Own authenticated command admission and bounded paged queues with exact session/lease checks, stable occurrence IDs, revision/sequence fencing, and accepted-command receipt replay. Audio and application wiring remain open.
-- [ ] Connect native queue/source coordination, account/session command fencing, progress persistence, authenticated HTTP snapshots/controls, host shutdown, and the shared UI.
+- [x] Own authenticated command admission and bounded paged queues with exact session/lease checks, stable occurrence IDs, revision/sequence fencing, and accepted-command receipt replay.
+- [x] Drive authorized native output through that owner, with play/pause, separate position observations, natural queue advancement, same-session reattachment, account takeover/logout, and joined replacement/shutdown. Desktop/UI wiring remains open.
+- [ ] Complete native source recovery and controls, ordered progress persistence, authenticated HTTP snapshots/controls, host shutdown, and the shared UI.
 - [ ] Preserve private queue state across temporary authority/database failures while suspending output and rejecting unverified commands.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
@@ -111,7 +112,7 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-Current Docker Rust verification passes 233 default workspace cases, formatting, and Clippy with warnings denied. Cargo lists 234 default cases including one normally ignored enumeration fault case, which passed separately at the preceding checkpoint. The current playback check passes nineteen default input/command-owner cases, device-enabled Clippy, and six native-session monitor workflows. The preceding desktop check passed ten decoder/input cases, six callback/device regressions, eight CPAL monitor cases, eight GUI-feature Rust cases, the web production build, and the actual Linux Tauri workflow. Those broader device/GUI workflows were not rerun for the new, unconnected command/queue module. The application still uses browser audio. Native source/effect, HTTP/UI, host integration, and physical/platform acceptance remain open.
+The latest Docker verification and its limits are recorded in [current status](docs/status.md). The Rust command owner now drives authorized native output; the application still uses browser audio. Source recovery, ordered progress, native HTTP/UI and host integration, physical/platform acceptance, and the public-release gates remain open.
 
 The preceding full web verification passed 92 frontend cases, five Chromium workflows, generated contracts, zero audit vulnerabilities, and two setup CLI cases. No React or HTTP contract changed in this slice, and these suites were not rerun. Browser evidence covers folder administration, artist/album navigation, private metadata editing with continuous audio, plugin discovery/installation, account isolation, real expired-range recovery, and availability checks. See [current status and verification limits](docs/status.md).
 
