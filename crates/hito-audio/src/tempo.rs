@@ -1,5 +1,4 @@
-use crate::{AudioFormat, Decoder, Error, Result};
-use soundtouch::SoundTouch;
+use crate::{AudioFormat, Decoder, Error, Result, processor::Processor};
 use std::time::Duration;
 
 pub(crate) struct Block<'a> {
@@ -12,7 +11,7 @@ pub(crate) struct Block<'a> {
 
 pub(crate) struct Tempo {
     decoder: Decoder,
-    stretch: Option<SoundTouch>,
+    stretch: Option<Processor>,
     speed: f32,
     requested: Option<f32>,
     input: Vec<f32>,
@@ -46,7 +45,7 @@ impl Tempo {
         self.decoder.format()
     }
 
-    fn configure(&mut self, speed: f32) {
+    fn configure(&mut self, speed: f32) -> Result<()> {
         tracing::debug!(
             event = "audio_tempo_segment_started",
             speed,
@@ -58,13 +57,9 @@ impl Tempo {
         self.stretch = if speed == 1. {
             None
         } else {
-            let mut stretch = SoundTouch::new();
-            stretch
-                .set_sample_rate(self.format().sample_rate)
-                .set_channels(u32::from(self.format().channels))
-                .set_tempo(f64::from(speed));
-            Some(stretch)
+            Some(Processor::new(self.format(), speed)?)
         };
+        Ok(())
     }
 
     pub fn seek(&mut self, position: Duration) -> Result<()> {
@@ -73,8 +68,7 @@ impl Tempo {
         self.input_offset = 0;
         self.consumed = position;
         let speed = self.requested.take().unwrap_or(self.speed);
-        self.configure(speed);
-        Ok(())
+        self.configure(speed)
     }
 
     pub fn speed(&mut self, speed: f32) {
@@ -100,7 +94,7 @@ impl Tempo {
             }
             if self.requested.is_some() && !self.flushed {
                 if let Some(stretch) = &mut self.stretch {
-                    stretch.flush();
+                    stretch.flush()?;
                 }
                 self.flushed = true;
                 tracing::debug!(
@@ -112,7 +106,7 @@ impl Tempo {
             }
             let step = f64::from(self.speed) / f64::from(format.sample_rate);
             if let Some(stretch) = &mut self.stretch {
-                let frames = stretch.receive_samples(&mut self.output, 4096);
+                let frames = stretch.receive(&mut self.output)?;
                 if frames > 0 {
                     let position = self.position;
                     self.position = (position + Duration::from_secs_f64(frames as f64 * step))
@@ -127,7 +121,7 @@ impl Tempo {
                 }
             }
             if let Some(speed) = self.requested.take() {
-                self.configure(speed);
+                self.configure(speed)?;
                 continue;
             }
             if self.flushed {
@@ -136,7 +130,7 @@ impl Tempo {
             if self.input_offset == self.input.len() {
                 let Some(block) = self.decoder.read_until(&mut interrupted)? else {
                     if let Some(stretch) = &mut self.stretch {
-                        stretch.flush();
+                        stretch.flush()?;
                     }
                     self.flushed = true;
                     continue;
@@ -155,7 +149,7 @@ impl Tempo {
                     self.input_offset as f64 / channels as f64 / f64::from(format.sample_rate),
                 );
             if let Some(stretch) = &mut self.stretch {
-                stretch.put_samples(&self.input[start..self.input_offset], count / channels);
+                stretch.put(&self.input[start..self.input_offset])?;
             } else {
                 self.position = self.consumed;
                 return Ok(Some(Block {
