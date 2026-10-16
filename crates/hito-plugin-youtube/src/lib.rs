@@ -23,12 +23,48 @@ pub struct Config {
     pub executable: PathBuf,
 }
 
+pub struct Service {
+    extractor: Arc<extractor::Extractor>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutdownError {
+    CleanupFailed,
+}
+
+impl std::fmt::Display for ShutdownError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("The YouTube service could not finish process cleanup")
+    }
+}
+
+impl std::error::Error for ShutdownError {}
+
+impl Service {
+    pub fn new(config: Config) -> Self {
+        Self {
+            extractor: Arc::new(extractor::Extractor::new(config.executable)),
+        }
+    }
+
+    pub fn router(&self) -> Router {
+        Router::new()
+            .route("/v1/search", post(search))
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(from_fn(observe))
+            .with_state(self.extractor.clone())
+    }
+
+    pub async fn shutdown(&self) -> Result<(), ShutdownError> {
+        self.extractor
+            .shutdown()
+            .await
+            .map_err(|_| ShutdownError::CleanupFailed)
+    }
+}
+
 pub fn router(config: Config) -> Router {
-    Router::new()
-        .route("/v1/search", post(search))
-        .layer(DefaultBodyLimit::max(4096))
-        .layer(from_fn(observe))
-        .with_state(Arc::new(extractor::Extractor::new(config.executable)))
+    Service::new(config).router()
 }
 
 async fn search(
@@ -73,6 +109,7 @@ pub(crate) enum Error {
     InvalidResponse,
     Deadline,
     Canceled,
+    CleanupFailed,
 }
 
 impl Error {
@@ -84,6 +121,7 @@ impl Error {
             Self::InvalidResponse => "invalid_response",
             Self::Deadline => "deadline",
             Self::Canceled => "canceled",
+            Self::CleanupFailed => "cleanup_failed",
         }
     }
 }
@@ -96,7 +134,7 @@ impl IntoResponse for Error {
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The YouTube service is busy. Try again later",
             ),
-            Self::Unavailable | Self::Canceled => (
+            Self::Unavailable | Self::Canceled | Self::CleanupFailed => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The YouTube service is unavailable",
             ),

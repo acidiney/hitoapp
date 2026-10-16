@@ -11,6 +11,7 @@ hito-plugin-sdk = { path = "../hito-plugin-sdk" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+tokio-util = { workspace = true, features = ["rt"] }
 tracing.workspace = true
 
 [target.'cfg(unix)'.dependencies]

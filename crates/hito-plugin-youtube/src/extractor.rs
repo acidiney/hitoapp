@@ -10,8 +10,17 @@ use nix::{
     unistd::Pid,
 };
 use serde::Deserialize;
-use std::{future::Future, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    future::Future,
+    path::PathBuf,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::Instant,
+};
 use tokio::sync::{Semaphore, oneshot};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{Instrument, instrument::WithSubscriber};
 
 const MAX_RESPONSE_BYTES: usize = 262_144;
@@ -19,6 +28,10 @@ const MAX_RESPONSE_BYTES: usize = 262_144;
 pub(crate) struct Extractor {
     executable: PathBuf,
     slots: Arc<Semaphore>,
+    admission: Mutex<()>,
+    workers: TaskTracker,
+    stopped: CancellationToken,
+    failed: Arc<AtomicBool>,
 }
 
 impl Extractor {
@@ -26,38 +39,92 @@ impl Extractor {
         Self {
             executable,
             slots: Arc::new(Semaphore::new(2)),
+            admission: Mutex::new(()),
+            workers: TaskTracker::new(),
+            stopped: CancellationToken::new(),
+            failed: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub(crate) async fn search(&self, request: SearchRequest) -> Result<SearchPage, Error> {
-        let permit = self
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Error::Busy)?;
-        let executable = self.executable.clone();
-        let (mut sender, receiver) = oneshot::channel();
-        let dispatch = tracing::dispatcher::get_default(Clone::clone);
-        tokio::spawn(
-            async move {
-                let _permit = permit;
-                let started = Instant::now();
-                let result = run(executable, request.query, request.limit, sender.closed())
-                    .await
-                    .and_then(|bytes| normalize(&bytes, request.limit));
-                tracing::info!(
-                    event = "youtube_search_complete",
-                    outcome = result
-                        .as_ref()
-                        .map_or_else(|error| error.outcome(), |_| "complete"),
-                    elapsed_ms = started.elapsed().as_millis() as u64
-                );
-                let _ = sender.send(result);
+        let receiver = {
+            let _gate = self
+                .admission
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            if self.workers.is_closed() || self.failed.load(Ordering::Acquire) {
+                return Err(Error::Unavailable);
             }
-            .instrument(tracing::Span::current())
-            .with_subscriber(dispatch),
-        );
+            let permit = self
+                .slots
+                .clone()
+                .try_acquire_owned()
+                .map_err(|_| Error::Busy)?;
+            let executable = self.executable.clone();
+            let stopped = self.stopped.clone();
+            let failed = self.failed.clone();
+            let (mut sender, receiver) = oneshot::channel();
+            let dispatch = tracing::dispatcher::get_default(Clone::clone);
+            self.workers.spawn(
+                async move {
+                    let _permit = permit;
+                    let started = Instant::now();
+                    let canceled = async {
+                        tokio::select! {
+                            biased;
+                            _ = stopped.cancelled() => {},
+                            _ = sender.closed() => {},
+                        }
+                    };
+                    let result = run(executable, request.query, request.limit, canceled)
+                        .await
+                        .and_then(|bytes| normalize(&bytes, request.limit));
+                    if matches!(result, Err(Error::CleanupFailed)) {
+                        failed.store(true, Ordering::Release);
+                        stopped.cancel();
+                    }
+                    tracing::info!(
+                        event = "youtube_search_complete",
+                        outcome = result
+                            .as_ref()
+                            .map_or_else(|error| error.outcome(), |_| "complete"),
+                        elapsed_ms = started.elapsed().as_millis() as u64
+                    );
+                    let _ = sender.send(result);
+                }
+                .instrument(tracing::Span::current())
+                .with_subscriber(dispatch),
+            );
+            receiver
+        };
         receiver.await.map_err(|_| Error::Unavailable)?
+    }
+
+    pub(crate) async fn shutdown(&self) -> Result<(), Error> {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(1);
+        let shutdown_id = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let started = Instant::now();
+        {
+            let _gate = self
+                .admission
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            self.workers.close();
+            self.stopped.cancel();
+        }
+        self.workers.wait().await;
+        let failed = self.failed.load(Ordering::Acquire);
+        tracing::info!(
+            event = "youtube_shutdown_complete",
+            shutdown_id,
+            outcome = if failed { "cleanup_failed" } else { "complete" },
+            elapsed_ms = started.elapsed().as_millis() as u64
+        );
+        if failed {
+            Err(Error::CleanupFailed)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -75,6 +142,11 @@ async fn run(
         return Err(Error::Unavailable);
     }
     tokio::pin!(canceled);
+    tokio::select! {
+        biased;
+        _ = &mut canceled => return Err(Error::Canceled),
+        _ = std::future::ready(()) => {},
+    }
     let mut command = Command::new(executable);
     command
         .args([
@@ -194,6 +266,7 @@ async fn wait_for_exit(group: Pid) -> Result<(), Error> {
 
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 async fn stop(child: &mut tokio::process::Child, group: Pid) -> Result<(), Error> {
+    let deadline = Instant::now() + std::time::Duration::from_secs(2);
     let group_outcome = if child_status(group).is_ok() {
         let outcome = match killpg(group, Signal::SIGKILL) {
             Ok(()) => "signaled",
@@ -205,13 +278,98 @@ async fn stop(child: &mut tokio::process::Child, group: Pid) -> Result<(), Error
     } else {
         "ownership_lost"
     };
-    let reaped = child.wait().await.is_ok();
+    let stopped = if matches!(group_outcome, "signaled" | "gone") {
+        wait_group_stopped(group, deadline).await.is_ok()
+    } else {
+        false
+    };
+    let reaped = matches!(
+        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), child.wait()).await,
+        Ok(Ok(_))
+    );
     let outcome = if reaped { "reaped" } else { "reap_failed" };
-    tracing::debug!(event = "youtube_process_stopped", outcome, group_outcome);
-    if reaped && matches!(group_outcome, "signaled" | "gone") {
+    tracing::debug!(
+        event = "youtube_process_stopped",
+        outcome,
+        group_outcome,
+        terminated = stopped
+    );
+    if reaped && stopped {
         Ok(())
     } else {
-        Err(Error::Unavailable)
+        Err(Error::CleanupFailed)
+    }
+}
+
+#[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
+async fn wait_group_stopped(group: Pid, deadline: Instant) -> Result<(), Error> {
+    use std::io::Read;
+
+    const MAX_PASS_ENTRIES: usize = 4096;
+    const MAX_TOTAL_ENTRIES: usize = 8192;
+    const MAX_STAT_BYTES: usize = 4096;
+
+    let mut remaining = MAX_TOTAL_ENTRIES;
+    loop {
+        let mut running = false;
+        for (index, entry) in std::fs::read_dir("/proc")
+            .map_err(|_| Error::CleanupFailed)?
+            .enumerate()
+        {
+            if index >= MAX_PASS_ENTRIES || remaining == 0 || Instant::now() >= deadline {
+                return Err(Error::CleanupFailed);
+            }
+            remaining -= 1;
+            let entry = entry.map_err(|_| Error::CleanupFailed)?;
+            if !entry
+                .file_name()
+                .as_encoded_bytes()
+                .iter()
+                .all(u8::is_ascii_digit)
+            {
+                continue;
+            }
+            let file = match std::fs::File::open(entry.path().join("stat")) {
+                Ok(file) => file,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(_) => return Err(Error::CleanupFailed),
+            };
+            let mut value = Vec::new();
+            match file.take(MAX_STAT_BYTES as u64 + 1).read_to_end(&mut value) {
+                Ok(_) => {}
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::NotFound
+                        || error.raw_os_error() == Some(Errno::ESRCH as i32) =>
+                {
+                    continue;
+                }
+                Err(_) => return Err(Error::CleanupFailed),
+            }
+            if value.len() > MAX_STAT_BYTES {
+                return Err(Error::CleanupFailed);
+            }
+            let offset = value
+                .windows(2)
+                .rposition(|part| part == b") ")
+                .ok_or(Error::CleanupFailed)?
+                + 2;
+            let fields = std::str::from_utf8(&value[offset..]).map_err(|_| Error::CleanupFailed)?;
+            let fields: Vec<_> = fields.split_whitespace().collect();
+            let state = fields.first().ok_or(Error::CleanupFailed)?;
+            let owner: i32 = fields
+                .get(2)
+                .ok_or(Error::CleanupFailed)?
+                .parse()
+                .map_err(|_| Error::CleanupFailed)?;
+            if owner == group.as_raw() && !matches!(*state, "Z" | "X") {
+                running = true;
+                break;
+            }
+        }
+        if !running {
+            return Ok(());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
 }
 
