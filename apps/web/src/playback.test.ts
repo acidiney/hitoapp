@@ -23,6 +23,29 @@ class Media extends EventTarget implements MediaPort {
   }
 }
 
+test("selecting a healthy stable queue entry clears the previous source failure", async () => {
+  const player = new Playback(new Media(), async (id) =>
+    id === "failed" ? [] : [{ id: "source", ready: true }],
+  );
+  const track = (id: string) => ({
+    id,
+    title: id,
+    artist: "Fixture",
+    duration_ms: 10000,
+    available: true,
+  });
+  await player.playQueue([track("failed"), track("healthy")]);
+  expect(player.snapshot().error).toContain("Audio is unavailable");
+  const entries = await player.queuePage(0, 50);
+  await player.selectEntry(entries.entries[1].id);
+  expect(player.snapshot().current?.id).toBe("healthy");
+  expect(player.snapshot().playing).toBe(true);
+  expect(player.snapshot().error).toBe("");
+  expect(
+    (await player.queuePage(0, 50)).entries.map((entry) => entry.id),
+  ).toEqual(entries.entries.map((entry) => entry.id));
+});
+
 test("position observations do not notify structural playback subscribers", async () => {
   const audio = new Media();
   const player = new Playback(audio, async () => [

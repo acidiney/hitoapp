@@ -160,6 +160,7 @@ export class Playback implements Player {
     const index = this.entryIds.indexOf(entry);
     if (index < 0) return;
     this.failed.clear();
+    this.update({ error: "" });
     await this.open(index);
   }
   removeEntry(entry: string) {
