@@ -11,12 +11,19 @@ use std::{
 };
 
 pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
+    scan_with_inspector(path, inspection::inspect)
+}
+fn scan_with_inspector(
+    path: &Path,
+    mut inspect: impl FnMut(
+        Arc<Dir>,
+        std::ffi::OsString,
+        Instant,
+    ) -> Result<crate::catalog::Track, inspection::InspectionError>,
+) -> io::Result<Catalog> {
     let started = Instant::now();
     let deadline = started + Duration::from_secs(300);
-    if std::fs::symlink_metadata(path)?.file_type().is_symlink() {
-        return Err(io::Error::other("Folder root must not be a symlink"));
-    }
-    let root = Arc::new(Dir::open_ambient_dir(path, cap_std::ambient_authority())?);
+    let root = Arc::new(open_root(path)?);
     let mut pending = vec![(root, 0)];
     let mut tracks = BTreeMap::new();
     let mut visited = 0;
@@ -48,7 +55,7 @@ pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
                     pending.push((Arc::new(child), depth + 1));
                 }
             } else if kind.is_file() {
-                match inspection::inspect(directory.clone(), name, deadline) {
+                match inspect(directory.clone(), name, deadline) {
                     Ok(track) => {
                         bytes += track.stamp.size;
                         if bytes > 16 * 1024 * 1024 * 1024 || tracks.len() >= 10000 {
@@ -56,12 +63,19 @@ pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
                         }
                         tracks.entry(track.id.clone()).or_insert(track);
                     }
-                    Err(_) => skipped += 1,
+                    Err(inspection::InspectionError::Unavailable) => skipped += 1,
+                    Err(error) => return Err(error.into()),
                 }
             }
         }
     }
+    inspection::check(deadline)?;
     crate::releases::assign(&mut tracks);
+    let mut fingerprint = Sha256::new();
+    for id in tracks.keys() {
+        fingerprint.update(id.as_bytes());
+    }
+    inspection::check(deadline)?;
     tracing::info!(
         event = "folder_scan_complete",
         recordings = tracks.len(),
@@ -70,12 +84,80 @@ pub(crate) fn scan(path: &Path) -> io::Result<Catalog> {
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Folder catalog ready"
     );
-    let mut fingerprint = Sha256::new();
-    for id in tracks.keys() {
-        fingerprint.update(id.as_bytes());
-    }
     Ok(Catalog {
         tracks,
         fingerprint: format!("{:x}", fingerprint.finalize()),
     })
+}
+
+fn open_root(path: &Path) -> io::Result<Dir> {
+    let absolute = std::path::absolute(path)?;
+    let Some(parent) = absolute.parent() else {
+        return Dir::open_ambient_dir(absolute, cap_std::ambient_authority());
+    };
+    let name = absolute.file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Select a folder without a trailing parent component",
+        )
+    })?;
+    let parent = Dir::open_ambient_dir(parent, cap_std::ambient_authority())?;
+    parent.open_dir_nofollow(name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[allow(dead_code)]
+    mod fixture {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support/mod.rs"));
+    }
+    #[test]
+    fn deadline_failure_during_the_final_inspection_cannot_publish_a_partial_catalog() {
+        let directory = tempfile::tempdir().unwrap();
+        fixture::write_wav(
+            &directory.path().join("last.wav"),
+            Some("Deadline fixture"),
+            440,
+        );
+        let mut inspected = 0;
+        let result = scan_with_inspector(directory.path(), |directory, name, deadline| {
+            let track = inspection::inspect(directory, name, deadline)?;
+            assert_eq!(track.title, "Deadline fixture");
+            inspected += 1;
+            Err(inspection::InspectionError::Deadline)
+        });
+        assert_eq!(inspected, 1);
+        assert_eq!(
+            result
+                .err()
+                .expect("Final inspection timeout must fail the scan")
+                .kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+    #[test]
+    fn metadata_budget_failure_cannot_publish_a_partial_catalog() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("oversized.wav");
+        let mut bytes = fixture::write_wav(&path, None, 440);
+        let mut info = b"INFOINAM".to_vec();
+        let size = 9 * 1024 * 1024u32;
+        info.extend(size.to_le_bytes());
+        info.resize(info.len() + size as usize, b'x');
+        bytes.extend(b"LIST");
+        bytes.extend((info.len() as u32).to_le_bytes());
+        bytes.extend(info);
+        let size = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&size.to_le_bytes());
+        std::fs::write(&path, bytes).unwrap();
+        let result = crate::Folder::scan(directory.path());
+        assert_eq!(
+            result
+                .err()
+                .expect("Metadata budget exhaustion must fail the scan")
+                .kind(),
+            io::ErrorKind::InvalidData
+        );
+    }
 }
