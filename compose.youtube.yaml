@@ -1,0 +1,28 @@
+services:
+  plugin-youtube:
+    profiles: [plugins]
+    image: hito-plugin-youtube:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.plugin-youtube
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-youtube-${COMPOSE_PROJECT_NAME:-hito}
+    ports:
+      - "127.0.0.1:${HITO_YOUTUBE_PORT:-8093}:8093"
+    environment:
+      RUST_LOG: info
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    stop_grace_period: 15s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
