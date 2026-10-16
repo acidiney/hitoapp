@@ -13,48 +13,17 @@ import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import { NoticeProvider } from "./components/Notices";
-import type { PlaylistIndexPageProps, PluginInstallation } from "./types";
 import type { components } from "./generated";
+import {
+  playlistConnection as connection,
+  playlistImportPage as props,
+} from "./fixtures/playlistImports";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-const connection: PluginInstallation = {
-  id: "playlist-installation",
-  service_id: "playlist-service",
-  revision: 3,
-  checked_at: 1,
-  credential_set: false,
-  manifest: {
-    id: "org.hito.playlist-fixture",
-    name: "Playlist fixture",
-    protocol_version: 1,
-    capabilities: ["playlists"],
-  },
-};
-const props: PlaylistIndexPageProps = {
-  user: { id: "alice", username: "Alice", admin: false },
-  errors: {},
-  native_playback: false,
-  libraries: [],
-  playlists: [],
-  connections: [
-    {
-      ...connection,
-      id: "search-installation",
-      service_id: "search-service",
-      manifest: { ...connection.manifest, capabilities: ["search"] },
-    },
-    connection,
-  ],
-  service_names: {
-    "search-service": "Search collection",
-    "playlist-service": "Playlist collection",
-  },
-};
 
 afterEach(() => {
   cleanup();
