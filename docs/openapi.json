@@ -2139,6 +2139,146 @@
         ]
       }
     },
+    "/api/v1/plugins/{id}/authorization": {
+      "post": {
+        "operationId": "begin_plugin_authorization",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginRevision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginAuthorization"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/{id}/authorization/{attempt}": {
+      "get": {
+        "operationId": "plugin_authorization_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginAuthorizationStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins/{id}/credential": {
       "delete": {
         "operationId": "clear_plugin_credential",
@@ -4684,6 +4824,40 @@
           }
         }
       },
+      "Authorization": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "client_id",
+              "authorization_endpoint",
+              "scopes",
+              "kind"
+            ],
+            "properties": {
+              "authorization_endpoint": {
+                "type": "string"
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "oauth2_pkce"
+                ]
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        ]
+      },
       "BrowseDirectories": {
         "type": "object",
         "required": [
@@ -5395,6 +5569,16 @@
           "capabilities"
         ],
         "properties": {
+          "authorization": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Authorization"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "capabilities": {
             "type": "array",
             "items": {
@@ -6864,6 +7048,52 @@
             }
           }
         ]
+      },
+      "PluginAuthorization": {
+        "type": "object",
+        "required": [
+          "id",
+          "authorization_url",
+          "expires_at"
+        ],
+        "properties": {
+          "authorization_url": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "PluginAuthorizationState": {
+        "type": "string",
+        "enum": [
+          "pending"
+        ]
+      },
+      "PluginAuthorizationStatus": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginAuthorizationState"
+          }
+        }
       },
       "PluginCredential": {
         "oneOf": [

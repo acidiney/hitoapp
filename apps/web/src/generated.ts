@@ -420,6 +420,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/plugins/{id}/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["begin_plugin_authorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{id}/authorization/{attempt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["plugin_authorization_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins/{id}/credential": {
         parameters: {
             query?: never;
@@ -911,6 +943,13 @@ export interface components {
             token: string;
             user: components["schemas"]["User"];
         };
+        Authorization: {
+            authorization_endpoint: string;
+            client_id: string;
+            /** @enum {string} */
+            kind: "oauth2_pkce";
+            scopes: string[];
+        };
         BrowseDirectories: {
             directory: components["schemas"]["DirectoryRef"];
             /** Format: int32 */
@@ -1081,6 +1120,7 @@ export interface components {
             needs_setup: boolean;
         };
         Manifest: {
+            authorization?: components["schemas"]["Authorization"] | null;
             capabilities: components["schemas"]["Capability"][];
             id: string;
             name: string;
@@ -1442,6 +1482,20 @@ export interface components {
         };
         PlaylistPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["PlaylistDetail"];
+        };
+        PluginAuthorization: {
+            authorization_url: string;
+            /** Format: int64 */
+            expires_at: number;
+            id: string;
+        };
+        /** @enum {string} */
+        PluginAuthorizationState: "pending";
+        PluginAuthorizationStatus: {
+            /** Format: int64 */
+            expires_at: number;
+            id: string;
+            status: components["schemas"]["PluginAuthorizationState"];
         };
         PluginCredential: {
             /** @enum {string} */
@@ -3302,6 +3356,101 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    begin_plugin_authorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginRevision"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginAuthorization"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    plugin_authorization_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                attempt: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginAuthorizationStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
