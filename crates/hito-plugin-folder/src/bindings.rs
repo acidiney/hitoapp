@@ -1,4 +1,7 @@
-use crate::{catalog::Catalog, pcm};
+use crate::{
+    catalog::{Catalog, Track},
+    pcm,
+};
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqliteConnection};
 use std::{collections::BTreeMap, io};
@@ -28,42 +31,62 @@ pub(crate) async fn reconcile(
     catalog: &mut Catalog,
     bootstrap: bool,
 ) -> io::Result<()> {
-    let mut tracks = BTreeMap::new();
-    let mut active = Vec::new();
-    for (_, mut track) in std::mem::take(&mut catalog.tracks) {
+    catalog.tracks.clear();
+    let mut observations = std::mem::take(&mut catalog.observations);
+    observations.sort_by(|a, b| a.locator.cmp(&b.locator));
+    let mut novel = BTreeMap::<String, String>::new();
+    let mut sources = BTreeMap::<(String, String), String>::new();
+    for track in &mut observations {
         if !bootstrap {
-            let exact = candidates(connection, "file-v1", &track.checksum).await?;
-            let found = if exact.len() == 1 {
-                exact.into_iter().next()
-            } else if exact.is_empty() {
-                if let Some(evidence) = &track.evidence {
-                    let audio = candidates(connection, pcm::ALGORITHM, evidence).await?;
-                    if audio.len() == 1 {
-                        audio.into_iter().next()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
+            let found = match continuity(connection, track).await? {
+                Some(id) => Some(id),
+                None => historical(connection, track).await?,
             };
-            track.id = found.unwrap_or_else(|| format!("recording-{}", uuid::Uuid::new_v4()));
-            let previous: Option<String> = sqlx::query_scalar("SELECT id FROM representations WHERE recording_id = ? AND checksum = ? AND active = 1 LIMIT 1")
-                .bind(&track.id).bind(&track.checksum)
-                .fetch_optional(&mut *connection).await.map_err(state_error)?;
-            track.source = previous.unwrap_or_else(|| format!("source-{}", uuid::Uuid::new_v4()));
+            track.id = found.unwrap_or_else(|| {
+                novel
+                    .entry(track.checksum.clone())
+                    .or_insert_with(|| format!("recording-{}", uuid::Uuid::new_v4()))
+                    .clone()
+            });
+            let key = (track.id.clone(), track.checksum.clone());
+            track.source = if let Some(source) = sources.get(&key) {
+                source.clone()
+            } else {
+                let previous: Vec<String> = sqlx::query_scalar("SELECT id FROM representations WHERE recording_id = ? AND checksum = ? AND active = 1 LIMIT 2")
+                        .bind(&track.id).bind(&track.checksum)
+                        .fetch_all(&mut *connection).await.map_err(state_error)?;
+                if previous.len() > 1 {
+                    return Err(io::Error::other(
+                        "Folder current representation is ambiguous",
+                    ));
+                }
+                let source = previous
+                    .into_iter()
+                    .next()
+                    .unwrap_or_else(|| format!("source-{}", uuid::Uuid::new_v4()));
+                sources.insert(key, source.clone());
+                source
+            };
         }
         let mut detail = track.recording();
         detail.revision = None;
         let revision = serde_json::to_vec(&(&detail, &track.source, &track.checksum))
             .map_err(io::Error::other)?;
         track.revision = format!("observation-{:x}", Sha256::digest(revision));
+    }
+    let mut selected = BTreeMap::<String, usize>::new();
+    for (index, track) in observations.iter().enumerate() {
+        selected.entry(track.id.clone()).or_insert(index);
+    }
+    for index in selected.values() {
+        let track = &observations[*index];
         let detail = serde_json::to_string(&track.recording()).map_err(io::Error::other)?;
         sqlx::query("INSERT INTO recordings (id, checksum, detail) VALUES (?, ?, ?) ON CONFLICT (id) DO UPDATE SET detail = excluded.detail")
             .bind(&track.id).bind(&track.checksum).bind(detail)
             .execute(&mut *connection).await.map_err(state_error)?;
+    }
+    let mut active = BTreeMap::new();
+    for track in &observations {
         sqlx::query("INSERT OR IGNORE INTO evidence VALUES (?, 'file-v1', ?)")
             .bind(&track.id)
             .bind(&track.checksum)
@@ -79,24 +102,33 @@ pub(crate) async fn reconcile(
                 .await
                 .map_err(state_error)?;
         }
-        active.push((
+        active.insert(
             track.source.clone(),
-            track.id.clone(),
-            track.checksum.clone(),
-        ));
-        tracks.entry(track.id.clone()).or_insert(track);
+            (track.id.clone(), track.checksum.clone()),
+        );
     }
     sqlx::query("UPDATE representations SET active = 0 WHERE active = 1")
         .execute(&mut *connection)
         .await
         .map_err(state_error)?;
-    for (source, recording, checksum) in active {
+    for (source, (recording, checksum)) in active {
         let inserted = sqlx::query("INSERT INTO representations VALUES (?, ?, ?, 1) ON CONFLICT (id) DO UPDATE SET active = 1 WHERE representations.recording_id = excluded.recording_id AND representations.checksum = excluded.checksum")
             .bind(source).bind(recording).bind(checksum)
             .execute(&mut *connection).await.map_err(state_error)?;
         if inserted.rows_affected() != 1 {
             return Err(io::Error::other("Folder representation binding changed"));
         }
+    }
+    sqlx::query("DELETE FROM observations")
+        .execute(&mut *connection)
+        .await
+        .map_err(state_error)?;
+    for track in &observations {
+        let detail = serde_json::to_string(&track.recording()).map_err(io::Error::other)?;
+        sqlx::query("INSERT INTO observations (locator, recording_id, source_id, checksum, evidence_kind, evidence_digest, detail) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(&track.locator).bind(&track.id).bind(&track.source).bind(&track.checksum)
+            .bind(track.evidence.as_ref().map(|_| pcm::ALGORITHM)).bind(&track.evidence).bind(detail)
+            .execute(&mut *connection).await.map_err(state_error)?;
     }
     for table in ["evidence", "representations"] {
         let query = format!("SELECT count(*) FROM {table}");
@@ -108,12 +140,74 @@ pub(crate) async fn reconcile(
             return Err(io::Error::other("Folder identity history limit exceeded"));
         }
     }
-    catalog.sources = tracks
+    catalog.tracks = selected
+        .into_iter()
+        .map(|(id, index)| (id, observations[index].clone()))
+        .collect();
+    catalog.observations = observations;
+    catalog.sources = catalog
+        .tracks
         .values()
         .map(|track| (track.source_id(), track.id.clone()))
         .collect();
-    catalog.tracks = tracks;
     Ok(())
+}
+
+pub(crate) async fn create_observations(
+    connection: &mut SqliteConnection,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "CREATE UNIQUE INDEX representation_recording ON representations(id, recording_id)",
+    )
+    .execute(&mut *connection)
+    .await?;
+    sqlx::query("CREATE TABLE observations (locator BLOB PRIMARY KEY NOT NULL CHECK(length(locator) BETWEEN 1 AND 16384), recording_id TEXT NOT NULL REFERENCES recordings(id), source_id TEXT NOT NULL, checksum TEXT NOT NULL, evidence_kind TEXT, evidence_digest TEXT, detail TEXT NOT NULL, CHECK((evidence_kind IS NULL) = (evidence_digest IS NULL)), FOREIGN KEY(source_id, recording_id) REFERENCES representations(id, recording_id))")
+        .execute(&mut *connection).await?;
+    Ok(())
+}
+
+async fn continuity(
+    connection: &mut SqliteConnection,
+    track: &Track,
+) -> io::Result<Option<String>> {
+    let previous = sqlx::query("SELECT recording_id, checksum, evidence_kind, evidence_digest FROM observations WHERE locator = ?")
+        .bind(&track.locator).fetch_optional(&mut *connection).await.map_err(state_error)?;
+    let Some(previous) = previous else {
+        return Ok(None);
+    };
+    let checksum: String = previous.get(1);
+    let kind: Option<String> = previous.get(2);
+    let evidence: Option<String> = previous.get(3);
+    let verified_audio = track.evidence.as_ref().is_some_and(|current| {
+        kind.as_deref() == Some(pcm::ALGORITHM) && evidence.as_ref() == Some(current)
+    });
+    if checksum == track.checksum || verified_audio {
+        Ok(Some(previous.get(0)))
+    } else {
+        Ok(None)
+    }
+}
+
+async fn historical(
+    connection: &mut SqliteConnection,
+    track: &Track,
+) -> io::Result<Option<String>> {
+    let exact = candidates(connection, "file-v1", &track.checksum).await?;
+    if exact.len() == 1 {
+        return Ok(exact.into_iter().next());
+    }
+    if !exact.is_empty() {
+        return Ok(None);
+    }
+    let Some(evidence) = &track.evidence else {
+        return Ok(None);
+    };
+    let audio = candidates(connection, pcm::ALGORITHM, evidence).await?;
+    Ok(if audio.len() == 1 {
+        audio.into_iter().next()
+    } else {
+        None
+    })
 }
 
 async fn candidates(

@@ -55,7 +55,7 @@ impl Registry {
                 .await
                 .map_err(database_error)?;
             let version = row.get::<i64, _>(0);
-            if !matches!(version, 1 | 2) {
+            if !matches!(version, 1..=3) {
                 return Err(io::Error::other("Unsupported folder state version"));
             }
             version
@@ -81,7 +81,7 @@ impl Registry {
                 .execute(&mut *transaction)
                 .await
                 .map_err(database_error)?;
-            sqlx::query("INSERT INTO registry VALUES (1, 2, ?, 0)")
+            sqlx::query("INSERT INTO registry VALUES (1, 3, ?, 0)")
                 .bind(uuid::Uuid::new_v4().to_string())
                 .execute(&mut *transaction)
                 .await
@@ -91,7 +91,12 @@ impl Registry {
             crate::bindings::create(&mut transaction)
                 .await
                 .map_err(database_error)?;
-            sqlx::query("UPDATE registry SET version = 2 WHERE singleton = 1")
+        }
+        if self.version < 3 {
+            crate::bindings::create_observations(&mut transaction)
+                .await
+                .map_err(database_error)?;
+            sqlx::query("UPDATE registry SET version = 3 WHERE singleton = 1")
                 .execute(&mut *transaction)
                 .await
                 .map_err(database_error)?;

@@ -163,6 +163,7 @@ fn inspect_file(
         revision: id.clone(),
         checksum,
         evidence: None,
+        locator: Vec::new(),
         id,
         title,
         artist,

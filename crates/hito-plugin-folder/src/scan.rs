@@ -30,13 +30,14 @@ fn scan_with_inspector(
     let started = Instant::now();
     let deadline = started + Duration::from_secs(300);
     let root = Arc::new(open_root(path)?);
-    let mut pending = vec![(root, 0)];
-    let mut tracks = BTreeMap::new();
+    let mut pending = vec![(root, 0, std::path::PathBuf::new())];
+    let mut observations = Vec::new();
     let mut visited = 0;
     let mut folders = 0;
     let mut bytes = 0u64;
     let mut skipped = 0;
-    while let Some((directory, depth)) = pending.pop() {
+    let mut retained_bytes = 0usize;
+    while let Some((directory, depth, relative)) = pending.pop() {
         folders += 1;
         if folders > 1024 {
             return Err(io::Error::other("Folder count exceeds scan limit"));
@@ -58,16 +59,25 @@ fn scan_with_inspector(
                     return Err(io::Error::other("Folder count exceeds scan limit"));
                 }
                 if let Ok(child) = directory.open_dir_nofollow(&name) {
-                    pending.push((Arc::new(child), depth + 1));
+                    pending.push((Arc::new(child), depth + 1, relative.join(&name)));
                 }
             } else if kind.is_file() {
+                let locator = relative.join(&name).as_os_str().as_encoded_bytes().to_vec();
+                if locator.len() > 16384 {
+                    return Err(io::Error::other("Folder locator exceeds scan limit"));
+                }
                 match inspect(directory.clone(), name, deadline) {
-                    Ok(track) => {
+                    Ok(mut track) => {
+                        track.locator = locator;
                         bytes += track.stamp.size;
-                        if bytes > 16 * 1024 * 1024 * 1024 || tracks.len() >= 10000 {
+                        retained_bytes += observation_bytes(&track);
+                        if bytes > 16 * 1024 * 1024 * 1024
+                            || observations.len() >= 10000
+                            || retained_bytes > 32 * 1024 * 1024
+                        {
                             return Err(io::Error::other("Media collection exceeds scan limit"));
                         }
-                        tracks.entry(track.id.clone()).or_insert(track);
+                        observations.push(track);
                     }
                     Err(inspection::InspectionError::Unavailable) => skipped += 1,
                     Err(error) => {
@@ -79,7 +89,13 @@ fn scan_with_inspector(
         }
     }
     inspection::check(deadline)?;
-    crate::releases::assign(&mut tracks);
+    crate::releases::assign(&mut observations);
+    let mut tracks = BTreeMap::new();
+    for track in &observations {
+        tracks
+            .entry(track.id.clone())
+            .or_insert_with(|| track.clone());
+    }
     let mut fingerprint = Sha256::new();
     for id in tracks.keys() {
         fingerprint.update(id.as_bytes());
@@ -88,6 +104,7 @@ fn scan_with_inspector(
     tracing::info!(
         event = "folder_scan_complete",
         recordings = tracks.len(),
+        observations = observations.len(),
         visited,
         skipped,
         elapsed_ms = started.elapsed().as_millis() as u64,
@@ -99,9 +116,31 @@ fn scan_with_inspector(
             .map(|track| (track.source_id(), track.id.clone()))
             .collect(),
         tracks,
+        observations,
         fingerprint: format!("{:x}", fingerprint.finalize()),
         claim: None,
     })
+}
+
+fn observation_bytes(track: &crate::catalog::Track) -> usize {
+    [
+        &track.id,
+        &track.checksum,
+        &track.source,
+        &track.revision,
+        &track.title,
+        &track.searchable,
+        &track.artist,
+        &track.album_artist,
+    ]
+    .into_iter()
+    .map(String::len)
+    .sum::<usize>()
+        + track.album.as_ref().map_or(0, String::len)
+        + track.evidence.as_ref().map_or(0, String::len)
+        + track.locator.len()
+        + track.name.as_encoded_bytes().len()
+        + 512
 }
 
 pub(crate) fn open_root(path: &Path) -> io::Result<Dir> {

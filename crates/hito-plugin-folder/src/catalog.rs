@@ -12,16 +12,19 @@ use std::{
 
 pub(crate) struct Catalog {
     pub tracks: BTreeMap<String, Track>,
+    pub observations: Vec<Track>,
     pub sources: BTreeMap<String, String>,
     pub fingerprint: String,
     pub claim: Option<Arc<crate::registry::Claim>>,
 }
+#[derive(Clone)]
 pub(crate) struct Track {
     pub id: String,
     pub checksum: String,
     pub evidence: Option<String>,
     pub source: String,
     pub revision: String,
+    pub locator: Vec<u8>,
     pub title: String,
     pub searchable: String,
     pub artist: String,
@@ -70,7 +73,7 @@ impl Track {
         Ok(file)
     }
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Stamp {
     pub size: u64,
     modified: SystemTime,
