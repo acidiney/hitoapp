@@ -1598,6 +1598,10 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        RefreshSources: {
+            /** @default manual */
+            purpose: components["schemas"]["SourceRefreshPurpose"];
+        };
         Release: {
             artist: string;
             artist_id: string;
@@ -1650,6 +1654,8 @@ export interface components {
             ready: boolean;
             recording_id: string;
         };
+        /** @enum {string} */
+        SourceRefreshPurpose: "manual" | "playback";
         SyncBatch: {
             device_id: string;
             operations: components["schemas"]["Operation"][];
@@ -4044,7 +4050,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshSources"] | null;
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -4052,6 +4062,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Source"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: {
@@ -4079,6 +4097,22 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

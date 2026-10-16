@@ -3115,6 +3115,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshSources"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -3124,6 +3140,15 @@
                   "items": {
                     "$ref": "#/components/schemas/Source"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3156,6 +3181,24 @@
             }
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
             "content": {
               "application/json": {
                 "schema": {
@@ -7513,6 +7556,16 @@
         },
         "additionalProperties": false
       },
+      "RefreshSources": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/SourceRefreshPurpose",
+            "default": "manual"
+          }
+        },
+        "additionalProperties": false
+      },
       "Release": {
         "type": "object",
         "required": [
@@ -7722,6 +7775,13 @@
             "type": "string"
           }
         }
+      },
+      "SourceRefreshPurpose": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "playback"
+        ]
       },
       "SyncBatch": {
         "type": "object",
