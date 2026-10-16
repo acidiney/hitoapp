@@ -1,17 +1,17 @@
 # Native application coordination
 
-`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, advances after exhaustion, and persists observed listening progress. `Player::start` remains a queue-only owner and reports native output unavailable. HTTP routes, desktop lifecycle wiring, and the React adapter remain planned below. The desktop application still uses browser audio.
+`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, advances after exhaustion, and persists observed listening progress. Authenticated HTTP routes and the retained desktop lifecycle now expose that owner. `Player::start` remains a queue-only owner and reports native output unavailable. The shared React native adapter remains unfinished, so the application still uses browser audio.
 
 ## Public boundary
 
-The cloneable `Player` handle accepts authenticated core actors and typed actions. A retained `PlayerOwner` joins admission, native cleanup, and progress writes. Shutdown closes observation channels, cancels read-only preparation, requests terminal native stop, and waits for the session join and admitted provider/progress publication. The application will retain this owner through cleanup when host wiring is added. Renderer input will contain recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
+The cloneable `Player` handle accepts authenticated core actors and typed actions. A retained `PlayerOwner` joins admission, native cleanup, and progress writes. Shutdown closes observation channels, cancels read-only preparation, requests terminal native stop, and waits for the session join and admitted provider/progress publication. The desktop backend retains this owner alongside HTTP/indexing cleanup before releasing its library claim. Renderer input contains recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
 
 ```mermaid
 flowchart TB
   UI[Shared high-level React player] -. native commands and observations .-> HTTP[Server routes / existing Account extractor]
-  Access[Desktop process cookie / Host and Origin policy] -. protects .-> HTTP
-  HTTP -. optional Player handle .-> Admission[Bounded command admission / claims and revisions]
-  Host[Retained desktop lifecycle / library claim] -. owns .-> Owner[PlayerOwner]
+  Access[Desktop process cookie / Host and Origin policy] --> HTTP
+  HTTP --> Admission[Bounded command admission / claims and revisions]
+  Host[Retained desktop lifecycle / library claim] --> Owner[PlayerOwner]
   Owner --> Admission
   Admission --> State[Private state for one authenticated session]
   State --> Catalog[Concrete core Catalog]
@@ -27,7 +27,7 @@ flowchart TB
   Collection --> DB
 ```
 
-Solid arrows show current Rust ownership and core operations. Dashed arrows show unfinished application integration. One retained supervisor owns claims, commands, and concrete core services. Public command fixtures use actual CPAL output through an isolated clocked monitor.
+Solid arrows show current Rust, HTTP, and host ownership. The dashed arrow shows unfinished shared UI integration. One retained supervisor owns claims, commands, and concrete core services. Public command and protected desktop HTTP fixtures use actual CPAL output through an isolated clocked monitor.
 
 The current Rust operations are:
 
@@ -88,11 +88,28 @@ Memory is bounded to 64 queued/active checkpoints plus one retained sample. Ordi
 
 Shutdown keeps any started write future polled through commit or rollback, even when its close observer is canceled. It joins native cleanup alongside progress flushing. Lost authority rejects the old checkpoint without retrying it. Other final write failures return `PlayerError::Persistence`; later queued checkpoints can remain unsaved in that case. Checkpoints are process-local until core commits them. Crash recovery, a durable offline outbox, and guaranteed progress retention through disk failure remain unfinished. Shutdown saves the last observed position, without claiming the exact final device frame.
 
-## Host, HTTP, and UI integration
+## Host and HTTP integration
 
-Native routes belong inside `hito-server` so they reuse its `Account` extractor, browser security, safe input extraction, telemetry, and generated OpenAPI. An optional player handle enables them for the desktop backend. The complete router remains inside desktop process protection. Ordinary server/browser playback continues through its existing implementation.
+Native routes live inside `hito-server` and reuse its `Account` extractor, browser security, safe input extraction, telemetry, and generated OpenAPI. `router_with_player` supplies the desktop's player. The complete router remains inside desktop process protection, including native routes and event streams. An ordinary server reports `native: false`, a null epoch, and no private state; claims are unsupported there. Authentication is required for inspection even when native playback is disabled. Ordinary server/browser playback continues through its existing implementation.
 
-The retained desktop host task must stop and join playback alongside HTTP/indexing before releasing its library claim. Dropping a shutdown observer must not release that claim. The runtime must remain alive through engine cleanup and admitted transactions.
+| Method | Path | Result |
+| --- | --- | --- |
+| GET | `/api/v1/player` | Native availability, observed epoch, and matching-session structural state; never claims |
+| POST | `/api/v1/player/claim` | Compare the supplied epoch and return a new lease/attachment |
+| POST | `/api/v1/player/commands` | Admit the typed command and return its acceptance receipt |
+| POST | `/api/v1/player/queue` | Resolve an authorized metadata page for the supplied lease/revision/offset/limit |
+| POST | `/api/v1/player/state/events` | SSE data frames containing `PlayerSnapshot` |
+| POST | `/api/v1/player/position/events` | SSE data frames containing `PlayerPosition` |
+
+Request bodies use generated Rust schemas. Commands use the `kind` tag and reject unknown fields, including source locators. Claims, queue pages, and observations carry ordering values in JSON bodies, keeping them out of URLs. Browser calls must carry the normal request marker and expected account header. Mutation origin checks and desktop Host/Origin/process-cookie checks apply before command admission. Busy responses use HTTP 429 and Retry-After; stale ordering uses 409. Typed backend failures become safe HTTP errors.
+
+Streams publish the latest value initially, then coalesce watch updates. They close when their lease/session closes, including logout. They check closure before reading a cached value. At most 32 observation responses may remain open per router, across both stream kinds. Each response owns its permit until completion or cancellation. The payloads contain references and counters rather than queue metadata. Frames use `private, no-store` and keepalive comments. Clients must fence delayed frames by their captured account and attachment, and reconnect with the same lease rather than silently claiming ownership.
+
+The retained desktop backend task stops and joins playback alongside HTTP/indexing before releasing its library claim. Dropping a shutdown observer leaves this task running. The `gui` feature includes `device` and selects `Player::native`; a headless build without `device` supplies the queue-only constructor. Owner failures, including a failed final progress flush, reach `Error::Shutdown` after joined cleanup. Existing Session cleanup join failures still emit a safe warning rather than propagate through PlayerOwner. The runtime must remain alive through engine cleanup and admitted transactions.
+
+The network server and connection tasks retain their tracing subscriber. Observation cleanup retains its request span even after headers have returned. Safe events correlate request, player owner, account, command, and observation IDs without logging leases or private payloads.
+
+## Shared UI integration
 
 React will consume a typed high-level player contract with browser and native implementations. Structural queue state and position updates remain separate subscriptions. Pages do not subscribe to position ticks. Native speed must report unsupported until the engine implements it.
 
