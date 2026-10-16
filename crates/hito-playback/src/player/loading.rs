@@ -36,6 +36,13 @@ impl SavedStart {
     pub fn blocked(&self) -> bool {
         matches!(self.status, Status::Waiting | Status::Failed)
     }
+    pub fn phase(&self) -> Option<(PlayerPhase, Option<PlayerError>)> {
+        match self.status {
+            Status::Waiting => Some((PlayerPhase::Loading, None)),
+            Status::Failed => Some((PlayerPhase::Failed, Some(PlayerError::Resume))),
+            _ => None,
+        }
+    }
     pub fn supersede(&mut self) {
         self.status = Status::Superseded;
     }
@@ -133,10 +140,12 @@ impl Loader {
         }
     }
     pub async fn next(&mut self) -> Report {
-        match self.current.as_mut().and_then(|load| load.pending.as_mut()) {
+        let report = match self.current.as_mut().and_then(|load| load.pending.as_mut()) {
             Some(pending) => pending.await,
             None => std::future::pending().await,
-        }
+        };
+        self.current = None;
+        report
     }
 }
 impl State {
@@ -156,8 +165,10 @@ impl State {
         match report.result {
             Ok(position) => {
                 saved.status = Status::Ready(position.map_or(0, |saved| saved.position_ms));
-                owned.phase = PlayerPhase::Resolving;
-                owned.error = None;
+                if owned.authority_available {
+                    owned.phase = PlayerPhase::Resolving;
+                    owned.error = None;
+                }
             }
             Err(hito_core::Error::Unauthorized) => {
                 self.owner = None;
@@ -167,8 +178,10 @@ impl State {
             Err(error) => {
                 tracing::debug!(event = "player_saved_load_failed", command_id = %saved.id, error_kind = error.code(), "Saved playback position could not be loaded");
                 saved.status = Status::Failed;
-                owned.phase = PlayerPhase::Failed;
-                owned.error = Some(PlayerError::Resume);
+                if owned.authority_available {
+                    owned.phase = PlayerPhase::Failed;
+                    owned.error = Some(PlayerError::Resume);
+                }
             }
         }
         owned.publish();

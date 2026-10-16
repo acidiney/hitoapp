@@ -100,6 +100,12 @@ impl Owned {
             PlayerPhase::Idle
         };
         self.error = (!available).then_some(PlayerError::Unavailable);
+        if available
+            && let Some((phase, error)) = self.saved.as_ref().and_then(|saved| saved.phase())
+        {
+            self.phase = phase;
+            self.error = error;
+        }
         self.publish();
         tracing::info!(
             event = if available {
