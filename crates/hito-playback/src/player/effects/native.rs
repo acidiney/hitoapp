@@ -1,5 +1,5 @@
 use super::{Target, Update, controls::Controls, sources::Sources};
-use crate::{PlayerError, PlayerPhase, Session};
+use crate::{PlayerError, PlayerPhase, Session, Status};
 use hito_core::Catalog;
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::watch;
@@ -124,13 +124,13 @@ impl Native {
                     }
                 },
                 result = self.controls.next() => {
-                    if result.is_err() { return self.recover(); }
+                    if let Err(error) = result { return self.recover(Some(error)); }
                     return self.snapshot();
                 },
                 changed = async { self.observed.as_mut().unwrap().changed().await }, if self.observed.is_some() => {
-                    if changed.is_err() { return self.recover(); }
+                    if changed.is_err() { return self.recover(None); }
                     let update = self.snapshot();
-                    if update.phase == PlayerPhase::Failed { return self.recover(); }
+                    if update.phase == PlayerPhase::Failed { return self.recover(None); }
                     return update;
                 },
                 else => std::future::pending().await,
@@ -177,15 +177,28 @@ impl Native {
             }));
         }
     }
-    fn recover(&mut self) -> Update {
+    fn recover(&mut self, error: Option<crate::Error>) -> Update {
+        let unverified = error == Some(crate::Error::Access)
+            || self.session.as_ref().is_some_and(|session| {
+                let snapshot = session.snapshot();
+                snapshot.status == Status::Revoked || snapshot.error == Some(crate::Error::Access)
+            });
         self.sources.failed();
         self.retire();
         tracing::debug!(
             event = "player_source_failed",
             selection = self.target.as_ref().unwrap().key.selection,
+            unverified,
             "Trying another authorized source"
         );
-        self.status(PlayerPhase::Resolving, Some(PlayerError::Playback))
+        self.status(
+            PlayerPhase::Resolving,
+            Some(if unverified {
+                PlayerError::Unavailable
+            } else {
+                PlayerError::Playback
+            }),
+        )
     }
     fn exhausted(&mut self, error: PlayerError) -> Update {
         self.failed = true;

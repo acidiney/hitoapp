@@ -4,6 +4,8 @@ mod authority_outage;
 #[path = "../../hito-audio/tests/support/capture.rs"]
 #[allow(dead_code)]
 mod capture;
+#[path = "fixtures/event_gate.rs"]
+mod event_gate;
 #[path = "fixtures/recovery.rs"]
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
@@ -133,8 +135,20 @@ async fn temporary_authority_failure_silences_output_and_resumes_the_same_entry_
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn source_authority_failure_preserves_a_paused_selection_without_starting_output() {
     let f = fixture::Recovery::start().await;
+    let gate = event_gate::EventGate::new("native_session_finished");
+    let _release = gate.guard();
+    let writer = gate.clone();
+    let dispatch = tracing::Dispatch::new(
+        tracing_subscriber::fmt()
+            .json()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::DEBUG)
+            .with_writer(move || writer.clone())
+            .finish(),
+    );
     let capture = capture::Capture::open();
-    let (player, owner) = Player::native(f.services.clone());
+    let (player, owner) =
+        tracing::dispatcher::with_default(&dispatch, || Player::native(f.services.clone()));
     let attached = player
         .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
         .await
@@ -144,7 +158,7 @@ async fn source_authority_failure_preserves_a_paused_selection_without_starting_
             1,
             0,
             PlayerAction::Replace {
-                recordings: vec![Uuid::parse_str(&f.recording).unwrap()],
+                recordings: vec![Uuid::parse_str(&f.recording).unwrap(); 2],
                 start: 0,
             },
         ),
@@ -177,18 +191,41 @@ async fn source_authority_failure_preserves_a_paused_selection_without_starting_
     .unwrap()
     .unwrap();
     let selected = state.borrow().current;
+    gate.arm();
     let outage = authority_outage::Outage::sources(f.directory.path()).await;
+    tokio::time::timeout(Duration::from_secs(3), gate.entered())
+        .await
+        .unwrap();
     f.services.identity.check_session(&f.actor).await.unwrap();
     tokio::time::timeout(
         Duration::from_secs(3),
-        state.wait_for(|state| state.phase == PlayerPhase::Suspended),
+        state.wait_for(|state| state.error.is_some()),
     )
     .await
     .unwrap()
     .unwrap();
+    assert_eq!(
+        player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 3,
+                    revision: 1,
+                    action: PlayerAction::Next {},
+                },
+            )
+            .await,
+        Err(PlayerError::Unavailable)
+    );
+    assert_eq!(state.borrow().phase, PlayerPhase::Suspended);
+    assert_eq!(state.borrow().revision, 1);
+    assert_eq!(state.borrow().queue_len, 2);
     capture.after(capture.mark(), 0.3);
     assert!(capture::energy(&capture.recent(0.1)) < 0.000001);
     assert_eq!(state.borrow().current, selected);
+    gate.release();
     outage.restore().await;
     tokio::time::timeout(
         Duration::from_secs(4),
