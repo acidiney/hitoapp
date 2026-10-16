@@ -26,7 +26,9 @@ export async function readObservations<T>(
       const chunk = await reader.read();
       if (signal.aborted || chunk.done) return;
       try {
-        buffered = (buffered + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, "\n");
+        buffered = (
+          buffered + decoder.decode(chunk.value, { stream: true })
+        ).replace(/\r\n/g, "\n");
       } catch {
         throw new ObservationError();
       }
@@ -44,7 +46,12 @@ export async function readObservations<T>(
           let value: T;
           try {
             value = JSON.parse(data);
-            if (value === null || typeof value !== "object" || Array.isArray(value)) throw new ObservationError();
+            if (
+              value === null ||
+              typeof value !== "object" ||
+              Array.isArray(value)
+            )
+              throw new ObservationError();
           } catch {
             throw new ObservationError();
           }

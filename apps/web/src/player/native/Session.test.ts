@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { NativeSession } from "./Session";
+import { nativeService } from "./fixtures/service";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -98,4 +99,50 @@ test("a lost command response retries its exact payload before a later relative 
     session.close();
   }
   expect(closed).toBe(2);
+});
+
+test("queued intentions freeze their payload and admission remains bounded behind a blocked receipt", async () => {
+  const service = nativeService();
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  service.command = async (command) => {
+    if (command.sequence === 1) await blocked;
+    return Response.json({
+      id: command.id,
+      sequence: command.sequence,
+      revision: command.revision,
+    });
+  };
+  const session = new NativeSession("alice", {
+    state() {},
+    position() {},
+    failure() {},
+  });
+  try {
+    await session.open();
+    const first = session.submit([{ kind: "next" }]);
+    const recordings = ["original"];
+    const second = session.submit([{ kind: "replace", recordings, start: 0 }]);
+    const remaining = Array.from({ length: 30 }, () =>
+      session.submit([{ kind: "next" }]),
+    );
+    await expect(session.submit([{ kind: "clear" }])).rejects.toThrow(
+      "unavailable",
+    );
+    await vi.waitFor(() => expect(service.commands).toHaveLength(1));
+    recordings[0] = "changed-after-intent";
+    release();
+    await Promise.all([first, second, ...remaining]);
+    expect(service.commands).toHaveLength(32);
+    expect(service.commands[1].action).toEqual({
+      kind: "replace",
+      recordings: ["original"],
+      start: 0,
+    });
+  } finally {
+    release();
+    session.close();
+  }
 });

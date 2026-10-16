@@ -11,11 +11,17 @@ import {
 } from "./api";
 import { ObservationError } from "./observations";
 
+export type QueueSelection = {
+  recordings: string[];
+  start: number;
+  position_ms: number;
+};
 export type Failure = "ownership" | "unavailable" | "protocol";
 type Events = {
   state(value: Snapshot): void;
   position(value: Position): void;
   failure(kind: Failure): void;
+  connection?(ready: boolean): void;
 };
 
 export class NativeSession {
@@ -24,9 +30,11 @@ export class NativeSession {
   private sequence = 0;
   private revision = 0;
   private pending = 0;
+  private retainedIds = 0;
   private lane = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private opening: Promise<void> | null = null;
+  private healthy = { state: false, position: false };
 
   constructor(
     private account: string,
@@ -59,28 +67,98 @@ export class NativeSession {
   }
 
   submit(actions: Action[]): Promise<Receipt> {
-    if (this.pending >= 32 || this.controller.signal.aborted)
+    const intent = structuredClone(actions);
+    const weight = intent.reduce(
+      (count, action) =>
+        count +
+        (action.kind === "replace" || action.kind === "append"
+          ? action.recordings.length
+          : 0),
+      0,
+    );
+    return this.admit(intent.length, weight, async (send) => {
+      let receipt: Receipt | undefined;
+      for (const action of intent) receipt = await send(action);
+      return receipt!;
+    });
+  }
+
+  replace(selection: QueueSelection): Promise<Receipt> {
+    const recordings = selection.recordings.slice();
+    const { start, position_ms } = selection;
+    if (
+      !recordings.length ||
+      recordings.length > 100000 ||
+      !Number.isInteger(start) ||
+      start < 0 ||
+      start >= recordings.length ||
+      !Number.isSafeInteger(position_ms) ||
+      position_ms < 0
+    )
+      return Promise.reject(new Error("The playback selection is invalid."));
+    const count =
+      Math.ceil(recordings.length / 1000) +
+      2 +
+      Number(start >= 1000) +
+      Number(position_ms > 0);
+    return this.admit(count, recordings.length, async (send) => {
+      await send({ kind: "pause" });
+      await send({
+        kind: "replace",
+        recordings: recordings.slice(0, 1000),
+        start: start < 1000 ? start : 0,
+      });
+      for (let offset = 1000; offset < recordings.length; offset += 1000)
+        await send({
+          kind: "append",
+          recordings: recordings.slice(offset, offset + 1000),
+        });
+      if (start >= 1000) {
+        const page = await this.queue(this.revision, start, 1);
+        const entry = page.entries[0];
+        if (!entry || entry.recording.id !== recordings[start])
+          throw new ObservationError();
+        await send({ kind: "select", entry: entry.id });
+      }
+      if (position_ms) await send({ kind: "seek", position_ms });
+      return send({ kind: "resume" });
+    });
+  }
+
+  private admit(
+    count: number,
+    weight: number,
+    work: (send: (action: Action) => Promise<Receipt>) => Promise<Receipt>,
+  ): Promise<Receipt> {
+    if (
+      !count ||
+      count > 128 ||
+      this.pending >= 32 ||
+      this.retainedIds + weight > 100000 ||
+      !Number.isSafeInteger(this.sequence + count) ||
+      this.controller.signal.aborted
+    )
       return Promise.reject(
         new Error("Playback commands are unavailable. Try again."),
       );
-    const tickets = actions.map(() => ({
+    const tickets = Array.from({ length: count }, () => ({
       id: crypto.randomUUID(),
       sequence: ++this.sequence,
     }));
     const lane = this.lane;
     this.pending++;
+    this.retainedIds += weight;
     const accepted = this.tail
       .catch(() => {})
       .then(async () => {
         await this.open();
-        this.controller.signal.throwIfAborted();
-        if (lane !== this.lane)
-          throw new DOMException("Superseded", "AbortError");
-        let receipt: Receipt | undefined;
-        for (const [index, action] of actions.entries())
-          receipt = await this.send(action, tickets[index]);
-        if (!receipt) throw new Error("A playback command is required.");
-        return receipt;
+        let cursor = 0;
+        return work(async (action) => {
+          this.controller.signal.throwIfAborted();
+          if (lane !== this.lane)
+            throw new DOMException("Superseded", "AbortError");
+          return this.send(action, tickets[cursor++]);
+        });
       });
     this.tail = accepted;
     return accepted
@@ -90,6 +168,7 @@ export class NativeSession {
       })
       .finally(() => {
         this.pending--;
+        this.retainedIds -= weight;
       });
   }
 
@@ -182,6 +261,11 @@ export class NativeSession {
               this.revision = Math.max(this.revision, state.revision);
               this.events.state(state);
             } else this.events.position(value as Position);
+            if (!this.healthy[kind]) {
+              this.healthy[kind] = true;
+              if (this.healthy.state && this.healthy.position)
+                this.events.connection?.(true);
+            }
           },
         );
         if (signal.aborted) return;
@@ -199,6 +283,8 @@ export class NativeSession {
           return;
         }
       }
+      this.healthy[kind] = false;
+      this.events.connection?.(false);
       this.events.failure("unavailable");
       log.debug("native.observation_reconnect", {
         account_id: this.account,
