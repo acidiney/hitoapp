@@ -32,6 +32,6 @@ ENTRYPOINT ["hito-server"]
 FROM rust-tools AS desktop-tools
 RUN useradd --uid 10001 --create-home hito-desktop
 RUN apt-get update && apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libasound2-dev libclang-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev librsvg2-bin xvfb xauth xdotool wmctrl openbox dbus-x11 webkit2gtk-driver gstreamer1.0-alsa gstreamer1.0-plugins-bad pulseaudio fonts-dejavu-core python3 && rm -rf /var/lib/apt/lists/*
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=hito-tauri-driver-2.1.0,target=/build/driver-target cargo install tauri-driver --version 2.1.0 --locked --target-dir /build/driver-target
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=hito-tauri-driver-2.1.0,target=/build/driver-target cargo install tauri-driver --version 2.1.0 --locked --jobs 2 --target-dir /build/driver-target
 COPY --from=node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 /usr/local/bin/node /usr/local/bin/node
 ENV CARGO_TARGET_DIR=/build/desktop-target
