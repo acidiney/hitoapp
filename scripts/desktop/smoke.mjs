@@ -234,6 +234,38 @@ try {
     "Rust-owned listening progress persistence",
   );
   const paused = (await playerState()).state;
+  await click('button[aria-label="Shuffle"]');
+  await click('button[aria-label="Repeat: off"]');
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return (
+      state.shuffle &&
+      state.repeat === "all" &&
+      !state.desired_playing &&
+      silent()
+    );
+  }, "native shuffle and repeat without unpausing");
+  await execute("location.reload(); return true;");
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return (
+      state.shuffle &&
+      state.repeat === "all" &&
+      !state.desired_playing &&
+      silent() &&
+      (await exists('button[aria-label="Repeat: all"]'))
+    );
+  }, "native mode reattachment after reload");
+  for (const [before, after] of [
+    ["all", "one"],
+    ["one", "off"],
+  ]) {
+    await click(`button[aria-label="Repeat: ${before}"]`);
+    await wait(
+      async () => (await playerState()).state.repeat === after,
+      `native repeat ${after}`,
+    );
+  }
   await click('button[aria-label="Previous track"]');
   await wait(async () => {
     const state = (await playerState()).state;
@@ -307,7 +339,7 @@ try {
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   console.log(
-    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, pause/resume, progress, persistence and joined shutdown passed.",
+    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, pause/resume, progress, persistence and joined shutdown passed.",
   );
 } catch (error) {
   try {

@@ -187,20 +187,26 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .with_subscriber(dispatch.clone())
         .await
         .unwrap();
-    player
-        .submit(
-            &f.actor,
-            PlayerCommand {
-                id: Uuid::new_v4(),
-                lease: attached.lease,
-                sequence: 2,
-                revision: 1,
-                action: PlayerAction::Resume {},
-            },
-        )
-        .with_subscriber(dispatch.clone())
-        .await
-        .unwrap();
+    for (sequence, action) in [
+        (2, PlayerAction::Shuffle {}),
+        (3, PlayerAction::Repeat {}),
+        (4, PlayerAction::Resume {}),
+    ] {
+        player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence,
+                    revision: 1,
+                    action,
+                },
+            )
+            .with_subscriber(dispatch.clone())
+            .await
+            .unwrap();
+    }
     let mut state = player
         .subscribe(&f.actor, attached.lease)
         .with_subscriber(dispatch.clone())
@@ -225,6 +231,13 @@ async fn native_output_transitions_and_joined_cleanup_have_correlated_redacted_l
         .expect("native transitions need workflow logs");
     assert!(transition["span"]["player_owner"].is_number());
     assert!(transition["fields"]["selection"].is_number());
+    for name in ["player_shuffle_changed", "player_repeat_changed"] {
+        let changed = events
+            .iter()
+            .find(|event| event["fields"]["event"] == name)
+            .expect("mode changes need workflow logs");
+        assert!(changed["span"]["player_owner"].is_number());
+    }
     let played = events
         .iter()
         .find(|event| event["fields"]["event"] == "player_entry_played")
