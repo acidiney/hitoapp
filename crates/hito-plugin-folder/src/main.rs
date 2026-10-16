@@ -1,13 +1,18 @@
 use hito_plugin_folder::Folder;
 use std::{net::SocketAddr, path::PathBuf};
+use tracing_subscriber::prelude::*;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::filter_fn(|metadata| {
+            metadata.target() == "hito_plugin_folder"
+                || metadata.target().starts_with("hito_plugin_folder::")
+        }))
+        .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
+        .with(tracing_subscriber::fmt::layer().json())
         .init();
     if run().await.is_err() {
         tracing::error!(
