@@ -1,5 +1,6 @@
 use super::{
-    CollectionPublication, ImportProviderPlaylist, ImportedPlaylistEntry, ImportedPlaylistOrigin,
+    CollectionPublication, ImportProviderPlaylist, ImportedPlaylistEntry,
+    ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin,
     ImportedPlaylistRecording, ImportedPlaylistSnapshot, PlaylistImportReceipt, import_publication,
     import_receipts,
 };
@@ -8,7 +9,7 @@ use crate::{
     plugins::{Operation, PlaylistSnapshot},
 };
 use hito_plugin_sdk::ProviderPlaylistItem;
-use sqlx::{Sqlite, Transaction};
+use sqlx::{Row, Sqlite, SqliteConnection, Transaction};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -56,52 +57,79 @@ pub(super) async fn publish(
     let mut recordings = Vec::new();
     let mut entries = Vec::with_capacity(snapshot.entries.len());
     for (position, entry) in snapshot.entries.into_iter().enumerate() {
-        let ProviderPlaylistItem::Recording {
-            recording: metadata,
-        } = entry.item
-        else {
-            return Err(Error::Upstream(
-                "Playlist copies containing unavailable or unknown items are not supported yet",
-            ));
-        };
-        let recording_id = if let Some(id) = identities.get(&metadata.id) {
-            *id
-        } else {
-            let published = catalog::publish_provider_metadata(
-                tx,
-                &library,
-                installation,
-                &operation.provider,
-                &metadata,
-            )
-            .await?;
-            crate::metadata::refresh_recording_credits(tx, &published.recording_id).await?;
-            if let Some(release) = &published.release_id {
-                crate::metadata::refresh_release(tx, actor.id(), release).await?;
+        let (recording_id, kind, provider_recording_id, title, artist) = match entry.item {
+            ProviderPlaylistItem::Recording {
+                recording: metadata,
+            } => {
+                let remote = metadata.id.clone();
+                let recording_id = if let Some(id) = identities.get(&remote) {
+                    *id
+                } else {
+                    let published = catalog::publish_provider_metadata(
+                        tx,
+                        &library,
+                        installation,
+                        &operation.provider,
+                        &metadata,
+                    )
+                    .await?;
+                    crate::metadata::refresh_recording_credits(tx, &published.recording_id).await?;
+                    if let Some(release) = &published.release_id {
+                        crate::metadata::refresh_release(tx, actor.id(), release).await?;
+                    }
+                    let recording_id = identity(&published.recording_id)?;
+                    identities.insert(remote.clone(), recording_id);
+                    recordings.push(ImportedPlaylistRecording {
+                        recording_id,
+                        library_id,
+                        release_id: published.release_id.as_deref().map(identity).transpose()?,
+                        observation_id: identity(&published.observation_id)?,
+                        metadata,
+                    });
+                    recording_id
+                };
+                (
+                    Some(recording_id),
+                    ImportedPlaylistEntryKind::Recording,
+                    Some(remote),
+                    None,
+                    None,
+                )
             }
-            let recording_id = identity(&published.recording_id)?;
-            identities.insert(metadata.id.clone(), recording_id);
-            recordings.push(ImportedPlaylistRecording {
-                recording_id,
-                library_id,
-                release_id: published.release_id.as_deref().map(identity).transpose()?,
-                observation_id: identity(&published.observation_id)?,
-                metadata: metadata.clone(),
-            });
-            recording_id
+            ProviderPlaylistItem::Unavailable {
+                provider_recording_id,
+                title,
+                artist,
+            } => (
+                None,
+                ImportedPlaylistEntryKind::Unavailable,
+                provider_recording_id,
+                title,
+                artist,
+            ),
+            ProviderPlaylistItem::Unknown {} => {
+                (None, ImportedPlaylistEntryKind::Unknown, None, None, None)
+            }
         };
         let entry_id = Uuid::new_v4();
         sqlx::query("INSERT INTO playlist_entries(playlist_id, id, recording_id, position) VALUES (?, ?, ?, ?)")
-            .bind(playlist_id.to_string()).bind(entry_id.to_string()).bind(recording_id.to_string())
+            .bind(playlist_id.to_string()).bind(entry_id.to_string()).bind(recording_id.map(|id| id.to_string()))
             .bind(position as i64).execute(&mut **tx).await?;
-        sqlx::query("INSERT INTO playlist_import_entries(playlist_id, entry_id, occurrence_id, provider_recording_id) VALUES (?, ?, ?, ?)")
+        sqlx::query("INSERT INTO playlist_import_entries(playlist_id, entry_id, occurrence_id, provider_recording_id, kind, title, artist) VALUES (?, ?, ?, ?, ?, ?, ?)")
             .bind(playlist_id.to_string()).bind(entry_id.to_string()).bind(&entry.occurrence_id)
-            .bind(&metadata.id).execute(&mut **tx).await?;
+            .bind(&provider_recording_id).bind(kind.as_str()).bind(&title).bind(&artist)
+            .execute(&mut **tx).await?;
         entries.push(ImportedPlaylistEntry {
             entry_id,
             recording_id,
             position: position as u32,
-            occurrence_id: entry.occurrence_id,
+            origin: ImportedPlaylistEntryOrigin {
+                kind,
+                provider_recording_id,
+                occurrence_id: entry.occurrence_id,
+            },
+            title,
+            artist,
         });
     }
     let publication = CollectionPublication::PlaylistImported {
@@ -124,6 +152,30 @@ pub(super) async fn publish(
     };
     import_receipts::save(tx, actor.id(), digest, &receipt, publication_sequence).await?;
     Ok(receipt)
+}
+
+pub(super) async fn origin(
+    connection: &mut SqliteConnection,
+    playlist: &str,
+) -> Result<Option<ImportedPlaylistOrigin>> {
+    let row = sqlx::query("SELECT installation_id, installation_revision, service_id, service_revision, provider, provider_playlist_id, snapshot, attribution, imported_at FROM playlist_imports WHERE playlist_id = ?")
+        .bind(playlist).fetch_optional(connection).await?;
+    row.map(|row| {
+        let attribution: String = row.try_get("attribution")?;
+        Ok(ImportedPlaylistOrigin {
+            installation_id: row.try_get("installation_id")?,
+            installation_revision: row.try_get("installation_revision")?,
+            service_id: row.try_get("service_id")?,
+            service_revision: row.try_get("service_revision")?,
+            provider: row.try_get("provider")?,
+            provider_playlist_id: row.try_get("provider_playlist_id")?,
+            snapshot: row.try_get("snapshot")?,
+            attribution: serde_json::from_str(&attribution)
+                .map_err(|_| Error::Internal("Stored playlist attribution is invalid".into()))?,
+            imported_at: row.try_get("imported_at")?,
+        })
+    })
+    .transpose()
 }
 
 fn identity(value: &str) -> Result<Uuid> {

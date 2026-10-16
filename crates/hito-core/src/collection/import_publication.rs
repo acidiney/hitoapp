@@ -52,9 +52,37 @@ pub struct ImportedPlaylistRecording {
 #[serde(deny_unknown_fields)]
 pub struct ImportedPlaylistEntry {
     pub entry_id: Uuid,
-    pub recording_id: Uuid,
+    pub recording_id: Option<Uuid>,
     pub position: u32,
+    pub origin: ImportedPlaylistEntryOrigin,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedPlaylistEntryOrigin {
+    pub kind: ImportedPlaylistEntryKind,
+    pub provider_recording_id: Option<String>,
     pub occurrence_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportedPlaylistEntryKind {
+    Recording,
+    Unavailable,
+    Unknown,
+}
+
+impl ImportedPlaylistEntryKind {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Recording => "recording",
+            Self::Unavailable => "unavailable",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 pub(super) fn encode(publication: &CollectionPublication) -> Result<String> {

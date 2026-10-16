@@ -15,9 +15,10 @@ pub use catalog::{
 };
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, HistoryEntry, ImportProviderPlaylist,
-    ImportedPlaylistEntry, ImportedPlaylistOrigin, ImportedPlaylistRecording,
-    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry,
-    PlaylistImportReceipt, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    ImportedPlaylistEntry, ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin,
+    ImportedPlaylistOrigin, ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation,
+    Playlist, PlaylistDetail, PlaylistEntry, PlaylistImportReceipt, SavedPosition, SyncBatch,
+    SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};

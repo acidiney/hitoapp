@@ -5,6 +5,7 @@ mod import;
 mod import_persist;
 mod import_publication;
 mod import_receipts;
+mod playlist_entries;
 mod playlists;
 mod saved_position;
 mod service;
@@ -13,8 +14,9 @@ mod types;
 use crate::{HostDeviceId, store::Store};
 pub use import::ImportProviderPlaylist;
 pub use import_publication::{
-    CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistOrigin,
-    ImportedPlaylistRecording, ImportedPlaylistSnapshot,
+    CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
+    ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
+    ImportedPlaylistSnapshot,
 };
 pub use import_receipts::PlaylistImportReceipt;
 pub use types::{

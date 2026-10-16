@@ -1,6 +1,6 @@
 use super::{Collection, PlaylistImportReceipt, import_persist, import_receipts};
 use crate::{Actor, Error, Result};
-use hito_plugin_sdk::{Capability, PlaylistDetailRequest, ProviderPlaylistItem};
+use hito_plugin_sdk::{Capability, PlaylistDetailRequest};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -60,15 +60,6 @@ impl Collection {
         let snapshot = operation
             .playlist_snapshot(request.playlist_reference.clone())
             .await?;
-        if snapshot
-            .entries
-            .iter()
-            .any(|entry| !matches!(&entry.item, ProviderPlaylistItem::Recording { .. }))
-        {
-            return Err(Error::Upstream(
-                "Playlist copies containing unavailable or unknown items are not supported yet",
-            ));
-        }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         if let Some(receipt) =

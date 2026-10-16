@@ -39,7 +39,13 @@ CREATE TABLE playlist_import_entries (
     playlist_id TEXT NOT NULL REFERENCES playlist_imports(playlist_id),
     entry_id TEXT NOT NULL,
     occurrence_id TEXT,
-    provider_recording_id TEXT NOT NULL,
+    provider_recording_id TEXT,
+    kind TEXT NOT NULL CHECK(kind IN ('recording', 'unavailable', 'unknown')),
+    title TEXT,
+    artist TEXT,
+    CHECK((kind = 'recording' AND provider_recording_id IS NOT NULL AND title IS NULL AND artist IS NULL)
+       OR kind = 'unavailable'
+       OR (kind = 'unknown' AND provider_recording_id IS NULL AND title IS NULL AND artist IS NULL)),
     PRIMARY KEY(playlist_id, entry_id),
     FOREIGN KEY(playlist_id, entry_id) REFERENCES playlist_entries(playlist_id, id)
 );

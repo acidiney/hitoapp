@@ -306,7 +306,7 @@ async fn provider_refresh_preserves_collection_and_personal_edits_and_removal_wi
         .playlist(&actor, &playlist.to_string())
         .await
         .unwrap();
-    assert_eq!(playlist.entries[0].recording_id, first.id);
+    assert_eq!(playlist.entries[0].recording_id, Some(first.id.clone()));
     assert_eq!(playlist.entries[0].title, "My title");
     assert!(!playlist.entries[0].available);
     assert!(!hito.catalog.sources(&actor, &first.id).await.unwrap()[0].ready);
