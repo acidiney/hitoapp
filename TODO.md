@@ -30,7 +30,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Own authenticated command admission and bounded paged queues with exact session/lease checks, stable occurrence IDs, revision/sequence fencing, and accepted-command receipt replay.
 - [x] Drive authorized native output through that owner, with play/pause, separate position observations, natural queue advancement, same-session reattachment, account takeover/logout, and joined replacement/shutdown. Desktop/UI wiring remains open.
 - [x] Recover native playback through finite authorized source attempts, one retained provider refresh, position restoration, paused recovery, and queue advancement after exhaustion. Desktop/UI wiring remains open.
-- [ ] Complete native controls, ordered progress persistence, authenticated HTTP snapshots/controls, host shutdown, and the shared UI.
+- [x] Add ordered native seek/volume commands, completed-seek observations, explicit zero/backward restoration, and control supersession. Desktop/UI wiring remains open.
+- [ ] Complete ordered progress persistence, authenticated HTTP snapshots/controls, host shutdown, and the shared UI.
 - [ ] Preserve private queue state across temporary authority/database failures while suspending output and rejecting unverified commands.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.

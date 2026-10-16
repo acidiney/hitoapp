@@ -18,6 +18,7 @@ flowchart TB
   State --> Native[Latest desired transport / owned native session]
   Native --> Catalog
   Native --> Join[Stop and join before replacement output]
+  Native --> Controls[One pending control / saved cursor / applied seek ID]
   Native --> Refresh[One retained source-refresh operation]
   State -. ordered checkpoints .-> Progress[One retained collection write]
   Catalog --> DB[(Private core SQLite)]
@@ -38,7 +39,7 @@ The current Rust operations are:
 
 Same-session attachment preserves the queue and selection while rotating the command lease and closing previous observations. A different login session begins empty, including another login for the same account. Inspection returns no private state for a different session. A separate monitor checks retained session authority every 250 ms through core's one-second deadline. A failed check currently clears ownership and the queue, including a transient authority failure. Protected queue recovery across such failures remains work before release.
 
-Commands support Replace, Append, Select, Next, Move, Remove, Clear, Resume, and Pause. Queue mutations increment the revision. Resume and Pause leave it unchanged unless Resume selects the first entry of a nonempty queue without a current entry. Selection has a separate generation: moving or appending keeps it, selecting or changing the current entry advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
+Commands support Replace, Append, Select, Next, Move, Remove, Clear, Resume, Pause, Seek, and Volume. Queue mutations increment the revision. Transport controls leave it unchanged unless Resume selects the first entry of a nonempty queue without a current entry. Seek uses nonnegative integer milliseconds within JavaScript's exact integer range and requires a selected entry. Volume uses an integer level from 0 to 1,000, where 0 is mute and 1,000 is full volume. Native controls return Unsupported on the queue-only owner. Selection has a separate generation: moving or appending keeps it, selecting or changing the current entry advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
 
 Same-session attachment preserves desired play/pause, selection, observed position, and accepted native work. Changing sessions requests terminal stop on the old engine and retains it until joined. Native updates carry an ownership scope, selection generation, and entry ID; a lease rotation for the same session does not restart output. Device epoch, command lease, queue revision, selection generation, and future source attempts identify different kinds of ordering; one counter cannot replace all of them.
 
@@ -58,13 +59,15 @@ The supervisor keeps fixed effect lanes selectable beside admission, session mon
 | --- | --- |
 | Read-only selection/admission | One replaceable lookup or source-grant operation, with core deadlines |
 | Native device | One active/opening session or retiring session; replacement waits for the previous join |
-| Native control | One in-flight control and desired play/pause; public seek/volume remain planned |
+| Native control | One in-flight control, desired play/pause/volume, and a retained explicit seek target |
 | Provider refresh | One retained operation, canceled by signal before publication, plus latest pending demand |
 | Progress, planned | One retained write plus a bounded checkpoint buffer and reserved terminal capacity |
 
 Supersession drops read-only observation/control futures, requests terminal native stop, and retains cleanup. Replacement output waits for that join while command admission and retained publication remain responsive. Source results may arrive during retirement, but only the guarded session-start path can open their input. A genuine OS or driver stall can delay replacement output. Admitted write effects stay owned through completion.
 
-A native session starts paused. The current coordinator applies desired play/pause after readiness. If Pause supersedes an in-flight Resume, it stops and rebuilds the session paused, restoring observed position before a later resume. Already submitted device audio can drain before the observed position settles. Future seek/volume controls must apply their latest desired values before resuming. Recovery must preserve an explicit backward or zero seek in preference to an older observed position.
+A native session starts paused. The control module applies volume, the retained seek target, and desired play/pause after readiness. If Pause or a newer seek/volume supersedes an in-flight control, the session retires before replacement. A pending explicit seek, including zero or a backward target, takes precedence over an older observed cursor. Once configuration completes, later recovery uses the actual observed position. Already submitted device audio can drain before pause settles.
+
+Structural snapshots expose desired volume and whether a seek remains pending. Separate position observations carry `seek_id`, the UUID of the last completed seek command. A receipt confirms command acceptance; matching `seek_id` confirms application. During restoration, Opening observations retain the intended cursor without acknowledging it as a completed seek. Known media duration clamps seek position. A seek accepted as a track finishes can still configure that ended session, preventing a stalled Opening state. Same-session reattachment retains controls and completed seek identity. Another login receives fresh defaults, including full volume. Volume persists across selections; seek targets belong to one selection. Speed remains unsupported by the native engine.
 
 Core's opaque `PlaybackCandidates` cursor selects ready local grants for the owning host, then grants from the captured provider generation. It rechecks live session and recording access on each advance. Each source is visited once per phase. Local traversal has an ID ceiling and a finite initial budget; provider snapshots contain at most sixteen sources. Concurrent changes can alter eligibility within those bounds. The cursor retains no source vector, transaction, or audio locator. Construction and each advance have a one-second deadline. The local count/ceiling prepass grows with ready rows; the 100,000-row fixture covers unavailable history, not arbitrary ready-candidate latency.
 
