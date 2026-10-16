@@ -7,7 +7,10 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use hito_core::{Activity, Playlist, PlaylistDetail, Services, SyncBatch, SyncPage, SyncReceipt};
+use hito_core::{
+    Activity, ImportProviderPlaylist, Playlist, PlaylistDetail, PlaylistImportReceipt, Services,
+    SyncBatch, SyncPage, SyncReceipt,
+};
 use serde::Deserialize;
 use utoipa::IntoParams;
 
@@ -32,6 +35,30 @@ pub async fn playlist(
     Path(id): Path<String>,
 ) -> ApiResult<Json<PlaylistDetail>> {
     Ok(Json(services.collection.playlist(&actor, &id).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/plugins/{id}/playlists/import", operation_id = "import_provider_playlist",
+    params(("id" = String, Path)), request_body = ImportProviderPlaylist,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = PlaylistImportReceipt), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn import_provider_playlist(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<ImportProviderPlaylist>,
+) -> ApiResult<Json<PlaylistImportReceipt>> {
+    Ok(Json(
+        services
+            .collection
+            .import_provider_playlist(&actor, &id, request)
+            .await?,
+    ))
 }
 
 #[utoipa::path(post, path = "/api/v1/sync", request_body = SyncBatch,

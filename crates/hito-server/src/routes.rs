@@ -80,6 +80,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(storage::scan))
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
+        .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::sync, collection::sync_events))
         .routes(routes!(collection::activity));
     router = router
