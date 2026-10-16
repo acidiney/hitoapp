@@ -186,7 +186,38 @@ impl<'a> Screen<'a> {
                     PageProps::Catalog(props)
                 })
             }
-            Self::PlaylistIndex => Ok(PageProps::PlaylistIndex(PlaylistIndexPageProps { shared })),
+            Self::PlaylistIndex => {
+                let (connections, service_names) =
+                    if fields.requested("connections") || fields.requested("service_names") {
+                        let settings = services.plugins.settings(actor).await?;
+                        let service_names = fields.requested("service_names").then(|| {
+                            let connected: std::collections::HashSet<&str> = settings
+                                .installations
+                                .iter()
+                                .map(|installation| installation.service_id.as_str())
+                                .collect();
+                            settings
+                                .services
+                                .into_iter()
+                                .filter(|service| connected.contains(service.id.as_str()))
+                                .map(|service| (service.id, service.name))
+                                .collect()
+                        });
+                        (
+                            fields
+                                .requested("connections")
+                                .then_some(settings.installations),
+                            service_names,
+                        )
+                    } else {
+                        (None, None)
+                    };
+                Ok(PageProps::PlaylistIndex(PlaylistIndexPageProps {
+                    shared,
+                    connections,
+                    service_names,
+                }))
+            }
             Self::Playlist(id) => {
                 let detail = if fields.requested("detail") {
                     Some(services.collection.playlist(actor, id).await?)

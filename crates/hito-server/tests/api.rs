@@ -22,6 +22,9 @@ mod collection;
 #[path = "api/playlist_import.rs"]
 mod playlist_import;
 
+#[path = "api/playlist_pages.rs"]
+mod playlist_pages;
+
 #[path = "api/inertia.rs"]
 mod inertia;
 

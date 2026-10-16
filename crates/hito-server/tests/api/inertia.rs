@@ -175,7 +175,19 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
                 "user",
             ],
         ),
-        ("/playlists", "PlaylistIndexPage", shared.clone()),
+        (
+            "/playlists",
+            "PlaylistIndexPage",
+            vec![
+                "connections",
+                "errors",
+                "libraries",
+                "native_playback",
+                "playlists",
+                "service_names",
+                "user",
+            ],
+        ),
         (
             "/history",
             "HistoryPage",
