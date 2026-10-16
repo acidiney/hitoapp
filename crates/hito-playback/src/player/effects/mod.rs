@@ -1,5 +1,7 @@
 #[cfg(feature = "device")]
 pub(super) mod native;
+#[cfg(feature = "device")]
+mod sources;
 use super::{PlayerError, PlayerPhase, ownership::State};
 use uuid::Uuid;
 
@@ -13,9 +15,11 @@ pub(super) struct Update {
     pub key: Key,
     pub phase: PlayerPhase,
     pub playing: bool,
+    pub source_id: Option<String>,
     pub position_ms: u64,
     pub duration_ms: Option<u64>,
     pub ended: bool,
+    pub exhausted: bool,
     pub error: Option<PlayerError>,
 }
 pub(super) enum Effects {

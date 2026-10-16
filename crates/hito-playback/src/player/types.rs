@@ -43,10 +43,17 @@ pub struct PlayerSnapshot {
     pub selection: u64,
     pub queue_len: usize,
     pub current: Option<PlayerEntryRef>,
+    pub source_id: Option<String>,
     pub desired_playing: bool,
     pub playing: bool,
     pub phase: PlayerPhase,
     pub error: Option<PlayerError>,
+    pub last_failure: Option<PlayerFailure>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerFailure {
+    pub entry: PlayerEntryRef,
+    pub error: PlayerError,
 }
 pub struct PlayerInspection {
     pub native: bool,

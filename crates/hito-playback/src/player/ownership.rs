@@ -171,9 +171,15 @@ impl State {
         {
             return;
         }
+        if update.error == Some(PlayerError::Unauthorized) {
+            self.owner = None;
+            self.epoch = Uuid::new_v4();
+            return;
+        }
         if owned.phase != update.phase
             || owned.playing != update.playing
             || owned.error != update.error
+            || owned.source_id != update.source_id
             || update.ended
         {
             tracing::debug!(
@@ -203,8 +209,15 @@ impl State {
         });
         owned.phase = update.phase;
         owned.playing = update.playing;
+        owned.source_id = update.source_id;
         owned.error = update.error;
-        if update.ended {
+        if update.exhausted {
+            owned.last_failure = snapshot.current.map(|entry| super::PlayerFailure {
+                entry,
+                error: update.error.unwrap_or(PlayerError::Playback),
+            });
+        }
+        if update.ended || (update.exhausted && owned.desired_playing) {
             if owned.queue.apply(PlayerAction::Next).is_err() {
                 owned.error = Some(PlayerError::Invalid);
             }

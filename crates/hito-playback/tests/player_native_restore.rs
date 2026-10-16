@@ -70,35 +70,20 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
     .await
     .unwrap()
     .unwrap();
+    let refresh = f.server.hold("v1/sources").await;
     f.hito
         .plugins
         .clear_credential(&f.actor, &f.installation.id, 1)
         .await
         .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), refresh.entered())
+        .await
+        .unwrap();
     let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(3),
-        state.wait_for(|state| state.phase == PlayerPhase::Failed),
-    )
-    .await
-    .unwrap()
-    .unwrap();
     let saved = position.borrow().position_ms;
     assert!(saved >= 2_000);
     let gate = f.server.hold_range(100_000..800_000).await;
-    player
-        .submit(
-            &f.actor,
-            PlayerCommand {
-                id: Uuid::new_v4(),
-                lease: attached.lease,
-                sequence: 3,
-                revision: queued.revision,
-                action: PlayerAction::Resume,
-            },
-        )
-        .await
-        .unwrap();
+    refresh.release();
     tokio::time::timeout(Duration::from_secs(3), gate.entered())
         .await
         .unwrap();
@@ -108,7 +93,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
             PlayerCommand {
                 id: Uuid::new_v4(),
                 lease: attached.lease,
-                sequence: 4,
+                sequence: 3,
                 revision: queued.revision,
                 action: PlayerAction::Pause,
             },
@@ -139,7 +124,7 @@ async fn pausing_a_blocked_restore_retains_the_saved_position_across_another_reo
             PlayerCommand {
                 id: Uuid::new_v4(),
                 lease: attached.lease,
-                sequence: 5,
+                sequence: 4,
                 revision: queued.revision,
                 action: PlayerAction::Resume,
             },

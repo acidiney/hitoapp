@@ -18,8 +18,10 @@ pub(super) struct Owned {
     pub(super) desired_playing: bool,
     pub(super) play_revision: u64,
     pub(super) playing: bool,
+    pub(super) source_id: Option<String>,
     pub(super) phase: PlayerPhase,
     pub(super) error: Option<PlayerError>,
+    pub(super) last_failure: Option<super::PlayerFailure>,
     pub(super) position: watch::Sender<PlayerPosition>,
 }
 impl Owned {
@@ -35,8 +37,10 @@ impl Owned {
             desired_playing: false,
             play_revision: 0,
             playing: false,
+            source_id: None,
             phase: PlayerPhase::Idle,
             error: None,
+            last_failure: None,
             position: watch::channel(PlayerPosition::default()).0,
         }
     }
@@ -45,8 +49,10 @@ impl Owned {
         PlayerSnapshot {
             desired_playing: self.desired_playing,
             playing: self.playing,
+            source_id: self.source_id.clone(),
             phase: self.phase,
             error: self.error,
+            last_failure: self.last_failure.clone(),
             ..self.queue.snapshot()
         }
     }
@@ -74,6 +80,7 @@ impl Owned {
             PlayerPhase::Idle
         };
         self.playing = false;
+        self.source_id = None;
         self.error = None;
     }
     pub(super) fn check(&self, command: &PlayerCommand) -> Result<Option<PlayerReceipt>> {

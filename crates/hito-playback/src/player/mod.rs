@@ -12,8 +12,9 @@ use tokio::{
 };
 use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
-    PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerInspection,
-    PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueuePage, PlayerReceipt, PlayerSnapshot,
+    PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure,
+    PlayerInspection, PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueuePage,
+    PlayerReceipt, PlayerSnapshot,
 };
 use uuid::Uuid;
 
