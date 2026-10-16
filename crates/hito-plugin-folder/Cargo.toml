@@ -19,6 +19,8 @@ libc = "0.2"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 futures-util.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

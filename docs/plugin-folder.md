@@ -9,10 +9,11 @@ This is a development demo and an initial read-only folder adapter. The complete
 From the repository root containing the existing Hito Compose deployment, run:
 
 ```sh
-docker compose -f compose.yaml -f compose.plugins.yaml up -d --build plugin-folder
+docker compose -f compose.yaml -f compose.plugins.yaml run --rm --build --no-deps plugin-folder --music /demo --state /state --initialize-state
+docker compose -f compose.yaml -f compose.plugins.yaml up -d plugin-folder
 ```
 
-This starts only the plugin service on the same Compose network as Hito. It does not install a plugin into an account. The host inspection endpoint is `http://localhost:8091/v1/manifest`. Hito must use its internal Docker address:
+Run the first command once. It commits the initial private registry and exits; it refuses to overwrite an existing registry. Later starts use only the second command. Normal startup requires established state and never silently initializes a replacement. This starts only the plugin service on the same Compose network as Hito. It does not install a plugin into an account. The host inspection endpoint is `http://localhost:8091/v1/manifest`. Hito must use its internal Docker address:
 
 ```text
 http://plugin-folder:8090/
@@ -37,17 +38,21 @@ Create `compose.plugins.local.yaml` with the folder you own:
 services:
   plugin-folder:
     volumes:
+      - plugin-folder-collection-state:/state
       - type: bind
         source: /absolute/path/to/your/music
         target: /collection
         read_only: true
-    command: ["--music", "/collection", "--listen", "0.0.0.0:8090"]
+    command: ["--music", "/collection", "--state", "/state", "--listen", "0.0.0.0:8090"]
+volumes:
+  plugin-folder-collection-state:
 ```
 
 Run:
 
 ```sh
-docker compose -f compose.yaml -f compose.plugins.yaml -f compose.plugins.local.yaml up -d --build plugin-folder
+docker compose -f compose.yaml -f compose.plugins.yaml -f compose.plugins.local.yaml run --rm --build --no-deps plugin-folder --music /collection --state /state --initialize-state
+docker compose -f compose.yaml -f compose.plugins.yaml -f compose.plugins.local.yaml up -d plugin-folder
 ```
 
 The service scans at startup. Restart it after collection changes. The container runs as UID 10001 and needs read and directory traversal access to the selected collection. It never edits that collection. Remove the local override from the command to return to the generated demo.
@@ -69,7 +74,11 @@ flowchart LR
     Relay --> HTTP
 ```
 
-The plugin uses the Apache-2.0 wire SDK and owns its scanner and file handles. It has no dependency on Hito core, SQLite or its storage internals. The manifest declares only search and sources. It implements manifest, paged search, authoritative recording detail, complete source lists, and GET/HEAD audio with single byte ranges. HEAD ignores Range. If-Range returns a full representation. Multipart, malformed and unsatisfiable byte ranges return 416. Responses use private no-store caching.
+The plugin uses the Apache-2.0 wire SDK and owns its scanner, file handles, and private SQLite registry. It has no dependency on Hito core or access to Hito's database. The manifest declares only search and sources. It implements manifest, paged search, authoritative recording detail, complete source lists, and GET/HEAD audio with single byte ranges. HEAD ignores Range. If-Range returns a full representation. Multipart, malformed and unsatisfiable byte ranges return 416. Responses use private no-store caching.
+
+The separate `plugin-folder-state` volume holds `/state/identity.sqlite` and its single-owner lock. The image runs as UID 10001, the state directory requires mode 0700, and files require mode 0600 with matching ownership. The rest of the root filesystem and the music mount remain read-only. Startup scans outside the SQLite write transaction, commits a complete generation, and then starts HTTP. A committed generation fences search cursors. The registry permits at most 10,000 retained recording rows and 64 MiB of database pages, with DELETE journaling and a 64 MiB journal limit. It does not prune identity records to make room.
+
+Back up and restore the complete stopped state volume, preserving ownership and permissions. Missing state, corrupt state, and unknown schema versions prevent normal startup. Losing an entire volume requires operator restoration or deliberate initialization of a new state volume; the plugin cannot prove that a newly supplied empty volume used to contain another registry. This initial registry step preserves unchanged legacy IDs. Tag-independent continuity, retained unavailable detail, and historical representation reconciliation remain unfinished.
 
 Scanning permits at most 50,000 directory entries, 1,024 folders, 32 levels, 10,000 distinct recordings, 1 GiB per file, and 16 GiB of inspected accepted files, with a five-minute deadline checked during reads and seeks. Metadata reads have an 8 MiB byte budget; cover art is not read. Unsupported or unreadable media is skipped and counted. Deadline, metadata-budget and collection-limit failures stop startup rather than publishing a partial catalog. The scanner checks its deadline again before publication. The startup log reports counts and elapsed time, without paths or metadata.
 
@@ -85,7 +94,7 @@ Current recording and source IDs derive from the exact file bytes. Moves and ren
 
 Release IDs hash album tags and the sorted recording identities in one folder group. They contain no path or directory name. This keeps the immutable demo album coherent and survives moving its whole unchanged folder. Adding, removing or retagging album members can change the release ID. Persistent release continuity remains open.
 
-The next identity slice should keep exact source revisions separate from persistent opaque recording IDs and versioned decoded-audio evidence. Only an unambiguous verified audio match should preserve a recording after retagging; unsupported and ambiguous media must remain separate. That requires persistent plugin-owned state, bounded decoding and recovery tests, without importing core SQL internals. The current service intentionally has no state database or background watcher.
+The next identity step should keep exact source revisions separate from persistent opaque recording IDs and versioned audio evidence. Only an unambiguous verified audio match should preserve a recording after retagging; unsupported and ambiguous media must remain separate. The private registry is now the persistence boundary, but that matching behavior and its recovery tests remain unfinished. There is no background watcher.
 
 ## Verification
 
@@ -97,10 +106,13 @@ The focused check uses the existing Hito tools image and volumes, a separate `/b
 
 The recorded focused run passed seventeen folder-service tests and one SDK contract test, with formatting and strict Clippy clean. A real TCP test also verifies deferred stream logging retains request correlation and a scoped subscriber, then checks graceful server shutdown. Boundary tests cover the real SDK contract, complete paging, large-tag response limits, conservative matching, coherent releases, root moves, symlinks, special files, traversal, changed sources, malformed requests, TRACE privacy, single ranges, HEAD and abandoned-stream cleanup.
 
+The registry bootstrap step has a separate actual-binary HTTP regression for explicit initialization, state permissions, and unchanged legacy wire IDs across two restarts. The existing focused suite and strict Clippy also pass with required state startup. The registry image and browser flow have not yet been rebuilt or rerun for this step; the deployment evidence below describes the earlier accepted demo.
+
 For the isolated browser flow, first have Hito's development tools and `hito-e2e-server:latest` image available. This browser configuration mounts the existing `hito_node-modules` dependency volume. It uses a fresh tmpfs database and its own administrator account, never the normal server volume:
 
 ```sh
 docker compose -p hito-plugin-folder -f compose.plugins.yaml build plugin-folder
+docker compose -p hito-plugin-folder -f compose.plugins.yaml run --rm --no-deps plugin-folder --music /demo --state /state --initialize-state
 docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e run --rm plugin-folder-browser
 docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e down
 ```

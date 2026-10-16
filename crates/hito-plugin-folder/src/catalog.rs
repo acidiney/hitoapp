@@ -13,6 +13,7 @@ use std::{
 pub(crate) struct Catalog {
     pub tracks: BTreeMap<String, Track>,
     pub fingerprint: String,
+    pub claim: Option<Arc<crate::registry::Claim>>,
 }
 pub(crate) struct Track {
     pub id: String,

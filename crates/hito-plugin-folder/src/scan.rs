@@ -87,10 +87,11 @@ fn scan_with_inspector(
     Ok(Catalog {
         tracks,
         fingerprint: format!("{:x}", fingerprint.finalize()),
+        claim: None,
     })
 }
 
-fn open_root(path: &Path) -> io::Result<Dir> {
+pub(crate) fn open_root(path: &Path) -> io::Result<Dir> {
     let absolute = std::path::absolute(path)?;
     let Some(parent) = absolute.parent() else {
         return Dir::open_ambient_dir(absolute, cap_std::ambient_authority());

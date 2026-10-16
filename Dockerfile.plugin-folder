@@ -12,11 +12,11 @@ COPY crates crates
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID},target=/build/plugin-folder-release-target cargo build --locked --release -j 2 -p hito-plugin-folder && cp /build/plugin-folder-release-target/release/hito-plugin-folder /hito-plugin-folder
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home hito-plugin
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home hito-plugin && install -d -m 0700 -o 10001 -g 10001 /state
 COPY --from=plugin-build /hito-plugin-folder /usr/local/bin/hito-plugin-folder
 COPY --from=demo-audio /demo /demo
 USER hito-plugin
 EXPOSE 8090
 HEALTHCHECK --interval=5s --timeout=3s CMD curl -fsS http://localhost:8090/v1/manifest || exit 1
 ENTRYPOINT ["hito-plugin-folder"]
-CMD ["--music", "/demo", "--listen", "0.0.0.0:8090"]
+CMD ["--music", "/demo", "--state", "/state", "--listen", "0.0.0.0:8090"]

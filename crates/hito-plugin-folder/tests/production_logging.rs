@@ -54,10 +54,15 @@ fn production_log_bridge_never_emits_private_parser_diagnostics() {
         "trace",
         "trace,lofty::id3::v2::tag=trace,lofty::ape=trace,lofty::ogg=trace",
     ] {
+        let state_parent = tempfile::tempdir().unwrap();
+        let state = state_parent.path().join("state");
+        binary::initialize(directory.path(), &state);
         let mut output = tempfile::tempfile().unwrap();
         let child = Command::new(env!("CARGO_BIN_EXE_hito-plugin-folder"))
             .args(["--music"])
             .arg(directory.path())
+            .arg("--state")
+            .arg(&state)
             .args(["--listen", "127.0.0.1:0"])
             .env("RUST_LOG", setting)
             .stdout(Stdio::from(output.try_clone().unwrap()))
@@ -164,3 +169,6 @@ fn malformed_ogg(root: &std::path::Path) {
     }
     fs::write(path, bytes).unwrap();
 }
+#[allow(dead_code)]
+#[path = "support/binary.rs"]
+mod binary;
