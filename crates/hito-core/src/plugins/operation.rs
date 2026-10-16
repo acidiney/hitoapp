@@ -9,6 +9,7 @@ use zeroize::Zeroizing;
 
 pub(crate) struct Operation {
     pub(crate) provider: String,
+    actor: Actor,
     account: String,
     installation: String,
     installation_revision: i64,
@@ -68,6 +69,7 @@ impl Plugins {
             .transpose()?;
         Ok(Operation {
             provider: manifest.id,
+            actor: actor.clone(),
             account: actor.id().into(),
             installation: id.into(),
             installation_revision: revision,
@@ -144,14 +146,22 @@ impl Operation {
         &self,
         request: &RecordingRequest,
     ) -> Result<(ProviderRecording, SourcePage)> {
-        self.remote
-            .recording(
+        let details = self
+            .remote
+            .recording_details(
                 &self.account,
                 &self.base_url,
                 self.token.as_deref().map(String::as_str),
                 request,
             )
-            .await
+            .await?;
+        {
+            let mut connection = self.store.pool.acquire().await?;
+            self.actor.check_session_on(&mut connection).await?;
+            self.recheck(&mut connection).await?;
+        }
+        let sources = self.sources(request).await?;
+        Ok((details, sources))
     }
     pub(crate) async fn search(&self, request: &SearchRequest) -> Result<SearchPage> {
         self.remote

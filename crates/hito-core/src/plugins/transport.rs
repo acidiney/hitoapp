@@ -99,13 +99,13 @@ impl ControlClient {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
-    pub(super) async fn recording(
+    pub(super) async fn recording_details(
         &self,
         account: &str,
         base_url: &str,
         token: Option<&str>,
         request: &RecordingRequest,
-    ) -> Result<(ProviderRecording, SourcePage)> {
+    ) -> Result<ProviderRecording> {
         let body = serde_json::to_value(request)
             .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
         let recording: ProviderRecording = self
@@ -128,10 +128,7 @@ impl ControlClient {
                 "The provider returned a different recording",
             ));
         }
-        Ok((
-            recording,
-            self.sources(account, base_url, token, request).await?,
-        ))
+        Ok(recording)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
