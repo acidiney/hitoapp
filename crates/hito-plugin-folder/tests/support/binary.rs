@@ -48,7 +48,7 @@ pub fn initialize(music: &Path, state: &Path) {
 }
 
 impl Service {
-    pub fn start(music: &Path, state: &Path, log: &Path) -> Self {
+    fn spawn(music: &Path, state: &Path, log: &Path) -> Self {
         let reservation = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = reservation.local_addr().unwrap();
         drop(reservation);
@@ -65,11 +65,15 @@ impl Service {
             .stderr(Stdio::from(output))
             .spawn()
             .unwrap();
-        let mut service = Self {
+        Self {
             child,
             address,
             log: log.into(),
-        };
+        }
+    }
+
+    pub fn start(music: &Path, state: &Path, log: &Path) -> Self {
+        let mut service = Self::spawn(music, state, log);
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             let logs = fs::read_to_string(log).unwrap();
@@ -81,6 +85,37 @@ impl Service {
                 "service exited before readiness: {logs}"
             );
             assert!(Instant::now() < deadline, "service startup timed out");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn reject_start(music: &Path, state: &Path, log: &Path) {
+        let mut service = Self::spawn(music, state, log);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(status) = service.child.try_wait().unwrap() {
+                let logs = fs::read_to_string(log).unwrap();
+                assert_eq!(status.code(), Some(1), "unexpected startup exit: {logs}");
+                assert!(
+                    logs.contains("folder_service_failed"),
+                    "missing failure event: {logs}"
+                );
+                assert!(
+                    logs.contains("startup_failed"),
+                    "missing failure outcome: {logs}"
+                );
+                assert!(
+                    !logs.contains("folder_service_ready"),
+                    "failed startup published HTTP: {logs}"
+                );
+                assert!(
+                    !logs.contains("folder_registry_committed"),
+                    "failed startup committed a partial generation: {logs}"
+                );
+                return;
+            }
+            assert!(Instant::now() < deadline, "rejected startup did not exit");
             std::thread::sleep(Duration::from_millis(10));
         }
     }
