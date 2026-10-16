@@ -127,6 +127,11 @@ impl Service {
         serde_json::from_slice(&body).unwrap()
     }
 
+    #[allow(dead_code)]
+    pub fn post_status(&self, path: &str, body: serde_json::Value) -> u16 {
+        self.request("POST", path, &body.to_string(), None).0
+    }
+
     pub fn audio(&self, source_id: &str, first: usize, end: usize) -> (u16, Vec<u8>) {
         assert!(first < end);
         let encoded = source_id

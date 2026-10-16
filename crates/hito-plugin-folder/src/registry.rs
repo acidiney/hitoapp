@@ -61,8 +61,21 @@ impl Registry {
                 .await
                 .map_err(database_error)?;
             let version = row.get::<i64, _>(0);
-            if !matches!(version, 1..=5) {
+            if !matches!(version, 1..=6) {
                 return Err(io::Error::other("Unsupported folder state version"));
+            }
+            if version == 6 {
+                let snapshot: Option<String> = sqlx::query_scalar("SELECT CASE WHEN typeof(snapshot) = 'text' AND length(CAST(snapshot AS BLOB)) = 36 THEN snapshot END FROM registry WHERE singleton = 1")
+                    .fetch_one(&mut connection).await.map_err(database_error)?;
+                let snapshot =
+                    snapshot.ok_or_else(|| io::Error::other("Invalid folder snapshot nonce"))?;
+                let parsed = uuid::Uuid::parse_str(&snapshot)
+                    .map_err(|_| io::Error::other("Invalid folder snapshot nonce"))?;
+                if parsed.get_version() != Some(uuid::Version::Random)
+                    || parsed.to_string() != snapshot
+                {
+                    return Err(io::Error::other("Invalid folder snapshot nonce"));
+                }
             }
             version
         } else {
@@ -87,7 +100,7 @@ impl Registry {
                 .execute(&mut *transaction)
                 .await
                 .map_err(database_error)?;
-            sqlx::query("INSERT INTO registry VALUES (1, 5, ?, 0)")
+            sqlx::query("INSERT INTO registry VALUES (1, 6, ?, 0)")
                 .bind(uuid::Uuid::new_v4().to_string())
                 .execute(&mut *transaction)
                 .await
@@ -119,6 +132,14 @@ impl Registry {
                 .await
                 .map_err(database_error)?;
         }
+        if self.version < 6 {
+            sqlx::query("ALTER TABLE registry ADD COLUMN snapshot TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' CHECK(typeof(snapshot) = 'text' AND length(CAST(snapshot AS BLOB)) = 36)")
+                .execute(&mut *transaction).await.map_err(database_error)?;
+            sqlx::query("UPDATE registry SET version = 6 WHERE singleton = 1")
+                .execute(&mut *transaction)
+                .await
+                .map_err(database_error)?;
+        }
         let count: i64 = sqlx::query_scalar("SELECT count(*) FROM recordings")
             .fetch_one(&mut *transaction)
             .await
@@ -135,8 +156,9 @@ impl Registry {
             return Err(io::Error::other("Folder state recording limit exceeded"));
         }
         let retained = retained_metadata(&mut transaction).await?;
-        let updated = sqlx::query("UPDATE registry SET generation = generation + 1 WHERE singleton = 1 AND generation < 9223372036854775807")
-            .execute(&mut *transaction).await.map_err(database_error)?;
+        let snapshot = uuid::Uuid::new_v4().to_string();
+        let updated = sqlx::query("UPDATE registry SET generation = generation + 1, snapshot = ? WHERE singleton = 1 AND generation < 9223372036854775807")
+            .bind(&snapshot).execute(&mut *transaction).await.map_err(database_error)?;
         if updated.rows_affected() != 1 {
             return Err(io::Error::other("Folder state generation limit exceeded"));
         }
@@ -149,7 +171,7 @@ impl Registry {
         transaction.commit().await.map_err(database_error)?;
         self.connection.close().await.map_err(database_error)?;
         catalog.retained = retained;
-        catalog.fingerprint = format!("{identity}-{generation}");
+        catalog.fingerprint = format!("{identity}-{generation}-{snapshot}");
         catalog.claim = Some(self.claim);
         tracing::info!(
             event = "folder_registry_committed",
