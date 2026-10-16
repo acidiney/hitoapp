@@ -11,6 +11,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 
 struct Fixture {
+    range_chunk: RwLock<Option<usize>>,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
@@ -27,6 +28,7 @@ impl ProviderServer {
     pub async fn start() -> Self {
         let (closed, receiver) = watch::channel(false);
         let state = Arc::new(Fixture {
+            range_chunk: RwLock::new(None),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
             requests: Default::default(),
@@ -59,6 +61,9 @@ impl ProviderServer {
     pub async fn audio(&self, status: StatusCode, headers: HeaderMap, bytes: Vec<u8>) {
         *self.state.audio.write().await = (status, headers, bytes);
     }
+    pub async fn range_chunks(&self, maximum: usize) {
+        *self.state.range_chunk.write().await = Some(maximum);
+    }
     pub async fn hold(&self, path: &str) -> Arc<Gate> {
         let gate = Arc::new(Gate {
             entered: Semaphore::new(0),
@@ -88,6 +93,10 @@ async fn audio(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    let range = headers
+        .get("range")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     state
         .requests
         .lock()
@@ -97,7 +106,33 @@ async fn audio(
             query["_method"] = json!(method.as_str());
             query
         }));
-    let (status, headers, bytes) = state.audio.read().await.clone();
+    let (mut status, mut headers, mut bytes) = state.audio.read().await.clone();
+    if let Some(maximum) = *state.range_chunk.read().await {
+        headers.insert("accept-ranges", "bytes".parse().unwrap());
+        if let Some(range) = range {
+            let first: usize = range
+                .strip_prefix("bytes=")
+                .unwrap()
+                .trim_end_matches('-')
+                .parse()
+                .unwrap();
+            let total = bytes.len();
+            if first >= total {
+                headers.insert("content-range", format!("bytes */{total}").parse().unwrap());
+                return (StatusCode::RANGE_NOT_SATISFIABLE, headers).into_response();
+            }
+            let end = (first + maximum).min(total);
+            bytes = bytes[first..end].to_vec();
+            status = StatusCode::PARTIAL_CONTENT;
+            headers.insert(
+                "content-range",
+                format!("bytes {first}-{}/{total}", end - 1)
+                    .parse()
+                    .unwrap(),
+            );
+        }
+        headers.insert("content-length", bytes.len().to_string().parse().unwrap());
+    }
     if !wait_gate(&state, "v1/audio").await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
