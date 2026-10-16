@@ -8,10 +8,6 @@ use axum::{
 pub(crate) enum Error {
     #[error("The playlist request is invalid")]
     InvalidRequest,
-    #[error("Connect your Spotify account to read this playlist")]
-    Unauthorized,
-    #[error("Spotify does not allow this account to read the playlist contents")]
-    AccessDenied,
     #[error("Spotify does not allow public access to this playlist")]
     PublicAccessDenied,
     #[error("The Spotify playlist was not found")]
@@ -32,8 +28,7 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status = match self {
             Self::InvalidRequest => StatusCode::BAD_REQUEST,
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::AccessDenied | Self::PublicAccessDenied => StatusCode::FORBIDDEN,
+            Self::PublicAccessDenied => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::SnapshotUnavailable => StatusCode::GONE,
             Self::Busy | Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,

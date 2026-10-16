@@ -1,6 +1,4 @@
-mod client;
 mod config;
-mod detail;
 mod error;
 mod http;
 mod public;

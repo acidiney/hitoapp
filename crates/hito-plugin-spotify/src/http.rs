@@ -1,8 +1,7 @@
-use crate::{Config, InitError, client::Client, detail, error::Error, public};
+use crate::{Config, InitError, error::Error, public::Client};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
-    http::HeaderMap,
     middleware::{Next, from_fn},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -22,11 +21,7 @@ use std::{
 use tracing::Instrument;
 
 pub fn router(config: Config) -> Result<Router, InitError> {
-    let public = public::Client::new(&config)?;
-    let client = Arc::new(Clients {
-        api: Client::new(config)?,
-        public,
-    });
+    let client = Arc::new(Client::new(&config)?);
     Ok(Router::new()
         .route("/v1/manifest", get(manifest))
         .route("/v1/playlists/detail", post(playlist_detail))
@@ -34,11 +29,6 @@ pub fn router(config: Config) -> Result<Router, InitError> {
         .layer(DefaultBodyLimit::max(4096))
         .layer(from_fn(observe))
         .with_state(client))
-}
-
-struct Clients {
-    api: Client,
-    public: public::Client,
 }
 
 async fn manifest() -> Json<Manifest> {
@@ -52,39 +42,19 @@ async fn manifest() -> Json<Manifest> {
 }
 
 async fn playlist_detail(
-    State(client): State<Arc<Clients>>,
-    headers: HeaderMap,
+    State(client): State<Arc<Client>>,
     payload: Result<Json<PlaylistDetailRequest>, JsonRejection>,
 ) -> Result<Json<ProviderPlaylist>, Error> {
-    let values = headers.get_all("authorization");
-    if values.iter().next().is_none() {
-        let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-        return client.public.read(request).await.map(Json);
-    }
-    if values.iter().count() != 1 {
-        return Err(Error::Unauthorized);
-    }
-    let token = values
-        .iter()
-        .next()
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
-        .filter(|token| {
-            !token.is_empty()
-                && token.len() <= 4096
-                && token.bytes().all(|byte| (0x21..=0x7e).contains(&byte))
-        })
-        .ok_or(Error::Unauthorized)?;
     let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    detail::read(&client.api, token, request).await.map(Json)
+    client.read(request).await.map(Json)
 }
 
 async fn playlist_items(
-    State(client): State<Arc<Clients>>,
+    State(client): State<Arc<Client>>,
     payload: Result<Json<PlaylistItemsRequest>, JsonRejection>,
 ) -> Result<Json<PlaylistPage>, Error> {
     let Json(request) = payload.map_err(|_| Error::InvalidRequest)?;
-    client.public.items(request).map(Json)
+    client.items(request).map(Json)
 }
 
 async fn observe(request: Request, next: Next) -> Response {

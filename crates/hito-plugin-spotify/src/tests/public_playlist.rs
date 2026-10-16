@@ -17,7 +17,6 @@ async fn shared_public_playlist_detail_needs_no_account_and_reads_every_page() {
         router(Config {
             public_base: spotify.url.clone(),
             query_endpoint: spotify.url.join("pathfinder/v2/query").unwrap(),
-            ..Config::default()
         })
         .unwrap(),
     )
@@ -49,13 +48,53 @@ async fn shared_public_playlist_detail_needs_no_account_and_reads_every_page() {
 }
 
 #[tokio::test]
+async fn caller_credentials_do_not_change_the_public_workflow_or_reach_spotify() {
+    let fixture = Fixture::start().await;
+    let plugin = Server::start(
+        router(Config {
+            public_base: fixture.server.url.clone(),
+            query_endpoint: fixture.server.url.join("pathfinder/v2/query").unwrap(),
+        })
+        .unwrap(),
+    )
+    .await;
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
+    let response = client
+        .post(plugin.url.join("v1/playlists/detail").unwrap())
+        .bearer_auth("owned-caller-bearer-token")
+        .header("cookie", "owned-caller-cookie=owned-caller-value")
+        .json(&json!({
+            "kind": "reference",
+            "reference": format!("https://open.spotify.com/playlist/{PLAYLIST_ID}")
+        }))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let playlist = response.json::<ProviderPlaylist>().await.unwrap();
+    playlist.validate().unwrap();
+    assert_eq!(playlist.id, PLAYLIST_ID);
+    assert_eq!(playlist.name, "Owned public playlist fixture");
+    assert_eq!(playlist.total_count, 101);
+    assert!(!playlist.snapshot.is_empty());
+    assert_eq!(
+        *fixture.calls.lock().unwrap(),
+        ["embed", "query:0", "query:100"]
+    );
+}
+
+#[tokio::test]
 async fn public_items_pin_order_and_duplicates_while_canonical_detail_refreshes_the_tail() {
     let fixture = Fixture::start().await;
     let plugin = Server::start(
         router(Config {
             public_base: fixture.server.url.clone(),
             query_endpoint: fixture.server.url.join("pathfinder/v2/query").unwrap(),
-            ..Config::default()
         })
         .unwrap(),
     )

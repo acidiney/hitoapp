@@ -1,5 +1,4 @@
 mod access;
-mod detail;
 mod logging;
 mod manifest;
 mod public_fixture;

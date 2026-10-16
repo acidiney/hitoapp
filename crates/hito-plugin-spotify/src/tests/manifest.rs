@@ -25,7 +25,6 @@ async fn manifest_declares_only_public_playlists_without_authorization_or_upstre
     .await;
     let plugin = Server::start(
         router(Config {
-            api_base: upstream.url.join("v1/").unwrap(),
             public_base: upstream.url.clone(),
             query_endpoint: upstream.url.join("pathfinder/v2/query").unwrap(),
         })

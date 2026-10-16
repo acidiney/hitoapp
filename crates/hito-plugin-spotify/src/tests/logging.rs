@@ -1,10 +1,13 @@
-use super::Server;
+use super::{
+    Server,
+    public_fixture::{PLAYLIST_ID, bootstrap_html},
+};
 use crate::{Config, router};
 use axum::{
     Json, Router,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
 };
 use hito_plugin_sdk::ProviderPlaylist;
 use serde_json::json;
@@ -18,6 +21,7 @@ use std::{
     time::Duration,
 };
 use tracing::instrument::WithSubscriber;
+use tracing_subscriber::prelude::*;
 
 #[derive(Clone, Default)]
 struct Capture(Arc<Mutex<Vec<u8>>>);
@@ -40,28 +44,41 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
     for level in [tracing::Level::INFO, tracing::Level::TRACE] {
         let logs = Capture::default();
         let captured = logs.clone();
-        let subscriber = tracing_subscriber::fmt()
-            .json()
-            .with_max_level(level)
-            .with_writer(move || captured.clone())
-            .finish();
+        let subscriber = tracing_subscriber::registry()
+            .with(tracing_subscriber::filter::filter_fn(|metadata| {
+                metadata.target() == "hito_plugin_spotify"
+                    || metadata.target().starts_with("hito_plugin_spotify::")
+            }))
+            .with(tracing_subscriber::filter::LevelFilter::from_level(level))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .json()
+                    .with_writer(move || captured.clone()),
+            );
         let dispatch = tracing::Dispatch::new(subscriber);
         let fail = Arc::new(AtomicBool::new(false));
         let failure = fail.clone();
         let calls = Arc::new(AtomicUsize::new(0));
-        let observed = calls.clone();
-        let spotify = Server::start(Router::new().route(
-            "/v1/playlists/0000000000000000000001",
-            get(move |headers: HeaderMap| {
-                let failure = failure.clone();
-                let observed = observed.clone();
+        let embed_calls = calls.clone();
+        let query_calls = calls.clone();
+        let spotify = Server::start(Router::new()
+            .route("/embed/playlist/0000000000000000000001", get(move |headers: HeaderMap| {
+                let calls = embed_calls.clone();
                 async move {
-                    if !headers
-                        .get("authorization")
-                        .is_some_and(|value| value == "Bearer private-playlist-bearer-sentinel")
-                    {
-                        return StatusCode::UNAUTHORIZED.into_response();
-                    }
+                    assert!(headers.get("authorization").is_none());
+                    assert!(headers.get("cookie").is_none());
+                    assert!(headers.get("x-owned-private").is_none());
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    bootstrap_html("private-anonymous-session-sentinel")
+                }
+            }))
+            .route("/pathfinder/v2/query", post(move |headers: HeaderMap| {
+                let failure = failure.clone();
+                let observed = query_calls.clone();
+                async move {
+                    assert!(headers.get("authorization").is_some_and(|value| value == "Bearer private-anonymous-session-sentinel"));
+                    assert!(headers.get("cookie").is_none());
+                    assert!(headers.get("x-owned-private").is_none());
                     observed.fetch_add(1, Ordering::SeqCst);
                     if failure.load(Ordering::SeqCst) {
                         return (
@@ -71,19 +88,20 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
                             .into_response();
                     }
                     Json(json!({
-                        "id": "0000000000000000000001",
-                        "name": "private-playlist-title-sentinel",
-                        "snapshot_id": "owned-snapshot-v1",
-                        "items": {"total": 3}
+                        "data": {"playlistV2": {
+                            "__typename": "Playlist",
+                            "uri": format!("spotify:playlist:{PLAYLIST_ID}"),
+                            "name": "private-playlist-title-sentinel",
+                            "content": {"items": [], "totalCount": 0, "pagingInfo": {"nextOffset": null}}
+                        }}
                     }))
                     .into_response()
                 }
-            }),
-        ))
+            })))
         .await;
         let app = router(Config {
-            api_base: spotify.url.join("v1/").unwrap(),
-            ..Config::default()
+            public_base: spotify.url.clone(),
+            query_endpoint: spotify.url.join("pathfinder/v2/query").unwrap(),
         })
         .unwrap()
         .layer(axum::middleware::from_fn(
@@ -104,6 +122,11 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
         let response = client
             .post(endpoint.clone())
             .bearer_auth("private-playlist-bearer-sentinel")
+            .header(
+                "cookie",
+                "private-cookie-sentinel=private-cookie-value-sentinel",
+            )
+            .header("x-owned-private", "private-header-sentinel")
             .json(&json!({"kind": "reference", "reference": reference}))
             .send()
             .await
@@ -115,6 +138,7 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
             .unwrap()
             .validate()
             .unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
 
         let response = client
             .post(endpoint.clone())
@@ -131,6 +155,7 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
                 "error": "The playlist request is invalid"
             })
         );
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
 
         fail.store(true, Ordering::SeqCst);
         let response = client
@@ -147,7 +172,7 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
                 "error": "Spotify could not be reached"
             })
         );
-        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert_eq!(calls.load(Ordering::SeqCst), 4);
 
         let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
         assert!(

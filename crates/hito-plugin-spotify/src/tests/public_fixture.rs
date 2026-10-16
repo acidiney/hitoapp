@@ -41,20 +41,7 @@ impl Fixture {
                             assert!(headers.get("authorization").is_none());
                             assert!(headers.get("cookie").is_none());
                             calls.lock().unwrap().push("embed".to_owned());
-                            let expiration = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64
-                                + 600_000;
-                            let bootstrap = json!({
-                                "props": {"pageProps": {"state": {"settings": {"session": {
-                                    "accessToken": "owned-anonymous-bootstrap-token",
-                                    "accessTokenExpirationTimestampMs": expiration
-                                }}}}}
-                            });
-                            Html(format!(
-                                "<!doctype html><script id=\"__NEXT_DATA__\" type=\"application/json\">{bootstrap}</script>"
-                            ))
+                            bootstrap_html("owned-anonymous-bootstrap-token")
                         }
                     }),
                 )
@@ -118,6 +105,23 @@ impl Fixture {
             tail_changed,
         }
     }
+}
+
+pub(super) fn bootstrap_html(token: &str) -> Html<String> {
+    let expiration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+        + 600_000;
+    let bootstrap = json!({
+        "props": {"pageProps": {"state": {"settings": {"session": {
+            "accessToken": token,
+            "accessTokenExpirationTimestampMs": expiration
+        }}}}}
+    });
+    Html(format!(
+        "<!doctype html><script id=\"__NEXT_DATA__\" type=\"application/json\">{bootstrap}</script>"
+    ))
 }
 
 fn owned_entry(position: u64) -> Value {
