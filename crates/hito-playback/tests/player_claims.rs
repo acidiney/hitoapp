@@ -124,3 +124,33 @@ async fn dropping_the_lifecycle_owner_closes_observation_and_admission() {
         Err(PlayerError::Closed)
     ));
 }
+
+#[tokio::test]
+async fn a_queue_without_native_output_reports_its_capability_and_rejects_resume() {
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner) = Player::start(f.services.clone());
+    let inspected = player.inspect(&f.actor).await.unwrap();
+    assert!(!inspected.native);
+    let attached = player.claim(&f.actor, inspected.epoch).await.unwrap();
+    assert!(!attached.native);
+    assert!(matches!(
+        player
+            .submit(
+                &f.actor,
+                PlayerCommand {
+                    id: Uuid::new_v4(),
+                    lease: attached.lease,
+                    sequence: 1,
+                    revision: 0,
+                    action: PlayerAction::Resume,
+                }
+            )
+            .await,
+        Err(PlayerError::Unsupported)
+    ));
+    let state = player.inspect(&f.actor).await.unwrap().state.unwrap();
+    assert!(!state.desired_playing);
+    assert!(!state.playing);
+    assert_eq!(state.revision, 0);
+    owner.close().await.unwrap();
+}

@@ -1,3 +1,5 @@
+mod attachment;
+mod effects;
 mod owner;
 mod ownership;
 mod queue;
@@ -11,7 +13,7 @@ use tokio::{
 use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
     PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerInspection,
-    PlayerQueueEntry, PlayerQueuePage, PlayerReceipt, PlayerSnapshot,
+    PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueuePage, PlayerReceipt, PlayerSnapshot,
 };
 use uuid::Uuid;
 
@@ -33,6 +35,7 @@ enum Action {
     Inspect,
     Claim(Uuid),
     Subscribe(Uuid),
+    Position(Uuid),
     Submit(PlayerCommand),
     Queue {
         lease: Uuid,
@@ -45,6 +48,7 @@ enum Response {
     Inspection(PlayerInspection),
     Attachment(PlayerAttachment),
     Observation(watch::Receiver<PlayerSnapshot>),
+    Position(watch::Receiver<PlayerPosition>),
     Receipt(PlayerReceipt),
     Queue(PlayerQueuePage),
 }
@@ -59,12 +63,23 @@ struct Request {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
     pub fn start(services: hito_core::Services) -> (Self, PlayerOwner) {
+        Self::spawn(services, effects::Effects::Disabled)
+    }
+
+    #[cfg(feature = "device")]
+    #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
+    pub fn native(services: hito_core::Services) -> (Self, PlayerOwner) {
+        let effects = effects::Effects::native(services.catalog.clone());
+        Self::spawn(services, effects)
+    }
+
+    fn spawn(services: hito_core::Services, effects: effects::Effects) -> (Self, PlayerOwner) {
         let id = NEXT_PLAYER.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("player_owner", id);
         let (requests, received) = mpsc::channel(32);
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(
-            owner::run(services, received, stopped)
+            owner::run(services, received, stopped, effects)
                 .instrument(tracing::Span::current())
                 .with_current_subscriber(),
         );
@@ -101,6 +116,18 @@ impl Player {
     ) -> Result<watch::Receiver<PlayerSnapshot>> {
         match self.request(actor, Action::Subscribe(lease)).await? {
             Response::Observation(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
+    pub async fn subscribe_position(
+        &self,
+        actor: &Actor,
+        lease: Uuid,
+    ) -> Result<watch::Receiver<PlayerPosition>> {
+        match self.request(actor, Action::Position(lease)).await? {
+            Response::Position(value) => Ok(value),
             _ => Err(PlayerError::Closed),
         }
     }

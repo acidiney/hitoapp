@@ -16,6 +16,10 @@ pub enum PlayerError {
     NotFound,
     #[error("The playback request is invalid or exceeds its limits")]
     Invalid,
+    #[error("Native audio output is not enabled")]
+    Unsupported,
+    #[error("Audio could not be played")]
+    Playback,
 }
 impl From<hito_core::Error> for PlayerError {
     fn from(error: hito_core::Error) -> Self {
@@ -33,18 +37,24 @@ impl From<hito_core::Error> for PlayerError {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerSnapshot {
     pub revision: u64,
     pub selection: u64,
     pub queue_len: usize,
     pub current: Option<PlayerEntryRef>,
+    pub desired_playing: bool,
+    pub playing: bool,
+    pub phase: PlayerPhase,
+    pub error: Option<PlayerError>,
 }
 pub struct PlayerInspection {
+    pub native: bool,
     pub epoch: Uuid,
     pub state: Option<PlayerSnapshot>,
 }
 pub struct PlayerAttachment {
+    pub native: bool,
     pub epoch: Uuid,
     pub lease: Uuid,
     pub state: PlayerSnapshot,
@@ -75,6 +85,7 @@ pub struct PlayerCommand {
 }
 #[derive(Clone, PartialEq, Eq)]
 pub enum PlayerAction {
+    Resume,
     Next,
     Clear,
     Append { recordings: Vec<Uuid> },
@@ -86,6 +97,7 @@ pub enum PlayerAction {
 impl PlayerAction {
     pub(super) fn name(&self) -> &'static str {
         match self {
+            Self::Resume => "resume",
             Self::Next => "next",
             Self::Clear => "clear",
             Self::Append { .. } => "append",
@@ -95,6 +107,25 @@ impl PlayerAction {
             Self::Replace { .. } => "replace",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlayerPhase {
+    #[default]
+    Idle,
+    Resolving,
+    Opening,
+    Ready,
+    Releasing,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PlayerPosition {
+    pub entry: Option<Uuid>,
+    pub selection: u64,
+    pub position_ms: u64,
+    pub duration_ms: Option<u64>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerReceipt {

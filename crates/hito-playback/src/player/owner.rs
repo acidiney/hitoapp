@@ -12,19 +12,23 @@ pub(super) async fn run(
     services: Services,
     mut requests: mpsc::Receiver<Request>,
     mut stopped: oneshot::Receiver<()>,
+    mut effects: super::effects::Effects,
 ) {
     let mut state = State {
         epoch: Uuid::new_v4(),
         owner: None,
+        native: effects.enabled(),
     };
     let mut pending: Option<Admission> = None;
     let mut checking: Option<SessionCheck> = None;
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
+        effects.sync(&state);
         tokio::select! {
             biased;
             _ = &mut stopped => break,
+            update = effects.next() => state.update(update),
             (lease, result) = async { checking.as_mut().unwrap().await }, if checking.is_some() => {
                 checking = None;
                 if result.is_err() && state.owner.as_ref().is_some_and(|owned| owned.lease == lease) {
@@ -67,5 +71,11 @@ pub(super) async fn run(
             },
         }
     }
+    requests.close();
+    drop(requests);
+    drop(pending);
+    drop(checking);
+    state.owner = None;
+    effects.close().await;
     tracing::info!(event = "player_owner_closed", "Playback admission joined");
 }
