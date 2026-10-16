@@ -51,6 +51,7 @@ pub struct PlayerSnapshot {
     pub current_index: Option<usize>,
     pub current: Option<PlayerEntryRef>,
     pub can_previous: bool,
+    pub repeat: PlayerRepeat,
     pub source_id: Option<String>,
     pub desired_playing: bool,
     pub playing: bool,
@@ -70,6 +71,7 @@ impl Default for PlayerSnapshot {
             current_index: None,
             current: None,
             can_previous: false,
+            repeat: PlayerRepeat::Off,
             source_id: None,
             desired_playing: false,
             playing: false,
@@ -144,6 +146,7 @@ pub enum PlayerAction {
     Volume { level: u16 },
     Next {},
     Previous {},
+    Repeat {},
     Clear {},
     Append { recordings: Vec<Uuid> },
     Select { entry: Uuid },
@@ -160,6 +163,7 @@ impl PlayerAction {
             Self::Volume { .. } => "volume",
             Self::Next {} => "next",
             Self::Previous {} => "previous",
+            Self::Repeat {} => "repeat",
             Self::Clear {} => "clear",
             Self::Append { .. } => "append",
             Self::Select { .. } => "select",
@@ -168,6 +172,16 @@ impl PlayerAction {
             Self::Replace { .. } => "replace",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PlayerRepeat {
+    #[default]
+    Off,
+    All,
+    One,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]

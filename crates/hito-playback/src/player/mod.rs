@@ -16,7 +16,7 @@ use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
     PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure,
     PlayerInspection, PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueuePage,
-    PlayerReceipt, PlayerSnapshot,
+    PlayerReceipt, PlayerRepeat, PlayerSnapshot,
 };
 use uuid::Uuid;
 

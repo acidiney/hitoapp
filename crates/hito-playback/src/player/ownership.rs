@@ -26,6 +26,7 @@ impl State {
                         | PlayerAction::Seek { .. }
                         | PlayerAction::Volume { .. }
                         | PlayerAction::Previous {}
+                        | PlayerAction::Repeat {}
                 ) && !self.native
                 {
                     return Err(PlayerError::Unsupported);
@@ -276,7 +277,12 @@ impl State {
             });
         }
         if update.ended || (update.exhausted && owned.desired_playing) {
-            if owned.queue.apply(PlayerAction::Next {}).is_err() {
+            let advanced = if update.ended {
+                owned.queue.completed()
+            } else {
+                owned.queue.apply(PlayerAction::Next {})
+            };
+            if advanced.is_err() {
                 owned.error = Some(PlayerError::Invalid);
             }
             owned.selected(self.native);

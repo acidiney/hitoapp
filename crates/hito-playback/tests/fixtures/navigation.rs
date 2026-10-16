@@ -70,9 +70,12 @@ impl Navigation {
         }
     }
     pub async fn send(&mut self, action: PlayerAction) -> PlayerReceipt {
+        self.submit(self.request(action)).await
+    }
+    pub async fn submit(&mut self, command: PlayerCommand) -> PlayerReceipt {
         let receipt = self
             .player
-            .submit(&self.source.actor, self.request(action))
+            .submit(&self.source.actor, command)
             .await
             .unwrap();
         self.sequence = receipt.sequence;

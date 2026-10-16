@@ -1,6 +1,6 @@
 use super::{
-    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueuePage, PlayerSnapshot,
-    Result,
+    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueuePage, PlayerRepeat,
+    PlayerSnapshot, Result,
 };
 use hito_core::Recording;
 use std::collections::VecDeque;
@@ -13,6 +13,7 @@ pub(super) struct Queue {
     entries: Vec<PlayerEntryRef>,
     current: Option<usize>,
     history: VecDeque<Uuid>,
+    repeat: PlayerRepeat,
 }
 impl Queue {
     pub fn snapshot(&self) -> PlayerSnapshot {
@@ -22,6 +23,7 @@ impl Queue {
             queue_len: self.entries.len(),
             current_index: self.current,
             can_previous: self.current.is_some() || !self.history.is_empty(),
+            repeat: self.repeat,
             current: self
                 .current
                 .and_then(|index| self.entries.get(index))
@@ -59,6 +61,15 @@ impl Queue {
         let current = self.current_entry();
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
+            PlayerAction::Repeat {} => {
+                self.repeat = match self.repeat {
+                    PlayerRepeat::Off => PlayerRepeat::All,
+                    PlayerRepeat::All => PlayerRepeat::One,
+                    PlayerRepeat::One => PlayerRepeat::Off,
+                };
+                tracing::debug!(event = "player_repeat_changed", mode = ?self.repeat, "Repeat mode changed");
+                return Ok(());
+            }
             PlayerAction::Pause {} | PlayerAction::Volume { .. } => return Ok(()),
             PlayerAction::Seek { .. } => {
                 return if self.current.is_some() {
@@ -150,6 +161,13 @@ impl Queue {
         }
         self.revision = revision;
         Ok(())
+    }
+
+    pub fn completed(&mut self) -> Result<()> {
+        match (self.repeat, self.current_entry()) {
+            (PlayerRepeat::One, Some(entry)) => self.apply(PlayerAction::Select { entry }),
+            _ => self.apply(PlayerAction::Next {}),
+        }
     }
 
     fn current_entry(&self) -> Option<Uuid> {
