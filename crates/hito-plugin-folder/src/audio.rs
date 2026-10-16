@@ -5,10 +5,8 @@ use axum::{
     http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
 };
-use futures_util::StreamExt;
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -87,26 +85,14 @@ pub(crate) async fn audio(
     if method == Method::HEAD {
         return (status, response_headers, Body::empty()).into_response();
     }
-    let mut file = tokio::fs::File::from_std(file);
-    if file.seek(std::io::SeekFrom::Start(first)).await.is_err() {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    let mut delivery = Delivery {
-        _permit: permit,
-        expected: length,
-        delivered: 0,
-        failed: false,
-        started: std::time::Instant::now(),
-        span: tracing::Span::current(),
-        dispatch: tracing::dispatcher::get_default(Clone::clone),
-    };
-    let stream =
-        tokio_util::io::ReaderStream::with_capacity(file.take(length), 65536).map(move |chunk| {
-            delivery.observe(&chunk);
-            chunk
-        });
-    (status, response_headers, Body::from_stream(stream)).into_response()
+    (
+        status,
+        response_headers,
+        crate::stream::body(file, first, length, permit),
+    )
+        .into_response()
 }
+
 fn range_selection(range: &str, total: u64) -> Result<Option<(u64, u64)>, ()> {
     let Some((unit, range)) = range.split_once('=') else {
         return Err(());
@@ -138,42 +124,4 @@ fn range_selection(range: &str, total: u64) -> Result<Option<(u64, u64)>, ()> {
         return Err(());
     }
     Ok(Some((first, last)))
-}
-
-struct Delivery {
-    _permit: tokio::sync::OwnedSemaphorePermit,
-    expected: u64,
-    delivered: u64,
-    failed: bool,
-    started: std::time::Instant,
-    span: tracing::Span,
-    dispatch: tracing::Dispatch,
-}
-impl Delivery {
-    fn observe(&mut self, chunk: &std::io::Result<axum::body::Bytes>) {
-        match chunk {
-            Ok(bytes) => self.delivered += bytes.len() as u64,
-            Err(_) => self.failed = true,
-        }
-    }
-}
-impl Drop for Delivery {
-    fn drop(&mut self) {
-        tracing::dispatcher::with_default(&self.dispatch, || {
-            let _entered = self.span.enter();
-            let outcome = if self.failed {
-                "read_failed"
-            } else if self.expected == self.delivered {
-                "complete"
-            } else {
-                "closed"
-            };
-            tracing::debug!(
-                event = "folder_audio_finished",
-                outcome,
-                bytes = self.delivered,
-                elapsed_ms = self.started.elapsed().as_millis() as u64
-            );
-        });
-    }
 }

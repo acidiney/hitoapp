@@ -6,6 +6,7 @@ mod inspection;
 mod releases;
 mod scan;
 mod search;
+mod stream;
 
 use axum::Router;
 use std::{io, path::Path, sync::Arc};
