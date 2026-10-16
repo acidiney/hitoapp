@@ -1,0 +1,107 @@
+use super::*;
+use cpal::OutputStreamTimestamp;
+
+fn info(callback: u64, playback: u64) -> OutputCallbackInfo {
+    OutputCallbackInfo::new(OutputStreamTimestamp {
+        callback: StreamInstant::from_micros(callback),
+        playback: StreamInstant::from_micros(playback),
+    })
+}
+
+fn format() -> AudioFormat {
+    AudioFormat {
+        channels: 1,
+        sample_rate: 48_000,
+        duration: None,
+    }
+}
+
+#[test]
+fn a_callback_with_an_old_epoch_preserves_future_frames() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = Arc::new(State::new());
+    state.epoch.store(2, Ordering::Release);
+    producer
+        .push(Frame::Audio {
+            samples: [0.5; 2],
+            position: 20_833,
+            epoch: 2,
+        })
+        .unwrap();
+    let mut render = Render::new(consumer, state, format());
+    assert!(render.take(1, &mut 4).is_none());
+    assert!(matches!(
+        render.take(2, &mut 4),
+        Some(Frame::Audio { epoch: 2, .. })
+    ));
+}
+
+#[test]
+fn an_empty_read_cannot_publish_completion_ahead_of_late_final_frames() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = Arc::new(State::new());
+    state.playing.store(true, Ordering::Release);
+    let mut render = Render::new(consumer, state.clone(), format());
+    render.fill(&mut [0_f32; 1], &info(0, 100_000));
+    producer
+        .push(Frame::Audio {
+            samples: [0.25; 2],
+            position: 20_833,
+            epoch: 1,
+        })
+        .unwrap();
+    producer
+        .push(Frame::Audio {
+            samples: [0.5; 2],
+            position: 41_667,
+            epoch: 1,
+        })
+        .unwrap();
+    producer
+        .push(Frame::End {
+            position: 41_667,
+            epoch: 1,
+        })
+        .unwrap();
+    let mut output = [0_f32; 3];
+    render.fill(&mut output, &info(10, 100_010));
+    assert_eq!(output, [0.25, 0.5, 0.]);
+    assert!(!state.snapshot(format()).ended);
+    assert_eq!(state.snapshot(format()).position, Duration::ZERO);
+    render.fill(&mut [0_f32; 1], &info(100_050, 200_050));
+    assert!(!state.snapshot(format()).ended);
+    render.fill(&mut [0_f32; 1], &info(100_100, 200_100));
+    assert!(state.snapshot(format()).ended);
+    assert_eq!(
+        state.snapshot(format()).position,
+        Duration::from_nanos(41_667)
+    );
+}
+
+#[test]
+fn overlapping_startup_timestamps_do_not_overlap_submitted_buffers() {
+    let (mut producer, consumer) = rtrb::RingBuffer::new(4);
+    let state = Arc::new(State::new());
+    let mut render = Render::new(consumer, state.clone(), format());
+    render.fill(&mut [0_f32; 64], &info(0, 0));
+    state.playing.store(true, Ordering::Release);
+    producer
+        .push(Frame::Audio {
+            samples: [0.5; 2],
+            position: 20_833,
+            epoch: 1,
+        })
+        .unwrap();
+    producer
+        .push(Frame::End {
+            position: 20_833,
+            epoch: 1,
+        })
+        .unwrap();
+    render.fill(&mut [0_f32; 2], &info(1, 1));
+    render.fill(&mut [0_f32; 1], &info(100, 100));
+    assert!(!state.snapshot(format()).ended);
+    assert_eq!(state.snapshot(format()).position, Duration::ZERO);
+    render.fill(&mut [0_f32; 1], &info(1400, 1400));
+    assert!(state.snapshot(format()).ended);
+}

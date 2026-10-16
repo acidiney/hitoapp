@@ -8,6 +8,14 @@ pub enum Error {
     FormatChanged,
     #[error("Audio could not seek to the requested position")]
     Seek,
+    #[error("A compatible audio output device is unavailable")]
+    OutputUnavailable,
+    #[error("The audio output device failed")]
+    Output,
+    #[error("The audio worker failed")]
+    Worker,
+    #[error("The audio control value is invalid")]
+    InvalidControl,
     #[error("Audio reading was interrupted")]
     Interrupted,
 }
