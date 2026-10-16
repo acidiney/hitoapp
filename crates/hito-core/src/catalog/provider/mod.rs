@@ -1,5 +1,6 @@
 mod adoption;
 mod evidence;
+mod metadata;
 mod persist;
 mod refresh;
 mod search;

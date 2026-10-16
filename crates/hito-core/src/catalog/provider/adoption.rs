@@ -1,4 +1,4 @@
-use super::{Catalog, evidence, persist};
+use super::{Catalog, metadata, persist};
 use crate::{Actor, Error, Recording, Result};
 use hito_plugin_sdk::{Capability, RecordingRequest};
 use serde::Deserialize;
@@ -39,21 +39,17 @@ impl Catalog {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         operation.recheck(&mut tx).await?;
         let library = persist::library(&mut tx, actor.id()).await?;
-        let release =
-            persist::release(&mut tx, &library, installation, details.release.as_ref()).await?;
-        let recording = persist::recording(&mut tx, &library, installation, &details).await?;
-        let observation = evidence::observe(
+        let published = metadata::publish(
             &mut tx,
+            &library,
             installation,
             &operation.provider,
-            &recording,
-            release.as_deref(),
             &details,
         )
         .await?;
-        sqlx::query("UPDATE recordings SET release_id = ?, title = ?, artist = ?, duration_ms = ?, metadata_observation_id = ? WHERE id = ?")
-            .bind(&release).bind(&details.title).bind(&details.artist).bind(details.duration_ms.unwrap_or(0) as i64)
-            .bind(&observation).bind(&recording).execute(&mut *tx).await?;
+        let recording = published.recording_id;
+        let release = published.release_id;
+        let observation = published.observation_id;
         persist::sources(
             &mut tx,
             installation,
