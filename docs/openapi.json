@@ -1974,6 +1974,15 @@
                 }
               }
             }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5835,7 +5844,6 @@
       "OfferPluginService": {
         "type": "object",
         "required": [
-          "name",
           "base_url"
         ],
         "properties": {

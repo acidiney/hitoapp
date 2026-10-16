@@ -1179,7 +1179,7 @@ export interface components {
         };
         OfferPluginService: {
             base_url: string;
-            name: string;
+            name?: string;
         };
         Operation: {
             action: components["schemas"]["Action"];
@@ -3238,6 +3238,14 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

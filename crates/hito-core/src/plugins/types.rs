@@ -5,6 +5,7 @@ use utoipa::ToSchema;
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OfferPluginService {
+    #[serde(default)]
     pub name: String,
     pub base_url: String,
 }
