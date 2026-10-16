@@ -145,6 +145,7 @@ impl State {
     pub fn present(&self, epoch: u64, position: u64, speed: Option<f32>, ended: bool) {
         // One callback writes observations; worker resets have their own publication sequence.
         self.presented_sequence.fetch_add(1, Ordering::AcqRel);
+        fence(Ordering::Release);
         self.position.store(position, Ordering::Relaxed);
         if let Some(speed) = speed {
             self.speed.store(speed.to_bits(), Ordering::Relaxed);
@@ -158,6 +159,7 @@ impl State {
 
     pub fn reset(&self, position: u64) -> u64 {
         self.reset_sequence.fetch_add(1, Ordering::AcqRel);
+        fence(Ordering::Release);
         self.base.store(position, Ordering::Relaxed);
         let epoch = self.epoch.fetch_add(1, Ordering::AcqRel) + 1;
         self.reset_sequence.fetch_add(1, Ordering::Release);
