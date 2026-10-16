@@ -36,6 +36,10 @@ impl Actor {
         &self.user.id
     }
 
+    pub(crate) fn session_binding(&self) -> &str {
+        &self.session_hash
+    }
+
     pub(crate) fn require_admin(&self) -> Result<()> {
         if self.user.admin {
             Ok(())

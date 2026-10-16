@@ -17,7 +17,26 @@ struct Key {
 
 impl Vault {
     pub(super) async fn open(store: &Store, database: &Path) -> Result<Self> {
-        let fingerprints: Vec<Vec<u8>> = sqlx::query_scalar("SELECT DISTINCT substr(credential,1,33) FROM plugin_installations WHERE credential IS NOT NULL LIMIT 2").fetch_all(&store.pool).await?;
+        let mut fingerprints: Vec<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM plugin_installations INDEXED BY plugin_credential_fingerprints
+            WHERE credential IS NOT NULL ORDER BY substr(credential,1,33) ASC LIMIT 1",
+        )
+        .fetch_all(&store.pool)
+        .await?;
+        let last: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM plugin_installations INDEXED BY plugin_credential_fingerprints
+            WHERE credential IS NOT NULL ORDER BY substr(credential,1,33) DESC LIMIT 1",
+        )
+        .fetch_optional(&store.pool)
+        .await?;
+        fingerprints.extend(last);
+        let pending: Vec<Vec<u8>> = sqlx::query_scalar(
+            "SELECT DISTINCT substr(pending_secret,1,33) FROM plugin_authorization_attempts INDEXED BY expired_plugin_authorization_attempts
+            WHERE expires_at > unixepoch() LIMIT 2",
+        )
+        .fetch_all(&store.pool)
+        .await?;
+        fingerprints.extend(pending);
         let path = database.with_extension("plugin-key");
         let create = fingerprints.is_empty();
         let loaded =
@@ -58,15 +77,37 @@ impl Vault {
         token: &str,
     ) -> Result<Vec<u8>> {
         validate(token)?;
+        self.seal_payload(&context(account, installation, service), token.as_bytes())
+    }
+
+    pub(super) fn seal_pending_authorization(
+        &self,
+        account: &str,
+        installation: &str,
+        service: &str,
+        attempt: &str,
+        secrets: &[u8],
+    ) -> Result<Vec<u8>> {
+        if secrets.is_empty() || secrets.len() > 1024 {
+            return Err(Error::Internal(
+                "Plugin authorization secrets exceed their storage limit".into(),
+            ));
+        }
+        let aad = format!(
+            "hito.plugin.authorization.pending.v1|{account}|{installation}|{service}|{attempt}"
+        );
+        self.seal_payload(&aad, secrets)
+    }
+
+    fn seal_payload(&self, aad: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
         let key = self.0.as_ref().as_ref().ok_or_else(unavailable)?;
         let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
-        let aad = context(account, installation, service);
         let ciphertext = key
             .cipher
             .encrypt(
                 &nonce,
                 Payload {
-                    msg: token.as_bytes(),
+                    msg: plaintext,
                     aad: aad.as_bytes(),
                 },
             )

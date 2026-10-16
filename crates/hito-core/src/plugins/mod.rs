@@ -1,4 +1,5 @@
 mod admission;
+mod authorization;
 mod credentials;
 mod installations;
 mod key_file;
@@ -13,6 +14,10 @@ mod types;
 mod vault;
 
 use crate::{Result, store::Store};
+pub use authorization::{
+    PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationState,
+    PluginAuthorizationStatus,
+};
 pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
 pub(crate) use playlists::PlaylistSnapshot;

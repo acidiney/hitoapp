@@ -32,8 +32,9 @@ pub use metadata::{
     ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use plugins::{
-    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
-    PluginService, PluginSettings, Plugins, RefreshPlugin,
+    InstallPlugin, OfferPluginService, PluginAuthorization, PluginAuthorizationRedirect,
+    PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginInstallation,
+    PluginRefresh, PluginService, PluginSettings, Plugins, RefreshPlugin,
 };
 use store::Store;
 
