@@ -5,6 +5,7 @@ mod fixture;
 mod progress_events;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
+use hito_core::SyncEvent;
 use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerError, PlayerPhase};
 use std::{collections::HashSet, time::Duration};
 use uuid::Uuid;
@@ -165,7 +166,12 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
         journal
             .operations
             .iter()
-            .map(|event| event.operation.id)
+            .map(|event| {
+                let SyncEvent::Operation { operation, .. } = event else {
+                    panic!("the native client journal contained a publication");
+                };
+                operation.id
+            })
             .collect::<HashSet<_>>()
             .len(),
         expected.len()
@@ -174,7 +180,12 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
         journal
             .operations
             .iter()
-            .map(|event| event.device_id.as_str())
+            .map(|event| {
+                let SyncEvent::Operation { device_id, .. } = event else {
+                    panic!("the native client journal contained a publication");
+                };
+                device_id.as_str()
+            })
             .collect::<HashSet<_>>()
             .len(),
         1
@@ -182,9 +193,14 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
     let positions = journal
         .operations
         .iter()
-        .map(|event| match event.operation.action {
-            hito_core::Action::ProgressSet { position_ms, .. } => position_ms,
-            _ => panic!("the native client wrote a non-progress operation"),
+        .map(|event| {
+            let SyncEvent::Operation { operation, .. } = event else {
+                panic!("the native client journal contained a publication");
+            };
+            match operation.action {
+                hito_core::Action::ProgressSet { position_ms, .. } => position_ms,
+                _ => panic!("the native client wrote a non-progress operation"),
+            }
         })
         .collect::<Vec<_>>();
     assert_eq!(positions, expected);
