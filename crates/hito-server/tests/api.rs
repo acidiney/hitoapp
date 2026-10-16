@@ -19,6 +19,9 @@ mod browsing;
 #[path = "api/collection.rs"]
 mod collection;
 
+#[path = "api/collection_publication_input.rs"]
+mod collection_publication_input;
+
 #[path = "api/playlist_import.rs"]
 mod playlist_import;
 
