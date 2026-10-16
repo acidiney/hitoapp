@@ -14,6 +14,50 @@
   flex: 1;
   max-width: 380px;
 }
+.playlist-import {
+  margin-bottom: 32px;
+}
+.playlist-import h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.playlist-import p {
+  max-width: 65ch;
+  font-size: 13px;
+}
+.playlist-import-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(0, 1.8fr) auto;
+  align-items: end;
+  gap: 16px;
+  margin-top: 16px;
+}
+.playlist-import-form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.playlist-import-form :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.playlist-import-form .button {
+  min-height: 44px;
+}
+.playlist-import-form [role="alert"] {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .playlist-import-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .playlist-import-form .button {
+    justify-self: start;
+  }
+}
 .playlist-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
