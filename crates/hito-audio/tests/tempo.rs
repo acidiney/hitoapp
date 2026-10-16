@@ -116,3 +116,22 @@ fn a_nonseekable_stream_changes_speed_without_losing_or_replaying_audio() {
     assert!((93_000..126_000).contains(&active), "active output frames: {active}");
     assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
 }
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn reversing_a_pending_rate_change_does_not_end_the_stream_early() {
+    let capture = Capture::open();
+    let input = support::wave(48_000, 2, 96_000, |frame, _| {
+        ((f64::from(frame) * 440. * std::f64::consts::TAU / 48_000.).sin() * 16_000.) as i16
+    });
+    let mut player = Player::open(Forward(input)).unwrap();
+    player.speed(0.5).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().position > Duration::from_millis(200));
+    player.speed(2.).unwrap();
+    capture.after(capture.mark(), 0.03);
+    player.speed(0.5).unwrap();
+    wait(|| player.snapshot().ended);
+    assert!((player.snapshot().position.as_secs_f64() - 2.).abs() < 0.001);
+    player.close().unwrap();
+}

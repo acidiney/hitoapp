@@ -91,7 +91,7 @@ impl Tempo {
             if interrupted() {
                 return Err(Error::Interrupted);
             }
-            if self.requested.is_some_and(|speed| speed == self.speed) {
+            if !self.flushed && self.requested.is_some_and(|speed| speed == self.speed) {
                 self.requested = None;
             }
             if self.requested.is_some() && !self.flushed {
