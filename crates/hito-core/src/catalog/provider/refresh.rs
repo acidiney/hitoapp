@@ -11,6 +11,12 @@ struct Binding {
     generation: i64,
 }
 
+enum RefreshOutcome {
+    Canceled,
+    Unchanged,
+    Published,
+}
+
 struct Update {
     binding: Binding,
     operation: Operation,
@@ -33,31 +39,62 @@ impl Catalog {
         cancelled: impl std::future::Future<Output = ()> + Send,
     ) -> Result<Option<Vec<Source>>> {
         tokio::pin!(cancelled);
+        match self
+            .refresh_state_until(actor, recording, cancelled.as_mut())
+            .await?
+        {
+            RefreshOutcome::Canceled => Ok(None),
+            RefreshOutcome::Unchanged => tokio::select! {
+                biased;
+                _ = &mut cancelled => Ok(None),
+                result = self.sources(actor, recording) => result.map(Some),
+            },
+            RefreshOutcome::Published => self.sources(actor, recording).await.map(Some),
+        }
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn refresh_playback_sources_until(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        cancelled: impl std::future::Future<Output = ()> + Send,
+    ) -> Result<bool> {
+        tokio::pin!(cancelled);
+        Ok(!matches!(
+            self.refresh_state_until(actor, recording, cancelled.as_mut())
+                .await?,
+            RefreshOutcome::Canceled
+        ))
+    }
+
+    async fn refresh_state_until(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        mut cancelled: std::pin::Pin<&mut (impl std::future::Future<Output = ()> + Send)>,
+    ) -> Result<RefreshOutcome> {
         let update = tokio::select! {
             biased;
             _ = &mut cancelled => {
                 tracing::debug!(event = "provider_refresh_canceled", "Source refresh canceled before publication");
-                return Ok(None);
+                return Ok(RefreshOutcome::Canceled);
             },
             result = self.prepare_refresh(actor, recording) => result?,
         };
         let Some(update) = update else {
-            return tokio::select! {
-                biased;
-                _ = &mut cancelled => Ok(None),
-                result = self.sources(actor, recording) => result.map(Some),
-            };
+            return Ok(RefreshOutcome::Unchanged);
         };
         tokio::select! {
             biased;
             _ = &mut cancelled => {
                 tracing::debug!(event = "provider_refresh_canceled", "Source refresh canceled before publication");
-                return Ok(None);
+                return Ok(RefreshOutcome::Canceled);
             },
             _ = std::future::ready(()) => {},
         }
         self.publish_refresh(actor, recording, update).await?;
-        self.sources(actor, recording).await.map(Some)
+        Ok(RefreshOutcome::Published)
     }
 
     async fn prepare_refresh(&self, actor: &Actor, recording: &str) -> Result<Option<Update>> {
