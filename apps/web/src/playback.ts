@@ -468,12 +468,22 @@ export class Playback implements Player {
   }
   remove(index: number) {
     log.info("queue.remove", { index });
+    const next =
+      index === this.state.index
+        ? this.traversal.next(
+            this.entryIds,
+            this.entryIds[index],
+            this.state.repeat,
+            "requested",
+          )
+        : null;
     const queue = this.state.queue.filter((_, i) => i !== index);
     this.traversal.remove(this.entryIds[index]);
     this.entryIds.splice(index, 1);
     if (index === this.state.index) {
       this.update({ queue });
-      void this.open(Math.min(index, queue.length - 1));
+      const successor = next ? this.entryIds.indexOf(next) : -1;
+      void this.open(successor >= 0 ? successor : queue.length);
     } else
       this.update({
         queue,

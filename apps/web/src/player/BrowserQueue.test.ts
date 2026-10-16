@@ -96,3 +96,32 @@ test("browser source exhaustion follows shuffled successors instead of canonical
   expect(player.snapshot().current?.id).toBe("healthy");
   expect(player.snapshot().error).toContain("Audio is unavailable");
 });
+
+test("removing the current browser entry selects its shuffled successor", async () => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  const audio = document.createElement("audio");
+  vi.spyOn(audio, "load").mockImplementation(() => {});
+  vi.spyOn(audio, "pause").mockImplementation(() => {});
+  vi.spyOn(audio, "play").mockResolvedValue();
+  const player = new Playback(audio, async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = {
+    id: "same",
+    title: "Fixture",
+    artist: "Test",
+    duration_ms: 10000,
+    available: true,
+  };
+  await player.playQueue(Array(3).fill(track));
+  const entries = (await player.queuePage(0, 50)).entries;
+  player.shuffle();
+  player.removeEntry(entries[0].id);
+  await vi.waitFor(() =>
+    expect(player.queueSnapshot().currentEntry).toBe(entries[2].id),
+  );
+  await player.next();
+  expect(player.queueSnapshot().currentEntry).toBe(entries[1].id);
+  await player.next();
+  expect(player.snapshot().current).toBeNull();
+});
