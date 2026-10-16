@@ -1,15 +1,15 @@
 # Native audio engine
 
-`hito-audio` decodes an owned file with Symphonia and, with its `device` feature, sends PCM through CPAL. It is an engine boundary under development. The Tauri application still uses its browser player. Native queues, source recovery, session ownership, and UI commands have not been connected to this crate.
+`hito-audio` decodes an owned input with Symphonia and, with its `device` feature, sends PCM through CPAL. The [native playback owner](native-playback.md) now supervises authorized local/provider input and session revocation around this engine. The Tauri application still uses its browser player. Native queues, source recovery, and UI commands have not been connected.
 
 ## Ownership
 
-The engine accepts `std::fs::File`, not a path, URL, account string, or renderer-supplied authority. It cannot open another file or make a network request. A future playback coordinator must obtain audio through core's catalog and supervise its [playback access grant](playback-access.md). An opened file alone does not provide revocation.
+The engine accepts an owned `Input`, including `std::fs::File`, with read/seek and length capabilities. It accepts no path, URL, account string, or renderer-supplied authority. A trusted input can perform I/O; `hito-playback::Source` obtains it through core's catalog and retains its [playback access grant](playback-access.md). An opened file alone does not provide revocation.
 
 ```mermaid
 flowchart LR
-  Catalog[Core catalog / authorized owned file] -. planned integration .-> Coordinator[Planned Rust queue and source coordinator]
-  Coordinator -. owned input .-> Player[hito-audio Player]
+  Catalog[Core catalog / authorized grant] --> Session[hito-playback session and owned input]
+  Session --> Player[hito-audio Player]
   Player --> Decoder[Owned decoder worker / Symphonia]
   Decoder --> PCM[Bounded 100 ms PCM ring / generation tags and end marker]
   PCM --> Render[CPAL callback / fixed presentation queue]
@@ -21,7 +21,7 @@ flowchart LR
 
 `Decoder` exposes the actual decoded sample rate and channel count, interleaved float samples, seeking, and interruptible packet scanning. It preserves high-resolution samples. It rejects nonfinite PCM and changes in rate or channel count during a stream. Public errors contain static categories.
 
-`Player` opens one input, starts paused, and owns resume, pause, seek, volume, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The future coordinator must call them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
+`Player` opens one input, starts paused, and owns resume, pause, seek, volume, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The native session owner calls them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
 
 The output starts with silence and waits for two callbacks before returning readiness. This primes the device before application audio. Device selection requests a 20 ms period within its advertised bounds; the negotiated callback size may differ. Output currently requires the source's exact rate and one or two channels, with float32, signed 16-bit, or unsigned 16-bit samples. No resampling or channel conversion is implemented yet.
 
@@ -55,7 +55,7 @@ sequenceDiagram
 
 An ALSA underrun is recoverable. Its callback records a counter. The worker releases the broken stream, seeks to the last presented position, opens a fresh output stream and PCM ring, and acknowledges recovery. It allows at most three consecutive resets without 200 ms of playback progress. The output suppresses old queued audio until acknowledgment and resets its presentation timeline. Error handling is scoped to each stream so a fatal replacement error cannot disappear during recovery. Other device failures stop output and remain visible in snapshots. Full source failover belongs to the planned coordinator.
 
-Close and Drop request stop and join the worker. It releases the decoder, input, and output stream before the join returns. Packet scanning checks interruption between demuxed packets, including packets for other tracks. A blocked operating-system read or an internal container seek cannot be forcibly interrupted by this implementation. Real disconnected-drive behavior remains a release gate.
+`stop_handle()` returns a cloneable terminal stop request independent of the player lock. It silences callbacks even while the worker is blocked, and prevents later resume or seek. Close and Drop request stop and join the worker. It releases the decoder, input, and output stream before the join returns. Packet scanning checks interruption between demuxed packets, including packets for other tracks. A blocked operating-system read, internal container seek, or driver call cannot be forcibly interrupted by this implementation. Real disconnected-drive behavior remains a release gate.
 
 ## Verification
 
@@ -77,8 +77,8 @@ Vendor diagnostics are suppressed only around Symphonia calls because malformed 
 
 ## Remaining integration
 
-The next step is a Rust coordinator with authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and live session/source revocation. Its HTTP adapter must reuse server authentication and local process protection. React should send commands and render snapshots through a high-level player interface. Its browser implementation keeps the existing audio adapter.
+The next step is an application coordinator with authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. It must retain the native session through host shutdown. Its HTTP adapter must reuse server authentication and local process protection. React should send commands and render snapshots through a high-level player interface. Its browser implementation keeps the existing audio adapter.
 
-FFmpeg fallback, remote range input, resampling, channel conversion, pitch-preserving speed, gapless preparation, device selection/media controls, desktop integration, platform verification, and release latency targets remain unfinished. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+FFmpeg fallback, resampling, channel conversion, pitch-preserving speed, gapless preparation, device selection/media controls, desktop integration, platform verification, and release latency targets remain unfinished. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.

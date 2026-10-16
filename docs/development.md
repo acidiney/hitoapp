@@ -13,7 +13,7 @@ Browser fixtures live in `fixtures/e2e-generated`, distinct from development mus
 
 The standalone Tauri development host has a separate `desktop` Compose profile and Cargo target. Run `./scripts/check-desktop.sh` for GUI-feature checks and an isolated Linux WebView workflow. See [desktop ownership and remaining work](desktop.md).
 
-The desktop check also runs `scripts/check-audio.sh`. It decodes deterministic codec fixtures and measures CPAL output through a private clocked PulseAudio monitor. Run that script separately after building the Rust and desktop tools images to focus on the engine. The application still uses WebKit audio. See [native audio ownership and limits](native-audio.md).
+The desktop check also runs `scripts/check-audio.sh` and `scripts/check-playback.sh`. They decode deterministic codec fixtures and measure CPAL output through a private clocked PulseAudio monitor. Playback checks use core grants and real local/provider inputs to exercise revocation, controls, canceled observers, and log privacy. Run either script separately after building the Rust and desktop tools images. Both use `scripts/run-audio-test.sh` and its private sink lifecycle. The application still uses WebKit audio. See [native playback ownership](native-playback.md) and [engine limits](native-audio.md).
 
 ## Rust editor support
 

@@ -12,7 +12,7 @@ flowchart LR
   Window --> BrowserAudio[Current browser audio adapter]
   HTTP --> Audio[Authorized local audio responses]
   Audio --> BrowserAudio
-  Window -. future commands and events .-> Native[Planned Rust playback engine]
+  Window -. future commands and events .-> Native[Rust playback owner / not connected]
   Core -. future sync API .-> Remote[Optional Hito server]
 ```
 
@@ -26,7 +26,7 @@ The local listener binds only `127.0.0.1` on an operating-system-assigned port. 
 
 The WebView loads the local application and denies navigation to another origin or opening new windows. The configuration grants no native IPC capabilities. Renderer input cannot select a filesystem path or impersonate an account through a native command. A future playback adapter must preserve those boundaries and authorize stable source IDs through the local account session.
 
-The separate [native audio engine](native-audio.md) now accepts owned files and controls decoding/output lifetime. It has no renderer routes and is not connected to this host yet. Its device verification is separate from the WebKit workflow below.
+The separate [native playback owner](native-playback.md) accepts core grants, opens owned local/provider input, and supervises the [audio engine](native-audio.md). It stops output on session/source revocation and joins cleanup even after an observer disappears. It has no renderer routes and is not connected to this host yet. Its device verification is separate from the WebKit workflow below. Host integration must retain sessions and the library lock until native cleanup finishes.
 
 ```mermaid
 sequenceDiagram

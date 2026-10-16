@@ -1,6 +1,6 @@
 # Playback access
 
-`Catalog::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. It is groundwork for the native coordinator. The desktop UI still uses browser audio and does not call this boundary yet.
+`Catalog::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. The [native playback owner](native-playback.md) now uses it for authorized input and output supervision. The desktop UI still uses browser audio and does not call this boundary yet.
 
 An authenticated `Actor` retains a private session fingerprint. It is neither serialized nor included in Debug output. Ordinary application requests still authenticate through the shared HTTP extractor. A long-running playback owner must retain the grant and supervise `revoked()` while starting, playing, paused, or draining buffered audio.
 
@@ -14,7 +14,7 @@ flowchart LR
   Catalog --> Grant[Opaque PlaybackSource]
   Grant --> Open[Open owned file or ranged audio stream]
   Grant --> Watch[Owner awaits revoked]
-  Watch -. planned integration .-> Stop[Native coordinator stops and joins output]
+  Watch --> Stop[Native session stops and joins output]
 ```
 
 ## Checks and revocation
@@ -42,4 +42,4 @@ Migration 0023 adds durable identities beside existing library memberships. It b
 
 Public capability fixtures cover logout with a retained actor, idle expiry notification, cross-instance membership revoke/restore, exact recording/source and account isolation, folder reconnect/rescan, provider credential removal, pending-handshake cancellation, harmless refresh, capability withdrawal/restoration, and a populated upgrade. Tests use temporary SQLite and owned deterministic audio through Docker.
 
-The Rust queue/source coordinator, supervision of actual CPAL output, authenticated native commands/snapshots, bounded range input, account-switch fencing, progress persistence, and React integration remain unfinished. See [native audio](native-audio.md) and the [release plan](release-plan.md).
+`hito-playback` supplies bounded local/range input and supervision of actual CPAL output, with canceled-observer cleanup tests. The application queue/source coordinator, authenticated native commands/snapshots, account-switch fencing, progress persistence, host shutdown integration, and React integration remain unfinished. See [native playback ownership](native-playback.md) and the [release plan](release-plan.md).

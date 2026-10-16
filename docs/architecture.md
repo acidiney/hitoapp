@@ -26,7 +26,7 @@ flowchart LR
 
 The solid lines describe the initial implementation. Dashed connections are planned boundaries. `docs/status.md` records which portions exist and which are verified.
 
-The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The [native audio engine](native-audio.md) owns file decoding and optional CPAL output. Its session/source coordinator, desktop integration, and synchronization client remain planned.
+The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. Native application queue/source coordination, desktop integration, and the synchronization client remain planned.
 
 ## Data ownership
 
