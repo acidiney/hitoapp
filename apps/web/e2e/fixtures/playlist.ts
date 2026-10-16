@@ -9,6 +9,7 @@ export async function playlistFixture() {
   const prefix = `Playlist ${unique.slice(0, 8)}`;
   const token = `playlist-private-bearer-${unique}`;
   const reference = `https://provider.invalid/private-playlist/${unique}`;
+  const secondReference = `${reference}/another-copy`;
   const manifest = {
     id: "org.hito.browser.playlist-fixture",
     name: `${prefix} provider`,
@@ -109,7 +110,8 @@ export async function playlistFixture() {
         !(
           (body.kind === "reference" &&
             "reference" in body &&
-            body.reference === reference) ||
+            (body.reference === reference ||
+              body.reference === secondReference)) ||
           (body.kind === "canonical" &&
             "playlist_id" in body &&
             body.playlist_id === detail.id)
@@ -154,6 +156,7 @@ export async function playlistFixture() {
     prefix,
     token,
     reference,
+    secondReference,
     manifest,
     recording,
     detail,
