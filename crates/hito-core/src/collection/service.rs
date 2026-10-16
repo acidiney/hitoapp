@@ -35,9 +35,14 @@ async fn apply_batch(
         let id = operation.id.to_string();
         let payload =
             serde_json::to_string(&operation).map_err(|e| Error::Internal(e.to_string()))?;
+        if payload.len() > super::events::MAX_SYNC_PAYLOAD_BYTES {
+            return Err(Error::Invalid(
+                "The sync operation exceeds the size limit".into(),
+            ));
+        }
         let previous: Option<(String, String)> = sqlx::query_as(
-            "SELECT device_id, payload FROM sync_operations
-                 WHERE user_id = ? AND operation_id = ?",
+            "SELECT device_id, payload FROM sync_events
+                 WHERE user_id = ? AND origin = 'client_operation' AND event_id = ?",
         )
         .bind(actor.id())
         .bind(&id)
@@ -62,8 +67,8 @@ async fn apply_batch(
         }
         apply::action(tx, actor, &operation).await?;
         sqlx::query(
-            "INSERT INTO sync_operations(user_id, device_id, operation_id, payload)
-                 VALUES (?, ?, ?, ?)",
+            "INSERT INTO sync_events(user_id, origin, device_id, event_id, payload)
+                 VALUES (?, 'client_operation', ?, ?, ?)",
         )
         .bind(actor.id())
         .bind(&batch.device_id)

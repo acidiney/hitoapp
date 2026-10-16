@@ -1,12 +1,22 @@
 mod apply;
 mod events;
 mod history;
+mod import;
+mod import_persist;
+mod import_publication;
+mod import_receipts;
 mod playlists;
 mod saved_position;
 mod service;
 mod types;
 
 use crate::{HostDeviceId, store::Store};
+pub use import::ImportProviderPlaylist;
+pub use import_publication::{
+    CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistOrigin,
+    ImportedPlaylistRecording, ImportedPlaylistSnapshot,
+};
+pub use import_receipts::PlaylistImportReceipt;
 pub use types::{
     Action, Activity, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
     SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
@@ -16,4 +26,5 @@ pub use types::{
 pub struct Collection {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
+    pub(crate) plugins: crate::Plugins,
 }

@@ -4,7 +4,12 @@ use hito_plugin_sdk::{
     SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
 };
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
+pub(super) struct Admission {
+    _account: OwnedSemaphorePermit,
+    _global: OwnedSemaphorePermit,
+}
 
 #[derive(Clone)]
 pub(super) struct ControlClient {
@@ -161,12 +166,33 @@ impl ControlClient {
         token: Option<&str>,
         call: Call,
     ) -> Result<T> {
-        let _account = self.accounts.enter(account)?;
-        let _permit = self
+        let _admission = self.admit(account)?;
+        let mut remaining = call.maximum;
+        self.exchange_admitted(base_url, token, call, &mut remaining)
+            .await
+    }
+
+    pub(super) fn admit(&self, account: &str) -> Result<Admission> {
+        let account = self.accounts.enter(account)?;
+        let global = self
             .slots
             .clone()
             .try_acquire_owned()
             .map_err(|_| Error::Conflict("Plugin connections are busy. Try again.".into()))?;
+        Ok(Admission {
+            _account: account,
+            _global: global,
+        })
+    }
+
+    pub(super) async fn exchange_admitted<T: serde::de::DeserializeOwned>(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        call: Call,
+        remaining: &mut usize,
+    ) -> Result<T> {
+        let maximum = call.maximum.min(*remaining);
         let endpoint = super::offers::endpoint(base_url)?
             .join(call.path)
             .map_err(|_| Error::Invalid("Invalid plugin service address".into()))?;
@@ -222,7 +248,7 @@ impl ControlClient {
         }
         if response
             .content_length()
-            .is_some_and(|length| length > call.maximum as u64)
+            .is_some_and(|length| length > maximum as u64)
         {
             return Err(Error::Upstream(
                 "The plugin response exceeds the size limit",
@@ -234,20 +260,21 @@ impl ControlClient {
             .await
             .map_err(|_| Error::Upstream("The plugin response could not be read"))?
         {
-            if bytes.len() + chunk.len() > call.maximum {
+            if chunk.len() > maximum.saturating_sub(bytes.len()) {
                 return Err(Error::Upstream(
                     "The plugin response exceeds the size limit",
                 ));
             }
             bytes.extend_from_slice(&chunk);
         }
+        *remaining -= bytes.len();
         serde_json::from_slice(&bytes)
             .map_err(|_| Error::Upstream("The plugin service returned invalid JSON data"))
     }
 }
 
-struct Call {
-    path: &'static str,
-    body: Option<serde_json::Value>,
-    maximum: usize,
+pub(super) struct Call {
+    pub(super) path: &'static str,
+    pub(super) body: Option<serde_json::Value>,
+    pub(super) maximum: usize,
 }

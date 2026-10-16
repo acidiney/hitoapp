@@ -14,8 +14,10 @@ pub use catalog::{
     ProviderSearch, Recording, Release, ReleaseDetail, ReleaseTrack, Search, Source,
 };
 pub use collection::{
-    Action, Activity, Collection, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
-    SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    Action, Activity, Collection, CollectionPublication, HistoryEntry, ImportProviderPlaylist,
+    ImportedPlaylistEntry, ImportedPlaylistOrigin, ImportedPlaylistRecording,
+    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry,
+    PlaylistImportReceipt, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};
@@ -71,6 +73,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         collection: Collection {
             store: store.clone(),
             host: config.host_device.clone(),
+            plugins: plugins.clone(),
         },
         storage,
         plugins,
