@@ -19,7 +19,7 @@ flowchart LR
 
 ## Checks and revocation
 
-Admission and each authority check have a one-second deadline. A check failure permanently invalidates that grant and its clones, including a timeout or database error. A fresh explicit playback attempt can request a new grant after access recovers. No raw session token, credential, locator, media bytes, or private path appears in grant logs. Workflow spans use a process-local numeric correlation ID.
+Admission and each authority check have a one-second deadline. A check failure permanently invalidates that grant and its clones, including a timeout or database error. The application coordinator suspends output and mutations while retaining its queue, then rechecks session and selected-recording access before requesting fresh grants. Old grants never revive. Definitive session rejection clears private ownership. No raw session token, credential, locator, media bytes, or private path appears in grant logs. Workflow spans use a process-local numeric correlation ID.
 
 `revoked()` checks immediately, then waits 250 ms between checks. With an actively polled owner and a responsive executor, a withdrawal can take one poll interval plus a bounded authorization query to become visible. This is not instantaneous revocation or a measured physical-audio cutoff. The owner must keep the revocation future polled, retain ownership of blocking engine work, and join cleanup before releasing the desktop library claim.
 

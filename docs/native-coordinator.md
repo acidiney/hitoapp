@@ -15,6 +15,8 @@ flowchart TB
   Owner --> Admission
   Admission --> State[Private state for one authenticated session]
   State --> Catalog[Concrete core Catalog]
+  State --> Authority[One retained authority check / suspended queue]
+  Authority --> Catalog
   State --> Native[Latest desired transport / owned native session]
   Native --> Catalog
   Native --> Join[Stop and join before replacement output]
@@ -38,7 +40,7 @@ The current Rust operations are:
 - Page queue metadata through a fresh core catalog lookup using the lease and expected revision.
 - Close the retained lifecycle owner. Dropping the owner also signals shutdown; the surrounding host must retain its runtime until cleanup finishes.
 
-Same-session attachment preserves the queue and selection while rotating the command lease and closing previous observations. A different login session begins empty, including another login for the same account. Inspection returns no private state for a different session. A separate monitor checks retained session authority every 250 ms through core's one-second deadline. A failed check currently clears ownership and the queue, including a transient authority failure. Protected queue recovery across such failures remains work before release.
+Same-session attachment preserves the queue and selection while rotating the command lease and closing previous observations. A different login session begins empty, including another login for the same account. Inspection returns no private state for a different session. A separate monitor checks retained session authority every 250 ms through core's one-second query deadline. Definitive session rejection clears ownership and closes its private observations. Temporary authority failures suspend output while preserving the exact queue and attachment.
 
 Commands support Replace, Append, Select, Next, Move, Remove, Clear, Resume, Pause, Seek, and Volume. Queue mutations increment the revision. Transport controls leave it unchanged unless Resume selects the first entry of a nonempty queue without a current entry. Seek uses nonnegative integer milliseconds within JavaScript's exact integer range and requires a selected entry. Volume uses an integer level from 0 to 1,000, where 0 is mute and 1,000 is full volume. Native controls return Unsupported on the queue-only owner. Selection has a separate generation: moving or appending keeps it, selecting or changing the current entry advances it. The last 64 accepted command payloads and receipts are retained per lease. An identical retry returns its original receipt without another mutation or metadata lookup. A conflicting payload with a retained request ID fails; an evicted original retry still fails its stale sequence. This is bounded process-local replay, not a durable journal.
 
@@ -72,9 +74,28 @@ Structural snapshots expose desired volume and whether a seek remains pending. S
 
 Core's opaque `PlaybackCandidates` cursor selects ready local grants for the owning host, then grants from the captured provider generation. It rechecks live session and recording access on each advance. Each source is visited once per phase. Local traversal has an ID ceiling and a finite initial budget; provider snapshots contain at most sixteen sources. Concurrent changes can alter eligibility within those bounds. The cursor retains no source vector, transaction, or audio locator. Construction and each advance have a one-second deadline. The local count/ceiling prepass grows with ready rows; the 100,000-row fixture covers unavailable history, not arbitrary ready-candidate latency.
 
-After cached candidates fail, native recovery attempts one provider refresh and rereads current candidates once, even if refresh fails. A refreshed source may reuse the same Hito source ID with new authority. Recovery stops and joins the previous session, restores its observed position, and applies current play/pause before playback. A paused source withdrawal can recover without producing audio. A source's withdrawal does not end account ownership. Unauthorized results clear ownership. An unavailable candidate-authorization result halts output rather than advancing the queue. The independent session monitor still clears ownership on transient authority failure, as described above.
+After cached candidates fail, native recovery attempts one provider refresh and rereads current candidates once, even if refresh fails. A refreshed source may reuse the same Hito source ID with new authority. Recovery stops and joins the previous session, restores its observed position, and applies current play/pause before playback. A paused source withdrawal can recover without producing audio. A source's withdrawal does not end account ownership. Unauthorized results clear ownership. Unavailable candidate authorization or a revoked native grant suspends output and command admission before trying fresh sources.
 
 Structural snapshots expose the current Hito source ID and the latest exhausted-entry failure as typed error and stable entry/recording references. This is one bounded failure record, not durable history. Exhaustion while playing continues to the next occurrence; a queue of failed duplicates finishes finitely. Manual Resume can retry a paused failed entry. Source preferences, manual overrides, debrid preparation, and deferred-track reconsideration remain unfinished.
+
+## Temporary authority failure
+
+`Suspended` means access cannot currently be verified. It stops native output, retains and joins cleanup, and cancels read-only source selection. The queue, stable occurrence IDs, revision, lease, desired play/pause, volume, and observed cursor remain in memory. Commands cannot mutate that state while suspended. An exact accepted-command retry may return its original receipt after a fresh session check; it cannot apply a second mutation. Metadata pages still require live core authorization.
+
+The monitor owns one retained check beside admission, cleanup, progress, and provider publication. Recovery validates the captured session and at most one selected recording through core. A successful check started before suspension cannot restore playback. A missing recording permits normal finite source-failure handling after recovery; a rejected session clears private ownership. Persistent unavailability keeps the queue suspended without advancing it. Native grant revocation also suspends before a retiring session has joined, closing the admission window before fresh candidate checks.
+
+```mermaid
+stateDiagram-v2
+  Verified --> Suspended: Authority unavailable or native grant revoked
+  Suspended --> Suspended: Check still unavailable
+  Suspended --> Verified: Session and selected recording rechecked
+  Verified --> Cleared: Session rejected
+  Suspended --> Cleared: Session rejected
+```
+
+Recovery uses fresh grants after the previous native session joins. It restores the same occurrence near its observed position and keeps paused selections silent. The UI explains that playback paused while access is checked. A failed metadata request preserves known track details and that explanation; after recovery, any retained progress-persistence warning remains visible. Safe suspension/restoration events include account correlation without session material or metadata.
+
+Owned temporary SQLite fixtures rename authority tables to cause real query failures. They verify retained duplicate entries and receipts, rejected mutations, source-only failure with a still-valid session, silent output, recovery, and definitive revocation. An event gate holds actual native cleanup open to prove admission is suspended before fresh candidates can mask the failure. This does not prove disconnected-drive behavior, disk exhaustion, crash durability, or queue persistence after process exit.
 
 ## Cancellation and progress
 
