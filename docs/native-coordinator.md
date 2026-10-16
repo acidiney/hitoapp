@@ -1,10 +1,10 @@
 # Native application coordination
 
-`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, and advances after exhaustion. `Player::start` remains a queue-only owner and reports native output unavailable. Progress persistence, HTTP routes, desktop lifecycle wiring, and the React adapter remain planned below. The desktop application still uses browser audio.
+`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, advances after exhaustion, and persists observed listening progress. `Player::start` remains a queue-only owner and reports native output unavailable. HTTP routes, desktop lifecycle wiring, and the React adapter remain planned below. The desktop application still uses browser audio.
 
 ## Public boundary
 
-The cloneable `Player` handle accepts authenticated core actors and typed actions. A retained `PlayerOwner` joins admission and native cleanup. Shutdown closes observation channels, cancels read-only preparation, requests terminal native stop, and waits for the session join and any admitted provider publication. The application will retain this owner through cleanup when host wiring is added. Renderer input will contain recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
+The cloneable `Player` handle accepts authenticated core actors and typed actions. A retained `PlayerOwner` joins admission, native cleanup, and progress writes. Shutdown closes observation channels, cancels read-only preparation, requests terminal native stop, and waits for the session join and admitted provider/progress publication. The application will retain this owner through cleanup when host wiring is added. Renderer input will contain recording IDs, stable queue-entry IDs, validated controls, and ordering tokens.
 
 ```mermaid
 flowchart TB
@@ -20,13 +20,14 @@ flowchart TB
   Native --> Join[Stop and join before replacement output]
   Native --> Controls[One pending control / saved cursor / applied seek ID]
   Native --> Refresh[One retained source-refresh operation]
-  State -. ordered checkpoints .-> Progress[One retained collection write]
+  State --> Progress[Observed progress / bounded ordered checkpoints]
+  Progress --> Collection[Concrete core Collection]
   Catalog --> DB[(Private core SQLite)]
   Refresh --> DB
-  Progress --> DB
+  Collection --> DB
 ```
 
-Solid arrows show current command/queue, native ownership, core reads, and provider publication. Dashed arrows show unfinished application integration and progress writes. One retained supervisor owns claims, commands, and concrete core services. Public command fixtures use actual CPAL output through an isolated clocked monitor.
+Solid arrows show current Rust ownership and core operations. Dashed arrows show unfinished application integration. One retained supervisor owns claims, commands, and concrete core services. Public command fixtures use actual CPAL output through an isolated clocked monitor.
 
 The current Rust operations are:
 
@@ -53,7 +54,7 @@ Replace/Append accept at most 1,000 IDs each. The current queue limit is 100,000
 
 Move and remove address entry IDs. Moving preserves the current selection; removing it selects its successor or leaves no current entry at the end. Appending does not select or start an item. Natural completion advances to the next entry. Source exhaustion also advances when playback is desired, stopping at queue end. A paused exhausted entry stays selected and failed. Previous, shuffle traversal, and repeat remain unimplemented. They must follow actual played history, keep canonical order separate, and apply repeat-one only to natural completion.
 
-The supervisor keeps fixed effect lanes selectable beside admission, session monitoring, and shutdown. Progress remains planned:
+The supervisor keeps fixed effect lanes selectable beside admission, session monitoring, and shutdown:
 
 | Work | Ownership and bound |
 | --- | --- |
@@ -61,7 +62,7 @@ The supervisor keeps fixed effect lanes selectable beside admission, session mon
 | Native device | One active/opening session or retiring session; replacement waits for the previous join |
 | Native control | One in-flight control, desired play/pause/volume, and a retained explicit seek target |
 | Provider refresh | One retained operation, canceled by signal before publication, plus latest pending demand |
-| Progress, planned | One retained write plus a bounded checkpoint buffer and reserved terminal capacity |
+| Progress | One retained write, at most 64 queued/active checkpoints, and one coalesced observed sample |
 
 Supersession drops read-only observation/control futures, requests terminal native stop, and retains cleanup. Replacement output waits for that join while command admission and retained publication remain responsive. Source results may arrive during retirement, but only the guarded session-start path can open their input. A genuine OS or driver stall can delay replacement output. Admitted write effects stay owned through completion.
 
@@ -79,9 +80,13 @@ Structural snapshots expose the current Hito source ID and the latest exhausted-
 
 `Catalog::refresh_sources_until` observes a supplied cancellation future during read-only preparation/provider work and immediately before publication. It returns `None` when canceled before publication. The native owner uses `refresh_playback_sources_until`, which shares the same publication behavior and returns completion without materializing retained source history. After publication admission, both operations complete commit or explicit rollback. The coordinator signals cancellation and retains/polls the operation until completion, including after a canceled close observer. Dropping or aborting the whole future is outside this contract.
 
-Progress uses observed device position, periodic samples, and terminal checkpoints at pause, seek completion, transition, completion, and shutdown. Preserve zero/backward seeks and prevent a pre-seek sample from overwriting a later target. Retry an immutable operation with its original UUID. A dedicated synchronization client identity remains separate from backend `HostDeviceId`.
+Progress accepts only Ready observations for the current ownership scope, selection, entry, and applied seek identity. Opening cursors and superseded seek frames cannot become saved progress. Merely selecting a paused recording creates no history. The first playing observation creates a checkpoint; a first observation that already reports completion does too. Subsequent position ticks coalesce into one sample. A five-second timer enqueues that sample when the writer has no backlog. Pause, completed seek, selection exit, natural completion, and shutdown checkpoint the latest observed position. Zero and backward seeks remain valid values.
 
-Checkpoint memory is bounded. Coalesce periodic samples while retaining ordered terminal checkpoints. Reserve terminal space before starting another entry, and delay ordinary transitions when the writer backlog is full. Clear, logout, and shutdown must still stop output. Persistence errors remain visible. Guaranteed progress retention through disk failure needs core-owned durable storage; memory cannot provide that guarantee.
+The writer submits immutable `ProgressSet` operations through core `Collection::apply`, which owns the transaction, session check, and recording access check. It retries the same UUID, payload, and synchronization client identity in FIFO order after a 250 ms delay. This `native-<UUID>` client identity belongs to the player owner and is separate from backend `HostDeviceId`. Native speed is currently 1.0. The writer does not load saved positions when starting a new selection.
+
+Memory is bounded to 64 queued/active checkpoints plus one retained sample. Ordinary command admission returns Busy at 60 checkpoints, reserving room for terminal events. Pause, Volume, and Clear remain available. If the buffer fills, the latest dirty sample stays retained and a different selection cannot start until capacity returns. Periodic ticks do not queue behind terminal checkpoints. Persistence failures are visible through `PlayerSnapshot.persistence_error`; a successful write for the same ownership scope clears that status. Old-account results cannot change a new account's status or activity.
+
+Shutdown keeps any started write future polled through commit or rollback, even when its close observer is canceled. It joins native cleanup alongside progress flushing. Lost authority rejects the old checkpoint without retrying it. Other final write failures return `PlayerError::Persistence`; later queued checkpoints can remain unsaved in that case. Checkpoints are process-local until core commits them. Crash recovery, a durable offline outbox, and guaranteed progress retention through disk failure remain unfinished. Shutdown saves the last observed position, without claiming the exact final device frame.
 
 ## Host, HTTP, and UI integration
 

@@ -31,7 +31,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Drive authorized native output through that owner, with play/pause, separate position observations, natural queue advancement, same-session reattachment, account takeover/logout, and joined replacement/shutdown. Desktop/UI wiring remains open.
 - [x] Recover native playback through finite authorized source attempts, one retained provider refresh, position restoration, paused recovery, and queue advancement after exhaustion. Desktop/UI wiring remains open.
 - [x] Add ordered native seek/volume commands, completed-seek observations, explicit zero/backward restoration, and control supersession. Desktop/UI wiring remains open.
-- [ ] Complete ordered progress persistence, authenticated HTTP snapshots/controls, host shutdown, and the shared UI.
+- [x] Persist observed native progress with ordered idempotent checkpoints, bounded backpressure, account isolation, and joined writes. Desktop/UI wiring remains open.
+- [ ] Complete authenticated native HTTP snapshots/controls, host shutdown, and the shared UI.
 - [ ] Preserve private queue state across temporary authority/database failures while suspending output and rejecting unverified commands.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
@@ -114,7 +115,7 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-The latest Docker verification and its limits are recorded in [current status](docs/status.md). The Rust command owner now drives authorized native output; the application still uses browser audio. Source recovery, ordered progress, native HTTP/UI and host integration, physical/platform acceptance, and the public-release gates remain open.
+The latest Docker verification and its limits are recorded in [current status](docs/status.md). The Rust command owner drives authorized native output, source recovery, and ordered progress writes; the application still uses browser audio. Native HTTP/UI and host integration, physical/platform acceptance, and the public-release gates remain open.
 
 The preceding full web verification passed 92 frontend cases, five Chromium workflows, generated contracts, zero audit vulnerabilities, and two setup CLI cases. No React or HTTP contract changed in this slice, and these suites were not rerun. Browser evidence covers folder administration, artist/album navigation, private metadata editing with continuous audio, plugin discovery/installation, account isolation, real expired-range recovery, and availability checks. See [current status and verification limits](docs/status.md).
 
