@@ -36,7 +36,7 @@ Typed Inertia props describe each page. HTTP handlers own transport details; the
 
 Catalog, likes, playlists, history, settings, and login are separate pages. Shared track rendering accepts typed data and actions. Scan polling owns cancellation. Mutation hooks preserve errors, so failures cannot trigger success navigation or discard form input.
 
-Playback commands and position subscriptions live outside page rendering. Navigation preserves the player, and account changes dispose it and clear private history. The existing browser implementation remains a browser adapter; the native command/event contract will be designed alongside its first real adapter.
+Playback commands and position subscriptions live outside page rendering. Navigation preserves the player, and account changes dispose it and clear private history. The existing application uses browser audio. Rust's native Player supplies authenticated commands and separate structural/position observations; its shared React adapter remains unfinished.
 
 ## Recording identity is independent of tags
 
@@ -49,6 +49,10 @@ Bounded FFmpeg inspection reads a private owned input copy, with explicit cancel
 Catalog owns saved source refresh. The private plugin operation supplies current connection authority and bounded source transport. Adoption shares transactional source replacement, but only adoption accepts recording metadata. Immutable provider identity stays in `provider_items`; `provider_source_state` holds the accepted observation and generation. Generation comparisons fence overlapping responses across service instances. Historical bindings remain available for stable identity reuse without entering current playback listings.
 
 `PlaybackSources` owns a recording's cached candidates, one refreshed snapshot, and cancellation. The browser playback controller owns media events, seek position, queue transitions, and retries. Track details use a separate account/recording-scoped availability hook so a recheck cannot reset metadata drafts or interrupt healthy playback. Cached source reads and artwork never trigger provider HTTP.
+
+## Native coordination owns playback effects
+
+Rust's `Player` owns authenticated command admission, a private reference-only queue, native source/session lifetimes, and observed progress checkpoints. Its concrete effect modules retain admitted provider and collection writes through commit or rollback. Core Catalog and Collection still own source authority, SQLite, and transactions. Sampling coalesces frequent position observations; a bounded FIFO writer preserves terminal checkpoint order and retry identity. [Native coordination](native-coordinator.md) records the bounds and remaining host/HTTP/UI work.
 
 ## Logs follow workflow boundaries
 
