@@ -22,13 +22,15 @@ enum Status {
 }
 pub(super) struct SavedStart {
     pub id: Uuid,
+    command_id: Uuid,
     status: Status,
     pub listened: bool,
 }
 impl SavedStart {
-    pub fn new(id: Uuid) -> Self {
+    pub fn new(command_id: Uuid) -> Self {
         Self {
-            id,
+            id: Uuid::new_v4(),
+            command_id,
             status: Status::Waiting,
             listened: false,
         }
@@ -91,6 +93,7 @@ pub(super) struct Report {
 type Pending = Pin<Box<dyn Future<Output = Report> + Send>>;
 struct Load {
     key: Key,
+    command_id: Uuid,
     watermark: u64,
     pending: Option<Pending>,
 }
@@ -115,10 +118,11 @@ impl Loader {
         let key = demand.and_then(Owned::key);
         if self.current.as_ref().map(|load| load.key) != key {
             if let Some(load) = &self.current {
-                tracing::debug!(event = "player_saved_load_canceled", command_id = ?load.key.start, "Saved position load canceled");
+                tracing::debug!(event = "player_saved_load_canceled", command_id = %load.command_id, "Saved position load canceled");
             }
             self.current = key.map(|key| Load {
                 key,
+                command_id: demand.unwrap().saved.as_ref().unwrap().command_id,
                 watermark: progress.barrier(),
                 pending: None,
             });
@@ -132,11 +136,12 @@ impl Loader {
             let recording = owned.queue.snapshot().current.unwrap().recording_id;
             let collection = self.collection.clone();
             let key = load.key;
+            let command_id = load.command_id;
             load.pending = Some(Box::pin(async move {
                 let started = std::time::Instant::now();
-                tracing::debug!(event = "player_saved_load_started", command_id = ?key.start, account_id = actor.user().id, "Loading saved playback position");
+                tracing::debug!(event = "player_saved_load_started", command_id = %command_id, account_id = actor.user().id, "Loading saved playback position");
                 let result = collection.saved_position(&actor, recording).await;
-                tracing::debug!(event = "player_saved_load_finished", command_id = ?key.start, success = result.is_ok(), elapsed_ms = started.elapsed().as_millis() as u64, "Saved playback position load finished");
+                tracing::debug!(event = "player_saved_load_finished", command_id = %command_id, success = result.is_ok(), elapsed_ms = started.elapsed().as_millis() as u64, "Saved playback position load finished");
                 Report { key, result }
             }));
         }
@@ -178,7 +183,7 @@ impl State {
                 return;
             }
             Err(error) => {
-                tracing::debug!(event = "player_saved_load_failed", command_id = %saved.id, error_kind = error.code(), "Saved playback position could not be loaded");
+                tracing::debug!(event = "player_saved_load_failed", command_id = %saved.command_id, error_kind = error.code(), "Saved playback position could not be loaded");
                 saved.status = Status::Failed;
                 if owned.authority_available {
                     owned.phase = PlayerPhase::Failed;

@@ -25,6 +25,33 @@ async fn saved(f: &fixture::Navigation, position_ms: i64) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
+async fn a_new_saved_intent_after_reattachment_cannot_reuse_an_older_read_generation() {
+    let mut f = fixture::Navigation::start(1, 0).await;
+    saved(&f, 6000).await;
+    let store =
+        saved_store::SavedStore::delayed_iterations(f.source.directory.path(), 2_000_000).await;
+    let old = f.send(PlayerAction::ResumeSaved {}).await;
+    f.send(PlayerAction::Pause {}).await;
+    store.change(2000).await;
+    f.reattach().await;
+    let mut command = f.request(PlayerAction::ResumeSaved {});
+    command.id = old.id;
+    f.submit(command).await;
+    f.send(PlayerAction::Pause {}).await;
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        f.state.wait_for(|s| s.phase == PlayerPhase::Ready),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(f.position.borrow().position_ms, 2000);
+    store.restore().await;
+    f.owner.close().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
 async fn explicit_forward_backward_and_zero_seeks_cancel_an_inflight_saved_read() {
     for position_ms in [7000, 500, 0] {
         let mut f = fixture::Navigation::start(1, 0).await;

@@ -149,8 +149,10 @@ async fn saved_position_is_independent_of_the_recent_history_window() {
         support::write_wav(&music.join(format!("{index}.wav")), index);
     }
     support::scan(&services, &actor, &library).await;
-    let mut search = hito_core::Search::default();
-    search.limit = Some(250);
+    let search = hito_core::Search {
+        limit: Some(200),
+        ..Default::default()
+    };
     let mut recordings = services
         .catalog
         .recordings(&actor, search)
