@@ -1,5 +1,4 @@
-#[path = "../../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
+use super::provider_fixture as fixture;
 use super::support::*;
 use axum::{
     body::Body,

@@ -263,7 +263,8 @@
 :is(tr:hover, tr:focus-within) .row-play span {
   display: none;
 }
-.track-title {
+.track-title,
+.retained-title {
   border: 0;
   background: none;
   padding: 0;

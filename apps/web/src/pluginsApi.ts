@@ -11,9 +11,27 @@ import type {
   ProviderSearchPage,
   AdoptProviderRecording,
   Recording,
+  ImportProviderPlaylist,
+  PlaylistImportReceipt,
 } from "./types";
 const part = encodeURIComponent;
 export const pluginsApi = {
+  async importPlaylist(
+    account: string,
+    installation: string,
+    body: ImportProviderPlaylist,
+    signal: AbortSignal,
+  ): Promise<PlaylistImportReceipt> {
+    return (
+      await request(`/plugins/${part(installation)}/playlists/import`, {
+        action: "playlists.import",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
   async adopt(
     account: string,
     installation: string,

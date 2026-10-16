@@ -3,7 +3,7 @@ import type { PlaylistPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
-import TrackTable from "../components/TrackTable";
+import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 
 export default function PlaylistPage({
@@ -12,11 +12,27 @@ export default function PlaylistPage({
   detail,
 }: PlaylistPageProps) {
   const { mutate, pending } = useMutation(user.id);
-  const tracks = detail.entries.map((entry) => ({
-    ...entry,
-    id: entry.recording_id,
-    row_id: entry.entry_id,
-  }));
+  const rows = detail.entries.map<TrackTableRow>((entry) => {
+    const { recording_id, ...metadata } = entry;
+    return recording_id == null
+      ? {
+          kind: "retained",
+          entry: {
+            entry_id: entry.entry_id,
+            title: entry.title,
+            artist: entry.artist,
+            origin: entry.origin,
+          },
+        }
+      : {
+          kind: "recording",
+          track: { ...metadata, id: recording_id, row_id: entry.entry_id },
+        };
+  });
+  const tracks = rows.flatMap((row) =>
+    row.kind === "recording" ? [row.track] : [],
+  );
+  const entryCount = detail.entries.length;
   async function remove() {
     const result = await mutate({
       kind: "playlist_delete",
@@ -45,24 +61,33 @@ export default function PlaylistPage({
           </span>
           <h1>{detail.playlist.name}</h1>
           <p>
-            {tracks.length} tracks ·{" "}
+            {entryCount} {entryCount === 1 ? "entry" : "entries"} ·{" "}
             {detail.playlist.kind === "followed"
               ? "Updated by its provider"
               : "Collected by you"}
           </p>
+          {detail.origin && (
+            <>
+              <p>{detail.origin.attribution.label}</p>
+              <p>
+                Editable copy. Provider changes will not update it. Tracks need
+                an available source to play.
+              </p>
+            </>
+          )}
         </div>
       </section>
-      {tracks.length > 0 ? (
+      {entryCount > 0 ? (
         <>
           <TrackToolbar
             tracks={tracks}
             label="playlist"
-            description={`${tracks.length} tracks`}
+            description={`${entryCount} ${entryCount === 1 ? "entry" : "entries"}`}
           >
             {deletion}
           </TrackToolbar>
           <TrackTable
-            tracks={tracks}
+            rows={rows}
             playlists={playlists}
             playlist={detail.playlist}
             mutate={mutate}

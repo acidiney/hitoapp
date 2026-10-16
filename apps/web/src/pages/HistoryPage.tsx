@@ -2,7 +2,7 @@ import type { HistoryPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import EmptyState from "../components/EmptyState";
 import PageHeading from "../components/PageHeading";
-import TrackTable from "../components/TrackTable";
+import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 
 export default function HistoryPage({
@@ -28,7 +28,14 @@ export default function HistoryPage({
       {tracks.length > 0 ? (
         <>
           <TrackToolbar tracks={tracks} description="Original audio" />
-          <TrackTable tracks={tracks} playlists={playlists} mutate={mutate} />
+          <TrackTable
+            rows={tracks.map<TrackTableRow>((track) => ({
+              kind: "recording",
+              track,
+            }))}
+            playlists={playlists}
+            mutate={mutate}
+          />
         </>
       ) : (
         <EmptyState

@@ -107,6 +107,12 @@ pub struct AlbumDetailsPageProps {
 pub struct PlaylistIndexPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub connections: Option<Vec<hito_core::PluginInstallation>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub service_names: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Serialize, ToSchema)]

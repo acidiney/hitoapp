@@ -2,7 +2,7 @@ import type { CatalogPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import EmptyState from "./EmptyState";
 import Pagination from "./Pagination";
-import TrackTable from "./TrackTable";
+import TrackTable, { type TrackTableRow } from "./TrackTable";
 import TrackToolbar from "./TrackToolbar";
 import { useState } from "react";
 import { Grid2X2, List } from "lucide-react";
@@ -69,7 +69,10 @@ export default function CatalogResults({
             <TrackGrid tracks={tracks} playlists={playlists} mutate={mutate} />
           ) : (
             <TrackTable
-              tracks={tracks}
+              rows={tracks.map<TrackTableRow>((track) => ({
+                kind: "recording",
+                track,
+              }))}
               offset={recordings.offset}
               playlists={playlists}
               mutate={mutate}

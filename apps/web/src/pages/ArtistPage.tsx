@@ -4,7 +4,7 @@ import Artwork from "../components/Artwork";
 import AlbumGrid from "../components/AlbumGrid";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
-import TrackTable from "../components/TrackTable";
+import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 
 export default function ArtistPage({
@@ -80,7 +80,10 @@ export default function ArtistPage({
                 description="Recording credits in your library"
               />
               <TrackTable
-                tracks={tracks}
+                rows={tracks.map<TrackTableRow>((track) => ({
+                  kind: "recording",
+                  track,
+                }))}
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}

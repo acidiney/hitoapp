@@ -6,10 +6,13 @@ import { useMutation } from "../hooks/useMutation";
 import EmptyState from "../components/EmptyState";
 import PageHeading from "../components/PageHeading";
 import Artwork from "../components/Artwork";
+import PlaylistImport from "../components/playlists/PlaylistImport";
 
 export default function PlaylistIndexPage({
   user,
   playlists,
+  connections,
+  service_names,
 }: PlaylistIndexPageProps) {
   const [name, setName] = useState("");
   const { mutate, pending } = useMutation(user.id);
@@ -47,6 +50,12 @@ export default function PlaylistIndexPage({
           Create playlist
         </button>
       </form>
+      <PlaylistImport
+        key={user.id}
+        account={user.id}
+        connections={connections}
+        names={service_names}
+      />
       <div className="playlist-list">
         {playlists.map((playlist) => (
           <Link href={`/playlists/${playlist.id}`} key={playlist.id}>

@@ -2219,6 +2219,140 @@
         ]
       }
     },
+    "/api/v1/plugins/{id}/playlists/import": {
+      "post": {
+        "operationId": "import_provider_playlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportProviderPlaylist"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistImportReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins/{id}/recordings": {
       "post": {
         "operationId": "adopt_provider_recording",
@@ -4605,6 +4739,33 @@
           }
         ]
       },
+      "CollectionPublication": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "publication_id",
+              "snapshot",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlist_imported"
+                ]
+              },
+              "publication_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/ImportedPlaylistSnapshot"
+              }
+            }
+          }
+        ]
+      },
       "ConnectFolder": {
         "type": "object",
         "required": [
@@ -4836,6 +4997,218 @@
             }
           }
         ]
+      },
+      "ImportProviderPlaylist": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "installation_revision",
+          "playlist_reference"
+        ],
+        "properties": {
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "playlist_reference": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImportedPlaylistEntry": {
+        "type": "object",
+        "required": [
+          "entry_id",
+          "position",
+          "origin"
+        ],
+        "properties": {
+          "artist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entry_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ImportedPlaylistEntryOrigin"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImportedPlaylistEntryKind": {
+        "type": "string",
+        "enum": [
+          "recording",
+          "unavailable",
+          "unknown"
+        ]
+      },
+      "ImportedPlaylistEntryOrigin": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ImportedPlaylistEntryKind"
+          },
+          "occurrence_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider_recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImportedPlaylistOrigin": {
+        "type": "object",
+        "required": [
+          "installation_id",
+          "installation_revision",
+          "service_id",
+          "service_revision",
+          "provider",
+          "provider_playlist_id",
+          "snapshot",
+          "attribution",
+          "imported_at"
+        ],
+        "properties": {
+          "attribution": {
+            "$ref": "#/components/schemas/PlaylistAttribution"
+          },
+          "imported_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "installation_id": {
+            "type": "string"
+          },
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_playlist_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "service_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snapshot": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImportedPlaylistRecording": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "library_id",
+          "observation_id",
+          "metadata"
+        ],
+        "properties": {
+          "library_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ProviderRecording"
+          },
+          "observation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recording_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "release_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ImportedPlaylistSnapshot": {
+        "type": "object",
+        "required": [
+          "playlist_id",
+          "name",
+          "origin",
+          "recordings",
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportedPlaylistEntry"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ImportedPlaylistOrigin"
+          },
+          "playlist_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recordings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportedPlaylistRecording"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "InspectedTags": {
         "type": "object",
@@ -6325,6 +6698,18 @@
           }
         }
       },
+      "PlaylistAttribution": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "PlaylistDetail": {
         "type": "object",
         "required": [
@@ -6338,6 +6723,16 @@
               "$ref": "#/components/schemas/PlaylistEntry"
             }
           },
+          "origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportedPlaylistOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "playlist": {
             "$ref": "#/components/schemas/Playlist"
           }
@@ -6348,7 +6743,6 @@
         "required": [
           "entry_id",
           "liked",
-          "recording_id",
           "position",
           "title",
           "inherited_title",
@@ -6380,15 +6774,45 @@
           "liked": {
             "type": "boolean"
           },
+          "origin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportedPlaylistEntryOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "position": {
             "type": "integer",
             "format": "int64"
           },
           "recording_id": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "PlaylistImportReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "playlist_id"
+        ],
+        "properties": {
+          "playlist_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -6396,6 +6820,30 @@
         "allOf": [
           {
             "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "connections",
+              "service_names"
+            ],
+            "properties": {
+              "connections": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PluginInstallation"
+                }
+              },
+              "service_names": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              }
+            }
           }
         ]
       },
@@ -7065,24 +7513,44 @@
         "additionalProperties": false
       },
       "SyncEvent": {
-        "type": "object",
-        "required": [
-          "sequence",
-          "device_id",
-          "operation"
-        ],
-        "properties": {
-          "device_id": {
-            "type": "string"
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "sequence",
+              "device_id",
+              "operation"
+            ],
+            "properties": {
+              "device_id": {
+                "type": "string"
+              },
+              "operation": {
+                "$ref": "#/components/schemas/Operation"
+              },
+              "sequence": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
           },
-          "operation": {
-            "$ref": "#/components/schemas/Operation"
-          },
-          "sequence": {
-            "type": "integer",
-            "format": "int64"
+          {
+            "type": "object",
+            "required": [
+              "sequence",
+              "publication"
+            ],
+            "properties": {
+              "publication": {
+                "$ref": "#/components/schemas/CollectionPublication"
+              },
+              "sequence": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
           }
-        }
+        ]
       },
       "SyncPage": {
         "type": "object",

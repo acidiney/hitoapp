@@ -1,6 +1,9 @@
 #[path = "api/support.rs"]
 mod support;
 
+#[path = "../../hito-core/tests/fixtures/content_service.rs"]
+mod provider_fixture;
+
 #[path = "api/identity.rs"]
 mod identity;
 
@@ -15,6 +18,18 @@ mod browsing;
 
 #[path = "api/collection.rs"]
 mod collection;
+
+#[path = "api/playlist_import.rs"]
+mod playlist_import;
+
+#[path = "api/playlist_fixture.rs"]
+mod playlist_fixture;
+
+#[path = "api/playlist_import_replay.rs"]
+mod playlist_import_replay;
+
+#[path = "api/playlist_pages.rs"]
+mod playlist_pages;
 
 #[path = "api/inertia.rs"]
 mod inertia;
