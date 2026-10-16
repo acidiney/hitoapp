@@ -8,23 +8,28 @@ mod event_gate;
 mod fixture;
 #[path = "../../hito-core/tests/support/mod.rs"]
 mod support;
-use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerPhase};
+use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
 async fn completion_before_the_first_playing_observation_still_saves_the_finished_position() {
     let f = fixture::LocalPlayback::start().await;
+    let opening = event_gate::EventGate::new("audio_decoder_ready");
+    opening.arm();
+    let _opening_release = opening.guard();
     let gate = event_gate::EventGate::new("player_controls_applied");
     let _release = gate.guard();
     let writer = gate.clone();
+    let opening_writer = opening.clone();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()
             .with_ansi(false)
             .with_max_level(tracing::Level::DEBUG)
-            .with_writer(move || writer.clone())
+            .with_writer((move || opening_writer.clone()).and(move || writer.clone()))
             .finish(),
     );
     let capture = capture::Capture::open();
@@ -51,13 +56,9 @@ async fn completion_before_the_first_playing_observation_still_saves_the_finishe
         .await
         .unwrap();
     let mut state = player.subscribe(&f.actor, attached.lease).await.unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(3),
-        state.wait_for(|state| state.phase == PlayerPhase::Ready),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), opening.entered())
+        .await
+        .unwrap();
     assert!(
         f.services
             .collection
@@ -81,6 +82,7 @@ async fn completion_before_the_first_playing_observation_still_saves_the_finishe
         )
         .await
         .unwrap();
+    opening.release();
     tokio::time::timeout(Duration::from_secs(3), gate.entered())
         .await
         .unwrap();
