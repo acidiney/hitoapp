@@ -61,46 +61,50 @@ test("native actions send IDs and controls while keeping source resolution and p
   }
 });
 
-test("large selections build bounded batches before selection and a later Next intention", async () => {
-  const service = nativeService();
-  service.state.queue_len = 1025;
-  const player = new NativePlayback("alice");
-  try {
-    await player.reconnect();
-    const tracks = Array.from({ length: 1025 }, (_, index) => ({
-      id: `recording-${index}`,
-      title: `Track ${index}`,
-      artist: "Fixture",
-      duration_ms: 10000,
-      available: true,
-    }));
-    const play = player.playQueue(tracks, 1002);
-    const next = player.next();
-    await Promise.all([play, next]);
-    expect(service.commands.map((command) => command.action.kind)).toEqual([
-      "pause",
-      "replace",
-      "append",
-      "select",
-      "resume",
-      "next",
-    ]);
-    expect(service.commands[1].action).toMatchObject({
-      recordings: tracks.slice(0, 1000).map((track) => track.id),
-      start: 0,
-    });
-    expect(service.commands[2].action).toEqual({
-      kind: "append",
-      recordings: tracks.slice(1000).map((track) => track.id),
-    });
-    expect(service.commands[3].action).toEqual({
-      kind: "select",
-      entry: "entry-1002",
-    });
-    expect(service.commands.map((command) => command.sequence)).toEqual([
-      1, 2, 3, 4, 5, 6,
-    ]);
-  } finally {
-    player.close();
-  }
-});
+test.each([0, 512, 1002])(
+  "large selections at %i finalize bounded batches before a later Next intention",
+  async (start) => {
+    const service = nativeService();
+    service.state.queue_len = 1025;
+    service.state.shuffle = true;
+    const player = new NativePlayback("alice");
+    try {
+      await player.reconnect();
+      const tracks = Array.from({ length: 1025 }, (_, index) => ({
+        id: `recording-${index}`,
+        title: `Track ${index}`,
+        artist: "Fixture",
+        duration_ms: 10000,
+        available: true,
+      }));
+      const play = player.playQueue(tracks, start);
+      const next = player.next();
+      await Promise.all([play, next]);
+      expect(service.commands.map((command) => command.action.kind)).toEqual([
+        "pause",
+        "replace",
+        "append",
+        "select",
+        "resume",
+        "next",
+      ]);
+      expect(service.commands[1].action).toMatchObject({
+        recordings: tracks.slice(0, 1000).map((track) => track.id),
+        start: start < 1000 ? start : 0,
+      });
+      expect(service.commands[2].action).toEqual({
+        kind: "append",
+        recordings: tracks.slice(1000).map((track) => track.id),
+      });
+      expect(service.commands[3].action).toEqual({
+        kind: "select",
+        entry: `entry-${start}`,
+      });
+      expect(service.commands.map((command) => command.sequence)).toEqual([
+        1, 2, 3, 4, 5, 6,
+      ]);
+    } finally {
+      player.close();
+    }
+  },
+);

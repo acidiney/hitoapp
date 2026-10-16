@@ -100,7 +100,7 @@ impl Queue {
             }
             PlayerAction::Select { entry } => {
                 self.current = Some(self.index(entry)?);
-                self.traversal.reset_failures();
+                self.traversal.replace(&self.entries, Some(entry));
             }
             PlayerAction::Append { recordings } => {
                 if self.entries.len() + recordings.len() > 100_000 {

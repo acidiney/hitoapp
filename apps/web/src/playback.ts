@@ -162,7 +162,7 @@ export class Playback implements Player {
   async selectEntry(entry: string) {
     const index = this.entryIds.indexOf(entry);
     if (index < 0) return;
-    this.traversal.resetFailures();
+    this.traversal.reset(this.entryIds, entry);
     this.update({ error: "" });
     await this.open(index);
   }

@@ -99,7 +99,7 @@ export class NativeSession {
     const count =
       Math.ceil(recordings.length / 1000) +
       2 +
-      Number(start >= 1000) +
+      Number(recordings.length > 1000) +
       Number(position_ms > 0);
     return this.admit(count, recordings.length, async (send) => {
       await send({ kind: "pause" });
@@ -113,7 +113,7 @@ export class NativeSession {
           kind: "append",
           recordings: recordings.slice(offset, offset + 1000),
         });
-      if (start >= 1000) {
+      if (recordings.length > 1000) {
         const page = await this.queue(this.revision, start, 1);
         const entry = page.entries[0];
         if (!entry || entry.recording.id !== recordings[start])
