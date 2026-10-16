@@ -47,7 +47,14 @@ async fn unexpected_action_fields_do_not_mutate_the_queue_or_consume_command_ord
     command["sequence"] = json!(2);
     command["revision"] = json!(1);
     for kind in [
-        "clear", "resume", "pause", "next", "previous", "repeat", "shuffle",
+        "clear",
+        "resume",
+        "resume_saved",
+        "pause",
+        "next",
+        "previous",
+        "repeat",
+        "shuffle",
     ] {
         command["action"] = json!({"kind":kind, "source_url":"https://private.invalid/audio"});
         assert_eq!(

@@ -8,6 +8,55 @@ use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
+async fn the_protected_native_api_restores_current_saved_position_with_the_current_speed() {
+    let mut app = application::Application::start().await;
+    let inspected = app.call("GET", "api/v1/player", Value::Null).await;
+    let attached = app
+        .call(
+            "POST",
+            "api/v1/player/claim",
+            json!({"epoch": inspected["epoch"]}),
+        )
+        .await;
+    let lease = &attached["lease"];
+    let mut state = app.observe(lease, "state").await;
+    let mut position = app.observe(lease, "position").await;
+    app.command(
+        lease,
+        1,
+        0,
+        json!({"kind":"replace", "recordings":[app.recording], "start":0}),
+    )
+    .await;
+    app.call("POST", "api/v1/sync", json!({"device_id":"saved-http-fixture", "operations":[{
+        "id":uuid::Uuid::new_v4(), "action":{"kind":"progress_set", "recording_id":app.recording, "position_ms":6000, "speed":0.5}
+    }]})).await;
+    app.command(lease, 2, 1, json!({"kind":"speed", "rate":1500}))
+        .await;
+    let capture = capture::Capture::open();
+    app.command(lease, 3, 1, json!({"kind":"resume_saved"}))
+        .await;
+    state
+        .until(|state| state["playing"] == true && state["speed"] == 1500)
+        .await;
+    let restored = position
+        .until(|p| p["position_ms"].as_u64().unwrap() >= 6100)
+        .await;
+    assert!(restored["seek_id"].is_null());
+    assert_eq!(restored["selection"], 1);
+    capture.after(capture.mark(), 0.2);
+    assert!(capture::amplitude(&capture.recent(0.1), 440.) > 0.1);
+    app.command(lease, 4, 1, json!({"kind":"pause"})).await;
+    state
+        .until(|state| state["playing"] == false && state["desired_playing"] == false)
+        .await;
+    app.host.take().unwrap().shutdown().await.unwrap();
+    capture.after(capture.mark(), 0.3);
+    assert!(capture::energy(&capture.recent(0.1)) < 0.000001);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
 async fn the_protected_desktop_api_drives_native_output_controls_progress_and_joined_shutdown() {
     let mut app = application::Application::start().await;
     let inspected = app.call("GET", "api/v1/player", Value::Null).await;

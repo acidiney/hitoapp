@@ -352,6 +352,40 @@ try {
     ),
     true,
   );
+  await click('nav[aria-label="Main navigation"] a[href="/history"]');
+  await wait(
+    () => exists('button[aria-label="Play Fixture 440 Hz"]'),
+    "the saved History row",
+  );
+  assert.equal(
+    await execute(`
+    return (async () => {
+      const account = await fetch('/api/v1/me').then(r => r.json());
+      const activity = await fetch('/api/v1/activity').then(r => r.json());
+      const response = await fetch('/api/v1/sync', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-hito-request': '1', 'x-hito-account': account.id },
+        body: JSON.stringify({ device_id: 'desktop-saved-fixture', operations: [{
+          id: crypto.randomUUID(),
+          action: { kind: 'progress_set', recording_id: activity.history[0].id, position_ms: 6000, speed: 0.5 }
+        }] })
+      });
+      return response.ok;
+    })();
+  `),
+    true,
+  );
+  await click('button[aria-label="Play Fixture 440 Hz"]');
+  await wait(async () => {
+    const state = (await playerState()).state;
+    return (
+      state.playing &&
+      state.speed === 1000 &&
+      (await uiPosition()) >= 6.1 &&
+      audible()
+    );
+  }, "History loads the current Rust cursor over stale rendered History and keeps current speed");
+  await noBrowserAudio();
   await close(restartedOrigin);
   assert.equal(
     logs().split('"event":"desktop_stopped"').length,
@@ -360,7 +394,7 @@ try {
   assert.equal(logs().includes("desktop fixture account password"), false);
   assert.equal(logs().includes("ticket="), false);
   console.log(
-    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, persistence and joined shutdown passed.",
+    "Standalone Tauri setup, scan, native output, navigation, reload, Previous, shuffle/repeat, speed, pause/resume, progress, saved-position loading, persistence and joined shutdown passed.",
   );
 } catch (error) {
   try {
