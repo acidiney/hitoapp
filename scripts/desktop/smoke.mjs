@@ -61,12 +61,13 @@ start({
   PULSE_SERVER: `unix:${socket}`,
 });
 async function close(origin) {
-  execFileSync(
+  const window = execFileSync(
     "xdotool",
-    ["search", "--onlyvisible", "--name", "^Hito$", "windowactivate", "--sync"],
-    { timeout: 5000 },
+    ["search", "--onlyvisible", "--name", "^Hito$"],
+    { encoding: "utf8", timeout: 5000 },
   );
-  execFileSync("xdotool", ["key", "--clearmodifiers", "alt+F4"], {
+  assert.match(window.trim(), /^\d+$/);
+  execFileSync("wmctrl", ["-ic", window.trim()], {
     timeout: 5000,
   });
   await wait(async () => {
