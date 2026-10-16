@@ -1,6 +1,6 @@
 # Native application coordination
 
-`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, advances after exhaustion, and persists observed listening progress. Authenticated HTTP routes and the retained desktop lifecycle now expose that owner. `Player::start` remains a queue-only owner and reports native output unavailable. The shared React native adapter remains unfinished, so the application still uses browser audio.
+`hito-playback::Player` owns authenticated command admission and an in-memory queue. With the `device` feature, `Player::native` drives the existing [native session](native-playback.md) through core-authorized source grants, recovers through alternatives, advances after exhaustion, and persists observed listening progress. The desktop's shared React UI uses that owner through authenticated HTTP. Ordinary web sessions retain browser playback. `Player::start` remains a queue-only owner and reports native output unavailable.
 
 ## Public boundary
 
@@ -8,7 +8,7 @@ The cloneable `Player` handle accepts authenticated core actors and typed action
 
 ```mermaid
 flowchart TB
-  UI[Shared high-level React player] -. native commands and observations .-> HTTP[Server routes / existing Account extractor]
+  UI[Shared high-level React player] -->|native commands and observations| HTTP[Server routes / existing Account extractor]
   Access[Desktop process cookie / Host and Origin policy] --> HTTP
   HTTP --> Admission[Bounded command admission / claims and revisions]
   Host[Retained desktop lifecycle / library claim] --> Owner[PlayerOwner]
@@ -27,7 +27,7 @@ flowchart TB
   Collection --> DB
 ```
 
-Solid arrows show current Rust, HTTP, and host ownership. The dashed arrow shows unfinished shared UI integration. One retained supervisor owns claims, commands, and concrete core services. Public command and protected desktop HTTP fixtures use actual CPAL output through an isolated clocked monitor.
+The arrows show current React, HTTP, Rust, and host ownership. One retained supervisor owns claims, commands, and concrete core services. Public command, protected desktop HTTP, and actual Tauri UI fixtures use CPAL output through an isolated clocked monitor.
 
 The current Rust operations are:
 
@@ -44,7 +44,7 @@ Commands support Replace, Append, Select, Next, Move, Remove, Clear, Resume, Pau
 
 Same-session attachment preserves desired play/pause, selection, observed position, and accepted native work. Changing sessions requests terminal stop on the old engine and retains it until joined. Native updates carry an ownership scope, selection generation, and entry ID; a lease rotation for the same session does not restart output. Device epoch, command lease, queue revision, selection generation, and future source attempts identify different kinds of ordering; one counter cannot replace all of them.
 
-The native React adapter will serialize acceptance receipts for causal queue mutations. Receipts do not wait for decoding or playback. This permits Next to supersede an opening source while preserving Play-then-Next order. Repeated requests need bounded receipt replay so a lost response cannot apply Next twice. Existing discovery selection tickets must still prevent late adoption from replacing a newer intention.
+The native React adapter serializes acceptance receipts for causal queue mutations. Receipts do not wait for decoding or playback. This permits Next to supersede an opening source while preserving Play-then-Next order. Exact immutable retries use the retained receipt so a lost response cannot apply Next twice. Discovery selection tickets prevent late adoption from replacing a newer intention.
 
 ## Queue and effect ownership
 
@@ -111,6 +111,27 @@ The network server and connection tasks retain their tracing subscriber. Observa
 
 ## Shared UI integration
 
-React will consume a typed high-level player contract with browser and native implementations. Structural queue state and position updates remain separate subscriptions. Pages do not subscribe to position ticks. Native speed must report unsupported until the engine implements it.
+The generated `native_playback` Inertia prop selects the implementation of the shared `Player` contract. Browser playback retains its audio element, source resolution, queue, and progress workflow. Native mode instantiates none of those browser effects: Rust owns queue/source decisions, output, recovery, and progress. Disposing the native client cancels its observations and metadata reads; it does not clear or stop the Rust queue. Reloading the same authenticated session can reattach without restarting output. Logout or host shutdown stops output through Rust authority and lifecycle ownership.
+
+```mermaid
+flowchart LR
+  Props[Generated application capability] --> Provider[Account-scoped player provider]
+  Provider --> Browser[Browser playback / audio / progress]
+  Provider --> Native[Native client / intention ordering]
+  Native --> HTTP[Typed native HTTP contract]
+  HTTP --> Rust[Rust queue / sources / output / progress]
+  Native --> State[Structural subscriptions / bounded metadata pages]
+  Native --> Position[Position-only subscriptions]
+  State --> Rows[Catalog / queue / current metadata]
+  Position --> Transport[Seek display and transport]
+```
+
+`NativeSession` owns the attachment, stream lifetimes, command lane, and exact retries. `NativeCommands` translates shared user actions and fences asynchronous discovery adoption. `NativePlayback` projects snapshots into shared structural and position stores and resolves current metadata through fresh authorized queue reads. Leases remain in private request bodies and memory; they are not persisted or logged. Account replacement aborts the old client and clears private views. Ownership rejection closes the client and drops queued intentions. Automatic observation reconnection reuses the same lease; an explicit reconnect performs a new inspect/claim.
+
+At most 32 intention jobs retain 100,000 recording IDs in total. A large play selection reserves its command tickets at user intent, pauses, replaces/appends batches of at most 1,000 IDs, selects the requested stable entry, applies any requested seek, and resumes. Later intentions wait for this acceptance chain, never for decoding. A failed chain invalidates later intentions already queued behind it. Metadata requests retain one current-entry read and bounded visible queue pages: 50 full rows or four preview rows. Position frames cannot invalidate those pages or render the catalog. A failed visible page offers an independent retry.
+
+Both observation streams must be healthy before transport controls are enabled. Either stream can reconnect without a structural change or a new claim. Native Pause and Next depend on the authoritative selected entry, so delayed metadata cannot disable them. Preparing audio can be paused using desired play state. Unsupported native Previous, shuffle, repeat, and speed are disabled with explanations; the browser keeps those features. Queue movement has a Rust command but no shared drag/reorder interaction yet. Native Next preserves current desired play/pause.
+
+The actual Linux Tauri fixture verifies no browser audio element, audible native output, advancing UI position, navigation and reload without source/entry replacement, silent pause, audible resume, Rust-owned history, persisted account/library/history after restart, and silence after joined window shutdown. This is a container audio monitor, not physical-device or cross-platform acceptance.
 
 Acceptance must cover stale claims and reordered commands, same-account distinct sessions, reload leases, old subscription privacy, duplicate queue entries, natural transitions, finite failures, gated provider supersession, current-position recovery, paused recovery, checkpoint ordering/backpressure, and canceled host shutdown. Use real temporary core databases, owned audio/provider fixtures, and the isolated CPAL monitor. These checks add to the [release gates](release-plan.md); they do not replace platform, hardware, gapless, or latency acceptance.

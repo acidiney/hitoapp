@@ -1,6 +1,6 @@
 # Native playback owner
 
-`hito-playback` connects a core `PlaybackSource` grant to owned decoding and CPAL output. It supervises authorization during opening, playback, pause, and buffered output. This is a trusted Rust component. The desktop application still uses browser audio; its queue, HTTP adapter, and React controller do not use this component yet.
+`hito-playback` connects a core `PlaybackSource` grant to owned decoding and CPAL output. It supervises authorization during opening, playback, pause, and buffered output. This is a trusted Rust component used by the desktop's authenticated queue owner. The shared React native player sends high-level commands and observes that owner; ordinary web sessions retain browser audio.
 
 ## Input and authority
 
@@ -71,7 +71,7 @@ sh scripts/check-playback.sh
 
 The desktop check includes this script. Default tests cover local decode/seeking, approved provider decode, pending-read cancellation, valid short-range continuation, and failed-range persistence. Actual CPAL monitor tests cover local logout without another command, cancellation of a close observer during blocked startup, terminal stop during opening, readiness after stop, paused provider withdrawal, transport controls, and safe logging across async, blocking, and native threads. They use temporary SQLite and owned synthetic audio through a private clocked PulseAudio sink.
 
-The public `Session` API is backend-only. It does not authenticate a new caller for each command. The [command/queue owner](native-coordinator.md) supplies exact session/lease checks, ordering fences, stable queue entries, and live catalog pages. Its optional native constructor drives `Session`, including play/pause, ordered seek/volume, finite source recovery, provider refresh, position restoration, paused recovery, queue advancement, account switching, ordered progress persistence, and joined replacement/shutdown. The desktop host now protects the native HTTP routes and retains cleanup with its library claim. The shared native UI adapter remains unfinished. Do not expose trusted `Session::command` directly as an authenticated route.
+The public `Session` API is backend-only. It does not authenticate a new caller for each command. The [command/queue owner](native-coordinator.md) supplies exact session/lease checks, ordering fences, stable queue entries, and live catalog pages. Its optional native constructor drives `Session`, including play/pause, ordered seek/volume, finite source recovery, provider refresh, position restoration, paused recovery, queue advancement, account switching, ordered progress persistence, and joined replacement/shutdown. The desktop host protects the native HTTP routes and retains cleanup with its library claim. The shared UI uses that authenticated boundary. Do not expose trusted `Session::command` directly as an authenticated route.
 
 Core now supplies a bounded ordered `recordings_by_ids` lookup and opaque `Actor::same_session` comparison. Equality does not prove a session is live; retained owners use `Identity::check_session`. Collection writes and provider-source publication recheck sessions inside their existing transactions. The [selected application coordinator design](native-coordinator.md) records how these boundaries will connect to queues, HTTP, and the host.
 

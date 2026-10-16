@@ -1,6 +1,6 @@
 # Standalone desktop host
 
-The first development host runs the shared Hito UI in Tauri with its own Rust backend and SQLite library. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. This is an early desktop step. Authenticated native HTTP and retained playback cleanup are implemented. The shared UI still uses browser audio. Its native adapter, offline synchronization, downloads, native folder selection, installers, and platform acceptance remain unfinished.
+The first development host runs the shared Hito UI in Tauri with its own Rust backend, SQLite library, and native playback. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. The shared player uses authenticated native commands and observations; Rust retains queue, sources, output, and progress ownership. Offline synchronization, downloads, native folder selection, installers, and platform acceptance remain unfinished.
 
 ```mermaid
 flowchart LR
@@ -9,10 +9,7 @@ flowchart LR
   HTTP --> Core[Core capability services]
   Core --> SQLite[(Standalone SQLite library)]
   Core --> Music[Read-only Music directory grant]
-  Window --> BrowserAudio[Current browser audio adapter]
-  HTTP --> Audio[Authorized local audio responses]
-  Audio --> BrowserAudio
-  Window -. planned native commands and events .-> HTTP
+  Window -->|commands and observations| HTTP
   HTTP --> Native[Rust playback owner]
   Native --> Core
   Native --> Engine[Native session / Symphonia and CPAL]
@@ -69,6 +66,8 @@ Run both checks from the repository root:
 The desktop profile compiles Tauri only when the `gui` feature is enabled. Ordinary server builds do not need GTK or WebKit. Its Cargo target is `/build/desktop-target`, separate from the ordinary tools target. The source checkout and dependency caches are shared.
 
 The desktop script verifies protected HTTP controls, observed progress, redacted network logs, and retained library ownership during canceled shutdown. It builds the shared UI and a Linux debug executable, then runs an actual Tauri WebView through `tauri-driver`, WebKitWebDriver, Xvfb, and a window manager. It uses an unprivileged container user, owned temporary application directories, and synthetic audio. The normal server volume and personal Music directory are never mounted into this test. Evidence is written under ignored `test-results/desktop/`.
+
+The WebView check requires zero browser audio elements and monitors actual CPAL output. It verifies navigation and reload without changing the selected entry/source, pause/resume, persisted Rust progress, restart, and silence after joined shutdown. Reloading disposes only the HTTP client; the authenticated Rust session retains playback. Native Previous, shuffle, repeat, and speed remain visibly unsupported.
 
 The release resource configuration includes the built UI under `web/`. Debug builds can read `apps/web/dist` from the checkout. Packaged release resources, upgrades, macOS and Windows WebViews, physical audio output, signing, and installers still require acceptance. The current PNG icon exports the existing Lucide waveform without changing the brand. The requested logo redesign remains in [the backlog](../TODO.md).
 

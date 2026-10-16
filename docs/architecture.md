@@ -26,7 +26,7 @@ flowchart LR
 
 The solid lines describe the initial implementation. Dashed connections are planned boundaries. `docs/status.md` records which portions exist and which are verified.
 
-The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its current UI uses the browser audio adapter. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The authenticated native API exposes Rust-owned commands, paged queues, and separate structural/position observations. The desktop retains playback cleanup alongside HTTP/indexing before releasing its library claim. The shared native UI and synchronization client remain unfinished.
+The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its shared UI uses the native player contract; ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The authenticated native API exposes Rust-owned commands, paged queues, and separate structural/position observations. The desktop retains playback cleanup alongside HTTP/indexing before releasing its library claim. The synchronization client remains unfinished.
 
 ## Data ownership
 
@@ -87,14 +87,16 @@ flowchart TB
   Routes[Typed Inertia pages] --> Hooks[Account-scoped workflow hooks]
   Hooks --> API[Typed API methods]
   API --> Contract[Generated OpenAPI types]
-  Shell[Persistent shell] --> Player[Account-owned Playback]
-  Player --> Audio[Browser audio element]
+  Shell[Persistent shell] --> Player[Account-owned Player contract]
+  Player --> Browser[Browser audio / source resolution / progress]
+  Player --> Native[Native intentions / scoped HTTP session]
+  Native --> Rust[Rust queue / sources / output / progress]
   Player --> Controls[Position-subscribed controls]
   Player --> Queue[Queue/index-subscribed rows]
   Auth[Cross-tab session boundary] -->|invalidate history and dispose| Shell
 ```
 
-The shell survives page navigation; audio belongs to the authenticated account. Workflow hooks cancel stale requests. Queue and catalog rows do not subscribe to playback position ticks. A cross-tab session change disposes the application, cancels work, clears encrypted history, and loads current server state. Before mounting the interface, the browser checks that the server's current account matches its initial page data.
+The shell survives page navigation; audio belongs to the authenticated account. Generated application props select browser or native playback. Native mode creates no browser audio or duplicate progress writer. Its separate client owns command ordering and scoped observations while Rust retains queue/output ownership. Workflow hooks cancel stale requests. Queue and catalog rows do not subscribe to playback position ticks. Visible queue metadata is paged, canceled, and checked against its captured view before publication. A cross-tab session change disposes the application, cancels work, clears encrypted history, and loads current server state. Before mounting the interface, the browser checks that the server's current account matches its initial page data. See [native UI ownership and bounds](native-coordinator.md#shared-ui-integration).
 
 Rust routes and wire types generate `docs/openapi.json`; that schema generates the web's TypeScript models. Page schemas describe complete responses while Inertia partial requests omit unrequested fields before querying. CI compares regeneration with the checked-in files.
 

@@ -23,17 +23,18 @@ Multiple music folders are implemented in administrator Settings, with independe
 ## Playback and desktop
 
 - [x] Add a standalone Tauri development host with private local backend/storage, joined shutdown, and an isolated Linux WebView workflow.
-- [x] Establish an owned-file native audio engine with Symphonia decoding and isolated CPAL monitor checks for playback, controls, and cleanup. The shared native UI remains open.
+- [x] Establish an owned-file native audio engine with Symphonia decoding and isolated CPAL monitor checks for playback, controls, and cleanup.
 - [x] Establish session-bound core playback grants with durable membership/provider revocation and cancellation of pending opens.
-- [x] Add an owned native session with authorized local/provider input, bounded range continuation, independent output revocation, and cleanup after canceled observers. Application integration remains open.
+- [x] Add an owned native session with authorized local/provider input, bounded range continuation, independent output revocation, and cleanup after canceled observers.
 - [x] Add bounded ordered recording lookup, retained-session write guards, cooperative provider refresh cancellation, and terminal native startup cancellation for application coordination.
 - [x] Own authenticated command admission and bounded paged queues with exact session/lease checks, stable occurrence IDs, revision/sequence fencing, and accepted-command receipt replay.
-- [x] Drive authorized native output through that owner, with play/pause, separate position observations, natural queue advancement, same-session reattachment, account takeover/logout, and joined replacement/shutdown. Shared UI wiring remains open.
-- [x] Recover native playback through finite authorized source attempts, one retained provider refresh, position restoration, paused recovery, and queue advancement after exhaustion. Shared UI wiring remains open.
-- [x] Add ordered native seek/volume commands, completed-seek observations, explicit zero/backward restoration, and control supersession. Shared UI wiring remains open.
-- [x] Persist observed native progress with ordered idempotent checkpoints, bounded backpressure, account isolation, and joined writes. Shared UI wiring remains open.
+- [x] Drive authorized native output through that owner, with play/pause, separate position observations, natural queue advancement, same-session reattachment, account takeover/logout, and joined replacement/shutdown.
+- [x] Recover native playback through finite authorized source attempts, one retained provider refresh, position restoration, paused recovery, and queue advancement after exhaustion.
+- [x] Add ordered native seek/volume commands, completed-seek observations, explicit zero/backward restoration, and control supersession.
+- [x] Persist observed native progress with ordered idempotent checkpoints, bounded backpressure, account isolation, and joined writes.
 - [x] Expose authenticated native commands, paged queues, separate private observation streams, and retained desktop shutdown with library ownership.
-- [ ] Connect the shared React player to the native command/observation API while preserving the browser implementation.
+- [x] Connect the shared React player to the native command/observation API while preserving the browser implementation. Verify actual Linux Tauri output, reload, controls, and Rust-owned progress.
+- [ ] Add native Previous based on played history, shuffle, repeat, playback speed, and saved-position loading.
 - [ ] Preserve private queue state across temporary authority/database failures while suspending output and rejecting unverified commands.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
@@ -116,7 +117,7 @@ Mobile, browser offline operation, social/group listening, arbitrary plugin UI, 
 - [x] Handle Docker SIGTERM through graceful shutdown and verify lifecycle logs.
 - [x] Update architecture, operations, logging, status, and independent-review evidence.
 
-The latest Docker verification and its limits are recorded in [current status](docs/status.md). Authenticated HTTP and the desktop lifecycle now expose the Rust owner for native output, source recovery, and ordered progress writes. The application still uses browser audio until its shared player uses that API. Native UI integration, physical/platform acceptance, and the public-release gates remain open.
+The latest Docker verification and its limits are recorded in [current status](docs/status.md). Authenticated HTTP and the desktop lifecycle now expose the Rust owner for native output, source recovery, and ordered progress writes. The shared UI uses Rust playback in desktop and browser audio on the web. Physical/platform acceptance and the public-release gates remain open.
 
 The latest full Docker verification passed 245 unique default Rust cases, the separate enumeration fault test, 92 frontend cases, five Chromium workflows, generated contracts, zero audit vulnerabilities, and setup CLI checks. The complete desktop run passed native output, protected HTTP/lifecycle, and actual Tauri workflows. Counts and overlap are recorded in the status checkpoint. Browser evidence covers folder administration, artist/album navigation, private metadata editing with continuous audio, plugin discovery/installation, account isolation, real expired-range recovery, and availability checks. See [current status and verification limits](docs/status.md).
 
