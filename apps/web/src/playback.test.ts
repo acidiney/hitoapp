@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { Playback, type MediaPort } from "./playback";
 
 class Media extends EventTarget implements MediaPort {
@@ -22,6 +22,86 @@ class Media extends EventTarget implements MediaPort {
     this.src = "";
   }
 }
+
+test("browser repeat modes exhaust unavailable occurrences without looping", async () => {
+  for (const shuffled of [false, true])
+    for (const cycles of [1, 2]) {
+      const resolve = vi.fn(async () => []);
+      const player = new Playback(new Media(), resolve);
+      for (let i = 0; i < cycles; i++) player.repeat();
+      if (shuffled) player.shuffle();
+      await player.playQueue(
+        ["first", "last"].map((id) => ({
+          id,
+          title: id,
+          artist: "Fixture",
+          duration_ms: 10000,
+          available: true,
+        })),
+        1,
+      );
+      expect(resolve).toHaveBeenCalledTimes(shuffled || cycles === 1 ? 4 : 2);
+      expect(player.snapshot().playing).toBe(false);
+      expect(player.snapshot().loading).toBe(false);
+      expect(player.snapshot().error).toContain("Audio is unavailable");
+    }
+});
+
+test("browser repeat one applies only to completion and repeat all wraps stable occurrences", async () => {
+  const player = new Playback(new Media(), async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = {
+    id: "same",
+    title: "Fixture",
+    artist: "Test",
+    duration_ms: 10000,
+    available: true,
+  };
+  await player.playQueue([track, track], 1);
+  const entries = (await player.queuePage(0, 50)).entries;
+  player.repeat();
+  await player.next(true);
+  expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
+  player.repeat();
+  await player.next(true);
+  expect(player.queueSnapshot().currentEntry).toBe(entries[0].id);
+  await player.next();
+  expect(player.queueSnapshot().currentEntry).toBe(entries[1].id);
+  await player.next();
+  expect(player.snapshot().current).toBeNull();
+});
+
+test("browser queue replacement and clear retain shuffle without retaining old occurrences", async () => {
+  const player = new Playback(new Media(), async () => [
+    { id: "source", ready: true },
+  ]);
+  const track = {
+    id: "same",
+    title: "Fixture",
+    artist: "Test",
+    duration_ms: 10000,
+    available: true,
+  };
+  player.shuffle();
+  for (const clear of [false, true]) {
+    if (clear) player.clear();
+    await player.playQueue(Array(4).fill(track), 3);
+    const entries = (await player.queuePage(0, 50)).entries.map(
+      (entry) => entry.id,
+    );
+    const visited = new Set([player.queueSnapshot().currentEntry]);
+    for (let i = 1; i < 4; i++) {
+      await player.next();
+      expect(visited.has(player.queueSnapshot().currentEntry)).toBe(false);
+      visited.add(player.queueSnapshot().currentEntry);
+    }
+    expect(visited).toEqual(new Set(entries));
+    await player.next();
+    expect(player.snapshot().current).toBeNull();
+    expect(player.snapshot().shuffle).toBe(true);
+  }
+});
 
 test("selecting a healthy stable queue entry clears the previous source failure", async () => {
   const player = new Playback(new Media(), async (id) =>
