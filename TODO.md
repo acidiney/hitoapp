@@ -66,7 +66,10 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Complete remaining plugin capability requests/results, conversion, and operational capability negotiation.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
+- [ ] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; notify the user here when installation, discovery, adoption, playback, and seeking are verified.
 - [ ] Add playlist Import a copy and read-only Follow playlist.
+- [ ] Import Spotify playlists as editable Hito copies, preserving order, duplicate entries, Spotify identifiers, and metadata provenance; verify current Spotify authorization and API restrictions.
+- [ ] Play imported Spotify playlist tracks through the yt-dlp YouTube plugin, with visible unavailable tracks and review of uncertain matches rather than silent substitutions.
 - [ ] Add podcast RSS subscriptions, updates, progress, and downloads.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
