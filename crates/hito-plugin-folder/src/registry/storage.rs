@@ -65,7 +65,7 @@ pub(crate) struct Claim {
 
 impl Claim {
     pub(super) fn database_path(&self) -> std::path::PathBuf {
-        self.path.join("identity.sqlite")
+        state_path(&self.path, &self.directory).join("identity.sqlite")
     }
     pub(super) fn check_database(&self) -> io::Result<()> {
         let file = self
