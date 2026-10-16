@@ -1,8 +1,14 @@
 mod content;
+mod playlists;
 pub use content::{
     AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
     ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
     SourcePage,
+};
+pub use playlists::{
+    MAX_PLAYLIST_ITEMS, MAX_PLAYLIST_PAGE_ITEMS, PLAYLIST_DETAIL_PATH, PLAYLIST_ITEMS_PATH,
+    PlaylistAttribution, PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage,
+    ProviderPlaylist, ProviderPlaylistEntry, ProviderPlaylistItem,
 };
 
 use serde::{Deserialize, Serialize};

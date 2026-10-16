@@ -5,6 +5,7 @@ mod key_file;
 mod media;
 mod offers;
 mod operation;
+mod playlists;
 mod refresh;
 mod removal;
 mod transport;
@@ -14,6 +15,7 @@ mod vault;
 use crate::{Result, store::Store};
 pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
+pub(crate) use playlists::PlaylistSnapshot;
 pub use types::{
     InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
     PluginService, PluginSettings, RefreshPlugin,

@@ -12,8 +12,8 @@ pub(crate) struct Operation {
     account: String,
     installation: String,
     installation_revision: i64,
-    service: String,
-    service_revision: i64,
+    pub(crate) service: String,
+    pub(crate) service_revision: i64,
     base_url: String,
     token: Option<Zeroizing<String>>,
     remote: super::transport::ControlClient,
@@ -75,6 +75,19 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) async fn playlist_snapshot(
+        &self,
+        reference: String,
+    ) -> Result<super::PlaylistSnapshot> {
+        self.remote
+            .playlist_snapshot(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                reference,
+            )
+            .await
+    }
     pub(crate) fn audio_authority(
         &self,
         source: &str,

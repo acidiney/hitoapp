@@ -11,6 +11,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock, Semaphore, watch};
 
 struct Fixture {
+    offline: RwLock<bool>,
+    playlist_pages: RwLock<HashMap<Option<String>, Value>>,
     range_chunk: RwLock<Option<usize>>,
     held_range: RwLock<Option<std::ops::Range<usize>>>,
     broken_tail: RwLock<Option<usize>>,
@@ -30,6 +32,8 @@ impl ProviderServer {
     pub async fn start() -> Self {
         let (closed, receiver) = watch::channel(false);
         let state = Arc::new(Fixture {
+            offline: RwLock::new(false),
+            playlist_pages: Default::default(),
             range_chunk: RwLock::new(None),
             held_range: RwLock::new(None),
             broken_tail: RwLock::new(None),
@@ -44,6 +48,8 @@ impl ProviderServer {
             .route("/prefix/v1/manifest", get(manifest))
             .route("/prefix/v1/search", post(exchange))
             .route("/prefix/v1/recordings/detail", post(exchange))
+            .route("/prefix/v1/playlists/detail", post(exchange))
+            .route("/prefix/v1/playlists/items", post(exchange))
             .route("/prefix/v1/sources", post(exchange))
             .route("/prefix/v1/audio", get(audio))
             .with_state(state.clone());
@@ -61,6 +67,12 @@ impl ProviderServer {
     }
     pub async fn reply(&self, path: &str, value: Value) {
         self.state.replies.write().await.insert(path.into(), value);
+    }
+    pub async fn offline(&self) {
+        *self.state.offline.write().await = true;
+    }
+    pub async fn playlist_pages(&self, pages: Vec<(Option<String>, Value)>) {
+        *self.state.playlist_pages.write().await = pages.into_iter().collect();
     }
     pub async fn audio(&self, status: StatusCode, headers: HeaderMap, bytes: Vec<u8>) {
         *self.state.audio.write().await = (status, headers, bytes);
@@ -118,6 +130,9 @@ async fn audio(
             query["_method"] = json!(method.as_str());
             query
         }));
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let first = range
         .as_deref()
         .and_then(|range| range.strip_prefix("bytes="))
@@ -233,18 +248,54 @@ async fn exchange(
     Json(body): Json<Value>,
 ) -> Response {
     let path = uri.path().trim_start_matches("/prefix/");
+    let playlist_body = (path == "v1/playlists/items").then(|| body.clone());
     state
         .requests
         .lock()
         .await
         .push((path.into(), headers, body));
-    let reply = state
-        .replies
-        .read()
-        .await
-        .get(path)
-        .cloned()
-        .unwrap_or(Value::Null);
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    let page = if let Some(body) = playlist_body {
+        let pages = state.playlist_pages.read().await;
+        if pages.is_empty() {
+            None
+        } else {
+            let Ok(request) = serde_json::from_value::<hito_plugin_sdk::PlaylistItemsRequest>(body)
+            else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            if request.validate().is_err() {
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            let Some(page) = pages.get(&request.cursor) else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            if page["playlist_id"].as_str() != Some(request.playlist_id.as_str())
+                || page["snapshot"].as_str() != Some(request.snapshot.as_str())
+                || page["items"]
+                    .as_array()
+                    .is_none_or(|items| items.len() > usize::from(request.limit))
+            {
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            Some(page.clone())
+        }
+    } else {
+        None
+    };
+    let reply = if let Some(page) = page {
+        page
+    } else {
+        state
+            .replies
+            .read()
+            .await
+            .get(path)
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
     if !wait_gate(&state, path).await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
@@ -262,7 +313,10 @@ async fn wait_gate(state: &Fixture, path: &str) -> bool {
     }
     true
 }
-async fn manifest(State(state): State<Arc<Fixture>>) -> Json<Value> {
+async fn manifest(State(state): State<Arc<Fixture>>) -> Response {
+    if *state.offline.read().await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     Json(
         state
             .replies
@@ -272,6 +326,7 @@ async fn manifest(State(state): State<Arc<Fixture>>) -> Json<Value> {
             .cloned()
             .unwrap(),
     )
+    .into_response()
 }
 pub struct Gate {
     entered: Semaphore,

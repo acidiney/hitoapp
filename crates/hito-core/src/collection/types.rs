@@ -1,3 +1,4 @@
+use super::{CollectionPublication, ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -125,10 +126,25 @@ pub struct SyncReceipt {
 }
 
 #[derive(ToSchema, Serialize)]
-pub struct SyncEvent {
-    pub sequence: i64,
-    pub device_id: String,
-    pub operation: Operation,
+#[serde(untagged)]
+pub enum SyncEvent {
+    Operation {
+        sequence: i64,
+        device_id: String,
+        operation: Operation,
+    },
+    Publication {
+        sequence: i64,
+        publication: CollectionPublication,
+    },
+}
+
+impl SyncEvent {
+    pub fn sequence(&self) -> i64 {
+        match self {
+            Self::Operation { sequence, .. } | Self::Publication { sequence, .. } => *sequence,
+        }
+    }
 }
 
 #[derive(ToSchema, Serialize)]
@@ -142,13 +158,14 @@ pub struct SyncPage {
 pub struct PlaylistDetail {
     pub playlist: Playlist,
     pub entries: Vec<PlaylistEntry>,
+    pub origin: Option<ImportedPlaylistOrigin>,
 }
 
-#[derive(ToSchema, Serialize, sqlx::FromRow)]
+#[derive(ToSchema, Serialize)]
 pub struct PlaylistEntry {
     pub entry_id: String,
     pub liked: bool,
-    pub recording_id: String,
+    pub recording_id: Option<String>,
     pub position: i64,
     pub title: String,
     pub inherited_title: String,
@@ -156,6 +173,7 @@ pub struct PlaylistEntry {
     pub artist: String,
     pub duration_ms: i64,
     pub available: bool,
+    pub origin: Option<ImportedPlaylistEntryOrigin>,
 }
 
 #[derive(Serialize, ToSchema)]

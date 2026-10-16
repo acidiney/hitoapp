@@ -3,7 +3,7 @@ use hito_plugin_sdk::{ProviderRecording, ProviderRelease, SourcePage};
 use sqlx::{Sqlite, Transaction};
 use uuid::Uuid;
 
-pub(super) async fn library(tx: &mut Transaction<'_, Sqlite>, owner: &str) -> Result<String> {
+pub(crate) async fn library(tx: &mut Transaction<'_, Sqlite>, owner: &str) -> Result<String> {
     sqlx::query("INSERT INTO libraries(id,name,owner_id) VALUES (?,'Personal providers',?) ON CONFLICT(owner_id) WHERE owner_id IS NOT NULL DO NOTHING")
         .bind(Uuid::new_v4().to_string()).bind(owner).execute(&mut **tx).await?;
     let id: String = sqlx::query_scalar("SELECT id FROM libraries WHERE owner_id = ?")

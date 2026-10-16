@@ -92,7 +92,7 @@ async fn retagging_preserves_recording_source_and_personal_collections() {
         .unwrap();
     assert_eq!(playlist.entries.len(), 1);
     assert_eq!(playlist.entries[0].entry_id, entry_id.to_string());
-    assert_eq!(playlist.entries[0].recording_id, original.id);
+    assert_eq!(playlist.entries[0].recording_id, Some(original.id.clone()));
     assert!(playlist.entries[0].available && playlist.entries[0].liked);
     let history = hito.collection.activity(&actor).await.unwrap().history;
     assert_eq!(history.len(), 1);

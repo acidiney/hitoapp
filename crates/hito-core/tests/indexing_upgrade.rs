@@ -41,7 +41,7 @@ async fn unchanged_legacy_audio_anchors_a_retagged_copy_before_scan_order_can_fo
         .unwrap()
         .entries;
     assert_eq!(entries[0].entry_id, legacy::ENTRY);
-    assert_eq!(entries[0].recording_id, legacy::RECORDING);
+    assert_eq!(entries[0].recording_id, Some(legacy::RECORDING.to_string()));
     let history = hito.collection.activity(&actor).await.unwrap().history;
     assert_eq!(history[0].id, legacy::RECORDING);
     assert_eq!(history[0].position_ms, 500);
@@ -80,7 +80,7 @@ async fn a_changed_legacy_file_without_an_audio_witness_stays_separate() {
         .playlist(&actor, legacy::PLAYLIST)
         .await
         .unwrap();
-    assert_eq!(playlist.entries[0].recording_id, old.id);
+    assert_eq!(playlist.entries[0].recording_id, Some(old.id.clone()));
     assert!(!playlist.entries[0].available);
     support::scan(&hito, &actor, legacy::LIBRARY).await;
     assert_eq!(
@@ -187,7 +187,10 @@ async fn audio_inspection_retries_unchanged_legacy_audio_after_decoder_failure()
         .await
         .unwrap();
     assert_eq!(playlist.entries[0].entry_id, legacy::ENTRY);
-    assert_eq!(playlist.entries[0].recording_id, legacy::RECORDING);
+    assert_eq!(
+        playlist.entries[0].recording_id,
+        Some(legacy::RECORDING.to_string())
+    );
     assert!(playlist.entries[0].available);
     let history = hito.collection.activity(&actor).await.unwrap().history;
     assert_eq!(history[0].id, legacy::RECORDING);
@@ -227,7 +230,10 @@ async fn a_new_checksum_witness_preserves_legacy_identity_in_both_scan_orders() 
             .await
             .unwrap();
         assert_eq!(playlist.entries[0].entry_id, legacy::ENTRY);
-        assert_eq!(playlist.entries[0].recording_id, legacy::RECORDING);
+        assert_eq!(
+            playlist.entries[0].recording_id,
+            Some(legacy::RECORDING.to_string())
+        );
     }
 }
 
