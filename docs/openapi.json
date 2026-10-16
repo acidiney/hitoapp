@@ -5651,6 +5651,26 @@
           {
             "type": "object",
             "required": [
+              "rate",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "speed"
+                ]
+              },
+              "rate": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
               "kind"
             ],
             "properties": {
@@ -6138,6 +6158,7 @@
           "playing",
           "seeking",
           "volume",
+          "speed",
           "phase"
         ],
         "properties": {
@@ -6228,6 +6249,11 @@
               "string",
               "null"
             ]
+          },
+          "speed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "volume": {
             "type": "integer",

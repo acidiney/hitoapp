@@ -1158,6 +1158,11 @@ export interface components {
             level: number;
         } | {
             /** @enum {string} */
+            kind: "speed";
+            /** Format: int32 */
+            rate: number;
+        } | {
+            /** @enum {string} */
             kind: "next";
         } | {
             /** @enum {string} */
@@ -1300,6 +1305,8 @@ export interface components {
             selection: number;
             shuffle: boolean;
             source_id?: string | null;
+            /** Format: int32 */
+            speed: number;
             /** Format: int32 */
             volume: number;
         };
