@@ -24,6 +24,8 @@ These are local development deployments, not completed public releases.
 
 ## Provider authorization in development
 
+The current priority is Spotify import from a public shared link without a developer application or account connection. Public-page extraction still needs complete pagination and live verification. The authorization work below is separate groundwork and does not establish that public-link workflow.
+
 The development branch adds optional PKCE manifest declarations and authenticated begin/status routes. Core persists ten-minute attempts, limits each account to eight live attempts, and encrypts state and verifier in the existing vault. The callback address comes from the configured HTTPS or literal-loopback HTTP origin. Status exposes only ID, `pending` and expiry to the original live session, and rechecks installation/service authority. See [the authorization contract and data flow](plugins.md#pending-authorization-attempts-in-development).
 
 Public HTTP fixtures verify begin, original-session isolation, status after restart, and the eight-attempt limit across sessions while another account retains its own allowance. A separate public core regression first reproduced a missing-key recovery failure, then passed after the fix: live pending secrets prevent replacement, while expired-only attempts allow a fresh key and new authorization attempt. A TRACE-level regression verifies workflow outcomes without session, PKCE or private configuration values in logs.
