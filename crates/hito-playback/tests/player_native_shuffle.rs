@@ -61,3 +61,52 @@ async fn shuffle_visits_each_occurrence_once_keeps_canonical_order_and_replays_w
     assert_eq!(f.state.borrow().current.unwrap().id, f.entries[0].id);
     f.owner.close().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the isolated clocked audio monitor"]
+async fn append_move_and_current_removal_preserve_live_shuffle_successors() {
+    let mut f = fixture::Navigation::start(2, 0).await;
+    f.send(shuffle()).await;
+    f.send(PlayerAction::Append {
+        recordings: vec![f.entries[0].recording.id.parse().unwrap()],
+    })
+    .await;
+    let revision = f.state.borrow().revision;
+    let appended = f
+        .player
+        .queue(&f.source.actor, f.lease, revision, 2, 1)
+        .await
+        .unwrap()
+        .entries
+        .remove(0)
+        .id;
+    f.send(PlayerAction::Move {
+        entry: f.entries[1].id,
+        before: Some(f.entries[0].id),
+    })
+    .await;
+    f.send(PlayerAction::Next {}).await;
+    assert_eq!(f.state.borrow().current.unwrap().id, f.entries[1].id);
+    f.send(PlayerAction::Remove {
+        entry: f.entries[1].id,
+    })
+    .await;
+    assert_eq!(f.state.borrow().current.unwrap().id, appended);
+    assert!(!f.state.borrow().desired_playing);
+    f.send(PlayerAction::Next {}).await;
+    assert!(f.state.borrow().current.is_none());
+    let revision = f.state.borrow().revision;
+    let page = f
+        .player
+        .queue(&f.source.actor, f.lease, revision, 0, 2)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.entries
+            .iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>(),
+        vec![f.entries[0].id, appended]
+    );
+    f.owner.close().await.unwrap();
+}

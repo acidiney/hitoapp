@@ -103,11 +103,13 @@ impl Queue {
                 if self.entries.len() + recordings.len() > 100_000 {
                     return Err(PlayerError::Invalid);
                 }
+                let offset = self.entries.len();
                 self.entries
                     .extend(recordings.into_iter().map(|recording_id| PlayerEntryRef {
                         id: Uuid::new_v4(),
                         recording_id,
                     }));
+                self.traversal.append(&self.entries[offset..]);
             }
             PlayerAction::Next {} => return self.advance(Advance::Requested),
             PlayerAction::Previous {} => {
@@ -149,18 +151,18 @@ impl Queue {
             }
             PlayerAction::Remove { entry } => {
                 let index = self.index(entry)?;
+                let next = if current == Some(entry) {
+                    self.traversal
+                        .next(&self.entries, current, Advance::Requested)
+                        .filter(|id| *id != entry)
+                } else {
+                    current
+                };
                 self.entries.remove(index);
                 self.history.retain(|played| *played != entry);
                 self.traversal.remove(entry);
-                self.current = self.current.and_then(|current| {
-                    if current > index {
-                        Some(current - 1)
-                    } else if current < self.entries.len() {
-                        Some(current)
-                    } else {
-                        None
-                    }
-                });
+                self.current =
+                    next.and_then(|id| self.entries.iter().position(|entry| entry.id == id));
             }
         }
         if self.current_entry() != current || restart {

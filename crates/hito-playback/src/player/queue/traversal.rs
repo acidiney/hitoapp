@@ -67,6 +67,17 @@ impl Traversal {
 
     pub fn remove(&mut self, entry: Uuid) {
         self.failed.remove(&entry);
+        if let Some(order) = &mut self.order {
+            order.retain(|id| *id != entry);
+        }
+    }
+
+    pub fn append(&mut self, entries: &[PlayerEntryRef]) {
+        if let Some(order) = &mut self.order {
+            let mut added = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
+            added.shuffle(&mut rand::thread_rng());
+            order.extend(added);
+        }
     }
 
     pub fn next(
