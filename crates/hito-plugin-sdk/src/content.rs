@@ -24,7 +24,7 @@ pub struct SearchPage {
     pub next_cursor: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProviderRecording {
@@ -38,7 +38,7 @@ pub struct ProviderRecording {
     pub revision: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProviderRelease {
@@ -145,13 +145,13 @@ impl ProviderRecording {
     }
 }
 
-fn text(value: &str, maximum: usize) -> Result<(), &'static str> {
+pub(crate) fn text(value: &str, maximum: usize) -> Result<(), &'static str> {
     if value.trim().is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
         return Err("Provider fields must use bounded nonempty text without control characters");
     }
     Ok(())
 }
-fn optional(value: Option<&str>, maximum: usize) -> Result<(), &'static str> {
+pub(crate) fn optional(value: Option<&str>, maximum: usize) -> Result<(), &'static str> {
     value
         .map(|value| text(value, maximum))
         .transpose()
