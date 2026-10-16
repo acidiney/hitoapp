@@ -5,12 +5,12 @@
 mod capture;
 mod support;
 
-use hito_audio::{Player, native_processor_counts};
+use hito_audio::{Player, fail_next_native_processor, native_processor_counts};
 use std::time::Duration;
 
 #[test]
 #[ignore = "requires the isolated clocked audio monitor and native-probe feature"]
-fn rate_replacement_seek_stop_close_and_drop_destroy_every_native_processor() {
+fn rate_replacement_seek_stop_failure_close_and_drop_destroy_every_native_processor() {
     let before = native_processor_counts();
     for explicit in [true, false] {
         let input = support::wave(48_000, 2, 48_000, |frame, _| {
@@ -33,7 +33,27 @@ fn rate_replacement_seek_stop_close_and_drop_destroy_every_native_processor() {
             drop(player);
         }
         let after = native_processor_counts();
-        assert!(after.0 >= before.0 + 4, "rate and seek replacements were not exercised");
-        assert_eq!(after.0 - before.0, after.1 - before.1, "native processors survived joined cleanup");
+        assert!(
+            after.0 >= before.0 + 4,
+            "rate and seek replacements were not exercised"
+        );
+        assert_eq!(
+            after.0 - before.0,
+            after.1 - before.1,
+            "native processors survived joined cleanup"
+        );
     }
+    let mut player = Player::open(support::wave(48_000, 2, 48_000, |_, _| 1000)).unwrap();
+    fail_next_native_processor();
+    player.speed(2.).unwrap();
+    player.resume().unwrap();
+    capture::wait(|| player.snapshot().error.is_some());
+    assert_eq!(player.snapshot().error, Some(hito_audio::Error::Output));
+    assert_eq!(player.close(), Err(hito_audio::Error::Output));
+    let after = native_processor_counts();
+    assert_eq!(
+        after.0 - before.0,
+        after.1 - before.1,
+        "native exception cleanup leaked a processor"
+    );
 }

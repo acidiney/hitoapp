@@ -19,7 +19,11 @@ impl Processor {
     pub fn new(format: AudioFormat, speed: f32) -> Result<Self> {
         // C++ owns construction, layout and destruction. The worker exclusively owns this handle.
         let handle = unsafe {
-            hito_tempo_create(format.sample_rate, u32::from(format.channels), f64::from(speed))
+            hito_tempo_create(
+                format.sample_rate,
+                u32::from(format.channels),
+                f64::from(speed),
+            )
         };
         Ok(Self {
             handle: NonNull::new(handle).ok_or(Error::Output)?,
@@ -41,7 +45,8 @@ impl Processor {
 
     pub fn receive(&mut self, samples: &mut [f32]) -> Result<usize> {
         let capacity = u32::try_from(samples.len() / self.channels).map_err(|_| Error::Output)?;
-        let frames = unsafe { hito_tempo_receive(self.handle.as_ptr(), samples.as_mut_ptr(), capacity) };
+        let frames =
+            unsafe { hito_tempo_receive(self.handle.as_ptr(), samples.as_mut_ptr(), capacity) };
         usize::try_from(frames)
             .ok()
             .filter(|frames| *frames <= capacity as usize)
@@ -71,4 +76,13 @@ pub fn native_processor_counts() -> (u64, u64) {
         fn hito_tempo_destroyed() -> u64;
     }
     unsafe { (hito_tempo_created(), hito_tempo_destroyed()) }
+}
+
+#[cfg(feature = "native-probe")]
+#[doc(hidden)]
+pub fn fail_next_native_processor() {
+    unsafe extern "C" {
+        fn hito_tempo_fail_next();
+    }
+    unsafe { hito_tempo_fail_next() };
 }

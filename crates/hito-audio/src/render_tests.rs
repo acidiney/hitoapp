@@ -121,11 +121,11 @@ fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() 
         scope.spawn(move || {
             let (mut producer, consumer) = rtrb::RingBuffer::new(2);
             let mut render = Render::new(consumer, callback_state, format());
-            for position in 1..=100_000 {
+            for position in 1_u64..=100_000 {
                 producer
                     .push(Frame::Audio {
                         samples: [0.5; 2],
-                        speed: if position % 2 == 0 { 2. } else { 0.5 },
+                        speed: if position.is_multiple_of(2) { 2. } else { 0.5 },
                         position,
                         epoch: 1,
                     })
@@ -147,7 +147,7 @@ fn concurrent_snapshots_keep_presented_position_speed_and_completion_together() 
             let position = snapshot.position.as_nanos();
             let expected = if position == 0 {
                 1.
-            } else if position % 2 == 0 {
+            } else if position.is_multiple_of(2) {
                 2.
             } else {
                 0.5

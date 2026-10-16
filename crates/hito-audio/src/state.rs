@@ -99,7 +99,7 @@ impl State {
         let (position, speed, ended) = loop {
             let presented = self.presented_sequence.load(Ordering::Acquire);
             let reset = self.reset_sequence.load(Ordering::Acquire);
-            if presented % 2 != 0 || reset % 2 != 0 {
+            if !presented.is_multiple_of(2) || !reset.is_multiple_of(2) {
                 std::hint::spin_loop();
                 continue;
             }

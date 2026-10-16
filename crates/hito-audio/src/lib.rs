@@ -10,9 +10,9 @@ mod device;
 #[cfg(feature = "device")]
 mod player;
 #[cfg(feature = "device")]
-mod processor;
-#[cfg(feature = "device")]
 mod presentation;
+#[cfg(feature = "device")]
+mod processor;
 #[cfg(feature = "device")]
 mod render;
 #[cfg(feature = "device")]
@@ -24,8 +24,8 @@ mod worker;
 
 #[cfg(feature = "device")]
 pub use player::{Player, Stop};
-#[cfg(feature = "device")]
-pub use state::Snapshot;
 #[cfg(feature = "native-probe")]
 #[doc(hidden)]
-pub use processor::native_processor_counts;
+pub use processor::{fail_next_native_processor, native_processor_counts};
+#[cfg(feature = "device")]
+pub use state::Snapshot;

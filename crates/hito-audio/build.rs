@@ -7,6 +7,11 @@ fn main() {
         .std("c++11")
         .file("native/tempo.cpp")
         .include("native/soundtouch-2.3.2");
+    if build.get_compiler().is_like_msvc() {
+        build.flag("/EHsc");
+    } else {
+        build.flag("-fexceptions");
+    }
     if cfg!(feature = "native-probe") {
         build.define("HITO_NATIVE_PROBE", None);
     }
