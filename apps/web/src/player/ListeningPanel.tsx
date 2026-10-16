@@ -53,7 +53,8 @@ export default function ListeningPanel({
       <div className="listening-device">
         <Headphones size={18} />
         <span>
-          This browser<small>Your listening session</small>
+          {player.mode === "native" ? "This device" : "This browser"}
+          <small>Your listening session</small>
         </span>
       </div>
     </aside>

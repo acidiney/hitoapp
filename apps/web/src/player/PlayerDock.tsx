@@ -30,6 +30,10 @@ export default function PlayerDock({
     () => player.snapshot().speed,
   );
   const [queueOpen, setQueueOpen] = useState(false);
+  const volume = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().volume,
+  );
   const [expanded, setExpanded] = useState(false);
   const expandedOpener = useRef<HTMLButtonElement | null>(null);
   const queueButton = useRef<HTMLButtonElement>(null);
@@ -93,6 +97,12 @@ export default function PlayerDock({
           <select
             aria-label="Playback speed"
             value={speed}
+            disabled={!player.supports.speed}
+            title={
+              !player.supports.speed
+                ? "Playback speed is not available in the desktop player yet"
+                : undefined
+            }
             onChange={(event) => player.speed(+event.target.value)}
           >
             {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
@@ -109,7 +119,7 @@ export default function PlayerDock({
             min="0"
             max="1"
             step="0.05"
-            defaultValue="1"
+            value={volume}
             onChange={(event) => player.volume(+event.target.value)}
           />
           <button

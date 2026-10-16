@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
 import Artwork from "../components/Artwork";
 import { time } from "../format";
@@ -11,15 +11,18 @@ const QueueTracks = memo(function QueueTracks({
   preview?: boolean;
 }) {
   const player = usePlayer();
-  const { view, offset, limit, page, error, loading, previous, next } =
+  const { view, offset, limit, page, error, loading, previous, next, retry } =
     useQueuePage(player, preview);
   const tracks = page?.entries ?? [];
   if (loading) return <p className="queue-empty">Loading your queue…</p>;
   if (error)
     return (
-      <p className="queue-empty" role="alert">
-        {error}
-      </p>
+      <div className="queue-empty" role="alert">
+        <p>{error}</p>
+        <button className="text-link" onClick={retry}>
+          Retry queue
+        </button>
+      </div>
     );
   if (!tracks.length)
     return (
@@ -62,24 +65,26 @@ const QueueTracks = memo(function QueueTracks({
         })}
       </ol>
       {!preview && view.total > limit && (
-        <nav className="pagination" aria-label="Queue pages">
+        <nav className="pagination queue-pages" aria-label="Queue pages">
           <button
+            className="icon-button"
             disabled={offset === 0}
             onClick={previous}
             aria-label="Previous queue page"
           >
-            Previous
+            <ChevronLeft size={18} />
           </button>
           <span>
             {offset + 1} to {Math.min(offset + limit, view.total)} of{" "}
             {view.total}
           </span>
           <button
+            className="icon-button"
             disabled={offset + limit >= view.total}
             onClick={next}
             aria-label="Next queue page"
           >
-            Next
+            <ChevronRight size={18} />
           </button>
         </nav>
       )}

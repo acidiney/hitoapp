@@ -9,6 +9,7 @@ export type Track = Pick<
 export type PlaybackView = {
   current: Track | null;
   playing: boolean;
+  desiredPlaying?: boolean;
   loading: boolean;
   error: string;
   repeat: "off" | "all" | "one";

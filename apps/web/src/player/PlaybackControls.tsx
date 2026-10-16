@@ -17,12 +17,26 @@ export default function PlaybackControls() {
     player.subscribePosition,
     player.positionSnapshot,
   );
+  const playing = state.desiredPlaying ?? state.playing;
+  const selected =
+    player.mode === "native"
+      ? !!player.queueSnapshot().currentEntry
+      : !!state.current;
   return (
     <div className="transport">
       <div className="transport-buttons">
         <button
           className={`icon-button ${state.shuffle ? "selected" : ""}`}
-          disabled={!state.current}
+          disabled={
+            !selected ||
+            !player.supports.shuffle ||
+            state.connection !== "ready"
+          }
+          title={
+            !player.supports.shuffle
+              ? "Shuffle is not available in the desktop player yet"
+              : undefined
+          }
           aria-label="Shuffle"
           aria-pressed={state.shuffle}
           onClick={() => player.shuffle()}
@@ -31,7 +45,16 @@ export default function PlaybackControls() {
         </button>
         <button
           className="icon-button"
-          disabled={!state.current}
+          disabled={
+            !selected ||
+            !player.supports.previous ||
+            state.connection !== "ready"
+          }
+          title={
+            !player.supports.previous
+              ? "Previous track is not available in the desktop player yet"
+              : undefined
+          }
           aria-label="Previous track"
           onClick={() => void player.previous()}
         >
@@ -39,15 +62,19 @@ export default function PlaybackControls() {
         </button>
         <button
           className="play-button"
-          disabled={!state.current || state.loading}
-          aria-label={state.playing ? "Pause" : "Play"}
+          disabled={
+            !selected ||
+            (player.mode === "browser" && state.loading) ||
+            state.connection !== "ready"
+          }
+          aria-label={playing ? "Pause" : "Play"}
           onClick={() => void player.toggle()}
         >
-          {state.playing ? <Pause size={21} /> : <Play size={21} />}
+          {playing ? <Pause size={21} /> : <Play size={21} />}
         </button>
         <button
           className="icon-button"
-          disabled={!state.current}
+          disabled={!selected || state.connection !== "ready"}
           aria-label="Next track"
           onClick={() => void player.next()}
         >
@@ -55,7 +82,14 @@ export default function PlaybackControls() {
         </button>
         <button
           className={`icon-button ${state.repeat !== "off" ? "selected" : ""}`}
-          disabled={!state.current}
+          disabled={
+            !selected || !player.supports.repeat || state.connection !== "ready"
+          }
+          title={
+            !player.supports.repeat
+              ? "Repeat is not available in the desktop player yet"
+              : undefined
+          }
           aria-label={`Repeat: ${state.repeat}`}
           onClick={() => player.repeat()}
         >
@@ -72,7 +106,7 @@ export default function PlaybackControls() {
           max={position.duration || 1}
           step="0.1"
           value={Math.min(position.position, position.duration || 0)}
-          disabled={!state.current}
+          disabled={!selected || state.connection !== "ready"}
           onChange={(event) => player.seek(+event.target.value)}
         />
         <span>{time(position.duration)}</span>

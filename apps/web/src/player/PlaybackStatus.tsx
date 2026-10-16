@@ -15,10 +15,25 @@ export default function PlaybackStatus({
     player.subscribe,
     () => player.snapshot().error,
   );
-  if (!loading && !error) return null;
+  const connection = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().connection,
+  );
+  if (!loading && !error && connection !== "connecting") return null;
   return (
     <div className={className} role="status">
-      {loading ? "Finding audio…" : error}
+      <span>
+        {connection === "connecting"
+          ? "Connecting player…"
+          : loading
+            ? "Finding audio…"
+            : error}
+      </span>
+      {connection === "disconnected" && player.reconnect && (
+        <button className="text-link" onClick={() => void player.reconnect?.()}>
+          Reconnect player
+        </button>
+      )}
     </div>
   );
 }
