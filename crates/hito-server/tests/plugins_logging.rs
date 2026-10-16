@@ -3,12 +3,14 @@ mod fixture;
 use axum::{
     Router,
     body::Body,
-    http::{Request, StatusCode},
+    extract::Query,
+    http::{Request, StatusCode, Uri},
 };
 use hito_core::{CoreConfig, HostDeviceId};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeMap,
     io::Write,
     sync::{Arc, Mutex},
 };
@@ -79,4 +81,161 @@ async fn plugin_workflow_logs_outcomes_without_tokens_names_bodies_or_input_path
             assert!(!output.contains(secret), "Private value appeared in plugin logs");
         }
     }.with_subscriber(subscriber).await;
+}
+
+#[tokio::test]
+async fn authorization_logs_outcomes_without_session_pkce_or_private_configuration_values() {
+    let logs = Capture::default();
+    let captured = logs.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .with_max_level(tracing::Level::TRACE)
+        .with_writer(move || captured.clone())
+        .finish();
+    async {
+        let directory = tempfile::tempdir().unwrap();
+        let services = hito_core::open(CoreConfig::new(
+            directory.path().join("private-oauth-database-sentinel.db"),
+            directory.path().join("music"),
+            HostDeviceId::new("plugin-oauth-log-host").unwrap(),
+        ))
+        .await
+        .unwrap();
+        let app = hito_server::router_with_config(
+            services,
+            hito_server::Config {
+                origin: "https://hito.test".into(),
+                ..Default::default()
+            },
+        );
+        let server = fixture::PluginServer::start().await;
+        let mut manifest = fixture::manifest();
+        manifest["name"] = json!("private-oauth-manifest-sentinel");
+        manifest["capabilities"] = json!(["playlists"]);
+        manifest["authorization"] = json!({
+            "kind": "oauth2_pkce",
+            "client_id": "private-oauth-client-sentinel",
+            "authorization_endpoint": "https://accounts.spotify.com/authorize",
+            "scopes": ["playlist-read-private"]
+        });
+        server.reply(manifest).await;
+        let (status, session) = post(
+            &app,
+            "/api/v1/setup",
+            json!({
+                "username": "admin", "password": "private-oauth-password-sentinel"
+            }),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let token = session["token"].as_str().unwrap();
+        let (status, service) = post(
+            &app,
+            "/api/v1/plugins/services",
+            json!({
+                "name": "private-oauth-service-sentinel", "base_url": server.url
+            }),
+            Some(token),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let (status, installation) = post(
+            &app,
+            "/api/v1/plugins",
+            json!({
+                "service_id": service["id"], "service_revision": service["revision"]
+            }),
+            Some(token),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let begin_path = format!(
+            "/api/v1/plugins/{}/authorization",
+            installation["id"].as_str().unwrap()
+        );
+        let (status, attempt) = post(
+            &app,
+            &begin_path,
+            json!({"revision": installation["revision"]}),
+            Some(token),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let authorization_url = attempt["authorization_url"].as_str().unwrap();
+        let uri: Uri = authorization_url.parse().unwrap();
+        let Query(query) = Query::<BTreeMap<String, String>>::try_from_uri(&uri).unwrap();
+        let status_path = format!("{begin_path}/{}", attempt["id"].as_str().unwrap());
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(status_path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let pending: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(pending["status"], "pending");
+        for (field, sentinel) in [
+            ("code", "private-oauth-code-sentinel"),
+            ("code_verifier", "private-oauth-verifier-sentinel"),
+        ] {
+            let mut body = json!({"revision": installation["revision"]});
+            body[field] = json!(sentinel);
+            assert_eq!(
+                post(&app, &begin_path, body, Some(token)).await.0,
+                StatusCode::UNPROCESSABLE_ENTITY
+            );
+        }
+
+        let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        let entries: Vec<Value> = output
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        for message in [
+            "Provider authorization started",
+            "Provider authorization inspected",
+        ] {
+            let workflow = entries
+                .iter()
+                .find(|entry| entry["fields"]["message"] == message)
+                .expect("Authorization must log its workflow outcome");
+            assert_eq!(workflow["fields"]["outcome"], "pending");
+            assert!(workflow["fields"]["elapsed_ms"].as_u64().is_some());
+            assert!(
+                workflow["spans"]
+                    .as_array()
+                    .is_some_and(|spans| spans.iter().any(|span| span["request_id"]
+                        .as_str()
+                        .is_some_and(|request_id| !request_id.is_empty())))
+            );
+        }
+        for private in [
+            token,
+            "private-oauth-database-sentinel",
+            "private-oauth-password-sentinel",
+            "private-oauth-service-sentinel",
+            "private-oauth-manifest-sentinel",
+            "private-oauth-client-sentinel",
+            "private-oauth-code-sentinel",
+            "private-oauth-verifier-sentinel",
+            authorization_url,
+            query["state"].as_str(),
+            query["code_challenge"].as_str(),
+        ] {
+            assert!(
+                !output.contains(private),
+                "Private authorization value appeared in logs"
+            );
+        }
+    }
+    .with_subscriber(subscriber)
+    .await;
 }

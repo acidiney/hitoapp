@@ -6,6 +6,7 @@ pub mod identity;
 pub mod jobs;
 pub mod metadata;
 pub mod player;
+pub mod plugin_authorization;
 pub mod plugins;
 pub mod providers;
 pub mod storage;

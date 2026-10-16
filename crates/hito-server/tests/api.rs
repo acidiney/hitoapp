@@ -45,6 +45,8 @@ mod artwork;
 
 #[path = "api/metadata.rs"]
 mod metadata;
+#[path = "api/plugin_authorization.rs"]
+mod plugin_authorization;
 #[path = "api/plugins.rs"]
 mod plugins;
 #[path = "api/storage.rs"]

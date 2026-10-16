@@ -1,7 +1,8 @@
 use crate::{
     Config,
     api::{
-        self, browsing, catalog, collection, identity, jobs, player, plugins, providers, storage,
+        self, browsing, catalog, collection, identity, jobs, player, plugin_authorization, plugins,
+        providers, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -48,6 +49,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(plugins::refresh))
         .routes(routes!(plugins::remove))
         .routes(routes!(plugins::clear_credential))
+        .routes(routes!(plugin_authorization::begin))
+        .routes(routes!(plugin_authorization::status))
         .routes(routes!(providers::search))
         .routes(routes!(providers::adopt))
         .routes(routes!(api::health))
