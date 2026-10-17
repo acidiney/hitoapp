@@ -1,3 +1,4 @@
+mod admission;
 mod catalog;
 mod collection;
 mod context;
@@ -86,6 +87,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let managed =
         library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
     let plugins = Plugins::new(store.clone(), &config.database).await?;
+    let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
     let catalog = Catalog {
         plugins: plugins.clone(),
         store: store.clone(),
@@ -95,6 +97,9 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         resolution_callers: Default::default(),
         directories: storage.directories.clone(),
         managed: managed.clone(),
+        podcast_remote: podcast_remote.clone(),
+        podcast_audio_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
+        podcast_audio_accounts: admission::Accounts::new(2),
     };
     tracing::info!("Core services ready");
     Ok(Services {
@@ -104,7 +109,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         podcasts: Podcasts {
             store: store.clone(),
             catalog: catalog.clone(),
-            remote: remote_http::RemoteHttp::new(&config.podcast_network),
+            remote: podcast_remote,
         },
         catalog,
         collection: Collection {

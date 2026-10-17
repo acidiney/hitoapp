@@ -31,23 +31,27 @@ impl Catalog {
                 Some(source) => source,
                 None => {
                     let mut provider = QueryBuilder::new(
-                        "SELECT ps.source_id FROM provider_items item
+                        "WITH candidates(id,priority) AS (
+                        SELECT source_id,0 FROM current_podcast_sources WHERE recording_id=",
+                    );
+                    provider.push_bind(recording.to_owned()).push(" AND user_id=")
+                        .push_bind(actor.id().to_owned()).push(" UNION ALL
+                        SELECT ps.source_id,1 FROM provider_items item
                         CROSS JOIN provider_source_state state ON state.binding_id = item.id
                         CROSS JOIN provider_sources ps INDEXED BY provider_sources_generation
                             ON ps.binding_id = state.binding_id AND ps.generation = state.generation
-                        CROSS JOIN sources s ON s.id = ps.source_id
-                        WHERE item.retired = 0 AND item.recording_id = ",
-                    );
+                        WHERE item.retired = 0 AND item.recording_id = ");
                     provider
                         .push_bind(recording.to_owned())
-                        .push(" AND s.provider = 'plugin' AND ");
+                        .push(") SELECT s.id FROM candidates candidate CROSS JOIN sources s ON s.id=candidate.id
+                            WHERE s.provider IN ('podcast','plugin') AND ");
                     push_source_access(
                         &mut provider,
                         &self.host,
                         actor.id(),
                         SourceAccess::Playable,
                     );
-                    provider.push(" ORDER BY ps.source_id LIMIT 1");
+                    provider.push(" ORDER BY candidate.priority,s.id LIMIT 1");
                     provider
                         .build_query_scalar()
                         .fetch_optional(&mut *connection)

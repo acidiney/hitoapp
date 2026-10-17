@@ -1,11 +1,16 @@
 use super::{ConditionalValidators, RemoteHttp, RemoteResponse, policy};
-use crate::{Error, Result};
-use reqwest::{Client, StatusCode, header};
+use crate::{AudioRequest, Error, Result};
+use reqwest::{Client, Method, StatusCode, header};
 use std::{
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
 };
 use url::{Host, Url};
+
+enum Purpose {
+    Feed(ConditionalValidators),
+    Audio(AudioRequest),
+}
 
 impl RemoteHttp {
     #[tracing::instrument(level = "debug", skip_all, fields(request_id = %uuid::Uuid::new_v4()))]
@@ -14,8 +19,17 @@ impl RemoteHttp {
         url: &str,
         validators: ConditionalValidators,
     ) -> Result<RemoteResponse> {
+        self.request(url, Purpose::Feed(validators)).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(request_id = %uuid::Uuid::new_v4()))]
+    pub(crate) async fn audio(&self, url: &str, request: AudioRequest) -> Result<RemoteResponse> {
+        self.request(url, Purpose::Audio(request)).await
+    }
+
+    async fn request(&self, url: &str, purpose: Purpose) -> Result<RemoteResponse> {
         let started = Instant::now();
-        let result = tokio::time::timeout(Duration::from_secs(10), self.exchange(url, validators))
+        let result = tokio::time::timeout(Duration::from_secs(10), self.exchange(url, purpose))
             .await
             .unwrap_or(Err(Error::Upstream("The remote podcast request timed out")));
         tracing::debug!(
@@ -35,11 +49,7 @@ impl RemoteHttp {
         result
     }
 
-    async fn exchange(
-        &self,
-        value: &str,
-        validators: ConditionalValidators,
-    ) -> Result<RemoteResponse> {
+    async fn exchange(&self, value: &str, purpose: Purpose) -> Result<RemoteResponse> {
         let mut target = policy::parse(value)?;
         let original = target.origin();
         let mut permanent = true;
@@ -51,21 +61,40 @@ impl RemoteHttp {
                 ));
             }
             let client = pinned_client(&target, &addresses)?;
-            let mut outgoing = client
-                .get(target.clone())
-                .header(
-                    header::ACCEPT,
+            let (method, accept) = match &purpose {
+                Purpose::Feed(_) => (
+                    Method::GET,
                     "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9",
-                )
+                ),
+                Purpose::Audio(request) => (
+                    if request.head {
+                        Method::HEAD
+                    } else {
+                        Method::GET
+                    },
+                    "audio/*,application/ogg",
+                ),
+            };
+            let mut outgoing = client
+                .request(method, target.clone())
+                .header(header::ACCEPT, accept)
                 .header(header::ACCEPT_ENCODING, "identity")
                 .header(header::CONNECTION, "close");
-            if target.origin() == original {
-                if let Some(etag) = &validators.etag {
-                    outgoing = outgoing.header(header::IF_NONE_MATCH, etag);
+            match &purpose {
+                Purpose::Feed(validators) if target.origin() == original => {
+                    if let Some(etag) = &validators.etag {
+                        outgoing = outgoing.header(header::IF_NONE_MATCH, etag);
+                    }
+                    if let Some(modified) = &validators.last_modified {
+                        outgoing = outgoing.header(header::IF_MODIFIED_SINCE, modified);
+                    }
                 }
-                if let Some(modified) = &validators.last_modified {
-                    outgoing = outgoing.header(header::IF_MODIFIED_SINCE, modified);
+                Purpose::Audio(request) if !request.head => {
+                    if let Some(range) = request.range {
+                        outgoing = outgoing.header(header::RANGE, range.header());
+                    }
                 }
+                _ => {}
             }
             let response = outgoing
                 .send()
@@ -157,6 +186,7 @@ fn pinned_client(target: &Url, addresses: &[IpAddr]) -> Result<Client> {
         .no_deflate()
         .no_zstd()
         .http1_only()
+        .http1_max_headers(32)
         .pool_max_idle_per_host(0)
         .connect_timeout(Duration::from_secs(2))
         .user_agent(concat!("Hito/", env!("CARGO_PKG_VERSION")))

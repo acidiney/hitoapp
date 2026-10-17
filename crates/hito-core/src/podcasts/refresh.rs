@@ -254,9 +254,30 @@ async fn publish(
             recording
         };
         crate::metadata::refresh_recording_credits(transaction, &recording).await?;
-        sqlx::query("INSERT INTO podcast_episodes(id,subscription_id,user_id,recording_id,identity_kind,identity_value,enclosure_url,declared_mime,byte_length,description,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(subscription_id,identity_kind,identity_value) DO UPDATE SET enclosure_revision=podcast_episodes.enclosure_revision+CASE WHEN podcast_episodes.enclosure_url IS NOT excluded.enclosure_url OR podcast_episodes.declared_mime IS NOT excluded.declared_mime OR podcast_episodes.byte_length IS NOT excluded.byte_length THEN 1 ELSE 0 END,enclosure_url=excluded.enclosure_url,declared_mime=excluded.declared_mime,byte_length=excluded.byte_length,description=excluded.description,published_at=excluded.published_at,last_seen_at=unixepoch()")
-            .bind(Uuid::new_v4().to_string()).bind(&lease.subscription_id).bind(&lease.user_id).bind(recording).bind(kind).bind(value)
-            .bind(episode.enclosure_url).bind(episode.declared_mime).bind(length).bind(episode.description).bind(episode.published_at).execute(&mut **transaction).await?;
+        let episode_id: String = sqlx::query_scalar("INSERT INTO podcast_episodes(id,subscription_id,user_id,recording_id,identity_kind,identity_value,enclosure_url,declared_mime,byte_length,description,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(subscription_id,identity_kind,identity_value) DO UPDATE SET enclosure_revision=podcast_episodes.enclosure_revision+CASE WHEN podcast_episodes.enclosure_url IS NOT excluded.enclosure_url OR podcast_episodes.declared_mime IS NOT excluded.declared_mime OR podcast_episodes.byte_length IS NOT excluded.byte_length THEN 1 ELSE 0 END,enclosure_url=excluded.enclosure_url,declared_mime=excluded.declared_mime,byte_length=excluded.byte_length,description=excluded.description,published_at=excluded.published_at,last_seen_at=unixepoch() RETURNING id")
+            .bind(Uuid::new_v4().to_string()).bind(&lease.subscription_id).bind(&lease.user_id).bind(&recording).bind(kind).bind(value)
+            .bind(episode.enclosure_url).bind(episode.declared_mime).bind(length).bind(episode.description).bind(episode.published_at).fetch_one(&mut **transaction).await?;
+        let source: Option<String> =
+            sqlx::query_scalar("SELECT source_id FROM podcast_sources WHERE episode_id=?")
+                .bind(&episode_id)
+                .fetch_optional(&mut **transaction)
+                .await?;
+        if let Some(source) = source {
+            let retained = sqlx::query("UPDATE sources SET ready=1 WHERE id=? AND recording_id=? AND provider='podcast' AND provider_id=? AND device_id IS NULL")
+                .bind(source).bind(&recording).bind(&episode_id).execute(&mut **transaction).await?;
+            if retained.rows_affected() != 1 {
+                return Err(Error::Internal("Podcast source identity changed".into()));
+            }
+        } else {
+            let source = Uuid::new_v4().to_string();
+            sqlx::query("INSERT INTO sources(id,recording_id,provider,provider_id,device_id,ready) VALUES(?,?,'podcast',?,NULL,1)")
+                .bind(&source).bind(&recording).bind(&episode_id).execute(&mut **transaction).await?;
+            sqlx::query("INSERT INTO podcast_sources(episode_id,source_id) VALUES(?,?)")
+                .bind(&episode_id)
+                .bind(source)
+                .execute(&mut **transaction)
+                .await?;
+        }
     }
     sqlx::query("UPDATE podcast_subscriptions SET title=?,author=?,description=?,content_revision=content_revision+1,last_refreshed_at=unixepoch(),next_refresh_at=unixepoch()+3600,error=NULL WHERE id=? AND generation=?")
         .bind(snapshot.title).bind(snapshot.author).bind(snapshot.description).bind(&lease.subscription_id).bind(lease.generation).execute(&mut **transaction).await?;

@@ -19,6 +19,7 @@ pub struct PlaybackCandidates {
     download: bool,
     after: Option<String>,
     ceiling: Option<String>,
+    podcast: Option<PlaybackSource>,
     providers: VecDeque<ProviderSnapshot>,
 }
 
@@ -55,15 +56,35 @@ impl Catalog {
             .bind(super::provider::MAX_PLAYBACK_BINDINGS as i64)
             .fetch_all(&mut *connection)
             .await?;
+            let mut enclosure = QueryBuilder::new(
+                "SELECT s.id FROM current_podcast_sources enclosure CROSS JOIN sources s ON s.id=enclosure.source_id
+                WHERE enclosure.recording_id=",
+            );
+            enclosure.push_bind(recording.to_owned()).push(" AND enclosure.user_id=")
+                .push_bind(actor.id().to_owned()).push(" AND ");
+            push_source_access(&mut enclosure, &self.host, actor.id(), SourceAccess::Playable);
+            enclosure.push(" LIMIT 1");
+            let podcast_source: Option<String> = enclosure.build_query_scalar()
+                .fetch_optional(&mut *connection).await?;
+            drop(connection);
+            let podcast = match podcast_source {
+                Some(source) => match self.playback_source(actor, recording, &source).await {
+                    Ok(grant) => Some(grant),
+                    Err(Error::NotFound) => None,
+                    Err(error) => return Err(error),
+                },
+                None => None,
+            };
             Ok(PlaybackCandidates {
                 catalog: self.clone(),
                 actor: actor.clone(),
                 recording: recording.to_owned(),
-                remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64,
+                remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64 + u64::from(podcast.is_some()),
                 local: count > 0,
                 download: count > 0,
                 after: None,
                 ceiling,
+                podcast,
                 providers: providers.into(),
             })
         })
@@ -89,6 +110,21 @@ impl PlaybackCandidates {
         let mut connection = self.catalog.store.pool.acquire().await?;
         recording_access(&mut connection, &self.actor, &self.recording).await?;
         while self.remaining > 0 {
+            if !self.local
+                && !self.download
+                && let Some(podcast) = self.podcast.take()
+            {
+                self.remaining -= 1;
+                drop(connection);
+                match podcast.check().await {
+                    Ok(()) => return Ok(Some(podcast)),
+                    Err(Error::NotFound) => {
+                        connection = self.catalog.store.pool.acquire().await?;
+                        continue;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
             let mut query = if self.local || self.download {
                 let mut query = QueryBuilder::new(
                     "SELECT s.id FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id=",

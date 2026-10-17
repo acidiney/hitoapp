@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use crate::{Error, Result, admission::Accounts};
 pub(super) mod artwork;
 use hito_plugin_sdk::{
     DETAIL_PATH, MANIFEST_PATH, MAX_RECORDING_METADATA_BYTES, METADATA_PATH, Manifest,
@@ -21,13 +21,13 @@ pub(super) struct Admission {
 pub(super) struct ControlClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
-    accounts: super::admission::Accounts,
+    accounts: Accounts,
     artwork_slots: Arc<Semaphore>,
-    artwork_accounts: super::admission::Accounts,
+    artwork_accounts: Accounts,
     follow_slots: Arc<Semaphore>,
-    follow_accounts: super::admission::Accounts,
+    follow_accounts: Accounts,
     preparation_slots: Arc<Semaphore>,
-    preparation_accounts: super::admission::Accounts,
+    preparation_accounts: Accounts,
 }
 
 impl ControlClient {
