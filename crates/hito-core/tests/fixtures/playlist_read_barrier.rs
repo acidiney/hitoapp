@@ -13,6 +13,7 @@ use tracing::{
 use tracing_subscriber::{Layer, layer::Context};
 
 struct State {
+    statement: (&'static str, &'static str),
     armed: AtomicBool,
     entered: Semaphore,
     released: Mutex<bool>,
@@ -25,7 +26,17 @@ pub struct HeaderBarrier(Arc<State>);
 
 impl Default for HeaderBarrier {
     fn default() -> Self {
+        Self::matching(
+            "SELECT id, name, kind FROM playlists",
+            "WHERE id = ? AND user_id = ? AND deleted = 0",
+        )
+    }
+}
+
+impl HeaderBarrier {
+    pub fn matching(prefix: &'static str, predicate: &'static str) -> Self {
         Self(Arc::new(State {
+            statement: (prefix, predicate),
             armed: AtomicBool::new(false),
             entered: Semaphore::new(0),
             released: Mutex::new(false),
@@ -33,9 +44,7 @@ impl Default for HeaderBarrier {
             timed_out: AtomicBool::new(false),
         }))
     }
-}
 
-impl HeaderBarrier {
     pub fn arm(&self) -> HeaderRelease {
         assert!(!self.0.armed.swap(true, Ordering::SeqCst));
         HeaderRelease(self.clone())
@@ -72,9 +81,12 @@ impl<S: Subscriber> Layer<S> for HeaderBarrier {
         if event.metadata().target() != "sqlx::query" || !self.0.armed.load(Ordering::SeqCst) {
             return;
         }
-        let mut statement = HeaderStatement(false);
+        let mut statement = StatementMatch {
+            expected: self.0.statement,
+            matched: false,
+        };
         event.record(&mut statement);
-        if !statement.0
+        if !statement.matched
             || self
                 .0
                 .armed
@@ -96,16 +108,18 @@ impl<S: Subscriber> Layer<S> for HeaderBarrier {
     }
 }
 
-struct HeaderStatement(bool);
+struct StatementMatch {
+    expected: (&'static str, &'static str),
+    matched: bool,
+}
 
-impl HeaderStatement {
+impl StatementMatch {
     fn inspect(&mut self, value: &str) {
-        self.0 = value.contains("SELECT id, name, kind FROM playlists")
-            && value.contains("WHERE id = ? AND user_id = ? AND deleted = 0");
+        self.matched = value.contains(self.expected.0) && value.contains(self.expected.1);
     }
 }
 
-impl Visit for HeaderStatement {
+impl Visit for StatementMatch {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
         if field.name() == "db.statement" {
             self.inspect(&format!("{value:?}"));

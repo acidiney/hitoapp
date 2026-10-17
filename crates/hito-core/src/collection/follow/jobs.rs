@@ -89,8 +89,8 @@ impl Collection {
                 Some("authority_changed".into())
             },
         };
-        actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         Ok(result)
     }
 }
