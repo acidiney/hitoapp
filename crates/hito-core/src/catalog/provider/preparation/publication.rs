@@ -48,7 +48,11 @@ impl Catalog {
                         Some(Error::Internal(_)) => ("blocked", Some("invalid_response"), None),
                         _ => (
                             if lease.submission_state == "submitted" {
-                                "preparing"
+                                if lease.phase == "submission_unknown" {
+                                    "submission_unknown"
+                                } else {
+                                    "preparing"
+                                }
                             } else {
                                 "queued"
                             },
@@ -79,13 +83,9 @@ impl Catalog {
                     "poll_cancelled"
                 }
                 Completion::Polled(Err(_)) => {
-                    let delay = match lease.poll_failures {
-                        0 => 5,
-                        1 => 15,
-                        2 => 60,
-                        _ => 300,
-                    };
-                    sqlx::query("UPDATE source_preparations SET phase = 'preparing',reason = 'provider_unavailable',
+                    let delay = retry_delay(lease.poll_failures);
+                    sqlx::query("UPDATE source_preparations SET
+                        phase = CASE WHEN phase = 'submission_unknown' THEN phase ELSE 'preparing' END,reason = 'provider_unavailable',
                         next_check_at = unixepoch() + ?,poll_failures = poll_failures + 1 WHERE id = ?")
                         .bind(delay).bind(&lease.id).execute(&mut *tx).await?;
                     "poll_retry"
@@ -106,6 +106,11 @@ async fn publish_status(
     status: PreparationStatus,
     fenced: bool,
 ) -> Result<&'static str> {
+    let failures = if matches!(&status, PreparationStatus::SubmissionUnknown {}) {
+        lease.poll_failures + 1
+    } else {
+        0
+    };
     let (phase, progress, eta, reason, delay) = match status {
         PreparationStatus::Ready {} if fenced => ("preparing", None, None, None, Some(5)),
         PreparationStatus::Ready {} => {
@@ -156,13 +161,28 @@ async fn publish_status(
         PreparationStatus::Failed { reason } => {
             ("failed", None, None, Some(reason_code(reason)), None)
         }
-        PreparationStatus::SubmissionUnknown {} => ("submission_unknown", None, None, None, None),
+        PreparationStatus::SubmissionUnknown {} => (
+            "submission_unknown",
+            None,
+            None,
+            None,
+            Some(retry_delay(lease.poll_failures)),
+        ),
     };
     sqlx::query("UPDATE source_preparations SET phase = ?,progress_basis_points = ?,eta_seconds = ?,reason = ?,
-        next_check_at = CASE WHEN ? IS NULL THEN NULL ELSE unixepoch() + ? END,poll_failures = 0 WHERE id = ?")
-        .bind(phase).bind(progress).bind(eta).bind(reason).bind(delay).bind(delay).bind(&lease.id)
+        next_check_at = CASE WHEN ? IS NULL THEN NULL ELSE unixepoch() + ? END,poll_failures = ? WHERE id = ?")
+        .bind(phase).bind(progress).bind(eta).bind(reason).bind(delay).bind(delay).bind(failures).bind(&lease.id)
         .execute(connection).await?;
     Ok(phase)
+}
+
+fn retry_delay(failures: i64) -> i64 {
+    match failures {
+        0 => 5,
+        1 => 15,
+        2 => 60,
+        _ => 300,
+    }
 }
 
 async fn schedule(

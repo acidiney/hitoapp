@@ -54,7 +54,8 @@ CREATE UNIQUE INDEX source_preparation_unresolved_origin ON source_preparations(
         OR (submission_state = 'submitted' AND remote_outcome IS NULL);
 CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at);
 CREATE INDEX source_preparation_due ON source_preparations(next_check_at,created_at,id)
-    WHERE authority_cancelled = 0 AND lease_token IS NULL AND phase IN ('queued','preparing','blocked');
+    WHERE authority_cancelled = 0 AND lease_token IS NULL AND (phase IN ('queued','preparing','blocked')
+        OR (phase = 'submission_unknown' AND submission_state = 'submitted' AND remote_handle IS NOT NULL AND remote_outcome IS NULL));
 CREATE INDEX source_preparation_expired ON source_preparations(lease_until,id) WHERE lease_token IS NOT NULL;
 CREATE INDEX source_preparation_leased_account ON source_preparations(user_id) WHERE lease_token IS NOT NULL;
 CREATE INDEX source_preparation_pending ON source_preparations(user_id)

@@ -9,6 +9,7 @@ pub(super) struct Lease {
     pub id: String,
     pub user_id: String,
     pub source_id: String,
+    pub phase: String,
     pub submission_state: String,
     pub begin_attempts: i64,
     pub poll_failures: i64,
@@ -24,7 +25,8 @@ impl Catalog {
     pub(super) async fn claim_source_preparation(&self) -> Result<Option<Lease>> {
         let eligible: bool = sqlx::query_scalar("SELECT
             EXISTS(SELECT 1 FROM source_preparations INDEXED BY source_preparation_due WHERE next_check_at <= unixepoch()
-                AND authority_cancelled = 0 AND lease_token IS NULL AND phase IN ('queued','preparing','blocked'))
+                AND authority_cancelled = 0 AND lease_token IS NULL AND (phase IN ('queued','preparing','blocked')
+                    OR (phase = 'submission_unknown' AND submission_state = 'submitted' AND remote_handle IS NOT NULL AND remote_outcome IS NULL)))
             OR EXISTS(SELECT 1 FROM source_preparations INDEXED BY source_preparation_expired
                 WHERE lease_token IS NOT NULL AND lease_until <= unixepoch())
             OR EXISTS(SELECT 1 FROM source_preparations preparation INDEXED BY source_preparation_authority_pending WHERE authority_cancelled = 0
@@ -67,12 +69,16 @@ impl Catalog {
             next_check_at = NULL,updated_at = unixepoch() WHERE id IN (
                 SELECT id FROM source_preparations INDEXED BY source_preparation_due WHERE next_check_at <= unixepoch()
                     AND created_at + 86400 <= unixepoch() AND lease_token IS NULL AND authority_cancelled = 0
-                    AND phase IN ('queued','preparing','blocked') ORDER BY created_at,id LIMIT 16)",
+                    AND (phase IN ('queued','preparing','blocked')
+                        OR (phase = 'submission_unknown' AND submission_state = 'submitted' AND remote_handle IS NOT NULL AND remote_outcome IS NULL))
+                    ORDER BY created_at,id LIMIT 16)",
         )
         .execute(&mut *tx)
         .await?;
         let id: Option<String> = sqlx::query_scalar("SELECT preparation.id FROM source_preparations preparation INDEXED BY source_preparation_due
-            WHERE preparation.authority_cancelled = 0 AND preparation.phase IN ('queued','preparing','blocked') AND preparation.next_check_at <= unixepoch()
+            WHERE preparation.authority_cancelled = 0 AND preparation.next_check_at <= unixepoch()
+                AND (preparation.phase IN ('queued','preparing','blocked') OR (preparation.phase = 'submission_unknown'
+                    AND preparation.submission_state = 'submitted' AND preparation.remote_handle IS NOT NULL AND preparation.remote_outcome IS NULL))
                 AND preparation.submission_state IN ('unsubmitted','submitted') AND preparation.lease_token IS NULL
                 AND EXISTS(SELECT 1 FROM current_source_preparation_authority authority WHERE authority.id = preparation.id)
                 AND NOT EXISTS(SELECT 1 FROM source_preparations active INDEXED BY source_preparation_leased_account
@@ -95,7 +101,7 @@ impl Catalog {
         .execute(&mut *tx)
         .await?;
         let lease = sqlx::query_as(
-            "SELECT id,user_id,source_id,submission_state,begin_attempts,poll_failures,lease_token
+            "SELECT id,user_id,source_id,phase,submission_state,begin_attempts,poll_failures,lease_token
             FROM source_preparations WHERE id = ?",
         )
         .bind(id)
