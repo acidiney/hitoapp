@@ -1,9 +1,30 @@
-use super::{Authority, Permits};
-use crate::{Error, Result};
+use crate::{Error, PlaybackSource, Result};
 use bytes::Bytes;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::{Mutex, watch};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
+
+#[derive(Clone)]
+pub(crate) enum Authority {
+    Provider(Box<crate::plugins::AudioAuthority>),
+    Podcast(Box<PlaybackSource>),
+    Download(crate::downloads::DownloadAuthority),
+}
+
+impl Authority {
+    async fn check(&self) -> Result<()> {
+        match self {
+            Self::Provider(authority) => authority.check().await,
+            Self::Podcast(authority) => authority.check().await,
+            Self::Download(authority) => authority.check().await,
+        }
+    }
+}
+
+pub(crate) struct Permits {
+    pub _account: OwnedSemaphorePermit,
+    pub _global: OwnedSemaphorePermit,
+}
 
 struct Connection {
     response: Option<reqwest::Response>,
@@ -18,10 +39,14 @@ pub(crate) struct RemoteAudio {
     monitor: tokio::task::JoinHandle<()>,
 }
 impl RemoteAudio {
-    pub(super) fn new(response: reqwest::Response, authority: Authority, permits: Permits) -> Self {
+    pub(crate) fn new(
+        response: reqwest::Response,
+        authority: Authority,
+        permits: Option<Permits>,
+    ) -> Self {
         let connection = Arc::new(Mutex::new(Connection {
             response: Some(response),
-            permits: Some(permits),
+            permits,
             pending: Bytes::new(),
         }));
         let weak = Arc::downgrade(&connection);
@@ -39,7 +64,10 @@ impl RemoteAudio {
                             connection.permits = None;
                             connection.pending = Bytes::new();
                         }
-                        tracing::debug!("Provider audio authority withdrawn");
+                        tracing::debug!(
+                            event = "remote_audio_authority_withdrawn",
+                            "Remote audio authority withdrawn"
+                        );
                         break;
                     }
                 }

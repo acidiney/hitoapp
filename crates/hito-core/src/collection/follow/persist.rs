@@ -151,7 +151,7 @@ async fn snapshot_for_publication(
     snapshot: PlaylistSnapshot,
     entry_ids: Vec<Uuid>,
 ) -> Result<ImportedPlaylistSnapshot> {
-    let library = catalog::provider_library(tx, &operation.account).await?;
+    let library = crate::identity::personal_library(tx, &operation.account).await?;
     let library_id = receipts::identity(&library)?;
     let previous: Vec<(String, Option<String>)> = sqlx::query_as(
         "UPDATE playlist_entries SET deleted = 1 WHERE playlist_id = ? AND deleted=0 RETURNING id,recording_id",

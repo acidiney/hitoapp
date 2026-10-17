@@ -33,7 +33,7 @@ fn source_query(
 ) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(
             "WITH selected(id,label,preparation_approved) AS (
-            SELECT id,CASE provider WHEN 'local' THEN 'Local audio' WHEN 'download' THEN 'Saved audio' ELSE 'Audio' END,0
+            SELECT id,CASE provider WHEN 'local' THEN 'Local audio' WHEN 'download' THEN 'Saved audio' WHEN 'podcast' THEN 'Podcast audio' ELSE 'Audio' END,0
             FROM sources INDEXED BY nonplugin_sources_recording WHERE provider != 'plugin' AND recording_id = ",
         );
     query

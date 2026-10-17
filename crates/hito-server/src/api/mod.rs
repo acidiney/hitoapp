@@ -10,6 +10,8 @@ pub mod player;
 pub mod playlist_follow;
 pub mod plugin_authorization;
 pub mod plugins;
+pub mod podcasts;
+pub mod progress;
 pub mod providers;
 pub mod source_bindings;
 pub mod source_choice;

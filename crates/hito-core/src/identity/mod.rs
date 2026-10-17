@@ -6,7 +6,7 @@ mod setup;
 mod types;
 
 use crate::store::Store;
-pub(crate) use access::{library_access, recording_access, shared_library};
+pub(crate) use access::{library_access, personal_library, recording_access, shared_library};
 pub use types::{Actor, AuthSession, Credentials, Library, User};
 
 #[derive(Clone)]

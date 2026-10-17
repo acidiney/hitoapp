@@ -6,7 +6,7 @@ use std::{
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 #[derive(Clone)]
-pub(super) struct Accounts {
+pub(crate) struct Accounts {
     slots: Arc<Mutex<HashMap<String, Weak<Semaphore>>>>,
     limit: usize,
 }
@@ -18,13 +18,13 @@ impl Default for Accounts {
 }
 
 impl Accounts {
-    pub(super) fn new(limit: usize) -> Self {
+    pub(crate) fn new(limit: usize) -> Self {
         Self {
             slots: Default::default(),
             limit,
         }
     }
-    pub(super) fn enter(&self, account: &str) -> Result<OwnedSemaphorePermit> {
+    pub(crate) fn enter(&self, account: &str) -> Result<OwnedSemaphorePermit> {
         let mut accounts = self
             .slots
             .lock()

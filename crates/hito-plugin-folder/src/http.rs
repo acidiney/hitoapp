@@ -47,6 +47,7 @@ async fn manifest() -> Json<Manifest> {
         protocol_version: 1,
         capabilities: [Capability::Search, Capability::Sources].into(),
         authorization: None,
+        content_policy: None,
     })
 }
 async fn search(

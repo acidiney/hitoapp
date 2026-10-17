@@ -109,7 +109,7 @@ impl Downloads {
                 .retry_admission_on(connection, selected, recording, &library, &grant)
                 .await?
             {
-                Admission::Retained(_) => {}
+                Admission::Retained(_) | Admission::Restricted => {}
                 Admission::Busy => {
                     busy = true;
                     break;
@@ -154,6 +154,7 @@ impl Downloads {
             }
             Admission::Busy => "capacity_deferred",
             Admission::WaitingForSource => "source_deferred",
+            Admission::Restricted => "policy_restricted",
         };
         tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
             recording_id = %recording, outcome, "Playlist download retry admission checked");

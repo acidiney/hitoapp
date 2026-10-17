@@ -60,13 +60,20 @@ impl Downloads {
                 WHERE pending.retention_id=m.retention_id AND pending.recording_id=e.recording_id
                     AND pending.host_device=i.host_device AND pending.failed_intent_id=i.id
                     AND i.state='failed' AND failure.sequence<=command.failure_cutoff) AS retry_waiting,
-            EXISTS(SELECT 1 FROM sources s JOIN provider_sources ps ON ps.source_id=s.id AND ps.recording_id=s.recording_id
+            (SELECT coalesce(json_extract(installation.manifest,'$.content_policy.source_persistence'),'explicit_download')
+                FROM sources s JOIN provider_sources ps ON ps.source_id=s.id AND ps.recording_id=s.recording_id
                 JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
                 JOIN provider_source_state source_state ON source_state.binding_id=item.id AND source_state.generation=ps.generation
                 JOIN plugin_installations installation ON installation.id=ps.installation_id AND installation.active=1
                 JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
+                JOIN source_choice_bindings permitted ON permitted.binding_id=item.id
+                    AND permitted.recording_id=s.recording_id AND permitted.user_id=installation.user_id
                 WHERE s.recording_id=e.recording_id AND s.ready=1 AND installation.user_id=");
-        query.push_bind(actor.id().to_owned()).push(" AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value='sources')) AS provider_ready
+        query.push_bind(actor.id().to_owned()).push(" AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value='sources')
+                ORDER BY s.id LIMIT 1) AS provider_persistence,
+            EXISTS(SELECT 1 FROM current_podcast_sources enclosure WHERE enclosure.recording_id=e.recording_id AND enclosure.user_id=")
+            .push_bind(actor.id().to_owned()).push(" AND NOT EXISTS(SELECT 1 FROM recording_source_choices choice
+                WHERE choice.user_id=enclosure.user_id AND choice.recording_id=enclosure.recording_id AND choice.binding_id IS NOT NULL)) AS podcast_ready
             FROM playlist_entries e LEFT JOIN recordings recording ON recording.id=e.recording_id
             LEFT JOIN library_access_grants access ON access.library_id=recording.library_id AND access.user_id=")
             .push_bind(actor.id().to_owned()).push(" LEFT JOIN download_playlist_members m ON m.entry_id=e.id AND m.recording_id IS e.recording_id AND m.retention_id=")
@@ -124,6 +131,7 @@ fn entry(row: &SqliteRow, revision: i64) -> Result<PlaylistDownloadEntry> {
         .try_get::<Option<String>, _>("access_grant_id")?
         .is_some();
     let projected = row.try_get::<Option<i64>, _>("seen_revision")? == Some(revision);
+    let provider_persistence: Option<&str> = row.try_get("provider_persistence")?;
     let (status, error) = if recording.is_none() || !authorized {
         (State::Unavailable, Some("unavailable_item".into()))
     } else if !projected {
@@ -140,7 +148,14 @@ fn entry(row: &SqliteRow, revision: i64) -> Result<PlaylistDownloadEntry> {
                 (State::WaitingForSource, None)
             }
             Some(_) => (State::Failed, row.try_get("error")?),
-            None if row.try_get::<bool, _>("provider_ready")? => (State::Pending, None),
+            None if provider_persistence == Some("playback_only") => {
+                (State::Unavailable, Some("policy_restricted".into()))
+            }
+            None if provider_persistence.is_some()
+                || row.try_get::<bool, _>("podcast_ready")? =>
+            {
+                (State::Pending, None)
+            }
             None => (State::WaitingForSource, None),
         }
     };

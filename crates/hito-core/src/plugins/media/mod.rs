@@ -1,17 +1,21 @@
 mod authority;
-mod body;
-mod headers;
-use crate::{AudioRequest, AudioStream, Error, OpenedAudio, Result};
+use crate::{
+    AudioRequest, AudioStream, Error, OpenedAudio, Result,
+    admission::Accounts,
+    catalog::audio::{
+        headers,
+        remote::{Authority as StreamAuthority, Permits, RemoteAudio},
+    },
+};
 pub(crate) use authority::Authority;
-pub(crate) use body::RemoteAudio;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::Semaphore;
 
 #[derive(Clone)]
 pub(super) struct MediaClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
-    accounts: super::admission::Accounts,
+    accounts: Accounts,
 }
 
 impl MediaClient {
@@ -30,7 +34,7 @@ impl MediaClient {
         Ok(Self {
             client,
             slots: Arc::new(Semaphore::new(16)),
-            accounts: super::admission::Accounts::new(2),
+            accounts: Accounts::new(2),
         })
     }
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
@@ -97,20 +101,15 @@ impl MediaClient {
             audio.body = Some(AudioStream::remote(
                 RemoteAudio::new(
                     response,
-                    authority,
-                    Permits {
+                    StreamAuthority::Provider(Box::new(authority)),
+                    Some(Permits {
                         _account: account,
                         _global: global,
-                    },
+                    }),
                 ),
                 audio.length,
             ));
         }
         Ok(opened)
     }
-}
-
-struct Permits {
-    _account: OwnedSemaphorePermit,
-    _global: OwnedSemaphorePermit,
 }

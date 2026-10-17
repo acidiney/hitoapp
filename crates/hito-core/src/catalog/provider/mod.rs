@@ -15,7 +15,6 @@ pub use adoption::AdoptProviderRecording;
 pub use attachment::{AttachReviewedProviderSource, ProviderCandidate, ProviderSourceReview};
 pub(crate) use bindings::MAX_PLAYBACK_BINDINGS;
 pub(crate) use metadata::publish as publish_provider_metadata;
-pub(crate) use persist::library as provider_library;
 pub use preparation::{
     PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
 };

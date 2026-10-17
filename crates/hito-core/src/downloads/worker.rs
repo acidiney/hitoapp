@@ -86,10 +86,7 @@ impl Downloads {
     ) -> Result<Option<ManagedFileLocation>> {
         let mut guard = Guard::new(lease, self, stopped);
         lease.check(&self.store).await?;
-        let Some(opened) = guard
-            .wait(self.plugins.open_download(&lease.account_id, &lease.origin))
-            .await?
-        else {
+        let Some(opened) = guard.wait(self.open_origin(lease)).await? else {
             return Ok(None);
         };
         let OpenedAudio::Content(mut content) = opened else {

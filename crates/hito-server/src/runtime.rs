@@ -1,4 +1,5 @@
 mod downloads;
+mod podcasts;
 mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
@@ -7,6 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{Instrument, instrument::WithSubscriber};
+use tracing_subscriber::prelude::*;
 
 pub async fn run(
     config: RuntimeConfig,
@@ -14,16 +16,25 @@ pub async fn run(
 ) -> RuntimeResult<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "hito_server=info,hito_core=info".into());
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::filter_fn(
+            crate::telemetry::application_log,
+        ))
+        .with(filter);
     if config.json_logs {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-            .json()
+        subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+                    .json(),
+            )
             .try_init()?;
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
+            )
             .try_init()?;
     }
     tracing::info!(event = "server_starting", "Starting Hito");
@@ -87,6 +98,16 @@ async fn serve_owned(
             downloads::reconcile(downloads, download_stop),
         );
     };
+    let podcasts = services.podcasts;
+    let podcast_stop = stopped.clone();
+    let refreshes = async move {
+        tokio::join!(
+            podcasts::worker(podcasts.clone(), podcast_stop.clone(), 0),
+            podcasts::worker(podcasts, podcast_stop, 1),
+        );
+    }
+    .instrument(tracing::Span::current())
+    .with_current_subscriber();
     let collection = services.collection;
     let follows = async move {
         tokio::join!(
@@ -97,8 +118,15 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), ()) =
-        tokio::join!(http, indexing, artwork, follows, transfers, preparations);
+    let (result, (), (), (), (), (), ()) = tokio::join!(
+        http,
+        indexing,
+        artwork,
+        follows,
+        transfers,
+        preparations,
+        refreshes
+    );
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),

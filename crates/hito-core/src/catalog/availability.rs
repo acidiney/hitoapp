@@ -44,6 +44,14 @@ pub(crate) fn push_source_access(
         WHERE ps.source_id = s.id AND p.user_id = ",
     ).push_bind(account.to_owned()).push(" AND EXISTS (
             SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')))");
+    query
+        .push(
+            " AND (s.provider != 'podcast' OR EXISTS (
+        SELECT 1 FROM current_podcast_sources enclosure WHERE enclosure.source_id=s.id
+            AND enclosure.recording_id=s.recording_id AND enclosure.user_id=",
+        )
+        .push_bind(account.to_owned())
+        .push("))");
     query.push(" AND ");
     super::push_source_choice(query, account);
 }

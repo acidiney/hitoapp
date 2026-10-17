@@ -1,4 +1,4 @@
-use super::{Catalog, media::Location};
+use super::{Catalog, media::Location, podcast::PodcastEnclosure};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result};
 use std::{
     future::Future,
@@ -27,6 +27,7 @@ pub struct PlaybackSource {
 enum Binding {
     Local(Location),
     Provider(crate::plugins::AudioAuthority),
+    Podcast(PodcastEnclosure),
 }
 
 impl Catalog {
@@ -48,7 +49,7 @@ impl Catalog {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub(super) async fn local_playback_source(
+    pub(super) async fn audio_playback_source(
         &self,
         actor: &Actor,
         source: &str,
@@ -56,14 +57,14 @@ impl Catalog {
         tokio::time::timeout(Duration::from_secs(1), async {
             actor.check_session(&self.store).await?;
             let recording: String = sqlx::query_scalar(
-                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download')",
+                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download','podcast')",
             )
             .bind(source)
             .fetch_optional(&self.store.pool)
             .await?
             .ok_or(Error::NotFound)?;
             let authority = self.admit_playback(actor, &recording, source).await?;
-            if !authority.is_local() {
+            if matches!(authority.binding, Binding::Provider(_)) {
                 return Err(Error::NotFound);
             }
             Ok(authority)
@@ -89,6 +90,8 @@ impl Catalog {
                 &provider.binding_id,
                 provider.binding_revision,
             ))
+        } else if let Some(enclosure) = self.podcast_enclosure(actor, source).await? {
+            Binding::Podcast(enclosure)
         } else {
             Binding::Local(self.media_location(actor, source).await?)
         };
@@ -162,6 +165,16 @@ impl PlaybackSource {
                     return Err(Error::NotFound);
                 }
                 Binding::Provider(authority) => authority.check().await?,
+                Binding::Podcast(enclosure)
+                    if self
+                        .catalog
+                        .podcast_enclosure(&self.actor, &self.source)
+                        .await?
+                        .as_ref()
+                        != Some(enclosure) =>
+                {
+                    return Err(Error::NotFound);
+                }
                 _ => {}
             }
             Ok(())
@@ -210,7 +223,7 @@ impl PlaybackSource {
             } => Err(error),
             result = tokio::time::timeout(Duration::from_secs(15), operation) => {
                 result.unwrap_or(Err(Error::Upstream(
-                    "Audio file operation did not finish in time",
+                    "Audio operation did not finish in time",
                 )))
             },
         };
@@ -235,6 +248,9 @@ impl PlaybackSource {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
     pub async fn open(&self, request: AudioRequest) -> Result<OpenedAudio> {
+        if matches!(self.binding, Binding::Podcast(_)) {
+            return self.open_podcast(request).await;
+        }
         self.check().await?;
         let opened = tokio::select! {
             biased;
@@ -243,5 +259,14 @@ impl PlaybackSource {
         };
         self.check().await?;
         Ok(opened)
+    }
+
+    pub(super) async fn open_podcast(&self, request: AudioRequest) -> Result<OpenedAudio> {
+        let Binding::Podcast(enclosure) = &self.binding else {
+            return Err(Error::NotFound);
+        };
+        self.catalog
+            .open_podcast_audio(self.actor.id(), enclosure, self.clone(), request)
+            .await
     }
 }

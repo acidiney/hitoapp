@@ -1,3 +1,4 @@
+mod admission;
 mod catalog;
 mod collection;
 mod context;
@@ -8,7 +9,12 @@ mod library_storage;
 mod maintenance;
 mod metadata;
 mod plugins;
+mod podcasts;
+mod remote_http;
 mod store;
+
+#[cfg(test)]
+mod test_support;
 
 pub use catalog::{
     AdoptProviderRecording, Artist, ArtistDetail, Artwork, ArtworkAvailability, ArtworkFetch,
@@ -26,8 +32,8 @@ pub use collection::{
     ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
     ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
     PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
-    PlaylistImportReceipt, RefreshFollowedPlaylist, SavedPosition, SyncBatch, SyncEvent, SyncPage,
-    SyncReceipt,
+    PlaylistImportReceipt, RecordingProgress, RefreshFollowedPlaylist, SavedPosition, SyncBatch,
+    SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{
@@ -51,6 +57,12 @@ pub use plugins::{
     PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginInstallation,
     PluginRefresh, PluginService, PluginSettings, Plugins, RefreshPlugin,
 };
+pub use podcasts::{
+    PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
+    PodcastSubscription, PodcastSubscriptionReceipt, PodcastUnsubscribeReceipt, Podcasts,
+    RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
+};
+pub use remote_http::PodcastNetworkConfig;
 use store::Store;
 
 #[derive(Clone)]
@@ -61,6 +73,7 @@ pub struct Services {
     pub storage: LibraryStorage,
     pub plugins: Plugins,
     pub downloads: Downloads,
+    pub podcasts: Podcasts,
     store: Store,
 }
 
@@ -78,21 +91,31 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let managed =
         library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
     let plugins = Plugins::new(store.clone(), &config.database).await?;
+    let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
+    let catalog = Catalog {
+        plugins: plugins.clone(),
+        store: store.clone(),
+        host: config.host_device.clone(),
+        artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+        provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+        resolution_callers: Default::default(),
+        directories: storage.directories.clone(),
+        managed: managed.clone(),
+        podcast_remote: podcast_remote.clone(),
+        podcast_audio_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
+        podcast_audio_accounts: admission::Accounts::new(2),
+    };
     tracing::info!("Core services ready");
     Ok(Services {
         identity: Identity {
             store: store.clone(),
         },
-        catalog: Catalog {
-            plugins: plugins.clone(),
+        podcasts: Podcasts {
             store: store.clone(),
-            host: config.host_device.clone(),
-            artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
-            provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
-            resolution_callers: Default::default(),
-            directories: storage.directories.clone(),
-            managed: managed.clone(),
+            catalog: catalog.clone(),
+            remote: podcast_remote.clone(),
         },
+        catalog,
         collection: Collection {
             store: store.clone(),
             host: config.host_device.clone(),
@@ -102,6 +125,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         downloads: Downloads {
             store: store.clone(),
             plugins: plugins.clone(),
+            remote: podcast_remote,
             host: config.host_device.clone(),
             files: managed.clone(),
             active: Default::default(),

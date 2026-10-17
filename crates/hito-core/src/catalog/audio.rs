@@ -1,4 +1,7 @@
+mod enclosure;
+pub(crate) mod headers;
 mod range;
+pub(crate) mod remote;
 mod stream;
 use super::Catalog;
 use crate::{Actor, Result};
@@ -61,7 +64,10 @@ impl Catalog {
                 )
                 .await;
         }
-        let authority = self.local_playback_source(actor, source).await?;
+        let authority = self.audio_playback_source(actor, source).await?;
+        if !authority.is_local() {
+            return authority.open_podcast(request).await;
+        }
         let audio = authority.open_file().await?;
         let total = audio.length;
         let range = if request.head {

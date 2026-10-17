@@ -8,21 +8,6 @@ pub(super) enum ReleasePublication {
     PublishInherited,
 }
 
-pub(crate) async fn library(tx: &mut Transaction<'_, Sqlite>, owner: &str) -> Result<String> {
-    sqlx::query("INSERT INTO libraries(id,name,owner_id) VALUES (?,'Personal providers',?) ON CONFLICT(owner_id) WHERE owner_id IS NOT NULL DO NOTHING")
-        .bind(Uuid::new_v4().to_string()).bind(owner).execute(&mut **tx).await?;
-    let id: String = sqlx::query_scalar("SELECT id FROM libraries WHERE owner_id = ?")
-        .bind(owner)
-        .fetch_one(&mut **tx)
-        .await?;
-    sqlx::query("INSERT OR IGNORE INTO library_members(library_id,user_id) VALUES (?,?)")
-        .bind(&id)
-        .bind(owner)
-        .execute(&mut **tx)
-        .await?;
-    Ok(id)
-}
-
 pub(super) async fn release(
     tx: &mut Transaction<'_, Sqlite>,
     library: &str,

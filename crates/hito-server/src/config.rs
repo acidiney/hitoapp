@@ -133,6 +133,7 @@ impl RuntimeConfig {
                 storage,
                 host_device: crate::host_identity::load(&database, host_device).await?,
                 media_tools: Default::default(),
+                podcast_network: Default::default(),
             },
             http: Config {
                 origin: Config::default().origin,

@@ -1,0 +1,28 @@
+services:
+  rust:
+    environment:
+      CARGO_TARGET_DIR: /build/podcasts-target
+  e2e-server:
+    build: !reset null
+    image: hito-rust:latest
+    working_dir: /workspace
+    entrypoint: [/build/podcasts-target/debug/examples/podcast_browser]
+    command: []
+    volumes: !override
+      - .:/workspace
+      - rust-target:/build
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+      start_period: 3s
+    stop_grace_period: 15s
+  browser:
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+      HITO_PODCAST_E2E: "1"
+    depends_on:
+      e2e-server:
+        condition: service_healthy
+    command: [npm, run, e2e, --, e2e/podcast.spec.ts]

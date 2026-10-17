@@ -115,6 +115,7 @@ async fn manifest() -> Json<Manifest> {
         ]
         .into(),
         authorization: None,
+        content_policy: None,
     })
 }
 

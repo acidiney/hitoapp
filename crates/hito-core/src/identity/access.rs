@@ -1,6 +1,7 @@
 use super::{Actor, Identity};
 use crate::{Error, Result};
-use sqlx::SqliteConnection;
+use sqlx::{Sqlite, SqliteConnection, Transaction};
+use uuid::Uuid;
 
 impl Identity {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), allowed))]
@@ -45,6 +46,24 @@ impl Identity {
         tracing::info!(allowed, "Library membership updated");
         Ok(())
     }
+}
+
+pub(crate) async fn personal_library(
+    tx: &mut Transaction<'_, Sqlite>,
+    owner: &str,
+) -> Result<String> {
+    sqlx::query("INSERT INTO libraries(id,name,owner_id) VALUES (?,'Personal providers',?) ON CONFLICT(owner_id) WHERE owner_id IS NOT NULL DO NOTHING")
+        .bind(Uuid::new_v4().to_string()).bind(owner).execute(&mut **tx).await?;
+    let id: String = sqlx::query_scalar("SELECT id FROM libraries WHERE owner_id = ?")
+        .bind(owner)
+        .fetch_one(&mut **tx)
+        .await?;
+    sqlx::query("INSERT OR IGNORE INTO library_members(library_id,user_id) VALUES (?,?)")
+        .bind(&id)
+        .bind(owner)
+        .execute(&mut **tx)
+        .await?;
+    Ok(id)
 }
 
 pub(crate) async fn shared_library(connection: &mut SqliteConnection, library: &str) -> Result<()> {

@@ -24,7 +24,7 @@ pub(super) async fn publish(
 ) -> Result<PlaylistImportReceipt> {
     let playlist_id = Uuid::new_v4();
     let publication_id = Uuid::new_v4();
-    let library = catalog::provider_library(tx, actor.id()).await?;
+    let library = crate::identity::personal_library(tx, actor.id()).await?;
     let library_id = identity(&library)?;
     let imported_at = sqlx::query_scalar("SELECT unixepoch()")
         .fetch_one(&mut **tx)

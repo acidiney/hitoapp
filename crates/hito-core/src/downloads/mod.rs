@@ -1,6 +1,7 @@
 mod cleanup;
 mod health;
 mod lease;
+mod origin;
 mod playlist_admission;
 mod playlist_changes;
 mod playlist_reconcile;
@@ -8,6 +9,7 @@ mod playlist_requests;
 mod playlist_retry;
 mod playlist_status;
 mod playlist_types;
+mod podcast;
 mod publication;
 mod requests;
 mod retention;
@@ -18,6 +20,8 @@ mod worker;
 
 use crate::{HostDeviceId, Plugins, library_storage::ManagedFiles, store::Store};
 pub(crate) use health::retire_unusable_copy;
+pub(crate) use lease::DownloadAuthority;
+pub(crate) use origin::OriginSelection;
 pub(crate) use playlist_changes::playlist_changed_on;
 pub use playlist_types::{
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
@@ -29,6 +33,7 @@ pub use types::{DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus}
 pub struct Downloads {
     pub(crate) store: Store,
     pub(crate) plugins: Plugins,
+    pub(crate) remote: crate::remote_http::RemoteHttp,
     pub(crate) host: HostDeviceId,
     pub(crate) files: ManagedFiles,
     pub(crate) active: active::ActiveJobs,

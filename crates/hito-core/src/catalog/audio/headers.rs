@@ -1,7 +1,7 @@
 use crate::{AudioContent, AudioRequest, Error, OpenedAudio, Result};
 use reqwest::{StatusCode, header::HeaderMap};
 
-pub(super) fn read(response: &reqwest::Response, request: AudioRequest) -> Result<OpenedAudio> {
+pub(crate) fn read(response: &reqwest::Response, request: AudioRequest) -> Result<OpenedAudio> {
     let headers = response.headers();
     if let Some(value) = one(headers, "transfer-encoding")?
         && (!value.trim().eq_ignore_ascii_case("chunked") || headers.contains_key("content-length"))

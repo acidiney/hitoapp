@@ -1,6 +1,9 @@
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
-use hito_core::{Activity, Library, Playlist, PlaylistDetail, User};
+use hito_core::{
+    Activity, Library, Playlist, PlaylistDetail, PodcastEpisodePage, PodcastSubscription,
+    RecordingProgress, User,
+};
 use hito_core::{ArtistDetail, RecordingMetadata, ReleaseDetail, ReleaseMetadata};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -151,6 +154,30 @@ pub struct DiscoverPageProps {
     pub service_names: Option<BTreeMap<String, String>>,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct PodcastIndexPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub subscriptions: Option<Vec<PodcastSubscription>>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PodcastPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub subscription: Option<PodcastSubscription>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub episodes: Option<PodcastEpisodePage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub progress: Option<Vec<RecordingProgress>>,
+}
+
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum PageProps {
@@ -168,6 +195,8 @@ pub enum PageProps {
     History(HistoryPageProps),
     Settings(SettingsPageProps),
     Discover(DiscoverPageProps),
+    PodcastIndex(PodcastIndexPageProps),
+    Podcast(PodcastPageProps),
 }
 
 impl PageProps {
@@ -187,6 +216,8 @@ impl PageProps {
             Self::History(_) => "HistoryPage",
             Self::Settings(_) => "SettingsPage",
             Self::Discover(_) => "DiscoverPage",
+            Self::PodcastIndex(_) => "PodcastIndexPage",
+            Self::Podcast(_) => "PodcastPage",
         }
     }
 }

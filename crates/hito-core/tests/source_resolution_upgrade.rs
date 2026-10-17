@@ -45,7 +45,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
         .await
         .unwrap();
     assert_integrity(&pool).await;
-    let tables = table_names(&pool).await;
+    let tables = snapshot_queries(&pool).await;
     let before = snapshots(&pool, &tables).await;
     let before_schema = schema(&pool).await;
     let before_indexes = indexes(&pool, "provider_items").await;
@@ -78,10 +78,10 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     }
     let after_schema = schema(&pool).await;
     for (name, original) in before_schema {
-        let expected = if name == "current_download_authority" {
-            declared_download_authority()
-        } else {
-            original
+        let expected = match name.as_str() {
+            "current_download_authority" => declared_download_definition("VIEW", &name, ";"),
+            "download_intent_identity" => declared_download_definition("TRIGGER", &name, "END;"),
+            _ => original,
         };
         assert!(
             after_schema.get(&name) == Some(&expected),
@@ -105,7 +105,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 39);
+    assert_eq!(version, 44);
     for table in [
         "recording_source_choices",
         "source_resolutions",
@@ -144,36 +144,49 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     pool.close().await;
 }
 
-async fn table_names(pool: &SqlitePool) -> Vec<String> {
-    sqlx::query_scalar("SELECT name FROM sqlite_schema WHERE type='table' AND name!='_sqlx_migrations' ORDER BY name").fetch_all(pool).await.unwrap()
-}
-
-async fn snapshots(pool: &SqlitePool, tables: &[String]) -> BTreeMap<String, Rows> {
-    let mut result = BTreeMap::new();
+async fn snapshot_queries(pool: &SqlitePool) -> Vec<(String, String)> {
+    let tables: Vec<String> = sqlx::query_scalar("SELECT name FROM sqlite_schema WHERE type='table' AND name!='_sqlx_migrations' ORDER BY name")
+        .fetch_all(pool).await.unwrap();
+    let mut queries = Vec::new();
     for table in tables {
         let without_rowid: i64 =
             sqlx::query_scalar("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=?")
-                .bind(table)
+                .bind(&table)
                 .fetch_one(pool)
                 .await
                 .unwrap();
-        let query = if without_rowid == 0 {
-            format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(table))
+        let columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM pragma_table_xinfo(?) WHERE hidden!=1 ORDER BY cid",
+        )
+        .bind(&table)
+        .fetch_all(pool)
+        .await
+        .unwrap();
+        let columns = columns
+            .iter()
+            .map(|column| quoted(column))
+            .collect::<Vec<_>>()
+            .join(",");
+        let selected = if without_rowid == 0 {
+            format!("rowid,{columns}")
         } else {
-            let columns: Vec<String> =
-                sqlx::query_scalar("SELECT name FROM pragma_table_info(?) ORDER BY cid")
-                    .bind(table)
-                    .fetch_all(pool)
-                    .await
-                    .unwrap();
-            let order = columns
-                .iter()
-                .map(|column| quoted(column))
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("SELECT * FROM {} ORDER BY {order}", quoted(table))
+            columns.clone()
         };
-        let rows = sqlx::query(&query)
+        let order = if without_rowid == 0 {
+            "rowid"
+        } else {
+            &columns
+        };
+        let query = format!("SELECT {selected} FROM {} ORDER BY {order}", quoted(&table));
+        queries.push((table, query));
+    }
+    queries
+}
+
+async fn snapshots(pool: &SqlitePool, tables: &[(String, String)]) -> BTreeMap<String, Rows> {
+    let mut result = BTreeMap::new();
+    for (table, query) in tables {
+        let rows = sqlx::query(query)
             .fetch_all(pool)
             .await
             .unwrap()
@@ -237,7 +250,7 @@ async fn indexes(pool: &SqlitePool, table: &str) -> BTreeMap<String, Rows> {
 }
 
 async fn migration_history(pool: &SqlitePool) -> Rows {
-    sqlx::query("SELECT rowid,* FROM _sqlx_migrations WHERE version<=35 ORDER BY version")
+    sqlx::query("SELECT rowid,version,description,installed_on,success,checksum,execution_time FROM _sqlx_migrations WHERE version<=35 ORDER BY version")
         .fetch_all(pool)
         .await
         .unwrap()
@@ -337,16 +350,17 @@ fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
-fn declared_download_authority() -> String {
-    let migration = include_str!("../migrations/0038_manual_source_choice.sql");
-    let declaration = "CREATE VIEW current_download_authority AS";
-    let start = migration
-        .find(declaration)
-        .expect("the manual choice migration must declare its authority view");
-    migration[start..]
-        .split(';')
+fn declared_download_definition(kind: &str, name: &str, terminator: &str) -> String {
+    let migration = include_str!("../migrations/0044_podcast_download_origins.sql");
+    let declaration = format!("CREATE {kind} {name} ");
+    let body = migration
+        .split(&declaration)
+        .nth(1)
+        .expect("the download origin migration must declare its changed schema object")
+        .split(terminator)
         .next()
-        .expect("the declared authority view must contain SQL")
-        .trim()
-        .to_owned()
+        .unwrap();
+    let mut definition = format!("{declaration}{body}{terminator}");
+    definition.pop();
+    definition.trim().to_owned()
 }

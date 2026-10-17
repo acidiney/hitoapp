@@ -39,6 +39,7 @@ async fn manifest() -> Json<Manifest> {
         protocol_version: PROTOCOL_VERSION,
         capabilities: BTreeSet::from([Capability::Playlists, Capability::Artwork]),
         authorization: None,
+        content_policy: None,
     })
 }
 

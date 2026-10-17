@@ -1,8 +1,8 @@
 use super::{props::*, protocol::Protocol};
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::{api::catalog::RecordingPage, error::ApiResult};
-use hito_core::Browse;
-use hito_core::{Actor, Search, Services};
+use hito_core::{Actor, Browse, Error, PodcastEpisodeQuery, Search, Services};
+use uuid::Uuid;
 
 pub enum Screen<'a> {
     Catalog,
@@ -18,6 +18,8 @@ pub enum Screen<'a> {
     History,
     Settings,
     Discover,
+    PodcastIndex,
+    Podcast(&'a str),
 }
 
 impl<'a> Screen<'a> {
@@ -29,6 +31,7 @@ impl<'a> Screen<'a> {
             "/history" => Self::History,
             "/settings" => Self::Settings,
             "/discover" => Self::Discover,
+            "/podcasts" => Self::PodcastIndex,
             "/albums" => Self::AlbumIndex,
             "/artists" => Self::ArtistIndex,
             _ if path.starts_with("/albums/") && path.ends_with("/details") => Self::AlbumDetails(
@@ -38,6 +41,9 @@ impl<'a> Screen<'a> {
             _ if path.starts_with("/albums/") => Self::Album(path.trim_start_matches("/albums/")),
             _ if path.starts_with("/artists/") => {
                 Self::Artist(path.trim_start_matches("/artists/"))
+            }
+            _ if path.starts_with("/podcasts/") => {
+                Self::Podcast(path.trim_start_matches("/podcasts/"))
             }
             _ if path.starts_with("/recordings/") => {
                 Self::RecordingDetails(path.trim_start_matches("/recordings/"))
@@ -61,6 +67,8 @@ impl<'a> Screen<'a> {
             Self::History => "HistoryPage",
             Self::Settings => "SettingsPage",
             Self::Discover => "DiscoverPage",
+            Self::PodcastIndex => "PodcastIndexPage",
+            Self::Podcast(_) => "PodcastPage",
         }
     }
 
@@ -78,6 +86,63 @@ impl<'a> Screen<'a> {
             .requested("native_playback")
             .then_some(native_playback);
         match self {
+            Self::PodcastIndex => {
+                let subscriptions = if fields.requested("subscriptions") {
+                    Some(services.podcasts.subscriptions(actor).await?)
+                } else {
+                    None
+                };
+                Ok(PageProps::PodcastIndex(PodcastIndexPageProps {
+                    shared,
+                    subscriptions,
+                }))
+            }
+            Self::Podcast(id) => {
+                let subscription_id = Uuid::parse_str(id).map_err(|_| Error::NotFound)?;
+                let subscription = services
+                    .podcasts
+                    .subscriptions(actor)
+                    .await?
+                    .into_iter()
+                    .find(|subscription| subscription.subscription_id == subscription_id)
+                    .ok_or(Error::NotFound)?;
+                let episodes = if fields.requested("episodes") || fields.requested("progress") {
+                    Some(
+                        services
+                            .podcasts
+                            .episodes(actor, id, PodcastEpisodeQuery::default())
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                let progress = if fields.requested("progress") {
+                    let recording_ids = episodes
+                        .as_ref()
+                        .into_iter()
+                        .flat_map(|page| &page.items)
+                        .map(|episode| {
+                            Uuid::parse_str(&episode.recording.id).map_err(|_| {
+                                Error::Internal("Stored recording identity is invalid".into())
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Some(
+                        services
+                            .collection
+                            .saved_playback(actor, &recording_ids)
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                Ok(PageProps::Podcast(PodcastPageProps {
+                    shared,
+                    subscription: fields.requested("subscription").then_some(subscription),
+                    episodes: episodes.filter(|_| fields.requested("episodes")),
+                    progress,
+                }))
+            }
             Self::AlbumDetails(id) => {
                 let detail = if fields.requested("detail") {
                     Some(

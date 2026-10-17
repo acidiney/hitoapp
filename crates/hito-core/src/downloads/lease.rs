@@ -1,5 +1,5 @@
-use super::Downloads;
-use crate::{Error, Result, Store, library_storage::ManagedAttempt, plugins::DownloadOrigin};
+use super::{Downloads, origin::DownloadOrigin};
+use crate::{Error, Result, Store, library_storage::ManagedAttempt};
 use sqlx::SqliteConnection;
 use std::time::Duration;
 use uuid::Uuid;
@@ -62,7 +62,9 @@ impl Downloads {
             .bind(&file).bind(&id).execute(&mut *tx).await?;
         let mut lease: Lease = sqlx::query_as("SELECT j.id,j.account_id,j.intent_id,j.generation,j.attempts,j.lease_token,
             i.recording_id,i.host_device,i.file_id,i.provider_source_id,i.binding_id,i.binding_revision,i.remote_source_id,
-            i.installation_id,i.installation_revision,i.service_id,i.service_revision,i.credential_digest,i.audio_generation
+            i.installation_id,i.installation_revision,i.service_id,i.service_revision,i.credential_digest,i.audio_generation,
+            i.origin_kind,i.podcast_source_id,i.podcast_episode_id,i.podcast_subscription_id,
+            i.podcast_subscription_generation,i.podcast_enclosure_revision,i.podcast_enclosure_url
             FROM download_jobs j JOIN download_intents i ON i.id=j.intent_id WHERE j.id=?")
             .bind(&id).fetch_one(&mut *tx).await?;
         lease.active = Some(self.active.enter(&lease.lease_token)?);
@@ -109,6 +111,14 @@ impl Downloads {
 }
 
 impl Lease {
+    pub(super) fn authority(&self, store: &Store) -> DownloadAuthority {
+        DownloadAuthority {
+            store: store.clone(),
+            intent: self.intent_id.clone(),
+            token: self.lease_token.clone(),
+        }
+    }
+
     pub async fn check(&self, store: &Store) -> Result<()> {
         tokio::time::timeout(Duration::from_secs(1), async {
             self.check_on(&mut *store.pool.acquire().await?).await
@@ -191,6 +201,34 @@ impl Lease {
         self.reservation
             .as_ref()
             .ok_or_else(|| Error::Internal("Download attempt ownership is unavailable".into()))
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct DownloadAuthority {
+    store: Store,
+    intent: String,
+    token: String,
+}
+
+impl DownloadAuthority {
+    pub(crate) async fn check(&self) -> Result<()> {
+        tokio::time::timeout(Duration::from_secs(1), async {
+            let current: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM download_jobs j
+                JOIN download_intents i ON i.id=j.intent_id AND i.generation=j.generation
+                JOIN current_download_authority authority ON authority.id=i.id
+                JOIN download_files f ON f.id=i.file_id AND f.state='staging' AND f.attempt_id=j.lease_token
+                    AND f.account_id=i.account_id AND f.recording_id=i.recording_id AND f.host_device=i.host_device
+                WHERE j.intent_id=? AND j.lease_token=? AND j.status='running' AND j.lease_until>unixepoch())")
+                .bind(&self.intent).bind(&self.token).fetch_one(&self.store.pool).await?;
+            if current {
+                Ok(())
+            } else {
+                Err(Error::Conflict("This download is no longer current".into()))
+            }
+        })
+        .await
+        .unwrap_or(Err(Error::Upstream("Download authority could not be checked in time")))
     }
 }
 

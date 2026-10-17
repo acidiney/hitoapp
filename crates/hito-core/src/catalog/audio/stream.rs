@@ -5,7 +5,7 @@ use tokio::io::AsyncReadExt;
 
 enum Body {
     Local(Box<LocalAudio>),
-    Remote(Box<crate::plugins::RemoteAudio>),
+    Remote(Box<super::remote::RemoteAudio>),
 }
 
 struct LocalAudio {
@@ -55,7 +55,7 @@ impl AudioStream {
             Some(length),
         ))
     }
-    pub(crate) fn remote(body: crate::plugins::RemoteAudio, length: Option<u64>) -> Self {
+    pub(crate) fn remote(body: super::remote::RemoteAudio, length: Option<u64>) -> Self {
         Self::new(Body::Remote(Box::new(body)), length)
     }
     fn new(inner: Body, expected: Option<u64>) -> Self {

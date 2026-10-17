@@ -1,6 +1,6 @@
 mod artists;
 mod artwork;
-mod audio;
+pub(crate) mod audio;
 mod availability;
 mod browse;
 mod candidates;
@@ -9,14 +9,15 @@ mod managed;
 mod media;
 mod playback;
 pub use playback::PlaybackSource;
+mod podcast;
 mod preferred;
 mod provider;
+pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
     AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
     ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
-pub(crate) use provider::{provider_library, publish_provider_metadata};
 mod releases;
 mod search;
 mod selection;
@@ -51,4 +52,7 @@ pub struct Catalog {
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) directories: crate::library_storage::Directories,
     pub(crate) managed: crate::library_storage::ManagedFiles,
+    pub(crate) podcast_remote: crate::remote_http::RemoteHttp,
+    pub(crate) podcast_audio_slots: Arc<Semaphore>,
+    pub(crate) podcast_audio_accounts: crate::admission::Accounts,
 }
