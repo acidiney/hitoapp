@@ -9,10 +9,11 @@ mod plugins;
 mod store;
 
 pub use catalog::{
-    AdoptProviderRecording, Artist, ArtistDetail, Artwork, AttachReviewedProviderSource,
-    AudioContent, AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog, OpenedAudio,
-    Page, PlaybackCandidates, PlaybackSource, ProviderCandidate, ProviderSearch,
-    ProviderSourceReview, Recording, Release, ReleaseDetail, ReleaseTrack, Search, Source,
+    AdoptProviderRecording, Artist, ArtistDetail, Artwork, ArtworkFetch, ArtworkFetchStatus,
+    AttachReviewedProviderSource, AudioContent, AudioFile, AudioRequest, AudioStream, Browse,
+    ByteRange, Catalog, OpenedAudio, Page, PlaybackCandidates, PlaybackSource, ProviderCandidate,
+    ProviderSearch, ProviderSourceReview, Recording, Release, ReleaseDetail, ReleaseTrack, Search,
+    Source,
 };
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, HistoryEntry, ImportProviderPlaylist,
@@ -71,6 +72,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             store: store.clone(),
             host: config.host_device.clone(),
             artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+            provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
             directories: storage.directories.clone(),
         },
         collection: Collection {
