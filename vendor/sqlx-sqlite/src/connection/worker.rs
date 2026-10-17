@@ -100,12 +100,13 @@ enum Command {
 }
 
 impl ConnectionWorker {
-    pub(crate) async fn establish(params: EstablishParams) -> Result<Self, Error> {
+    pub(crate) async fn establish(mut params: EstablishParams) -> Result<Self, Error> {
         let (establish_tx, establish_rx) = oneshot::channel();
 
         thread::Builder::new()
             .name(params.thread_name.clone())
             .spawn(move || {
+                let _worker_guard = params.worker_guard.take();
                 let (command_tx, command_rx) = flume::bounded(params.command_channel_size);
 
                 let conn = match params.establish() {

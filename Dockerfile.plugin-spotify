@@ -11,6 +11,7 @@ ENV CARGO_TARGET_DIR=/build/spotify-public-release-target \
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID},target=/build/spotify-public-release-target cargo build --locked --release -j 2 -p hito-plugin-spotify && cp /build/spotify-public-release-target/release/hito-plugin-spotify /hito-plugin-spotify
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587

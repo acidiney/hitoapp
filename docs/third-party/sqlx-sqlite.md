@@ -7,4 +7,10 @@
 - Upstream directory: `sqlx-sqlite`.
 - The initial vendor import preserves all 56 published files byte for byte. No other SQLx package is vendored.
 
-The community-service startup regression demonstrates a lifetime gap during failed initial connection setup. SQLx can drop an initializing connection while its SQLite worker is still closing. Hito must retain its private state claim until that teardown finishes. A narrowly scoped worker-lifetime extension is being reviewed before activation; importing these sources alone changes no application behavior.
+## Local worker-lifetime extension
+
+The workspace activates this package through a Cargo patch. Three upstream files add an optional `SqliteConnectOptions::worker_guard` factory, reserve its guard before thread creation, and transfer that guard into the worker. The default is absent. No other SQLx package is patched.
+
+The community-service startup regression demonstrates a lifetime gap during failed initial connection setup. SQLx can drop an initializing connection while its SQLite worker is still closing. The guard lets Hito retain its private state claim through worker-local cleanup, including failed startup. It does not join the OS thread or prove that all external owners of shared SQLite state have released it. The community lifecycle closes the pool to size zero before waiting for its guard count. See [ownership and teardown](../community-service.md#private-state-and-teardown).
+
+The real held-close regression, normal HTTP restart/replay tracer and unsafe-ancestry regression pass in Docker. Compatibility checks against the patched package pass for twelve selected core cases, all 38 folder-plugin cases and five server lifecycle/download cases. Strict all-target Clippy passes for those packages and the community crate. These checks do not establish full workspace, packaged-image, platform or public-release acceptance.

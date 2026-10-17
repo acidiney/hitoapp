@@ -18,7 +18,11 @@ pub use synchronous::SqliteSynchronous;
 
 use crate::common::DebugFn;
 use crate::connection::collation::Collation;
+use crate::error::Error;
 use sqlx_core::IndexMap;
+
+pub(crate) type WorkerGuardFactory =
+    dyn Fn() -> Result<Box<dyn Send + 'static>, Error> + Send + Sync + 'static;
 
 /// Options and flags which can be used to configure a SQLite connection.
 ///
@@ -85,6 +89,7 @@ pub struct SqliteConnectOptions {
 
     pub(crate) serialized: bool,
     pub(crate) thread_name: Arc<DebugFn<dyn Fn(u64) -> String + Send + Sync + 'static>>,
+    pub(crate) worker_guard: Option<Arc<DebugFn<WorkerGuardFactory>>>,
 
     pub(crate) optimize_on_close: OptimizeOnClose,
 
@@ -207,6 +212,7 @@ impl SqliteConnectOptions {
             collations: Default::default(),
             serialized: false,
             thread_name: Arc::new(DebugFn(|id| format!("sqlx-sqlite-worker-{id}"))),
+            worker_guard: None,
             command_channel_size: 50,
             row_channel_size: 50,
             optimize_on_close: OptimizeOnClose::Disabled,
@@ -433,6 +439,26 @@ impl SqliteConnectOptions {
         generator: impl Fn(u64) -> String + Send + Sync + 'static,
     ) -> Self {
         self.thread_name = Arc::new(DebugFn(generator));
+        self
+    }
+
+    /// Create a resource guard for each background worker before its thread is spawned.
+    ///
+    /// The guard moves into the worker and is dropped after the worker's local resources and
+    /// references to SQLite connection state are released, including initialization errors and
+    /// cancellation of the connecting future. Other owners of shared connection state can
+    /// outlive the worker. This does not join the OS thread or wait for thread-local destructors.
+    /// If spawning fails, the guard is dropped on the calling thread. Factory errors prevent
+    /// the worker from being spawned. The factory and guard's destructor must not panic.
+    /// Cloning these options retains the factory, without creating or retaining a worker guard.
+    pub fn worker_guard<F, G>(mut self, factory: F) -> Self
+    where
+        F: Fn() -> Result<G, Error> + Send + Sync + 'static,
+        G: Send + 'static,
+    {
+        self.worker_guard = Some(Arc::new(DebugFn(move || {
+            factory().map(|guard| Box::new(guard) as Box<dyn Send + 'static>)
+        })));
         self
     }
 

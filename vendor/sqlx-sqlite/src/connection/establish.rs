@@ -51,6 +51,7 @@ pub struct EstablishParams {
     extensions: IndexMap<CString, Option<CString>>,
     pub(crate) thread_name: String,
     pub(crate) command_channel_size: usize,
+    pub(crate) worker_guard: Option<Box<dyn Send + 'static>>,
     #[cfg(feature = "regexp")]
     register_regexp_function: bool,
 }
@@ -162,6 +163,11 @@ impl EstablishParams {
             extensions,
             thread_name: (options.thread_name)(thread_id as u64),
             command_channel_size: options.command_channel_size,
+            worker_guard: options
+                .worker_guard
+                .as_ref()
+                .map(|factory| factory())
+                .transpose()?,
             #[cfg(feature = "regexp")]
             register_regexp_function: options.register_regexp_function,
         })
