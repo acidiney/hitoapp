@@ -23,6 +23,15 @@ pub struct SavedRecording {
 
 impl SavedRecording {
     pub async fn prepare(spotify: &ProviderServer, youtube: &ProviderServer) -> Self {
+        Self::prepare_named_target(spotify, youtube, "Owned tune", "Owned studio album").await
+    }
+
+    pub async fn prepare_named_target(
+        spotify: &ProviderServer,
+        youtube: &ProviderServer,
+        title: &str,
+        album: &str,
+    ) -> Self {
         let (directory, hito, actor, _, _) = support::library("resolution-musical-evidence").await;
         let primary = provider::connect(
             &hito,
@@ -51,10 +60,10 @@ impl SavedRecording {
             "the candidate installation must approve every requested capability"
         );
         let target = json!({
-            "id": "spotify/owned-recording", "title": "Owned tune",
+            "id": "spotify/owned-recording", "title": title,
             "artist": "Owned performer", "duration_ms": 1000, "revision": "spotify-r1",
             "release": {
-                "id": "spotify/owned-album", "title": "Owned studio album",
+                "id": "spotify/owned-album", "title": album,
                 "artist": "Owned performer"
             }
         });
@@ -132,10 +141,10 @@ impl SavedRecording {
         assert!(
             before["recordings"]["total"] == json!(1)
                 && before["selected_observation"]["provider"] == "org.hito.spotify-fixture"
-                && before["selected_observation"]["title"] == "Owned tune"
+                && before["selected_observation"]["title"] == title
                 && before["selected_observation"]["artist"] == "Owned performer"
                 && before["selected_observation"]["duration_ms"] == json!(1000)
-                && before["selected_observation"]["album"] == "Owned studio album"
+                && before["selected_observation"]["album"] == album
                 && before["recordings"]["items"][0]["liked"] == json!(true)
                 && before["saved_position"] == json!(400),
             "the saved target must retain known musical identity and collection state"
