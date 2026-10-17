@@ -19,10 +19,16 @@ type View = {
 };
 type Owner = {
   view: View;
+  progress: string | null;
+  fastUntil: number;
   read: AbortController | null;
   write: AbortController | null;
   timer: ReturnType<typeof setTimeout> | null;
 };
+
+const fastWindowMs = 30_000;
+const fastPollMs = 1000;
+const slowPollMs = 30_000;
 
 function busy(download: PlaylistDownloadStatus) {
   return (
@@ -31,6 +37,21 @@ function busy(download: PlaylistDownloadStatus) {
       ["pending", "queued", "running", "verifying"].includes(entry.status),
     )
   );
+}
+
+function progressSignature(download: PlaylistDownloadStatus) {
+  return JSON.stringify([
+    download.retention_id,
+    download.desired_revision,
+    download.reconciled_revision,
+    download.entries.next_cursor ?? null,
+    download.entries.items.map((entry) => [
+      entry.entry_id,
+      entry.recording_id ?? null,
+      entry.status,
+      entry.source_id ?? null,
+    ]),
+  ]);
 }
 
 export function usePlaylistDownload(account: string, playlist: string) {
@@ -46,6 +67,8 @@ export function usePlaylistDownload(account: string, playlist: string) {
         error: "",
         statusError: "",
       },
+      progress: null,
+      fastUntil: 0,
       read: null,
       write: null,
       timer: null,
@@ -80,17 +103,19 @@ export function usePlaylistDownload(account: string, playlist: string) {
       () => void load(),
       !owner.view.statusError &&
         owner.view.download &&
-        busy(owner.view.download)
-        ? 1000
-        : 30_000,
+        busy(owner.view.download) &&
+        performance.now() + fastPollMs <= owner.fastUntil
+        ? fastPollMs
+        : slowPollMs,
     );
   }
 
-  async function load(): Promise<void> {
+  async function load(explicit = false): Promise<void> {
     const request = scope.capture();
     if (!request.active() || owner.read || owner.write || owner.view.attempt)
       return;
     clearTimer();
+    if (explicit) owner.fastUntil = performance.now() + fastWindowMs;
     const controller = new AbortController();
     const signal = AbortSignal.any([request.signal, controller.signal]);
     const active = () =>
@@ -106,6 +131,11 @@ export function usePlaylistDownload(account: string, playlist: string) {
         signal,
       );
       if (!active()) return;
+      const progress = download ? progressSignature(download) : null;
+      if (progress !== owner.progress)
+        owner.fastUntil = performance.now() + fastWindowMs;
+      owner.progress = progress;
+      if (download === null) owner.fastUntil = 0;
       publish({
         download,
         retention: download?.retention_id ?? null,
@@ -149,6 +179,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
     const request = scope.capture();
     if (!request.active() || owner.write) return;
     clearTimer();
+    owner.fastUntil = performance.now() + fastWindowMs;
     owner.read?.abort();
     owner.read = null;
     const controller = new AbortController();
@@ -238,7 +269,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
 
   useEffect(() => {
     void load();
-    const focused = () => void load();
+    const focused = () => void load(true);
     window.addEventListener("focus", focused);
     return () => {
       clearTimer();
@@ -258,7 +289,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
     retryKind: current.attempt?.kind ?? null,
     error: current.error,
     statusError: current.statusError,
-    check: load,
+    check: () => load(true),
     start: () =>
       owner.view.attempt ||
       owner.view.retention ||
