@@ -24,6 +24,10 @@ The response contains exactly `request_id`, `recording_id`, `source_id` and a po
 
 The same policy controls available-source reads, direct audio admission and authorization checks, native candidate enumeration, download origin capture and active download publication. Existing native grants recheck the underlying authority. Physical native output and concurrent revocation still require their own verification.
 
+Local HTTP audio now retains that playback grant with the opened file. Seeking and each read of at most 64 KiB check the current session, library access, source choice and file location before and after I/O. Pending I/O checks authority every 250 ms and has a fifteen-second operation deadline. An error closes the body permanently; returning to Automatic can authorize a new body but cannot revive the old one. This applies to unread server-owned bytes, not bytes already delivered to a client.
+
+The checks currently issue six SQLite statements per successful managed-file chunk and eight for an indexed-file chunk. This is an implementation cost, not a measured release-performance result. Cancelling an awaited read cannot forcibly stop a filesystem syscall already running in the operating system.
+
 ## Current choice and Automatic
 
 `GET /api/v1/recordings/{id}/source-choice` returns the current revision, mode and structured sources. Each source reports whether it belongs to the explicit selection and whether it can be chosen. Readiness is independent of selection, so an unavailable current provider representation remains selectable. The read uses one SQLite snapshot, then rechecks current account and recording access. It does not contact providers.
@@ -50,6 +54,8 @@ A changed choice revision also invalidates an existing availability snapshot or 
 
 A failed explicit availability check still counts as requested. Later source changes recheck it, including after another read failure. Changing a source before ever checking availability makes no availability request.
 
+Submitting a source change also gates new Play, preparation, download and removal actions until a current-choice read succeeds. The gate remains after a lost acknowledgement or failed reconciliation. Existing uncertain preparation and download requests retain their exact recovery actions. Staging a radio option does not set this gate, and an unsupported initial choice read does not disable legacy workflows.
+
 ## Downloads
 
 A saved copy proves its provider origin through the file's retained intent references and their immutable origin fields. A completed download job's lease token is not its origin. Conflicting references cannot establish eligibility for a chosen binding.
@@ -68,7 +74,11 @@ The first public test compiled and reached an actual missing-route failure after
 
 The first independent review round passed security and found one cleanup issue in both correctness and performance review. A new physical-file check reproduced an orphaned A file after the explicit B download had completed. The fix gives that superseded, unreferenced file to the existing cleanup worker. The same case now verifies that a rejected B request preserves A's filename and bytes, while an accepted replacement eventually leaves only B's exact bytes. Shared-retention, unprojected-playlist removal, original-file preservation and late-writer regressions pass alongside strict workspace all-target Clippy.
 
-The second and final independent round reviewed `6390c54`. Performance review found no actionable defect. Security and correctness returned three findings: an already-open saved-file body lacks later pin checks, dependent UI actions remain enabled while a source write or its reconciliation is unresolved, and conflict reconciliation can expose a newer choice without refreshing download eligibility. Their public-boundary reproductions and fixes remain pending. Source review does not establish a runtime reproduction or release acceptance.
+The second and final independent round reviewed `6390c54`. Performance review found no actionable defect. Security and correctness returned three findings. Direct resolver verification now covers unread saved-file authority and dependent actions during an unresolved source write. Conflict reconciliation can still expose a newer choice without refreshing download eligibility; its reproduction and fix remain pending. There is no third independent review or final clean verdict.
+
+The saved-body regression first returned unread A bytes after an accepted B choice, even though fresh A opens were denied. With `b00f920`, the unchanged test rejects that read, preserves A's exact physical copy and private collection state, permits a new A stream after reset, and keeps the old failed body terminal. Provider counters do not advance. A directed Docker run passes 39 cases across 19 core/server targets covering local access, provider lifetimes, downloads, restart, source controls and retained copies, plus workspace formatting and strict workspace all-target Clippy. These checks do not establish socket backpressure, physical native output or stalled-drive acceptance.
+
+The unresolved-choice web regression first found Play enabled after a valid held source POST. With `d9cf883`, it passes held and lost writes, exact preparation and source-choice recovery, a failed current read, fresh availability/download reads and preserved drafts without implicit playback or writes. At `982a5d7`, all 226 frontend cases across 67 files, both TypeScript checks and the production build pass. The first complete run caught two unsupported role-query options in the new test after Vitest passed; removing those options preserved exact string-name matching and every assertion.
 
 Rust-generated OpenAPI includes the strict command and four-field acknowledgement. Regenerating TypeScript produces identical bytes, and both TypeScript checks pass. The generator's existing formatting is retained.
 
