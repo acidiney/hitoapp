@@ -109,6 +109,7 @@ test("a failed detail reload retries completed Follow content until updated prop
     detail: {
       ...copiedPlaylistPage.detail,
       playlist: { ...copiedPlaylistPage.detail.playlist, kind: "followed" },
+      follow_content_revision: 1,
     },
   };
   const updatedPlaylist = {
@@ -121,6 +122,7 @@ test("a failed detail reload retries completed Follow content until updated prop
     detail: {
       ...before.detail,
       playlist: updatedPlaylist,
+      follow_content_revision: 2,
       entries: [before.detail.entries[2], before.detail.entries[0]].map(
         (entry, position) => ({ ...entry, position }),
       ),
@@ -128,6 +130,8 @@ test("a failed detail reload retries completed Follow content until updated prop
   };
   const ready: Schema["PlaylistFollow"] = {
     playlist_id: before.detail.playlist.id,
+    generation: 1,
+    content_revision: 1,
     interval: "hourly",
     snapshot: "retained-snapshot",
     last_refreshed_at: Math.floor(Date.now() / 1000),
@@ -135,13 +139,19 @@ test("a failed detail reload retries completed Follow content until updated prop
     status: "ready",
     error: null,
   };
+  const completedReady: Schema["PlaylistFollow"] = {
+    ...ready,
+    content_revision: 2,
+  };
   const statusPath = `/api/v1/playlists/${ready.playlist_id}/follow`;
   const refreshPath = `${statusPath}/refresh`;
   let statusReads = 0;
   const fetch = vi.fn((path: string, options?: RequestInit) => {
     if (path === statusPath && (options?.method ?? "GET") === "GET") {
       statusReads++;
-      return Promise.resolve(Response.json(ready));
+      return Promise.resolve(
+        Response.json(statusReads === 1 ? ready : completedReady),
+      );
     }
     if (path === refreshPath && options?.method === "POST") {
       const request: Schema["RefreshFollowedPlaylist"] = JSON.parse(

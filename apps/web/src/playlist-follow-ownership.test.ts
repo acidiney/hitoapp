@@ -64,6 +64,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
     detail: {
       ...copiedPlaylistPage.detail,
       playlist: { ...copiedPlaylistPage.detail.playlist, kind: "followed" },
+      follow_content_revision: 1,
     },
   };
   const second: PlaylistPageProps = {
@@ -94,6 +95,8 @@ test("account and playlist changes fence held Follow responses and keep polling 
     const interval = props.user.id === first.user.id ? "hourly" : "daily";
     return {
       playlist_id: props.detail.playlist.id,
+      generation: 1,
+      content_revision: 1,
       interval,
       snapshot: "retained-snapshot",
       last_refreshed_at: Math.floor(Date.now() / 1000),

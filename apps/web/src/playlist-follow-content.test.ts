@@ -52,6 +52,7 @@ test("a newer first Follow status reloads stale server-rendered entries and appl
       ...copiedPlaylistPage.detail,
       playlist: { ...copiedPlaylistPage.detail.playlist, kind: "followed" },
       origin: { ...origin, snapshot: "provider-snapshot-before-status" },
+      follow_content_revision: 1,
     },
   };
   const updatedPlaylist = {
@@ -64,6 +65,7 @@ test("a newer first Follow status reloads stale server-rendered entries and appl
     detail: {
       ...before.detail,
       playlist: updatedPlaylist,
+      follow_content_revision: 2,
       origin: {
         ...origin,
         snapshot: "provider-snapshot-after-status",
@@ -76,6 +78,8 @@ test("a newer first Follow status reloads stale server-rendered entries and appl
   };
   const ready: Schema["PlaylistFollow"] = {
     playlist_id: before.detail.playlist.id,
+    generation: 1,
+    content_revision: 2,
     interval: "hourly",
     snapshot: after.detail.origin!.snapshot,
     last_refreshed_at: Math.floor(Date.now() / 1000),

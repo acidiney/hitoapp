@@ -5411,6 +5411,40 @@
             "type": "object",
             "required": [
               "playlist_id",
+              "expected_generation",
+              "installation_revision",
+              "service_revision",
+              "kind"
+            ],
+            "properties": {
+              "expected_generation": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "installation_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlist_follow_resume"
+                ]
+              },
+              "playlist_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "service_revision": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "playlist_id",
               "entry_id",
               "recording_id",
               "position",
@@ -7942,6 +7976,13 @@
               "$ref": "#/components/schemas/PlaylistEntry"
             }
           },
+          "follow_content_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "origin": {
             "oneOf": [
               {
@@ -8022,6 +8063,8 @@
         "type": "object",
         "required": [
           "playlist_id",
+          "generation",
+          "content_revision",
           "interval",
           "snapshot",
           "last_refreshed_at",
@@ -8029,11 +8072,19 @@
           "status"
         ],
         "properties": {
+          "content_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
           "error": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
           },
           "interval": {
             "$ref": "#/components/schemas/PlaylistFollowInterval"

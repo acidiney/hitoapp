@@ -997,6 +997,17 @@ export interface components {
             /** Format: uuid */
             playlist_id: string;
         } | {
+            /** Format: int64 */
+            expected_generation: number;
+            /** Format: int64 */
+            installation_revision: number;
+            /** @enum {string} */
+            kind: "playlist_follow_resume";
+            /** Format: uuid */
+            playlist_id: string;
+            /** Format: int64 */
+            service_revision: number;
+        } | {
             /** Format: uuid */
             entry_id: string;
             /** @enum {string} */
@@ -1621,6 +1632,8 @@ export interface components {
         };
         PlaylistDetail: {
             entries: components["schemas"]["PlaylistEntry"][];
+            /** Format: int64 */
+            follow_content_revision?: number | null;
             origin?: components["schemas"]["ImportedPlaylistOrigin"] | null;
             playlist: components["schemas"]["Playlist"];
         };
@@ -1640,7 +1653,11 @@ export interface components {
             title: string;
         };
         PlaylistFollow: {
+            /** Format: int64 */
+            content_revision: number;
             error?: string | null;
+            /** Format: int64 */
+            generation: number;
             interval: components["schemas"]["PlaylistFollowInterval"];
             /** Format: int64 */
             last_refreshed_at: number;

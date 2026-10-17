@@ -53,10 +53,13 @@ test("a followed playlist retains its entries and reloads once after a refresh w
     detail: {
       ...copiedPlaylistPage.detail,
       playlist: { ...copiedPlaylistPage.detail.playlist, kind: "followed" },
+      follow_content_revision: 1,
     },
   };
   const ready: Schema["PlaylistFollow"] = {
     playlist_id: props.detail.playlist.id,
+    generation: 1,
+    content_revision: 1,
     interval: "hourly",
     snapshot: "retained-snapshot",
     last_refreshed_at: Math.floor(Date.now() / 1000),
