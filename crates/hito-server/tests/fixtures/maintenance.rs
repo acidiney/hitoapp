@@ -116,9 +116,9 @@ impl Library {
                 sqlx::query("INSERT INTO download_files(id,account_id,host_device,recording_id,source_id,state,attempt_id,checksum,byte_length,mime) VALUES (?,'account','owned-host',?,?,'ready',?,?,?,'audio/wav')")
                     .bind(id(201)).bind(&recording).bind(id(200)).bind(id(202)).bind(format!("{:x}", Sha256::digest(&audio))).bind(audio.len() as i64).execute(&mut connection).await.unwrap();
             }
-            sqlx::query("INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,file_id,provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,service_id,service_revision,credential_digest,audio_generation,error)
-                SELECT ?,'account',?,'provider-library',id,'owned-host',?,?, ?,?,1,?,'installation',1,'service',1,?,0,? FROM library_access_grants WHERE library_id='provider-library' AND user_id='account'")
-                .bind(&transfer).bind(&recording).bind(*state).bind((*state == "ready").then(|| id(201))).bind(&source).bind(&binding).bind(format!("owned-source-{index}"))
+            sqlx::query("INSERT INTO download_intents(rowid,id,account_id,recording_id,library_id,access_grant_id,host_device,state,file_id,provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,service_id,service_revision,credential_digest,audio_generation,error)
+                SELECT ?,?,'account',?,'provider-library',id,'owned-host',?,?, ?,?,1,?,'installation',1,'service',1,?,0,? FROM library_access_grants WHERE library_id='provider-library' AND user_id='account'")
+                .bind(31 + index as i64 * 127).bind(&transfer).bind(&recording).bind(*state).bind((*state == "ready").then(|| id(201))).bind(&source).bind(&binding).bind(format!("owned-source-{index}"))
                 .bind(&credential_digest).bind((*state == "failed").then_some("transfer_failed")).execute(&mut connection).await.unwrap();
             if *state == "ready" {
                 sqlx::query(
