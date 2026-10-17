@@ -2,7 +2,7 @@ CREATE TABLE source_preparations (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
     recording_id TEXT NOT NULL REFERENCES recordings(id),
-    source_id TEXT NOT NULL REFERENCES sources(id),
+    source_id TEXT NOT NULL REFERENCES provider_sources(source_id),
     library_id TEXT NOT NULL REFERENCES libraries(id),
     access_grant TEXT NOT NULL,
     binding_id TEXT NOT NULL REFERENCES provider_items(id),
@@ -53,6 +53,7 @@ CREATE UNIQUE INDEX source_preparation_unresolved_origin ON source_preparations(
     WHERE submission_state IN ('submitting','unknown')
         OR (submission_state = 'submitted' AND remote_outcome IS NULL);
 CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at);
+CREATE INDEX source_preparation_source ON source_preparations(source_id);
 CREATE INDEX source_preparation_due ON source_preparations(next_check_at,created_at,id)
     WHERE authority_cancelled = 0 AND lease_token IS NULL AND (phase IN ('queued','preparing','blocked')
         OR (phase = 'submission_unknown' AND submission_state = 'submitted' AND remote_handle IS NOT NULL AND remote_outcome IS NULL));
