@@ -300,6 +300,111 @@ test("terminal ready reads the same source once, leaves Play explicit, and a lat
   expect(vi.getTimerCount()).toBe(0);
 });
 
+test.each(["refresh", "reopen"])(
+  "a ready preparation permits a fresh explicit request after the same source becomes unavailable through %s",
+  async (route) => {
+    vi.useFakeTimers();
+    const replacement = "a6de5503-5631-4dd6-9eb2-d8835a55af70";
+    const requests: string[] = [];
+    let unavailable = false;
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+      const ready = requests.length > 0 && !unavailable;
+      const snapshot = { ...source, ready, can_prepare: !ready };
+      if (url === `${sourcesPath}/refresh` || url === sourcesPath)
+        return Response.json([snapshot]);
+      if (url === preparationPath && options?.method === "POST") {
+        requests.push(JSON.parse(String(options.body)).request_id);
+        return Response.json(
+          {
+            request_id: requests[requests.length - 1],
+            preparation_id: requests.length === 1 ? preparation : replacement,
+            recording_id: recording,
+            source_id: sourceId,
+          },
+          { status: 202 },
+        );
+      }
+      if (url === preparationPath && options?.method === "GET") {
+        if (!requests.length) return new Response(null, { status: 404 });
+        return Response.json(
+          requests.length === 1
+            ? status("ready")
+            : { ...status("preparing"), preparation_id: replacement },
+        );
+      }
+      throw new Error("Unexpected repeated preparation request");
+    });
+    vi.stubGlobal("fetch", fetch);
+    let view = render(
+      createElement(SourceAvailability, { account: "alice", track }),
+    );
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Check availability" }),
+      );
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Prepare audio" }));
+    });
+    expect(screen.getByText("Audio is ready to play.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Prepare audio" })).toBeNull();
+    expect(requests).toHaveLength(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(requests).toHaveLength(1);
+
+    unavailable = true;
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    });
+    if (route === "reopen") {
+      view.unmount();
+      view = render(
+        createElement(SourceAvailability, { account: "alice", track }),
+      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Check availability" }),
+        );
+      });
+    }
+    expect(screen.getByText("No audio is ready yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Play track" })).toBeNull();
+    expect(requests).toHaveLength(1);
+    const prepare = screen.getByRole("button", { name: "Prepare audio" });
+    expect(prepare).toHaveProperty("disabled", false);
+    await act(async () => {
+      fireEvent.click(prepare);
+      fireEvent.click(prepare);
+    });
+    expect(requests).toHaveLength(2);
+    expect(requests[1]).not.toBe(requests[0]);
+    expect(requests).toEqual([
+      expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ),
+      expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ),
+    ]);
+    expect(screen.getByText("Preparing audio…")).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "This source has a different preparation. Check audio availability again.",
+      ),
+    ).toBeNull();
+    expect(player.playQueue).not.toHaveBeenCalled();
+    expect(
+      fetch.mock.calls.every(
+        ([url]) => !url.includes("/download") && !url.includes("/audio"),
+      ),
+    ).toBe(true);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
+
 test("readiness for another recording is rejected and cannot publish a playable snapshot", async () => {
   vi.useFakeTimers();
   const fetch = vi.fn(async (url: string) => {

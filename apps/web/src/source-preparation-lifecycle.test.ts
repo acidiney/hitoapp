@@ -233,7 +233,14 @@ test.each(["cancelled", "submission_unknown", "blocked", "ready"] as const)(
     const fetch = vi.fn(async () => Response.json(status({ phase })));
     vi.stubGlobal("fetch", fetch);
     const { result, unmount } = renderHook(() =>
-      useSourcePreparation("alice", recording, source, confirm),
+      useSourcePreparation(
+        "alice",
+        recording,
+        phase === "ready"
+          ? { ...source, ready: true, can_prepare: false }
+          : source,
+        confirm,
+      ),
     );
     await act(async () => {});
     expect(result.current.status?.phase).toBe(phase);
