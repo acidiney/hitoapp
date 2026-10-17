@@ -1,6 +1,6 @@
 # Provider artwork in development
 
-Hito can retain provider covers in its private SQLite library. The server worker and shared web UI can retrieve missing recording covers, including recordings already present in independent playlist copies. This is verified in an isolated release image; the normal installation has not been upgraded yet.
+Hito can retain provider covers in its private SQLite library. The server worker and shared web UI can retrieve missing recording covers, including recordings already present in independent playlist copies. The verified image is deployed in the normal installation on migration 0027. The upgrade passed stopped-backup, clone-restoration, data-preservation and runtime checks. Existing connections retain their approved capabilities; each listener must review an added artwork capability before it can be used.
 
 The plugin SDK declares an `artwork` capability and a typed `POST /v1/artwork` request containing an entity kind and provider identifier. Plugins return PNG or JPEG bytes. They do not return a browser URL or supply UI components. The reference Spotify implementation supports recording, release, and playlist requests without Spotify account authorization.
 
@@ -63,4 +63,4 @@ A scoped scan of 831 captured server-log lines found no owned fixture metadata, 
 
 Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Host integration passed its second review. These checks do not establish platform or public-release acceptance.
 
-The host currently retrieves recording covers. Although the SDK and Spotify producer also support release and playlist requests, durable storage, jobs and UI reads for those entities remain open. Broad image compatibility, live Spotify image compatibility, crash and disk-exhaustion behavior, the 100,000-track performance gate and deployment acceptance also remain open. See [the complete release scope](release-plan.md).
+The host currently retrieves recording covers. Although the SDK and Spotify producer also support release and playlist requests, durable storage, jobs and UI reads for those entities remain open. A packaged live check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track performance gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
