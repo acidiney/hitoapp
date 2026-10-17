@@ -323,9 +323,12 @@ export function useSourcePreparation(
   function startable(view: View) {
     return (
       source?.can_prepare === true &&
+      source.ready === false &&
       !view.attempt &&
       !view.halted &&
-      (view.status?.phase === "failed" || (!view.status && !view.receipt))
+      (view.status?.phase === "failed" ||
+        view.status?.phase === "ready" ||
+        (!view.status && !view.receipt))
     );
   }
 
