@@ -13,6 +13,7 @@ struct SearchResults {
 pub(crate) struct SearchEntry {
     id: String,
     title: String,
+    artists: Option<Vec<String>>,
     artist: Option<String>,
     channel: Option<String>,
     uploader: Option<String>,
@@ -57,18 +58,29 @@ impl SearchEntry {
         if !valid_id(&entry.id) {
             return Err(Error::InvalidResponse);
         }
-        let artist = match entry.artist {
-            Some(artist) => artist,
-            None => {
-                let channel = entry
-                    .channel
-                    .or(entry.uploader)
-                    .ok_or(Error::InvalidResponse)?;
-                if channel.trim().is_empty() || channel.chars().any(char::is_control) {
+        let artist = match entry.artists {
+            Some(artists) if !artists.is_empty() => {
+                if artists
+                    .iter()
+                    .any(|artist| artist.trim().is_empty() || artist.chars().any(char::is_control))
+                {
                     return Err(Error::InvalidResponse);
                 }
-                format!("Channel: {channel}")
+                artists.join(", ")
             }
+            _ => match entry.artist {
+                Some(artist) => artist,
+                None => {
+                    let channel = entry
+                        .channel
+                        .or(entry.uploader)
+                        .ok_or(Error::InvalidResponse)?;
+                    if channel.trim().is_empty() || channel.chars().any(char::is_control) {
+                        return Err(Error::InvalidResponse);
+                    }
+                    format!("Channel: {channel}")
+                }
+            },
         };
         let duration_ms = entry
             .duration
