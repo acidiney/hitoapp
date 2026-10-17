@@ -1,7 +1,7 @@
 use crate::{
     Config,
     api::{
-        self, browsing, catalog, collection, identity, jobs, player, playlist_follow,
+        self, browsing, catalog, collection, downloads, identity, jobs, player, playlist_follow,
         plugin_authorization, plugins, providers, source_bindings, source_refresh, storage,
     },
     inertia::{self, props::*},
@@ -68,6 +68,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
+        .routes(routes!(downloads::create, downloads::status))
+        .routes(routes!(downloads::remove))
         .routes(routes!(source_bindings::review))
         .routes(routes!(source_bindings::attach))
         .routes(routes!(source_refresh::refresh_sources))

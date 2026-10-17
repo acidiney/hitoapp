@@ -2,6 +2,7 @@ pub mod artwork;
 pub mod browsing;
 pub mod catalog;
 pub mod collection;
+pub mod downloads;
 pub mod identity;
 pub mod jobs;
 pub mod metadata;

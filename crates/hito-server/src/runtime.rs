@@ -1,3 +1,5 @@
+mod downloads;
+
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
 use std::{
     future::Future,
@@ -66,6 +68,15 @@ async fn serve_owned(
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog, stopped.clone());
+    let download_storage = services.downloads.clone();
+    let downloads = services.downloads;
+    let download_stop = stopped.clone();
+    let transfers = async move {
+        tokio::join!(
+            downloads::worker(downloads.clone(), download_stop.clone(), 0),
+            downloads::worker(downloads, download_stop, 1),
+        );
+    };
     let collection = services.collection;
     let follows = async move {
         tokio::join!(
@@ -76,8 +87,13 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), ()) = tokio::join!(http, indexing, artwork, follows);
-    services.storage.finish_indexing().await?;
+    let (result, (), (), (), ()) = tokio::join!(http, indexing, artwork, follows, transfers);
+    let (downloads_finished, indexing_finished) = tokio::join!(
+        download_storage.finish_downloads(),
+        services.storage.finish_indexing(),
+    );
+    downloads_finished?;
+    indexing_finished?;
     tracing::info!(event = "server_stopped", "Hito stopped");
     result
 }
