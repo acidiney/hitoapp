@@ -8,6 +8,7 @@ type FollowStatusProps = {
   hasAttempt: boolean;
   statusError: string;
   refreshError: string;
+  detailError: string;
   refresh: () => Promise<boolean>;
   retryRefresh: () => Promise<boolean>;
   retryStatus: () => Promise<void>;
@@ -28,6 +29,7 @@ export default function PlaylistFollowStatus({
   hasAttempt,
   statusError,
   refreshError,
+  detailError,
   refresh,
   retryRefresh,
   retryStatus,
@@ -93,6 +95,14 @@ export default function PlaylistFollowStatus({
         </>
       )}
       {refreshError && <p role="alert">{refreshError}</p>}
+      {detailError && (
+        <>
+          <p role="alert">{detailError}</p>
+          <button className="button" onClick={() => void retryStatus()}>
+            Retry playlist details
+          </button>
+        </>
+      )}
       {hasAttempt && (
         <button
           className="button"

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { router } from "@inertiajs/react";
+import { useEffect, useMemo, useState } from "react";
 import { playlistFollowApi } from "../playlistFollowApi";
 import { HttpError } from "../http";
 import { log } from "../log";
 import type { PlaylistFollow, RefreshFollowedPlaylist } from "../types";
 import { useRequestScope } from "./useRequestScope";
+import { useFollowDetail } from "./useFollowDetail";
 
 type RequestRun = { controller: AbortController };
 type FollowOwner = {
@@ -50,8 +50,7 @@ export function usePlaylistFollow(
     }),
     [account, playlist],
   );
-  const rendered = useRef({ owner, snapshot: renderedSnapshot });
-  rendered.current = { owner, snapshot: renderedSnapshot };
+  const detail = useFollowDetail(account, playlist, renderedSnapshot);
   const [state, setState] = useState<FollowState | null>(null);
   const current = state?.owner === owner ? state : null;
 
@@ -102,10 +101,7 @@ export function usePlaylistFollow(
         throw new Error("Hito returned a different playlist status");
       const previous = owner.follow;
       const initialContentChanged =
-        previous === null &&
-        rendered.current.owner === owner &&
-        rendered.current.snapshot !== null &&
-        rendered.current.snapshot !== follow.snapshot;
+        previous === null && detail.differsFromRendered(follow.snapshot);
       const changed =
         previous !== null &&
         (previous.last_refreshed_at !== follow.last_refreshed_at ||
@@ -126,12 +122,9 @@ export function usePlaylistFollow(
         duration_ms: Math.round(performance.now() - started),
       });
       if (reload) {
-        log.info("playlist_follow.reloaded", {
-          ...fields,
-          mode: follow.status,
-        });
-        router.reload({ only: ["detail", "playlists"] });
+        detail.markChanged(follow.snapshot);
       }
+      if (!busy(follow)) detail.reload();
     } catch (error) {
       if (active()) {
         owner.statusError = "Hito could not check this playlist. Try again.";
@@ -256,6 +249,7 @@ export function usePlaylistFollow(
     hasAttempt: current?.hasAttempt ?? false,
     statusError: current?.statusError ?? "",
     refreshError: current?.refreshError ?? "",
+    detailError: detail.detailError,
     refresh: () =>
       owner.attempt || owner.waiting || !owner.follow
         ? Promise.resolve(false)
