@@ -27,6 +27,9 @@ pub(super) async fn rename(
 ) -> Result<()> {
     validate_name(name)?;
     check_owner(tx, actor, playlist).await?;
+    if !editable(tx, actor, playlist).await? {
+        return Ok(());
+    }
     let affected = sqlx::query(
         "UPDATE playlists SET name = CASE WHEN deleted = 0 THEN ? ELSE name END
          WHERE id = ? AND user_id = ?",
