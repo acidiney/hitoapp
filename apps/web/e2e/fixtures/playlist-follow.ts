@@ -110,6 +110,8 @@ export async function playlistFollowFixture() {
   const updated = snapshot(2, updatedItems);
   let current = initial;
   let closed = false;
+  let pendingItemFailures = 0;
+  let itemFailures = 0;
   let held: {
     entered: boolean;
     wait: Promise<void>;
@@ -205,6 +207,12 @@ export async function playlistFollowFixture() {
           return;
         }
         counts.items++;
+        if (pendingItemFailures > 0) {
+          pendingItemFailures--;
+          itemFailures++;
+          response.writeHead(503).end();
+          return;
+        }
         const gate = selected === updated ? held : null;
         if (gate) {
           gate.entered = true;
@@ -253,6 +261,25 @@ export async function playlistFollowFixture() {
       if (closed) throw new Error("The owned manifest control is unavailable");
       currentManifest = reviewedManifest;
       return reviewedManifest;
+    },
+    failNextItems(count = 1) {
+      if (
+        closed ||
+        pendingItemFailures !== 0 ||
+        !Number.isSafeInteger(count) ||
+        count < 1
+      )
+        throw new Error("The owned items failure control is unavailable");
+      const previous = itemFailures;
+      pendingItemFailures = count;
+      return {
+        get failures() {
+          return itemFailures - previous;
+        },
+        get remaining() {
+          return pendingItemFailures;
+        },
+      };
     },
     advanceAndHold() {
       if (closed || held)

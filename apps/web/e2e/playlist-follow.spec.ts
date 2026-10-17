@@ -6,6 +6,7 @@ import {
   type Request as BrowserRequest,
   type Route,
 } from "@playwright/test";
+import { isDeepStrictEqual } from "node:util";
 import type { components } from "../src/generated";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
 import {
@@ -36,6 +37,9 @@ test.describe("isolated provider playlist Follow", () => {
     let imports = 0;
     let follows = 0;
     let refreshes = 0;
+    let outageCheckpoint = 0;
+    let distinctRefreshRequests = false;
+    let distinctRefreshJobs = false;
     let privateEdits = 0;
     let offers = 0;
     let ownedFollowPath: string | null = null;
@@ -71,6 +75,7 @@ test.describe("isolated provider playlist Follow", () => {
       await route.continue();
     };
     const fixture = await playlistFollowFixture();
+    let outage: ReturnType<typeof fixture.failNextItems> | null = null;
     page.on("pageerror", () => pageErrors++);
     page.on("requestfailed", (request) => {
       if (!partialDetailRequest(request, origin, ownedFollowPath)) return;
@@ -320,11 +325,107 @@ test.describe("isolated provider playlist Follow", () => {
       expect(feedBefore.has_more).toBe(false);
 
       phase = 5;
-      const gate = fixture.advanceAndHold();
       const refresh = updates.getByRole("button", {
         name: "Refresh now",
         exact: true,
       });
+      outageCheckpoint = 1;
+      outage = fixture.failNextItems(3);
+      const [failedDetails, failedResponse] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            partialDetailRequest(response.request(), origin, ownedFollowPath),
+          { timeout: 15000 },
+        ),
+        (async () => {
+          const response = postResponse(page, `${statusPath}/refresh`);
+          await refresh.click();
+          const queued = await response;
+          expect(queued.status()).toBe(202);
+          await expect(
+            updates.getByText("Update failed", { exact: true }),
+          ).toBeVisible({ timeout: 15000 });
+          return queued;
+        })(),
+      ]);
+      outageCheckpoint = 2;
+      const failedRequest: Schema["RefreshFollowedPlaylist"] = failedResponse
+        .request()
+        .postDataJSON();
+      const failedReceipt: Schema["PlaylistFollowRefresh"] =
+        await failedResponse.json();
+      expect(
+        uuid.test(failedReceipt.job_id) &&
+          failedReceipt.request_id === failedRequest.request_id &&
+          failedReceipt.playlist_id === before.playlist.id,
+      ).toBe(true);
+      outageCheckpoint = 3;
+      expect(failedDetails.status()).toBe(200);
+      expect(failedDetails.headers()["x-inertia"]).toBe("true");
+      expect(await failedDetails.finished()).toBe(null);
+      const retained = await failedDetails.json();
+      expect(retained.component === "PlaylistPage").toBe(true);
+      outageCheckpoint = 4;
+      samePrivateState(retained.props.detail, before);
+      outageCheckpoint = 5;
+      expect([outage.failures, outage.remaining, refreshes]).toEqual([3, 0, 1]);
+      const unavailable = await read<Schema["PlaylistFollow"]>(
+        page,
+        statusPath,
+      );
+      expect(
+        unavailable.status === "failed" &&
+          unavailable.error === "refresh_failed" &&
+          unavailable.snapshot === ready.snapshot &&
+          unavailable.content_revision === ready.content_revision &&
+          unavailable.generation === ready.generation &&
+          unavailable.last_refreshed_at === ready.last_refreshed_at,
+      ).toBe(true);
+      outageCheckpoint = 6;
+      await expect(
+        updates.getByText(
+          "The last update failed. Your saved entries remain available.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(refresh).toBeEnabled();
+      await expect(table.locator("tbody").getByRole("row")).toHaveCount(5);
+      await retainedTitles(
+        table,
+        before.entries.map((entry) => entry.title),
+      );
+      outageCheckpoint = 7;
+      samePrivateState(
+        await read<Schema["PlaylistDetail"]>(page, detailPath),
+        before,
+      );
+      samePrivateState(
+        await read<Schema["PlaylistDetail"]>(page, copyPath),
+        copyBefore,
+      );
+      samePrivateState(
+        await read<Schema["RecordingMetadata"]>(page, metadataPath),
+        metadataBefore,
+      );
+      samePrivateState(
+        await read<Schema["SyncPage"]>(page, "/api/v1/sync?cursor=0"),
+        feedBefore,
+      );
+      outageCheckpoint = 8;
+      expect(fixture.counts()).toEqual({
+        manifest: 2,
+        reference: 2,
+        canonical: 5,
+        items: 5,
+        audio: 0,
+        sources: 0,
+        other: 0,
+        invalid: 0,
+        credentials: 0,
+      });
+
+      outageCheckpoint = 9;
+      const gate = fixture.advanceAndHold();
       const refreshResponse = postResponse(page, `${statusPath}/refresh`);
       await refresh.click();
       const queued = await refreshResponse;
@@ -338,6 +439,10 @@ test.describe("isolated provider playlist Follow", () => {
           receipt.request_id === request.request_id &&
           receipt.playlist_id === before.playlist.id,
       ).toBe(true);
+      distinctRefreshRequests = request.request_id !== failedRequest.request_id;
+      distinctRefreshJobs = receipt.job_id !== failedReceipt.job_id;
+      expect(distinctRefreshRequests && distinctRefreshJobs).toBe(true);
+      outageCheckpoint = 10;
       await expect.poll(() => gate.entered, { timeout: 10000 }).toBe(true);
       await expect(updates.getByText(/^Updating/)).toBeVisible();
       await expect(refresh).toBeDisabled();
@@ -545,8 +650,8 @@ test.describe("isolated provider playlist Follow", () => {
       expect(fixture.counts()).toEqual({
         manifest: 2,
         reference: 2,
-        canonical: 4,
-        items: 3,
+        canonical: 7,
+        items: 6,
         audio: 0,
         sources: 0,
         other: 0,
@@ -554,7 +659,7 @@ test.describe("isolated provider playlist Follow", () => {
         credentials: 0,
       });
       expect([offers, imports, follows, refreshes, privateEdits]).toEqual([
-        1, 1, 1, 1, 2,
+        1, 1, 1, 2, 2,
       ]);
       expect([pageErrors, externalRequests, audioRequests]).toEqual([0, 0, 0]);
       expect([injectedReloadFailures, receivedReloadFailures]).toEqual([1, 1]);
@@ -573,6 +678,10 @@ test.describe("isolated provider playlist Follow", () => {
           stable_witnessed_entries: 3,
           private_edits: privateEdits,
           refreshes,
+          provider_item_failures: outage.failures,
+          outage_checkpoint: outageCheckpoint,
+          distinct_refresh_requests: distinctRefreshRequests,
+          distinct_refresh_jobs: distinctRefreshJobs,
           partial_reload_attempts: partialReloadAttempts,
           injected_reload_failures: injectedReloadFailures,
           received_reload_failures: receivedReloadFailures,
@@ -590,6 +699,10 @@ test.describe("isolated provider playlist Follow", () => {
       console.log(
         JSON.stringify({
           phase,
+          provider_item_failures: outage?.failures ?? 0,
+          outage_checkpoint: outageCheckpoint,
+          distinct_refresh_requests: distinctRefreshRequests,
+          distinct_refresh_jobs: distinctRefreshJobs,
           partial_reload_attempts: partialReloadAttempts,
           injected_reload_failures: injectedReloadFailures,
           received_reload_failures: receivedReloadFailures,
@@ -679,5 +792,5 @@ async function retainedTitles(table: Locator, titles: string[]) {
 }
 
 function samePrivateState(actual: unknown, expected: unknown) {
-  expect(JSON.stringify(actual) === JSON.stringify(expected)).toBe(true);
+  expect(isDeepStrictEqual(actual, expected)).toBe(true);
 }
