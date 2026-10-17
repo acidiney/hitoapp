@@ -50,8 +50,7 @@ impl Output {
             "a rejected command must not publish success output"
         );
         let value: Value = serde_json::from_slice(&self.stderr)
-            .ok()
-            .expect("failure output must be one safe structured outcome");
+            .unwrap_or_else(|_| panic!("failure output must be one safe structured outcome"));
         let fields = value
             .as_object()
             .expect("failure output must be a structured object");
@@ -89,8 +88,7 @@ impl Output {
             "successful maintenance must not publish failure output"
         );
         let value: Value = serde_json::from_slice(&self.stdout)
-            .ok()
-            .expect("success output must be one safe structured outcome");
+            .unwrap_or_else(|_| panic!("success output must be one safe structured outcome"));
         let fields = value
             .as_object()
             .expect("success output must be a structured object");
@@ -150,8 +148,7 @@ pub(super) async fn run_at(database: &Path, expected: i64, directory: Option<&Pa
     }
     let mut child = command
         .spawn()
-        .ok()
-        .expect("owned maintenance child must start");
+        .unwrap_or_else(|_| panic!("owned maintenance child must start"));
     let stdout = tokio::spawn(capture(child.stdout.take().unwrap()));
     let stderr = tokio::spawn(capture(child.stderr.take().unwrap()));
     let result = tokio::time::timeout(Duration::from_secs(20), child.wait()).await;
@@ -203,9 +200,9 @@ async fn capture(mut pipe: impl AsyncRead + Unpin + Send + 'static) -> Captured 
 
 async fn joined(mut task: JoinHandle<Captured>) -> Vec<u8> {
     let captured = match tokio::time::timeout(Duration::from_secs(2), &mut task).await {
-        Ok(result) => result
-            .ok()
-            .expect("owned command output reader must complete"),
+        Ok(result) => {
+            result.unwrap_or_else(|_| panic!("owned command output reader must complete"))
+        }
         Err(_) => {
             task.abort();
             let _ = task.await;
