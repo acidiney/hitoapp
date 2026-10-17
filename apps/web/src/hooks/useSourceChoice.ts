@@ -213,6 +213,10 @@ export function useSourceChoice(
     unavailable: current.unavailable,
     error: current.error,
     statusError: current.statusError,
+    eligibilityPending:
+      current.pending !== null ||
+      current.attempt !== null ||
+      current.needsCheck,
     blocked: !writable(current),
     canChoose: writable(current) && selectable(current, current.stagedSource),
     canReset: writable(current) && current.choice?.mode !== "automatic",

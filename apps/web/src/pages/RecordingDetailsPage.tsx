@@ -44,7 +44,11 @@ export default function RecordingDetailsPage({
         target={target}
         metadata={detail}
       />
-      <RecordingDownload {...download} local={native_playback} />
+      <RecordingDownload
+        {...download}
+        local={native_playback}
+        eligibilityPending={choice.eligibilityPending}
+      />
       <SourceChoiceControls {...choice} />
       {source?.origin === "provider_response" && (
         <SourceAttachment
@@ -57,6 +61,7 @@ export default function RecordingDetailsPage({
         key={`availability/${user.id}/${detail.recording_id}`}
         account={user.id}
         choiceRevision={choice.choice?.revision}
+        eligibilityPending={choice.eligibilityPending}
         track={{
           id: detail.recording_id,
           title: detail.title.value,

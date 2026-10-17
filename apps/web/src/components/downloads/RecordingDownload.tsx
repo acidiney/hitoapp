@@ -8,6 +8,7 @@ type Props = {
   error: string;
   statusError: string;
   local: boolean;
+  eligibilityPending?: boolean;
   start(): Promise<void>;
   remove(): Promise<void>;
   retry(): Promise<void>;
@@ -22,12 +23,13 @@ export default function RecordingDownload({
   error,
   statusError,
   local,
+  eligibilityPending = false,
   start,
   remove,
   retry,
   check,
 }: Props) {
-  const verified = !checking && !statusError;
+  const verified = !eligibilityPending && !checking && !statusError;
   const previousSource = download?.matches_source_choice === false;
   const transferring =
     download !== null &&
@@ -55,7 +57,7 @@ export default function RecordingDownload({
         music service is unavailable.
       </p>
       <p role="status">
-        {checking
+        {checking || eligibilityPending
           ? "Checking saved copy…"
           : statusError
             ? "Saved copy status is unavailable."

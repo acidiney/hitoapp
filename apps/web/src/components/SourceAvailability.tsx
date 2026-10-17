@@ -12,14 +12,24 @@ export default function SourceAvailability({
   account,
   track,
   choiceRevision,
+  eligibilityPending = false,
 }: {
   account: string;
   track: Track;
   choiceRevision?: number;
+  eligibilityPending?: boolean;
 }) {
   const player = usePlayer();
-  const { sources, pending, error, verified, check, confirmReady, revision } =
-    useSourceAvailability(account, track.id, choiceRevision);
+  const {
+    sources,
+    pending,
+    error,
+    verified: availabilityVerified,
+    check,
+    confirmReady,
+    revision,
+  } = useSourceAvailability(account, track.id, choiceRevision);
+  const verified = availabilityVerified && !eligibilityPending;
   const key = JSON.stringify([account, track.id]);
   const [selection, setSelection] = useState<{
     key: string;
