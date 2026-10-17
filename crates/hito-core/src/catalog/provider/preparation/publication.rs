@@ -17,48 +17,7 @@ impl Catalog {
         fenced: bool,
     ) -> Result<&'static str> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        match &completion {
-            Completion::NotStarted(_) => {
-                sqlx::query("UPDATE source_preparations SET
-                    phase = CASE WHEN authority_cancelled = 1 THEN 'cancelled' ELSE 'queued' END,
-                    submission_state = 'unsubmitted',dispatch_id = NULL,begin_attempts = max(begin_attempts - 1,0)
-                    WHERE id = ? AND dispatch_id = ? AND submission_state IN ('submitting','unknown')")
-                    .bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            }
-            Completion::Submitted(Ok(PreparationSubmission::Accepted { handle, .. })) => {
-                sqlx::query("UPDATE source_preparations SET submission_state = 'submitted',remote_handle = ?,
-                    phase = CASE WHEN authority_cancelled = 1 THEN 'cancelled' ELSE 'preparing' END,
-                    next_check_at = CASE WHEN authority_cancelled = 1 THEN NULL ELSE unixepoch() + 5 END,
-                    updated_at = unixepoch() WHERE id = ? AND dispatch_id = ? AND submission_state IN ('submitting','unknown')")
-                    .bind(handle).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            }
-            Completion::Submitted(Ok(PreparationSubmission::NotSubmitted {
-                reason,
-                retry_after_seconds,
-            })) => {
-                let transient = matches!(
-                    reason,
-                    PreparationReason::RateLimited | PreparationReason::ProviderUnavailable
-                );
-                let retry = transient && lease.begin_attempts + 1 < 3;
-                let phase = if retry { "queued" } else { "blocked" };
-                let delay = retry.then(|| i64::from(retry_after_seconds.unwrap_or(5)));
-                sqlx::query("UPDATE source_preparations SET
-                    phase = CASE WHEN authority_cancelled = 1 THEN 'cancelled' ELSE ? END,
-                    submission_state = 'unsubmitted',dispatch_id = NULL,reason = ?,
-                    next_check_at = CASE WHEN authority_cancelled = 1 OR ? IS NULL THEN NULL ELSE unixepoch() + ? END,
-                    updated_at = unixepoch() WHERE id = ? AND dispatch_id = ? AND submission_state IN ('submitting','unknown')")
-                    .bind(phase).bind(reason_code(*reason)).bind(delay).bind(delay)
-                    .bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            }
-            Completion::Submitted(Err(_) | Ok(PreparationSubmission::SubmissionUnknown {})) => {
-                sqlx::query("UPDATE source_preparations SET phase = 'submission_unknown',submission_state = 'unknown',
-                    reason = 'provider_unavailable',next_check_at = NULL,updated_at = unixepoch()
-                    WHERE id = ? AND dispatch_id = ? AND submission_state = 'submitting'")
-                    .bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-            }
-            _ => {}
-        }
+        super::receipts::retain(&mut tx, lease, &completion).await?;
         let owned: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM source_preparations
             WHERE id = ? AND lease_token = ? AND lease_until > unixepoch())",
@@ -227,7 +186,7 @@ async fn schedule(
     Ok(())
 }
 
-fn reason_code(reason: PreparationReason) -> &'static str {
+pub(super) fn reason_code(reason: PreparationReason) -> &'static str {
     match reason {
         PreparationReason::AuthorizationRequired => "authorization_required",
         PreparationReason::QuotaReached => "quota_reached",

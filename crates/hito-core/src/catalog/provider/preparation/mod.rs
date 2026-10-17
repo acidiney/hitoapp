@@ -1,6 +1,7 @@
 mod authority;
 mod lease;
 mod publication;
+mod receipts;
 mod requests;
 mod types;
 mod worker;

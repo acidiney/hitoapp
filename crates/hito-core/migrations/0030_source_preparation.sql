@@ -20,6 +20,7 @@ CREATE TABLE source_preparations (
         CHECK(phase IN ('queued','submitting','preparing','ready','blocked','failed','submission_unknown','cancelled')),
     submission_state TEXT NOT NULL DEFAULT 'unsubmitted'
         CHECK(submission_state IN ('unsubmitted','submitting','submitted','unknown')),
+    remote_outcome TEXT CHECK(remote_outcome IN ('ready','failed')),
     authority_cancelled INTEGER NOT NULL DEFAULT 0 CHECK(authority_cancelled IN (0,1)),
     remote_handle TEXT CHECK(remote_handle IS NULL OR length(remote_handle) BETWEEN 1 AND 2048),
     progress_basis_points INTEGER CHECK(progress_basis_points BETWEEN 0 AND 10000),
@@ -38,17 +39,19 @@ CREATE TABLE source_preparations (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
     CHECK((lease_token IS NULL) = (lease_until IS NULL)),
     CHECK(remote_handle IS NULL OR submission_state = 'submitted'),
+    CHECK(remote_outcome IS NULL OR submission_state = 'submitted'),
     CHECK((phase = 'submitting') = (submission_state = 'submitting')),
     CHECK(authority_cancelled = 0 OR next_check_at IS NULL)
 );
 
 CREATE UNIQUE INDEX source_preparation_retained_submission ON source_preparations(user_id,source_id)
-    WHERE phase IN ('queued','submitting','preparing','blocked','submission_unknown')
-        OR submission_state != 'unsubmitted';
+    WHERE remote_outcome IS NULL AND (
+        phase IN ('queued','submitting','preparing','blocked','submission_unknown')
+        OR submission_state != 'unsubmitted');
 CREATE UNIQUE INDEX source_preparation_unresolved_origin ON source_preparations(
     user_id,service_id,provider,provider_recording_id,remote_source_id)
     WHERE submission_state IN ('submitting','unknown')
-        OR (submission_state = 'submitted' AND phase NOT IN ('ready','failed'));
+        OR (submission_state = 'submitted' AND remote_outcome IS NULL);
 CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at DESC);
 CREATE INDEX source_preparation_due ON source_preparations(next_check_at,created_at,id)
     WHERE authority_cancelled = 0 AND phase IN ('queued','preparing','blocked');
@@ -67,6 +70,10 @@ CREATE INDEX source_preparation_receipt_intent ON source_preparation_receipts(pr
 
 CREATE TRIGGER immutable_source_preparation_receipt BEFORE UPDATE ON source_preparation_receipts BEGIN
     SELECT RAISE(ABORT, 'Source preparation receipts are immutable');
+END;
+CREATE TRIGGER immutable_source_preparation_remote_outcome BEFORE UPDATE OF remote_outcome ON source_preparations
+    WHEN OLD.remote_outcome IS NOT NULL AND NEW.remote_outcome IS NOT OLD.remote_outcome BEGIN
+    SELECT RAISE(ABORT, 'Source preparation terminal outcomes are immutable');
 END;
 CREATE TRIGGER immutable_source_preparation_target BEFORE UPDATE OF
     id,user_id,recording_id,source_id,library_id,access_grant,binding_id,binding_revision,

@@ -45,7 +45,7 @@ impl Catalog {
                     authority::cancel_stale_on(&mut tx, &previous).await?;
                 }
                 let retained: Option<String> = sqlx::query_scalar("SELECT id FROM source_preparations
-                    WHERE user_id = ? AND recording_id = ? AND source_id = ?
+                    WHERE user_id = ? AND recording_id = ? AND source_id = ? AND remote_outcome IS NULL
                         AND (phase IN ('queued','submitting','preparing','blocked','submission_unknown')
                             OR submission_state != 'unsubmitted') LIMIT 1")
                     .bind(actor.id()).bind(recording).bind(source).fetch_optional(&mut *tx).await?;
@@ -205,7 +205,7 @@ async fn unresolved_origin(
         "SELECT EXISTS(SELECT 1 FROM source_preparations
         WHERE user_id = ? AND service_id = ? AND provider = ? AND provider_recording_id = ?
             AND remote_source_id = ? AND (submission_state IN ('submitting','unknown')
-                OR (submission_state = 'submitted' AND phase NOT IN ('ready','failed'))))",
+                OR (submission_state = 'submitted' AND remote_outcome IS NULL)))",
     )
     .bind(account)
     .bind(&provider.service_id)
