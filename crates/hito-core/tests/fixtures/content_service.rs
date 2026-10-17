@@ -100,6 +100,12 @@ impl ProviderServer {
         *self.state.broken_tail.write().await = Some(prefix);
         self.hold("audio-tail").await
     }
+    pub async fn clear_audio_tail_fault(&self) {
+        *self.state.broken_tail.write().await = None;
+        if let Some(gate) = self.state.gates.write().await.remove("audio-tail") {
+            gate.open();
+        }
+    }
     pub async fn requests(&self, path: &str) -> Vec<(HeaderMap, Value)> {
         self.state
             .requests
