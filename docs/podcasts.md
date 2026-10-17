@@ -1,6 +1,6 @@
 # Podcasts in development
 
-RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. The branch includes shared subscription and episode pages with manual feed refresh and unsubscribe. RSS is not deployed to the normal server. Complete browser/native acceptance and explicit podcast downloads remain unfinished.
+RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. The branch includes shared subscription and episode pages with manual feed refresh and unsubscribe. Core also supports explicit podcast downloads. RSS is not deployed to the normal server. Complete download, browser/native and deployment acceptance remain unfinished.
 
 ## Ownership
 
@@ -143,8 +143,22 @@ These checks do not establish the public release gates. The populated full-migra
 
 Podcast-specific pending-handshake/read cancellation, logout, original-grant replacement, mixed manual source choices, hostile framing/redirect races, candidate iteration and global stream saturation still need broader public coverage. Existing provider cases exercise several shared mechanisms, but do not prove those podcast paths. Crash recovery, retained-episode removal, native output and release performance also remain open.
 
+## Explicit downloads
+
+Only an explicit Download request creates a persistent episode copy. Subscription, feed refresh and playback do not create one. Podcast and provider transfers share the existing private download intents, worker limits, managed-file verification and removal workflow.
+
+A podcast intent captures the episode and source IDs, subscription generation, enclosure revision and address, account, access grant and backend host. Its worker checks that durable authority rather than retaining the requesting browser session. Logout therefore does not cancel an accepted download. Unsubscribe or enclosure replacement revokes unfinished work. Ready copies use retained-file authority separately.
+
+The owned-WAV public fixture verifies admission, logout, completion, core restart, exact receipt replay and exact local playback after the upstream server has stopped. Another fixture unsubscribes before a queued transfer starts and verifies `authority_changed`, no enclosure request and no reactivation through receipt replay. Both preserve personal metadata, likes, progress and user-owned original files.
+
+A held-stream fixture delivers and persists exactly 64 WAV bytes, then waits before sending the tail. Unsubscribe commits while that tail remains held. The actual download worker retires within three seconds, closes the upstream body and records `authority_changed` without publishing a copy. Exact receipt replay creates no further request or work. The queued and held-stream cases pass together in 2.01 seconds. The body owns its stream state; fixture shutdown releases the gate and joins its server.
+
+Migration 0044 adds typed podcast origins while retaining provider origins. A closed version-43 fixture checks old typed rows, rowids, sequences, receipts, indexes, migration checksums and ownership views after upgrade. The download checkpoint passes the full default core suite, workspace formatting and strict core all-target Clippy. Three independent source reviews covered security, correctness and performance. These checks do not establish crash recovery, ready-copy retention after unsubscribe, shared-reference removal or browser/native download behavior.
+
+Episode Details already uses the shared recording Download component. No episode-row polling was added. The existing component cancels reads on navigation/account changes and polls active transfers; a real RSS download browser workflow remains pending.
+
 ## Remaining integration
 
-The next work includes broader failure recovery, complete shared UI workflows, authorized browser/native playback and explicit podcast downloads. Status, saved-position reads, Inertia pages, manual refresh and unsubscribe are implemented; full podcast acceptance remains open. Existing persistent-download admission and storage capture plugin origins only; RSS needs its own durable origin and authority support before exposing Download. Complete browser/native acceptance and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+The next work includes broader failure recovery, complete shared UI workflows, authorized browser/native playback and download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are implemented; full podcast acceptance remains open. Complete browser/native checks and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
 
 Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.
