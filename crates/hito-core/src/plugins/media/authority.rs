@@ -34,6 +34,7 @@ impl Authority {
             JOIN provider_sources ps ON ps.installation_id=p.id JOIN sources s ON s.id=ps.source_id AND s.recording_id=ps.recording_id
             JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
             JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id AND m.user_id=p.user_id
+            JOIN source_choice_bindings permitted ON permitted.binding_id=item.id AND permitted.recording_id=s.recording_id AND permitted.user_id=p.user_id
             WHERE p.id=? AND p.user_id=? AND p.service_id=? AND p.active=1 AND p.credential IS ? AND p.audio_generation=?
             AND ps.source_id=? AND ps.provider_source_id=?
             AND item.id=? AND item.revision=?

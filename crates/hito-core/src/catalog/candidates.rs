@@ -45,6 +45,7 @@ impl Catalog {
                 JOIN provider_source_state state ON state.binding_id = item.id
                 JOIN plugin_installations p ON p.id = item.installation_id AND p.active = 1
                 JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
+                JOIN source_choice_bindings permitted ON permitted.binding_id=item.id AND permitted.recording_id=item.recording_id AND permitted.user_id=p.user_id
                 WHERE item.recording_id = ? AND item.retired = 0 AND p.user_id = ?
                 AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')
                 ORDER BY item.id LIMIT ?",

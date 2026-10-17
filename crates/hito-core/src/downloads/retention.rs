@@ -78,15 +78,22 @@ impl Downloads {
         recording: &str,
         grant: &str,
     ) -> Result<Option<String>> {
-        let existing: Option<(String, String, String, bool)> = sqlx::query_as("SELECT i.id,i.access_grant_id,i.state,
+        let existing: Option<(String, String, String, bool, bool)> = sqlx::query_as("SELECT i.id,i.access_grant_id,i.state,
             EXISTS(SELECT 1 FROM download_files f WHERE f.id=i.file_id AND f.state='ready' AND f.account_id=i.account_id
-                AND f.recording_id=i.recording_id AND f.host_device=i.host_device) AS reusable
+                AND f.recording_id=i.recording_id AND f.host_device=i.host_device) AS reusable,
+            (NOT EXISTS(SELECT 1 FROM recording_source_choices choice WHERE choice.user_id=i.account_id
+                AND choice.recording_id=i.recording_id AND choice.binding_id IS NOT NULL)
+                OR (EXISTS(SELECT 1 FROM source_choice_bindings permitted WHERE permitted.user_id=i.account_id
+                    AND permitted.recording_id=i.recording_id AND permitted.binding_id=i.binding_id)
+                    AND (i.state!='ready' OR EXISTS(SELECT 1 FROM download_file_origins origin WHERE origin.file_id=i.file_id
+                        AND origin.account_id=i.account_id AND origin.recording_id=i.recording_id
+                        AND origin.host_device=i.host_device AND origin.binding_id=i.binding_id)))) AS eligible
             FROM download_intents i WHERE i.account_id=? AND i.recording_id=? AND i.host_device=? AND i.state!='removed'")
             .bind(account).bind(recording).bind(self.host.as_str()).fetch_optional(&mut *connection).await?;
-        let Some((previous, previous_grant, state, reusable)) = existing else {
+        let Some((previous, previous_grant, state, reusable, eligible)) = existing else {
             return Ok(None);
         };
-        if previous_grant == grant && state != "failed" {
+        if eligible && previous_grant == grant && state != "failed" {
             return Ok(Some(previous));
         }
         sqlx::query("UPDATE download_intents SET state='removed',generation=generation+1,updated_at=unixepoch() WHERE id=?")
@@ -97,7 +104,7 @@ impl Downloads {
             .await?;
         sqlx::query("UPDATE download_jobs SET status='cancelled',updated_at=unixepoch() WHERE intent_id=? AND status='queued'")
             .bind(&previous).execute(&mut *connection).await?;
-        if state == "ready" && reusable {
+        if state == "ready" && reusable && eligible {
             let intent = Uuid::new_v4().to_string();
             sqlx::query("INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,file_id,
                 provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,service_id,service_revision,

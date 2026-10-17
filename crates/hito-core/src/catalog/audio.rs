@@ -108,6 +108,7 @@ impl Catalog {
             JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id
             JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=m.user_id AND p.active=1
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1
+            JOIN source_choice_bindings permitted ON permitted.binding_id=item.id AND permitted.recording_id=s.recording_id AND permitted.user_id=p.user_id
             WHERE ps.source_id=? AND m.user_id=?")
             .bind(source).bind(actor.id()).fetch_optional(&self.store.pool).await?;
         let Some(binding) = binding else {

@@ -3,6 +3,7 @@ use crate::{
     Actor, Error, Result,
     library_storage::{ManagedFileLocation, managed_mime},
 };
+use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -32,7 +33,7 @@ impl Catalog {
         actor: &Actor,
         source: &str,
     ) -> Result<Option<ManagedLocation>> {
-        let row: Option<Selected> = sqlx::query_as(
+        let mut query = QueryBuilder::new(
             "SELECT file.id,file.attempt_id,file.generation,file.checksum,file.byte_length,file.mime,
                 intent.id AS intent,intent.generation AS intent_generation,intent.access_grant_id AS access_grant
              FROM sources s JOIN recordings recording ON recording.id = s.recording_id
@@ -43,11 +44,23 @@ impl Catalog {
              JOIN retained_download_intents retained ON retained.id=intent.id
              JOIN library_access_grants access ON access.library_id = intent.library_id
                 AND access.user_id = intent.account_id AND access.id = intent.access_grant_id
-             WHERE s.id = ? AND s.provider = 'download' AND s.ready = 1 AND s.device_id = ?
-                AND file.host_device = ? AND file.account_id = ? AND file.state = 'ready'
-             ORDER BY intent.id LIMIT 1",
-        ).bind(source).bind(self.host.as_str()).bind(self.host.as_str()).bind(actor.id())
-            .fetch_optional(&self.store.pool).await?;
+             WHERE s.id = ",
+        );
+        query
+            .push_bind(source.to_owned())
+            .push(" AND s.provider='download' AND s.ready=1 AND s.device_id=")
+            .push_bind(self.host.as_str().to_owned())
+            .push(" AND file.host_device=")
+            .push_bind(self.host.as_str().to_owned())
+            .push(" AND file.account_id=")
+            .push_bind(actor.id().to_owned())
+            .push(" AND file.state='ready' AND ");
+        super::push_source_choice(&mut query, actor.id());
+        query.push(" ORDER BY intent.id LIMIT 1");
+        let row: Option<Selected> = query
+            .build_query_as()
+            .fetch_optional(&self.store.pool)
+            .await?;
         let Some(row) = row else {
             return Ok(None);
         };

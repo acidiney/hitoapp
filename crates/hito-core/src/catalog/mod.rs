@@ -20,6 +20,9 @@ pub(crate) use provider::{provider_library, publish_provider_metadata};
 mod releases;
 mod search;
 mod selection;
+mod source_choice;
+pub(crate) use source_choice::push_source_choice;
+pub use source_choice::{ChooseSource, SourceChoiceReceipt};
 mod sources;
 mod types;
 

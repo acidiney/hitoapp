@@ -32,6 +32,7 @@ impl Plugins {
             JOIN provider_source_state state ON state.binding_id=item.id AND state.generation=ps.generation
             JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=? AND p.active=1
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1
+            JOIN source_choice_bindings permitted ON permitted.binding_id=item.id AND permitted.recording_id=s.recording_id AND permitted.user_id=p.user_id
             WHERE s.recording_id=? AND s.ready=1
             AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value='sources')
             ORDER BY s.id LIMIT 1")

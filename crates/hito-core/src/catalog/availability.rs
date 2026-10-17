@@ -44,6 +44,8 @@ pub(crate) fn push_source_access(
         WHERE ps.source_id = s.id AND p.user_id = ",
     ).push_bind(account.to_owned()).push(" AND EXISTS (
             SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')))");
+    query.push(" AND ");
+    super::push_source_choice(query, account);
 }
 
 pub(super) fn push_managed_access(
