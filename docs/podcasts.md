@@ -1,6 +1,6 @@
 # Podcasts in development
 
-RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. RSS is not deployed to the normal server or available in the web interface yet. Complete browser/native workflows and explicit podcast downloads remain unfinished.
+RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. The branch now includes shared subscription and episode pages. RSS is not deployed to the normal server. Browser/native acceptance, subscription controls and explicit podcast downloads remain unfinished.
 
 ## Ownership
 
@@ -52,6 +52,43 @@ The lifecycle workflow passes through unsubscribe, restart, exact receipt replay
 
 The actual TCP server workflow passes account setup, subscription, background episode publication, source discovery and exact WAV delivery. Another account and anonymous requests cannot read the private episodes or audio. The fixture and host join on success or failure. A separate public HTTP case verifies strict inputs, browser-origin protection, all five served OpenAPI operations and immutable command replay across reactivation. This is development evidence, with no claim about UI operation or shutdown during every active network phase.
 
+## Status and saved playback reads
+
+Subscriptions expose pending work, the last failed check, the last successful check time and the archive revision. A failed retry may still be pending, so failure and pending are independent. Failed checks retain the last successful archive. Feed addresses, enclosure addresses, validators and internal job details stay private.
+
+`Collection.saved_playback` reads current saved positions and speeds for at most 200 requested recording IDs. It authenticates empty reads, rejects mixed inaccessible IDs, preserves the first requested order and omits authorized recordings without progress. It checks the session again after the query and has a one-second deadline. It does not search the latest 200 history entries. The authenticated `POST /api/v1/recordings/progress` route exposes this read through the shared account and strict JSON extractors.
+
+The Inertia routes `/podcasts` and `/podcasts/{id}` return generated page contracts. Detail reads authorize the subscription even for partial requests that ask only for shared props. Episode and progress props load only when requested; one batch covers the selected episode page. These reads start no audio or persistent download.
+
+The subscription page preserves an immutable request after an uncertain acknowledgement, polls pending checks with a bounded retry budget and retains the last good list after a read failure. Definitive input rejection permits a corrected feed with a new request UUID. A delayed acknowledgement preserves any newer draft.
+
+The episode page renders its initial episodes and progress without fetching or playing. Resume sends the saved position, while Start over explicitly sends zero. Pagination replaces the shown page only after the new episodes and their saved positions both load. A stale archive cursor offers Load latest episodes. Account changes and unmounts abort reads and ignore late private responses. The current playback-start command restores position; restoring saved speed through that command remains unfinished.
+
+Docker verification passes the public refresh-state and saved-playback cases, all three existing native saved-position cases, ten core library cases and three server podcast cases. Strict core/server all-target Clippy and formatting pass. The frontend passes 236 tests across 73 files, both TypeScript checks and the production build. These are component and HTTP checks, not complete browser/native podcast acceptance. Independent reviews accepted the private reads and initial subscription and episode workflows.
+
+The saved-playback work regression grows an analyzed one-record database to 100,000 owned recordings, closes and reopens it, then measures actual public reads with inherited, absent and fresh statistics. Before fixing join order, inherited statistics caused about 900,000 SQLite VM instructions for one recording and interrupted a 200-ID read at ten million. Indexed probes now use about 6,800 instructions for 200 IDs in each statistics state. Single-ID reads fall below the meter's 100-instruction sampling resolution. Exact results, ordering and privacy checks pass. These are query-work measurements, not latency benchmarks.
+
+## Browser verification
+
+A disposable host runs the real core, HTTP runtime and built Inertia UI with temporary SQLite and an owned 45-second PCM WAV. Only its exact RSS fixture origin is allowed. The example adds no production network setting or route. The browser refuses an initialized server before typing fixture credentials.
+
+The guarded Chromium and WebKit workflow verifies subscription through the UI, metadata with zero enclosure requests, actual WAV delivery and advancing media time, uninterrupted navigation, seeking and pause, persisted progress, reload Resume and explicit Start over. It also checks that no persistent download appears. Both engines use ordinary click gestures without an autoplay override. WebKit classifies its audio request differently; the test still requires its exact media URL, complete WAV length/header, duration and advancing position. This uses a source-mounted development host, not a packaged release image, native output or a physical phone.
+
+To reproduce from the repository root, use an isolated Compose project and the podcast overlay. Build the tools image, install/build the web app and compile the example first:
+
+```sh
+podcast_compose() {
+  docker compose -p hito-podcast-e2e -f compose.yaml -f scripts/plugins/compose.tools.yaml -f scripts/podcasts/compose.e2e.yaml "$@"
+}
+podcast_compose --profile tools build rust
+podcast_compose --profile tools run --rm node sh -eu -c 'npm ci && npm run build'
+podcast_compose --profile tools run --rm rust cargo build --locked -p hito-server --example podcast_browser
+podcast_compose --profile e2e up -d --no-build --wait e2e-server
+podcast_compose --profile e2e run --rm browser npm run e2e -- e2e/podcast.spec.ts --browser=chromium
+```
+
+Recreate `e2e-server` with `up -d --force-recreate --no-build --wait e2e-server` before running `--browser=webkit`; every run requires a fresh first-run database. Finish with `podcast_compose --profile e2e down`. The overlay publishes no host ports and mounts no persistent application data.
+
 ## Scheduled and conditional updates
 
 Successful feed checks schedule the next update one hour later. The public worker admits due subscriptions inside its existing claim transaction. Automatic checks create no client request receipts and retain the existing limits of 16 pending jobs per account, 128 globally, one running per account and two globally.
@@ -76,7 +113,7 @@ The current parser accepts UTF-8 RSS 2.0, including iTunes author and duration f
 
 ## Verified so far
 
-Current selected Docker verification on 17 October 2026 passes 26 core cases and three server cases. Formatting and strict core/server all-target Clippy pass. The HTTP milestone also regenerated OpenAPI and TypeScript and passed the frontend production build. Separate independent reviews of lifecycle/HTTP and scheduled/conditional production changes each passed their first round. These are selected checks, not a full-suite or release result.
+The conditional-refresh checkpoint on 17 October 2026 passed 26 core cases and three server cases. Formatting and strict core/server all-target Clippy pass. The HTTP milestone also regenerated OpenAPI and TypeScript and passed the frontend production build. Separate independent reviews of lifecycle/HTTP and scheduled/conditional production changes each passed their first round. These are selected checks, not a full-suite or release result.
 
 The earlier core-media checkpoint passed 41 core cases and one production-process logging case, including 20 existing playback/provider compatibility cases. Its coverage overlaps the current checks and must not be added to their count.
 
@@ -102,6 +139,6 @@ Podcast-specific pending-handshake/read cancellation, logout, original-grant rep
 
 ## Remaining integration
 
-The next work includes broader failure recovery, Inertia contracts, shared UI workflows, authorized browser/native playback, and explicit podcast downloads. Subscription reads need truthful pending/failure state, and episode resume needs an authorized saved-position read rather than searching the latest 200 history entries. Existing persistent-download admission and storage capture plugin origins only; RSS needs its own durable origin and authority support before exposing Download. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+The next work includes subscription refresh/unsubscribe controls, broader failure recovery, complete shared UI workflows, authorized browser/native playback and explicit podcast downloads. Status, saved-position reads and initial Inertia pages are implemented; full podcast acceptance remains open. Existing persistent-download admission and storage capture plugin origins only; RSS needs its own durable origin and authority support before exposing Download. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
 
 Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.

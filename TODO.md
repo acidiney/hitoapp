@@ -119,7 +119,9 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [x] Preserve identities and private state across unsubscribe, restart, immutable receipt replay and reactivation. Verify obsolete running-worker retirement and old-grant rejection after reactivation.
   - [x] Expose authenticated RSS JSON routes and join two refresh workers to server shutdown. Verify actual HTTP publication, private audio, account isolation and generated contracts in development. UI, broader active-cancellation checks and normal deployment remain open.
   - [x] Add hourly due checks, exact-address conditional validators, accepted 304 retention and bounded receipt-safe job cleanup. Verify redirect isolation, 36 automatic checks and the additive 0043 migration. Broader recovery and cancellation acceptance remains open.
-  - [ ] Expose truthful subscription status and authorized episode resume positions, then build and verify the shared Inertia workflow.
+  - [x] Expose private subscription refresh status, bounded current saved positions and authorized Inertia pages. Verify account privacy, partial reads, retained history and bounded query work at 100,000 recordings.
+  - [x] Verify the initial subscription and episode workflow in disposable Chromium and WebKit with owned audio, playback across navigation, persisted progress, reload Resume and explicit Start over. This uses a source-mounted development host; native and release-image acceptance remain separate.
+  - [ ] Complete the shared podcast workflow, including refresh/unsubscribe controls, broader recovery and native playback/resume. Initial pages pass component tests, cancellation/account switching and stale-cursor recovery; normal deployment remains open.
   - [ ] Extend durable download origins and authority to RSS episodes, preserving the existing explicit-download and removal rules.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
