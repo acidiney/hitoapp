@@ -1,6 +1,6 @@
 # Source preparation
 
-This contract is under development. The normal local server has explicit provider-track downloads on migration 29; source preparation is not deployed there. Ten focused core and HTTP/runtime cases pass. Complete regression verification, UI integration, the four debrid adapters and release acceptance remain unfinished.
+This contract is under development. The normal local server has explicit provider-track downloads on migration 29; source preparation is not deployed there. The core/server regression suite and ten focused preparation cases pass. UI integration, the four debrid adapters and release acceptance remain unfinished.
 
 ## Ownership
 
@@ -88,5 +88,7 @@ The SQL-work diagnostic passes against 20,000 terminal preparations and 50,000 r
 The cleanup regression executes the production managed-source deletion with foreign keys enabled and verifies rollback and unchanged preparation metadata. With 20,000 terminal preparations, the original relationship cost approximately 60,000 SQLite VM steps. The provider-source relationship keeps the measured deletion below the counter's 100-step resolution in all three statistics modes. This is scoped to preparation history; other cleanup relationships still require scale verification.
 
 Two independent review rounds are complete. Their terminal-history, receipt-limit, cleanup and offline-resume findings have direct regression coverage. All ten focused cases pass after the fixes.
+
+Final Docker verification passes 226 distinct core tests and 101 distinct server tests. Four subprocess cases also report their child execution separately, for 331 passing executions in total. One existing filesystem-fault test remains normally ignored. Strict core/server Clippy with all targets, the workspace default-feature all-target compile check and workspace formatting also pass. These checks do not establish desktop GUI, live debrid or public-release acceptance.
 
 Manual retry of an unsubmitted request blocked by its initial budget remains unimplemented. Further submission-loss reconciliation, lease/authority races, broader joined-shutdown checks, deferred playback, generic UI, concrete Real-Debrid/AllDebrid/Premiumize/TorBox services, provider credentials, fixture/live checks and release gates remain required. See [the release plan](release-plan.md).
