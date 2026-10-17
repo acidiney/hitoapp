@@ -8,6 +8,8 @@ use hito_plugin_sdk::{
 };
 use std::{collections::BTreeSet, iter::Take, sync::Arc, vec::IntoIter};
 
+const DETAIL_LIMIT: usize = 3;
+
 enum CandidateEvidence {
     Legacy,
     Musical(Box<RecordingMetadata>),
@@ -24,31 +26,53 @@ pub(super) struct Candidate {
 
 impl Candidate {
     pub(super) fn accepts(&self, target: &MusicalRecording) -> bool {
-        if self.details.validate().is_err()
-            || self.sources.validate().is_err()
-            || !self.sources.items.iter().any(|source| source.ready)
-        {
-            return false;
+        self.rejection(target).is_none()
+    }
+
+    fn rejection(&self, target: &MusicalRecording) -> Option<&'static str> {
+        if self.details.validate().is_err() {
+            return Some("invalid_details");
+        }
+        if self.sources.validate().is_err() {
+            return Some("invalid_sources");
+        }
+        if !self.sources.items.iter().any(|source| source.ready) {
+            return Some("no_ready_source");
         }
         match &self.evidence {
             CandidateEvidence::Legacy => {
-                !self.operation.metadata_approved() && target.accepts(&self.details)
+                if self.operation.metadata_approved() {
+                    Some("metadata_evidence_required")
+                } else if !target.accepts(&self.details) {
+                    Some("legacy_musical_mismatch")
+                } else {
+                    None
+                }
             }
             CandidateEvidence::Musical(metadata) => {
                 let Some(witnesses) = metadata.source_ids.as_ref() else {
-                    return false;
+                    return Some("missing_source_witnesses");
                 };
-                self.operation.metadata_approved()
-                    && metadata.validate().is_ok()
-                    && metadata.recording == self.details
-                    && witnesses.iter().collect::<BTreeSet<_>>()
-                        == self
-                            .sources
-                            .items
-                            .iter()
-                            .map(|source| &source.id)
-                            .collect::<BTreeSet<_>>()
-                    && target.accepts_metadata(metadata)
+                if !self.operation.metadata_approved() {
+                    return Some("metadata_not_approved");
+                }
+                if metadata.validate().is_err() {
+                    return Some("invalid_metadata");
+                }
+                if metadata.recording != self.details {
+                    return Some("metadata_details_mismatch");
+                }
+                if witnesses.iter().collect::<BTreeSet<_>>()
+                    != self
+                        .sources
+                        .items
+                        .iter()
+                        .map(|source| &source.id)
+                        .collect::<BTreeSet<_>>()
+                {
+                    return Some("source_witness_mismatch");
+                }
+                target.metadata_rejection(metadata)
             }
         }
     }
@@ -118,6 +142,7 @@ impl Catalog {
             actor.check_session_on(&mut connection).await?;
             operation.recheck(&mut connection).await?;
         }
+        let returned_count = page.items.len();
         page.items.retain(|candidate| {
             if operation.metadata_approved() {
                 target.musical.plausible_metadata_summary(candidate)
@@ -125,11 +150,18 @@ impl Catalog {
                 target.musical.plausible(candidate)
             }
         });
+        tracing::debug!(
+            event = "source_resolution_search_candidates",
+            returned_count,
+            plausible_count = page.items.len(),
+            detail_limit = DETAIL_LIMIT,
+            "Source resolution search candidates filtered"
+        );
         Ok(Page {
             installation,
             revision,
             operation: Arc::new(operation),
-            summaries: page.items.into_iter().take(3),
+            summaries: page.items.into_iter().take(DETAIL_LIMIT),
         })
     }
 }
@@ -180,7 +212,17 @@ impl Page {
                     continue;
                 }
             };
-            if candidate.details.id != summary.id || !candidate.accepts(&target.musical) {
+            let rejection = if candidate.details.id != summary.id {
+                Some("detail_identity_mismatch")
+            } else {
+                candidate.rejection(&target.musical)
+            };
+            if let Some(reason) = rejection {
+                tracing::debug!(
+                    event = "source_resolution_candidate_rejected",
+                    reason,
+                    "Source resolution candidate rejected"
+                );
                 continue;
             }
             return Ok(Some(candidate));

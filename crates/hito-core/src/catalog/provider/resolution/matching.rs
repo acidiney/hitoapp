@@ -44,12 +44,15 @@ impl MusicalRecording {
                 .is_some_and(|duration| self.duration_matches(duration))
     }
 
-    pub(super) fn accepts_metadata(&self, metadata: &RecordingMetadata) -> bool {
+    pub(super) fn metadata_rejection(&self, metadata: &RecordingMetadata) -> Option<&'static str> {
         let Some(musical_title) = metadata.musical_title.as_deref() else {
-            return false;
+            return Some("missing_musical_title");
         };
         let candidate = &metadata.recording;
         let title = normalized(&self.title);
+        if title.is_empty() || title != normalized(musical_title) {
+            return Some("musical_title_mismatch");
+        }
         let mut candidate_versions = versions(
             &candidate.title,
             candidate
@@ -63,15 +66,23 @@ impl MusicalRecording {
             metadata.album_title.as_deref(),
             None,
         ));
-        !title.is_empty()
-            && title == normalized(musical_title)
-            && versions(&self.title, self.album.as_deref(), None) == candidate_versions
-            && known_artist(&self.artist)
-            && known_artist(&candidate.artist)
-            && normalized(&self.artist) == normalized(&candidate.artist)
-            && candidate
-                .duration_ms
-                .is_some_and(|duration| self.duration_matches(duration))
+        if versions(&self.title, self.album.as_deref(), None) != candidate_versions {
+            return Some("version_mismatch");
+        }
+        if !known_artist(&self.artist) {
+            return Some("unknown_target_artist");
+        }
+        if !known_artist(&candidate.artist) {
+            return Some("unknown_candidate_artist");
+        }
+        if normalized(&self.artist) != normalized(&candidate.artist) {
+            return Some("artist_mismatch");
+        }
+        match candidate.duration_ms {
+            None => Some("missing_duration"),
+            Some(duration) if !self.duration_matches(duration) => Some("duration_mismatch"),
+            Some(_) => None,
+        }
     }
 
     fn identity_matches(&self, candidate: &ProviderRecording) -> bool {
