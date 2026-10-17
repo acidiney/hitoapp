@@ -1,6 +1,6 @@
 # Automatic audio sources
 
-Automatic source resolution is in development on a separate branch. Its first controlled browser workflow passes, but the normal local server still runs the earlier image. Real Spotify-to-YouTube selection, durable manual correction and native integration remain unfinished.
+Automatic source resolution is in development on a separate branch. Its first controlled browser workflow passes, but the normal local server still runs the earlier image. Durable manual choice, current-state reads and return to Automatic are implemented with the evidence below. Final correction acceptance, real Spotify-to-YouTube selection and native integration remain unfinished.
 
 ## Playback and ownership
 
@@ -82,7 +82,7 @@ That image precedes the publication-cancellation fix. A final accepted image mus
 
 ## Remaining work
 
-The first [manual-selection workflow](manual-sources.md) now verifies binding B across representation changes, provider disconnection and restart, including distinct downloaded audio and physical cleanup after replacement. Current-choice reads, return to Automatic, correction controls and download-status presentation remain unfinished. Automatic retries, Follow updates and concurrent operations still need their own acceptance cases. Explicit attachment remains an independent operation that adds an alternate source.
+The [manual-selection workflow](manual-sources.md) verifies binding B across representation changes, provider disconnection and restart, including distinct downloaded audio and physical cleanup after replacement. Current-choice reads, return to Automatic, correction controls and previous-source download presentation are implemented. Direct resolver checks also cover unread saved-body revocation and dependent-action gating during uncertain writes. Conflict-driven download reconciliation remains open. Automatic retries, Follow updates and concurrent operations still need their own acceptance cases. Explicit attachment remains an independent operation that adds an alternate source.
 
 Both independent security, correctness and performance review rounds are complete for the first automatic-resolution artifact. The first round found five issues. Public regressions and fixes cover migration child-reference work, candidate calls after revocation, an explicit release titled Live, bounded caller admission and binding collisions before or during publication. The second round passed security and performance source review and found one remaining correctness issue in broader live album contexts. Its public regression and minimal fix pass resolver verification; there was no third review.
 

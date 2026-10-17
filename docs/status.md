@@ -28,7 +28,7 @@ The separate image `sha256:e3d2e830ce8875ae4ae12188ae4e99efad32d0d56fbc44a823b60
 
 Ordinary browser Play now has a bounded automatic-resolution stage for saved provider recordings, with inherited musical metadata, approved personal connections, durable receipts and a distinct automatic-association policy. A separate image passes actual Chromium playback using controlled providers and owned WAV audio, preserving recording identity, duplicate playlist entries and personal edits. Directed source checks also verify started-publication settlement after supplied cancellation and exact browser request replay after a lost acknowledgement.
 
-This feature is not deployed to the normal server. Durable manual source correction, common YouTube title and album evidence, real Spotify-to-YouTube automatic playback, native integration and remaining authority, recovery and release checks stay open. The browser image predates the cancellation fix and needs final image verification. See [ownership, policy, exact evidence and remaining work](automatic-sources.md).
+This feature is not deployed to the normal server. The development branch includes durable manual choice, current reads, return to Automatic and previous-source download presentation. Public regressions cover source identity, unread saved-body revocation and dependent-action gating through uncertain writes. Conflict-driven download reconciliation remains open. The browser image predates the final fixes and needs rebuilding and verification. Real Spotify-to-YouTube automatic playback, native integration and remaining authority, recovery and release checks stay open. See [ownership, policy, exact evidence and remaining work](automatic-sources.md).
 
 ## Running local deployment
 
