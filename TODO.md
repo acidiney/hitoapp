@@ -128,7 +128,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## Community service
 
-- [ ] Build and deploy the separate source-ranking/correction API. The development crate has a private SQLite store, closed reporter provisioning, durable playback receipts, candidate-only rankings and generated public `GET /v1/openapi.json`. Four community cases and three Jamendo cases pass together in Docker. Corrections, public-operation safeguards and deployment remain open. See [community evidence and limits](docs/community-service.md).
+- [ ] Build and deploy the separate source-ranking/correction API. The development crate has a private SQLite store, closed reporter provisioning, durable playback receipts, candidate-only rankings, generated public `GET /v1/openapi.json` and an executable with private-token-file bootstrap on default loopback port `8095`. Five community cases pass in Docker, including real-child SIGTERM drain, joined state close, correlated lifecycle logs, TRACE privacy and persisted-reporter restart. Container/deployment work, corrections, moderation, rates/quotas, retention, revocation, application opt-ins and live hosting remain open. See [community evidence and limits](docs/community-service.md).
 - [ ] Add separate disabled-by-default opt-ins for playback reporting and metadata corrections.
 - [ ] Validate and redact contributions; rank successful playback and filter by configured providers.
 - [ ] Add correction suggestions, provider validation/maintainer review, moderation, and rate limits.
