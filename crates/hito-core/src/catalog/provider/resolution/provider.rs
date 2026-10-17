@@ -125,13 +125,6 @@ impl Catalog {
                 target.musical.plausible(candidate)
             }
         });
-        page.items.sort_by(|left, right| {
-            target
-                .musical
-                .duration_distance(left)
-                .cmp(&target.musical.duration_distance(right))
-                .then_with(|| left.id.cmp(&right.id))
-        });
         Ok(Page {
             installation,
             revision,

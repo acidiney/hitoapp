@@ -74,13 +74,6 @@ impl MusicalRecording {
                 .is_some_and(|duration| self.duration_matches(duration))
     }
 
-    pub(super) fn duration_distance(&self, candidate: &ProviderRecording) -> u64 {
-        candidate
-            .duration_ms
-            .map(|duration| duration.abs_diff(self.duration_ms.max(0) as u64))
-            .unwrap_or(u64::MAX)
-    }
-
     fn identity_matches(&self, candidate: &ProviderRecording) -> bool {
         let title = normalized(&self.title);
         !title.is_empty()
