@@ -13,10 +13,12 @@ flowchart LR
   Existing -->|Exhausted| Resolve[Authenticated resolution API]
   Resolve --> Core[Core catalog]
   Core --> Evidence[Inherited musical metadata]
-  Core --> Providers[Approved personal search and audio services]
+  Core --> Cursor[Bounded lazy candidate cursor]
+  Cursor --> Providers[Approved personal search and audio services]
   Providers --> Check[Check candidate details and readiness]
   Check --> Publish[Fenced SQLite publication and receipt]
-  Publish --> Same[Same Hito recording with an alternate source]
+  Publish -->|Binding claimed concurrently| Cursor
+  Publish -->|Source accepted| Same[Same Hito recording with an alternate source]
   Same --> Player
 ```
 
@@ -34,6 +36,8 @@ Caller admission permits one in-flight resolution call per account and two globa
 
 A ten-second budget bounds admission and read-only preparation; a twelve-second lease and token checks fence publication. A started SQLite publication is awaited and can extend beyond the foreground budget. Caller capacity remains held through publication and the final authorized result.
 
+The cursor searches each selected connection once and retains its place within the current provider page. If another operation claims a candidate before publication, the atomic binding check rolls back that publication and advances the same cursor. The resolution retains its original request, receipt, lease, deadline and candidate limits. Other publication conflicts remain errors.
+
 This policy does not yet handle common YouTube video-title wrappers. A title such as `Performer - Song (Official Audio)` can be rejected before detailed extraction. The SDK and YouTube adapter now have a separate [musical-metadata endpoint](plugins.md#musical-metadata-in-development) that retains track title, album context and source witnesses alongside the full video title. Core does not yet request that evidence. Missing album context can therefore still conceal a live-version qualifier during automatic selection. Provider metadata is not acoustic verification; these gaps must be resolved before real automatic YouTube acceptance.
 
 ## Retry and cancellation
@@ -42,7 +46,7 @@ Core stores durable request receipts. Replaying an accepted UUID returns the sam
 
 The browser freezes one UUID and request body. An ambiguous acknowledgement permits one retry with that exact body and the same account-owned cancellation signal. Rejected client requests are not retried automatically. Account or queue replacement cancels the old owner and fences late results. A resolution response cannot replay an audio source already exhausted in that playback cycle.
 
-Supplied cancellation can interrupt read-only candidate work. Once publication starts, core awaits its fenced transaction before settling the caller. Abruptly dropping the entire core future and HTTP disconnect ownership remain separate verification work. No detached cleanup task is used to claim immediate release.
+Supplied cancellation can interrupt read-only candidate work. Once publication starts, core awaits its fenced transaction before settling the caller. If a binding collision rejects that publication, cancellation is checked before further provider IO and settles the same receipt as cancelled. A successful publication still settles as ready after cancellation arrives. Abruptly dropping the entire core future and HTTP disconnect ownership remain separate verification work. No detached cleanup task is used to claim immediate release.
 
 ## Verified evidence
 
@@ -54,7 +58,8 @@ Supplied cancellation can interrupt read-only candidate work. Once publication s
 - The complete frontend suite passes 220 cases across 61 files, both TypeScript checks and the production build.
 - A held provider-source exchange followed by public connection removal now stops later candidate requests. The regression preserves primary metadata, personal edits, activity and duplicate playlist entries. Its active control still reaches the next eligible candidate.
 - Public matching cases reject studio-to-live and live-to-studio associations when the release is titled exactly `Live`. A studio song whose musical title is `Live` still resolves and plays its exact owned WAV.
-- When candidate A already belongs to another Hito recording, resolution skips it and selects B. Both recordings retain their identities and metadata; A still serves its original WAV and the target plays B's distinct WAV. A binding claimed after candidate selection remains separate unfinished work.
+- When candidate A already belongs to another Hito recording, resolution skips it and selects B. A second case claims A through public adoption after candidate selection, then verifies continuation to B with one search and the original request and budget. Both recordings retain their identities and metadata; A still serves its original WAV and the target plays B's distinct WAV.
+- Cancellation during that rejected publication prevents B detail, source and audio requests. Replaying the cancelled receipt returns the same identity without provider IO or private-state changes. The separate successful-publication cancellation case still returns ready. All three cases and strict Clippy pass.
 - Six excess same-account calls return controlled Busy while an owner is held. After settlement, its UUID replays and rejected new UUIDs receive distinct fresh receipts. A separate three-account case admits two held owners, rejects the third without provider IO, then admits that account when one owner settles. Its receipts and source access remain private to each account. These cases and their strict Clippy checks pass; whole-future-drop capacity and durable-lease recovery remain separate boundaries.
 - The SDK passes seventeen public contract cases with schema generation enabled. YouTube passes nineteen fixture cases, with one live case explicitly ignored, and both pass strict all-target Clippy. New cases cover structured artists, retained video-version titles, malformed lists, legacy fallback and a separate snapshot-bound musical-metadata endpoint. These are owned extractor/HTTP fixtures, not live automatic matching.
 
@@ -66,6 +71,6 @@ That image precedes the publication-cancellation fix. A final accepted image mus
 
 Durable manual selection must survive automatic retries, Follow updates and restart. Choosing provider binding B must exclude known-wrong binding A and its saved copies while allowing a verified saved copy of B during an outage. Download admission must not reuse A solely because it belongs to the same recording. Explicit attachment remains an independent operation that adds an alternate source.
 
-The first independent security, correctness and performance review found five issues. Directed regressions and fixes now cover migration child-reference work, candidate calls after revocation, an explicit release titled Live and bounded waiting-call admission. The already-bound candidate case passes when the binding exists before selection; a claim arising at publication still requires continuation without restarting search or increasing the original budgets. A second review round has not started. The fresh complete core/server gate stopped at the original large migration regression and has not been rerun to completion; directed checks above remain separate evidence.
+The first independent security, correctness and performance review found five issues. Directed regressions and fixes now cover migration child-reference work, candidate calls after revocation, an explicit release titled Live, bounded waiting-call admission and binding collisions before or during publication. A second review round has not started. The fresh complete core/server gate stopped at the original large migration regression and has not been rerun to completion; directed checks above remain separate evidence.
 
 Other required work includes retained automatic-decision revalidation after metadata changes, remaining authority and concurrency boundaries, failed-ready-source recovery, core consumption and retention of musical metadata, real Spotify/YouTube playback, native integration, final review, full upgrade rehearsal and platform, codec and performance gates. The automatic-source item in [TODO.md](../TODO.md) remains open.
