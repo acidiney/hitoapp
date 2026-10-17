@@ -29,6 +29,9 @@ CREATE TABLE source_preparations (
         'source_unavailable','source_changed','unsupported','provider_unavailable','invalid_response')),
     next_check_at INTEGER DEFAULT (unixepoch()),
     attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+    begin_attempts INTEGER NOT NULL DEFAULT 0 CHECK(begin_attempts BETWEEN 0 AND 3),
+    poll_failures INTEGER NOT NULL DEFAULT 0 CHECK(poll_failures >= 0),
+    dispatch_id TEXT,
     lease_token TEXT,
     lease_until INTEGER,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -36,7 +39,7 @@ CREATE TABLE source_preparations (
     CHECK((lease_token IS NULL) = (lease_until IS NULL)),
     CHECK(remote_handle IS NULL OR submission_state = 'submitted'),
     CHECK((phase = 'submitting') = (submission_state = 'submitting')),
-    CHECK(authority_cancelled = 0 OR (next_check_at IS NULL AND lease_token IS NULL))
+    CHECK(authority_cancelled = 0 OR next_check_at IS NULL)
 );
 
 CREATE UNIQUE INDEX source_preparation_retained_submission ON source_preparations(user_id,source_id)
@@ -44,10 +47,11 @@ CREATE UNIQUE INDEX source_preparation_retained_submission ON source_preparation
         OR submission_state != 'unsubmitted';
 CREATE UNIQUE INDEX source_preparation_unresolved_origin ON source_preparations(
     user_id,service_id,provider,provider_recording_id,remote_source_id)
-    WHERE submission_state IN ('submitting','unknown');
+    WHERE submission_state IN ('submitting','unknown')
+        OR (submission_state = 'submitted' AND phase NOT IN ('ready','failed'));
 CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at DESC);
 CREATE INDEX source_preparation_due ON source_preparations(next_check_at,created_at,id)
-    WHERE authority_cancelled = 0 AND phase IN ('queued','preparing');
+    WHERE authority_cancelled = 0 AND phase IN ('queued','preparing','blocked');
 CREATE INDEX source_preparation_expired ON source_preparations(lease_until) WHERE lease_token IS NOT NULL;
 CREATE INDEX source_preparation_account ON source_preparations(user_id,phase);
 

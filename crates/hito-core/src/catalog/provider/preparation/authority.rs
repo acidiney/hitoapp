@@ -57,7 +57,7 @@ pub(super) async fn cancel_stale_on(
     let cancelled = sqlx::query("UPDATE source_preparations SET authority_cancelled = 1,
         phase = CASE WHEN submission_state IN ('submitting','unknown') THEN 'submission_unknown' ELSE 'cancelled' END,
         submission_state = CASE WHEN submission_state = 'submitting' THEN 'unknown' ELSE submission_state END,
-        next_check_at = NULL,lease_token = NULL,lease_until = NULL,updated_at = unixepoch()
+        next_check_at = NULL,updated_at = unixepoch()
         WHERE id = ? AND authority_cancelled = 0
             AND NOT EXISTS(SELECT 1 FROM current_source_preparation_authority authority WHERE authority.id = source_preparations.id)")
         .bind(preparation).execute(connection).await?.rows_affected();

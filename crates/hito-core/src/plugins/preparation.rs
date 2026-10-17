@@ -3,6 +3,9 @@ use crate::{Error, Result};
 use hito_plugin_sdk::{Capability, Manifest};
 use sqlx::{Row, SqliteConnection};
 
+mod operation;
+pub(crate) use operation::{PreparationExchange, PreparationOperation};
+
 pub(crate) struct PreparationConnection {
     pub installation_id: String,
     pub installation_revision: i64,

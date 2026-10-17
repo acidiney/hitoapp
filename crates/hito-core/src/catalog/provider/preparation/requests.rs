@@ -204,7 +204,8 @@ async fn unresolved_origin(
     let unresolved: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM source_preparations
         WHERE user_id = ? AND service_id = ? AND provider = ? AND provider_recording_id = ?
-            AND remote_source_id = ? AND submission_state IN ('submitting','unknown'))",
+            AND remote_source_id = ? AND (submission_state IN ('submitting','unknown')
+                OR (submission_state = 'submitted' AND phase NOT IN ('ready','failed'))))",
     )
     .bind(account)
     .bind(&provider.service_id)
