@@ -1,6 +1,6 @@
 # Podcasts in development
 
-RSS support is being built in `feature/podcasts`. Core subscriptions, episode publication and authorized audio delivery are verified in development. RSS is not deployed to the normal server or available in the web interface yet. Scheduled updates, complete browser/native workflows and explicit downloads remain unfinished.
+RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle and the HTTP runtime are verified in development. RSS is not deployed to the normal server or available in the web interface yet. Scheduled updates, complete browser/native workflows and explicit downloads remain unfinished.
 
 ## Ownership
 
@@ -27,6 +27,28 @@ Explicit playback captures the current enclosure address, revision, subscription
 
 An episode is identified by its subscription and opaque RSS GUID. Without a GUID, its enclosure address is the fallback identity. Titles and dates do not prove identity. A changed title or enclosure on an existing GUID updates its inherited metadata while retaining its episode and recording IDs. Missing items are retained rather than deleting listening state.
 
+## Subscription controls and HTTP
+
+Unsubscribing hides the subscription and stops its podcast audio authority. It preserves episodes, recording and source IDs, personal edits, likes, progress and playlist occurrences. Queued refreshes are cancelled. A running refresh retains its lease until its worker retires; a new subscription request conflicts while that obsolete work is still running.
+
+Subscribing again with a new request UUID and the same normalized feed address reactivates the existing subscription and queues a fresh refresh. The original account, private library and access grant must still match. A changed generation prevents an old playback grant from becoming valid again. Replaying an earlier subscribe or unsubscribe request returns its original receipt without changing a later subscription cycle. Unsubscribe receipts share the existing transactional request-history budget.
+
+The development server exposes authenticated JSON routes through the shared account extractor. The Rust handlers generate OpenAPI and TypeScript.
+
+| Method | Route | Result |
+| --- | --- | --- |
+| GET | `/api/v1/podcasts` | The account's active subscriptions |
+| POST | `/api/v1/podcasts` | A subscription receipt, HTTP 202 |
+| GET | `/api/v1/podcasts/{id}/episodes` | An authorized continuation page |
+| POST | `/api/v1/podcasts/{id}/refresh` | A refresh receipt, HTTP 202 |
+| POST | `/api/v1/podcasts/{id}/unsubscribe` | An immutable acknowledgement |
+
+Two polling workers belong to the server host and join its shutdown. Episodes use the existing recording-source and audio routes. Feed retrieval starts no audio or persistent download.
+
+The lifecycle workflow passes through unsubscribe, restart, exact receipt replay and reactivation, including exact WAV playback and retained private state. A separate held-request scenario proves reactivation conflicts while the genuine old worker future is pending, then succeeds after that same worker retires. The old audio grant is first checked after reactivation and remains revoked.
+
+The actual TCP server workflow passes account setup, subscription, background episode publication, source discovery and exact WAV delivery. Another account and anonymous requests cannot read the private episodes or audio. The fixture and host join on success or failure. Twenty-two selected core cases, this HTTP workflow, the additional held-worker case, strict core/server all-target Clippy and the generated frontend production build pass. This is selected development evidence, with no claim about UI operation or shutdown during every active network phase.
+
 ## Network and parsing
 
 The HTTP implementation validates every resolved address and pins connections to that snapshot. Each redirect passes the same checks. Private destinations require an exact origin in administrator-controlled `CoreConfig.podcast_network`; ordinary subscription requests cannot supply an exception. No runtime environment setting or settings UI exists for this configuration yet.
@@ -39,7 +61,7 @@ The current parser accepts UTF-8 RSS 2.0, including iTunes author and duration f
 
 ## Verified so far
 
-Selected Docker verification on 17 October 2026 passes 41 core cases and one production-process logging case. The core cases include 17 foundation checks, four new media scenarios and 20 existing playback/provider compatibility checks. Strict Clippy passes for all core targets. This is selected coverage, not a full-suite or release result.
+The earlier core-media checkpoint on 17 October 2026 passed 41 core cases and one production-process logging case. The core cases included 17 foundation checks, four media scenarios and 20 existing playback/provider compatibility checks. Lifecycle and HTTP evidence is recorded above. These are selected checks, not a full-suite or release result.
 
 Foundation checks cover opaque GUIDs, relative enclosure addresses, empty optional feed fields, XML name validation, rejected external and undeclared entities, declared and unique expanded attribute names, actual pinned TCP delivery, blocked private redirects, mixed DNS rejection and rejection of empty userinfo before a connection or subscription is persisted.
 
@@ -57,10 +79,10 @@ A separate public scenario verifies that refreshing the same GUIDs invalidates a
 
 Personal-library creation belongs to identity and access management. RSS, provider adoption, playlist copies and Follow reuse that private library operation. Six existing provider, playlist-copy and Follow scenarios pass after moving the helper without changing its SQL, labels or ownership behavior. Strict Clippy passes for all core targets.
 
-These checks do not establish the public release gates. The populated full-migration regression reaches 0041 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
+These checks do not establish the public release gates. The populated full-migration regression now reaches 0042 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences, then reopens through the latest core migration. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
 
 Podcast-specific pending-handshake/read cancellation, logout, original-grant replacement, mixed manual source choices, hostile framing/redirect races, candidate iteration and global stream saturation still need broader public coverage. Existing provider cases exercise several shared mechanisms, but do not prove those podcast paths. Crash recovery, retained-episode removal, native output and release performance also remain open.
 
 ## Remaining integration
 
-The next work includes scheduled and conditional refresh, subscription lifecycle, complete failure recovery, authenticated HTTP and Inertia contracts, shared UI workflows, authorized browser/native playback, and explicit downloads. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+The next work includes scheduled and conditional refresh, complete failure recovery, Inertia contracts, shared UI workflows, authorized browser/native playback, and explicit downloads. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
