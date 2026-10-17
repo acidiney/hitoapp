@@ -2,6 +2,7 @@ mod artwork;
 mod authorization;
 mod content;
 mod playlists;
+mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use authorization::Authorization;
 pub use content::{
@@ -13,6 +14,11 @@ pub use playlists::{
     MAX_PLAYLIST_ITEMS, MAX_PLAYLIST_PAGE_ITEMS, PLAYLIST_DETAIL_PATH, PLAYLIST_ITEMS_PATH,
     PlaylistAttribution, PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage,
     ProviderPlaylist, ProviderPlaylistEntry, ProviderPlaylistItem,
+};
+pub use preparation::{
+    MAX_PREPARATION_HANDLE_BYTES, PREPARATION_STATUS_PATH, PREPARE_SOURCE_PATH, PreparationReason,
+    PreparationRequest, PreparationStatus, PreparationStatusRequest, PreparationStatusResponse,
+    PreparationSubmission, PreparationSubmitResponse,
 };
 
 use serde::{Deserialize, Serialize};
@@ -41,6 +47,7 @@ pub enum Capability {
     Catalog,
     Metadata,
     Sources,
+    SourcePreparation,
     Playlists,
     Artwork,
     Dashboard,
@@ -72,6 +79,11 @@ impl Manifest {
         }
         if self.capabilities.is_empty() {
             return Err("Declare at least one capability".into());
+        }
+        if self.capabilities.contains(&Capability::SourcePreparation)
+            && !self.capabilities.contains(&Capability::Sources)
+        {
+            return Err("Source preparation requires the sources capability".into());
         }
         if let Some(authorization) = &self.authorization {
             authorization.validate().map_err(str::to_owned)?;

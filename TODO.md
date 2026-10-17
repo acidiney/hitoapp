@@ -68,6 +68,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Add source-only provider refresh, bounded browser failover near the requested position, and explicit track-details availability checks.
 - [x] Review and attach alternate provider audio to an existing recording without replacing its metadata or playlist identities. Verify the complete copied-track workflow and recovery through actual audio in Chromium. Deployed locally after backup, clone restoration and migration checks; see [source attachment](docs/provider-sources.md).
 - [ ] Complete remaining plugin capability requests/results, conversion, and operational capability negotiation.
+- [x] Implement and verify the generic source-preparation backend and plugin contract in development, including durable receipts, restart polling and uncertain-submission guards. UI, deferred playback, concrete adapters and deployment remain open. See [evidence and limits](docs/source-preparation.md).
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
 - [x] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; verify installation, discovery, adoption, playback, and seeking, start the local service, and notify the user here.

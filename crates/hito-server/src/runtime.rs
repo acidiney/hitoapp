@@ -1,4 +1,5 @@
 mod downloads;
+mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
 use std::{
@@ -67,7 +68,15 @@ async fn serve_owned(
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
-    let artwork = artwork_worker(services.catalog, stopped.clone());
+    let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
+    let preparation_catalog = services.catalog;
+    let preparation_stop = stopped.clone();
+    let preparations = async move {
+        tokio::join!(
+            source_preparation::worker(preparation_catalog.clone(), preparation_stop.clone(), 0),
+            source_preparation::worker(preparation_catalog, preparation_stop, 1),
+        );
+    };
     let download_storage = services.downloads.clone();
     let downloads = services.downloads;
     let download_stop = stopped.clone();
@@ -88,7 +97,8 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), ()) = tokio::join!(http, indexing, artwork, follows, transfers);
+    let (result, (), (), (), (), ()) =
+        tokio::join!(http, indexing, artwork, follows, transfers, preparations);
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),
