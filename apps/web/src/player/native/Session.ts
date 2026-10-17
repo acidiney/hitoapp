@@ -1,3 +1,4 @@
+import { createUuid } from "../../uuid";
 import { HttpError } from "../../http";
 import { log } from "../../log";
 import {
@@ -144,7 +145,7 @@ export class NativeSession {
         new Error("Playback commands are unavailable. Try again."),
       );
     const tickets = Array.from({ length: count }, () => ({
-      id: crypto.randomUUID(),
+      id: createUuid(),
       sequence: ++this.sequence,
     }));
     const lane = this.lane;

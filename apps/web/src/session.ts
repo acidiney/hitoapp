@@ -1,3 +1,4 @@
+import { createUuid } from "./uuid";
 import { router } from "@inertiajs/react";
 import { log } from "./log";
 
@@ -23,7 +24,7 @@ function account(props: { [key: string]: unknown }) {
 }
 
 export function notifySessionChanged() {
-  const value = crypto.randomUUID();
+  const value = createUuid();
   try {
     localStorage.setItem(revisionKey, value);
   } catch {}

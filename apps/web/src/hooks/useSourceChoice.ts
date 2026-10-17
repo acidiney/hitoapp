@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../http";
 import { log } from "../log";
@@ -247,7 +248,7 @@ export function useSourceChoice(
         ? perform({
             kind: "choose",
             body: Object.freeze({
-              request_id: crypto.randomUUID(),
+              request_id: createUuid(),
               source_id: source,
             }),
           })
@@ -259,7 +260,7 @@ export function useSourceChoice(
         ? perform({
             kind: "reset",
             body: Object.freeze({
-              request_id: crypto.randomUUID(),
+              request_id: createUuid(),
               expected_revision: choice.revision,
             }),
           })

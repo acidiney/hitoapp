@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useState, type FormEvent } from "react";
 import { Link, router } from "@inertiajs/react";
 import { Plus } from "lucide-react";
@@ -21,7 +22,7 @@ export default function PlaylistIndexPage({
     if (!name.trim() || pending) return;
     const result = await mutate({
       kind: "playlist_create",
-      playlist_id: crypto.randomUUID(),
+      playlist_id: createUuid(),
       name,
     });
     if (result.ok) {

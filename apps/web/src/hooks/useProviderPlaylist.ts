@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { pluginsApi } from "../pluginsApi";
@@ -155,7 +156,7 @@ export function useProviderPlaylist(
       return false;
     }
     const body = {
-      request_id: crypto.randomUUID(),
+      request_id: createUuid(),
       installation_revision: connection.revision,
       playlist_reference: reference,
     };

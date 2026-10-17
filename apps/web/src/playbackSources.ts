@@ -1,3 +1,4 @@
+import { createUuid } from "./uuid";
 import type { ResolveSource, Source as ApiSource } from "./types";
 import { HttpError } from "./http";
 import { log } from "./log";
@@ -62,7 +63,7 @@ export class PlaybackSources {
   }
 
   private async findSource() {
-    const body = Object.freeze({ request_id: crypto.randomUUID() });
+    const body = Object.freeze({ request_id: createUuid() });
     log.info("playback.source_resolution_started", {
       recording_id: this.recording,
       request_id: body.request_id,

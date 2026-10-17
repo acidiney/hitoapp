@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useEffect, useMemo, useState } from "react";
 import { downloadApi } from "../downloadApi";
 import { HttpError } from "../http";
@@ -298,7 +299,7 @@ export function useRecordingDownload(account: string, recording: string) {
         ? Promise.resolve()
         : perform({
             kind: "create",
-            body: Object.freeze({ request_id: crypto.randomUUID() }),
+            body: Object.freeze({ request_id: createUuid() }),
           }),
     remove: () =>
       owner.data.attempt ||

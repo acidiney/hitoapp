@@ -1,3 +1,4 @@
+import { createUuid } from "./uuid";
 import { HttpError, request } from "./http";
 import { log } from "./log";
 import type {
@@ -81,7 +82,7 @@ export const sourceChoiceApi = {
     const fields = {
       account_id: account,
       recording_id: recording,
-      operation_id: crypto.randomUUID(),
+      operation_id: createUuid(),
     };
     log.debug("source_choice.read_started", fields);
     try {

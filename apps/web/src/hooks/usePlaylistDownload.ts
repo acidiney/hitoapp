@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useEffect, useMemo, useState } from "react";
 import { playlistDownloadApi } from "../playlistDownloadApi";
 import { HttpError } from "../http";
@@ -314,7 +315,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
         ? Promise.resolve()
         : perform({
             kind: "create",
-            body: Object.freeze({ request_id: crypto.randomUUID() }),
+            body: Object.freeze({ request_id: createUuid() }),
           }),
     remove: () =>
       owner.view.attempt ||
@@ -336,7 +337,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
         ? Promise.resolve()
         : perform({
             kind: "create",
-            body: Object.freeze({ request_id: crypto.randomUUID() }),
+            body: Object.freeze({ request_id: createUuid() }),
           }),
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
