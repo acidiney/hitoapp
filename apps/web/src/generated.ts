@@ -708,6 +708,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saved_playback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/artwork": {
         parameters: {
             query?: never;
@@ -2003,12 +2019,22 @@ export interface components {
             recording: components["schemas"]["Recording"];
         };
         PodcastEpisodePage: {
+            /** Format: int64 */
+            content_revision: number;
             items: components["schemas"]["PodcastEpisode"][];
             /** Format: int32 */
             limit: number;
             next_cursor?: string | null;
             /** Format: int64 */
             total: number;
+        };
+        PodcastIndexPageProps: components["schemas"]["SharedPageProps"] & {
+            subscriptions: components["schemas"]["PodcastSubscription"][];
+        };
+        PodcastPageProps: components["schemas"]["SharedPageProps"] & {
+            episodes: components["schemas"]["PodcastEpisodePage"];
+            progress: components["schemas"]["RecordingProgress"][];
+            subscription: components["schemas"]["PodcastSubscription"];
         };
         PodcastRefreshReceipt: {
             /** Format: uuid */
@@ -2019,6 +2045,12 @@ export interface components {
             subscription_id: string;
         };
         PodcastSubscription: {
+            /** Format: int64 */
+            content_revision: number;
+            /** Format: int64 */
+            last_refreshed_at?: number | null;
+            refresh_failed: boolean;
+            refresh_pending: boolean;
             /** Format: uuid */
             subscription_id: string;
             title?: string | null;
@@ -2104,6 +2136,14 @@ export interface components {
             title: components["schemas"]["TextMetadata"];
         };
         RecordingPage: components["schemas"]["Page_Recording"];
+        RecordingProgress: {
+            /** Format: int64 */
+            position_ms: number;
+            /** Format: uuid */
+            recording_id: string;
+            /** Format: double */
+            speed: number;
+        };
         RefreshFollowedPlaylist: {
             /** Format: uuid */
             request_id: string;
@@ -2154,6 +2194,9 @@ export interface components {
         ResolveSource: {
             /** Format: uuid */
             request_id: string;
+        };
+        SavedPlaybackRequest: {
+            recording_ids: string[];
         };
         SearchPage: {
             items: components["schemas"]["ProviderRecording"][];
@@ -5446,6 +5489,101 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    saved_playback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedPlaybackRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingProgress"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

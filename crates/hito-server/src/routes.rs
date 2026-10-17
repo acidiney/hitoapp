@@ -2,8 +2,8 @@ use crate::{
     Config,
     api::{
         self, browsing, catalog, collection, downloads, identity, jobs, player, playlist_follow,
-        plugin_authorization, plugins, podcasts, providers, source_bindings, source_choice,
-        source_preparation, source_refresh, source_resolution, storage,
+        plugin_authorization, plugins, podcasts, progress, providers, source_bindings,
+        source_choice, source_preparation, source_refresh, source_resolution, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -38,6 +38,8 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         HistoryPageProps,
         SettingsPageProps,
         DiscoverPageProps,
+        PodcastIndexPageProps,
+        PodcastPageProps,
     ))
 )]
 struct Contract;
@@ -68,6 +70,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(podcasts::unsubscribe))
         .routes(routes!(catalog::libraries))
         .routes(routes!(catalog::recordings))
+        .routes(routes!(progress::saved_playback))
         .routes(routes!(browsing::releases))
         .routes(routes!(browsing::release))
         .routes(routes!(browsing::artists))
@@ -165,6 +168,8 @@ fn application(
         .route("/", get(inertia::page))
         .route("/library", get(inertia::page))
         .route("/discover", get(inertia::page))
+        .route("/podcasts", get(inertia::page))
+        .route("/podcasts/{id}", get(inertia::page))
         .route("/albums", get(inertia::page))
         .route("/albums/{id}", get(inertia::page))
         .route("/albums/{id}/details", get(inertia::page))
