@@ -12,6 +12,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Add artist/album pages, exact library-scoped credits, release appearances, tagged order, Unicode search, and release artwork.
 - [x] Expose local source metadata observations, supported tag origins, truthful upgrade baselines, and bounded revision history.
 - [ ] Add provider-backed artist, release, and recording matching without collapsing uncertain identities.
+- [ ] Fix duplicate artist cards and pages across local files and imported playlists. Reported example: C4 Pedro appears once with a local track/album and again with an imported track. Unify verified artist identities and aggregate their tracks/releases while preserving recording/source identities, playlist entries, likes, progress and personal edits. Keep distinct artists with the same name separate.
 - [x] Show artist pages for provider recordings without releases, using recording credits without inventing albums.
 - [ ] Add configurable MusicBrainz/provider enrichment and a disable setting.
 - [x] Add personal recording titles, inheritance reset, synchronized acceptance, and consistent search/album/collection reads.
