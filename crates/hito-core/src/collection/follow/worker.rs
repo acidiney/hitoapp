@@ -163,8 +163,8 @@ impl Collection {
         };
         sqlx::query("UPDATE playlist_follow_jobs SET status = ?,error = ?,next_attempt_at = unixepoch() + ?,attempts = max(attempts - ?,0),lease_token = NULL,lease_until = NULL,updated_at = unixepoch() WHERE id = ? AND lease_token = ?")
             .bind(status).bind(error).bind(delay).bind(i64::from(refund)).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
-        sqlx::query("UPDATE playlist_follows SET error = ?,next_refresh_at = CASE WHEN ? IN ('failed','cancelled') THEN unixepoch() + interval_seconds ELSE next_refresh_at END WHERE playlist_id = ?")
-            .bind(error).bind(status).bind(&lease.playlist_id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE playlist_follows SET error = ?,next_refresh_at = CASE WHEN ? IN ('failed','cancelled') THEN unixepoch() + interval_seconds ELSE next_refresh_at END WHERE playlist_id = ? AND generation = ?")
+            .bind(error).bind(status).bind(&lease.playlist_id).bind(lease.generation).execute(&mut *tx).await?;
         history::prune(&mut tx, &lease.playlist_id).await?;
         tx.commit().await?;
         Ok(status)
