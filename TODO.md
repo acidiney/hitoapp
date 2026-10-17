@@ -4,7 +4,7 @@ Updated 2026-10-17. This is the remaining implementation work, not a list of fea
 
 Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track and album details now support private title and artist edits with local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
-The next functional priority is automatic audio resolution for imported playlists through connected providers. Normal listening must not require entering track URLs or approving every association. Manual source selection corrects an automatic result and must remain in place through synchronization and later resolution work. Visual polish remains after release functionality.
+The next functional priority is automatic audio resolution for imported playlists through connected providers. Normal listening must not require entering track URLs or approving every association. The first isolated browser workflow passes with controlled providers; the normal server has not received it. Manual source selection corrects an automatic result and must remain in place through synchronization and later resolution work. See [current implementation, evidence and gaps](docs/automatic-sources.md). Visual polish remains after release functionality.
 
 ## Library and metadata
 
