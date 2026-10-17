@@ -16,8 +16,8 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::{
-    Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource, RecordingRequest,
-    SearchPage, SearchRequest, SourcePage,
+    Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource, RecordingMetadata,
+    RecordingRequest, SearchPage, SearchRequest, SourcePage,
 };
 use std::{
     path::PathBuf,
@@ -84,6 +84,7 @@ impl Service {
             .route("/v1/manifest", get(manifest))
             .route("/v1/search", post(search))
             .route("/v1/recordings/detail", post(detail))
+            .route("/v1/recordings/metadata", post(metadata))
             .route("/v1/sources", post(sources))
             .route("/v1/audio", get(audio))
             .layer(DefaultBodyLimit::max(4096))
@@ -107,7 +108,12 @@ async fn manifest() -> Json<Manifest> {
         id: "org.hito.youtube".into(),
         name: "YouTube".into(),
         protocol_version: PROTOCOL_VERSION,
-        capabilities: [Capability::Search, Capability::Sources].into(),
+        capabilities: [
+            Capability::Search,
+            Capability::Sources,
+            Capability::Metadata,
+        ]
+        .into(),
         authorization: None,
     })
 }
@@ -154,6 +160,18 @@ async fn sources(
     }))
 }
 
+async fn metadata(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<RecordingRequest>, JsonRejection>,
+) -> Result<Json<RecordingMetadata>, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidRecordingRequest)?;
+    request
+        .validate()
+        .map_err(|_| Error::InvalidRecordingRequest)?;
+    let resolved = state.catalog.recording(&request.recording_id).await?;
+    resolved.metadata().map(Json)
+}
+
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AudioQuery {
@@ -180,6 +198,7 @@ async fn observe(request: Request, next: Next) -> Response {
         "/v1/manifest" => "manifest",
         "/v1/search" => "search",
         "/v1/recordings/detail" => "detail",
+        "/v1/recordings/metadata" => "metadata",
         "/v1/sources" => "sources",
         "/v1/audio" => "audio",
         _ => "unknown",

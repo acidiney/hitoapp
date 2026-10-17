@@ -32,7 +32,7 @@ impl Write for Capture {
 }
 
 #[tokio::test]
-async fn manifest_declares_implemented_search_and_sources_without_starting_the_executable() {
+async fn manifest_declares_search_sources_and_metadata_without_starting_the_executable() {
     let _ambient_no_subscriber_dispatch =
         tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let logs = Capture::default();
@@ -90,7 +90,11 @@ async fn manifest_declares_implemented_search_and_sources_without_starting_the_e
     assert_eq!(manifest.protocol_version, 1);
     assert_eq!(
         manifest.capabilities,
-        BTreeSet::from([Capability::Search, Capability::Sources])
+        BTreeSet::from([
+            Capability::Search,
+            Capability::Sources,
+            Capability::Metadata
+        ])
     );
     assert!(manifest.authorization.is_none());
     let wire: Value = serde_json::from_slice(&bytes).unwrap();

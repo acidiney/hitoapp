@@ -1,4 +1,5 @@
 mod identity;
+mod metadata;
 mod source;
 pub(crate) use source::Descriptor;
 
@@ -14,6 +15,7 @@ use std::{
 pub(crate) struct Resolved {
     pub(crate) recording: ProviderRecording,
     pub(crate) source: Descriptor,
+    musical: Result<metadata::Musical, Error>,
 }
 
 pub(crate) struct Catalog {
@@ -84,6 +86,10 @@ impl Catalog {
 struct Recording {
     #[serde(flatten)]
     metadata: recordings::SearchEntry,
+    #[serde(default)]
+    track: serde_json::Value,
+    #[serde(default)]
+    album: serde_json::Value,
     format_id: String,
     ext: String,
     acodec: String,
@@ -97,6 +103,7 @@ struct Recording {
 
 pub(crate) fn resolve(bytes: &[u8], owner: &str) -> Result<Resolved, Error> {
     let details: Recording = serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
+    let musical = metadata::Musical::read(details.track, details.album);
     let recording = details.metadata.recording()?;
     if recording.id != owner
         || details.ext != "m4a"
@@ -112,5 +119,9 @@ pub(crate) fn resolve(bytes: &[u8], owner: &str) -> Result<Resolved, Error> {
         return Err(Error::InvalidResponse);
     }
     let source = Descriptor::new(owner, &details.format_id, details.filesize, &details.url)?;
-    Ok(Resolved { recording, source })
+    Ok(Resolved {
+        recording,
+        source,
+        musical,
+    })
 }
