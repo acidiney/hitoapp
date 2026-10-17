@@ -372,6 +372,44 @@ impl Snapshot {
             if table.name == "download_receipts" {
                 expected.push("retention_id".into());
             }
+            if table.name == "download_intents" {
+                let origin_columns = [
+                    "origin_kind",
+                    "podcast_source_id",
+                    "podcast_episode_id",
+                    "podcast_subscription_id",
+                    "podcast_subscription_generation",
+                    "podcast_enclosure_revision",
+                    "podcast_enclosure_url",
+                ]
+                .map(str::to_owned);
+                expected.extend_from_slice(&origin_columns);
+                assert!(
+                    table.has_rowid,
+                    "legacy download intents must retain rowids"
+                );
+                let origins = rows(&mut connection, &table.name, &origin_columns, true).await;
+                let expected_origins: Vec<Vec<Cell>> = table
+                    .rows
+                    .iter()
+                    .map(|row| {
+                        vec![
+                            row[0].clone(),
+                            Cell::Text("provider".into()),
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                        ]
+                    })
+                    .collect();
+                assert!(
+                    origins == expected_origins,
+                    "maintenance changed legacy provider origin types, values, or rowids"
+                );
+            }
             assert!(
                 current == expected,
                 "maintenance unexpectedly changed prior columns in {}",
