@@ -66,7 +66,15 @@ async fn serve_owned(
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog, stopped.clone());
-    let follows = follow_worker(services.collection, stopped);
+    let collection = services.collection;
+    let follows = async move {
+        tokio::join!(
+            follow_worker(collection.clone(), stopped.clone(), 0),
+            follow_worker(collection.clone(), stopped.clone(), 1),
+            follow_worker(collection.clone(), stopped.clone(), 2),
+            follow_worker(collection, stopped, 3),
+        );
+    };
     let http = crate::connections::serve(listener, app, stop, shutdown);
     let (result, (), (), ()) = tokio::join!(http, indexing, artwork, follows);
     services.storage.finish_indexing().await?;
@@ -145,9 +153,11 @@ async fn artwork_worker(
     tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
 }
 
+#[tracing::instrument(level = "info", skip_all, fields(worker_slot = worker_slot))]
 async fn follow_worker(
     collection: hito_core::Collection,
     mut stopped: tokio::sync::watch::Receiver<bool>,
+    worker_slot: u8,
 ) {
     tracing::info!(
         event = "follow_worker_started",
