@@ -5,12 +5,15 @@ import { log } from "../log";
 import type { DownloadRequest, PlaylistDownloadStatus } from "../types";
 import { useRequestScope } from "./useRequestScope";
 
+type Attempt =
+  | { kind: "create"; body: Readonly<DownloadRequest> }
+  | { kind: "remove"; retention: string };
 type View = {
   download: PlaylistDownloadStatus | null;
   retention: string | null;
   checking: boolean;
   pending: boolean;
-  attempt: Readonly<DownloadRequest> | null;
+  attempt: Attempt | null;
   error: string;
   statusError: string;
 };
@@ -141,7 +144,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
     }
   }
 
-  async function perform(body: Readonly<DownloadRequest>): Promise<void> {
+  async function perform(attempt: Attempt): Promise<void> {
     const request = scope.capture();
     if (!request.active() || owner.write) return;
     clearTimer();
@@ -153,7 +156,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
       request.active() && !signal.aborted && owner.write === controller;
     owner.write = controller;
     publish({
-      attempt: body,
+      attempt,
       pending: true,
       checking: false,
       error: "",
@@ -163,21 +166,32 @@ export function usePlaylistDownload(account: string, playlist: string) {
     const fields = {
       account_id: account,
       playlist_id: playlist,
-      operation_id: body.request_id,
+      operation_id:
+        attempt.kind === "create" ? attempt.body.request_id : attempt.retention,
+      action: attempt.kind,
     };
+    const event = `playlist_download.${attempt.kind}`;
     let accepted = false;
-    log.info("playlist_download.create_started", fields);
+    log.info(`${event}_started`, fields);
     try {
-      const receipt = await playlistDownloadApi.create(
-        account,
-        playlist,
-        body,
-        signal,
-      );
-      if (!active()) return;
-      publish({ attempt: null, retention: receipt.retention_id });
+      if (attempt.kind === "create") {
+        const receipt = await playlistDownloadApi.create(
+          account,
+          playlist,
+          attempt.body,
+          signal,
+        );
+        if (!active()) return;
+        publish({ retention: receipt.retention_id });
+      } else {
+        await playlistDownloadApi.remove(account, attempt.retention, signal);
+        if (!active()) return;
+        if (owner.view.retention === attempt.retention)
+          publish({ download: null, retention: null });
+      }
+      publish({ attempt: null });
       accepted = true;
-      log.info("playlist_download.create_accepted", {
+      log.info(`${event}_accepted`, {
         ...fields,
         duration_ms: Math.round(performance.now() - started),
       });
@@ -188,12 +202,16 @@ export function usePlaylistDownload(account: string, playlist: string) {
           error.status >= 400 &&
           error.status < 500;
         publish({
-          attempt: rejected ? null : body,
+          attempt: rejected ? null : attempt,
           error: rejected
-            ? "Hito could not start this playlist download. Check your access and try again."
-            : "Hito could not confirm the download request. Retry the same request to recover its result.",
+            ? attempt.kind === "create"
+              ? "Hito could not start this playlist download. Check your access and try again."
+              : "Hito could not remove this playlist download. Check your access and try again."
+            : attempt.kind === "create"
+              ? "Hito could not confirm the download request. Retry the same request to recover its result."
+              : "Hito could not confirm removal. Retry removal to recover its result.",
         });
-        log.warn("playlist_download.create_failed", {
+        log.warn(`${event}_failed`, {
           ...fields,
           reason: rejected ? "rejected" : "unconfirmed",
           status: error instanceof HttpError ? error.status : undefined,
@@ -210,7 +228,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
         }
       }
       if (!request.active() || signal.aborted)
-        log.debug("playlist_download.create_cancelled", {
+        log.debug(`${event}_cancelled`, {
           ...fields,
           duration_ms: Math.round(performance.now() - started),
         });
@@ -236,7 +254,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
     checking: current.checking,
     pending: current.pending,
     requested: current.retention !== null,
-    hasAttempt: current.attempt !== null,
+    retryKind: current.attempt?.kind ?? null,
     error: current.error,
     statusError: current.statusError,
     check: load,
@@ -246,7 +264,17 @@ export function usePlaylistDownload(account: string, playlist: string) {
       owner.write ||
       owner.view.checking
         ? Promise.resolve()
-        : perform(Object.freeze({ request_id: crypto.randomUUID() })),
+        : perform({
+            kind: "create",
+            body: Object.freeze({ request_id: crypto.randomUUID() }),
+          }),
+    remove: () =>
+      owner.view.attempt ||
+      !owner.view.retention ||
+      owner.write ||
+      owner.view.checking
+        ? Promise.resolve()
+        : perform({ kind: "remove", retention: owner.view.retention }),
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
   };

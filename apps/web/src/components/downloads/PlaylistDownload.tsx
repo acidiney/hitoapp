@@ -5,11 +5,12 @@ type Props = {
   checking: boolean;
   pending: boolean;
   requested: boolean;
-  hasAttempt: boolean;
+  retryKind: "create" | "remove" | null;
   error: string;
   statusError: string;
   local: boolean;
   start(): Promise<void>;
+  remove(): Promise<void>;
   retry(): Promise<void>;
   check(): Promise<void>;
 };
@@ -19,11 +20,12 @@ export default function PlaylistDownload({
   checking,
   pending,
   requested,
-  hasAttempt,
+  retryKind,
   error,
   statusError,
   local,
   start,
+  remove,
   retry,
   check,
 }: Props) {
@@ -35,7 +37,15 @@ export default function PlaylistDownload({
   const failed = count("failed");
   const unavailable = count("unavailable");
   const partial = download?.entries.next_cursor != null;
-  const retrying = hasAttempt && !pending;
+  const retrying = retryKind !== null && !pending;
+  const label = retrying
+    ? retryKind === "remove"
+      ? "Retry removal"
+      : "Retry download request"
+    : requested
+      ? "Remove download"
+      : "Download";
+  const action = retryKind ? retry : requested ? remove : start;
   return (
     <section aria-labelledby="playlist-download-heading">
       <h2 id="playlist-download-heading">Playlist download</h2>
@@ -99,22 +109,20 @@ export default function PlaylistDownload({
           </p>
           <button
             className="button"
-            disabled={checking || pending || hasAttempt}
+            disabled={checking || pending || retryKind !== null}
             onClick={() => void check()}
           >
             Check download
           </button>
         </div>
       )}
-      {(!requested || hasAttempt) && (
-        <button
-          className="button"
-          disabled={checking || pending}
-          onClick={() => void (hasAttempt ? retry() : start())}
-        >
-          {retrying ? "Retry download request" : "Download"}
-        </button>
-      )}
+      <button
+        className="button"
+        disabled={checking || pending}
+        onClick={() => void action()}
+      >
+        {label}
+      </button>
     </section>
   );
 }

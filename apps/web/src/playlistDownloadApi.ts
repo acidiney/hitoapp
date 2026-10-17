@@ -98,4 +98,17 @@ export const playlistDownloadApi = {
       throw error;
     }
   },
+  async remove(account: string, retention: string, signal: AbortSignal) {
+    const response = await request(
+      `/downloads/${encodeURIComponent(retention)}`,
+      {
+        action: "downloads.remove",
+        method: "DELETE",
+        account,
+        signal,
+      },
+    );
+    if (response.status !== 204)
+      throw new Error("Hito did not confirm playlist download removal");
+  },
 };
