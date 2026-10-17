@@ -51,7 +51,6 @@ impl RemoteHttp {
 
     async fn exchange(&self, value: &str, purpose: Purpose) -> Result<RemoteResponse> {
         let mut target = policy::parse(value)?;
-        let original = target.origin();
         let mut permanent = true;
         for followed in 0..=5 {
             let addresses = self.addresses(&target).await?;
@@ -80,8 +79,10 @@ impl RemoteHttp {
                 .header(header::ACCEPT, accept)
                 .header(header::ACCEPT_ENCODING, "identity")
                 .header(header::CONNECTION, "close");
+            let conditional =
+                matches!(&purpose, Purpose::Feed(validators) if validators.applies_to(&target));
             match &purpose {
-                Purpose::Feed(validators) if target.origin() == original => {
+                Purpose::Feed(validators) if conditional => {
                     if let Some(etag) = &validators.etag {
                         outgoing = outgoing.header(header::IF_NONE_MATCH, etag);
                     }
@@ -120,6 +121,7 @@ impl RemoteHttp {
                     response,
                     final_url: target,
                     permanent_redirect: followed > 0 && permanent,
+                    conditional,
                 });
             }
             if followed == 5 {

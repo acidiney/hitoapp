@@ -71,6 +71,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     let backfilled = backfilled_sources(&mut connection).await;
     assert_integrity(&mut connection).await;
     connection.close().await.unwrap();
+    let latest = before.expecting_validator_column().await;
 
     for _ in 0..2 {
         let services = hito_core::open(CoreConfig::with_shared_directories(
@@ -87,8 +88,9 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 42).await;
-    before.assert_preserved(&mut connection).await;
+    assert_version(&mut connection, 43).await;
+    latest.assert_preserved(&mut connection).await;
+    assert_conditional_additions(&mut connection).await;
     assert_fixture(&mut connection).await;
     assert!(
         backfilled_sources(&mut connection).await == backfilled,
@@ -208,6 +210,47 @@ async fn assert_fixture(connection: &mut SqliteConnection) {
             (EPISODES[1].into(), i64::MIN)
         ]
     );
+}
+
+async fn assert_conditional_additions(connection: &mut SqliteConnection) {
+    let validators: Vec<(String, Option<String>)> =
+        sqlx::query_as("SELECT id,validator_url FROM podcast_subscriptions ORDER BY id")
+            .fetch_all(&mut *connection)
+            .await
+            .unwrap();
+    assert_eq!(validators, vec![(SUBSCRIPTION.into(), None)]);
+    for (index, table) in [
+        (
+            "podcast_subscription_receipt_job",
+            "podcast_subscription_receipts",
+        ),
+        ("podcast_refresh_receipt_job", "podcast_refresh_receipts"),
+    ] {
+        let indexed_table: String =
+            sqlx::query_scalar("SELECT tbl_name FROM sqlite_schema WHERE type='index' AND name=?")
+                .bind(index)
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+        assert_eq!(indexed_table, table);
+        let properties: (i64, i64, String) = sqlx::query_as(
+            "SELECT \"unique\",partial,origin FROM pragma_index_list(?) WHERE name=?",
+        )
+        .bind(table)
+        .bind(index)
+        .fetch_one(&mut *connection)
+        .await
+        .unwrap();
+        assert_eq!(properties, (0, 0, "c".into()));
+        let columns: Vec<(String, i64, String)> = sqlx::query_as(
+            "SELECT name,\"desc\",coll FROM pragma_index_xinfo(?) WHERE key=1 ORDER BY seqno",
+        )
+        .bind(index)
+        .fetch_all(&mut *connection)
+        .await
+        .unwrap();
+        assert_eq!(columns, vec![("job_id".into(), 0, "BINARY".into())]);
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -345,6 +388,28 @@ impl RetainedState {
             schema: schema(connection).await,
             tables: retained,
         }
+    }
+
+    async fn expecting_validator_column(mut self) -> Self {
+        let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        sqlx::raw_sql(self.schema.get("podcast_subscriptions").unwrap())
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        sqlx::query("ALTER TABLE podcast_subscriptions ADD COLUMN validator_url TEXT")
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        let definition: String = sqlx::query_scalar(
+            "SELECT sql FROM sqlite_schema WHERE type='table' AND name='podcast_subscriptions'",
+        )
+        .fetch_one(&mut reference)
+        .await
+        .unwrap();
+        reference.close().await.unwrap();
+        self.schema
+            .insert("podcast_subscriptions".into(), definition);
+        self
     }
 
     async fn assert_preserved(&self, connection: &mut SqliteConnection) {
