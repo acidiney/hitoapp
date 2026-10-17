@@ -6,7 +6,9 @@ import Artwork from "../components/Artwork";
 import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
+import PlaylistFollowResume from "../components/playlists/PlaylistFollowResume";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
+import { useFollowResume } from "../hooks/useFollowResume";
 
 export default function PlaylistPage({
   user,
@@ -19,6 +21,12 @@ export default function PlaylistPage({
     user.id,
     followed ? detail.playlist.id : null,
     detail.follow_content_revision ?? null,
+  );
+  const resume = useFollowResume(
+    user.id,
+    followed ? detail.playlist.id : null,
+    followed ? detail.origin : null,
+    follow.retryStatus,
   );
   const rows = detail.entries.map<TrackTableRow>((entry) => {
     const { recording_id, ...metadata } = entry;
@@ -81,6 +89,12 @@ export default function PlaylistPage({
         </div>
       </section>
       {followed && <PlaylistFollowStatus {...follow} />}
+      {followed && detail.origin && (
+        <PlaylistFollowResume
+          {...resume}
+          paused={follow.follow?.status === "paused"}
+        />
+      )}
       {entryCount > 0 ? (
         <>
           <TrackToolbar
