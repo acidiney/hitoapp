@@ -1794,6 +1794,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-community"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "cap-fs-ext",
+ "cap-std",
+ "libc",
+ "libsqlite3-sys",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+ "utoipa",
+ "utoipa-axum",
+ "uuid",
+]
+
+[[package]]
 name = "hito-core"
 version = "0.1.0-dev"
 dependencies = [
@@ -1903,6 +1927,28 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "hito-plugin-jamendo"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "futures-util",
+ "hito-plugin-sdk",
+ "libc",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -4788,8 +4834,6 @@ dependencies = [
 [[package]]
 name = "sqlx-sqlite"
 version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2d12fe70b2c1b4401038055f90f151b78208de1f9f89a7dbfd41587a10c3eea"
 dependencies = [
  "atoi",
  "flume",

@@ -1,0 +1,40 @@
+services:
+  plugin-jamendo:
+    profiles: [plugins]
+    image: hito-plugin-jamendo:${HITO_JAMENDO_IMAGE_TAG:-development}
+    build:
+      context: .
+      dockerfile: Dockerfile.plugin-jamendo
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-jamendo-${COMPOSE_PROJECT_NAME:-standalone}
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:${HITO_JAMENDO_PORT:-8094}:8093"
+    environment:
+      RUST_LOG: ${HITO_JAMENDO_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: jamendo-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  jamendo-credentials:
+    external: true
+    name: ${HITO_JAMENDO_CREDENTIAL_VOLUME:?Set HITO_JAMENDO_CREDENTIAL_VOLUME to a provisioned private volume}

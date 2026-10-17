@@ -16,6 +16,7 @@ ARG HITO_SERVER_CACHE_ID=hito-server-main
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_SERVER_CACHE_ID},target=/build/target cargo build --locked --release -j 2 -p hito-server && cp /build/target/release/hito-server /hito-server
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS runtime

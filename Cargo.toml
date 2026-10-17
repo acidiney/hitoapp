@@ -1,6 +1,10 @@
 [workspace]
-members = ["crates/hito-core", "crates/hito-server", "crates/hito-plugin-sdk", "crates/hito-desktop", "crates/hito-audio", "crates/hito-playback", "crates/hito-plugin-folder", "crates/hito-plugin-spotify", "crates/hito-plugin-youtube"]
+members = ["crates/hito-core", "crates/hito-server", "crates/hito-plugin-sdk", "crates/hito-desktop", "crates/hito-audio", "crates/hito-playback", "crates/hito-plugin-folder", "crates/hito-plugin-spotify", "crates/hito-plugin-youtube", "crates/hito-plugin-jamendo", "crates/hito-community"]
+exclude = ["vendor/sqlx-sqlite"]
 resolver = "3"
+
+[patch.crates-io]
+sqlx-sqlite = { path = "vendor/sqlx-sqlite" }
 
 [workspace.package]
 version = "0.1.0-dev"

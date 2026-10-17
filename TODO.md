@@ -45,6 +45,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Preserve process-local private queue state across temporary authority/database failures while suspending output and rejecting unverified commands. Revalidate before recovery; clear on definitive session rejection.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
+- [ ] Fix current-track metadata in the system Now Playing panel. The reported panel shows only "Hito / Now Playing" and a placeholder instead of the playing track. Publish the authorized title, artist, album and artwork when available, plus duration, position and playback state through browser and native media integrations. Expose supported playback controls and verify track changes, seeking, pause/resume, queue completion and account switching without stale or private metadata remaining after logout.
 - [ ] Add verified HTTP sources, preference ranking, manual override, server relay, direct fallback, conversion, and bitrate settings.
 - [ ] Complete failover near the current position, deferred-source handling, gapless playback, and codec compatibility fixtures.
 - [ ] Prepare the next queue entry in the background while the current track plays. Check local files, saved copies and verified ready sources first; otherwise search approved providers, resolve a suitable match and start source preparation early. Buffer playable audio before the transition to avoid waiting at track end. Bound lookahead, cancel stale work after queue/account/source-choice changes, preserve current playback and manual choices, and keep temporary buffering separate from explicit downloads. Verify browser/native transitions with shuffle, repeat, skips and slow providers.
@@ -95,7 +96,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Implement, verify and deploy the shared preparation UI with source labels, current eligibility, exact-request retry, bounded cancellable polling and explicit Play after readiness. Its isolated Chromium workflow passes. See [UI evidence](docs/source-preparation.md#ui-verification).
 - [ ] Integrate deferred sources into playback at track boundaries.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
-- [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
+- [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins. The Jamendo adapter, executable and isolated development container have fixture verification; generic attribution/persistence policy, live integration and broader release acceptance remain open. See [Jamendo development evidence](docs/plugin-jamendo.md).
 - [x] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; verify installation, discovery, adoption, playback, and seeking, start the local service, and notify the user here.
 - [x] Deploy the folder plugin's private durable recording/release registry, conservative split/merge handling and retained availability to the local development service. Verify its release-image browser workflow, legacy identity/source preservation and restart-stable metadata/revisions.
 - [ ] Complete folder-plugin public-release acceptance: active-journal accounting, broader cancellation/crash and codec/upgrade fixtures, full native/GUI, platform and release gates. The service still requires a restart to rescan. See [folder identity and limits](docs/plugin-folder.md).
@@ -136,7 +137,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## Community service
 
-- [ ] Build and deploy the separate source-ranking/correction API.
+- [ ] Build and deploy the separate source-ranking/correction API. The development crate has a private SQLite store, closed reporter provisioning, durable playback receipts, candidate-only rankings and generated public `GET /v1/openapi.json`. Four community cases and three Jamendo cases pass together in Docker. Corrections, public-operation safeguards and deployment remain open. See [community evidence and limits](docs/community-service.md).
 - [ ] Add separate disabled-by-default opt-ins for playback reporting and metadata corrections.
 - [ ] Validate and redact contributions; rank successful playback and filter by configured providers.
 - [ ] Add correction suggestions, provider validation/maintainer review, moderation, and rate limits.
