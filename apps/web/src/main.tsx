@@ -14,6 +14,7 @@ import LikesPage from "./pages/LikesPage";
 import LoginPage from "./pages/LoginPage";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import PodcastIndexPage from "./pages/PodcastIndexPage";
+import PodcastPage from "./pages/PodcastPage";
 import PlaylistPage from "./pages/PlaylistPage";
 import SettingsPage from "./pages/SettingsPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
@@ -36,6 +37,7 @@ const pages = {
   LikesPage: Object.assign(LikesPage, { layout }),
   PlaylistIndexPage: Object.assign(PlaylistIndexPage, { layout }),
   PodcastIndexPage: Object.assign(PodcastIndexPage, { layout }),
+  PodcastPage: Object.assign(PodcastPage, { layout }),
   PlaylistPage: Object.assign(PlaylistPage, { layout }),
   HistoryPage: Object.assign(HistoryPage, { layout }),
   SettingsPage: Object.assign(SettingsPage, { layout }),
