@@ -93,10 +93,24 @@ impl Catalog {
                 .then_with(|| left.id.cmp(&right.id))
         });
         for summary in page.items.into_iter().take(3) {
-            {
+            let occupied = {
                 let mut connection = self.store.pool.acquire().await?;
                 actor.check_session_on(&mut connection).await?;
                 operation.recheck(&mut connection).await?;
+                sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM provider_items candidate
+                    JOIN provider_items primary_item ON primary_item.id = ?
+                    WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
+                        AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)")
+                    .bind(&target.binding_id).bind(&installation).bind(&summary.id)
+                    .fetch_one(&mut *connection).await?
+            };
+            if occupied {
+                tracing::debug!(
+                    event = "source_resolution_candidate_skipped",
+                    outcome = "already_bound",
+                    "Source candidate belongs to another recording"
+                );
+                continue;
             }
             let request = RecordingRequest {
                 recording_id: summary.id.clone(),
