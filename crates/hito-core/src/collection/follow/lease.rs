@@ -36,7 +36,7 @@ impl Collection {
             WHERE status = 'running' AND lease_until <= unixepoch() RETURNING playlist_id,status")
             .fetch_all(&mut *tx).await?;
         sqlx::query("UPDATE playlist_follows SET error = 'refresh_failed',next_refresh_at = unixepoch() + interval_seconds
-            WHERE next_refresh_at <= unixepoch() AND EXISTS(SELECT 1 FROM playlist_follow_jobs j WHERE j.playlist_id = playlist_follows.playlist_id
+            WHERE next_refresh_at <= unixepoch() AND EXISTS(SELECT 1 FROM playlist_follow_jobs j WHERE j.playlist_id = playlist_follows.playlist_id AND j.generation = playlist_follows.generation
                 AND j.status = 'failed' AND j.error = 'lease_expired' AND j.updated_at = unixepoch())")
             .execute(&mut *tx).await?;
         let cancelled: Vec<String> = sqlx::query_scalar("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'authority_changed',updated_at = unixepoch()
