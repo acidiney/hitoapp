@@ -1911,6 +1911,7 @@ dependencies = [
  "serde_json",
  "url",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]

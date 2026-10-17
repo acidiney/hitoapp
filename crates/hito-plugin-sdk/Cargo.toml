@@ -10,6 +10,7 @@ serde.workspace = true
 utoipa = { workspace = true, optional = true }
 serde_json.workspace = true
 url.workspace = true
+uuid.workspace = true
 
 [features]
 schema = ["dep:utoipa"]
