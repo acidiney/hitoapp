@@ -1,7 +1,17 @@
-use super::authority::{self, Target};
+use super::{
+    authority::{self, Target},
+    matching::{METADATA_POLICY, MusicalRecording, POLICY},
+};
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
-use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest, SearchRequest, SourcePage};
-use std::{iter::Take, sync::Arc, vec::IntoIter};
+use hito_plugin_sdk::{
+    Capability, ProviderRecording, RecordingMetadata, RecordingRequest, SearchRequest, SourcePage,
+};
+use std::{collections::BTreeSet, iter::Take, sync::Arc, vec::IntoIter};
+
+enum CandidateEvidence {
+    Legacy,
+    Musical(Box<RecordingMetadata>),
+}
 
 pub(super) struct Candidate {
     pub installation: String,
@@ -9,6 +19,66 @@ pub(super) struct Candidate {
     pub operation: Arc<Operation>,
     pub details: ProviderRecording,
     pub sources: SourcePage,
+    evidence: CandidateEvidence,
+}
+
+impl Candidate {
+    pub(super) fn accepts(&self, target: &MusicalRecording) -> bool {
+        if self.details.validate().is_err()
+            || self.sources.validate().is_err()
+            || !self.sources.items.iter().any(|source| source.ready)
+        {
+            return false;
+        }
+        match &self.evidence {
+            CandidateEvidence::Legacy => {
+                !self.operation.metadata_approved() && target.accepts(&self.details)
+            }
+            CandidateEvidence::Musical(metadata) => {
+                let Some(witnesses) = metadata.source_ids.as_ref() else {
+                    return false;
+                };
+                self.operation.metadata_approved()
+                    && metadata.validate().is_ok()
+                    && metadata.recording == self.details
+                    && witnesses.iter().collect::<BTreeSet<_>>()
+                        == self
+                            .sources
+                            .items
+                            .iter()
+                            .map(|source| &source.id)
+                            .collect::<BTreeSet<_>>()
+                    && target.accepts_metadata(metadata)
+            }
+        }
+    }
+
+    pub(super) fn policy(&self) -> &'static str {
+        match &self.evidence {
+            CandidateEvidence::Legacy => POLICY,
+            CandidateEvidence::Musical(_) => METADATA_POLICY,
+        }
+    }
+
+    pub(super) fn digest(&self) -> Result<String> {
+        match &self.evidence {
+            CandidateEvidence::Legacy => authority::digest(&(&self.details, &self.sources)),
+            CandidateEvidence::Musical(metadata) => {
+                authority::digest(&(&self.details, &self.sources, metadata.as_ref()))
+            }
+        }
+    }
+
+    pub(super) fn musical_metadata(&self) -> Result<Option<String>> {
+        match &self.evidence {
+            CandidateEvidence::Legacy => Ok(None),
+            CandidateEvidence::Musical(metadata) => serde_json::to_string(metadata.as_ref())
+                .map(Some)
+                .map_err(|_| {
+                    Error::Internal("Musical source evidence could not be encoded".into())
+                }),
+        }
+    }
 }
 
 pub(super) struct Page {
@@ -48,8 +118,13 @@ impl Catalog {
             actor.check_session_on(&mut connection).await?;
             operation.recheck(&mut connection).await?;
         }
-        page.items
-            .retain(|candidate| target.musical.plausible(candidate));
+        page.items.retain(|candidate| {
+            if operation.metadata_approved() {
+                target.musical.plausible_metadata_summary(candidate)
+            } else {
+                target.musical.plausible(candidate)
+            }
+        });
         page.items.sort_by(|left, right| {
             target
                 .musical
@@ -74,7 +149,10 @@ impl Page {
         recording: &str,
         target: &Target,
     ) -> Result<Option<Candidate>> {
-        for summary in self.summaries.by_ref() {
+        loop {
+            let Some(summary) = self.summaries.next() else {
+                return Ok(None);
+            };
             let occupied = {
                 let mut connection = catalog.store.pool.acquire().await?;
                 authority::access(&mut connection, actor, recording).await?;
@@ -97,14 +175,8 @@ impl Page {
             let request = RecordingRequest {
                 recording_id: summary.id.clone(),
             };
-            let result = self.operation.recording(&request).await;
-            {
-                let mut connection = catalog.store.pool.acquire().await?;
-                authority::access(&mut connection, actor, recording).await?;
-                self.operation.recheck(&mut connection).await?;
-            }
-            let (details, sources) = match result {
-                Ok(result) => result,
+            let candidate = match self.hydrate(catalog, actor, recording, &request).await {
+                Ok(candidate) => candidate,
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
                     tracing::debug!(
@@ -115,20 +187,46 @@ impl Page {
                     continue;
                 }
             };
-            if details.id != summary.id
-                || !target.musical.accepts(&details)
-                || !sources.items.iter().any(|source| source.ready)
-            {
+            if candidate.details.id != summary.id || !candidate.accepts(&target.musical) {
                 continue;
             }
-            return Ok(Some(Candidate {
-                installation: self.installation.clone(),
-                installation_revision: self.revision,
-                operation: Arc::clone(&self.operation),
-                details,
-                sources,
-            }));
+            return Ok(Some(candidate));
         }
-        Ok(None)
+    }
+
+    async fn hydrate(
+        &self,
+        catalog: &Catalog,
+        actor: &Actor,
+        recording: &str,
+        request: &RecordingRequest,
+    ) -> Result<Candidate> {
+        let details = self.operation.recording_details(request).await;
+        self.recheck(catalog, actor, recording).await?;
+        let details = details?;
+        let sources = self.operation.sources(request).await;
+        self.recheck(catalog, actor, recording).await?;
+        let sources = sources?;
+        let evidence = if self.operation.metadata_approved() {
+            let metadata = self.operation.recording_metadata(request).await;
+            self.recheck(catalog, actor, recording).await?;
+            CandidateEvidence::Musical(Box::new(metadata?))
+        } else {
+            CandidateEvidence::Legacy
+        };
+        Ok(Candidate {
+            installation: self.installation.clone(),
+            installation_revision: self.revision,
+            operation: Arc::clone(&self.operation),
+            details,
+            sources,
+            evidence,
+        })
+    }
+
+    async fn recheck(&self, catalog: &Catalog, actor: &Actor, recording: &str) -> Result<()> {
+        let mut connection = catalog.store.pool.acquire().await?;
+        authority::access(&mut connection, actor, recording).await?;
+        self.operation.recheck(&mut connection).await
     }
 }

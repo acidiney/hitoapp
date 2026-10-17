@@ -1,6 +1,5 @@
 use super::{
     SourceResolutionOutcome, authority,
-    matching::POLICY,
     provider::Candidate,
     receipts::{self, Attempt},
 };
@@ -40,9 +39,7 @@ impl Catalog {
             SourceResolutionOutcome::Cancelled
         } else if let Some(candidate) = candidate {
             candidate.operation.recheck(&mut tx).await?;
-            if !current.musical.accepts(&candidate.details)
-                || !candidate.sources.items.iter().any(|source| source.ready)
-            {
+            if !candidate.accepts(&current.musical) {
                 return Err(Error::Conflict(
                     "The source candidate no longer matches this recording".into(),
                 ));
@@ -114,9 +111,10 @@ impl Catalog {
             if let Some(release) = release.as_deref() {
                 crate::metadata::refresh_release(&mut tx, actor.id(), release).await?;
             }
-            let candidate_digest = authority::digest(&(&candidate.details, &candidate.sources))?;
-            sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision) VALUES (?,?,?,?,?,?,?)")
-                .bind(&attempt.id).bind(&binding.id).bind(POLICY).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).execute(&mut *tx).await?;
+            let candidate_digest = candidate.digest()?;
+            let musical_metadata = candidate.musical_metadata()?;
+            sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision,musical_metadata) VALUES (?,?,?,?,?,?,?,?)")
+                .bind(&attempt.id).bind(&binding.id).bind(candidate.policy()).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
             SourceResolutionOutcome::Ready
         } else {
             SourceResolutionOutcome::NoSuitableSource

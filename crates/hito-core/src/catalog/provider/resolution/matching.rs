@@ -1,8 +1,9 @@
-use hito_plugin_sdk::ProviderRecording;
+use hito_plugin_sdk::{ProviderRecording, RecordingMetadata};
 use serde::Serialize;
 use std::collections::BTreeSet;
 
 pub(super) const POLICY: &str = "hito.musical-source.v1";
+pub(super) const METADATA_POLICY: &str = "hito.musical-source.metadata.v1";
 
 #[derive(Serialize, sqlx::FromRow)]
 pub(super) struct MusicalRecording {
@@ -22,9 +23,12 @@ impl MusicalRecording {
     }
 
     pub(super) fn plausible(&self, candidate: &ProviderRecording) -> bool {
-        self.identity_matches(candidate)
-            && (!known_artist(&candidate.artist)
-                || normalized(&self.artist) == normalized(&candidate.artist))
+        self.identity_matches(candidate) && self.plausible_metadata_summary(candidate)
+    }
+
+    pub(super) fn plausible_metadata_summary(&self, candidate: &ProviderRecording) -> bool {
+        (!known_artist(&candidate.artist)
+            || normalized(&self.artist) == normalized(&candidate.artist))
             && candidate
                 .duration_ms
                 .is_none_or(|duration| self.duration_matches(duration))
@@ -32,6 +36,31 @@ impl MusicalRecording {
 
     pub(super) fn accepts(&self, candidate: &ProviderRecording) -> bool {
         self.identity_matches(candidate)
+            && known_artist(&self.artist)
+            && known_artist(&candidate.artist)
+            && normalized(&self.artist) == normalized(&candidate.artist)
+            && candidate
+                .duration_ms
+                .is_some_and(|duration| self.duration_matches(duration))
+    }
+
+    pub(super) fn accepts_metadata(&self, metadata: &RecordingMetadata) -> bool {
+        let Some(musical_title) = metadata.musical_title.as_deref() else {
+            return false;
+        };
+        let candidate = &metadata.recording;
+        let title = normalized(&self.title);
+        let mut candidate_versions = versions(
+            &candidate.title,
+            candidate
+                .release
+                .as_ref()
+                .map(|release| release.title.as_str()),
+        );
+        candidate_versions.extend(versions(musical_title, metadata.album_title.as_deref()));
+        !title.is_empty()
+            && title == normalized(musical_title)
+            && versions(&self.title, self.album.as_deref()) == candidate_versions
             && known_artist(&self.artist)
             && known_artist(&candidate.artist)
             && normalized(&self.artist) == normalized(&candidate.artist)

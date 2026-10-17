@@ -1,10 +1,11 @@
 use super::Plugins;
 use crate::{Actor, Error, Result};
 use hito_plugin_sdk::{
-    Capability, Manifest, ProviderRecording, RecordingRequest, SearchPage, SearchRequest,
-    SourcePage,
+    Capability, Manifest, ProviderRecording, RecordingMetadata, RecordingRequest, SearchPage,
+    SearchRequest, SourcePage,
 };
 use sqlx::Row;
+use std::collections::BTreeSet;
 use zeroize::Zeroizing;
 
 pub(crate) struct Operation {
@@ -13,6 +14,7 @@ pub(crate) struct Operation {
     account: String,
     installation: String,
     installation_revision: i64,
+    approved_capabilities: BTreeSet<Capability>,
     pub(crate) service: String,
     pub(crate) service_revision: i64,
     base_url: String,
@@ -73,6 +75,7 @@ impl Plugins {
             account: actor.id().into(),
             installation: id.into(),
             installation_revision: revision,
+            approved_capabilities: manifest.capabilities,
             service,
             service_revision: row.try_get("service_revision")?,
             base_url: row.try_get("base_url")?,
@@ -160,15 +163,7 @@ impl Operation {
         &self,
         request: &RecordingRequest,
     ) -> Result<(ProviderRecording, SourcePage)> {
-        let details = self
-            .remote
-            .recording_details(
-                &self.account,
-                &self.base_url,
-                self.token.as_deref().map(String::as_str),
-                request,
-            )
-            .await?;
+        let details = self.recording_details(request).await?;
         {
             let mut connection = self.store.pool.acquire().await?;
             self.actor.check_session_on(&mut connection).await?;
@@ -176,6 +171,50 @@ impl Operation {
         }
         let sources = self.sources(request).await?;
         Ok((details, sources))
+    }
+    pub(crate) async fn recording_details(
+        &self,
+        request: &RecordingRequest,
+    ) -> Result<ProviderRecording> {
+        self.remote
+            .recording_details(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
+    pub(crate) fn metadata_approved(&self) -> bool {
+        self.approved_capabilities.contains(&Capability::Metadata)
+    }
+    pub(crate) async fn recording_metadata(
+        &self,
+        request: &RecordingRequest,
+    ) -> Result<RecordingMetadata> {
+        if !self.metadata_approved() {
+            return Err(Error::Invalid(
+                "This plugin has not been approved for musical metadata".into(),
+            ));
+        }
+        {
+            let mut connection = self.store.pool.acquire().await?;
+            self.actor.check_session_on(&mut connection).await?;
+            self.recheck(&mut connection).await?;
+        }
+        let result = self
+            .remote
+            .recording_metadata(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await;
+        let mut connection = self.store.pool.acquire().await?;
+        self.actor.check_session_on(&mut connection).await?;
+        self.recheck(&mut connection).await?;
+        result
     }
     pub(crate) async fn search(&self, request: &SearchRequest) -> Result<SearchPage> {
         self.remote

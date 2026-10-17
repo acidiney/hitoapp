@@ -1,8 +1,9 @@
 use crate::{Error, Result};
 pub(super) mod artwork;
 use hito_plugin_sdk::{
-    DETAIL_PATH, MANIFEST_PATH, Manifest, ProviderRecording, RecordingRequest, SEARCH_PATH,
-    SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
+    DETAIL_PATH, MANIFEST_PATH, MAX_RECORDING_METADATA_BYTES, METADATA_PATH, Manifest,
+    ProviderRecording, RecordingMetadata, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage,
+    SearchRequest, SourcePage,
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -143,6 +144,39 @@ impl ControlClient {
             ));
         }
         Ok(recording)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub(super) async fn recording_metadata(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: &RecordingRequest,
+    ) -> Result<RecordingMetadata> {
+        let body = serde_json::to_value(request)
+            .map_err(|_| Error::Internal("Provider request could not be encoded".into()))?;
+        let metadata: RecordingMetadata = self
+            .exchange(
+                account,
+                base_url,
+                token,
+                Call {
+                    path: METADATA_PATH,
+                    body: Some(body),
+                    maximum: MAX_RECORDING_METADATA_BYTES,
+                },
+            )
+            .await?;
+        metadata
+            .validate()
+            .map_err(|_| Error::Upstream("The provider returned invalid musical metadata"))?;
+        if metadata.recording.id != request.recording_id {
+            return Err(Error::Upstream(
+                "The provider returned metadata for a different recording",
+            ));
+        }
+        Ok(metadata)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
