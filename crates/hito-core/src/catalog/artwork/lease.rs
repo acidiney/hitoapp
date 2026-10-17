@@ -21,6 +21,17 @@ pub(super) struct Lease {
 
 impl Catalog {
     pub(super) async fn claim_artwork_job(&self) -> Result<Option<Lease>> {
+        let eligible: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM artwork_fetches INDEXED BY artwork_queue
+                WHERE status = 'queued' AND next_attempt_at <= unixepoch())
+             OR EXISTS(SELECT 1 FROM artwork_fetches INDEXED BY artwork_expired_lease
+                WHERE lease_token IS NOT NULL AND lease_until <= unixepoch())",
+        )
+        .fetch_one(&self.store.pool)
+        .await?;
+        if !eligible {
+            return Ok(None);
+        }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         jobs::maintain(&mut tx).await?;
         let id: Option<String> = sqlx::query_scalar(

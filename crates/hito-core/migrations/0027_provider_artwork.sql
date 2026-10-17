@@ -69,6 +69,7 @@ CREATE TABLE artwork_fetches (
 CREATE UNIQUE INDEX artwork_pending_recording ON artwork_fetches(user_id,recording_id)
     WHERE status IN ('queued','running');
 CREATE INDEX artwork_queue ON artwork_fetches(status,next_attempt_at,created_at,id);
+CREATE INDEX artwork_expired_lease ON artwork_fetches(lease_until) WHERE lease_token IS NOT NULL;
 CREATE INDEX artwork_account ON artwork_fetches(user_id,status,updated_at,id);
 CREATE INDEX artwork_session ON artwork_fetches(session_hash) WHERE status IN ('queued','running');
 
