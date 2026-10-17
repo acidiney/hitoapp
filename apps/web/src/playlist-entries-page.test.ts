@@ -14,6 +14,7 @@ import PlaylistPage from "./pages/PlaylistPage";
 import { NoticeProvider } from "./components/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
+import type { SyncBatch } from "./types";
 import {
   copiedPlaylistPage as props,
   recordingA,
@@ -45,24 +46,30 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const fetch = vi.fn().mockImplementation(async (path: string) => {
-    if (path === `/api/v1/recordings/${recordingA}/sources`) {
-      return new Response(
-        JSON.stringify([
-          {
-            id: "fixture-source-a",
-            recording_id: recordingA,
-            provider: "fixture",
-            device_id: "server",
-            ready: true,
-          },
-        ]),
-      );
-    }
-    if (path === "/api/v1/sync")
-      return new Response(JSON.stringify({ acknowledged: [] }));
-    throw new Error("Unexpected recording request");
-  });
+  const fetch = vi
+    .fn()
+    .mockImplementation(async (path: string, options: RequestInit) => {
+      if (path === `/api/v1/recordings/${recordingA}/sources`) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "fixture-source-a",
+              recording_id: recordingA,
+              provider: "fixture",
+              device_id: "server",
+              ready: true,
+            },
+          ]),
+        );
+      }
+      if (path === "/api/v1/sync") {
+        const batch: SyncBatch = JSON.parse(String(options.body));
+        return Response.json({
+          acknowledged: batch.operations.map((operation) => operation.id),
+        });
+      }
+      throw new Error("Unexpected recording request");
+    });
   vi.stubGlobal("fetch", fetch);
   let player!: Player;
   function Page() {

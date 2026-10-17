@@ -14,6 +14,7 @@ import PlaylistPage from "./pages/PlaylistPage";
 import { NoticeProvider } from "./components/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
+import type { SyncBatch } from "./types";
 import { unavailablePlaylistPages } from "./fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({
@@ -42,11 +43,16 @@ test("wholly retained and unavailable playlists remain visible and editable with
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   for (const props of unavailablePlaylistPages) {
     vi.mocked(router.reload).mockClear();
-    const fetch = vi.fn().mockImplementation(async (path: string) => {
-      if (path !== "/api/v1/sync")
-        throw new Error("Unavailable rows must not request sources");
-      return new Response(JSON.stringify({ acknowledged: [] }));
-    });
+    const fetch = vi
+      .fn()
+      .mockImplementation(async (path: string, options: RequestInit) => {
+        if (path !== "/api/v1/sync")
+          throw new Error("Unavailable rows must not request sources");
+        const batch: SyncBatch = JSON.parse(String(options.body));
+        return Response.json({
+          acknowledged: batch.operations.map((operation) => operation.id),
+        });
+      });
     vi.stubGlobal("fetch", fetch);
     let player!: Player;
     function Page() {
