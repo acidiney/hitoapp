@@ -1876,6 +1876,201 @@
         ]
       }
     },
+    "/api/v1/playlists/{id}/follow": {
+      "get": {
+        "operationId": "playlist_follow",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistFollow"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/playlists/{id}/follow/refresh": {
+      "post": {
+        "operationId": "refresh_followed_playlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshFollowedPlaylist"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistFollowRefresh"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plugins": {
       "get": {
         "operationId": "plugin_settings",
@@ -2419,6 +2614,140 @@
             }
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/plugins/{id}/playlists/follow": {
+      "post": {
+        "operationId": "follow_provider_playlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowProviderPlaylist"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistFollowReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5564,6 +5893,60 @@
                 "$ref": "#/components/schemas/ImportedPlaylistSnapshot"
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "publication_id",
+              "interval",
+              "snapshot",
+              "kind"
+            ],
+            "properties": {
+              "interval": {
+                "$ref": "#/components/schemas/PlaylistFollowInterval"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlist_followed"
+                ]
+              },
+              "publication_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/ImportedPlaylistSnapshot"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "publication_id",
+              "interval",
+              "snapshot",
+              "kind"
+            ],
+            "properties": {
+              "interval": {
+                "$ref": "#/components/schemas/PlaylistFollowInterval"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "playlist_follow_refreshed"
+                ]
+              },
+              "publication_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "snapshot": {
+                "$ref": "#/components/schemas/ImportedPlaylistSnapshot"
+              }
+            }
           }
         ]
       },
@@ -5711,6 +6094,32 @@
           "revision": {
             "type": "integer",
             "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FollowProviderPlaylist": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "installation_revision",
+          "playlist_reference",
+          "interval"
+        ],
+        "properties": {
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interval": {
+            "$ref": "#/components/schemas/PlaylistFollowInterval"
+          },
+          "playlist_reference": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -7609,6 +8018,102 @@
           }
         }
       },
+      "PlaylistFollow": {
+        "type": "object",
+        "required": [
+          "playlist_id",
+          "interval",
+          "snapshot",
+          "last_refreshed_at",
+          "next_refresh_at",
+          "status"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "interval": {
+            "$ref": "#/components/schemas/PlaylistFollowInterval"
+          },
+          "last_refreshed_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "next_refresh_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "playlist_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snapshot": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlaylistFollowStatus"
+          }
+        }
+      },
+      "PlaylistFollowInterval": {
+        "type": "string",
+        "enum": [
+          "hourly",
+          "daily"
+        ]
+      },
+      "PlaylistFollowReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "playlist_id"
+        ],
+        "properties": {
+          "playlist_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PlaylistFollowRefresh": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "job_id",
+          "playlist_id"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "playlist_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PlaylistFollowStatus": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "queued",
+          "running",
+          "failed",
+          "paused"
+        ]
+      },
       "PlaylistImportReceipt": {
         "type": "object",
         "required": [
@@ -8152,6 +8657,19 @@
       },
       "RecordingPage": {
         "$ref": "#/components/schemas/Page_Recording"
+      },
+      "RefreshFollowedPlaylist": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "RefreshPlugin": {
         "type": "object",

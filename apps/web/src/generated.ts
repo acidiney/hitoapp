@@ -372,6 +372,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/playlists/{id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["playlist_follow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/playlists/{id}/follow/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refresh_followed_playlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins": {
         parameters: {
             query?: never;
@@ -479,6 +511,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["clear_plugin_credential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plugins/{id}/playlists/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["follow_provider_playlist"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1068,6 +1116,20 @@ export interface components {
             /** Format: uuid */
             publication_id: string;
             snapshot: components["schemas"]["ImportedPlaylistSnapshot"];
+        } | {
+            interval: components["schemas"]["PlaylistFollowInterval"];
+            /** @enum {string} */
+            kind: "playlist_followed";
+            /** Format: uuid */
+            publication_id: string;
+            snapshot: components["schemas"]["ImportedPlaylistSnapshot"];
+        } | {
+            interval: components["schemas"]["PlaylistFollowInterval"];
+            /** @enum {string} */
+            kind: "playlist_follow_refreshed";
+            /** Format: uuid */
+            publication_id: string;
+            snapshot: components["schemas"]["ImportedPlaylistSnapshot"];
         };
         ConnectFolder: {
             directory: components["schemas"]["DirectoryRef"];
@@ -1103,6 +1165,14 @@ export interface components {
         FolderRevision: {
             /** Format: int64 */
             revision: number;
+        };
+        FollowProviderPlaylist: {
+            /** Format: int64 */
+            installation_revision: number;
+            interval: components["schemas"]["PlaylistFollowInterval"];
+            playlist_reference: string;
+            /** Format: uuid */
+            request_id: string;
         };
         Health: {
             ready: boolean;
@@ -1569,6 +1639,36 @@ export interface components {
             recording_id?: string | null;
             title: string;
         };
+        PlaylistFollow: {
+            error?: string | null;
+            interval: components["schemas"]["PlaylistFollowInterval"];
+            /** Format: int64 */
+            last_refreshed_at: number;
+            /** Format: int64 */
+            next_refresh_at: number;
+            /** Format: uuid */
+            playlist_id: string;
+            snapshot: string;
+            status: components["schemas"]["PlaylistFollowStatus"];
+        };
+        /** @enum {string} */
+        PlaylistFollowInterval: "hourly" | "daily";
+        PlaylistFollowReceipt: {
+            /** Format: uuid */
+            playlist_id: string;
+            /** Format: uuid */
+            request_id: string;
+        };
+        PlaylistFollowRefresh: {
+            /** Format: uuid */
+            job_id: string;
+            /** Format: uuid */
+            playlist_id: string;
+            /** Format: uuid */
+            request_id: string;
+        };
+        /** @enum {string} */
+        PlaylistFollowStatus: "ready" | "queued" | "running" | "failed" | "paused";
         PlaylistImportReceipt: {
             /** Format: uuid */
             playlist_id: string;
@@ -1703,6 +1803,10 @@ export interface components {
             title: components["schemas"]["TextMetadata"];
         };
         RecordingPage: components["schemas"]["Page_Recording"];
+        RefreshFollowedPlaylist: {
+            /** Format: uuid */
+            request_id: string;
+        };
         RefreshPlugin: {
             accept_manifest_digest?: string | null;
             credential?: components["schemas"]["PluginCredential"];
@@ -3272,6 +3376,156 @@ export interface operations {
             };
         };
     };
+    playlist_follow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistFollow"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refresh_followed_playlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshFollowedPlaylist"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistFollowRefresh"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     plugin_settings: {
         parameters: {
             query?: never;
@@ -3686,6 +3940,111 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    follow_provider_playlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowProviderPlaylist"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistFollowReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };
