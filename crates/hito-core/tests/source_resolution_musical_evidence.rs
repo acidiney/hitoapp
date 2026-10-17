@@ -38,7 +38,7 @@ async fn saved_musical_identity_resolves_wrapped_video_title_with_approved_metad
                 resolution.sources.len() == 1
                     && resolution.sources[0].ready
                     && resolution.sources[0].recording_id == owned.recording
-                    && resolution.sources[0].provider == "org.hito.youtube-fixture",
+                    && resolution.sources[0].provider == "plugin",
                 "automatic resolution must publish one ready provider source on the same target"
             );
             let stable = owned.hito.catalog.sources(&owned.actor, &owned.recording).await
