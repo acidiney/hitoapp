@@ -1,6 +1,7 @@
 import type { PlaylistDownloadStatus } from "../../types";
+import { usePlaylistDownload } from "../../hooks/usePlaylistDownload";
 
-type Props = {
+type ViewProps = {
   download: PlaylistDownloadStatus | null;
   checking: boolean;
   pending: boolean;
@@ -16,6 +17,19 @@ type Props = {
 };
 
 export default function PlaylistDownload({
+  account,
+  playlist,
+  local,
+}: {
+  account: string;
+  playlist: string;
+  local: boolean;
+}) {
+  const workflow = usePlaylistDownload(account, playlist);
+  return <PlaylistDownloadView {...workflow} local={local} />;
+}
+
+function PlaylistDownloadView({
   download,
   checking,
   pending,
@@ -28,7 +42,7 @@ export default function PlaylistDownload({
   remove,
   retry,
   check,
-}: Props) {
+}: ViewProps) {
   const entries = download?.entries.items ?? [];
   const count = (state: string) =>
     entries.filter((entry) => entry.status === state).length;
