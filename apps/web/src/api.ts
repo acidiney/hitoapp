@@ -163,16 +163,19 @@ function deviceId() {
   return device;
 }
 
-export async function change(
-  account: string,
-  action: Action,
-  signal?: AbortSignal,
-): Promise<SyncReceipt> {
-  const batch: SyncBatch = {
+export function prepareChange(action: Action): SyncBatch {
+  return {
     device_id: deviceId(),
     operations: [{ id: crypto.randomUUID(), action }],
   };
-  const operation_id = batch.operations[0].id;
+}
+
+export async function submitChange(
+  account: string,
+  batch: SyncBatch,
+  signal?: AbortSignal,
+): Promise<SyncReceipt> {
+  const { id: operation_id, action } = batch.operations[0];
   log.debug("mutation.started", {
     account_id: account,
     operation_id,
@@ -188,6 +191,17 @@ export async function change(
         signal,
       })
     ).json();
+    const acknowledged = receipt?.acknowledged;
+    if (
+      !Array.isArray(acknowledged) ||
+      !acknowledged.every((id: unknown) => typeof id === "string") ||
+      !batch.operations.every((operation) =>
+        acknowledged.includes(operation.id),
+      )
+    )
+      throw new Error(
+        "Hito did not acknowledge this change. Retry the same request.",
+      );
     const accepted = action.kind === "progress_set" ? log.debug : log.info;
     accepted("mutation.accepted", {
       account_id: account,
@@ -204,4 +218,12 @@ export async function change(
       });
     throw error;
   }
+}
+
+export async function change(
+  account: string,
+  action: Action,
+  signal?: AbortSignal,
+): Promise<SyncReceipt> {
+  return submitChange(account, prepareChange(action), signal);
 }
