@@ -74,7 +74,8 @@ async fn serve_owned(
     let transfers = async move {
         tokio::join!(
             downloads::worker(downloads.clone(), download_stop.clone(), 0),
-            downloads::worker(downloads, download_stop, 1),
+            downloads::worker(downloads.clone(), download_stop.clone(), 1),
+            downloads::reconcile(downloads, download_stop),
         );
     };
     let collection = services.collection;

@@ -69,6 +69,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
         .routes(routes!(downloads::create, downloads::status))
+        .routes(routes!(
+            downloads::create_playlist,
+            downloads::playlist_status
+        ))
         .routes(routes!(downloads::remove))
         .routes(routes!(source_bindings::review))
         .routes(routes!(source_bindings::attach))
