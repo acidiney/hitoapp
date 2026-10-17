@@ -1,0 +1,35 @@
+[package]
+name = "hito-plugin-youtube"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axum.workspace = true
+futures-util.workspace = true
+hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+http-body-util.workspace = true
+hyper = { workspace = true, features = ["client"] }
+hyper-util.workspace = true
+rustls.workspace = true
+rustls-platform-verifier = "=0.7.1"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false }
+tokio-util = { workspace = true, features = ["rt"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.30.1", default-features = false, features = ["signal", "process"] }
+
+[dev-dependencies]
+hito-audio = { path = "../hito-audio" }
+rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+reqwest = { workspace = true, features = ["stream"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+tower.workspace = true
