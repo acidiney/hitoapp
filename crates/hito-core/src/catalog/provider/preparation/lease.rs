@@ -23,11 +23,12 @@ pub(super) struct Heartbeat {
 impl Catalog {
     pub(super) async fn claim_source_preparation(&self) -> Result<Option<Lease>> {
         let eligible: bool = sqlx::query_scalar("SELECT
-            EXISTS(SELECT 1 FROM source_preparations WHERE next_check_at <= unixepoch()
-                AND authority_cancelled = 0 AND phase IN ('queued','preparing','blocked'))
-            OR EXISTS(SELECT 1 FROM source_preparations WHERE lease_until <= unixepoch())
-            OR EXISTS(SELECT 1 FROM source_preparations preparation WHERE authority_cancelled = 0
-                AND phase IN ('queued','preparing','blocked','submission_unknown')
+            EXISTS(SELECT 1 FROM source_preparations INDEXED BY source_preparation_due WHERE next_check_at <= unixepoch()
+                AND authority_cancelled = 0 AND lease_token IS NULL AND phase IN ('queued','preparing','blocked'))
+            OR EXISTS(SELECT 1 FROM source_preparations INDEXED BY source_preparation_expired
+                WHERE lease_token IS NOT NULL AND lease_until <= unixepoch())
+            OR EXISTS(SELECT 1 FROM source_preparations preparation INDEXED BY source_preparation_authority_pending WHERE authority_cancelled = 0
+                AND phase IN ('queued','submitting','preparing','blocked','submission_unknown')
                 AND NOT EXISTS(SELECT 1 FROM current_source_preparation_authority authority WHERE authority.id = preparation.id))")
             .fetch_one(&self.store.pool).await?;
         if !eligible {
@@ -35,8 +36,8 @@ impl Catalog {
         }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let expired: Vec<String> = sqlx::query_scalar(
-            "SELECT id FROM source_preparations
-            WHERE lease_until <= unixepoch() ORDER BY lease_until,id LIMIT 16",
+            "SELECT id FROM source_preparations INDEXED BY source_preparation_expired
+            WHERE lease_token IS NOT NULL AND lease_until <= unixepoch() ORDER BY lease_until,id LIMIT 16",
         )
         .fetch_all(&mut *tx)
         .await?;
@@ -53,7 +54,7 @@ impl Catalog {
                 "Expired source preparation lease recovered"
             );
         }
-        let stale: Vec<String> = sqlx::query_scalar("SELECT id FROM source_preparations preparation
+        let stale: Vec<String> = sqlx::query_scalar("SELECT id FROM source_preparations preparation INDEXED BY source_preparation_authority_pending
             WHERE authority_cancelled = 0 AND phase IN ('queued','submitting','preparing','blocked','submission_unknown')
                 AND NOT EXISTS(SELECT 1 FROM current_source_preparation_authority authority WHERE authority.id = preparation.id)
             ORDER BY created_at,id LIMIT 16")
@@ -64,18 +65,20 @@ impl Catalog {
         sqlx::query(
             "UPDATE source_preparations SET phase = 'blocked',reason = 'provider_unavailable',
             next_check_at = NULL,updated_at = unixepoch() WHERE id IN (
-                SELECT id FROM source_preparations WHERE next_check_at <= unixepoch()
-                    AND created_at + 86400 <= unixepoch() AND lease_token IS NULL
+                SELECT id FROM source_preparations INDEXED BY source_preparation_due WHERE next_check_at <= unixepoch()
+                    AND created_at + 86400 <= unixepoch() AND lease_token IS NULL AND authority_cancelled = 0
                     AND phase IN ('queued','preparing','blocked') ORDER BY created_at,id LIMIT 16)",
         )
         .execute(&mut *tx)
         .await?;
-        let id: Option<String> = sqlx::query_scalar("SELECT preparation.id FROM source_preparations preparation
-            JOIN current_source_preparation_authority authority ON authority.id = preparation.id
-            WHERE preparation.phase IN ('queued','preparing','blocked') AND preparation.next_check_at <= unixepoch()
+        let id: Option<String> = sqlx::query_scalar("SELECT preparation.id FROM source_preparations preparation INDEXED BY source_preparation_due
+            WHERE preparation.authority_cancelled = 0 AND preparation.phase IN ('queued','preparing','blocked') AND preparation.next_check_at <= unixepoch()
                 AND preparation.submission_state IN ('unsubmitted','submitted') AND preparation.lease_token IS NULL
-                AND NOT EXISTS(SELECT 1 FROM source_preparations active WHERE active.user_id = preparation.user_id AND active.lease_token IS NOT NULL)
-                AND (SELECT count(*) FROM source_preparations active WHERE active.lease_token IS NOT NULL) < 2
+                AND EXISTS(SELECT 1 FROM current_source_preparation_authority authority WHERE authority.id = preparation.id)
+                AND NOT EXISTS(SELECT 1 FROM source_preparations active INDEXED BY source_preparation_leased_account
+                    WHERE active.user_id = preparation.user_id AND active.lease_token IS NOT NULL)
+                AND (SELECT count(*) FROM (SELECT 1 FROM source_preparations active INDEXED BY source_preparation_expired
+                    WHERE active.lease_token IS NOT NULL LIMIT 2)) < 2
             ORDER BY preparation.next_check_at,preparation.created_at,preparation.id LIMIT 1")
             .fetch_optional(&mut *tx).await?;
         let Some(id) = id else {

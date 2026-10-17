@@ -52,11 +52,15 @@ CREATE UNIQUE INDEX source_preparation_unresolved_origin ON source_preparations(
     user_id,service_id,provider,provider_recording_id,remote_source_id)
     WHERE submission_state IN ('submitting','unknown')
         OR (submission_state = 'submitted' AND remote_outcome IS NULL);
-CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at DESC);
+CREATE INDEX source_preparation_latest ON source_preparations(user_id,recording_id,source_id,created_at);
 CREATE INDEX source_preparation_due ON source_preparations(next_check_at,created_at,id)
-    WHERE authority_cancelled = 0 AND phase IN ('queued','preparing','blocked');
-CREATE INDEX source_preparation_expired ON source_preparations(lease_until) WHERE lease_token IS NOT NULL;
-CREATE INDEX source_preparation_account ON source_preparations(user_id,phase);
+    WHERE authority_cancelled = 0 AND lease_token IS NULL AND phase IN ('queued','preparing','blocked');
+CREATE INDEX source_preparation_expired ON source_preparations(lease_until,id) WHERE lease_token IS NOT NULL;
+CREATE INDEX source_preparation_leased_account ON source_preparations(user_id) WHERE lease_token IS NOT NULL;
+CREATE INDEX source_preparation_pending ON source_preparations(user_id)
+    WHERE phase IN ('queued','submitting','preparing','blocked','submission_unknown');
+CREATE INDEX source_preparation_authority_pending ON source_preparations(created_at,id)
+    WHERE authority_cancelled = 0 AND phase IN ('queued','submitting','preparing','blocked','submission_unknown');
 
 CREATE TABLE source_preparation_receipts (
     user_id TEXT NOT NULL REFERENCES users(id),

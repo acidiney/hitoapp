@@ -10,8 +10,6 @@ use uuid::Uuid;
 
 const MAX_ACCOUNT_PENDING: i64 = 16;
 const MAX_PENDING: i64 = 128;
-const MAX_ACCOUNT_RECEIPTS: i64 = 256;
-const MAX_RECEIPTS: i64 = 4096;
 
 impl Catalog {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -40,11 +38,10 @@ impl Catalog {
                 (preparation, "replayed")
             }
             None => {
-                receipt_capacity(&mut tx, actor.id()).await?;
                 if let Some(previous) = latest(&mut tx, actor.id(), recording, source).await? {
                     authority::cancel_stale_on(&mut tx, &previous).await?;
                 }
-                let retained: Option<String> = sqlx::query_scalar("SELECT id FROM source_preparations
+                let retained: Option<String> = sqlx::query_scalar("SELECT id FROM source_preparations INDEXED BY source_preparation_retained_submission
                     WHERE user_id = ? AND recording_id = ? AND source_id = ? AND remote_outcome IS NULL
                         AND (phase IN ('queued','submitting','preparing','blocked','submission_unknown')
                             OR submission_state != 'unsubmitted') LIMIT 1")
@@ -130,7 +127,7 @@ async fn latest(
     recording: &str,
     source: &str,
 ) -> Result<Option<String>> {
-    Ok(sqlx::query_scalar("SELECT id FROM source_preparations
+    Ok(sqlx::query_scalar("SELECT id FROM source_preparations INDEXED BY source_preparation_latest
         WHERE user_id = ? AND recording_id = ? AND source_id = ? ORDER BY created_at DESC,rowid DESC LIMIT 1")
         .bind(account).bind(recording).bind(source).fetch_optional(connection).await?)
 }
@@ -168,25 +165,13 @@ fn fingerprint(recording: &str, source: &str) -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
-async fn receipt_capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {
-    let (account_count, total): (i64, i64) = sqlx::query_as(
-        "SELECT coalesce(sum(user_id = ?),0),count(*) FROM source_preparation_receipts",
-    )
-    .bind(account)
-    .fetch_one(connection)
-    .await?;
-    if account_count >= MAX_ACCOUNT_RECEIPTS || total >= MAX_RECEIPTS {
-        return Err(Error::Conflict(
-            "The retained source preparation request limit has been reached".into(),
-        ));
-    }
-    Ok(())
-}
-
 async fn pending_capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {
-    let (account_count, total): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(user_id = ?),0),count(*)
-        FROM source_preparations WHERE phase IN ('queued','submitting','preparing','blocked','submission_unknown')")
-        .bind(account).fetch_one(connection).await?;
+    let (account_count, total): (i64, i64) = sqlx::query_as("SELECT
+        (SELECT count(*) FROM (SELECT 1 FROM source_preparations INDEXED BY source_preparation_pending
+            WHERE user_id = ? AND phase IN ('queued','submitting','preparing','blocked','submission_unknown') LIMIT ?)),
+        (SELECT count(*) FROM (SELECT 1 FROM source_preparations INDEXED BY source_preparation_pending
+            WHERE phase IN ('queued','submitting','preparing','blocked','submission_unknown') LIMIT ?))")
+        .bind(account).bind(MAX_ACCOUNT_PENDING).bind(MAX_PENDING).fetch_one(connection).await?;
     if account_count >= MAX_ACCOUNT_PENDING || total >= MAX_PENDING {
         return Err(Error::Conflict(
             "The pending source preparation limit has been reached".into(),
@@ -202,7 +187,7 @@ async fn unresolved_origin(
     provider: &PreparationConnection,
 ) -> Result<()> {
     let unresolved: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM source_preparations
+        "SELECT EXISTS(SELECT 1 FROM source_preparations INDEXED BY source_preparation_unresolved_origin
         WHERE user_id = ? AND service_id = ? AND provider = ? AND provider_recording_id = ?
             AND remote_source_id = ? AND (submission_state IN ('submitting','unknown')
                 OR (submission_state = 'submitted' AND remote_outcome IS NULL)))",
