@@ -56,11 +56,16 @@ impl MusicalRecording {
                 .release
                 .as_ref()
                 .map(|release| release.title.as_str()),
+            Some((&candidate.artist, musical_title)),
         );
-        candidate_versions.extend(versions(musical_title, metadata.album_title.as_deref()));
+        candidate_versions.extend(versions(
+            musical_title,
+            metadata.album_title.as_deref(),
+            None,
+        ));
         !title.is_empty()
             && title == normalized(musical_title)
-            && versions(&self.title, self.album.as_deref()) == candidate_versions
+            && versions(&self.title, self.album.as_deref(), None) == candidate_versions
             && known_artist(&self.artist)
             && known_artist(&candidate.artist)
             && normalized(&self.artist) == normalized(&candidate.artist)
@@ -80,13 +85,14 @@ impl MusicalRecording {
         let title = normalized(&self.title);
         !title.is_empty()
             && title == normalized(&candidate.title)
-            && versions(&self.title, self.album.as_deref())
+            && versions(&self.title, self.album.as_deref(), None)
                 == versions(
                     &candidate.title,
                     candidate
                         .release
                         .as_ref()
                         .map(|release| release.title.as_str()),
+                    None,
                 )
     }
 
@@ -127,8 +133,16 @@ fn known_artist(value: &str) -> bool {
         )
 }
 
-fn versions(title: &str, album: Option<&str>) -> BTreeSet<&'static str> {
+fn versions(
+    title: &str,
+    album: Option<&str>,
+    canonical: Option<(&str, &str)>,
+) -> BTreeSet<&'static str> {
     let mut result = BTreeSet::new();
+    let canonical_wrapper = canonical.is_some_and(|(artist, musical_title)| {
+        known_artist(artist)
+            && normalized(title) == format!("{} {}", normalized(artist), normalized(musical_title))
+    });
     if album.is_some_and(|album| {
         normalized(album)
             .split_whitespace()
@@ -136,7 +150,10 @@ fn versions(title: &str, album: Option<&str>) -> BTreeSet<&'static str> {
     }) {
         result.insert("live");
     }
-    for value in [Some(title), album].into_iter().flatten() {
+    for (value, canonical_wrapper) in [(Some(title), canonical_wrapper), (album, false)] {
+        let Some(value) = value else {
+            continue;
+        };
         let normalized = normalized(value);
         let words = normalized.split_whitespace().collect::<Vec<_>>();
         for (name, marker) in [
@@ -159,7 +176,7 @@ fn versions(title: &str, album: Option<&str>) -> BTreeSet<&'static str> {
             || normalized.contains(" live from ")
             || normalized.starts_with("live in ")
             || normalized.contains(" live in ")
-            || normalized.ends_with(" live")
+            || (!canonical_wrapper && normalized.ends_with(" live"))
             || normalized.contains(" live version")
             || qualified_live(value)
         {
