@@ -1,196 +1,18 @@
 import { randomUUID } from "node:crypto";
-import {
-  expect,
-  test,
-  type Locator,
-  type Page,
-  type TestInfo,
-} from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { artworkFixture } from "./fixtures/artwork";
+import {
+  get,
+  layouts,
+  loadedCopies,
+  savedState,
+  savePersonalState,
+  signIn,
+} from "./fixtures/artwork-browser-checks";
+import { artworkDiagnostics, type Phase } from "./fixtures/artwork-diagnostics";
 import type { components } from "../src/generated";
 
 type Schema = components["schemas"];
-type SavedState = {
-  playlists: Schema["Playlist"][];
-  copies: Schema["PlaylistDetail"][];
-  catalog: Schema["RecordingPage"];
-  metadata: Schema["RecordingMetadata"];
-  activity: Schema["Activity"];
-  feed: Schema["SyncPage"];
-  sources: Schema["Source"][];
-};
-type Phase =
-  | "sign-in"
-  | "copies"
-  | "approval"
-  | "retrieving"
-  | "ready"
-  | "disconnected";
-
-async function signIn(
-  page: Page,
-  username = "admin",
-  password = "docker browser test password",
-) {
-  await page.goto("/playlists");
-  await page.getByLabel("Username", { exact: true }).fill(username);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  const setup = await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .count();
-  await page
-    .getByRole("button", {
-      name: setup ? "Create administrator" : "Sign in",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Your library", exact: true }),
-  ).toBeVisible();
-}
-
-async function get<T>(page: Page, path: string): Promise<T> {
-  const response = await page.request.get(path);
-  expect(response.status()).toBe(200);
-  return response.json();
-}
-
-async function savedState(
-  page: Page,
-  copies: string[],
-  recording: string,
-): Promise<SavedState> {
-  return {
-    playlists: await get(page, "/api/v1/playlists"),
-    copies: await Promise.all(
-      copies.map((id) =>
-        get<Schema["PlaylistDetail"]>(page, `/api/v1/playlists/${id}`),
-      ),
-    ),
-    catalog: await get(page, "/api/v1/recordings"),
-    metadata: await get(page, `/api/v1/recordings/${recording}/metadata`),
-    activity: await get(page, "/api/v1/activity"),
-    feed: await get(page, "/api/v1/sync?cursor=0"),
-    sources: await get(page, `/api/v1/recordings/${recording}/sources`),
-  };
-}
-
-async function layouts(
-  page: Page,
-  info: TestInfo,
-  stage: string,
-  controls: Locator[],
-) {
-  const measured: {
-    viewport: number;
-    label: string;
-    width: number;
-    height: number;
-  }[] = [];
-  for (const viewport of [
-    { width: 1440, height: 1000 },
-    { width: 390, height: 844 },
-  ]) {
-    await page.setViewportSize(viewport);
-    for (const control of controls) {
-      await control.evaluate((element) =>
-        element.scrollIntoView({ block: "center", inline: "center" }),
-      );
-      await expect(control).toBeVisible();
-      const bounds = await control.boundingBox();
-      const dock = await page
-        .getByRole("contentinfo", { name: "Audio player" })
-        .boundingBox();
-      if (!bounds || !dock)
-        throw new Error("The control and player need visible bounds");
-      expect(bounds.x).toBeGreaterThanOrEqual(0);
-      expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(dock.y);
-      if (
-        await control.evaluate((element) =>
-          element.matches("input, select, .track-actions .icon-button"),
-        )
-      ) {
-        expect(bounds.width).toBeGreaterThanOrEqual(44);
-        expect(bounds.height).toBeGreaterThanOrEqual(44);
-      }
-      expect(
-        await control.evaluate((element) => {
-          const box = element.getBoundingClientRect();
-          const hit = document.elementFromPoint(
-            box.x + box.width / 2,
-            box.y + box.height / 2,
-          );
-          return hit !== null && element.contains(hit);
-        }),
-      ).toBe(true);
-      measured.push({
-        viewport: viewport.width,
-        label:
-          (await control.getAttribute("aria-label")) ??
-          (await control.innerText()),
-        width: bounds.width,
-        height: bounds.height,
-      });
-    }
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth > innerWidth,
-      ),
-    ).toBe(false);
-    await page.screenshot({
-      path: info.outputPath(`${stage}-${viewport.width}.png`),
-    });
-  }
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  return measured;
-}
-
-async function loadedCopies(
-  page: Page,
-  copies: string[],
-  recording: string,
-  title: string,
-  baseURL: string,
-) {
-  for (const copy of copies) {
-    await page.goto(`/playlists/${copy}`);
-    const rows = page
-      .getByRole("table", { name: "Playlist entries" })
-      .locator("tbody")
-      .getByRole("row");
-    await expect(rows).toHaveCount(2);
-    await expect(rows.locator(".track-title")).toHaveText([title, title]);
-    await expect(
-      page.getByRole("button", { name: "Play playlist", exact: true }),
-    ).toBeDisabled();
-    for (const row of await rows.all()) {
-      await expect(
-        row.getByRole("button", { name: `Play ${title}`, exact: true }),
-      ).toBeDisabled();
-      const image = row.locator(".artwork img");
-      await expect(image).toHaveAttribute(
-        "src",
-        `/api/v1/recordings/${recording}/artwork`,
-      );
-      await expect
-        .poll(() =>
-          image.evaluate(
-            (element: HTMLImageElement) =>
-              element.complete && element.naturalWidth > 0,
-          ),
-        )
-        .toBe(true);
-    }
-    for (const image of await page.locator("img").all()) {
-      const url = await image.evaluate(
-        (element: HTMLImageElement) => element.currentSrc || element.src,
-      );
-      expect(new URL(url).origin).toBe(new URL(baseURL).origin);
-    }
-    await expect(page.locator("audio")).not.toHaveAttribute("src");
-  }
-}
 
 test("existing independent playlist copies automatically retain private provider artwork without changing saved music", async ({
   page,
@@ -203,7 +25,6 @@ test("existing independent playlist copies automatically retain private provider
   const origin = new URL(baseURL).origin;
   const headers = { "x-hito-request": "1", origin };
   const copies: string[] = [];
-  const imports: Schema["ImportProviderPlaylist"][] = [];
   const availability: { phase: Phase; value: Schema["ArtworkAvailability"] }[] =
     [];
   const jobs: {
@@ -212,70 +33,12 @@ test("existing independent playlist copies automatically retain private provider
     path: string;
     value: Schema["ArtworkFetch"];
   }[] = [];
-  const artworkEnqueues: { phase: Phase; path: string }[] = [];
-  const logs: Promise<string>[] = [];
-  const urls: string[] = [];
-  const imageURLs: string[] = [];
-  const errors: string[] = [];
-  const consoleErrors: { text: string; url: string }[] = [];
-  const failedResponses: {
-    owner: string;
-    url: string;
-    method: string;
-    status: number;
-    phase: Phase;
-  }[] = [];
   let phase: Phase = "sign-in";
   let service: Schema["PluginService"] | null = null;
   let connection: Schema["PluginInstallation"] | null = null;
   let recording: string | undefined;
-  const observe = (observed: Page, owner: string) => {
-    observed.on("pageerror", (error) => errors.push(error.message));
-    observed.on("console", (message) => {
-      if (message.type() === "error")
-        consoleErrors.push({
-          text: message.text(),
-          url: message.location().url,
-        });
-      logs.push(
-        Promise.all(message.args().map((argument) => argument.jsonValue()))
-          .then((values) => JSON.stringify(values))
-          .catch(() => message.text()),
-      );
-    });
-    observed.on("request", (request) => {
-      urls.push(request.url());
-      if (request.resourceType() === "image") imageURLs.push(request.url());
-      if (
-        request.method() === "POST" &&
-        /\/plugins\/[^/]+\/playlists\/import$/.test(
-          new URL(request.url()).pathname,
-        )
-      )
-        imports.push(request.postDataJSON());
-      if (
-        request.method() === "POST" &&
-        new URL(request.url()).pathname.endsWith("/artwork/fetch")
-      )
-        artworkEnqueues.push({
-          phase,
-          path: new URL(request.url()).pathname,
-        });
-    });
-    observed.on("response", (response) => {
-      const url = new URL(response.url());
-      if (url.origin !== origin) return;
-      const at = phase;
-      if (response.status() >= 400)
-        failedResponses.push({
-          owner,
-          url: response.url(),
-          method: response.request().method(),
-          status: response.status(),
-          phase: at,
-        });
-    });
-  };
+  const diagnostics = artworkDiagnostics(origin, () => phase);
+  const { imports, artworkEnqueues, observe } = diagnostics;
   observe(page, "owner");
   await page.addInitScript(() =>
     localStorage.setItem("hito-log-level", "debug"),
@@ -469,66 +232,15 @@ test("existing independent playlist copies automatically retain private provider
     ).toEqual([]);
     const title = `${fixture.prefix} personal title`;
     const artist = `${fixture.prefix} personal artist`;
-    const edited = await page.request.post("/api/v1/sync", {
+    const before = await savePersonalState(
+      page,
+      copies,
+      recordingId,
+      title,
+      artist,
+      initial,
       headers,
-      data: {
-        device_id: "provider-artwork-e2e",
-        operations: [
-          {
-            id: randomUUID(),
-            action: {
-              kind: "recording_title_set",
-              recording_id: recordingId,
-              title,
-            },
-          },
-          {
-            id: randomUUID(),
-            action: {
-              kind: "recording_artist_set",
-              recording_id: recordingId,
-              artist,
-            },
-          },
-          {
-            id: randomUUID(),
-            action: {
-              kind: "like_set",
-              recording_id: recordingId,
-              liked: true,
-            },
-          },
-          {
-            id: randomUUID(),
-            action: {
-              kind: "progress_set",
-              recording_id: recordingId,
-              position_ms: 4200,
-              speed: 1.25,
-            },
-          },
-        ],
-      } satisfies Schema["SyncBatch"],
-    });
-    expect(edited.status()).toBe(200);
-    const before = await savedState(page, copies, recordingId);
-    expect(before.playlists).toHaveLength(initial.length + 2);
-    expect(
-      new Set(
-        before.copies.flatMap((copy) =>
-          copy.entries.map((entry) => entry.entry_id),
-        ),
-      ).size,
-    ).toBe(4);
-    expect(before.metadata.title.personal).toBe(title);
-    expect(before.metadata.artist.personal).toBe(artist);
-    expect(
-      before.catalog.items.find((item) => item.id === recordingId),
-    ).toMatchObject({ title, artist, liked: true, available: false });
-    expect(
-      before.activity.history.find((item) => item.id === recordingId),
-    ).toMatchObject({ liked: true, position_ms: 4200, speed: 1.25 });
-    expect(before.sources).toEqual([]);
+    );
     phase = "approval";
     fixture.enableArtwork();
     await page.goto("/settings?section=plugins");
@@ -839,22 +551,7 @@ test("existing independent playlist copies automatically retain private provider
         "/fixture/v1/artwork",
       ]).toContain(request.path);
     }
-    expect(
-      urls.filter(
-        (url) => new URL(url).origin === new URL(fixture.address).origin,
-      ),
-    ).toEqual([]);
-    expect(imageURLs.length).toBeGreaterThan(0);
-    for (const url of imageURLs) expect(new URL(url).origin).toBe(origin);
-    expect(urls.some((url) => /\/audio(?:\?|$)/.test(url))).toBe(false);
-    const storage = await page.evaluate(() =>
-      JSON.stringify({
-        local: Object.entries(localStorage),
-        session: Object.entries(sessionStorage),
-      }),
-    );
-    const browserLogs = (await Promise.all(logs)).join("\n");
-    for (const value of [
+    await diagnostics.assertPrivacy(page, fixture.address, [
       fixture.token,
       fixture.reference,
       fixture.address,
@@ -864,63 +561,8 @@ test("existing independent playlist copies automatically retain private provider
       title,
       artist,
       fixture.recording.title,
-    ]) {
-      expect(browserLogs).not.toContain(value);
-      expect(storage).not.toContain(value);
-      for (const url of urls) {
-        expect(url).not.toContain(value);
-        expect(url).not.toContain(encodeURIComponent(value));
-      }
-    }
-    expect(errors).toEqual([]);
-    const messages = new Map([
-      [
-        401,
-        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-      ],
-      [
-        404,
-        "Failed to load resource: the server responded with a status of 404 (Not Found)",
-      ],
     ]);
-    for (const response of failedResponses) {
-      expect(response.method).toBe("GET");
-      if (response.url === new URL("/api/v1/me", baseURL).href) {
-        expect(response.status).toBe(401);
-        expect(response.phase).toBe("sign-in");
-      } else {
-        expect(response.owner).toBe("owner");
-        expect(response.url).toBe(new URL(artworkPath, baseURL).href);
-        expect(response.status).toBe(404);
-        expect(["copies", "retrieving"]).toContain(response.phase);
-      }
-    }
-    for (const owner of ["owner", "other"])
-      expect(
-        failedResponses.filter(
-          (response) => response.owner === owner && response.status === 401,
-        ),
-      ).toHaveLength(1);
-    expect(
-      failedResponses.some(
-        (response) =>
-          response.phase === "retrieving" && response.status === 404,
-      ),
-    ).toBe(true);
-    const correlated = new Set<number>();
-    const unexpected = consoleErrors.filter((diagnostic) => {
-      const index = failedResponses.findIndex(
-        (response, index) =>
-          !correlated.has(index) &&
-          response.url === diagnostic.url &&
-          diagnostic.text === messages.get(response.status),
-      );
-      if (index < 0) return true;
-      correlated.add(index);
-      return false;
-    });
-    expect(unexpected).toEqual([]);
-    expect(correlated.size).toBe(failedResponses.length);
+    diagnostics.assertFailures(artworkPath, baseURL);
     await info.attach("provider-artwork-evidence", {
       body: JSON.stringify(
         {
