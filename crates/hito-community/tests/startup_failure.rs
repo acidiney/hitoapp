@@ -21,6 +21,7 @@ static GATE: OnceLock<CloseGate> = OnceLock::new();
 struct CloseGate {
     entered: Mutex<Option<oneshot::Sender<io::Result<PathBuf>>>>,
     rejected: AtomicBool,
+    callback_exited: AtomicBool,
     released: Mutex<bool>,
     ready: Condvar,
 }
@@ -70,15 +71,19 @@ unsafe extern "C" fn hold_close(_: *mut c_void) {
     let Some(gate) = GATE.get() else {
         return;
     };
-    let worker = std::fs::read_link("/proc/thread-self").map(|path| Path::new("/proc").join(path));
-    if let Some(entered) = gate
+    let callback_thread =
+        std::fs::read_link("/proc/thread-self").map(|path| Path::new("/proc").join(path));
+    let first_callback = if let Some(entered) = gate
         .entered
         .lock()
         .unwrap_or_else(|error| error.into_inner())
         .take()
     {
-        let _ = entered.send(worker);
-    }
+        let _ = entered.send(callback_thread);
+        true
+    } else {
+        false
+    };
     let mut released = gate
         .released
         .lock()
@@ -88,6 +93,10 @@ unsafe extern "C" fn hold_close(_: *mut c_void) {
             .ready
             .wait(released)
             .unwrap_or_else(|error| error.into_inner());
+    }
+    drop(released);
+    if first_callback {
+        gate.callback_exited.store(true, Ordering::Release);
     }
 }
 
@@ -164,6 +173,7 @@ async fn failed_startup_keeps_ownership_until_the_initialized_sqlite_worker_fini
         GATE.set(CloseGate {
             entered: Mutex::new(Some(entered)),
             rejected: AtomicBool::new(false),
+            callback_exited: AtomicBool::new(false),
             released: Mutex::new(false),
             ready: Condvar::new(),
         })
@@ -176,15 +186,15 @@ async fn failed_startup_keeps_ownership_until_the_initialized_sqlite_worker_fini
     );
     let opening_config = config(&directory);
     let mut opening = tokio::spawn(async move { Service::open(opening_config).await });
-    let worker = tokio::time::timeout(Duration::from_secs(5), arrived)
+    let callback_thread = tokio::time::timeout(Duration::from_secs(5), arrived)
         .await
         .expect("SQLite close callback was not entered")
         .expect("SQLite close callback lost its receiver")
-        .expect("SQLite worker could not identify its live thread");
+        .expect("SQLite close callback could not identify its live thread");
     let returned = tokio::time::timeout(Duration::from_secs(5), &mut opening).await;
     let returned_while_closing = returned.is_ok();
     let held_while_closing = claim_is_held(&directory);
-    let worker_was_live = worker.try_exists();
+    let callback_thread_was_live = callback_thread.try_exists();
     GATE.get().unwrap().release();
     let completed = match returned {
         Ok(completed) => completed,
@@ -193,13 +203,18 @@ async fn failed_startup_keeps_ownership_until_the_initialized_sqlite_worker_fini
             .expect("Startup did not finish after the close gate was released"),
     }
     .expect("Startup task did not join");
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while worker.try_exists().unwrap() || claim_is_held(&directory).unwrap() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("SQLite worker and state ownership did not finish cleanup");
+    assert!(
+        completed.is_err(),
+        "Startup accepted a rejected initial PRAGMA"
+    );
+    assert!(
+        GATE.get().unwrap().callback_exited.load(Ordering::Acquire),
+        "Startup returned before its SQLite close callback exited"
+    );
+    assert!(
+        !claim_is_held(&directory).unwrap(),
+        "Startup returned before releasing state ownership"
+    );
     drop(registration);
 
     assert!(
@@ -207,12 +222,8 @@ async fn failed_startup_keeps_ownership_until_the_initialized_sqlite_worker_fini
         "The fixture did not reject initial journal-mode setup"
     );
     assert!(
-        worker_was_live.unwrap(),
-        "The observed SQLite worker was not alive at its close barrier"
-    );
-    assert!(
-        completed.is_err(),
-        "Startup accepted a rejected initial PRAGMA"
+        callback_thread_was_live.unwrap(),
+        "The observed SQLite callback thread was not alive at its close barrier"
     );
     let held_while_closing = held_while_closing.unwrap();
     assert!(
