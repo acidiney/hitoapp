@@ -54,6 +54,17 @@ function progressSignature(download: PlaylistDownloadStatus) {
   ]);
 }
 
+function hasFailedEntries(
+  download: PlaylistDownloadStatus | null,
+  retention: string | null,
+) {
+  return (
+    download !== null &&
+    download.retention_id === retention &&
+    download.entries.items.some((entry) => entry.status === "failed")
+  );
+}
+
 export function usePlaylistDownload(account: string, playlist: string) {
   const scope = useRequestScope(JSON.stringify([account, playlist]));
   const owner = useMemo<Owner>(
@@ -78,6 +89,10 @@ export function usePlaylistDownload(account: string, playlist: string) {
   const [state, setState] = useState<{ owner: Owner; view: View } | null>(null);
   const current = state?.owner === owner ? state.view : owner.view;
   const renderedRetention = current.retention;
+  const renderedFailures = hasFailedEntries(
+    current.download,
+    renderedRetention,
+  );
 
   function publish(update: Partial<View>) {
     owner.view = { ...owner.view, ...update };
@@ -286,6 +301,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
     checking: current.checking,
     pending: current.pending,
     requested: current.retention !== null,
+    hasRetainedFailures: renderedFailures,
     retryKind: current.attempt?.kind ?? null,
     error: current.error,
     statusError: current.statusError,
@@ -308,6 +324,20 @@ export function usePlaylistDownload(account: string, playlist: string) {
       owner.view.checking
         ? Promise.resolve()
         : perform({ kind: "remove", retention: renderedRetention }),
+    retryFailed: () =>
+      owner.view.attempt ||
+      !renderedRetention ||
+      owner.view.retention !== renderedRetention ||
+      !renderedFailures ||
+      !hasFailedEntries(owner.view.download, renderedRetention) ||
+      owner.write ||
+      owner.view.pending ||
+      owner.view.checking
+        ? Promise.resolve()
+        : perform({
+            kind: "create",
+            body: Object.freeze({ request_id: crypto.randomUUID() }),
+          }),
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
   };

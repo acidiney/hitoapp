@@ -6,12 +6,14 @@ type ViewProps = {
   checking: boolean;
   pending: boolean;
   requested: boolean;
+  hasRetainedFailures: boolean;
   retryKind: "create" | "remove" | null;
   error: string;
   statusError: string;
   local: boolean;
   start(): Promise<void>;
   remove(): Promise<void>;
+  retryFailed(): Promise<void>;
   retry(): Promise<void>;
   check(): Promise<void>;
 };
@@ -34,12 +36,14 @@ function PlaylistDownloadView({
   checking,
   pending,
   requested,
+  hasRetainedFailures,
   retryKind,
   error,
   statusError,
   local,
   start,
   remove,
+  retryFailed,
   retry,
   check,
 }: ViewProps) {
@@ -137,6 +141,15 @@ function PlaylistDownloadView({
       >
         {label}
       </button>
+      {hasRetainedFailures && failed > 0 && (
+        <button
+          className="button"
+          disabled={checking || pending || retryKind !== null}
+          onClick={() => void retryFailed()}
+        >
+          Retry failed downloads
+        </button>
+      )}
     </section>
   );
 }
