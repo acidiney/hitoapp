@@ -115,3 +115,121 @@ async fn saved_musical_identity_resolves_wrapped_video_title_with_approved_metad
         }
     }
 }
+
+#[tokio::test]
+async fn mismatched_musical_source_witness_rejects_ready_audio_without_publication() {
+    let spotify = fixture::ProviderServer::start().await;
+    let youtube = fixture::ProviderServer::start().await;
+    let result = tokio::time::timeout(
+        Duration::from_secs(8),
+        AssertUnwindSafe(async {
+            let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
+            let before = owned.hito.catalog.recording_metadata(
+                &owned.actor, &owned.recording, Default::default(),
+            ).await.unwrap_or_else(|_| panic!("the saved observations must be readable before resolution"));
+            let sources = json!({"items": [{
+                "id": "youtube/unwitnessed-audio", "label": "Owned audio", "ready": true
+            }]});
+            let page: hito_plugin_sdk::SourcePage = serde_json::from_value(sources.clone())
+                .unwrap_or_else(|_| panic!("the unwitnessed source fixture must use the public wire type"));
+            assert!(
+                page.validate().is_ok() && page.items.len() == 1
+                    && page.items[0].ready && page.items[0].id != "youtube/owned-audio",
+                "the sole source mismatch must retain a valid ready source page"
+            );
+            youtube.reply("v1/sources", sources).await;
+            let request_id = Uuid::new_v4();
+            let resolution = owned.hito.catalog.resolve_source_until(
+                &owned.actor,
+                &owned.recording,
+                ResolveSource { request_id },
+                std::future::pending(),
+            ).await.unwrap_or_else(|_| panic!("the witness mismatch must return a typed outcome"));
+            assert!(
+                resolution.request_id == request_id && resolution.recording_id == owned.recording,
+                "rejected resolution must preserve the request and target identities"
+            );
+            assert!(
+                matches!(resolution.outcome, SourceResolutionOutcome::NoSuitableSource)
+                    && resolution.sources.is_empty(),
+                "a ready source outside the complete metadata witness must yield NoSuitableSource"
+            );
+            for path in ["v1/recordings/metadata", "v1/sources"] {
+                let requests = youtube.requests(path).await;
+                assert!(
+                    !requests.is_empty() && requests.iter().all(|(_, body)| {
+                        body == &json!({"recording_id": "youtube/owned-video"})
+                    }),
+                    "witness rejection must follow metadata and source exchanges for the same candidate"
+                );
+            }
+            owned.assert_preserved().await;
+            let after = owned.hito.catalog.recording_metadata(
+                &owned.actor, &owned.recording, Default::default(),
+            ).await.unwrap_or_else(|_| panic!("the saved observations must remain readable after rejection"));
+            assert!(
+                fixture::encoded(&after) == fixture::encoded(&before),
+                "witness rejection must publish no candidate observation or metadata change"
+            );
+            assert!(
+                owned.hito.catalog.sources(&owned.actor, &owned.recording).await
+                    .unwrap_or_else(|_| panic!("the rejected target sources must remain readable"))
+                    .is_empty(),
+                "witness rejection must publish no provider source"
+            );
+            assert!(
+                youtube.requests("v1/audio").await.is_empty(),
+                "witness rejection must never request provider audio"
+            );
+            let calls_before = [
+                resolution_request_counts(&spotify).await,
+                resolution_request_counts(&youtube).await,
+            ];
+            assert!(
+                calls_before[0].iter().all(|count| *count == 0),
+                "witness rejection must never send candidate requests to the primary service"
+            );
+            let replay = owned.hito.catalog.resolve_source_until(
+                &owned.actor,
+                &owned.recording,
+                ResolveSource { request_id },
+                std::future::pending(),
+            ).await.unwrap_or_else(|_| panic!("the rejected resolution receipt must remain replayable"));
+            assert!(
+                fixture::encoded(&replay) == fixture::encoded(&resolution),
+                "receipt replay must preserve the rejected resolution identity and outcome"
+            );
+            let calls_after = [
+                resolution_request_counts(&spotify).await,
+                resolution_request_counts(&youtube).await,
+            ];
+            assert!(
+                calls_after == calls_before,
+                "replaying witness rejection must perform no further provider exchanges"
+            );
+        }).catch_unwind(),
+    ).await;
+    spotify.shutdown().await;
+    youtube.shutdown().await;
+    match result {
+        Ok(Ok(())) => {}
+        Ok(Err(panic)) => std::panic::resume_unwind(panic),
+        Err(_) => {
+            panic!("the owned witness-mismatch exercise must settle within its test deadline")
+        }
+    }
+}
+
+async fn resolution_request_counts(server: &fixture::ProviderServer) -> Vec<usize> {
+    let mut counts = Vec::new();
+    for path in [
+        "v1/search",
+        "v1/recordings/detail",
+        "v1/recordings/metadata",
+        "v1/sources",
+        "v1/audio",
+    ] {
+        counts.push(server.requests(path).await.len());
+    }
+    counts
+}
