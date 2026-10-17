@@ -159,7 +159,7 @@ export function useRecordingDownload(account: string, recording: string) {
     publish({
       attempt,
       pending: attempt.kind,
-      checking: false,
+      checking: owner.invalidatedRead,
       error: "",
       statusError: "",
     });
@@ -270,14 +270,22 @@ export function useRecordingDownload(account: string, recording: string) {
     check: load,
     invalidateRead,
     start: () =>
-      owner.data.attempt || owner.data.download || owner.write
+      owner.data.attempt ||
+      owner.data.checking ||
+      owner.data.statusError ||
+      owner.data.download?.matches_source_choice ||
+      owner.write
         ? Promise.resolve()
         : perform({
             kind: "create",
             body: Object.freeze({ request_id: crypto.randomUUID() }),
           }),
     remove: () =>
-      owner.data.attempt || !owner.data.download || owner.write
+      owner.data.attempt ||
+      owner.data.checking ||
+      owner.data.statusError ||
+      !owner.data.download ||
+      owner.write
         ? Promise.resolve()
         : perform({ kind: "remove", intent: owner.data.download.intent_id }),
     retry: () =>

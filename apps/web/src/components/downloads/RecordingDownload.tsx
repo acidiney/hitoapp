@@ -27,12 +27,16 @@ export default function RecordingDownload({
   retry,
   check,
 }: Props) {
+  const verified = !checking && !statusError;
+  const previousSource = download?.matches_source_choice === false;
   const transferring =
     download !== null &&
     ["queued", "running", "verifying"].includes(download.status);
   const label =
     pending === "create"
-      ? "Download"
+      ? previousSource
+        ? "Download selected source"
+        : "Download"
       : pending === "remove"
         ? "Remove download"
         : retryKind === "create"
@@ -51,22 +55,29 @@ export default function RecordingDownload({
         music service is unavailable.
       </p>
       <p role="status">
-        {download?.status === "ready"
-          ? local
-            ? "Saved on this device"
-            : "Saved on this server"
-          : download?.status === "queued"
-            ? "Download queued."
-            : download?.status === "running"
-              ? "Downloading audio…"
-              : download?.status === "verifying"
-                ? "Verifying audio…"
-                : download?.status === "failed"
-                  ? "Download failed. Remove it before requesting another copy."
-                  : checking
-                    ? "Checking saved copy…"
-                    : null}
+        {checking
+          ? "Checking saved copy…"
+          : statusError
+            ? "Saved copy status is unavailable."
+            : download?.status === "ready"
+              ? previousSource
+                ? `A copy from a previous source is saved on this ${local ? "device" : "server"}.`
+                : local
+                  ? "Saved on this device"
+                  : "Saved on this server"
+              : download?.status === "queued"
+                ? "Download queued."
+                : download?.status === "running"
+                  ? "Downloading audio…"
+                  : download?.status === "verifying"
+                    ? "Verifying audio…"
+                    : download?.status === "failed"
+                      ? "Download failed. Remove it before requesting another copy."
+                      : null}
       </p>
+      {verified && previousSource && download?.status !== "ready" && (
+        <p role="status">This download belongs to a previous source.</p>
+      )}
       {transferring && (
         <progress
           aria-label="Download progress"
@@ -101,9 +112,18 @@ export default function RecordingDownload({
           </button>
         </div>
       )}
+      {previousSource && !retryKind && (
+        <button
+          className="button"
+          disabled={!verified || pending !== null}
+          onClick={() => void start()}
+        >
+          Download selected source
+        </button>
+      )}
       <button
         className="button"
-        disabled={pending !== null}
+        disabled={pending !== null || (!retryKind && !verified)}
         onClick={() => void action()}
       >
         {label}
