@@ -140,7 +140,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         ],
     )
     .await;
-    let before = snapshot(&hito, &actor, &subscription, playlist_id).await;
+    let (before, published_at) = snapshot(&hito, &actor, &subscription, playlist_id).await;
     assert_eq!(
         before["episodes"]["items"][0]["recording"]["title"],
         "My private retained episode"
@@ -175,6 +175,17 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         grant.source_id()
     );
 
+    let database = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(directory.join("hito.db"))
+                .foreign_keys(true),
+        )
+        .await
+        .unwrap();
+    wait_for_clock_after(&database, published_at).await;
+
     server.require_conditional_check();
     let refresh_id = Uuid::new_v4();
     let refreshed = hito
@@ -199,20 +210,14 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
             .unwrap()
     );
     assert_eq!(server.requests().await.len(), 2);
-    assert_eq!(
-        snapshot(&hito, &actor, &subscription, playlist_id).await,
-        before
+    let (after_manual, mut last_refreshed_at) =
+        snapshot(&hito, &actor, &subscription, playlist_id).await;
+    assert!(
+        last_refreshed_at > published_at,
+        "the successful manual 304 must advance the operational refresh timestamp"
     );
+    assert_eq!(after_manual, before);
 
-    let database = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(
-            SqliteConnectOptions::new()
-                .filename(directory.join("hito.db"))
-                .foreign_keys(true),
-        )
-        .await
-        .unwrap();
     let counts_before = client_counts(&database, &actor.user().id).await;
     assert_eq!(counts_before, (1, 1, 0, 2, 2));
     let mut automatic_jobs = Vec::new();
@@ -242,6 +247,14 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         assert_eq!(server.requests().await.len(), index + 3);
         assert_eq!(server.enclosure_requests(), 0);
         assert_eq!(server.unexpected_requests(), 0);
+        let (subscriptions, refreshed_at) =
+            subscription_snapshot(&hito, &actor, &subscription).await;
+        assert!(
+            refreshed_at >= last_refreshed_at,
+            "successful automatic checks must not regress the refresh timestamp"
+        );
+        assert_eq!(subscriptions, before["subscriptions"]);
+        last_refreshed_at = refreshed_at;
         grant
             .check()
             .await
@@ -258,10 +271,10 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         "only the newest 32 automatic jobs and both client-referenced jobs may remain"
     );
     assert_eq!(retained.len(), 34);
-    assert_eq!(
-        snapshot(&hito, &actor, &subscription, playlist_id).await,
-        before
-    );
+    let (after_automatic, final_refreshed_at) =
+        snapshot(&hito, &actor, &subscription, playlist_id).await;
+    assert_eq!(after_automatic, before);
+    assert_eq!(final_refreshed_at, last_refreshed_at);
     let continued = hito
         .podcasts
         .episodes(
@@ -291,8 +304,14 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         .await
         .unwrap();
     assert_eq!(selected.source_id(), grant.source_id());
+    wait_for_clock_after(&database, final_refreshed_at).await;
+    let requests_before_replay = server.requests().await.len();
     let replay = hito.podcasts.subscribe(&actor, subscribe()).await.unwrap();
     assert_eq!(serde_json::to_value(replay).unwrap(), subscribed_before);
+    let (subscriptions, replayed_at) = subscription_snapshot(&hito, &actor, &subscription).await;
+    assert_eq!(subscriptions, before["subscriptions"]);
+    assert_eq!(replayed_at, final_refreshed_at);
+    assert_eq!(server.requests().await.len(), requests_before_replay);
     let replay = hito
         .podcasts
         .enqueue_refresh(
@@ -305,6 +324,10 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         .await
         .unwrap();
     assert_eq!(serde_json::to_value(replay).unwrap(), refreshed_before);
+    let (subscriptions, replayed_at) = subscription_snapshot(&hito, &actor, &subscription).await;
+    assert_eq!(subscriptions, before["subscriptions"]);
+    assert_eq!(replayed_at, final_refreshed_at);
+    assert_eq!(server.requests().await.len(), requests_before_replay);
     assert!(
         !hito
             .podcasts
@@ -317,10 +340,9 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         client_counts(&database, &actor.user().id).await,
         counts_before
     );
-    assert_eq!(
-        snapshot(&hito, &actor, &subscription, playlist_id).await,
-        before
-    );
+    let (after_replay, replayed_at) = snapshot(&hito, &actor, &subscription, playlist_id).await;
+    assert_eq!(after_replay, before);
+    assert_eq!(replayed_at, final_refreshed_at);
     grant.check().await.unwrap();
     let requests = server.requests().await;
     assert_eq!(requests.len(), AUTOMATIC_CHECKS + 2);
@@ -340,7 +362,12 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
     database.close().await;
 }
 
-async fn snapshot(hito: &Services, actor: &Actor, subscription: &str, playlist: Uuid) -> Value {
+async fn snapshot(
+    hito: &Services,
+    actor: &Actor,
+    subscription: &str,
+    playlist: Uuid,
+) -> (Value, i64) {
     let episodes = hito
         .podcasts
         .episodes(actor, subscription, PodcastEpisodeQuery::default())
@@ -363,14 +390,51 @@ async fn snapshot(hito: &Services, actor: &Actor, subscription: &str, playlist: 
             "position_ms": hito.collection.saved_position(actor, Uuid::parse_str(id).unwrap()).await.unwrap().map(|saved| saved.position_ms)
         }));
     }
-    json!({
-        "subscriptions": hito.podcasts.subscriptions(actor).await.unwrap(),
-        "episodes": episodes,
-        "recordings": recordings,
-        "playlist": hito.collection.playlist(actor, &playlist.to_string()).await.unwrap(),
-        "activity": hito.collection.activity(actor).await.unwrap(),
-        "sync": hito.collection.events(actor, 0).await.unwrap()
+    let (subscriptions, last_refreshed_at) = subscription_snapshot(hito, actor, subscription).await;
+    (
+        json!({
+            "subscriptions": subscriptions,
+            "episodes": episodes,
+            "recordings": recordings,
+            "playlist": hito.collection.playlist(actor, &playlist.to_string()).await.unwrap(),
+            "activity": hito.collection.activity(actor).await.unwrap(),
+            "sync": hito.collection.events(actor, 0).await.unwrap()
+        }),
+        last_refreshed_at,
+    )
+}
+
+async fn subscription_snapshot(hito: &Services, actor: &Actor, subscription: &str) -> (Value, i64) {
+    let mut subscriptions =
+        serde_json::to_value(hito.podcasts.subscriptions(actor).await.unwrap()).unwrap();
+    let items = subscriptions.as_array_mut().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["subscription_id"], subscription);
+    let last_refreshed_at = items[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("last_refreshed_at")
+        .expect("the public subscription must expose its operational refresh field")
+        .as_i64()
+        .expect("a successfully published subscription must have a refresh timestamp");
+    (subscriptions, last_refreshed_at)
+}
+
+async fn wait_for_clock_after(database: &SqlitePool, timestamp: i64) {
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let now: i64 = sqlx::query_scalar("SELECT unixepoch()")
+                .fetch_one(database)
+                .await
+                .unwrap();
+            if now > timestamp {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
     })
+    .await
+    .expect("SQLite's observed clock must advance beyond the previous successful refresh");
 }
 
 async fn retained_jobs(database: &SqlitePool, subscription: &str) -> Vec<(String, String)> {
