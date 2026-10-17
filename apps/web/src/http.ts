@@ -59,6 +59,7 @@ export async function request(path: string, options: RequestOptions) {
   if (response.ok) {
     const accepted =
       options.action === "job.status" ||
+      options.action === "downloads.status" ||
       options.action === "playlists.follow.status" ||
       options.action.startsWith("artwork.") ||
       options.action === "progress.save" ||
@@ -68,7 +69,9 @@ export async function request(path: string, options: RequestOptions) {
     accepted("http.response", result);
     return response;
   }
-  log.warn("http.failed", result);
+  if (options.action === "downloads.status" && response.status === 404)
+    log.debug("http.response", result);
+  else log.warn("http.failed", result);
   const data: unknown = await response.json().catch(() => null);
   const message =
     data !== null &&

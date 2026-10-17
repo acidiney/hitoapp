@@ -54,6 +54,8 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     });
   const base = `/api/v1/recordings/${savedRecording.id}/sources`;
   const fetch = vi.fn(async (path: string, _options?: RequestInit) => {
+    if (path.endsWith("/download") && (_options?.method ?? "GET") === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     const responses: Record<string, unknown> = {
       "/api/v1/plugins": attachmentSettings,
       "/api/v1/plugins/video-connection/search": attachmentSearch,
@@ -68,6 +70,11 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       );
     return new Response(JSON.stringify(responses[path]));
   });
+  const requests = () =>
+    fetch.mock.calls.filter(
+      ([path, options]) =>
+        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET"),
+    );
   vi.stubGlobal("fetch", fetch);
   let player!: Player;
   function Page(props: RecordingDetailsPageProps) {
@@ -88,7 +95,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     name: "Track title",
   }) as HTMLInputElement;
   fireEvent.change(draft, { target: { value: "Unsent personal title" } });
-  expect(fetch).not.toHaveBeenCalled();
+  expect(requests()).toHaveLength(0);
   expect(play).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
   const service = await screen.findByRole("combobox", {
@@ -101,8 +108,8 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       name: /Search catalogue|Metadata catalogue/,
     }),
   ).toBeNull();
-  expect(fetch).toHaveBeenCalledTimes(1);
-  expect(fetch.mock.calls[0][0]).toBe("/api/v1/plugins");
+  expect(requests()).toHaveLength(1);
+  expect(requests()[0][0]).toBe("/api/v1/plugins");
   const search = screen.getByRole("searchbox", { name: "Search music" });
   fireEvent.change(search, { target: { value: "Owned track audio" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -111,11 +118,11 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   });
   expect(screen.getByText("Search result title")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Use this source" })).toBeNull();
-  expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+  expect(requests().map(([path]) => path)).toEqual([
     "/api/v1/plugins",
     "/api/v1/plugins/video-connection/search",
   ]);
-  expect(JSON.parse(fetch.mock.calls[1][1]?.body as string)).toEqual({
+  expect(JSON.parse(requests()[1][1]?.body as string)).toEqual({
     installation_revision: 7,
     query: "Owned track audio",
     cursor: null,
@@ -137,11 +144,11 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   expect(within(comparison).getByText("2:04")).toBeTruthy();
   expect(within(comparison).queryByText("Search result title")).toBeNull();
   expect(within(comparison).queryByText("Unsent personal title")).toBeNull();
-  expect(fetch.mock.calls[2][0]).toBe(`${base}/review`);
-  expect(JSON.parse(fetch.mock.calls[2][1]?.body as string)).toEqual(
+  expect(requests()[2][0]).toBe(`${base}/review`);
+  expect(JSON.parse(requests()[2][1]?.body as string)).toEqual(
     attachmentCandidate,
   );
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(requests()).toHaveLength(3);
   expect(player.queueSnapshot().total).toBe(0);
   expect(play).not.toHaveBeenCalled();
   expect(draft.value).toBe("Unsent personal title");
@@ -149,11 +156,11 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     within(comparison).getByRole("button", { name: "Use this source" }),
   );
   await screen.findByText("Source added to this track.");
-  expect(fetch.mock.calls[3][0]).toBe(`${base}/attach`);
-  expect(JSON.parse(fetch.mock.calls[3][1]?.body as string)).toEqual(
+  expect(requests()[3][0]).toBe(`${base}/attach`);
+  expect(JSON.parse(requests()[3][1]?.body as string)).toEqual(
     reviewedAttachment,
   );
-  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(requests()).toHaveLength(4);
   expect(player.queueSnapshot().total).toBe(0);
   expect(play).not.toHaveBeenCalled();
   rerender(view(attachedPage));
@@ -168,8 +175,8 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   ).toBe(savedRecording.artist);
   fireEvent.click(screen.getByRole("button", { name: "Check availability" }));
   await screen.findByText("Audio is ready to play.");
-  expect(fetch.mock.calls[4][0]).toBe(`${base}/refresh`);
-  expect(fetch.mock.calls[4][1]?.body).toBeUndefined();
+  expect(requests()[4][0]).toBe(`${base}/refresh`);
+  expect(requests()[4][1]?.body).toBeUndefined();
   expect(player.queueSnapshot().total).toBe(0);
   expect(play).not.toHaveBeenCalled();
   await act(async () => {
@@ -181,7 +188,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   expect(document.querySelector("audio")?.src).toContain(
     "/accepted-video-audio/audio",
   );
-  expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+  expect(requests().map(([path]) => path)).toEqual([
     "/api/v1/plugins",
     "/api/v1/plugins/video-connection/search",
     `${base}/review`,
@@ -249,6 +256,8 @@ test("a delayed review cannot cross an account and recording change or load the 
   const reviewPath = `/api/v1/recordings/${savedRecording.id}/sources/review`;
   let completeReview!: (response: Response) => void;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
+    if (path.endsWith("/download") && (options?.method ?? "GET") === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (path === "/api/v1/plugins") {
       const account = new Headers(options?.headers).get("x-hito-account");
       return new Response(
@@ -265,6 +274,11 @@ test("a delayed review cannot cross an account and recording change or load the 
       "An obsolete review must not start another workflow request",
     );
   });
+  const requests = () =>
+    fetch.mock.calls.filter(
+      ([path, options]) =>
+        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET"),
+    );
   vi.stubGlobal("fetch", fetch);
   const view = (props: RecordingDetailsPageProps) =>
     createElement(
@@ -283,9 +297,9 @@ test("a delayed review cannot cross an account and recording change or load the 
   });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   fireEvent.click(await screen.findByRole("button", { name: "Review match" }));
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
-  expect(fetch.mock.calls[2][0]).toBe(reviewPath);
-  const reviewSignal = fetch.mock.calls[2][1]?.signal;
+  await waitFor(() => expect(requests()).toHaveLength(3));
+  expect(requests()[2][0]).toBe(reviewPath);
+  const reviewSignal = requests()[2][1]?.signal;
   expect(reviewSignal).toBeInstanceOf(AbortSignal);
   expect(reviewSignal?.aborted).toBe(false);
   rerender(view(bob));
@@ -293,7 +307,7 @@ test("a delayed review cannot cross an account and recording change or load the 
     "Bob saved title",
   );
   expect(reviewSignal?.aborted).toBe(true);
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(requests()).toHaveLength(3);
   expect(screen.queryByRole("combobox", { name: "Music service" })).toBeNull();
   expect(screen.getByRole("button", { name: "Find a source" })).toBeTruthy();
   await act(async () => {
@@ -305,22 +319,20 @@ test("a delayed review cannot cross an account and recording change or load the 
     screen.queryByRole("region", { name: "Review source match" }),
   ).toBeNull();
   expect(screen.queryByRole("button", { name: "Use this source" })).toBeNull();
-  expect(fetch).toHaveBeenCalledTimes(3);
-  expect(fetch.mock.calls.some(([path]) => path.endsWith("/attach"))).toBe(
-    false,
-  );
+  expect(requests()).toHaveLength(3);
+  expect(requests().some(([path]) => path.endsWith("/attach"))).toBe(false);
   expect(play).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
   const service = await screen.findByRole("combobox", {
     name: "Music service",
   });
   expect((service as HTMLSelectElement).value).toBe("bob-video-connection");
-  expect(fetch).toHaveBeenCalledTimes(4);
-  expect(fetch.mock.calls[3][0]).toBe("/api/v1/plugins");
-  expect(fetch.mock.calls[3][1]?.headers).toEqual(
+  expect(requests()).toHaveLength(4);
+  expect(requests()[3][0]).toBe("/api/v1/plugins");
+  expect(requests()[3][1]?.headers).toEqual(
     expect.objectContaining({ "x-hito-account": "bob" }),
   );
   expect(screen.queryByRole("button", { name: "Use this source" })).toBeNull();
   unmount();
-  expect(fetch.mock.calls[3][1]?.signal?.aborted).toBe(true);
+  expect(requests()[3][1]?.signal?.aborted).toBe(true);
 });

@@ -195,9 +195,12 @@ test("recording details retries failed artwork only after an explicit action", a
   };
   const firstStatus = `/api/v1/artwork-fetches/${firstJob.id}`;
   const retryStatus = `/api/v1/artwork-fetches/${retryJob.id}`;
+  const downloadStatus = `/api/v1/recordings/${recording}/download`;
   let enqueues = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (path === downloadStatus && method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (path === availability && method === "GET")
       return Response.json({ can_fetch: true });
     if (path === enqueue && method === "POST") {
@@ -223,6 +226,11 @@ test("recording details retries failed artwork only after an explicit action", a
       } satisfies ArtworkFetch);
     throw new Error("Unexpected request outside the artwork retry workflow");
   });
+  const requests = () =>
+    fetch.mock.calls.filter(
+      ([path, options]) =>
+        !(path === downloadStatus && (options?.method ?? "GET") === "GET"),
+    );
   vi.stubGlobal("fetch", fetch);
   const { container } = render(
     createElement(Shell, {
@@ -242,11 +250,11 @@ test("recording details retries failed artwork only after an explicit action", a
   const retry = screen.getByRole("button", { name: "Retry artwork" });
   expect((retry as HTMLButtonElement).disabled).toBe(false);
   expect(cover()).toBeNull();
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(requests()).toHaveLength(3);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(60_000);
   });
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(requests()).toHaveLength(3);
 
   await act(async () => {
     fireEvent.click(retry);
@@ -257,7 +265,7 @@ test("recording details retries failed artwork only after an explicit action", a
   });
   expect(cover()?.getAttribute("src")).toBe(artwork);
   expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
-  expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+  expect(requests().map(([path]) => path)).toEqual([
     availability,
     enqueue,
     firstStatus,
