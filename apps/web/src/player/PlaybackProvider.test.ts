@@ -81,6 +81,8 @@ test("account playback aborts progress and replaces its account-bound resources"
       provider: "local",
       device_id: "server",
       ready: true,
+      label: "Local audio",
+      can_prepare: false,
     },
   ]);
   let failProgress!: (error: Error) => void;

@@ -4,6 +4,8 @@ Updated 2026-10-17. This is the remaining implementation work, not a list of fea
 
 Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track and album details now support private title and artist edits with local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
+The next functional priority is automatic audio resolution for imported playlists through connected providers. Normal listening must not require entering track URLs or approving every association. Manual source selection corrects an automatic result and must remain in place through synchronization and later resolution work. Visual polish remains after release functionality.
+
 ## Library and metadata
 
 - [x] Separate recording identity from tagged-file checksums so verified tag-only edits preserve playlists, likes, and progress. Preserve uncertain legacy references without guessing from paths.
@@ -70,8 +72,11 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Add browser discovery, explicit save/adoption, and playback through authorized server-relayed provider sources.
 - [x] Add source-only provider refresh, bounded browser failover near the requested position, and explicit track-details availability checks.
 - [x] Review and attach alternate provider audio to an existing recording without replacing its metadata or playlist identities. Verify the complete copied-track workflow and recovery through actual audio in Chromium. Deployed locally after backup, clone restoration and migration checks; see [source attachment](docs/provider-sources.md).
+- [ ] Automatically find and select suitable audio for imported playlists through approved connected providers, including Spotify metadata with YouTube audio. Keep playback usable without per-track source confirmation, preserve recording versions and private identities, bound background work, and provide a durable manual source override that automatic retries and Follow synchronization cannot replace. Verify actual playback and the absence of implicit persistent downloads.
 - [ ] Complete remaining plugin capability requests/results, conversion, and operational capability negotiation.
-- [x] Implement and verify the generic source-preparation backend and plugin contract in development, including durable receipts, restart polling and uncertain-submission guards. The backend is deployed locally after stopped backup/restoration and migration checks. UI, deferred playback and concrete adapters remain open. See [evidence and limits](docs/source-preparation.md).
+- [x] Implement and verify the generic source-preparation backend and plugin contract in development, including durable receipts, restart polling and uncertain-submission guards. The backend is deployed locally after stopped backup/restoration and migration checks. Deferred playback and concrete adapters remain open. See [evidence and limits](docs/source-preparation.md).
+- [x] Implement and verify the shared preparation UI with source labels, current eligibility, exact-request retry, bounded cancellable polling and explicit Play after readiness. The separate release image passes its real Chromium workflow; it is not yet deployed to the normal server. See [UI evidence](docs/source-preparation.md#ui-verification).
+- [ ] Deploy the verified preparation UI and integrate deferred sources into playback at track boundaries.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
 - [x] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; verify installation, discovery, adoption, playback, and seeking, start the local service, and notify the user here.

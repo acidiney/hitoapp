@@ -2003,8 +2003,10 @@ export interface components {
             user: components["schemas"]["User"];
         };
         Source: {
+            can_prepare: boolean;
             device_id?: string | null;
             id: string;
+            label: string;
             provider: string;
             ready: boolean;
             recording_id: string;

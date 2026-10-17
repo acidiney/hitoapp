@@ -181,6 +181,8 @@ export const attachedSources: Source[] = [
     provider: "plugin",
     device_id: null,
     ready: true,
+    label: "Owned video audio",
+    can_prepare: false,
   },
 ];
 
