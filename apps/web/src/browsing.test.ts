@@ -178,8 +178,8 @@ test("albumless artist tracks play only their page and keep album pagination sep
   });
 });
 
-test("a track collection with no available audio cannot start playback", () => {
-  render(
+test("known recording collections allow playback resolution while empty collections cannot start", () => {
+  const { rerender } = render(
     createElement(TrackToolbar, {
       tracks: [
         {
@@ -196,7 +196,21 @@ test("a track collection with no available audio cannot start playback", () => {
   const button = screen.getByRole("button", {
     name: "Play tracks",
   }) as HTMLButtonElement;
-  expect(button.disabled).toBe(true);
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  expect(player.playQueue).toHaveBeenCalledWith([
+    expect.objectContaining({ id: "saved", available: false }),
+  ]);
+  rerender(
+    createElement(TrackToolbar, {
+      tracks: [],
+      description: "Recording credits in your library",
+    }),
+  );
+  expect(
+    (screen.getByRole("button", { name: "Play tracks" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
 });
 
 test("an emptied track page keeps a way back without moving the album page", () => {

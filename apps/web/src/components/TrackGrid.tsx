@@ -25,7 +25,6 @@ export default function TrackGrid({
             <button
               className="card-play"
               aria-label={`Play ${track.title}`}
-              disabled={!track.available}
               onClick={() => void player.playQueue(tracks, index)}
             >
               <Play size={22} fill="currentColor" />

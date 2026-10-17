@@ -12,8 +12,11 @@ export default function LibrarySpotlight({
   playlists: Playlist[];
 }) {
   const player = usePlayer();
-  const index = tracks.findIndex((track) => track.available);
-  const track = tracks[index >= 0 ? index : 0];
+  const index = Math.max(
+    0,
+    tracks.findIndex((track) => track.available),
+  );
+  const track = tracks[index];
   if (!track) return null;
   return (
     <div className="library-feature-row">
@@ -28,7 +31,6 @@ export default function LibrarySpotlight({
           )}
           <button
             className="button primary"
-            disabled={!track.available}
             onClick={() => void player.playQueue(tracks, index)}
           >
             <Play size={17} fill="currentColor" /> Play featured track

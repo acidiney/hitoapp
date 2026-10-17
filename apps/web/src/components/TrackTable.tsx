@@ -95,7 +95,6 @@ export default function TrackTable({
                     <button
                       className="row-play icon-button"
                       aria-label={`Play ${track.title}`}
-                      disabled={!track.available}
                       onClick={() => play(track)}
                     >
                       <span>
@@ -122,7 +121,6 @@ export default function TrackTable({
                     {track ? (
                       <button
                         className="track-title"
-                        disabled={!track.available}
                         onClick={() => play(track)}
                       >
                         {track.title}

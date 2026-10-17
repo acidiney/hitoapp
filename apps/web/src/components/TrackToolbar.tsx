@@ -19,7 +19,7 @@ export default function TrackToolbar({
     <div className="list-toolbar">
       <button
         className="button primary"
-        disabled={!tracks.some((track) => track.available)}
+        disabled={tracks.length === 0}
         onClick={() => void player.playQueue(tracks)}
       >
         <Play size={17} />
