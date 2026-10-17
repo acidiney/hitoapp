@@ -1,4 +1,5 @@
 mod downloads;
+mod podcasts;
 mod source_preparation;
 
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
@@ -97,6 +98,16 @@ async fn serve_owned(
             downloads::reconcile(downloads, download_stop),
         );
     };
+    let podcasts = services.podcasts;
+    let podcast_stop = stopped.clone();
+    let refreshes = async move {
+        tokio::join!(
+            podcasts::worker(podcasts.clone(), podcast_stop.clone(), 0),
+            podcasts::worker(podcasts, podcast_stop, 1),
+        );
+    }
+    .instrument(tracing::Span::current())
+    .with_current_subscriber();
     let collection = services.collection;
     let follows = async move {
         tokio::join!(
@@ -107,8 +118,15 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), ()) =
-        tokio::join!(http, indexing, artwork, follows, transfers, preparations);
+    let (result, (), (), (), (), (), ()) = tokio::join!(
+        http,
+        indexing,
+        artwork,
+        follows,
+        transfers,
+        preparations,
+        refreshes
+    );
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),
         services.storage.finish_indexing(),

@@ -67,7 +67,8 @@ impl Podcasts {
                 }
             }
         };
-        let outcome = self.finish(&lease, result, *stopped.borrow()).await?;
+        let stopping = *stopped.borrow();
+        let outcome = self.finish(&lease, result, stopping).await?;
         tracing::info!(job_id = %lease.id, subscription_id = %lease.subscription_id, account_id = %lease.user_id, attempt = lease.attempts, outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Podcast refresh finished");
         Ok(true)
     }
