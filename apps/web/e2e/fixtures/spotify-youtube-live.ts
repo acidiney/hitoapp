@@ -5,6 +5,35 @@ type Schema = components["schemas"];
 
 export class SpotifyYouTubeLiveFailure extends Error {}
 
+export async function setUpSpotifyYouTubeLiveAccount(page: Page) {
+  try {
+    await page.goto("/library");
+    const username = page.getByLabel("Username", { exact: true });
+    const password = page.getByLabel("Password", { exact: true });
+    await username.waitFor({ state: "visible" });
+    await password.waitFor({ state: "visible" });
+    const setup = page.getByRole("button", {
+      name: "Create administrator",
+      exact: true,
+    });
+    if (!(await setup.isVisible()))
+      throw new SpotifyYouTubeLiveFailure(
+        "The Spotify to YouTube live test requires an uninitialized disposable server",
+      );
+    await username.fill("admin");
+    await password.fill("docker browser test password");
+    await setup.click();
+    await expect(
+      page.getByRole("heading", { name: "Your library", exact: true }),
+    ).toBeVisible();
+  } catch (error) {
+    if (error instanceof SpotifyYouTubeLiveFailure) throw error;
+    throw new SpotifyYouTubeLiveFailure(
+      "The disposable live account initialization failed",
+    );
+  }
+}
+
 export function spotifyYouTubeConfiguration() {
   const rawPlaylist = process.env.HITO_SPOTIFY_TEST_PLAYLIST;
   const rawYouTube = process.env.HITO_YOUTUBE_LIVE_BASE_URL;

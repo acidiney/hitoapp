@@ -4,10 +4,10 @@ import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
 import {
   liveControlBounds,
   liveMediaDiagnostics,
-  signInLiveAccount,
 } from "./fixtures/youtube-live";
 import {
   connectLiveProvider,
+  setUpSpotifyYouTubeLiveAccount,
   searchLiveCandidate,
   reviewLiveCandidate,
   spotifyYouTubeConfiguration,
@@ -107,7 +107,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
         throw new SpotifyYouTubeLiveFailure(
           "This browser does not support the required AAC codec",
         );
-      await signInLiveAccount(page);
+      await setUpSpotifyYouTubeLiveAccount(page);
       const initialPlaylists = await readSpotifyYouTube<Schema["Playlist"][]>(
         page,
         "/api/v1/playlists",
