@@ -9,13 +9,13 @@ use std::{
 
 const INTERRUPT_WORK_LIMIT: u64 = 10_000_000;
 
-pub(super) struct WorkMeter {
+pub(crate) struct WorkMeter {
     active: Arc<AtomicBool>,
     steps: Arc<AtomicU64>,
 }
 
 impl WorkMeter {
-    pub(super) async fn install(pool: &SqlitePool) -> Self {
+    pub(crate) async fn install(pool: &SqlitePool) -> Self {
         let meter = Self {
             active: Arc::new(AtomicBool::new(false)),
             steps: Arc::new(AtomicU64::new(0)),
@@ -42,7 +42,7 @@ impl WorkMeter {
         meter
     }
 
-    pub(super) async fn measure<T>(&self, operation: impl Future<Output = T>) -> (T, u64) {
+    pub(crate) async fn measure<T>(&self, operation: impl Future<Output = T>) -> (T, u64) {
         self.steps.store(0, Ordering::Relaxed);
         self.active.store(true, Ordering::Relaxed);
         let active = ActiveMeasurement(&self.active);
@@ -51,7 +51,7 @@ impl WorkMeter {
         (result, self.steps.load(Ordering::Relaxed))
     }
 
-    pub(super) async fn remove(&self, pool: &SqlitePool) {
+    pub(crate) async fn remove(&self, pool: &SqlitePool) {
         self.active.store(false, Ordering::Relaxed);
         let mut connections = all_connections(pool).await;
         for connection in &mut connections {

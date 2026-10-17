@@ -8,9 +8,14 @@ mod import_publication;
 mod import_receipts;
 mod playlist_entries;
 mod playlists;
+mod saved_playback;
 mod saved_position;
 mod service;
 mod types;
+
+#[cfg(test)]
+#[path = "tests/saved_playback_work.rs"]
+mod saved_playback_work;
 
 use crate::{HostDeviceId, store::Store};
 pub use follow::{
@@ -26,7 +31,7 @@ pub use import_publication::{
 pub use import_receipts::PlaylistImportReceipt;
 pub use types::{
     Action, Activity, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
-    SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    RecordingProgress, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
 
 #[derive(Clone)]

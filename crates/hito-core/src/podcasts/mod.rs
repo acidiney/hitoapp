@@ -11,9 +11,6 @@ mod archive_query_work;
 #[cfg(test)]
 #[path = "tests/query_work.rs"]
 mod query_work;
-#[cfg(test)]
-#[path = "tests/work_meter.rs"]
-mod work_meter;
 
 use crate::{Catalog, remote_http::RemoteHttp, store::Store};
 pub use types::{

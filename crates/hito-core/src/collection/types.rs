@@ -8,6 +8,13 @@ pub struct SavedPosition {
     pub position_ms: u64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, ToSchema)]
+pub struct RecordingProgress {
+    pub recording_id: Uuid,
+    pub position_ms: u64,
+    pub speed: f64,
+}
+
 #[derive(ToSchema, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Operation {

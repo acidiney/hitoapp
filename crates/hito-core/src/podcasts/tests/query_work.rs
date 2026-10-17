@@ -1,4 +1,4 @@
-use super::work_meter::WorkMeter;
+use crate::test_support::work_meter::WorkMeter;
 use crate::{CoreConfig, Credentials, HostDeviceId, RefreshPodcast, SubscribePodcast, open};
 use futures_util::FutureExt;
 use sqlx::Connection;

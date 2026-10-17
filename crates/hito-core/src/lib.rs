@@ -13,6 +13,9 @@ mod podcasts;
 mod remote_http;
 mod store;
 
+#[cfg(test)]
+mod test_support;
+
 pub use catalog::{
     AdoptProviderRecording, Artist, ArtistDetail, Artwork, ArtworkAvailability, ArtworkFetch,
     ArtworkFetchStatus, AttachReviewedProviderSource, AudioContent, AudioFile, AudioRequest,
@@ -29,8 +32,8 @@ pub use collection::{
     ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
     ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
     PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
-    PlaylistImportReceipt, RefreshFollowedPlaylist, SavedPosition, SyncBatch, SyncEvent, SyncPage,
-    SyncReceipt,
+    PlaylistImportReceipt, RecordingProgress, RefreshFollowedPlaylist, SavedPosition, SyncBatch,
+    SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{

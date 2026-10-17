@@ -1,4 +1,4 @@
-use super::work_meter::WorkMeter;
+use crate::test_support::work_meter::WorkMeter;
 use crate::{
     Browse, CoreConfig, Credentials, HostDeviceId, PodcastEpisodeQuery, SubscribePodcast, open,
 };
