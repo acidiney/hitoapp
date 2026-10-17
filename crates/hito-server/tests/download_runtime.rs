@@ -121,10 +121,17 @@ async fn exercise(
             if status["status"] == "ready" {
                 break status;
             }
-            assert!(matches!(
-                status["status"].as_str(),
-                Some("queued" | "running" | "verifying")
-            ));
+            assert!(
+                matches!(
+                    status["status"].as_str(),
+                    Some("queued" | "running" | "verifying")
+                ),
+                "download state={}, error={}, received={}, total={}",
+                status["status"],
+                status["error"],
+                status["bytes_received"],
+                status["total_bytes"]
+            );
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })

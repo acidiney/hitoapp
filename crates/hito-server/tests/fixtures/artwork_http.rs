@@ -54,10 +54,15 @@ pub async fn call(
         }
         let body = bytes[split + 4..].to_vec();
         assert!(headers.get("transfer-encoding").is_none());
-        assert_eq!(
-            headers["content-length"].to_str().unwrap().parse::<usize>().unwrap(),
-            body.len()
-        );
+        if status == StatusCode::NO_CONTENT {
+            assert!(body.is_empty());
+            assert!(headers.get("content-length").is_none());
+        } else {
+            assert_eq!(
+                headers["content-length"].to_str().unwrap().parse::<usize>().unwrap(),
+                body.len()
+            );
+        }
         Response { status, headers, body }
     })
     .await
