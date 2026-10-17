@@ -15,11 +15,13 @@ export default function PodcastEpisodes({
   progress,
   playlists,
   mutate,
+  onMutationAccepted,
 }: {
   episodes: PodcastEpisode[];
   progress: RecordingProgress[];
   playlists: Playlist[];
   mutate: Mutate;
+  onMutationAccepted: () => void;
 }) {
   const player = usePlayer();
   const saved = new Map(progress.map((item) => [item.recording_id, item]));
@@ -101,6 +103,7 @@ export default function PodcastEpisodes({
                     track={track}
                     playlists={playlists}
                     mutate={mutate}
+                    onMutationAccepted={onMutationAccepted}
                   />
                 </td>
               </tr>

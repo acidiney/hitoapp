@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { router } from "@inertiajs/react";
 import { HttpError } from "../http";
 import { log } from "../log";
 import { podcastApi } from "../podcastApi";
@@ -12,6 +13,10 @@ type EpisodeUpdates = {
   pause: () => void;
   applyRevision: (revision: number) => Promise<void>;
 };
+type DetailReload = {
+  cancel: (() => void) | null;
+  started: number;
+};
 type Owner = {
   subscription: PodcastSubscription;
   highestRevision: number;
@@ -20,9 +25,11 @@ type Owner = {
   run: AbortController | null;
   timer: ReturnType<typeof setTimeout> | null;
   error: string;
+  leaving: boolean;
+  detailReload: DetailReload | null;
 };
 
-export function usePodcastRefresh(
+export function usePodcastLifecycle(
   account: string,
   rendered: PodcastSubscription,
   episodes: EpisodeUpdates,
@@ -39,6 +46,8 @@ export function usePodcastRefresh(
       run: null,
       timer: null,
       error: "",
+      leaving: false,
+      detailReload: null,
     }),
     [account, id],
   );
@@ -51,8 +60,73 @@ export function usePodcastRefresh(
     waiting: boolean;
     checking: boolean;
     error: string;
+    leaving: boolean;
   } | null>(null);
   const current = state?.owner === owner ? state : null;
+  const cancelDetailReload = useMemo(
+    () => (reason: string) => {
+      const reload = owner.detailReload;
+      if (!reload) return;
+      owner.detailReload = null;
+      reload.cancel?.();
+      log.debug("podcasts.collection_reload_cancelled", {
+        account_id: account,
+        reason,
+        duration_ms: Math.round(performance.now() - reload.started),
+      });
+    },
+    [account, owner],
+  );
+  const onMutationAccepted = useMemo(
+    () => () => {
+      if (
+        !scope.capture().active() ||
+        latest.current.owner !== owner ||
+        owner.leaving ||
+        !command.mayReloadDetail()
+      ) {
+        log.debug("podcasts.collection_reload_skipped", {
+          account_id: account,
+          reason: "inactive_detail",
+        });
+        return;
+      }
+      cancelDetailReload("superseded");
+      const request = scope.capture();
+      const reload: DetailReload = { cancel: null, started: performance.now() };
+      owner.detailReload = reload;
+      const active = () =>
+        request.active() &&
+        latest.current.owner === owner &&
+        owner.detailReload === reload &&
+        !owner.leaving &&
+        command.mayReloadDetail();
+      try {
+        router.reload({
+          onBefore: () => active(),
+          onCancelToken: (token) => {
+            if (active()) reload.cancel = token.cancel;
+            else token.cancel();
+          },
+          onFinish: () => {
+            if (owner.detailReload === reload) owner.detailReload = null;
+            log.debug("podcasts.collection_reload_finished", {
+              account_id: account,
+              duration_ms: Math.round(performance.now() - reload.started),
+            });
+          },
+        });
+      } catch {
+        if (owner.detailReload === reload) owner.detailReload = null;
+        log.warn("podcasts.collection_reload_failed", {
+          account_id: account,
+          reason: "request",
+          duration_ms: Math.round(performance.now() - reload.started),
+        });
+      }
+    },
+    [owner, scope, command.mayReloadDetail, cancelDetailReload],
+  );
   const incoming =
     rendered.content_revision >= owner.highestRevision &&
     current?.rendered !== rendered;
@@ -65,6 +139,7 @@ export function usePodcastRefresh(
       waiting: owner.awaiting || owner.subscription.refresh_pending,
       checking: owner.run !== null,
       error: owner.error,
+      leaving: owner.leaving,
     });
   }
 
@@ -77,6 +152,7 @@ export function usePodcastRefresh(
     clearTimer();
     if (
       !scope.capture().active() ||
+      owner.leaving ||
       owner.run ||
       (!owner.awaiting && !owner.subscription.refresh_pending)
     )
@@ -92,7 +168,12 @@ export function usePodcastRefresh(
 
   async function check(): Promise<void> {
     const request = scope.capture();
-    if (!request.active() || owner.run || latest.current.owner !== owner)
+    if (
+      !request.active() ||
+      owner.leaving ||
+      owner.run ||
+      latest.current.owner !== owner
+    )
       return;
     clearTimer();
     const renderedAtStart = latest.current.rendered;
@@ -161,12 +242,37 @@ export function usePodcastRefresh(
     }
   }
 
-  async function refresh(retry = false): Promise<void> {
-    if (!retry && (owner.awaiting || owner.subscription.refresh_pending))
+  async function perform(
+    action: "refresh" | "unsubscribe" | "retry",
+  ): Promise<void> {
+    if (
+      owner.leaving ||
+      (action === "refresh" &&
+        (owner.awaiting || owner.subscription.refresh_pending))
+    )
       return;
-    const receipt = await (retry ? command.retry() : command.refresh());
-    if (!receipt || !scope.capture().active() || latest.current.owner !== owner)
+    if (action === "unsubscribe") cancelDetailReload("unsubscribe");
+    const result = await (action === "retry"
+      ? command.retry()
+      : action === "refresh"
+        ? command.refresh()
+        : command.unsubscribe());
+    if (!result || !scope.capture().active() || latest.current.owner !== owner)
       return;
+    if (result.kind === "unsubscribe") {
+      owner.leaving = true;
+      clearTimer();
+      owner.run?.abort();
+      owner.run = null;
+      publish();
+      log.info("podcasts.unsubscribe_navigation_requested", {
+        account_id: account,
+        operation_id: result.receipt.request_id,
+        route: "/podcasts",
+      });
+      router.visit("/podcasts");
+      return;
+    }
     owner.awaiting = true;
     owner.polls = 0;
     owner.error = "";
@@ -199,6 +305,11 @@ export function usePodcastRefresh(
     };
   }, [owner, scope, rendered, episodes.generation, episodes.knownRevision]);
 
+  useEffect(
+    () => () => cancelDetailReload("detail_closed"),
+    [cancelDetailReload],
+  );
+
   return {
     subscription: incoming
       ? rendered
@@ -208,9 +319,13 @@ export function usePodcastRefresh(
     statusError: current?.error ?? "",
     pending: command.pending,
     hasAttempt: command.hasAttempt,
+    attemptKind: command.attemptKind,
+    leaving: current?.leaving ?? false,
     error: command.error,
-    refresh: () => refresh(),
-    retry: () => refresh(true),
+    onMutationAccepted,
+    refresh: () => perform("refresh"),
+    unsubscribe: () => perform("unsubscribe"),
+    retry: () => perform("retry"),
     check: () => {
       owner.polls = 0;
       return check();

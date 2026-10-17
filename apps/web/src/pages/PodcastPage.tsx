@@ -6,7 +6,7 @@ import PodcastStatus from "../components/podcasts/PodcastStatus";
 import PodcastControls from "../components/podcasts/PodcastControls";
 import { useMutation } from "../hooks/useMutation";
 import { usePodcastEpisodes } from "../hooks/usePodcastEpisodes";
-import { usePodcastRefresh } from "../hooks/usePodcastRefresh";
+import { usePodcastLifecycle } from "../hooks/usePodcastLifecycle";
 import type { PodcastPageProps } from "../types";
 
 export default function PodcastPage({
@@ -23,19 +23,19 @@ export default function PodcastPage({
     episodes,
     progress,
   );
-  const refresh = usePodcastRefresh(user.id, subscription, workflow);
+  const lifecycle = usePodcastLifecycle(user.id, subscription, workflow);
   return (
     <>
       <PageHeading
-        title={refresh.subscription.title || "Untitled podcast"}
+        title={lifecycle.subscription.title || "Untitled podcast"}
         description={`${workflow.page.total} ${workflow.page.total === 1 ? "episode" : "episodes"}`}
       >
         <Link className="button" href="/podcasts">
           All podcasts
         </Link>
       </PageHeading>
-      <PodcastStatus subscription={refresh.subscription} />
-      <PodcastControls {...refresh} />
+      <PodcastStatus subscription={lifecycle.subscription} />
+      <PodcastControls {...lifecycle} />
       {workflow.loading && (
         <p role="status">Loading episodes and saved positions…</p>
       )}
@@ -59,6 +59,7 @@ export default function PodcastPage({
           progress={workflow.progress}
           playlists={playlists}
           mutate={mutate}
+          onMutationAccepted={lifecycle.onMutationAccepted}
         />
       ) : (
         <EmptyState

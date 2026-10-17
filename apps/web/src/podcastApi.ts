@@ -2,15 +2,36 @@ import { request } from "./http";
 import type {
   PodcastEpisodePage,
   PodcastRefreshReceipt,
+  PodcastUnsubscribeReceipt,
   PodcastSubscription,
   PodcastSubscriptionReceipt,
   RecordingProgress,
   RefreshPodcast,
   SavedPlaybackRequest,
   SubscribePodcast,
+  UnsubscribePodcast,
 } from "./types";
 
 export const podcastApi = {
+  async unsubscribe(
+    account: string,
+    subscription: string,
+    body: Readonly<UnsubscribePodcast>,
+    signal: AbortSignal,
+  ): Promise<PodcastUnsubscribeReceipt> {
+    return (
+      await request(
+        `/podcasts/${encodeURIComponent(subscription)}/unsubscribe`,
+        {
+          action: "podcasts.unsubscribe",
+          method: "POST",
+          account,
+          body,
+          signal,
+        },
+      )
+    ).json();
+  },
   async refresh(
     account: string,
     subscription: string,

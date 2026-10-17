@@ -2,12 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { HttpError } from "../http";
 import { log } from "../log";
 import { podcastApi } from "../podcastApi";
-import type { PodcastRefreshReceipt, RefreshPodcast } from "../types";
+import type {
+  PodcastRefreshReceipt,
+  PodcastUnsubscribeReceipt,
+  RefreshPodcast,
+  UnsubscribePodcast,
+} from "../types";
 import { createUuid } from "../uuid";
 import { useRequestScope } from "./useRequestScope";
 
+type Attempt =
+  | { kind: "refresh"; body: Readonly<RefreshPodcast> }
+  | { kind: "unsubscribe"; body: Readonly<UnsubscribePodcast> };
+type Accepted =
+  | { kind: "refresh"; receipt: PodcastRefreshReceipt }
+  | { kind: "unsubscribe"; receipt: PodcastUnsubscribeReceipt };
 type Owner = {
-  attempt: Readonly<RefreshPodcast> | null;
+  attempt: Attempt | null;
   run: AbortController | null;
 };
 
@@ -20,14 +31,17 @@ export function usePodcastCommand(account: string, subscription: string) {
   const [state, setState] = useState<{
     owner: Owner;
     pending: boolean;
-    hasAttempt: boolean;
+    attemptKind: Attempt["kind"] | null;
     error: string;
   } | null>(null);
   const current = state?.owner === owner ? state : null;
+  const mayReloadDetail = useMemo(
+    () => () =>
+      scope.capture().active() && owner.attempt?.kind !== "unsubscribe",
+    [owner, scope],
+  );
 
-  async function perform(
-    body: Readonly<RefreshPodcast>,
-  ): Promise<PodcastRefreshReceipt | null> {
+  async function perform(attempt: Attempt): Promise<Accepted | null> {
     const request = scope.capture();
     if (!request.active() || owner.run) return null;
     const run = new AbortController();
@@ -35,34 +49,53 @@ export function usePodcastCommand(account: string, subscription: string) {
     const active = () =>
       request.active() && !signal.aborted && owner.run === run;
     const started = performance.now();
-    const fields = { account_id: account, operation_id: body.request_id };
+    const fields = {
+      account_id: account,
+      operation_id: attempt.body.request_id,
+      action: attempt.kind,
+    };
     owner.run = run;
-    owner.attempt = body;
-    setState({ owner, pending: true, hasAttempt: true, error: "" });
-    log.info("podcasts.refresh_started", fields);
+    owner.attempt = attempt;
+    setState({ owner, pending: true, attemptKind: attempt.kind, error: "" });
+    log.info(`podcasts.${attempt.kind}_started`, fields);
     let message = "";
     try {
-      const receipt = await podcastApi.refresh(
-        account,
-        subscription,
-        body,
-        signal,
-      );
+      const result: Accepted =
+        attempt.kind === "refresh"
+          ? {
+              kind: "refresh",
+              receipt: await podcastApi.refresh(
+                account,
+                subscription,
+                attempt.body,
+                signal,
+              ),
+            }
+          : {
+              kind: "unsubscribe",
+              receipt: await podcastApi.unsubscribe(
+                account,
+                subscription,
+                attempt.body,
+                signal,
+              ),
+            };
       if (!active()) return null;
       if (
-        receipt.request_id !== body.request_id ||
-        receipt.subscription_id !== subscription ||
-        typeof receipt.job_id !== "string" ||
-        !receipt.job_id
+        result.receipt.request_id !== attempt.body.request_id ||
+        result.receipt.subscription_id !== subscription ||
+        (result.kind === "refresh" &&
+          (typeof result.receipt.job_id !== "string" || !result.receipt.job_id))
       )
-        throw new Error("The refresh receipt did not match this request.");
-      owner.attempt = null;
-      log.info("podcasts.refresh_accepted", {
+        throw new Error("The podcast receipt did not match this request.");
+      // The unsubscribe ticket fences older mutations until this route closes.
+      if (result.kind === "refresh") owner.attempt = null;
+      log.info(`podcasts.${attempt.kind}_accepted`, {
         ...fields,
-        job_id: receipt.job_id,
+        job_id: result.kind === "refresh" ? result.receipt.job_id : undefined,
         duration_ms: Math.round(performance.now() - started),
       });
-      return receipt;
+      return result;
     } catch (error) {
       if (active()) {
         const rejected =
@@ -70,10 +103,10 @@ export function usePodcastCommand(account: string, subscription: string) {
           [400, 413, 415, 422].includes(error.status);
         if (rejected) owner.attempt = null;
         message = rejected
-          ? "Hito rejected the refresh request. Try again."
-          : "Hito could not confirm the refresh. Retry the same request to recover its result.";
+          ? `Hito rejected the ${attempt.kind} request. Try again.`
+          : `Hito could not confirm the ${attempt.kind} request. Retry the same request to recover its result.`;
         log.warn(
-          rejected ? "podcasts.refresh_rejected" : "podcasts.refresh_failed",
+          `podcasts.${attempt.kind}_${rejected ? "rejected" : "failed"}`,
           {
             ...fields,
             reason: error instanceof HttpError ? "http" : "request",
@@ -90,25 +123,35 @@ export function usePodcastCommand(account: string, subscription: string) {
           setState({
             owner,
             pending: false,
-            hasAttempt: owner.attempt !== null,
+            attemptKind: owner.attempt?.kind ?? null,
             error: message,
           });
       }
       if (!request.active() || signal.aborted)
-        log.debug("podcasts.refresh_cancelled", fields);
+        log.debug(`podcasts.${attempt.kind}_cancelled`, fields);
     }
   }
 
   useEffect(() => () => owner.run?.abort(), [owner]);
 
+  function start(kind: Attempt["kind"]): Promise<Accepted | null> {
+    if (owner.attempt) return Promise.resolve(null);
+    const body = Object.freeze({ request_id: createUuid() });
+    return perform(
+      kind === "refresh"
+        ? { kind: "refresh", body }
+        : { kind: "unsubscribe", body },
+    );
+  }
+
   return {
     pending: current?.pending ?? false,
-    hasAttempt: current?.hasAttempt ?? false,
+    hasAttempt: current?.attemptKind != null,
+    attemptKind: current?.attemptKind ?? null,
     error: current?.error ?? "",
-    refresh: () =>
-      owner.attempt
-        ? Promise.resolve(null)
-        : perform(Object.freeze({ request_id: createUuid() })),
+    mayReloadDetail,
+    refresh: () => start("refresh"),
+    unsubscribe: () => start("unsubscribe"),
     retry: () =>
       owner.attempt ? perform(owner.attempt) : Promise.resolve(null),
   };

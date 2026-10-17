@@ -41,16 +41,21 @@ export default function TrackActions({
   playlists,
   playlist,
   mutate,
+  onMutationAccepted,
 }: {
   track: TrackRow;
   playlists: Playlist[];
   playlist?: Playlist;
   mutate: Mutate;
+  onMutationAccepted?: () => void;
 }) {
   const editable = playlists.filter((list) => list.kind === "local");
   const entryId = track.entry_id;
   async function update(action: Action) {
-    if ((await mutate(action)).ok) router.reload();
+    if ((await mutate(action)).ok) {
+      if (onMutationAccepted) onMutationAccepted();
+      else router.reload();
+    }
   }
   return (
     <div className="track-actions">
