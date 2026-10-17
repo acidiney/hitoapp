@@ -264,6 +264,64 @@ async fn public_items_preserve_unknown_positions_and_reject_malformed_tracks() {
     }
 }
 
+#[tokio::test]
+async fn public_items_preserve_verified_album_identity_and_recording_occurrences() {
+    let fixture = Fixture::with_entries(vec![owned_entry(0), owned_entry(1), owned_entry(0)]).await;
+    let plugin = Server::start(
+        router(Config {
+            public_base: fixture.server.url.clone(),
+            query_endpoint: fixture.server.url.join("pathfinder/v2/query").unwrap(),
+        })
+        .unwrap(),
+    )
+    .await;
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .unwrap();
+    let response = client
+        .post(plugin.url.join("v1/playlists/detail").unwrap())
+        .json(&json!({"kind": "canonical", "playlist_id": PLAYLIST_ID}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let playlist = response.json::<ProviderPlaylist>().await.unwrap();
+    playlist.validate().unwrap();
+    assert_eq!(playlist.id, PLAYLIST_ID);
+    assert_eq!(playlist.total_count, 3);
+    let page = read_page(&client, &plugin, &playlist, None).await;
+    assert_eq!(page.items.len(), 3);
+    assert!(page.next_cursor.is_none());
+    assert!(page.items[0] == page.items[2]);
+    for (entry, number) in page.items.iter().zip([1, 2, 1]) {
+        assert!(entry.occurrence_id.is_none());
+        let ProviderPlaylistItem::Recording { recording } = &entry.item else {
+            panic!("Expected an owned recording at its original position");
+        };
+        recording.validate().unwrap();
+        assert_eq!(recording.id, format!("{number:022}"));
+        assert_eq!(recording.title, format!("Owned recording {number}"));
+        assert_eq!(recording.artist, "Owned fixture artist");
+        assert_eq!(recording.duration_ms, Some(180_000));
+        assert_eq!(recording.disc_number, Some(1));
+        assert_eq!(recording.track_number, Some(number));
+        assert!(recording.revision.is_none());
+    }
+    assert_eq!(*fixture.calls.lock().unwrap(), ["embed", "query:0"]);
+    for entry in &page.items {
+        let ProviderPlaylistItem::Recording { recording } = &entry.item else {
+            panic!("Expected an owned recording at its original position");
+        };
+        let Some(release) = &recording.release else {
+            panic!("The provider's verified album identity and title must be preserved");
+        };
+        assert_eq!(release.id, "0000000000000000000001");
+        assert_eq!(release.title, "Owned fixture album");
+    }
+}
+
 async fn read_page(
     client: &reqwest::Client,
     plugin: &Server,
