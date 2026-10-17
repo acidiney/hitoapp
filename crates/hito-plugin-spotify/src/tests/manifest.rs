@@ -12,7 +12,8 @@ use std::{
 };
 
 #[tokio::test]
-async fn manifest_declares_only_public_playlists_without_authorization_or_upstream_requests() {
+async fn manifest_declares_public_playlists_and_artwork_without_authorization_or_upstream_requests()
+{
     let calls = Arc::new(AtomicUsize::new(0));
     let observed = calls.clone();
     let upstream = Server::start(Router::new().fallback(move || {
@@ -51,7 +52,7 @@ async fn manifest_declares_only_public_playlists_without_authorization_or_upstre
     assert_eq!(manifest.protocol_version, 1);
     assert_eq!(
         manifest.capabilities,
-        BTreeSet::from([Capability::Playlists])
+        BTreeSet::from([Capability::Playlists, Capability::Artwork])
     );
     assert!(manifest.authorization.is_none());
     assert!(value.get("authorization").is_none());

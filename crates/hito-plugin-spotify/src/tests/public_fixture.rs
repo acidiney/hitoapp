@@ -29,6 +29,10 @@ impl Fixture {
     }
 
     pub async fn with_entries(entries: Vec<Value>) -> Self {
+        Self::with_routes(entries, Router::new()).await
+    }
+
+    pub async fn with_routes(entries: Vec<Value>, routes: Router) -> Self {
         let entries = Arc::new(entries);
         let calls = Arc::new(Mutex::new(Vec::new()));
         let tail_changed = Arc::new(AtomicBool::new(false));
@@ -103,7 +107,8 @@ impl Fixture {
                             }))
                         }
                     }),
-                ),
+                )
+                .merge(routes),
         )
         .await;
         Self {
