@@ -365,6 +365,10 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     });
     await search.fill(personalTitle);
     await search.press("Enter");
+    await expect(
+      page.getByText(`1 tracks matching “${personalTitle}”`, { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "List view", exact: true }).click();
     const table = page.getByRole("table", { name: "Tracks", exact: true });
     await expect(table.getByRole("row")).toHaveCount(2);
     const found = await read<Schema["RecordingPage"]>(
