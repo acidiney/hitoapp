@@ -64,8 +64,8 @@ pub(super) async fn refresh(
     playlist: &str,
     snapshot: PlaylistSnapshot,
 ) -> Result<()> {
-    let (interval, previous_digest): (i64, String) = sqlx::query_as(
-        "SELECT interval_seconds,content_digest FROM playlist_follows WHERE playlist_id = ?",
+    let (interval, previous_digest, content_revision): (i64, String, i64) = sqlx::query_as(
+        "SELECT interval_seconds,content_digest,content_revision FROM playlist_follows WHERE playlist_id = ?",
     )
     .bind(playlist)
     .fetch_one(&mut **tx)
@@ -79,10 +79,13 @@ pub(super) async fn refresh(
         );
         return Ok(());
     }
+    let next_revision = content_revision
+        .checked_add(1)
+        .ok_or_else(|| Error::Internal("Follow content revision cannot advance".into()))?;
     let attribution = serde_json::to_string(&snapshot.detail.attribution)
         .map_err(|_| Error::Internal("Playlist attribution could not be encoded".into()))?;
-    sqlx::query("UPDATE playlist_follows SET snapshot = ?,content_digest = ?,attribution = ?,last_refreshed_at = unixepoch(),next_refresh_at = unixepoch() + interval_seconds,error = NULL WHERE playlist_id = ?")
-        .bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(attribution).bind(playlist).execute(&mut **tx).await?;
+    sqlx::query("UPDATE playlist_follows SET snapshot = ?,content_digest = ?,content_revision = ?,attribution = ?,last_refreshed_at = unixepoch(),next_refresh_at = unixepoch() + interval_seconds,error = NULL WHERE playlist_id = ?")
+        .bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(next_revision).bind(attribution).bind(playlist).execute(&mut **tx).await?;
     sqlx::query("UPDATE playlists SET name = ? WHERE id = ?")
         .bind(&snapshot.detail.name)
         .bind(playlist)
@@ -99,6 +102,11 @@ pub(super) async fn refresh(
         },
     )
     .await?;
+    tracing::debug!(
+        content_revision = next_revision,
+        outcome = "prepared",
+        "Follow content publication prepared"
+    );
     Ok(())
 }
 

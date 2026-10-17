@@ -59,7 +59,7 @@ impl Collection {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT f.interval_seconds,f.snapshot,f.last_refreshed_at,f.next_refresh_at,f.error,
-            f.generation,
+            f.generation,f.content_revision,
             EXISTS(SELECT 1 FROM current_playlist_follow_authority authority WHERE authority.playlist_id = f.playlist_id) AS authorized,
             (SELECT status FROM playlist_follow_jobs job WHERE job.playlist_id = f.playlist_id AND job.generation = f.generation ORDER BY job.created_at DESC,job.rowid DESC LIMIT 1) AS job_status
             FROM playlist_follows f JOIN playlists p ON p.id = f.playlist_id AND p.user_id = f.user_id AND p.deleted = 0
@@ -80,6 +80,7 @@ impl Collection {
         let result = PlaylistFollow {
             playlist_id: receipts::identity(playlist)?,
             generation: row.try_get("generation")?,
+            content_revision: row.try_get("content_revision")?,
             interval: PlaylistFollowInterval::from_seconds(row.try_get("interval_seconds")?)?,
             snapshot: row.try_get("snapshot")?,
             last_refreshed_at: row.try_get("last_refreshed_at")?,

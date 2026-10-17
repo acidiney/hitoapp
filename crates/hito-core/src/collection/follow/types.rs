@@ -51,6 +51,7 @@ pub struct PlaylistFollowRefresh {
 pub struct PlaylistFollow {
     pub playlist_id: Uuid,
     pub generation: i64,
+    pub content_revision: i64,
     pub interval: PlaylistFollowInterval,
     pub snapshot: String,
     pub last_refreshed_at: i64,

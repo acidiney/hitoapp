@@ -32,12 +32,20 @@ impl Collection {
         } else {
             follow::origin(&mut tx, id).await?
         };
+        let follow_content_revision = sqlx::query_scalar(
+            "SELECT content_revision FROM playlist_follows WHERE playlist_id = ? AND user_id = ?",
+        )
+        .bind(id)
+        .bind(actor.id())
+        .fetch_optional(&mut *tx)
+        .await?;
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         Ok(PlaylistDetail {
             playlist,
             entries,
             origin,
+            follow_content_revision,
         })
     }
 }

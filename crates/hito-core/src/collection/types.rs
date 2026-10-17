@@ -166,6 +166,8 @@ pub struct PlaylistDetail {
     pub playlist: Playlist,
     pub entries: Vec<PlaylistEntry>,
     pub origin: Option<ImportedPlaylistOrigin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub follow_content_revision: Option<i64>,
 }
 
 #[derive(ToSchema, Serialize)]

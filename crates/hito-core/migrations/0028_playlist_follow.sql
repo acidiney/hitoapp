@@ -47,6 +47,7 @@ CREATE TABLE playlist_follows (
     provider_playlist_id TEXT NOT NULL,
     snapshot TEXT NOT NULL,
     content_digest TEXT NOT NULL CHECK(length(content_digest) = 64 AND content_digest NOT GLOB '*[^0-9a-f]*'),
+    content_revision INTEGER NOT NULL DEFAULT 1 CHECK(content_revision > 0),
     attribution TEXT NOT NULL,
     interval_seconds INTEGER NOT NULL CHECK(interval_seconds IN (3600,86400)),
     generation INTEGER NOT NULL DEFAULT 1 CHECK(generation > 0),
