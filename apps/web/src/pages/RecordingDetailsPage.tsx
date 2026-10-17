@@ -56,6 +56,7 @@ export default function RecordingDetailsPage({
       <SourceAvailability
         key={`availability/${user.id}/${detail.recording_id}`}
         account={user.id}
+        choiceRevision={choice.choice?.revision}
         track={{
           id: detail.recording_id,
           title: detail.title.value,

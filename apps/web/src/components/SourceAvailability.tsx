@@ -2,6 +2,7 @@ import { Link } from "@inertiajs/react";
 import { Play, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Track } from "../playback";
+import type { Source } from "../types";
 import { usePlayer } from "../player/PlaybackProvider";
 import { useSourceAvailability } from "../hooks/useSourceAvailability";
 import { useSourcePreparation } from "../hooks/useSourcePreparation";
@@ -10,40 +11,55 @@ import SourcePreparation from "./SourcePreparation";
 export default function SourceAvailability({
   account,
   track,
+  choiceRevision,
 }: {
   account: string;
   track: Track;
+  choiceRevision?: number;
 }) {
   const player = usePlayer();
-  const { sources, pending, error, check, confirmReady, revision } =
-    useSourceAvailability(account, track.id);
+  const { sources, pending, error, verified, check, confirmReady, revision } =
+    useSourceAvailability(account, track.id, choiceRevision);
   const key = JSON.stringify([account, track.id]);
   const [selection, setSelection] = useState<{
     key: string;
-    id: string;
+    source: Source;
   } | null>(null);
+  const remembered = selection?.key === key ? selection.source : null;
   const selected =
-    sources?.find(
-      (source) => selection?.key === key && source.id === selection.id,
-    ) ??
+    sources?.find((source) => source.id === remembered?.id) ??
+    remembered ??
     sources?.find((source) => source.can_prepare) ??
     null;
   const selectedId = selected?.id;
   useEffect(() => {
-    if (selectedId) setSelection({ key, id: selectedId });
+    if (selected)
+      setSelection((current) =>
+        current?.key === key && current.source === selected
+          ? current
+          : { key, source: selected },
+      );
     else setSelection(null);
-  }, [key, selectedId]);
+  }, [key, selected]);
+  const preparationSource =
+    selected && verified && sources?.some((source) => source.id === selected.id)
+      ? selected
+      : selected
+        ? { ...selected, ready: false, can_prepare: false }
+        : null;
   const preparation = useSourcePreparation(
     account,
     track.id,
-    selected,
+    preparationSource,
     confirmReady,
     revision,
   );
   const ready =
-    sources?.some(
+    verified &&
+    (sources?.some(
       (source) => source.recording_id === track.id && source.ready === true,
-    ) ?? false;
+    ) ??
+      false);
   return (
     <section
       className="source-availability"
@@ -54,7 +70,7 @@ export default function SourceAvailability({
       <div role="status">
         {pending
           ? "Checking audio…"
-          : sources !== null
+          : verified && sources !== null
             ? ready
               ? "Audio is ready to play."
               : "No audio is ready yet."
@@ -75,7 +91,8 @@ export default function SourceAvailability({
                     type="radio"
                     name="preparation-source"
                     checked={source.id === selectedId}
-                    onChange={() => setSelection({ key, id: source.id })}
+                    disabled={!verified}
+                    onChange={() => setSelection({ key, source })}
                   />{" "}
                   {source.label}
                 </label>

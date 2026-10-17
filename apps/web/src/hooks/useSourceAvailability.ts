@@ -1,9 +1,24 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { libraryApi } from "../api";
 import { HttpError } from "../http";
 import { log } from "../log";
 import type { Source } from "../types";
 import { useRequestScope } from "./useRequestScope";
+
+type View = {
+  sources: Source[] | null;
+  pending: boolean;
+  verified: boolean;
+  error: string;
+  revision: number;
+};
+type Owner = {
+  view: View;
+  generation: number;
+  choiceRevision: number | undefined;
+  read: AbortController | null;
+  confirmations: Set<AbortController>;
+};
 
 function checkSources(sources: Source[], recording: string) {
   if (
@@ -23,105 +38,207 @@ function checkSources(sources: Source[], recording: string) {
     throw new Error("Hito returned invalid audio availability");
 }
 
-export function useSourceAvailability(account: string, recording: string) {
+export function useSourceAvailability(
+  account: string,
+  recording: string,
+  choiceRevision?: number,
+) {
   const scope = useRequestScope(JSON.stringify([account, recording]));
-  const owner = useMemo(() => ({ revision: 0, busy: false }), [scope]);
-  const [state, setState] = useState<{
-    owner: typeof owner;
-    sources: Source[] | null;
-    pending: boolean;
-    error: string;
-    revision: number;
-  }>({ owner, sources: null, pending: false, error: "", revision: 0 });
-  async function check() {
-    if (owner.busy) return;
+  const owner = useMemo<Owner>(
+    () => ({
+      view: {
+        sources: null,
+        pending: false,
+        verified: false,
+        error: "",
+        revision: 0,
+      },
+      generation: 0,
+      choiceRevision,
+      read: null,
+      confirmations: new Set(),
+    }),
+    [scope],
+  );
+  const [state, setState] = useState<{ owner: Owner; view: View } | null>(null);
+  const current = state?.owner === owner ? state.view : owner.view;
+  const choiceChanged =
+    choiceRevision !== undefined &&
+    owner.choiceRevision !== undefined &&
+    choiceRevision !== owner.choiceRevision;
+
+  function publish(update: Partial<View>) {
+    owner.view = { ...owner.view, ...update };
+    setState({ owner, view: owner.view });
+  }
+
+  function cancelConfirmations() {
+    for (const controller of owner.confirmations) controller.abort();
+    owner.confirmations.clear();
+  }
+
+  async function read(refresh: boolean): Promise<void> {
     const request = scope.capture();
-    if (!request.active()) return;
-    owner.busy = true;
-    owner.revision++;
-    setState((current) => ({
-      owner,
-      sources: current.owner === owner ? current.sources : null,
-      pending: true,
-      error: "",
-      revision: current.owner === owner ? current.revision : 0,
-    }));
+    if (!request.active() || owner.read) return;
+    cancelConfirmations();
+    const generation = ++owner.generation;
+    const controller = new AbortController();
+    const signal = AbortSignal.any([request.signal, controller.signal]);
+    const active = () =>
+      request.active() &&
+      !signal.aborted &&
+      owner.read === controller &&
+      owner.generation === generation;
+    owner.read = controller;
+    publish({ pending: true, verified: false, error: "" });
+    const started = performance.now();
+    const fields = {
+      account_id: account,
+      recording_id: recording,
+      action: refresh ? "refresh" : "read",
+    };
+    log.debug("source_availability.check_started", fields);
     try {
-      const sources = await libraryApi.refreshSources(
-        account,
-        recording,
-        request.signal,
-      );
+      const sources = await (refresh
+        ? libraryApi.refreshSources(account, recording, signal)
+        : libraryApi.sources(account, recording, signal));
+      if (!active()) return;
       checkSources(sources, recording);
-      if (request.active())
-        setState({
-          owner,
-          sources,
-          pending: false,
-          error: "",
-          revision: owner.revision,
-        });
+      publish({
+        sources,
+        pending: false,
+        verified: true,
+        error: "",
+        revision: generation,
+      });
+      log.debug("source_availability.checked", {
+        ...fields,
+        mode: sources.some((source) => source.ready) ? "ready" : "unavailable",
+        duration_ms: Math.round(performance.now() - started),
+      });
     } catch (error) {
-      if (request.active())
-        setState((current) => ({
-          owner,
-          sources: current.owner === owner ? current.sources : null,
+      if (active()) {
+        publish({
           pending: false,
-          revision: current.owner === owner ? current.revision : 0,
+          verified: false,
           error:
             error instanceof HttpError && error.status === 409
               ? "Service temporarily busy."
               : "Hito could not check audio availability. Try again.",
-        }));
+        });
+        log.warn("source_availability.check_failed", {
+          ...fields,
+          reason: error instanceof HttpError ? "http" : "request",
+          status: error instanceof HttpError ? error.status : undefined,
+          duration_ms: Math.round(performance.now() - started),
+        });
+      }
     } finally {
-      owner.busy = false;
+      if (owner.read === controller) owner.read = null;
+      if (!request.active() || signal.aborted)
+        log.debug("source_availability.check_cancelled", {
+          ...fields,
+          duration_ms: Math.round(performance.now() - started),
+        });
     }
   }
+
   const confirmReady = useCallback(
     async (source: string, signal: AbortSignal) => {
       const request = scope.capture();
-      const revision = owner.revision;
+      if (!request.active() || owner.read) return false;
+      const generation = owner.generation;
+      const controller = new AbortController();
+      owner.confirmations.add(controller);
+      const combined = AbortSignal.any([
+        request.signal,
+        signal,
+        controller.signal,
+      ]);
+      const active = () =>
+        request.active() &&
+        !combined.aborted &&
+        owner.generation === generation &&
+        !owner.read &&
+        owner.confirmations.has(controller);
       const started = performance.now();
-      const combined = AbortSignal.any([request.signal, signal]);
-      const sources = await libraryApi.sources(account, recording, combined);
-      checkSources(sources, recording);
-      if (
-        !request.active() ||
-        combined.aborted ||
-        owner.revision !== revision ||
-        owner.busy
-      )
-        return false;
-      const ready = sources.some(
-        (candidate) =>
-          candidate.id === source &&
-          candidate.recording_id === recording &&
-          candidate.ready === true,
-      );
-      setState((current) => ({
-        owner,
-        sources,
-        pending: false,
-        error: "",
-        revision: current.owner === owner ? current.revision : 0,
-      }));
-      log.debug("source_preparation.audio_checked", {
+      const fields = {
         account_id: account,
         recording_id: recording,
         source_id: source,
-        mode: ready ? "ready" : "unavailable",
-        duration_ms: Math.round(performance.now() - started),
-      });
-      return ready;
+      };
+      try {
+        const sources = await libraryApi.sources(account, recording, combined);
+        if (!active()) return false;
+        checkSources(sources, recording);
+        const ready = sources.some(
+          (candidate) => candidate.id === source && candidate.ready,
+        );
+        publish({ sources, pending: false, verified: true, error: "" });
+        log.debug("source_preparation.audio_checked", {
+          ...fields,
+          mode: ready ? "ready" : "unavailable",
+          duration_ms: Math.round(performance.now() - started),
+        });
+        return ready;
+      } catch (error) {
+        if (!active()) return false;
+        publish({ verified: false });
+        log.warn("source_preparation.audio_check_failed", {
+          ...fields,
+          reason: error instanceof HttpError ? "http" : "request",
+          status: error instanceof HttpError ? error.status : undefined,
+          duration_ms: Math.round(performance.now() - started),
+        });
+        throw error;
+      } finally {
+        owner.confirmations.delete(controller);
+      }
     },
     [owner, scope, account, recording],
   );
+
+  useEffect(() => {
+    if (choiceRevision === undefined) return;
+    const previous = owner.choiceRevision;
+    owner.choiceRevision = choiceRevision;
+    if (previous === undefined || previous === choiceRevision) return;
+    const observed =
+      owner.view.sources !== null ||
+      owner.read !== null ||
+      owner.confirmations.size > 0;
+    owner.generation++;
+    owner.read?.abort();
+    owner.read = null;
+    cancelConfirmations();
+    publish({ pending: false, verified: false, error: "" });
+    log.debug("source_availability.choice_changed", {
+      account_id: account,
+      recording_id: recording,
+      content_revision: choiceRevision,
+      mode: observed ? "rechecking" : "unrequested",
+    });
+    if (observed) void read(false);
+  }, [owner, choiceRevision]);
+
+  useEffect(
+    () => () => {
+      owner.read?.abort();
+      owner.read = null;
+      cancelConfirmations();
+    },
+    [owner],
+  );
+
   return {
-    sources: state.owner === owner ? state.sources : null,
-    pending: state.owner === owner && state.pending,
-    error: state.owner === owner ? state.error : "",
-    revision: state.owner === owner ? state.revision : 0,
-    check,
+    sources: current.sources,
+    pending:
+      current.pending ||
+      (choiceChanged && (current.sources !== null || owner.read !== null)),
+    verified: current.verified && !choiceChanged,
+    error: current.error,
+    revision: current.revision,
+    check: () => read(true),
     confirmReady,
   };
 }
