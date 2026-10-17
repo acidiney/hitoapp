@@ -122,7 +122,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [x] Add hourly due checks, exact-address conditional validators, accepted 304 retention and bounded receipt-safe job cleanup. Verify redirect isolation, 36 automatic checks and the additive 0043 migration. Broader recovery and cancellation acceptance remains open.
   - [x] Expose private subscription refresh status, bounded current saved positions and authorized Inertia pages. Verify account privacy, partial reads, retained history and bounded query work at 100,000 recordings.
   - [x] Verify the initial subscription and episode workflow in disposable Chromium and WebKit with owned audio, playback across navigation, persisted progress, reload Resume and explicit Start over. This uses a source-mounted development host; native and release-image acceptance remain separate.
-  - [ ] Complete the shared podcast workflow, including unsubscribe controls, broader recovery and native playback/resume. Pages and manual refresh pass component tests, cancellation/account switching, stale-cursor recovery and owned-audio Chromium/WebKit checks; normal deployment remains open.
+  - [ ] Complete the shared podcast workflow, including broader recovery and native playback/resume. Pages, manual refresh and unsubscribe pass component tests, concurrent-edit recovery and owned-audio Chromium/WebKit checks; normal deployment remains open.
   - [ ] Extend durable download origins and authority to RSS episodes, preserving the existing explicit-download and removal rules.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.

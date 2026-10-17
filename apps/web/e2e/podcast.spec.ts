@@ -354,6 +354,79 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   );
   expect(audioRequests).toHaveLength(requestsBeforeRefresh);
   await expectNoDownload(page, recording);
+
+  const unsubscribePath = `/api/v1/podcasts/${subscription}/unsubscribe`;
+  const unsubscribeAccepted = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === unsubscribePath &&
+      candidate.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Unsubscribe", exact: true }).click();
+  const removed = await unsubscribeAccepted;
+  expect(removed.status()).toBe(200);
+  const unsubscribeRequest: Schema["UnsubscribePodcast"] = removed
+    .request()
+    .postDataJSON();
+  const unsubscribeReceipt: Schema["PodcastUnsubscribeReceipt"] =
+    await removed.json();
+  expect(unsubscribeRequest).toEqual({
+    request_id: expect.stringMatching(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    ),
+  });
+  expect(unsubscribeReceipt).toEqual({
+    request_id: unsubscribeRequest.request_id,
+    subscription_id: subscription,
+  });
+  await expect(page).toHaveURL(`${origin}/podcasts`);
+  await expect(
+    page.getByRole("heading", { name: "Podcasts", exact: true }),
+  ).toBeVisible();
+  await expect(podcast).toHaveCount(0);
+  const inactive = await page.request.get("/api/v1/podcasts");
+  expect(inactive.status()).toBe(200);
+  expect(await inactive.json()).toEqual([]);
+  const inactiveEpisodes = await page.request.get(
+    `/api/v1/podcasts/${subscription}/episodes`,
+  );
+  expect(inactiveEpisodes.status()).toBe(404);
+  const retainedSources = await page.request.get(
+    `/api/v1/recordings/${recording}/sources`,
+  );
+  expect(retainedSources.status()).toBe(200);
+  const unavailable: Schema["Source"][] = await retainedSources.json();
+  expect(
+    unavailable.map((item) => ({ id: item.id, ready: item.ready })),
+  ).toEqual(sources.map((item) => ({ id: item.id, ready: false })));
+  const likedRecordings = await page.request.get(
+    "/api/v1/recordings?liked=true&limit=200",
+  );
+  expect(likedRecordings.status()).toBe(200);
+  const retained: Schema["RecordingPage"] = await likedRecordings.json();
+  expect(retained.items.find((item) => item.id === recording)).toMatchObject({
+    id: recording,
+    title,
+    liked: true,
+    available: false,
+  });
+  expect(await recordingProgress(page, recording)).toEqual(retainedProgress);
+  await expect(audio).toHaveCount(1);
+  await expect(dock.locator(".now-playing strong")).toHaveText(title);
+  expect(
+    await audio.evaluate((element: HTMLAudioElement) => ({
+      paused: element.paused,
+      position: element.currentTime,
+      source: element.currentSrc,
+    })),
+  ).toEqual(mediaBeforeRefresh);
+  const afterUnsubscribe = await fixtureStatus(page);
+  expect(afterUnsubscribe.feed_requests).toBe(afterRefresh.feed_requests);
+  expect(afterUnsubscribe.enclosure_requests).toBe(
+    afterRefresh.enclosure_requests,
+  );
+  expect(audioRequests).toHaveLength(requestsBeforeRefresh);
+  await expectNoDownload(page, recording);
+
   const played = await fixtureStatus(page);
   expect(played.enclosure_requests).toBeGreaterThan(0);
   expect(played.unexpected_requests).toBe(0);
