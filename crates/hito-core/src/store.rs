@@ -5,6 +5,8 @@ use sqlx::{
 };
 use std::{path::Path, time::Duration};
 
+pub(crate) static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
+
 #[derive(Clone)]
 pub(crate) struct Store {
     pub(crate) pool: sqlx::SqlitePool,
@@ -37,7 +39,7 @@ impl Store {
             })
             .connect_with(options)
             .await?;
-        sqlx::migrate!("./migrations").run(&pool).await?;
+        MIGRATOR.run(&pool).await?;
         Ok(Self { pool })
     }
 

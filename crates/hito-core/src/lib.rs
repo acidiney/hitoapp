@@ -5,6 +5,7 @@ mod downloads;
 mod error;
 mod identity;
 mod library_storage;
+mod maintenance;
 mod metadata;
 mod plugins;
 mod store;
@@ -38,6 +39,7 @@ pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
     LibraryStorage, MusicFolder, SharedDirectory,
 };
+pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
     InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
     ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
