@@ -30,6 +30,8 @@ test("checking a saved track refreshes only its own sources and leaves playback 
           provider: "plugin",
           device_id: null,
           ready: true,
+          label: "Owned ready audio",
+          can_prepare: false,
         },
       ]),
     ),
