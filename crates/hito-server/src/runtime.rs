@@ -65,9 +65,10 @@ async fn serve_owned(
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
-    let artwork = artwork_worker(services.catalog, stopped);
+    let artwork = artwork_worker(services.catalog, stopped.clone());
+    let follows = follow_worker(services.collection, stopped);
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), ()) = tokio::join!(http, indexing, artwork);
+    let (result, (), (), ()) = tokio::join!(http, indexing, artwork, follows);
     services.storage.finish_indexing().await?;
     tracing::info!(event = "server_stopped", "Hito stopped");
     result
@@ -142,4 +143,50 @@ async fn artwork_worker(
         }
     }
     tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
+}
+
+async fn follow_worker(
+    collection: hito_core::Collection,
+    mut stopped: tokio::sync::watch::Receiver<bool>,
+) {
+    tracing::info!(
+        event = "follow_worker_started",
+        "Playlist follow worker started"
+    );
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped.changed() => break,
+            _ = interval.tick() => {}
+        }
+        let started = Instant::now();
+        let result = collection
+            .run_next_follow_refresh_until(async {
+                let _ = stopped.changed().await;
+            })
+            .await;
+        match result {
+            Ok(claimed) => tracing::debug!(
+                event = "follow_worker_polled",
+                claimed,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Playlist follow worker checked pending work"
+            ),
+            Err(error) => tracing::error!(
+                event = "follow_worker_failed",
+                error_kind = error.code(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Playlist follow worker failed"
+            ),
+        }
+        if *stopped.borrow() {
+            break;
+        }
+    }
+    tracing::info!(
+        event = "follow_worker_stopped",
+        "Playlist follow worker stopped"
+    );
 }
