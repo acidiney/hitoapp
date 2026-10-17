@@ -4,28 +4,39 @@ import { pluginsApi } from "../pluginsApi";
 import { errorMessage } from "../format";
 import { HttpError } from "../http";
 import { log } from "../log";
-import type { ImportProviderPlaylist, PluginInstallation } from "../types";
+import type {
+  FollowProviderPlaylist,
+  ImportProviderPlaylist,
+  PlaylistFollowInterval,
+  PluginInstallation,
+} from "../types";
 import { useRequestScope } from "./useRequestScope";
 
-type ImportOwner = {
-  attempt: Readonly<ImportProviderPlaylist> | null;
+type PlaylistAttempt =
+  | { kind: "copy"; body: Readonly<ImportProviderPlaylist> }
+  | { kind: "follow"; body: Readonly<FollowProviderPlaylist> };
+
+export type PlaylistCreationMode = PlaylistAttempt["kind"];
+
+type PlaylistOwner = {
+  attempt: PlaylistAttempt | null;
   generation: number;
   run: { active: () => boolean } | null;
 };
 
-export function usePlaylistImport(
+export function useProviderPlaylist(
   account: string,
   connection: PluginInstallation | null,
 ) {
   const scope = useRequestScope(
     JSON.stringify([account, connection?.id, connection?.revision]),
   );
-  const owner = useMemo<ImportOwner>(
+  const owner = useMemo<PlaylistOwner>(
     () => ({ attempt: null, generation: 0, run: null }),
     [account, connection?.id],
   );
   const [state, setState] = useState<{
-    owner: ImportOwner;
+    owner: PlaylistOwner;
     scope: typeof scope;
     pending: boolean;
     error: string;
@@ -34,8 +45,8 @@ export function usePlaylistImport(
     state?.owner === owner && state.scope === scope ? state : null;
 
   async function perform(
-    body: Readonly<ImportProviderPlaylist>,
-    action: "copy" | "retry",
+    attempt: PlaylistAttempt,
+    action: PlaylistCreationMode | "retry",
   ): Promise<boolean> {
     const request = scope.capture();
     if (
@@ -51,25 +62,37 @@ export function usePlaylistImport(
     const started = performance.now();
     const fields = {
       account_id: account,
-      operation_id: body.request_id,
+      operation_id: attempt.body.request_id,
       action,
     };
-    owner.attempt = body;
+    const workflow =
+      attempt.kind === "copy" ? "playlist_import" : "playlist_follow";
+    owner.attempt = attempt;
     owner.run = run;
     setState({ owner, scope, pending: true, error: "" });
-    log.info("playlist_import.started", fields);
+    log.info(`${workflow}.started`, fields);
     try {
-      const receipt = await pluginsApi.importPlaylist(
-        account,
-        connection.id,
-        body,
-        request.signal,
-      );
+      const receipt =
+        attempt.kind === "copy"
+          ? await pluginsApi.importPlaylist(
+              account,
+              connection.id,
+              attempt.body,
+              request.signal,
+            )
+          : await pluginsApi.followPlaylist(
+              account,
+              connection.id,
+              attempt.body,
+              request.signal,
+            );
       if (!run.active()) return false;
-      if (receipt.request_id !== body.request_id) {
-        throw new Error("Hito returned a different import receipt. Try again.");
+      if (receipt.request_id !== attempt.body.request_id) {
+        throw new Error(
+          `Hito returned a different ${attempt.kind === "copy" ? "import" : "follow"} receipt. Try again.`,
+        );
       }
-      log.info("playlist_import.completed", {
+      log.info(`${workflow}.completed`, {
         ...fields,
         playlist_id: receipt.playlist_id,
         duration_ms: Math.round(performance.now() - started),
@@ -80,7 +103,7 @@ export function usePlaylistImport(
     } catch (error) {
       if (run.active()) {
         setState({ owner, scope, pending: false, error: errorMessage(error) });
-        log.warn("playlist_import.failed", {
+        log.warn(`${workflow}.failed`, {
           ...fields,
           reason: error instanceof HttpError ? "http" : "request",
           status: error instanceof HttpError ? error.status : undefined,
@@ -96,7 +119,7 @@ export function usePlaylistImport(
             : value,
         );
       } else {
-        log.debug("playlist_import.cancelled", {
+        log.debug(`${workflow}.cancelled`, {
           ...fields,
           duration_ms: Math.round(performance.now() - started),
         });
@@ -105,7 +128,11 @@ export function usePlaylistImport(
     }
   }
 
-  async function importCopy(reference: string): Promise<boolean> {
+  async function create(
+    reference: string,
+    kind: PlaylistCreationMode,
+    interval: PlaylistFollowInterval,
+  ): Promise<boolean> {
     if (owner.run?.active() || !scope.capture().active() || !connection)
       return false;
     reference = reference.trim();
@@ -121,27 +148,30 @@ export function usePlaylistImport(
         error:
           "Use a playlist link or identifier of up to 2,048 bytes without control characters.",
       });
-      log.warn("playlist_import.rejected", {
-        account_id: account,
-        reason: "invalid_reference",
-      });
+      log.warn(
+        `${kind === "copy" ? "playlist_import" : "playlist_follow"}.rejected`,
+        { account_id: account, reason: "invalid_reference" },
+      );
       return false;
     }
+    const body = {
+      request_id: crypto.randomUUID(),
+      installation_revision: connection.revision,
+      playlist_reference: reference,
+    };
     return perform(
-      {
-        request_id: crypto.randomUUID(),
-        installation_revision: connection.revision,
-        playlist_reference: reference,
-      },
-      "copy",
+      kind === "copy" ? { kind, body } : { kind, body: { ...body, interval } },
+      kind,
     );
   }
 
   return {
-    importCopy,
+    create,
     retry: () =>
       owner.attempt ? perform(owner.attempt, "retry") : Promise.resolve(false),
     hasAttempt: owner.attempt !== null,
+    attemptKind: owner.attempt?.kind ?? null,
+    pendingKind: current?.pending ? (owner.attempt?.kind ?? null) : null,
     pending: current?.pending ?? false,
     error: current?.error ?? "",
   };

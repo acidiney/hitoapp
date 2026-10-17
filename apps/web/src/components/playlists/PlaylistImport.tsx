@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "@inertiajs/react";
-import { usePlaylistImport } from "../../hooks/usePlaylistImport";
-import type { PluginInstallation } from "../../types";
+import {
+  useProviderPlaylist,
+  type PlaylistCreationMode,
+} from "../../hooks/useProviderPlaylist";
+import type { PlaylistFollowInterval, PluginInstallation } from "../../types";
 
 export default function PlaylistImport({
   account,
@@ -17,26 +20,58 @@ export default function PlaylistImport({
   );
   const [choice, setChoice] = useState("");
   const [reference, setReference] = useState("");
+  const [mode, setMode] = useState<PlaylistCreationMode>("copy");
+  const [interval, setInterval] = useState<PlaylistFollowInterval>("hourly");
   const selected =
     providers.find((provider) => provider.id === choice) ??
     providers[0] ??
     null;
-  const workflow = usePlaylistImport(account, selected);
+  const workflow = useProviderPlaylist(account, selected);
+  const previousAttempt = workflow.attemptKind === mode;
+  const submitLabel =
+    mode === "copy"
+      ? previousAttempt
+        ? "Import a new copy"
+        : "Import a copy"
+      : previousAttempt
+        ? "Follow as a new playlist"
+        : "Follow playlist";
   function submit(event: FormEvent) {
     event.preventDefault();
-    void workflow.importCopy(reference);
+    void workflow.create(reference, mode, interval);
   }
 
   return (
     <section className="playlist-import" aria-label="Import a playlist">
       <h2>Import a playlist</h2>
       <p className="muted">
-        Create an editable copy. Changes at the provider will not update it.
-        Copying a playlist adds its track details, without downloading audio.
-        Tracks need an available source to play.
+        {mode === "copy"
+          ? "Create an editable copy. Changes at the provider will not update it. Copying a playlist adds its track details, without downloading audio. Tracks need an available source to play."
+          : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order. Following adds track details, without downloading audio. Tracks need an available source to play."}
       </p>
       {selected ? (
         <form className="playlist-import-form" onSubmit={submit}>
+          <fieldset>
+            <legend>Playlist behavior</legend>
+            <label>
+              <input
+                type="radio"
+                name="playlist-behavior"
+                checked={mode === "copy"}
+                onChange={() => setMode("copy")}
+              />
+              Import a copy
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="playlist-behavior"
+                checked={mode === "follow"}
+                onChange={() => setMode("follow")}
+              />
+              Follow playlist
+            </label>
+          </fieldset>
           <label>
             Playlist service
             <select
@@ -50,6 +85,22 @@ export default function PlaylistImport({
               ))}
             </select>
           </label>
+          {mode === "follow" && (
+            <label>
+              Refresh interval
+              <select
+                value={interval}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "hourly" || value === "daily")
+                    setInterval(value);
+                }}
+              >
+                <option value="hourly">Every hour</option>
+                <option value="daily">Every day</option>
+              </select>
+            </label>
+          )}
           <label>
             Playlist link or identifier
             <input
@@ -68,17 +119,18 @@ export default function PlaylistImport({
             disabled={workflow.pending || !reference.trim()}
           >
             {workflow.pending
-              ? "Importing…"
-              : workflow.hasAttempt
-                ? "Import a new copy"
-                : "Import a copy"}
+              ? workflow.pendingKind === "copy"
+                ? "Importing…"
+                : "Following…"
+              : submitLabel}
           </button>
           {workflow.error && <p role="alert">{workflow.error}</p>}
           {workflow.hasAttempt && !workflow.pending && (
             <div className="playlist-import-recovery">
               <p className="muted">
-                Retry recovers the previous import. Import a new copy uses the
-                current playlist field.
+                {workflow.attemptKind === "copy"
+                  ? "Retry recovers the previous import. Import a new copy uses the current playlist field."
+                  : "Retry recovers the previous follow request and its original refresh interval. Following again uses the current playlist field and interval."}
               </p>
               <button
                 className="button"
@@ -86,7 +138,9 @@ export default function PlaylistImport({
                 disabled={workflow.pending}
                 onClick={() => void workflow.retry()}
               >
-                Retry import
+                {workflow.attemptKind === "copy"
+                  ? "Retry import"
+                  : "Retry follow"}
               </button>
             </div>
           )}

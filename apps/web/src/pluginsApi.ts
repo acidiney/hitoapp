@@ -13,9 +13,27 @@ import type {
   Recording,
   ImportProviderPlaylist,
   PlaylistImportReceipt,
+  FollowProviderPlaylist,
+  PlaylistFollowReceipt,
 } from "./types";
 const part = encodeURIComponent;
 export const pluginsApi = {
+  async followPlaylist(
+    account: string,
+    installation: string,
+    body: FollowProviderPlaylist,
+    signal: AbortSignal,
+  ): Promise<PlaylistFollowReceipt> {
+    return (
+      await request(`/plugins/${part(installation)}/playlists/follow`, {
+        action: "playlists.follow",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
   async importPlaylist(
     account: string,
     installation: string,

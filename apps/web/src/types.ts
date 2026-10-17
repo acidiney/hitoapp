@@ -60,3 +60,6 @@ export type AttachReviewedProviderSource =
   Schema["AttachReviewedProviderSource"];
 export type ImportProviderPlaylist = Schema["ImportProviderPlaylist"];
 export type PlaylistImportReceipt = Schema["PlaylistImportReceipt"];
+export type FollowProviderPlaylist = Schema["FollowProviderPlaylist"];
+export type PlaylistFollowReceipt = Schema["PlaylistFollowReceipt"];
+export type PlaylistFollowInterval = Schema["PlaylistFollowInterval"];
