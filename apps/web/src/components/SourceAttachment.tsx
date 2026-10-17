@@ -7,11 +7,17 @@ import DiscoverySearch from "./discovery/DiscoverySearch";
 export default function SourceAttachment({
   account,
   detail,
+  onAttached,
 }: {
   account: string;
   detail: RecordingMetadata;
+  onAttached(): void;
 }) {
-  const workflow = useSourceAttachment(account, detail.recording_id);
+  const workflow = useSourceAttachment(
+    account,
+    detail.recording_id,
+    onAttached,
+  );
   return (
     <section className="source-attachment" aria-label="Add an audio source">
       <h2>Add an audio source</h2>

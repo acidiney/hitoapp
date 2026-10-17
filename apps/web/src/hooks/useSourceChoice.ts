@@ -164,7 +164,7 @@ export function useSourceChoice(
         recheck = rejected;
         publish({
           attempt: rejected ? null : attempt,
-          needsCheck: rejected,
+          needsCheck: rejected || owner.view.needsCheck,
           error: rejected
             ? "Hito could not change the source choice. Check the current choice and try again."
             : "Hito could not confirm the source choice. Retry the same request to recover its result.",
@@ -190,6 +190,15 @@ export function useSourceChoice(
         }
       }
     }
+  }
+
+  function invalidateRead() {
+    if (!scope.capture().active() || owner.view.unavailable) return;
+    if (owner.view.choice !== null) publish({ needsCheck: true });
+    if (owner.write || owner.view.attempt) return;
+    owner.read?.abort();
+    owner.read = null;
+    void load();
   }
 
   useEffect(() => {
@@ -259,5 +268,6 @@ export function useSourceChoice(
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
     check: load,
+    invalidateRead,
   };
 }

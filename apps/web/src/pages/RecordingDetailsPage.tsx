@@ -55,6 +55,7 @@ export default function RecordingDetailsPage({
           key={`attachment/${user.id}/${detail.recording_id}`}
           account={user.id}
           detail={detail}
+          onAttached={choice.invalidateRead}
         />
       )}
       <SourceAvailability

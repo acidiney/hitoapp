@@ -47,7 +47,11 @@ function empty(owner: Work): Snapshot {
   };
 }
 
-export function useSourceAttachment(account: string, recording: string) {
+export function useSourceAttachment(
+  account: string,
+  recording: string,
+  confirmed: () => void,
+) {
   const scope = useRequestScope(JSON.stringify([account, recording]));
   const owner = useMemo<Work>(
     () => ({ generation: 0, controller: null, phase: null }),
@@ -239,8 +243,10 @@ export function useSourceAttachment(account: string, recording: string) {
   }
 
   async function confirm() {
+    const request = scope.capture();
     const review = current.review;
     if (
+      !request.active() ||
       !review ||
       !connection ||
       owner.phase ||
@@ -248,7 +254,7 @@ export function useSourceAttachment(account: string, recording: string) {
       connection.revision !== review.candidate.installation_revision
     )
       return false;
-    return run(
+    const attached = await run(
       "attach",
       {},
       async (signal) => {
@@ -267,6 +273,8 @@ export function useSourceAttachment(account: string, recording: string) {
       },
       () => ({ attached: true, review: null, items: [], query: "" }),
     );
+    if (attached && request.active()) confirmed();
+    return attached;
   }
 
   return {
