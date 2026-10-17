@@ -1,0 +1,46 @@
+services:
+  e2e-server:
+    build: !reset null
+    image: ${HITO_PODCAST_E2E_IMAGE:?Set the exact packaged Hito image for this source snapshot}
+    user: "10001:10001"
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      HITO_STORAGE_MANIFEST: !reset null
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    tmpfs: !override
+      - /data:uid=10001,gid=10001,mode=0700,size=128m,noexec,nosuid,nodev
+      - /music:ro,uid=10001,gid=10001,mode=0700,size=1m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=32m,noexec,nosuid,nodev
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, curl, -fsS, --max-time, "2", http://localhost:8080/health]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    stop_grace_period: 20s
+    restart: "no"
+    networks: [podcast-live]
+  browser:
+    volumes: !override
+      - .:/workspace
+      - node-modules:/workspace/apps/web/node_modules
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+      HITO_PODCAST_LIVE_E2E: ${HITO_PODCAST_LIVE_E2E:-0}
+      HITO_PODCAST_LIVE_FEED: ${HITO_PODCAST_LIVE_FEED:-https://rustacean-station.org/podcast.rss}
+    network_mode: service:e2e-server
+    command: [npm, run, e2e, --, e2e/podcast-live.spec.ts]
+volumes:
+  node-modules:
+    external: true
+    name: hito_node-modules
+networks:
+  podcast-live:
+    driver: bridge
