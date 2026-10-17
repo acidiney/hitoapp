@@ -18,6 +18,7 @@ struct Fixture {
     broken_tail: RwLock<Option<usize>>,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
+    recording_replies: RwLock<HashMap<(String, String), Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
     gates: RwLock<HashMap<String, Arc<Gate>>>,
     closed: watch::Receiver<bool>,
@@ -39,6 +40,7 @@ impl ProviderServer {
             broken_tail: RwLock::new(None),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
+            recording_replies: Default::default(),
             requests: Default::default(),
             gates: Default::default(),
             closed: receiver,
@@ -68,6 +70,17 @@ impl ProviderServer {
     }
     pub async fn reply(&self, path: &str, value: Value) {
         self.state.replies.write().await.insert(path.into(), value);
+    }
+    pub async fn recording_reply(&self, path: &str, recording: &str, value: Value) {
+        assert!(matches!(
+            path,
+            "v1/recordings/detail" | "v1/recordings/metadata" | "v1/sources"
+        ));
+        self.state
+            .recording_replies
+            .write()
+            .await
+            .insert((path.into(), recording.into()), value);
     }
     pub async fn offline(&self) {
         *self.state.offline.write().await = true;
@@ -261,6 +274,11 @@ async fn exchange(
 ) -> Response {
     let path = uri.path().trim_start_matches("/prefix/");
     let playlist_body = (path == "v1/playlists/items").then(|| body.clone());
+    let recording_body = matches!(
+        path,
+        "v1/recordings/detail" | "v1/recordings/metadata" | "v1/sources"
+    )
+    .then(|| body.clone());
     state
         .requests
         .lock()
@@ -297,8 +315,27 @@ async fn exchange(
     } else {
         None
     };
-    let reply = if let Some(page) = page {
-        page
+    let recording_reply = if let Some(body) = recording_body {
+        let replies = state.recording_replies.read().await;
+        if replies.keys().any(|(route, _)| route == path) {
+            let Ok(request) = serde_json::from_value::<hito_plugin_sdk::RecordingRequest>(body)
+            else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            if request.validate().is_err() {
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+            replies
+                .get(&(path.to_owned(), request.recording_id))
+                .cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let reply = if let Some(reply) = page.or(recording_reply) {
+        reply
     } else {
         state
             .replies
