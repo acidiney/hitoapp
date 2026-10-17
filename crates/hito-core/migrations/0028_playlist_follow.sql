@@ -95,6 +95,7 @@ CREATE TABLE playlist_follow_jobs (
     CHECK((status = 'running') = (lease_token IS NOT NULL))
 );
 CREATE UNIQUE INDEX playlist_follow_pending ON playlist_follow_jobs(playlist_id) WHERE status IN ('queued','running');
+CREATE INDEX playlist_follow_job_history ON playlist_follow_jobs(playlist_id,created_at);
 CREATE INDEX playlist_follow_queue ON playlist_follow_jobs(status,next_attempt_at,created_at,id);
 CREATE INDEX playlist_follow_expired ON playlist_follow_jobs(lease_until) WHERE lease_token IS NOT NULL;
 CREATE INDEX playlist_follow_job_account ON playlist_follow_jobs(user_id,status,created_at,id);
