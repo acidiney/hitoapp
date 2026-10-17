@@ -2,6 +2,8 @@
 mod choice_http;
 #[path = "fixtures/manual_choice_collection.rs"]
 mod collection;
+#[path = "fixtures/manual_choice_files.rs"]
+mod files;
 #[path = "fixtures/manual_source.rs"]
 mod fixture;
 #[path = "fixtures/download_host.rs"]
@@ -16,6 +18,7 @@ use choice_http::{
     ready_download, source_named,
 };
 use collection::{CollectionSnapshot, assert_collection};
+use files::ManagedCopy;
 use fixture::Provider;
 use futures_util::FutureExt;
 use serde_json::json;
@@ -87,6 +90,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     let saved_a = ready_download(address, token, &download_path, &download_a).await;
     let saved_a_source = saved_a["source_id"].as_str().unwrap().to_owned();
     assert_audio(address, token, &saved_a_source, a.audio()).await;
+    let retained_a = ManagedCopy::capture(directory, a.audio());
     assert!(a.audio_requests() > 0);
     assert_eq!(b.audio_requests(), 0);
 
@@ -253,6 +257,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     );
     assert_denied_audio(address, token, &source_a).await;
     assert_denied_audio(address, token, &saved_a_source).await;
+    retained_a.assert_retained(a.audio());
 
     b.make_ready();
     let ready = call(
@@ -292,6 +297,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
         "the selected provider representation must actually be fetched"
     );
     assert_audio(address, token, saved_b_source, b.audio()).await;
+    retained_a.assert_replaced(b.audio()).await;
     let audio_control = (a.audio_requests(), b.audio_requests());
     let request_control = (a.requests(), b.requests());
 
