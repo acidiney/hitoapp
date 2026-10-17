@@ -54,6 +54,7 @@ export function usePlaylistDownload(account: string, playlist: string) {
   );
   const [state, setState] = useState<{ owner: Owner; view: View } | null>(null);
   const current = state?.owner === owner ? state.view : owner.view;
+  const renderedRetention = current.retention;
 
   function publish(update: Partial<View>) {
     owner.view = { ...owner.view, ...update };
@@ -270,11 +271,12 @@ export function usePlaylistDownload(account: string, playlist: string) {
           }),
     remove: () =>
       owner.view.attempt ||
-      !owner.view.retention ||
+      !renderedRetention ||
+      owner.view.retention !== renderedRetention ||
       owner.write ||
       owner.view.checking
         ? Promise.resolve()
-        : perform({ kind: "remove", retention: owner.view.retention }),
+        : perform({ kind: "remove", retention: renderedRetention }),
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
   };
