@@ -117,7 +117,7 @@ impl Downloads {
             return Ok(Some(intent));
         }
         sqlx::query("UPDATE download_files SET state='deleting',cleanup_after=0 WHERE id=(SELECT file_id FROM download_intents WHERE id=?)
-            AND state!='ready' AND NOT EXISTS(SELECT 1 FROM download_intents reference WHERE reference.file_id=download_files.id AND reference.state!='removed')")
+            AND state IN ('staging','ready') AND NOT EXISTS(SELECT 1 FROM download_intents reference WHERE reference.file_id=download_files.id AND reference.state!='removed')")
             .bind(previous).execute(&mut *connection).await?;
         Ok(None)
     }
