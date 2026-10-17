@@ -13,13 +13,29 @@ use provider::{Event, Provider};
 use publication::Publication;
 use serde_json::{Value, json};
 use std::{panic::AssertUnwindSafe, time::Duration};
-use tokio::task::JoinHandle;
+use tokio::{sync::oneshot, task::JoinHandle};
 use tracing::instrument::WithSubscriber;
 use tracing_subscriber::prelude::*;
 use uuid::Uuid;
 
+#[derive(Clone, Copy)]
+enum AfterCollision {
+    Continue,
+    Cancel,
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn a_binding_claimed_after_preparation_does_not_block_a_later_eligible_audio_source() {
+    run(AfterCollision::Continue).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn cancelling_a_rejected_publication_prevents_later_candidate_requests_and_replays_without_io()
+ {
+    run(AfterCollision::Cancel).await;
+}
+
+async fn run(after_collision: AfterCollision) {
     let (directory, hito, actor, _, _) = support::library("resolution-binding-race").await;
     let provider = Provider::start().await;
     let publication = Publication::default();
@@ -31,6 +47,7 @@ async fn a_binding_claimed_after_preparation_does_not_block_a_later_eligible_aud
         &provider,
         &publication,
         &mut pending,
+        after_collision,
     ))
     .catch_unwind()
     .await;
@@ -53,6 +70,7 @@ async fn exercise(
     provider: &Provider,
     publication: &Publication,
     pending: &mut Option<JoinHandle<hito_core::Result<SourceResolution>>>,
+    after_collision: AfterCollision,
 ) {
     let first_audio = support::write_wav(&directory.path().join("candidate-a.wav"), 100);
     let second_audio = support::write_wav(&directory.path().join("candidate-b.wav"), 200);
@@ -124,6 +142,7 @@ async fn exercise(
             .is_empty()
     );
     let request_id = Uuid::new_v4();
+    let (cancel, cancelled) = oneshot::channel();
     let started = tokio::time::Instant::now();
     let subscriber = tracing_subscriber::registry().with(publication.clone());
     *pending = Some({
@@ -133,12 +152,9 @@ async fn exercise(
         tokio::spawn(
             async move {
                 catalog
-                    .resolve_source_until(
-                        &actor,
-                        &recording,
-                        ResolveSource { request_id },
-                        std::future::pending(),
-                    )
+                    .resolve_source_until(&actor, &recording, ResolveSource { request_id }, async {
+                        let _ = cancelled.await;
+                    })
                     .await
             }
             .with_subscriber(subscriber),
@@ -199,6 +215,11 @@ async fn exercise(
         !publication.expired(),
         "the publication boundary must remain held through the racing adoption"
     );
+    if matches!(after_collision, AfterCollision::Cancel) {
+        cancel
+            .send(())
+            .expect("the owned cancellation must reach the held resolver");
+    }
     publication.release();
     let settled = tokio::time::timeout(Duration::from_secs(3), pending.as_mut().unwrap())
         .await
@@ -230,6 +251,67 @@ async fn exercise(
         }
         Err(_) => panic!("the owned resolution must not fail with another error"),
     };
+    if matches!(after_collision, AfterCollision::Cancel) {
+        assert!(
+            matches!(resolution.outcome, SourceResolutionOutcome::Cancelled),
+            "a rejected publication must settle cancellation before continuing provider work"
+        );
+        assert_eq!(resolution.request_id, request_id);
+        assert!(resolution.recording_id == target.id);
+        assert!(resolution.sources.is_empty());
+        assert!(
+            hito.catalog
+                .sources(actor, &target.id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let events = provider.events().await;
+        assert_eq!(
+            events,
+            [
+                Event::Search,
+                Event::DetailA,
+                Event::SourcesA,
+                Event::DetailA,
+                Event::SourcesA,
+                Event::AudioA,
+                Event::AudioA
+            ],
+            "cancellation after rejected publication must prevent B detail, sources and audio"
+        );
+        let replay = tokio::time::timeout(
+            Duration::from_secs(3),
+            hito.catalog.resolve_source_until(
+                actor,
+                &target.id,
+                ResolveSource { request_id },
+                std::future::pending(),
+            ),
+        )
+        .await
+        .expect("the cancelled receipt must replay without waiting for a new lease")
+        .unwrap();
+        assert_eq!(replay.resolution_id, resolution.resolution_id);
+        assert_eq!(replay.request_id, request_id);
+        assert!(replay.recording_id == target.id);
+        assert!(matches!(replay.outcome, SourceResolutionOutcome::Cancelled));
+        assert!(replay.sources.is_empty());
+        assert_eq!(
+            provider.events().await,
+            events,
+            "cancelled receipt replay must not repeat provider IO"
+        );
+        assert!(
+            stable_state(hito, actor, &target.id, &occupied.id, &playlist_id).await == before,
+            "cancelled receipt replay must preserve both recordings and all private state"
+        );
+        assert!(
+            provider.authenticated(),
+            "audio provider requests must use the approved credential"
+        );
+        return;
+    }
     assert!(matches!(resolution.outcome, SourceResolutionOutcome::Ready));
     assert_eq!(resolution.request_id, request_id);
     assert!(resolution.recording_id == target.id);
