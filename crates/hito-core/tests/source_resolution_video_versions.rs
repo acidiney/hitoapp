@@ -12,29 +12,65 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn wrapped_live_at_video_title_cannot_resolve_a_studio_recording() {
+    assert_wrapped_live_video_is_rejected("Owned performer - Owned tune - Live at the owned venue")
+        .await;
+}
+
+#[tokio::test]
+async fn wrapped_live_from_video_title_cannot_resolve_a_studio_recording() {
+    assert_wrapped_live_video_is_rejected(
+        "Owned performer - Owned tune - Live from the owned venue",
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn wrapped_live_in_video_title_cannot_resolve_a_studio_recording() {
+    assert_wrapped_live_video_is_rejected("Owned performer - Owned tune - Live in the owned venue")
+        .await;
+}
+
+async fn assert_wrapped_live_video_is_rejected(title: &str) {
     let spotify = fixture::ProviderServer::start().await;
     let youtube = fixture::ProviderServer::start().await;
     let result = tokio::time::timeout(
         Duration::from_secs(8),
         AssertUnwindSafe(async {
             let owned = fixture::SavedRecording::prepare(&spotify, &youtube).await;
-            let before = owned.hito.catalog.recording_metadata(
-                &owned.actor, &owned.recording, Default::default(),
-            ).await.unwrap_or_else(|_| panic!("the studio target metadata must be readable before resolution"));
-            configure_live_candidate(&youtube).await;
+            let before = owned
+                .hito
+                .catalog
+                .recording_metadata(&owned.actor, &owned.recording, Default::default())
+                .await
+                .unwrap_or_else(|_| {
+                    panic!("the studio target metadata must be readable before resolution")
+                });
+            configure_live_candidate(&youtube, title).await;
             let request_id = Uuid::new_v4();
-            let resolution = owned.hito.catalog.resolve_source_until(
-                &owned.actor,
-                &owned.recording,
-                ResolveSource { request_id },
-                std::future::pending(),
-            ).await.unwrap_or_else(|_| panic!("valid live-video evidence must return a typed outcome"));
-            for path in ["v1/recordings/detail", "v1/sources", "v1/recordings/metadata"] {
+            let resolution = owned
+                .hito
+                .catalog
+                .resolve_source_until(
+                    &owned.actor,
+                    &owned.recording,
+                    ResolveSource { request_id },
+                    std::future::pending(),
+                )
+                .await
+                .unwrap_or_else(|_| {
+                    panic!("valid live-video evidence must return a typed outcome")
+                });
+            for path in [
+                "v1/recordings/detail",
+                "v1/sources",
+                "v1/recordings/metadata",
+            ] {
                 let requests = youtube.requests(path).await;
                 assert!(
-                    !requests.is_empty() && requests.iter().all(|(_, body)| {
-                        body == &json!({"recording_id": "youtube/owned-video"})
-                    }),
+                    !requests.is_empty()
+                        && requests.iter().all(|(_, body)| {
+                            body == &json!({"recording_id": "youtube/owned-video"})
+                        }),
                     "version policy must be checked after detail, source and metadata hydration"
                 );
             }
@@ -45,24 +81,33 @@ async fn wrapped_live_at_video_title_cannot_resolve_a_studio_recording() {
             match resolution.outcome {
                 SourceResolutionOutcome::NoSuitableSource => {}
                 SourceResolutionOutcome::Ready => panic!(
-                    "wrapped Live-at video evidence must yield NoSuitableSource, received typed Ready"
+                    "wrapped live-video evidence must yield NoSuitableSource, received typed Ready"
                 ),
-                _ => panic!("wrapped Live-at video evidence must yield NoSuitableSource"),
+                _ => panic!("wrapped live-video evidence must yield NoSuitableSource"),
             }
             assert!(
                 resolution.sources.is_empty(),
                 "live-video rejection must return no provider sources"
             );
             owned.assert_preserved().await;
-            let after = owned.hito.catalog.recording_metadata(
-                &owned.actor, &owned.recording, Default::default(),
-            ).await.unwrap_or_else(|_| panic!("the studio target metadata must remain readable after rejection"));
+            let after = owned
+                .hito
+                .catalog
+                .recording_metadata(&owned.actor, &owned.recording, Default::default())
+                .await
+                .unwrap_or_else(|_| {
+                    panic!("the studio target metadata must remain readable after rejection")
+                });
             assert!(
                 fixture::encoded(&after) == fixture::encoded(&before),
                 "live-video rejection must publish no observation or metadata change"
             );
             assert!(
-                owned.hito.catalog.sources(&owned.actor, &owned.recording).await
+                owned
+                    .hito
+                    .catalog
+                    .sources(&owned.actor, &owned.recording)
+                    .await
                     .unwrap_or_else(|_| panic!("the studio target sources must remain readable"))
                     .is_empty(),
                 "live-video rejection must publish no provider source"
@@ -71,14 +116,22 @@ async fn wrapped_live_at_video_title_cannot_resolve_a_studio_recording() {
                 youtube.requests("v1/audio").await.is_empty(),
                 "live-video rejection must never request provider audio"
             );
-            for path in ["v1/search", "v1/recordings/detail", "v1/sources", "v1/recordings/metadata", "v1/audio"] {
+            for path in [
+                "v1/search",
+                "v1/recordings/detail",
+                "v1/sources",
+                "v1/recordings/metadata",
+                "v1/audio",
+            ] {
                 assert!(
                     spotify.requests(path).await.is_empty(),
                     "version rejection must never send candidate identifiers to the primary service"
                 );
             }
-        }).catch_unwind(),
-    ).await;
+        })
+        .catch_unwind(),
+    )
+    .await;
     spotify.shutdown().await;
     youtube.shutdown().await;
     match result {
@@ -90,8 +143,7 @@ async fn wrapped_live_at_video_title_cannot_resolve_a_studio_recording() {
     }
 }
 
-async fn configure_live_candidate(server: &fixture::ProviderServer) {
-    let title = "Owned performer - Owned tune - Live at the owned venue";
+async fn configure_live_candidate(server: &fixture::ProviderServer, title: &str) {
     let legacy = json!({
         "id": "youtube/owned-video", "title": title,
         "artist": "Owned performer", "duration_ms": 1000, "release": null,
