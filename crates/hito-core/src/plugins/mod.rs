@@ -1,6 +1,7 @@
 mod admission;
 mod authorization;
 mod credentials;
+mod download;
 mod installations;
 mod key_file;
 mod media;
@@ -19,6 +20,7 @@ pub use authorization::{
     PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationState,
     PluginAuthorizationStatus,
 };
+pub(crate) use download::DownloadOrigin;
 pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
 pub(crate) use playlist_operation::PlaylistOperation;
