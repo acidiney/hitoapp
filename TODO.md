@@ -87,7 +87,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Add read-only Follow playlist with durable refresh jobs and stable occurrence reconciliation.
 - [x] Import public Spotify playlists as editable private Hito copies, preserving order, duplicate entries, Spotify identifiers and metadata provenance. Verify a complete live UI import without optional account authorization.
 - [ ] Follow Spotify playlists with a UI-configured hourly/daily refresh interval and persistent scheduled jobs; synchronize additions, removals, order, and duplicate occurrences while retaining stable entry IDs and the last good snapshot after failed or incomplete refreshes. Followed playlists stay read-only; imported copies stay independent and editable. Release unneeded download references without deleting originals or library records.
-- [ ] Play imported Spotify playlist tracks through the yt-dlp YouTube plugin, with visible unavailable tracks and review of uncertain matches rather than silent substitutions.
+- [x] Play imported Spotify playlist tracks through the yt-dlp YouTube plugin by explicit source review. The live WebKit case imported 411 entries, attached and played one candidate without replacing identities or private edits, and retained the remaining unavailable entries. The service is deployed locally; automatic playlist-wide association and broader codec/browser acceptance remain open. See [YouTube testing and limits](docs/plugin-youtube.md).
 - [ ] Add podcast RSS subscriptions, updates, progress, and downloads.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.

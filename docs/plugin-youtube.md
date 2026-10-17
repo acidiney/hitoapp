@@ -1,6 +1,6 @@
 # YouTube plugin development
 
-The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The current image is verified in an isolated Docker project. Address-only installation, discovery, saving and real playback through the Hito UI pass in WebKit against a disposable library. Reviewed Spotify-to-YouTube attachment and normal deployment remain to be verified.
+The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The verified image now runs on the normal local Docker network. Address-only installation, discovery, saving, playback and reviewed Spotify-to-YouTube attachment pass in WebKit against disposable libraries. Each listener connects personally; deployment did not authenticate or change a normal account.
 
 ## Isolated Docker service
 
@@ -16,6 +16,12 @@ The manifest is available at `http://localhost:18093/v1/manifest`. This isolated
 The image pins yt-dlp 2026.08.19 and Deno 2.9.7 for Linux GNU amd64 and arm64. The installer verifies SHA-256 before unpacking each release asset. It retains yt-dlp's complete runtime bundle and bundled notices, plus Deno's root MIT license and available notices from its pinned source archive. The complete dependency attribution and redistribution audit remains a release requirement.
 
 The service runs as UID 10001 with a read-only root filesystem, no extra capabilities, a 64 MiB temporary filesystem, a 128-process limit and a 512 MiB memory limit. The temporary filesystem disallows executable files. Deno and yt-dlp are installed in the read-only image; requests do not install runtimes or remote components.
+
+## Testing on the normal local installation
+
+The normal service runs the same accepted image at `http://plugin-youtube:8093/`, with a loopback host manifest at `http://localhost:8093/v1/manifest`. Its health, manifest and reachability from the normal server passed. The runtime retains the read-only root, UID 10001, dropped capabilities, temporary-filesystem and resource limits described above, with no Hito data or music volume.
+
+In Settings, Plugins, offer that internal address and connect without a bearer token. Discover can search and save YouTube recordings. For an imported Spotify track, open its details, select Find a source, inspect the Saved track and Candidate source comparison, then select Use this source. The saved recording and playlist entries retain their identities and Spotify metadata owner. Association is manual; this does not automatically resolve an entire imported playlist.
 
 ## Process ownership
 
@@ -68,8 +74,10 @@ The ignored test requires `HITO_YOUTUBE_LIVE=1`, an explicit isolated `HITO_YOUT
 
 An explicitly opted-in release-image WebKit workflow passed in 21.7 seconds. It offered the service address, connected without a bearer, searched, saved the recording, played AAC through the authorized Hito source URL, sought to 7.9 seconds and continued through navigation. Presented time reached 8.33 seconds with media error zero. No browser request reached the plugin or media CDN. This sample sought within buffered audio; the separate live HTTP check above exercises a nonzero upstream byte range.
 
-The test distinguishes WebKit's headerless synthetic network observation from a real HTTP response. It requires that observation to finish normally and match an actual same-URL 200/206 response with valid audio framing. Zero is never counted as HTTP success. Media errors, malformed responses, failed requests, external URLs and stalled presentation still fail the workflow.
+The test distinguishes WebKit's headerless synthetic network observation from a real HTTP response. It requires that observation to finish normally and match an actual same-URL 200/206 response with valid audio framing. Zero is never counted as HTTP success. WebKit can also cancel a progressive read and resume through increasing open byte ranges. A separate 17-row fixture table verifies the narrow classification of its exact cancellation code, consistent source/total/framing, chronological range replacements and normally completed final tail. Raw cancellations remain counted separately from unexpected failures. Media errors, malformed responses, unexplained failures, external URLs and stalled presentation still fail the workflow.
+
+A real public Spotify playlist workflow passed in 12.8 seconds. It imported 411 ordered entries, explicitly reviewed and attached one conservatively selected YouTube candidate, played AAC, sought to 57.5 seconds and continued through navigation. The recording, playlist order, Spotify metadata owner and personal edits remained unchanged. The other 410 entries stayed visibly unavailable. Ten browser range replacements were distinguished from zero unexpected request failures; media error remained zero. This demonstrates manual association, not automatic matching or general provider compatibility.
 
 The packaged Chromium test browser reports no AAC support. The packaged Firefox advertises AAC but raises a media decode error in the real workflow. These are unresolved compatibility limits of the current test images; they do not establish behavior in every installed browser. Conversion and broader browser acceptance remain open. Source and browser-test TypeScript and formatting passed. Scoped scans of 1,316 Hito and 562 plugin log lines found no configured video identifier, signed media host/expiry or bearer values.
 
-The amd64 runtime, broader upstream and challenge compatibility, expiry and range-recovery countercases, reviewed Spotify attachment, other codecs, physical output and platform/public-release acceptance remain open. Complete runtime dependency attribution and redistribution acceptance are also still required.
+The amd64 runtime, broader upstream and challenge compatibility, expiry and range-recovery countercases, automatic playlist-wide association, other codecs, physical output and platform/public-release acceptance remain open. Complete runtime dependency attribution and redistribution acceptance are also still required.
