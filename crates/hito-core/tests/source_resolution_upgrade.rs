@@ -78,8 +78,13 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     }
     let after_schema = schema(&pool).await;
     for (name, original) in before_schema {
+        let expected = if name == "current_download_authority" {
+            declared_download_authority()
+        } else {
+            original
+        };
         assert!(
-            after_schema.get(&name) == Some(&original),
+            after_schema.get(&name) == Some(&expected),
             "migration changed retained trigger or view {name}"
         );
     }
@@ -100,12 +105,13 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 37);
+    assert_eq!(version, 38);
     for table in [
         "recording_source_choices",
         "source_resolutions",
         "source_resolution_receipts",
         "automatic_source_decisions",
+        "source_choice_receipts",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&pool)
@@ -328,4 +334,18 @@ async fn assert_binding_guards(pool: &SqlitePool) {
 
 fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+fn declared_download_authority() -> String {
+    let migration = include_str!("../migrations/0038_manual_source_choice.sql");
+    let declaration = "CREATE VIEW current_download_authority AS";
+    let start = migration
+        .find(declaration)
+        .expect("the manual choice migration must declare its authority view");
+    migration[start..]
+        .split(';')
+        .next()
+        .expect("the declared authority view must contain SQL")
+        .trim()
+        .to_owned()
 }
