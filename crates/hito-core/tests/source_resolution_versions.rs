@@ -87,44 +87,55 @@ async fn automatic_matching_distinguishes_a_live_album_from_a_song_named_live() 
             assert_eq!(server.requests("v1/sources").await.len(), 2);
             assert_eq!(server.requests("v1/audio").await.len(), 1);
 
-            let studio = resolve_case(
-                &hito,
-                &actor,
-                &server,
-                &installed,
-                Case {
-                    key: "studio-target",
-                    title: "Owned performance",
-                    target_album: "Owned studio album",
-                    candidate_album: "Live",
-                },
-            )
-            .await;
-            let live = resolve_case(
-                &hito,
-                &actor,
-                &server,
-                &installed,
-                Case {
-                    key: "live-target",
-                    title: "Owned performance",
-                    target_album: "Live",
-                    candidate_album: "Owned studio album",
-                },
-            )
-            .await;
-            assert_eq!(server.requests("v1/search").await.len(), 3);
+            let mut outcomes = Vec::new();
+            for (studio_key, live_key, title, live_album) in [
+                ("studio-target", "live-target", "Owned performance", "Live"),
+                ("studio-sessions-target", "live-sessions-target", "Owned performance", "Live Sessions"),
+                ("studio-year-target", "live-year-target", "Owned performance", "Live 1998"),
+                ("studio-live-title-target", "live-live-title-target", "Live", "Live Sessions"),
+            ] {
+                let studio = resolve_case(
+                    &hito,
+                    &actor,
+                    &server,
+                    &installed,
+                    Case {
+                        key: studio_key,
+                        title,
+                        target_album: "Owned studio album",
+                        candidate_album: live_album,
+                    },
+                )
+                .await;
+                let live = resolve_case(
+                    &hito,
+                    &actor,
+                    &server,
+                    &installed,
+                    Case {
+                        key: live_key,
+                        title,
+                        target_album: live_album,
+                        candidate_album: "Owned studio album",
+                    },
+                )
+                .await;
+                outcomes.push((studio, live));
+            }
+            assert_eq!(server.requests("v1/search").await.len(), 9);
             assert_eq!(server.requests("v1/audio").await.len(), 1);
-            assert!(
-                matches!(studio.outcome, SourceResolutionOutcome::NoSuitableSource)
-                    && studio.sources.is_empty(),
-                "a studio recording must reject an otherwise exact ready candidate from album Live"
-            );
-            assert!(
-                matches!(live.outcome, SourceResolutionOutcome::NoSuitableSource)
-                    && live.sources.is_empty(),
-                "a recording from album Live must reject an otherwise exact ready studio candidate"
-            );
+            for (studio, live) in outcomes {
+                assert!(
+                    matches!(studio.outcome, SourceResolutionOutcome::NoSuitableSource)
+                        && studio.sources.is_empty(),
+                    "a studio recording must reject an otherwise exact ready candidate with declared live album context"
+                );
+                assert!(
+                    matches!(live.outcome, SourceResolutionOutcome::NoSuitableSource)
+                        && live.sources.is_empty(),
+                    "a recording with declared live album context must reject an otherwise exact ready studio candidate"
+                );
+            }
         })
         .catch_unwind(),
     )
