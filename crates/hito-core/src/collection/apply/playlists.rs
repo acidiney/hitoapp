@@ -56,6 +56,18 @@ pub(super) async fn delete(tx: &mut Transaction<'_>, actor: &Actor, playlist: &U
     .bind(actor.id())
     .execute(&mut **tx)
     .await?;
+    let deactivated = sqlx::query("UPDATE playlist_follows SET active = 0,generation = generation + 1 WHERE playlist_id = ? AND user_id = ? AND active = 1")
+        .bind(playlist.to_string()).bind(actor.id()).execute(&mut **tx).await?.rows_affected();
+    if deactivated > 0 {
+        let cancelled = sqlx::query("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'follow_removed',updated_at = unixepoch()
+            WHERE playlist_id = ? AND user_id = ? AND status = 'queued'")
+            .bind(playlist.to_string()).bind(actor.id()).execute(&mut **tx).await?.rows_affected();
+        tracing::debug!(
+            deactivated,
+            cancelled_jobs = cancelled,
+            "Deleted playlist follow deactivated"
+        );
+    }
     Ok(())
 }
 
