@@ -6,6 +6,7 @@ mod key_file;
 mod media;
 mod offers;
 mod operation;
+mod playlist_operation;
 mod playlists;
 mod refresh;
 mod removal;
@@ -20,6 +21,7 @@ pub use authorization::{
 };
 pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
+pub(crate) use playlist_operation::PlaylistOperation;
 pub(crate) use playlists::PlaylistSnapshot;
 pub(crate) use transport::SourceBatch;
 pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};

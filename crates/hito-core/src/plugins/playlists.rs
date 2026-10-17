@@ -27,10 +27,32 @@ impl ControlClient {
         token: Option<&str>,
         reference: String,
     ) -> Result<PlaylistSnapshot> {
+        self.playlist_snapshot_checked(
+            account,
+            base_url,
+            token,
+            PlaylistDetailRequest::Reference { reference },
+            || async { Ok(()) },
+        )
+        .await
+    }
+
+    pub(super) async fn playlist_snapshot_checked<F, Check>(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: PlaylistDetailRequest,
+        check: F,
+    ) -> Result<PlaylistSnapshot>
+    where
+        F: Fn() -> Check + Send + Sync,
+        Check: std::future::Future<Output = Result<()>> + Send,
+    {
         let _admission = self.admit(account)?;
         tokio::time::timeout(
             Duration::from_secs(60),
-            self.read_playlist(base_url, token, reference),
+            self.read_playlist(base_url, token, request, check),
         )
         .await
         .unwrap_or(Err(Error::Upstream(
@@ -38,20 +60,21 @@ impl ControlClient {
         )))
     }
 
-    async fn read_playlist(
+    async fn read_playlist<F, Check>(
         &self,
         base_url: &str,
         token: Option<&str>,
-        reference: String,
-    ) -> Result<PlaylistSnapshot> {
+        request: PlaylistDetailRequest,
+        check: F,
+    ) -> Result<PlaylistSnapshot>
+    where
+        F: Fn() -> Check + Send + Sync,
+        Check: std::future::Future<Output = Result<()>> + Send,
+    {
         let mut remaining = SNAPSHOT_BYTES;
+        check().await?;
         let detail = self
-            .playlist_detail(
-                base_url,
-                token,
-                PlaylistDetailRequest::Reference { reference },
-                &mut remaining,
-            )
+            .playlist_detail(base_url, token, request, &mut remaining)
             .await?;
         let mut entries = Vec::with_capacity(detail.total_count as usize);
         let mut cursor = None;
@@ -60,6 +83,7 @@ impl ControlClient {
         let mut recordings = HashMap::new();
         let mut complete = false;
         for _ in 0..MAX_PAGES {
+            check().await?;
             let request = PlaylistItemsRequest {
                 playlist_id: detail.id.clone(),
                 snapshot: detail.snapshot.clone(),
@@ -137,6 +161,7 @@ impl ControlClient {
                 "The provider returned an incomplete playlist",
             ));
         }
+        check().await?;
         let final_detail = self
             .playlist_detail(
                 base_url,
