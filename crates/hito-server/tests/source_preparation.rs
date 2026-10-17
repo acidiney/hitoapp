@@ -8,6 +8,8 @@ mod capable;
 mod http;
 #[path = "fixtures/source_preparation_reconnection.rs"]
 mod reconnection;
+#[path = "fixtures/source_preparation_terminal.rs"]
+mod terminal;
 
 use axum::{
     Json, Router,
@@ -213,6 +215,30 @@ async fn a_recreated_connection_cannot_duplicate_an_unresolved_preparation() {
     }
     if let Err(panic) = outcome {
         std::panic::resume_unwind(panic);
+    }
+}
+
+#[tokio::test]
+async fn a_terminal_preparation_allows_reconnection_without_changing_old_receipts() {
+    for terminal_ack_after_removal in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = support::write_wav(&directory.path().join("owned-terminal-file.wav"));
+        let provider = capable::CapableProvider::start(audio).await;
+        let mut hosts = Vec::new();
+        let outcome = AssertUnwindSafe(terminal::run(
+            directory.path(),
+            &provider,
+            &mut hosts,
+            terminal_ack_after_removal,
+        ))
+        .catch_unwind()
+        .await;
+        for host in &mut hosts {
+            host.finish().await;
+        }
+        if let Err(panic) = outcome {
+            std::panic::resume_unwind(panic);
+        }
     }
 }
 

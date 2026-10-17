@@ -64,6 +64,19 @@ impl Exchange {
         self.reply.send(response).unwrap();
     }
 
+    pub fn accept_failed(self) {
+        let response = json!({
+            "operation_id": self.body["operation_id"],
+            "recording_id": self.body["recording_id"],
+            "source_id": self.body["source_id"],
+            "submission": {
+                "outcome": "accepted", "handle": HANDLE,
+                "status": {"phase": "failed", "reason": "source_unavailable"}
+            }
+        });
+        self.reply.send(response).unwrap();
+    }
+
     pub fn ready_if_waiting(self) {
         let response = self.ready_response();
         let _ = self.reply.send(response);
