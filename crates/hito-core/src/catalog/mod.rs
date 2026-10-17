@@ -11,12 +11,12 @@ mod playback;
 pub use playback::PlaybackSource;
 mod preferred;
 mod provider;
+pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
     AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
     ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
-pub(crate) use provider::{provider_library, publish_provider_metadata};
 mod releases;
 mod search;
 mod selection;

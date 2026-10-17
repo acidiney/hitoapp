@@ -39,7 +39,7 @@ impl Catalog {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
-        let library = persist::library(&mut tx, actor.id()).await?;
+        let library = crate::identity::personal_library(&mut tx, actor.id()).await?;
         let published = metadata::publish(
             &mut tx,
             &library,
