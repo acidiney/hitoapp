@@ -93,7 +93,14 @@ podcast_compose --profile e2e up -d --no-build --wait e2e-server
 podcast_compose --profile e2e run --rm browser npm run e2e -- e2e/podcast.spec.ts --browser=chromium
 ```
 
-Recreate `e2e-server` with `up -d --force-recreate --no-build --wait e2e-server` before running `--browser=webkit`; every run requires a fresh first-run database. Finish with `podcast_compose --profile e2e down`. The overlay publishes no host ports and mounts no persistent application data.
+Recreate `e2e-server` with `up -d --force-recreate --no-build --wait e2e-server` before running `--browser=webkit`; every run requires a fresh first-run database. The separate explicit-download workflow also requires a fresh host and its own opt-in:
+
+```sh
+podcast_compose --profile e2e up -d --force-recreate --no-build --wait e2e-server
+podcast_compose --profile e2e run --rm -e HITO_PODCAST_DOWNLOAD_E2E=1 browser npm run e2e -- e2e/podcast-download.spec.ts --browser=chromium
+```
+
+Recreate the host again before its WebKit run or before switching workflows; the download workflow stops its owned upstream service. Finish with `podcast_compose --profile e2e down`. The overlay publishes no host ports and mounts no persistent application data.
 
 ## Scheduled and conditional updates
 
@@ -106,6 +113,8 @@ Only a successful, authorized transaction may retain a new fetch address from an
 Cleanup keeps the newest 32 terminal jobs without client receipts for each subscription. Jobs referenced by immutable subscribe or refresh receipts remain retained. Both receipt lookups have dedicated indexes. This cleanup changes refresh bookkeeping, not listening history or personal data.
 
 The public due-check fixture reopens core, ages only the due timestamp and verifies the actual conditional request and accepted 304. Its old cursor and captured grant still work, including exact WAV delivery. A real same-origin redirect to another path receives no old validators; its unsolicited 304 is rejected without replacing the last successful feed state. Another fixture performs 36 automatic checks after an initial publication and explicit refresh. Exactly the newest 32 automatic jobs and both receipt-backed jobs survive, with unchanged private metadata, duplicate playlist entries, progress, activity, synchronization events and exact receipt replay. These tests advance fixture timestamps; they do not prove an hour of wall-clock scheduling.
+
+The history fixture crosses observed SQLite clock boundaries before the manual 304 and before receipt replay. It requires the successful check time to advance, automatic checks never to regress it, and old receipts to preserve the final time without issuing HTTP requests. Every other subscription field and the full published/private snapshot remain equal. This corrects an earlier clock-dependent assertion that included the intentionally changing check time; controlled clock advancement reproduced that failure in both current source and the earlier accepted baseline. No production refresh behavior changed.
 
 ## Network and parsing
 
@@ -139,7 +148,7 @@ A separate public scenario verifies that refreshing the same GUIDs invalidates a
 
 Personal-library creation belongs to identity and access management. RSS, provider adoption, playlist copies and Follow reuse that private library operation. Six existing provider, playlist-copy and Follow scenarios pass after moving the helper without changing its SQL, labels or ownership behavior. Strict Clippy passes for all core targets.
 
-These checks do not establish the public release gates. The populated full-migration regression now reaches 0043 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences, then reopens through the latest core migration. It accepts only the intended additive validator column in the original table definition, verifies NULL legacy values and checks both exact receipt-index definitions. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
+These checks do not establish the public release gates. The populated full-migration fixture reaches 0044 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences, then reopens through the latest core migration. It accepts only the intended additive validator column in the original table definition, verifies NULL legacy values and checks both exact receipt-index definitions. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
 
 Podcast-specific pending-handshake/read cancellation, logout, original-grant replacement, mixed manual source choices, hostile framing/redirect races, candidate iteration and global stream saturation still need broader public coverage. Existing provider cases exercise several shared mechanisms, but do not prove those podcast paths. Crash recovery, retained-episode removal, native output and release performance also remain open.
 
@@ -151,11 +160,19 @@ A podcast intent captures the episode and source IDs, subscription generation, e
 
 The owned-WAV public fixture verifies admission, logout, completion, core restart, exact receipt replay and exact local playback after the upstream server has stopped. Another fixture unsubscribes before a queued transfer starts and verifies `authority_changed`, no enclosure request and no reactivation through receipt replay. Both preserve personal metadata, likes, progress and user-owned original files.
 
+A separate public core fixture completes a download before unsubscribe. The same ready intent and managed playback grant remain authorized after unsubscribe and joined upstream shutdown, while the old remote grant is revoked. Local playback returns the exact WAV without another upstream request. Receipt replay preserves the original intent without reactivating the subscription. The recording, personal title, like, saved progress and user-owned original remain intact.
+
 A held-stream fixture delivers and persists exactly 64 WAV bytes, then waits before sending the tail. Unsubscribe commits while that tail remains held. The actual download worker retires within three seconds, closes the upstream body and records `authority_changed` without publishing a copy. Exact receipt replay creates no further request or work. The queued and held-stream cases pass together in 2.01 seconds. The body owns its stream state; fixture shutdown releases the gate and joins its server.
 
-Migration 0044 adds typed podcast origins while retaining provider origins. A closed version-43 fixture checks old typed rows, rowids, sequences, receipts, indexes, migration checksums and ownership views after upgrade. The download checkpoint passes the full default core suite, workspace formatting and strict core all-target Clippy. Three independent source reviews covered security, correctness and performance. These checks do not establish crash recovery, ready-copy retention after unsubscribe, shared-reference removal or browser/native download behavior.
+Migration 0044 adds typed podcast origins while retaining provider origins. A closed version-43 fixture checks old typed rows, rowids, sequences, receipts, indexes, migration checksums and ownership views after upgrade. The download checkpoint passed the full default core suite, workspace formatting and strict core all-target Clippy. Three independent source reviews covered security, correctness and performance. This records that checkpoint, not a result for a later integrated full-core run.
 
-Episode Details already uses the shared recording Download component. No episode-row polling was added. The existing component cancels reads on navigation/account changes and polls active transfers; a real RSS download browser workflow remains pending.
+The later integrated core run passed 292 distinct cases with no failures, including provider persistence admission and the corrected history fixture. One filesystem-stall injection case remains reserved for its separate flagged run. Strict all-target workspace Clippy, reproducible generated contracts, 242 frontend cases, both TypeScript configurations and the production web build also pass. These are default-feature development checks, not complete native or release acceptance.
+
+Episode Details uses the shared recording Download component. No episode-row polling was added. The existing component cancels reads on navigation/account changes and polls active transfers. The explicit-download browser workflow passed Chromium in 18.1 seconds and WebKit in 17.5 seconds on separate fresh hosts; both hosts stopped cleanly. It subscribes through the UI, follows Details, clicks Download and waits for Ready without starting playback. UI unsubscribe preserves the ready intent. An example-only POST then joins the owned upstream server and verifies its listener refuses a new connection before reporting it closed. Library playback uses the managed source with advancing media time, and a public audio read returns the exact owned WAV with no further enclosure request.
+
+The same browser workflow removes the download through the UI and verifies HTTP 204, then HTTP 404 for its status and managed audio. The managed source disappears from public source facts, while the retained podcast source remains unready. The recording stays in the library with its personal metadata, like and saved progress intact. A separately ingested user-owned original retains its metadata, availability and exact audio bytes. These HTTP checks prove access revocation, not physical disk reclamation or shared-reference handling. Browser console canaries pass, but do not establish privacy for all server logs or native metadata.
+
+Crash recovery, shared-reference removal, native playback and downloads, backup/restore rehearsal, packaging and deployment acceptance remain open. These development fixtures do not complete the release gates.
 
 ## Remaining integration
 
