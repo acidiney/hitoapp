@@ -48,6 +48,8 @@ If Hito cannot confirm a write, Retry source choice repeats its frozen request w
 
 A changed choice revision also invalidates an existing availability snapshot or pending check. Hito reads its current sources without requesting another provider refresh. Until verification succeeds, old readiness cannot enable Play or a new preparation. The separate preparation owner retains its selected source and uncertain request, so its exact retry survives cancellation of an old availability read.
 
+A failed explicit availability check still counts as requested. Later source changes recheck it, including after another read failure. Changing a source before ever checking availability makes no availability request.
+
 ## Downloads
 
 A saved copy proves its provider origin through the file's retained intent references and their immutable origin fields. A completed download job's lease token is not its origin. Conflicting references cannot establish eligibility for a chosen binding.
@@ -87,5 +89,7 @@ The saved-copy web tracer first reproduced an incorrect saved claim while a sour
 A separate React characterization at `9f18ae5` verifies an already retained B download whose response is lost across a reset and a newer A choice. The pending write stays live, the same request recovers its original acknowledgement, and a fresh status read identifies B as a previous-source copy. The case and three related recovery/control cases pass with both TypeScript checks. This is receipt and UI evidence, not a physical transfer or new late publication under A.
 
 The availability tracer first reproduced the missing source read after a confirmed choice. It now verifies cancellation and rejection of an older ready snapshot, unavailable current audio, preservation of the same preparation retry and metadata input, exact-request recovery and read cancellation on unmount. At `c38be6e`, formatting of the three changed frontend files, all 224 frontend cases across 65 files, both TypeScript checks and the production build pass. The first full attempt passed the cases but caught an unsupported log field during TypeScript checking; the final run uses the existing permitted revision field and passes the complete pipeline.
+
+The recovery tracer separately reproduced a missing recheck after the first explicit availability request failed. It now distinguishes untouched availability across two choice changes from a failed requested check, preserves safe unavailable state after another failed read, and recovers ready audio after a later reset without autoplay or another provider refresh. At `cf6fbd1`, all 225 frontend cases across 66 files, both TypeScript checks and the production build pass.
 
 This evidence covers HTTP workflows, exact audio bodies and React rendering. It does not establish browser decoding, native output, complete authority/race coverage, production-volume upgrade or final-image acceptance. Broader UI ownership and invalidation cases, Follow and concurrent-operation tests remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
