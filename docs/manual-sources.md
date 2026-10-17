@@ -1,6 +1,6 @@
 # Manual audio sources
 
-Manual source choice is in development on the automatic-resolution branch. Its first HTTP workflow passes against a real temporary Hito server, SQLite and two owned protocol providers. The normal server has not been upgraded, and browser controls are not implemented yet.
+Manual source choice is in development on the automatic-resolution branch. HTTP workflows pass against real temporary Hito servers, SQLite and owned protocol providers. The normal server has not been upgraded, and browser controls are not implemented yet.
 
 ## Choice and ownership
 
@@ -24,6 +24,22 @@ The response contains exactly `request_id`, `recording_id`, `source_id` and a po
 
 The same policy controls available-source reads, direct audio admission and authorization checks, native candidate enumeration, download origin capture and active download publication. Existing native grants recheck the underlying authority. Physical native output and concurrent revocation still require their own verification.
 
+## Current choice and Automatic
+
+`GET /api/v1/recordings/{id}/source-choice` returns the current revision, mode and structured sources. Each source reports whether it belongs to the explicit selection and whether it can be chosen. Readiness is independent of selection, so an unavailable current provider representation remains selectable. The read uses one SQLite snapshot, then rechecks current account and recording access. It does not contact providers.
+
+The modes are:
+
+- `manual`: an explicit provider binding is pinned, even if no current representation is available.
+- `reviewed`: historical confirmed evidence remains protected, without an explicit pin or reset.
+- `automatic`: no protected choice exists, or the user explicitly returned to Automatic.
+
+`POST /api/v1/recordings/{id}/source-choice/reset` accepts strict JSON containing a nonempty `request_id` UUID and a nonnegative `expected_revision`. A new accepted reset clears the pin and increments the revision atomically. A stale revision conflicts. Its acknowledgement contains exactly `request_id`, `recording_id` and `revision`.
+
+Both commands require current ownership and account access. Reusing a request identity with another recording, body or command kind conflicts. Replaying an old accepted command returns its original acknowledgement without applying it again. Read the current choice after an acknowledgement; its recorded revision can be older than the current state.
+
+Returning to Automatic permits a fresh resolution while retaining the confirmed binding and its complete metadata observation history. It does not download or play audio.
+
 ## Downloads
 
 A saved copy proves its provider origin through the file's retained intent references and their immutable origin fields. A completed download job's lease token is not its origin. Conflicting references cannot establish eligibility for a chosen binding.
@@ -31,6 +47,8 @@ A saved copy proves its provider origin through the file's retained intent refer
 Choosing B makes live A and saved A unavailable. It does not relabel A's bytes as B or initiate a persistent download. A new explicit Download must use an eligible source of B. Failed admission must preserve the earlier retention. Successful replacement uses the existing retention and cleanup rules.
 
 Verified saved B does not need a live plugin connection for playback. Current library access and retention checks still apply.
+
+Download status includes `choice_revision` and `matches_source_choice` from the same read transaction. A retained A remains physically `ready` after choosing B, but reports a mismatch. Reading status does not remove A or start a replacement. A ready B copy must prove its owned immutable file origin before it can match the pin, including after plugin disconnection and restart.
 
 ## Verification and remaining work
 
@@ -44,4 +62,10 @@ The populated 0037-to-0038 fixture preserves original typed table columns, rowid
 
 At `7131a46`, workspace formatting and the complete core/server all-target suite pass in Docker. The filesystem fault-injection case remains explicitly ignored. Strict workspace all-target Clippy passes separately on the same source. These results include the canonical `Live` fix, physical replacement cleanup and populated migration cases.
 
-The listening evidence is one HTTP and audio-body workflow. It does not establish browser decoding, native output, complete authority/race coverage, production-volume upgrade or final-image acceptance. Current-choice reads, return to Automatic, correction controls, download-status presentation, Follow and concurrent-operation tests remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
+The current-choice and reset tracer first reached a real missing-GET failure. It now verifies reviewed protection, unavailable selection, stale reset rejection, old acknowledgement replay across newer choices, cross-command conflicts and a fresh automatic discovery after reset. The final explicit audio request reads C's exact owned PCM bytes. B's complete reviewed observation history, original source identity, primary metadata and private collection state remain unchanged. Reads, selections, resets and replay make no provider requests.
+
+The populated 0038-to-0039 case preserves all prior typed values, rowids, 38 migration receipts/checksums, exact schema definitions and five authority or lineage view projections. An existing pin and choose receipt survive close, migration and reopen. No reset is invented; immutable receipt, revision, ownership and foreign-key guards pass. The fixed earlier migration cases remain unchanged. Selected resolution, preparation, manual-choice and migration regressions pass with strict workspace all-target Clippy.
+
+The download-status tracer first failed on its missing current revision. It now checks six observations across retained A, a B pin, failed B admission, explicit B replacement, plugin disconnection and restart. Each observation preserves the exact ready transfer facts and makes no provider request. Download HTTP isolation, shared retention, original preservation, missing/corrupt files and late-writer regressions pass with strict workspace all-target Clippy on `dfdbb40`.
+
+This evidence covers HTTP workflows and exact audio bodies. It does not establish browser decoding, native output, complete authority/race coverage, production-volume upgrade or final-image acceptance. Browser correction controls, download-status presentation, Follow and concurrent-operation tests remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
