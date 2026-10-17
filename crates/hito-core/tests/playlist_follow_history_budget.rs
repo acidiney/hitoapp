@@ -4,7 +4,7 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
-async fn latest_job_status(connection: &mut SqliteConnection) -> (String, u64) {
+async fn start_work_counter(connection: &mut SqliteConnection) -> Arc<AtomicU64> {
     let steps = Arc::new(AtomicU64::new(0));
     let progress = Arc::clone(&steps);
     connection
@@ -14,23 +14,75 @@ async fn latest_job_status(connection: &mut SqliteConnection) -> (String, u64) {
         .set_progress_handler(100, move || {
             progress.fetch_add(100, Ordering::Relaxed) + 100 < 2_000_000
         });
+    steps
+}
+
+async fn finish_work_counter(connection: &mut SqliteConnection, steps: Arc<AtomicU64>) -> u64 {
+    connection
+        .lock_handle()
+        .await
+        .unwrap()
+        .remove_progress_handler();
+    steps.load(Ordering::Relaxed)
+}
+
+async fn latest_job_status(connection: &mut SqliteConnection) -> (String, u64) {
+    let steps = start_work_counter(connection).await;
     let result = sqlx::query_scalar::<_, String>(
         "SELECT status FROM playlist_follow_jobs job WHERE job.playlist_id = ? ORDER BY job.created_at DESC,job.rowid DESC LIMIT 1",
     )
     .bind("playlist-0")
     .fetch_one(&mut *connection)
     .await;
-    connection
-        .lock_handle()
-        .await
-        .unwrap()
-        .remove_progress_handler();
-    let work = steps.load(Ordering::Relaxed);
+    let work = finish_work_counter(connection, steps).await;
     assert!(
         result.is_ok(),
         "Latest follow status exceeded the query work budget or failed after {work} steps"
     );
     (result.unwrap(), work)
+}
+
+async fn prune_old_history(connection: &mut SqliteConnection) -> u64 {
+    sqlx::query(
+        "INSERT INTO playlist_follow_jobs(id,user_id,playlist_id,generation,status,created_at)
+         VALUES ('job-old','account-0','playlist-0',1,'complete',199)",
+    )
+    .execute(&mut *connection)
+    .await
+    .unwrap();
+    let steps = start_work_counter(connection).await;
+    let result = sqlx::query("DELETE FROM playlist_follow_jobs WHERE rowid IN (
+        SELECT job.rowid FROM playlist_follow_jobs job
+        WHERE job.playlist_id = ? AND job.status IN ('complete','failed','cancelled')
+            AND NOT EXISTS(SELECT 1 FROM playlist_follow_refresh_receipts receipt WHERE receipt.job_id = job.id)
+        ORDER BY job.created_at DESC,job.rowid DESC LIMIT -1 OFFSET ?)")
+        .bind("playlist-0")
+        .bind(32)
+        .execute(&mut *connection)
+        .await;
+    let work = finish_work_counter(connection, steps).await;
+    assert!(
+        result.is_ok(),
+        "Follow history pruning exceeded the query work budget or failed after {work} steps"
+    );
+    assert_eq!(result.unwrap().rows_affected(), 1);
+    let retained: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id,status FROM playlist_follow_jobs WHERE playlist_id = ? ORDER BY rowid",
+    )
+    .bind("playlist-0")
+    .fetch_all(connection)
+    .await
+    .unwrap();
+    let expected: Vec<(String, String)> = (0..32)
+        .map(|i| {
+            (
+                format!("job-playlist-0-{i}"),
+                if i == 31 { "failed" } else { "complete" }.into(),
+            )
+        })
+        .collect();
+    assert_eq!(retained, expected);
+    work
 }
 
 #[tokio::test]
@@ -65,7 +117,7 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
              service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,
              attribution,interval_seconds,next_refresh_at)
          VALUES ('playlist-0','account-0','installation-0',1,'service',1,'org.hito.history',
-             'playlist-0','snapshot',printf('%064d',0),'[]',3600,3600);
+             'playlist-0','snapshot',printf('%064d',0),'{\"label\":\"Owned history fixture\"}',3600,3600);
          WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i + 1 FROM n WHERE i < 31)
          INSERT INTO playlist_follow_jobs(id,user_id,playlist_id,generation,status,created_at)
          SELECT 'job-playlist-0-' || i,'account-0','playlist-0',1,
@@ -77,6 +129,7 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
     tx.commit().await.unwrap();
     let (small_status, small_steps) = latest_job_status(&mut connection).await;
     assert_eq!(small_status, "failed");
+    let small_prune_steps = prune_old_history(&mut connection).await;
 
     let mut tx = connection.begin().await.unwrap();
     sqlx::raw_sql(
@@ -87,7 +140,7 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
              service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,
              attribution,interval_seconds,next_refresh_at)
          SELECT p.id,p.user_id,installation.id,1,'service',1,'org.hito.history',p.id,'snapshot',
-             printf('%064d',0),'[]',3600,3600
+             printf('%064d',0),'{\"label\":\"Owned history fixture\"}',3600,3600
          FROM playlists p JOIN plugin_installations installation ON installation.user_id = p.user_id
          WHERE p.id != 'playlist-0';
          WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i + 1 FROM n WHERE i < 31)
@@ -120,6 +173,15 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
     assert!(
         large_steps <= small_steps + 2_000,
         "Unrelated follow history increased lookup work from {small_steps} to {large_steps} steps"
+    );
+    let large_prune_steps = prune_old_history(&mut connection).await;
+    eprintln!(
+        "Follow history prune steps~ small={small_prune_steps} large={large_prune_steps} jobs=131073"
+    );
+    assert!(small_prune_steps < 10_000);
+    assert!(
+        large_prune_steps <= small_prune_steps + 2_000,
+        "Unrelated follow history increased pruning work from {small_prune_steps} to {large_prune_steps} steps"
     );
     connection.close().await.unwrap();
 }
