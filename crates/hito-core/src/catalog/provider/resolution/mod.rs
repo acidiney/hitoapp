@@ -1,5 +1,6 @@
 mod admission;
 mod authority;
+mod cursor;
 mod matching;
 mod provider;
 mod publication;
@@ -8,16 +9,17 @@ mod types;
 
 use crate::{Actor, Catalog, Error, Result};
 pub(crate) use admission::CallerAdmission;
-use provider::Candidate;
+use cursor::Candidates;
+use publication::Publication;
 use receipts::{Admission, Attempt, Lease};
-use std::{future::Future, time::Duration};
+use std::{future::Future, pin::Pin, time::Duration};
 use tokio::time::Instant;
 pub use types::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 use uuid::Uuid;
 
 enum PreparedResolution {
     Existing(SourceResolutionOutcome),
-    Candidate(Option<Box<Candidate>>),
+    Search(Box<Candidates>),
 }
 
 impl Catalog {
@@ -67,26 +69,29 @@ impl Catalog {
                     None => None,
                 };
                 let settled = match prepared {
-                    Some(PreparedResolution::Existing(outcome)) => {
-                        self.finish_available_resolution(actor, recording, &attempt, outcome)
-                            .await
-                    }
-                    Some(PreparedResolution::Candidate(candidate)) => {
-                        self.complete_resolution(
+                    Some(PreparedResolution::Existing(outcome)) => self
+                        .finish_available_resolution(actor, recording, &attempt, outcome)
+                        .await
+                        .map(Some),
+                    Some(PreparedResolution::Search(candidates)) => {
+                        self.resolve_candidates(
                             actor,
                             recording,
                             &attempt,
-                            candidate.map(|candidate| *candidate),
+                            *candidates,
+                            cancelled.as_mut(),
+                            deadline,
                         )
                         .await
                     }
-                    None => {
-                        lease.cancel().await?;
-                        Ok(SourceResolutionOutcome::Cancelled)
-                    }
+                    None => Ok(None),
                 };
                 match settled {
-                    Ok(outcome) => (attempt.id, outcome),
+                    Ok(Some(outcome)) => (attempt.id, outcome),
+                    Ok(None) => {
+                        lease.cancel().await?;
+                        (attempt.id, SourceResolutionOutcome::Cancelled)
+                    }
                     Err(error) => {
                         lease.cancel().await?;
                         return Err(error);
@@ -158,8 +163,40 @@ impl Catalog {
         if sources.iter().any(|source| source.ready) {
             return Ok(PreparedResolution::Existing(SourceResolutionOutcome::Ready));
         }
-        let candidate = self.resolution_candidates(actor, attempt).await?;
-        Ok(PreparedResolution::Candidate(candidate.map(Box::new)))
+        let candidates = Candidates::new(self, actor, &attempt.target).await?;
+        Ok(PreparedResolution::Search(Box::new(candidates)))
+    }
+
+    async fn resolve_candidates(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        attempt: &Attempt,
+        mut candidates: Candidates,
+        mut cancelled: Pin<&mut (impl Future<Output = ()> + Send)>,
+        deadline: Instant,
+    ) -> Result<Option<SourceResolutionOutcome>> {
+        loop {
+            let candidate = tokio::select! {
+                biased;
+                _ = cancelled.as_mut() => return Ok(None),
+                _ = tokio::time::sleep_until(deadline) => return Ok(None),
+                result = candidates.next(self, actor, recording, &attempt.target) => result?,
+            };
+            tokio::select! {
+                biased;
+                _ = cancelled.as_mut() => return Ok(None),
+                _ = tokio::time::sleep_until(deadline) => return Ok(None),
+                _ = std::future::ready(()) => {},
+            }
+            match self
+                .complete_resolution(actor, recording, attempt, candidate)
+                .await?
+            {
+                Publication::Settled(outcome) => return Ok(Some(outcome)),
+                Publication::CandidateOccupied => {}
+            }
+        }
     }
 }
 

@@ -1,67 +1,32 @@
-use super::{authority::Target, receipts::Attempt};
+use super::authority::{self, Target};
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest, SearchRequest, SourcePage};
-use sqlx::Row;
+use std::{iter::Take, sync::Arc, vec::IntoIter};
 
 pub(super) struct Candidate {
     pub installation: String,
     pub installation_revision: i64,
-    pub operation: Operation,
+    pub operation: Arc<Operation>,
     pub details: ProviderRecording,
     pub sources: SourcePage,
 }
 
-impl Catalog {
-    pub(super) async fn resolution_candidates(
-        &self,
-        actor: &Actor,
-        attempt: &Attempt,
-    ) -> Result<Option<Candidate>> {
-        let Some(query) = attempt.target.musical.query() else {
-            return Ok(None);
-        };
-        let connections = sqlx::query("SELECT installation.id,installation.revision FROM plugin_installations installation
-            JOIN plugin_services service ON service.id = installation.service_id AND service.active = 1
-            WHERE installation.user_id = ? AND installation.active = 1
-                AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'search')
-                AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value = 'sources')
-            ORDER BY installation.id LIMIT 4")
-            .bind(actor.id()).fetch_all(&self.store.pool).await?;
-        for connection in connections {
-            actor.check_session(&self.store).await?;
-            let installation: String = connection.try_get("id")?;
-            let revision: i64 = connection.try_get("revision")?;
-            let candidate = self
-                .search_resolution_connection(
-                    actor,
-                    &attempt.target,
-                    installation,
-                    revision,
-                    &query,
-                )
-                .await;
-            match candidate {
-                Ok(Some(candidate)) => return Ok(Some(candidate)),
-                Err(Error::Unauthorized) => return Err(Error::Unauthorized),
-                Err(error) => tracing::debug!(
-                    event = "source_resolution_provider_failed",
-                    error_kind = error.code(),
-                    "Source resolution provider exchange failed"
-                ),
-                Ok(None) => {}
-            }
-        }
-        Ok(None)
-    }
+pub(super) struct Page {
+    installation: String,
+    revision: i64,
+    operation: Arc<Operation>,
+    summaries: Take<IntoIter<ProviderRecording>>,
+}
 
-    async fn search_resolution_connection(
+impl Catalog {
+    pub(super) async fn search_resolution_connection(
         &self,
         actor: &Actor,
         target: &Target,
         installation: String,
         revision: i64,
         query: &str,
-    ) -> Result<Option<Candidate>> {
+    ) -> Result<Page> {
         let operation = self
             .plugins
             .operation(
@@ -92,16 +57,33 @@ impl Catalog {
                 .cmp(&target.musical.duration_distance(right))
                 .then_with(|| left.id.cmp(&right.id))
         });
-        for summary in page.items.into_iter().take(3) {
+        Ok(Page {
+            installation,
+            revision,
+            operation: Arc::new(operation),
+            summaries: page.items.into_iter().take(3),
+        })
+    }
+}
+
+impl Page {
+    pub(super) async fn next(
+        &mut self,
+        catalog: &Catalog,
+        actor: &Actor,
+        recording: &str,
+        target: &Target,
+    ) -> Result<Option<Candidate>> {
+        for summary in self.summaries.by_ref() {
             let occupied = {
-                let mut connection = self.store.pool.acquire().await?;
-                actor.check_session_on(&mut connection).await?;
-                operation.recheck(&mut connection).await?;
+                let mut connection = catalog.store.pool.acquire().await?;
+                authority::access(&mut connection, actor, recording).await?;
+                self.operation.recheck(&mut connection).await?;
                 sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM provider_items candidate
                     JOIN provider_items primary_item ON primary_item.id = ?
                     WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
                         AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)")
-                    .bind(&target.binding_id).bind(&installation).bind(&summary.id)
+                    .bind(&target.binding_id).bind(&self.installation).bind(&summary.id)
                     .fetch_one(&mut *connection).await?
             };
             if occupied {
@@ -115,7 +97,12 @@ impl Catalog {
             let request = RecordingRequest {
                 recording_id: summary.id.clone(),
             };
-            let result = operation.recording(&request).await;
+            let result = self.operation.recording(&request).await;
+            {
+                let mut connection = catalog.store.pool.acquire().await?;
+                authority::access(&mut connection, actor, recording).await?;
+                self.operation.recheck(&mut connection).await?;
+            }
             let (details, sources) = match result {
                 Ok(result) => result,
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
@@ -135,9 +122,9 @@ impl Catalog {
                 continue;
             }
             return Ok(Some(Candidate {
-                installation,
-                installation_revision: revision,
-                operation,
+                installation: self.installation.clone(),
+                installation_revision: self.revision,
+                operation: Arc::clone(&self.operation),
                 details,
                 sources,
             }));

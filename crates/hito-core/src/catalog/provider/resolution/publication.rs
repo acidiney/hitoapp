@@ -11,6 +11,11 @@ use crate::catalog::provider::{
 use crate::{Actor, Catalog, Error, Result};
 use uuid::Uuid;
 
+pub(super) enum Publication {
+    Settled(SourceResolutionOutcome),
+    CandidateOccupied,
+}
+
 impl Catalog {
     pub(super) async fn complete_resolution(
         &self,
@@ -18,7 +23,7 @@ impl Catalog {
         recording: &str,
         attempt: &Attempt,
         candidate: Option<Candidate>,
-    ) -> Result<SourceResolutionOutcome> {
+    ) -> Result<Publication> {
         tracing::debug!(
             event = "source_resolution_write_started",
             resolution_id = attempt.id,
@@ -60,10 +65,14 @@ impl Catalog {
                     binding
                 }
                 Some(_) => {
-                    return Err(Error::Conflict(
-                        "This provider recording is already associated with another recording"
-                            .into(),
-                    ));
+                    tx.rollback().await?;
+                    tracing::debug!(
+                        event = "source_resolution_candidate_skipped",
+                        resolution_id = attempt.id,
+                        outcome = "became_bound",
+                        "Source candidate became associated with another recording"
+                    );
+                    return Ok(Publication::CandidateOccupied);
                 }
                 None => {
                     let binding = Binding {
@@ -120,7 +129,7 @@ impl Catalog {
             outcome = outcome.as_str(),
             "Source resolution committed"
         );
-        Ok(outcome)
+        Ok(Publication::Settled(outcome))
     }
 
     pub(super) async fn finish_available_resolution(
