@@ -1,4 +1,11 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Request as BrowserRequest,
+  type Route,
+} from "@playwright/test";
 import type { components } from "../src/generated";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
 import {
@@ -31,9 +38,55 @@ test.describe("isolated provider playlist Follow", () => {
     let refreshes = 0;
     let privateEdits = 0;
     let offers = 0;
+    let ownedFollowPath: string | null = null;
+    let reloadRouteInstalled = false;
+    let partialReloadAttempts = 0;
+    let injectedReloadFailures = 0;
+    let receivedReloadFailures = 0;
+    let successfulReloads = 0;
+    let focusStatusResponses = 0;
+    let focusStatusUnchanged = 0;
+    let focusReceivedEvents = 0;
+    let focusHasFocus = 0;
+    let focusVisible = 0;
+    let unexpectedReloadFailures = 0;
+    let unexpectedReloadResponses = 0;
+    let injectedRequest: BrowserRequest | null = null;
     const origin = baseURL ? new URL(baseURL).origin : null;
+    const reloadUrl = (url: URL) =>
+      url.origin === origin && url.pathname === ownedFollowPath;
+    const reloadRoute = async (route: Route) => {
+      const request = route.request();
+      if (!partialDetailRequest(request, origin, ownedFollowPath)) {
+        await route.continue();
+        return;
+      }
+      partialReloadAttempts++;
+      if (injectedRequest === null) {
+        injectedRequest = request;
+        injectedReloadFailures++;
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    };
     const fixture = await playlistFollowFixture();
     page.on("pageerror", () => pageErrors++);
+    page.on("requestfailed", (request) => {
+      if (!partialDetailRequest(request, origin, ownedFollowPath)) return;
+      if (request === injectedRequest) receivedReloadFailures++;
+      else unexpectedReloadFailures++;
+    });
+    page.on("response", (response) => {
+      if (!partialDetailRequest(response.request(), origin, ownedFollowPath))
+        return;
+      if (
+        response.status() === 200 &&
+        response.headers()["x-inertia"] === "true"
+      )
+        successfulReloads++;
+      else unexpectedReloadResponses++;
+    });
     page.on("request", (request) => {
       const url = new URL(request.url());
       if (!["http:", "https:"].includes(url.protocol)) return;
@@ -212,6 +265,7 @@ test.describe("isolated provider playlist Follow", () => {
         )
         .toBe(true);
       const detailPath = `/api/v1/playlists/${followReceipt.playlist_id}`;
+      ownedFollowPath = `/playlists/${followReceipt.playlist_id}`;
       const statusPath = `${detailPath}/follow`;
       const before = await read<Schema["PlaylistDetail"]>(page, detailPath);
       expect(before.playlist.kind === "followed").toBe(true);
@@ -306,6 +360,8 @@ test.describe("isolated provider playlist Follow", () => {
       );
 
       phase = 6;
+      await page.route(reloadUrl, reloadRoute);
+      reloadRouteInstalled = true;
       gate.release();
       await expect
         .poll(
@@ -315,9 +371,78 @@ test.describe("isolated provider playlist Follow", () => {
           { timeout: 10000 },
         )
         .toBe(true);
+      const completedStatus = await read<Schema["PlaylistFollow"]>(
+        page,
+        statusPath,
+      );
+      await expect.poll(() => receivedReloadFailures).toBe(1);
+      expect([partialReloadAttempts, injectedReloadFailures]).toEqual([1, 1]);
       await expect(updates.getByText("Ready", { exact: true })).toBeVisible();
-      await expect(refresh).toBeEnabled();
+      await expect(table.locator("tbody").getByRole("row")).toHaveCount(5);
+      await retainedTitles(
+        table,
+        before.entries.map((entry) => entry.title),
+      );
+      const [, delivered] = await Promise.all([
+        page
+          .waitForResponse(
+            (response) => {
+              const url = new URL(response.url());
+              const selected =
+                url.origin === origin &&
+                url.pathname === statusPath &&
+                response.request().method() === "GET";
+              if (selected) focusStatusResponses++;
+              return selected;
+            },
+            { timeout: 10000 },
+          )
+          .then(async (checked) => {
+            expect(checked.status()).toBe(200);
+            samePrivateState(await checked.json(), completedStatus);
+            focusStatusUnchanged++;
+          }),
+        page.waitForResponse(
+          (response) =>
+            partialDetailRequest(response.request(), origin, ownedFollowPath),
+          { timeout: 10000 },
+        ),
+        // Headless tab activation can omit focus; exercise the mounted DOM listener.
+        page
+          .evaluate(() => {
+            let events = 0;
+            const observed = () => events++;
+            window.addEventListener("focus", observed);
+            try {
+              window.dispatchEvent(new Event("focus"));
+              return {
+                events,
+                hasFocus: Number(document.hasFocus()),
+                visible: Number(document.visibilityState === "visible"),
+              };
+            } finally {
+              window.removeEventListener("focus", observed);
+            }
+          })
+          .then((focus) => {
+            focusReceivedEvents = focus.events;
+            focusHasFocus = focus.hasFocus;
+            focusVisible = focus.visible;
+          }),
+      ]);
+      expect(focusReceivedEvents).toBe(1);
+      expect(focusStatusUnchanged).toBe(1);
+      expect(delivered.status()).toBe(200);
+      expect(delivered.headers()["x-inertia"]).toBe("true");
+      expect(await delivered.finished()).toBe(null);
+      const reloaded = await delivered.json();
+      expect(
+        reloaded.component === "PlaylistPage" &&
+          reloaded.props.detail.playlist.id === followReceipt.playlist_id &&
+          reloaded.props.detail.entries.length === 4,
+      ).toBe(true);
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(4);
+      await expect(refresh).toBeEnabled();
       const after = await read<Schema["PlaylistDetail"]>(page, detailPath);
       expect(
         after.playlist.id === before.playlist.id &&
@@ -432,6 +557,13 @@ test.describe("isolated provider playlist Follow", () => {
         1, 1, 1, 1, 2,
       ]);
       expect([pageErrors, externalRequests, audioRequests]).toEqual([0, 0, 0]);
+      expect([injectedReloadFailures, receivedReloadFailures]).toEqual([1, 1]);
+      expect(partialReloadAttempts).toBeGreaterThanOrEqual(2);
+      expect(successfulReloads).toBeGreaterThanOrEqual(1);
+      expect(focusStatusResponses).toBeGreaterThanOrEqual(1);
+      expect([unexpectedReloadFailures, unexpectedReloadResponses]).toEqual([
+        0, 0,
+      ]);
       console.log(
         JSON.stringify({
           phase,
@@ -441,12 +573,46 @@ test.describe("isolated provider playlist Follow", () => {
           stable_witnessed_entries: 3,
           private_edits: privateEdits,
           refreshes,
+          partial_reload_attempts: partialReloadAttempts,
+          injected_reload_failures: injectedReloadFailures,
+          received_reload_failures: receivedReloadFailures,
+          successful_detail_reloads: successfulReloads,
+          focus_status_responses: focusStatusResponses,
+          focus_status_unchanged: focusStatusUnchanged,
+          focus_received_events: focusReceivedEvents,
+          focus_has_focus: focusHasFocus,
+          focus_visible: focusVisible,
           ...fixture.counts(),
         }),
       );
     } catch {
       failed = true;
+      console.log(
+        JSON.stringify({
+          phase,
+          partial_reload_attempts: partialReloadAttempts,
+          injected_reload_failures: injectedReloadFailures,
+          received_reload_failures: receivedReloadFailures,
+          successful_detail_reloads: successfulReloads,
+          focus_status_responses: focusStatusResponses,
+          focus_status_unchanged: focusStatusUnchanged,
+          focus_received_events: focusReceivedEvents,
+          focus_has_focus: focusHasFocus,
+          focus_visible: focusVisible,
+          unexpected_reload_failures: unexpectedReloadFailures,
+          unexpected_reload_responses: unexpectedReloadResponses,
+          page_errors: pageErrors,
+        }),
+      );
     } finally {
+      if (reloadRouteInstalled) {
+        try {
+          await page.unroute(reloadUrl, reloadRoute);
+        } catch {
+          failed = true;
+          phase = 7;
+        }
+      }
       try {
         await fixture.close();
       } catch {
@@ -458,6 +624,30 @@ test.describe("isolated provider playlist Follow", () => {
       throw new Error(`The isolated Follow workflow failed at phase ${phase}`);
   });
 });
+
+function partialDetailRequest(
+  request: BrowserRequest,
+  origin: string | null,
+  path: string | null,
+) {
+  const url = new URL(request.url());
+  if (
+    request.method() !== "GET" ||
+    url.origin !== origin ||
+    url.pathname !== path
+  )
+    return false;
+  const headers = request.headers();
+  return (
+    headers["x-inertia"] === "true" &&
+    headers["x-inertia-partial-component"] === "PlaylistPage" &&
+    headers["x-inertia-partial-data"]
+      ?.split(",")
+      .map((field) => field.trim())
+      .sort()
+      .join(",") === "detail,playlists"
+  );
+}
 
 async function openPlaylists(page: Page) {
   await page
