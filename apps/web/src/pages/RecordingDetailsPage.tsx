@@ -4,6 +4,7 @@ import Artwork from "../components/Artwork";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 import SourceAvailability from "../components/SourceAvailability";
+import SourceAttachment from "../components/SourceAttachment";
 
 export default function RecordingDetailsPage({
   user,
@@ -25,14 +26,21 @@ export default function RecordingDetailsPage({
         </div>
       </section>
       <MetadataEditor
-        key={`${user.id}/${target.id}`}
+        key={`editor/${user.id}/${target.id}`}
         account={user.id}
         target={target}
         metadata={detail}
       />
       {source?.origin === "provider_response" && (
+        <SourceAttachment
+          key={`attachment/${user.id}/${detail.recording_id}`}
+          account={user.id}
+          detail={detail}
+        />
+      )}
+      {source?.origin === "provider_response" && (
         <SourceAvailability
-          key={`${user.id}/${detail.recording_id}`}
+          key={`availability/${user.id}/${detail.recording_id}`}
           account={user.id}
           track={{
             id: detail.recording_id,
