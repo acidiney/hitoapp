@@ -20,7 +20,7 @@ pub use authorization::{
     PluginAuthorization, PluginAuthorizationRedirect, PluginAuthorizationState,
     PluginAuthorizationStatus,
 };
-pub(crate) use download::DownloadOrigin;
+pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
 pub(crate) use operation::Operation;
 pub(crate) use playlist_operation::PlaylistOperation;

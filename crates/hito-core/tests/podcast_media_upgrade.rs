@@ -71,7 +71,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     let backfilled = backfilled_sources(&mut connection).await;
     assert_integrity(&mut connection).await;
     connection.close().await.unwrap();
-    let latest = before.expecting_validator_column().await;
+    let latest = before.expecting_latest_schema().await;
 
     for _ in 0..2 {
         let services = hito_core::open(CoreConfig::with_shared_directories(
@@ -88,7 +88,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 43).await;
+    assert_version(&mut connection, 44).await;
     latest.assert_preserved(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
     assert_fixture(&mut connection).await;
@@ -390,7 +390,7 @@ impl RetainedState {
         }
     }
 
-    async fn expecting_validator_column(mut self) -> Self {
+    async fn expecting_latest_schema(mut self) -> Self {
         let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
         sqlx::raw_sql(self.schema.get("podcast_subscriptions").unwrap())
             .execute(&mut reference)
@@ -406,9 +406,54 @@ impl RetainedState {
         .fetch_one(&mut reference)
         .await
         .unwrap();
-        reference.close().await.unwrap();
         self.schema
             .insert("podcast_subscriptions".into(), definition);
+        let migration = include_str!("../migrations/0044_podcast_download_origins.sql");
+        let table = migration
+            .split("CREATE TABLE download_intents_next (")
+            .nth(1)
+            .unwrap()
+            .split("\nINSERT INTO download_intents_next")
+            .next()
+            .unwrap();
+        sqlx::raw_sql(&format!("CREATE TABLE download_intents_next ({table}"))
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        sqlx::query("ALTER TABLE download_intents_next RENAME TO download_intents")
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        for (kind, name, terminator) in [
+            ("TRIGGER", "download_intent_identity", "END;"),
+            ("VIEW", "current_download_authority", ";"),
+            ("VIEW", "download_file_origins", ";"),
+        ] {
+            let prefix = format!("CREATE {kind} {name} ");
+            let body = migration
+                .split(&prefix)
+                .nth(1)
+                .unwrap()
+                .split(terminator)
+                .next()
+                .unwrap();
+            sqlx::raw_sql(&format!("{prefix}{body}{terminator}"))
+                .execute(&mut reference)
+                .await
+                .unwrap();
+        }
+        let declared = schema(&mut reference).await;
+        for name in [
+            "download_intents",
+            "download_intent_identity",
+            "current_download_authority",
+            "download_file_origins",
+        ] {
+            assert!(self.schema.contains_key(name));
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        reference.close().await.unwrap();
         self
     }
 

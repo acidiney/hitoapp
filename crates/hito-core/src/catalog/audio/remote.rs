@@ -8,6 +8,7 @@ use tracing::{Instrument, instrument::WithSubscriber};
 pub(crate) enum Authority {
     Provider(Box<crate::plugins::AudioAuthority>),
     Podcast(Box<PlaybackSource>),
+    Download(crate::downloads::DownloadAuthority),
 }
 
 impl Authority {
@@ -15,6 +16,7 @@ impl Authority {
         match self {
             Self::Provider(authority) => authority.check().await,
             Self::Podcast(authority) => authority.check().await,
+            Self::Download(authority) => authority.check().await,
         }
     }
 }
@@ -37,10 +39,14 @@ pub(crate) struct RemoteAudio {
     monitor: tokio::task::JoinHandle<()>,
 }
 impl RemoteAudio {
-    pub(crate) fn new(response: reqwest::Response, authority: Authority, permits: Permits) -> Self {
+    pub(crate) fn new(
+        response: reqwest::Response,
+        authority: Authority,
+        permits: Option<Permits>,
+    ) -> Self {
         let connection = Arc::new(Mutex::new(Connection {
             response: Some(response),
-            permits: Some(permits),
+            permits,
             pending: Bytes::new(),
         }));
         let weak = Arc::downgrade(&connection);

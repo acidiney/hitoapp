@@ -37,10 +37,10 @@ impl Catalog {
                 RemoteAudio::new(
                     remote.response,
                     Authority::Podcast(Box::new(authority)),
-                    Permits {
+                    Some(Permits {
                         _account: account,
                         _global: global,
-                    },
+                    }),
                 ),
                 audio.length,
             ));

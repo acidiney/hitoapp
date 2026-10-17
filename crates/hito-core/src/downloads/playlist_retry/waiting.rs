@@ -45,8 +45,7 @@ impl Downloads {
                 .bind(work.failure_cutoff).bind(&work.playlist_id).fetch_optional(&mut *connection).await?;
             let (delay, outcome) = if let Some((library, grant)) = authority {
                 let admission = match self
-                    .plugins
-                    .capture_download_origin_on(connection, &work.account_id, recording)
+                    .capture_origin_on(connection, &work.account_id, recording)
                     .await
                 {
                     Ok(_) => {

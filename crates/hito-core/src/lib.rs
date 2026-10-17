@@ -113,7 +113,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         podcasts: Podcasts {
             store: store.clone(),
             catalog: catalog.clone(),
-            remote: podcast_remote,
+            remote: podcast_remote.clone(),
         },
         catalog,
         collection: Collection {
@@ -125,6 +125,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         downloads: Downloads {
             store: store.clone(),
             plugins: plugins.clone(),
+            remote: podcast_remote,
             host: config.host_device.clone(),
             files: managed.clone(),
             active: Default::default(),

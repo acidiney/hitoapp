@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Row, SqliteConnection};
 
 #[derive(Clone, sqlx::FromRow)]
-pub(crate) struct DownloadOrigin {
+pub(crate) struct ProviderDownloadOrigin {
     pub provider_source_id: String,
     pub binding_id: String,
     pub binding_revision: i64,
@@ -23,7 +23,7 @@ impl Plugins {
         connection: &mut SqliteConnection,
         account: &str,
         recording: &str,
-    ) -> Result<DownloadOrigin> {
+    ) -> Result<ProviderDownloadOrigin> {
         let row = sqlx::query("SELECT s.id AS provider_source_id,item.id AS binding_id,item.revision AS binding_revision,
             ps.provider_source_id AS remote_source_id,p.id AS installation_id,p.revision AS installation_revision,
             p.service_id,service.revision AS service_revision,p.credential,p.audio_generation
@@ -39,7 +39,7 @@ impl Plugins {
             .bind(account).bind(recording).fetch_optional(connection).await?
             .ok_or_else(|| Error::Conflict("No verified provider audio source is available for this download".into()))?;
         let credential: Option<Vec<u8>> = row.try_get("credential")?;
-        Ok(DownloadOrigin {
+        Ok(ProviderDownloadOrigin {
             provider_source_id: row.try_get("provider_source_id")?,
             binding_id: row.try_get("binding_id")?,
             binding_revision: row.try_get("binding_revision")?,
@@ -57,7 +57,7 @@ impl Plugins {
     pub(crate) async fn open_download(
         &self,
         account: &str,
-        origin: &DownloadOrigin,
+        origin: &ProviderDownloadOrigin,
     ) -> Result<OpenedAudio> {
         let row = sqlx::query("SELECT p.credential,service.base_url FROM plugin_installations p
             JOIN plugin_services service ON service.id=p.service_id AND service.active=1 AND service.revision=?

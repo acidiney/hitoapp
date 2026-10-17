@@ -102,10 +102,10 @@ impl MediaClient {
                 RemoteAudio::new(
                     response,
                     StreamAuthority::Provider(Box::new(authority)),
-                    Permits {
+                    Some(Permits {
                         _account: account,
                         _global: global,
-                    },
+                    }),
                 ),
                 audio.length,
             ));

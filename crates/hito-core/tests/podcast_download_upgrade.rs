@@ -38,10 +38,26 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .unwrap();
     assert_version(&mut connection, LEGACY_VERSION).await;
     before.assert_preserved(&mut connection).await;
+    let expected = before.expecting_download_origins().await;
     all.run(&mut connection).await.unwrap();
-    let latest = all.iter().map(|migration| migration.version).max().unwrap();
-    assert_version(&mut connection, latest).await;
-    before.assert_preserved(&mut connection).await;
+    assert_version(&mut connection, 44).await;
+    expected.assert_preserved(&mut connection).await;
+    let origins = typed_rows(&mut connection,
+        "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
+            podcast_subscription_generation,podcast_enclosure_revision,podcast_enclosure_url FROM download_intents").await;
+    assert!(
+        origins
+            == vec![vec![
+                Cell::Text(b"provider".to_vec()),
+                Cell::Null,
+                Cell::Null,
+                Cell::Null,
+                Cell::Null,
+                Cell::Null,
+                Cell::Null
+            ]],
+        "the legacy provider origin must be backfilled without podcast witnesses"
+    );
     assert_fixture(&mut connection).await;
     assert_integrity(&mut connection).await;
 
@@ -226,6 +242,58 @@ impl RetainedState {
                 projection.name
             );
         }
+    }
+
+    async fn expecting_download_origins(mut self) -> Self {
+        let migration = include_str!("../migrations/0044_podcast_download_origins.sql");
+        let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        let table = migration
+            .split("CREATE TABLE download_intents_next (")
+            .nth(1)
+            .unwrap()
+            .split("\nINSERT INTO download_intents_next")
+            .next()
+            .unwrap();
+        sqlx::raw_sql(&format!("CREATE TABLE download_intents_next ({table}"))
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        sqlx::query("ALTER TABLE download_intents_next RENAME TO download_intents")
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        for (kind, name, terminator) in [
+            ("TRIGGER", "download_intent_identity", "END;"),
+            ("VIEW", "current_download_authority", ";"),
+            ("VIEW", "download_file_origins", ";"),
+        ] {
+            let prefix = format!("CREATE {kind} {name} ");
+            let body = migration
+                .split(&prefix)
+                .nth(1)
+                .unwrap()
+                .split(terminator)
+                .next()
+                .unwrap();
+            sqlx::raw_sql(&format!("{prefix}{body}{terminator}"))
+                .execute(&mut reference)
+                .await
+                .unwrap();
+        }
+        let declared = schema(&mut reference).await;
+        for (kind, name) in [
+            ("table", "download_intents"),
+            ("trigger", "download_intent_identity"),
+            ("view", "current_download_authority"),
+            ("view", "download_file_origins"),
+        ] {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(self.schema.contains_key(&key));
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        reference.close().await.unwrap();
+        self
     }
 }
 
