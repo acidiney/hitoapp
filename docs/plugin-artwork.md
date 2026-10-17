@@ -1,6 +1,6 @@
 # Provider artwork in development
 
-Hito can retain provider covers in its private SQLite library. This capability is implemented and tested in an isolated branch. Automatic host execution, HTTP endpoints, UI requests, existing-copy backfill, and deployment are still in progress.
+Hito can retain provider covers in its private SQLite library. This capability and its HTTP worker integration are implemented and tested in an isolated branch. UI requests, existing-copy backfill, and deployment are still in progress.
 
 The plugin SDK declares an `artwork` capability and a typed `POST /v1/artwork` request containing an entity kind and provider identifier. Plugins return PNG or JPEG bytes. They do not return a browser URL or supply UI components. The reference Spotify implementation supports recording, release, and playlist requests without Spotify account authorization.
 
@@ -41,12 +41,14 @@ Retrieval does not reimport a playlist, adopt a recording, download audio, or ch
 - Fetches allow three attempts with a 60-second lease. Provider transport has a ten-second request deadline. Read-only authority checks have a one-second deadline. Publication transactions are awaited rather than abandoned on timeout.
 - Joined shutdown requeues interrupted work without consuming an attempt. Ready covers remain retained. Disposable terminal history expires after seven days and has account and global caps. Current retained receipts grow with the recording library.
 
-Status polling uses a scoped read transaction and does not run global cleanup or acquire the SQLite writer. Cleanup still runs from enqueue and worker paths. Its work at the full release load remains to be measured.
+Status polling uses a scoped read transaction and does not run global cleanup or acquire the SQLite writer. Idle worker polling checks indexed due jobs and expired leases before taking a writer transaction. Cleanup still runs from enqueue and active worker paths. Its work at the full release load remains to be measured.
 
 ## Verified evidence and remaining work
 
-Eleven focused public core cases pass in Docker, alongside strict all-target Clippy. They cover private retention across independent copies and restart, unchanged collection state, logout and provider removal during held image bodies, joined shutdown, corrupt PNGs, incomplete JPEGs, retained-receipt cleanup, unrelated writer contention, and interactive searches and local covers during four background downloads.
+Twelve focused public core cases pass in Docker, alongside strict all-target Clippy. They cover private retention across independent copies and restart, unchanged collection state, logout and provider removal during held image bodies, joined shutdown, corrupt PNGs, incomplete JPEGs, retained-receipt cleanup, unrelated writer contention, idle polling under a held writer, and interactive searches and local covers during four background downloads.
 
-The preceding full core snapshot passed 179 uniquely identified cases, with the usual filesystem fault case ignored. The subsequent JPEG and read-only status fixes passed the focused suite and Clippy. These totals overlap and must not be added together.
+The preceding full core snapshot passed 179 uniquely identified cases, with the usual filesystem fault case ignored. The subsequent JPEG, read-only status, and idle-poll fixes passed the focused suite and Clippy. These totals overlap and must not be added together.
 
-Two independent review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Broad image compatibility, crash and disk-exhaustion behavior, the 100,000-track performance gate, automatic backfill, and release acceptance remain open. See [the complete release scope](release-plan.md).
+The host starts and joins the artwork worker separately from indexing. Authenticated `POST /api/v1/recordings/{id}/artwork/fetch` returns a private receipt; `GET /api/v1/artwork-fetches/{id}` reads its status. Actual Rust routes generate the OpenAPI and TypeScript contracts. A real TCP test verifies enqueue, automatic retrieval, retained bytes, idempotent retry, account isolation, unchanged collection state, and joined host shutdown. All 65 server cases passed before the idle-poll fix; the seven relevant runtime cases and strict core/server/default-desktop Clippy passed afterward. Frontend TypeScript and production build passed. The host integration passed its second independent review. This does not establish platform or release acceptance.
+
+Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Broad image compatibility, crash and disk-exhaustion behavior, the 100,000-track performance gate, automatic backfill, and release acceptance remain open. See [the complete release scope](release-plan.md).
