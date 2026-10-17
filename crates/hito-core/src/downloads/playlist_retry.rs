@@ -31,12 +31,10 @@ impl Downloads {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let selected: Option<RetryWork> = sqlx::query_as("SELECT work.retention_id,work.request_id,root.account_id,root.playlist_id,
             work.playlist_revision,work.failure_cutoff,work.cursor,
-            (root.state='active' AND root.kind='playlist' AND p.deleted=0 AND p.user_id=root.account_id
-                AND changes.revision=work.playlist_revision) AS live
+            (root.state='active' AND root.kind='playlist' AND p.deleted=0 AND p.user_id=root.account_id) AS live
             FROM download_playlist_retry_work work JOIN download_retentions root
                 ON root.id=work.retention_id AND root.host_device=work.host_device
             JOIN playlists p ON p.id=root.playlist_id
-            JOIN download_playlist_changes changes ON changes.playlist_id=p.id
             WHERE work.host_device=? AND work.next_attempt_at<=unixepoch()
             ORDER BY work.next_attempt_at,work.retention_id LIMIT 1")
             .bind(self.host.as_str()).fetch_optional(&mut *tx).await?;
