@@ -51,7 +51,7 @@ function BrowserAccountPlayback({
       audio,
       (recording, options) =>
         options.refresh
-          ? libraryApi.refreshSources(account, recording, options.signal)
+          ? libraryApi.recoverSources(account, recording, options.signal)
           : libraryApi.sources(account, recording, options.signal),
       (track, position, speed) => {
         const request = scope.capture();

@@ -10,6 +10,15 @@ mod identity;
 #[path = "api/providers.rs"]
 mod providers;
 
+#[path = "api/provider_recovery.rs"]
+mod provider_recovery;
+
+#[path = "api/provider_refresh_input.rs"]
+mod provider_refresh_input;
+
+#[path = "api/provider_attachment.rs"]
+mod provider_attachment;
+
 #[path = "api/catalog.rs"]
 mod catalog;
 

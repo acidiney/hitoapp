@@ -2,7 +2,6 @@ use super::{Catalog, metadata, persist};
 use crate::{Actor, Error, Recording, Result};
 use hito_plugin_sdk::{Capability, RecordingRequest};
 use serde::Deserialize;
-use sqlx::QueryBuilder;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -20,6 +19,7 @@ impl Catalog {
         installation: &str,
         request: AdoptProviderRecording,
     ) -> Result<Recording> {
+        actor.check_session(&self.store).await?;
         let request_id = RecordingRequest {
             recording_id: request.provider_recording_id,
         };
@@ -37,6 +37,7 @@ impl Catalog {
             .await?;
         let (details, sources) = operation.recording(&request_id).await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
         let library = persist::library(&mut tx, actor.id()).await?;
         let published = metadata::publish(
@@ -52,8 +53,7 @@ impl Catalog {
         let observation = published.observation_id;
         persist::sources(
             &mut tx,
-            installation,
-            &recording,
+            &published.binding,
             release.as_deref(),
             &observation,
             &details,
@@ -64,15 +64,7 @@ impl Catalog {
         if let Some(release) = &release {
             crate::metadata::refresh_release(&mut tx, actor.id(), release).await?;
         }
-        let mut query = QueryBuilder::new(
-            "SELECT r.id,r.library_id,r.release_id,COALESCE(p.override_title,r.title) AS title,r.title AS inherited_title,COALESCE(p.override_artist,r.artist) AS artist,r.artist AS inherited_artist,a.title AS album,r.duration_ms,",
-        );
-        crate::catalog::push_available(&mut query, &self.host);
-        query.push(" AS available,COALESCE(k.liked,0) AS liked FROM recordings r LEFT JOIN personal_recording_metadata p ON p.recording_id = r.id AND p.user_id = ").push_bind(actor.id().to_owned())
-            .push(" LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ").push_bind(actor.id().to_owned())
-            .push(" LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = ").push_bind(actor.id().to_owned())
-            .push(" WHERE r.id = ").push_bind(recording);
-        let result = query.build_query_as().fetch_one(&mut *tx).await?;
+        let result = persist::selected(&mut tx, actor, &self.host, &recording).await?;
         tx.commit().await?;
         tracing::info!(sources = sources.items.len(), "Provider recording adopted");
         Ok(result)

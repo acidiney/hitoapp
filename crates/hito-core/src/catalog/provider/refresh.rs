@@ -2,8 +2,12 @@ use super::Catalog;
 use crate::{Actor, Error, Result, Source, identity::recording_access, plugins::Operation};
 use hito_plugin_sdk::{Capability, RecordingRequest, SourcePage};
 
+mod playback;
+
 #[derive(sqlx::FromRow)]
 struct Binding {
+    binding_id: String,
+    binding_revision: i64,
     installation_id: String,
     provider_recording_id: String,
     revision: i64,
@@ -53,64 +57,77 @@ impl Catalog {
         }
     }
 
-    #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub async fn refresh_playback_sources_until(
-        &self,
-        actor: &Actor,
-        recording: &str,
-        cancelled: impl std::future::Future<Output = ()> + Send,
-    ) -> Result<bool> {
-        tokio::pin!(cancelled);
-        Ok(!matches!(
-            self.refresh_state_until(actor, recording, cancelled.as_mut())
-                .await?,
-            RefreshOutcome::Canceled
-        ))
-    }
-
     async fn refresh_state_until(
         &self,
         actor: &Actor,
         recording: &str,
         mut cancelled: std::pin::Pin<&mut (impl std::future::Future<Output = ()> + Send)>,
     ) -> Result<RefreshOutcome> {
-        let update = tokio::select! {
+        let bindings = tokio::select! {
             biased;
             _ = &mut cancelled => {
                 tracing::debug!(event = "provider_refresh_canceled", "Source refresh canceled before publication");
                 return Ok(RefreshOutcome::Canceled);
             },
-            result = self.prepare_refresh(actor, recording) => result?,
+            result = self.refresh_bindings(actor, recording) => result?,
         };
-        let Some(update) = update else {
+        if bindings.is_empty() {
             return Ok(RefreshOutcome::Unchanged);
-        };
-        tokio::select! {
-            biased;
-            _ = &mut cancelled => {
-                tracing::debug!(event = "provider_refresh_canceled", "Source refresh canceled before publication");
-                return Ok(RefreshOutcome::Canceled);
-            },
-            _ = std::future::ready(()) => {},
         }
-        self.publish_refresh(actor, recording, update).await?;
+        let mut failure = None;
+        for binding in bindings {
+            let prepared = tokio::select! {
+                biased;
+                _ = &mut cancelled => return Ok(RefreshOutcome::Canceled),
+                result = self.prepare_refresh(actor, binding) => result,
+            };
+            let update = match prepared {
+                Ok(update) => update,
+                Err(Error::Unauthorized) => return Err(Error::Unauthorized),
+                Err(error) => {
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                    continue;
+                }
+            };
+            tokio::select! {
+                biased;
+                _ = &mut cancelled => return Ok(RefreshOutcome::Canceled),
+                _ = std::future::ready(()) => {},
+            }
+            if let Err(error) = self.publish_refresh(actor, recording, update).await {
+                if matches!(error, Error::Unauthorized) {
+                    return Err(error);
+                }
+                if failure.is_none() {
+                    failure = Some(error);
+                }
+            }
+        }
+        if let Some(error) = failure {
+            return Err(error);
+        }
         Ok(RefreshOutcome::Published)
     }
 
-    async fn prepare_refresh(&self, actor: &Actor, recording: &str) -> Result<Option<Update>> {
+    async fn refresh_bindings(&self, actor: &Actor, recording: &str) -> Result<Vec<Binding>> {
         actor.check_session(&self.store).await?;
         let mut connection = self.store.pool.acquire().await?;
         recording_access(&mut connection, actor, recording).await?;
-        let binding: Option<Binding> = sqlx::query_as(
-            "SELECT item.installation_id,item.provider_recording_id,p.revision,state.observation_id,state.generation FROM provider_items item
-             JOIN provider_source_state state ON state.recording_id = item.recording_id
+        Ok(sqlx::query_as(
+            "SELECT item.id AS binding_id,item.revision AS binding_revision,item.installation_id,item.provider_recording_id,p.revision,state.observation_id,state.generation FROM provider_items item
+             JOIN provider_source_state state ON state.binding_id = item.id
              JOIN plugin_installations p ON p.id = item.installation_id AND p.active = 1
-             WHERE item.recording_id = ? AND p.user_id = ?",
-        ).bind(recording).bind(actor.id()).fetch_optional(&mut *connection).await?;
-        drop(connection);
-        let Some(binding) = binding else {
-            return Ok(None);
-        };
+             JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
+             WHERE item.recording_id = ? AND item.retired = 0 AND p.user_id = ?
+             AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')
+             ORDER BY item.id LIMIT ?",
+        ).bind(recording).bind(actor.id()).bind(super::bindings::MAX_PLAYBACK_BINDINGS as i64).fetch_all(&mut *connection).await?)
+    }
+
+    async fn prepare_refresh(&self, actor: &Actor, binding: Binding) -> Result<Update> {
+        actor.check_session(&self.store).await?;
         let operation = self
             .plugins
             .operation(
@@ -125,11 +142,11 @@ impl Catalog {
                 recording_id: binding.provider_recording_id.clone(),
             })
             .await?;
-        Ok(Some(Update {
+        Ok(Update {
             binding,
             operation,
             page,
-        }))
+        })
     }
 
     async fn publish_refresh(&self, actor: &Actor, recording: &str, update: Update) -> Result<()> {
@@ -144,8 +161,12 @@ impl Catalog {
             recording_access(&mut tx, actor, recording).await?;
             let ids = super::sources::replace(
                 &mut tx,
-                &update.binding.installation_id,
-                recording,
+                &super::bindings::Binding {
+                    id: update.binding.binding_id.clone(),
+                    installation_id: update.binding.installation_id.clone(),
+                    recording_id: recording.to_owned(),
+                    revision: update.binding.binding_revision,
+                },
                 &update.page,
                 super::sources::Snapshot {
                     generation: update.binding.generation,

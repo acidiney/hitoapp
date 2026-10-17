@@ -1,7 +1,12 @@
-use crate::{Error, Result};
+use crate::{Actor, Error, HostDeviceId, Recording, Result};
 use hito_plugin_sdk::{ProviderRecording, ProviderRelease, SourcePage};
-use sqlx::{Sqlite, Transaction};
+use sqlx::{QueryBuilder, Sqlite, Transaction};
 use uuid::Uuid;
+
+pub(super) enum ReleasePublication {
+    PreserveExisting,
+    PublishInherited,
+}
 
 pub(crate) async fn library(tx: &mut Transaction<'_, Sqlite>, owner: &str) -> Result<String> {
     sqlx::query("INSERT INTO libraries(id,name,owner_id) VALUES (?,'Personal providers',?) ON CONFLICT(owner_id) WHERE owner_id IS NOT NULL DO NOTHING")
@@ -23,14 +28,16 @@ pub(super) async fn release(
     library: &str,
     installation: &str,
     details: Option<&ProviderRelease>,
+    publication: ReleasePublication,
 ) -> Result<Option<String>> {
     let Some(details) = details else {
         return Ok(None);
     };
     let key = serde_json::to_string(&("plugin", installation, &details.id))
         .map_err(|_| Error::Internal("Provider release identity could not be encoded".into()))?;
-    sqlx::query("INSERT INTO releases(id,library_id,title,artist,identity_key) VALUES (?,?,?,?,?) ON CONFLICT(library_id,identity_key) DO UPDATE SET title = excluded.title,artist = excluded.artist")
-        .bind(Uuid::new_v4().to_string()).bind(library).bind(&details.title).bind(&details.artist).bind(&key).execute(&mut **tx).await?;
+    sqlx::query("INSERT INTO releases(id,library_id,title,artist,identity_key) VALUES (?,?,?,?,?) ON CONFLICT(library_id,identity_key) DO UPDATE SET title = excluded.title,artist = excluded.artist WHERE ?")
+        .bind(Uuid::new_v4().to_string()).bind(library).bind(&details.title).bind(&details.artist).bind(&key)
+        .bind(matches!(publication, ReleasePublication::PublishInherited)).execute(&mut **tx).await?;
     Ok(
         sqlx::query_scalar("SELECT id FROM releases WHERE library_id = ? AND identity_key = ?")
             .bind(library)
@@ -40,40 +47,18 @@ pub(super) async fn release(
     )
 }
 
-pub(super) async fn recording(
-    tx: &mut Transaction<'_, Sqlite>,
-    library: &str,
-    installation: &str,
-    details: &ProviderRecording,
-) -> Result<String> {
-    if let Some(id) = sqlx::query_scalar("SELECT recording_id FROM provider_items WHERE installation_id = ? AND provider_recording_id = ?")
-        .bind(installation).bind(&details.id).fetch_optional(&mut **tx).await? { return Ok(id); }
-    let id = Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO recordings(id,library_id,title,artist,provenance) VALUES (?,?,?,?,'provider_response')")
-        .bind(&id).bind(library).bind(&details.title).bind(&details.artist).execute(&mut **tx).await?;
-    sqlx::query("INSERT INTO provider_items(installation_id,provider_recording_id,recording_id) VALUES (?,?,?)")
-        .bind(installation).bind(&details.id).bind(&id).execute(&mut **tx).await?;
-    Ok(id)
-}
-
 pub(super) async fn sources(
     tx: &mut Transaction<'_, Sqlite>,
-    installation: &str,
-    recording: &str,
+    binding: &super::bindings::Binding,
     release: Option<&str>,
     observation: &str,
     details: &ProviderRecording,
     page: &SourcePage,
 ) -> Result<()> {
-    let generation =
-        sqlx::query_scalar("SELECT generation FROM provider_source_state WHERE recording_id = ?")
-            .bind(recording)
-            .fetch_one(&mut **tx)
-            .await?;
+    let generation = binding.enroll_sources(tx, observation).await?;
     let ids = super::sources::replace(
         tx,
-        installation,
-        recording,
+        binding,
         page,
         super::sources::Snapshot {
             generation,
@@ -89,4 +74,21 @@ pub(super) async fn sources(
         super::sources::project(tx, &id).await?;
     }
     Ok(())
+}
+
+pub(super) async fn selected(
+    tx: &mut Transaction<'_, Sqlite>,
+    actor: &Actor,
+    host: &HostDeviceId,
+    recording: &str,
+) -> Result<Recording> {
+    let mut query = QueryBuilder::new(
+        "SELECT r.id,r.library_id,r.release_id,COALESCE(p.override_title,r.title) AS title,r.title AS inherited_title,COALESCE(p.override_artist,r.artist) AS artist,r.artist AS inherited_artist,a.title AS album,r.duration_ms,",
+    );
+    crate::catalog::push_available(&mut query, host);
+    query.push(" AS available,COALESCE(k.liked,0) AS liked FROM recordings r LEFT JOIN personal_recording_metadata p ON p.recording_id = r.id AND p.user_id = ").push_bind(actor.id().to_owned())
+        .push(" LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ").push_bind(actor.id().to_owned())
+        .push(" LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = ").push_bind(actor.id().to_owned())
+        .push(" WHERE r.id = ").push_bind(recording.to_owned());
+    Ok(query.build_query_as().fetch_one(&mut **tx).await?)
 }

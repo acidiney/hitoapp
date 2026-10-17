@@ -9,6 +9,7 @@ use zeroize::Zeroizing;
 
 pub(crate) struct Operation {
     pub(crate) provider: String,
+    actor: Actor,
     account: String,
     installation: String,
     installation_revision: i64,
@@ -23,6 +24,15 @@ pub(crate) struct Operation {
     audio_generation: i64,
 }
 impl Plugins {
+    pub(crate) async fn source_batch(
+        &self,
+        actor: &Actor,
+        bindings: usize,
+    ) -> Result<super::SourceBatch> {
+        actor.check_session(&self.store).await?;
+        self.remote.source_batch(actor.id(), bindings)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub(crate) async fn operation(
         &self,
@@ -59,6 +69,7 @@ impl Plugins {
             .transpose()?;
         Ok(Operation {
             provider: manifest.id,
+            actor: actor.clone(),
             account: actor.id().into(),
             installation: id.into(),
             installation_revision: revision,
@@ -92,6 +103,8 @@ impl Operation {
         &self,
         source: &str,
         remote_source: &str,
+        binding: &str,
+        binding_revision: i64,
     ) -> super::AudioAuthority {
         super::media::Authority {
             store: self.store.clone(),
@@ -102,15 +115,19 @@ impl Operation {
             source: source.into(),
             remote_source: remote_source.into(),
             generation: self.audio_generation,
+            binding: binding.into(),
+            binding_revision,
         }
     }
     pub(crate) async fn audio(
         &self,
         source: &str,
         remote_source: &str,
+        binding: &str,
+        binding_revision: i64,
         request: crate::AudioRequest,
     ) -> Result<crate::OpenedAudio> {
-        let authority = self.audio_authority(source, remote_source);
+        let authority = self.audio_authority(source, remote_source, binding, binding_revision);
         authority.check().await?;
         let audio = self
             .media
@@ -129,14 +146,22 @@ impl Operation {
         &self,
         request: &RecordingRequest,
     ) -> Result<(ProviderRecording, SourcePage)> {
-        self.remote
-            .recording(
+        let details = self
+            .remote
+            .recording_details(
                 &self.account,
                 &self.base_url,
                 self.token.as_deref().map(String::as_str),
                 request,
             )
-            .await
+            .await?;
+        {
+            let mut connection = self.store.pool.acquire().await?;
+            self.actor.check_session_on(&mut connection).await?;
+            self.recheck(&mut connection).await?;
+        }
+        let sources = self.sources(request).await?;
+        Ok((details, sources))
     }
     pub(crate) async fn search(&self, request: &SearchRequest) -> Result<SearchPage> {
         self.remote
@@ -151,6 +176,21 @@ impl Operation {
     pub(crate) async fn sources(&self, request: &RecordingRequest) -> Result<SourcePage> {
         self.remote
             .sources(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
+    pub(crate) async fn sources_in_batch(
+        &self,
+        batch: &super::SourceBatch,
+        request: &RecordingRequest,
+    ) -> Result<SourcePage> {
+        self.remote
+            .sources_in_batch(
+                batch,
                 &self.account,
                 &self.base_url,
                 self.token.as_deref().map(String::as_str),

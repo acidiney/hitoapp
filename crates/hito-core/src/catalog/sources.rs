@@ -15,9 +15,10 @@ impl Catalog {
             .push_bind(recording.to_owned())
             .push(
                 " UNION ALL
-            SELECT ps.source_id FROM provider_source_state state CROSS JOIN provider_sources ps
-            ON ps.recording_id = state.recording_id AND ps.generation = state.generation
-            WHERE state.recording_id = ",
+            SELECT ps.source_id FROM provider_items item CROSS JOIN provider_source_state state ON state.binding_id = item.id
+            CROSS JOIN provider_sources ps INDEXED BY provider_sources_generation
+            ON ps.binding_id = state.binding_id AND ps.generation = state.generation
+            WHERE item.retired = 0 AND item.recording_id = ",
             )
             .push_bind(recording.to_owned())
             .push(

@@ -53,6 +53,7 @@ test("checking a saved track refreshes only its own sources and leaves playback 
     "/api/v1/recordings/saved/sources/refresh",
     expect.objectContaining({
       method: "POST",
+      body: undefined,
       credentials: "same-origin",
       headers: expect.objectContaining({
         "x-hito-account": "alice",
@@ -161,6 +162,6 @@ test("a failed check can be retried while duplicate requests remain blocked", as
     screen
       .getByRole("link", { name: "Music service settings" })
       .getAttribute("href"),
-  ).toBe("/settings?tab=plugins");
+  ).toBe("/settings?section=plugins");
   expect(player.playQueue).not.toHaveBeenCalled();
 });

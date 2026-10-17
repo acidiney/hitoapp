@@ -1,7 +1,14 @@
 use super::{Catalog, PlaybackSource, SourceAccess, push_source_access};
 use crate::{Actor, Error, Result, identity::recording_access};
 use sqlx::QueryBuilder;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
+
+#[derive(sqlx::FromRow)]
+struct ProviderSnapshot {
+    binding_id: String,
+    revision: i64,
+    generation: i64,
+}
 
 pub struct PlaybackCandidates {
     catalog: Catalog,
@@ -11,7 +18,7 @@ pub struct PlaybackCandidates {
     local: bool,
     after: Option<String>,
     ceiling: Option<String>,
-    generation: Option<i64>,
+    providers: VecDeque<ProviderSnapshot>,
 }
 
 impl Catalog {
@@ -33,21 +40,29 @@ impl Catalog {
             .bind(self.host.as_str())
             .fetch_one(&mut *connection)
             .await?;
-            let generation = sqlx::query_scalar(
-                "SELECT generation FROM provider_source_state WHERE recording_id=?",
+            let providers: Vec<ProviderSnapshot> = sqlx::query_as(
+                "SELECT item.id AS binding_id,item.revision,state.generation FROM provider_items item
+                JOIN provider_source_state state ON state.binding_id = item.id
+                JOIN plugin_installations p ON p.id = item.installation_id AND p.active = 1
+                JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
+                WHERE item.recording_id = ? AND item.retired = 0 AND p.user_id = ?
+                AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'sources')
+                ORDER BY item.id LIMIT ?",
             )
             .bind(recording)
-            .fetch_optional(&mut *connection)
+            .bind(actor.id())
+            .bind(super::provider::MAX_PLAYBACK_BINDINGS as i64)
+            .fetch_all(&mut *connection)
             .await?;
             Ok(PlaybackCandidates {
                 catalog: self.clone(),
                 actor: actor.clone(),
                 recording: recording.to_owned(),
-                remaining: count as u64 + hito_plugin_sdk::MAX_SOURCES_PER_RECORDING as u64,
+                remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64,
                 local: count > 0,
                 after: None,
                 ceiling,
-                generation,
+                providers: providers.into(),
             })
         })
         .await
@@ -84,17 +99,22 @@ impl PlaybackCandidates {
                     query.push(" AND s.id<=").push_bind(ceiling.clone());
                 }
                 query
-            } else if let Some(generation) = self.generation {
+            } else if let Some(snapshot) = self.providers.front() {
                 let mut query = QueryBuilder::new(
-                    "SELECT ps.source_id FROM provider_source_state state
+                    "SELECT ps.source_id FROM provider_items item
+                    CROSS JOIN provider_source_state state ON state.binding_id = item.id
                     CROSS JOIN provider_sources ps INDEXED BY provider_sources_generation
-                    ON ps.recording_id=state.recording_id AND ps.generation=state.generation
-                    CROSS JOIN sources s ON s.id=ps.source_id WHERE state.recording_id=",
+                    ON ps.binding_id=state.binding_id AND ps.generation=state.generation
+                    CROSS JOIN sources s ON s.id=ps.source_id WHERE item.retired=0 AND item.recording_id=",
                 );
                 query
                     .push_bind(self.recording.clone())
+                    .push(" AND item.id=")
+                    .push_bind(snapshot.binding_id.clone())
+                    .push(" AND item.revision=")
+                    .push_bind(snapshot.revision)
                     .push(" AND state.generation=")
-                    .push_bind(generation)
+                    .push_bind(snapshot.generation)
                     .push(" AND s.provider='plugin' AND ");
                 push_source_access(&mut query, &self.catalog.host, SourceAccess::Playable);
                 query
@@ -120,8 +140,9 @@ impl PlaybackCandidates {
                     self.after = None;
                     continue;
                 }
-                self.remaining = 0;
-                break;
+                self.providers.pop_front();
+                self.after = None;
+                continue;
             };
             self.after = Some(source.clone());
             self.remaining -= 1;
