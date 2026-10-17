@@ -1,9 +1,9 @@
 use super::{ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, PlaylistEntry};
-use crate::{Actor, Error, HostDeviceId, Result, catalog::push_available, metadata, store::Store};
-use sqlx::{QueryBuilder, Row, sqlite::SqliteRow};
+use crate::{Actor, Error, HostDeviceId, Result, catalog::push_available, metadata};
+use sqlx::{QueryBuilder, Row, SqliteConnection, sqlite::SqliteRow};
 
 pub(super) async fn read(
-    store: &Store,
+    connection: &mut SqliteConnection,
     host: &HostDeviceId,
     actor: &Actor,
     playlist: &str,
@@ -45,7 +45,7 @@ pub(super) async fn read(
         .push(" AND e.deleted = 0 ORDER BY e.position, e.id LIMIT 10000");
     query
         .build()
-        .fetch_all(&store.pool)
+        .fetch_all(connection)
         .await?
         .into_iter()
         .map(entry)

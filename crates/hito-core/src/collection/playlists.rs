@@ -15,22 +15,25 @@ impl Collection {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
     pub async fn playlist(&self, actor: &Actor, id: &str) -> Result<PlaylistDetail> {
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
         let playlist = sqlx::query_as(
             "SELECT id, name, kind FROM playlists
              WHERE id = ? AND user_id = ? AND deleted = 0",
         )
         .bind(id)
         .bind(actor.id())
-        .fetch_optional(&self.store.pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or(Error::NotFound)?;
-        let entries = playlist_entries::read(&self.store, &self.host, actor, id).await?;
-        let mut connection = self.store.pool.acquire().await?;
-        let origin = if let Some(origin) = import_persist::origin(&mut connection, id).await? {
+        let entries = playlist_entries::read(&mut tx, &self.host, actor, id).await?;
+        let origin = if let Some(origin) = import_persist::origin(&mut tx, id).await? {
             Some(origin)
         } else {
-            follow::origin(&mut connection, id).await?
+            follow::origin(&mut tx, id).await?
         };
+        tx.commit().await?;
+        actor.check_session(&self.store).await?;
         Ok(PlaylistDetail {
             playlist,
             entries,
