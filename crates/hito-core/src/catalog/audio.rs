@@ -61,7 +61,8 @@ impl Catalog {
                 )
                 .await;
         }
-        let audio = self.audio_file(actor, source).await?;
+        let authority = self.local_playback_source(actor, source).await?;
+        let audio = authority.open_file().await?;
         let total = audio.length;
         let range = if request.head {
             None
@@ -83,7 +84,7 @@ impl Catalog {
         let body = if request.head {
             None
         } else {
-            Some(AudioStream::local(audio, start, length).await?)
+            Some(AudioStream::local(audio, authority, start, length).await?)
         };
         tracing::debug!(length, "Local audio opened");
         Ok(OpenedAudio::Content(Box::new(AudioContent {

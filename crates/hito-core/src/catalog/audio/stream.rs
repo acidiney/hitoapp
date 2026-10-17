@@ -1,11 +1,16 @@
-use crate::{AudioFile, Error, Result};
+use crate::{AudioFile, Error, PlaybackSource, Result};
 use bytes::Bytes;
 use std::time::Instant;
 use tokio::io::AsyncReadExt;
 
 enum Body {
-    Local(tokio::io::Take<tokio::fs::File>),
+    Local(Box<LocalAudio>),
     Remote(Box<crate::plugins::RemoteAudio>),
+}
+
+struct LocalAudio {
+    file: tokio::io::Take<tokio::fs::File>,
+    authority: PlaybackSource,
 }
 
 pub struct AudioStream {
@@ -27,13 +32,28 @@ impl utoipa::PartialSchema for AudioStream {
 }
 impl utoipa::ToSchema for AudioStream {}
 impl AudioStream {
-    pub(super) async fn local(file: AudioFile, start: u64, length: u64) -> Result<Self> {
+    pub(super) async fn local(
+        file: AudioFile,
+        authority: PlaybackSource,
+        start: u64,
+        length: u64,
+    ) -> Result<Self> {
         use tokio::io::AsyncSeekExt;
         let mut file = tokio::fs::File::from_std(file.file);
-        file.seek(std::io::SeekFrom::Start(start))
-            .await
-            .map_err(|_| Error::Internal("Audio file could not be read".into()))?;
-        Ok(Self::new(Body::Local(file.take(length)), Some(length)))
+        authority
+            .while_authorized(async {
+                file.seek(std::io::SeekFrom::Start(start))
+                    .await
+                    .map_err(|_| Error::Internal("Audio file could not be read".into()))
+            })
+            .await?;
+        Ok(Self::new(
+            Body::Local(Box::new(LocalAudio {
+                file: file.take(length),
+                authority,
+            })),
+            Some(length),
+        ))
     }
     pub(crate) fn remote(body: crate::plugins::RemoteAudio, length: Option<u64>) -> Self {
         Self::new(Body::Remote(Box::new(body)), length)
@@ -54,16 +74,7 @@ impl AudioStream {
             return Ok(None);
         };
         let result = match inner {
-            Body::Local(file) => {
-                let mut bytes = vec![0; 65536];
-                file.read(&mut bytes)
-                    .await
-                    .map(|read| {
-                        bytes.truncate(read);
-                        (read > 0).then(|| Bytes::from(bytes))
-                    })
-                    .map_err(|_| Error::Internal("Audio file could not be read".into()))
-            }
+            Body::Local(body) => body.chunk().await,
             Body::Remote(body) => body.chunk().await,
         };
         match result {
@@ -100,6 +111,24 @@ impl AudioStream {
         self.inner = None;
     }
 }
+
+impl LocalAudio {
+    async fn chunk(&mut self) -> Result<Option<Bytes>> {
+        let file = &mut self.file;
+        self.authority
+            .while_authorized(async {
+                let mut bytes = vec![0; 65536];
+                let read = file
+                    .read(&mut bytes)
+                    .await
+                    .map_err(|_| Error::Internal("Audio file could not be read".into()))?;
+                bytes.truncate(read);
+                Ok((read > 0).then(|| Bytes::from(bytes)))
+            })
+            .await
+    }
+}
+
 impl Drop for AudioStream {
     fn drop(&mut self) {
         let _entered = self.span.enter();

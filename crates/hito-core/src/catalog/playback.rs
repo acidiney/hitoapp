@@ -1,6 +1,7 @@
 use super::{Catalog, media::Location};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result};
 use std::{
+    future::Future,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -40,6 +41,33 @@ impl Catalog {
             Duration::from_secs(1),
             self.admit_playback(actor, recording, source),
         )
+        .await
+        .unwrap_or(Err(Error::Upstream(
+            "Playback authorization could not be checked in time",
+        )))
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub(super) async fn local_playback_source(
+        &self,
+        actor: &Actor,
+        source: &str,
+    ) -> Result<PlaybackSource> {
+        tokio::time::timeout(Duration::from_secs(1), async {
+            actor.check_session(&self.store).await?;
+            let recording: String = sqlx::query_scalar(
+                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download')",
+            )
+            .bind(source)
+            .fetch_optional(&self.store.pool)
+            .await?
+            .ok_or(Error::NotFound)?;
+            let authority = self.admit_playback(actor, &recording, source).await?;
+            if !authority.is_local() {
+                return Err(Error::NotFound);
+            }
+            Ok(authority)
+        })
         .await
         .unwrap_or(Err(Error::Upstream(
             "Playback authorization could not be checked in time",
@@ -166,6 +194,28 @@ impl PlaybackSource {
             }
             tokio::time::sleep(Duration::from_millis(250)).await;
         }
+    }
+
+    #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(playback_grant = self.id))]
+    pub(super) async fn while_authorized<T>(
+        &self,
+        operation: impl Future<Output = Result<T>>,
+    ) -> Result<T> {
+        self.check().await?;
+        let result = tokio::select! {
+            biased;
+            error = async {
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                self.revoked().await
+            } => Err(error),
+            result = tokio::time::timeout(Duration::from_secs(15), operation) => {
+                result.unwrap_or(Err(Error::Upstream(
+                    "Audio file operation did not finish in time",
+                )))
+            },
+        };
+        self.check().await?;
+        result
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
