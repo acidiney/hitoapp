@@ -48,6 +48,7 @@ impl ProviderServer {
             .route("/prefix/v1/manifest", get(manifest))
             .route("/prefix/v1/search", post(exchange))
             .route("/prefix/v1/recordings/detail", post(exchange))
+            .route("/prefix/v1/recordings/metadata", post(exchange))
             .route("/prefix/v1/playlists/detail", post(exchange))
             .route("/prefix/v1/playlists/items", post(exchange))
             .route("/prefix/v1/sources", post(exchange))
