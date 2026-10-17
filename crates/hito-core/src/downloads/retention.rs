@@ -3,6 +3,12 @@ use crate::{Error, Result};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
+pub(super) enum Admission {
+    Retained(String),
+    Busy,
+    WaitingForSource,
+}
+
 impl Downloads {
     pub(super) async fn ensure_transfer_on(
         &self,
@@ -12,21 +18,46 @@ impl Downloads {
         library: &str,
         grant: &str,
     ) -> Result<String> {
+        match self
+            .admit_transfer_on(connection, account, recording, library, grant)
+            .await?
+        {
+            Admission::Retained(intent) => Ok(intent),
+            Admission::Busy => Err(Error::Conflict("Download work is busy. Try again.".into())),
+            Admission::WaitingForSource => Err(Error::Conflict(
+                "No verified provider audio source is available for this download".into(),
+            )),
+        }
+    }
+
+    pub(super) async fn admit_transfer_on(
+        &self,
+        connection: &mut SqliteConnection,
+        account: &str,
+        recording: &str,
+        library: &str,
+        grant: &str,
+    ) -> Result<Admission> {
         if let Some(intent) = self
             .retain_existing_on(connection, account, recording, grant)
             .await?
         {
-            return Ok(intent);
+            return Ok(Admission::Retained(intent));
         }
         let (account_pending, pending): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(account_id=?),0),count(*) FROM download_jobs WHERE status IN ('queued','running')")
             .bind(account).fetch_one(&mut *connection).await?;
         if account_pending >= 32 || pending >= 256 {
-            return Err(Error::Conflict("Download work is busy. Try again.".into()));
+            return Ok(Admission::Busy);
         }
-        let origin = self
+        let origin = match self
             .plugins
             .capture_download_origin_on(connection, account, recording)
-            .await?;
+            .await
+        {
+            Ok(origin) => origin,
+            Err(Error::Conflict(_)) => return Ok(Admission::WaitingForSource),
+            Err(error) => return Err(error),
+        };
         let intent = Uuid::new_v4().to_string();
         sqlx::query("INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,
             provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,service_id,service_revision,credential_digest,audio_generation)
@@ -37,7 +68,7 @@ impl Downloads {
             .bind(origin.credential_digest).bind(origin.audio_generation).execute(&mut *connection).await?;
         sqlx::query("INSERT INTO download_jobs(id,account_id,intent_id,generation,status) VALUES(?,?,?,1,'queued')")
             .bind(Uuid::new_v4().to_string()).bind(account).bind(&intent).execute(connection).await?;
-        Ok(intent)
+        Ok(Admission::Retained(intent))
     }
 
     pub(super) async fn retain_existing_on(

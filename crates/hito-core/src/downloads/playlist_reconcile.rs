@@ -26,14 +26,15 @@ impl Downloads {
         let (done, finished) = oneshot::channel::<()>();
         let work = async {
             let _completion = done;
-            let first = self.playlist_turn.fetch_add(1, Ordering::Relaxed) % 3;
-            for offset in 0..3 {
+            let first = self.playlist_turn.fetch_add(1, Ordering::Relaxed) % 4;
+            for offset in 0..4 {
                 if *stopped.borrow() {
                     return Ok(false);
                 }
-                let progressed = match (first + offset) % 3 {
+                let progressed = match (first + offset) % 4 {
                     0 => self.dispatch_playlist_change().await?,
                     1 => self.reconcile_playlist().await?,
+                    2 => self.admit_playlist_transfers().await?,
                     _ => self.reconsider_retirement().await?,
                 };
                 if progressed {
@@ -90,9 +91,11 @@ impl Downloads {
             .fetch_all(&mut *tx)
             .await?;
             for (entry, recording) in &entries {
-                sqlx::query("INSERT INTO download_playlist_members(retention_id,entry_id,recording_id,seen_revision) VALUES(?,?,?,?)
-                    ON CONFLICT(retention_id,entry_id) DO UPDATE SET recording_id=excluded.recording_id,seen_revision=excluded.seen_revision")
-                    .bind(&selected.retention_id).bind(entry).bind(recording).bind(selected.revision).execute(&mut *tx).await?;
+                sqlx::query("INSERT INTO download_playlist_members(retention_id,host_device,entry_id,recording_id,seen_revision,next_attempt_at)
+                    VALUES(?,?,?,?,?,CASE WHEN ? IS NOT NULL THEN 0 END)
+                    ON CONFLICT(retention_id,entry_id) DO UPDATE SET recording_id=excluded.recording_id,seen_revision=excluded.seen_revision,
+                    next_attempt_at=CASE WHEN recording_id IS excluded.recording_id THEN next_attempt_at ELSE excluded.next_attempt_at END")
+                    .bind(&selected.retention_id).bind(self.host.as_str()).bind(entry).bind(recording).bind(selected.revision).bind(recording).execute(&mut *tx).await?;
             }
             if entries.len() < 32 {
                 selected.phase = "prune".into();

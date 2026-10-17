@@ -1,6 +1,7 @@
 mod cleanup;
 mod health;
 mod lease;
+mod playlist_admission;
 mod playlist_changes;
 mod playlist_reconcile;
 mod playlist_requests;

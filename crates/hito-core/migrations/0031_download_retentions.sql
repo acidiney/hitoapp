@@ -80,13 +80,17 @@ CREATE TABLE download_playlist_work (
 );
 CREATE INDEX download_playlist_due ON download_playlist_work(host_device,next_attempt_at,retention_id) WHERE status='queued';
 CREATE TABLE download_playlist_members (
-    retention_id TEXT NOT NULL REFERENCES download_retentions(id),
+    retention_id TEXT NOT NULL,
+    host_device TEXT NOT NULL,
     entry_id TEXT NOT NULL,
     recording_id TEXT REFERENCES recordings(id),
     seen_revision INTEGER NOT NULL CHECK(seen_revision>0),
-    PRIMARY KEY(retention_id,entry_id)
+    next_attempt_at INTEGER CHECK(next_attempt_at IS NULL OR next_attempt_at>=0),
+    PRIMARY KEY(retention_id,entry_id),
+    FOREIGN KEY(retention_id,host_device) REFERENCES download_retentions(id,host_device)
 );
 CREATE INDEX download_playlist_member_revision ON download_playlist_members(retention_id,seen_revision,entry_id);
+CREATE INDEX download_playlist_member_due ON download_playlist_members(host_device,next_attempt_at,retention_id,entry_id) WHERE next_attempt_at IS NOT NULL;
 CREATE INDEX playlist_download_scan ON playlist_entries(playlist_id,deleted,id);
 CREATE TABLE download_retirement_work (
     transfer_id TEXT PRIMARY KEY REFERENCES download_intents(id),
