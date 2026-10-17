@@ -9909,9 +9909,14 @@
           "id",
           "recording_id",
           "provider",
-          "ready"
+          "label",
+          "ready",
+          "can_prepare"
         ],
         "properties": {
+          "can_prepare": {
+            "type": "boolean"
+          },
           "device_id": {
             "type": [
               "string",
@@ -9919,6 +9924,9 @@
             ]
           },
           "id": {
+            "type": "string"
+          },
+          "label": {
             "type": "string"
           },
           "provider": {

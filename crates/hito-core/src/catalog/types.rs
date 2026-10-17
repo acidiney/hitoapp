@@ -39,6 +39,8 @@ pub struct Source {
     pub id: String,
     pub recording_id: String,
     pub provider: String,
+    pub label: String,
     pub device_id: Option<String>,
     pub ready: bool,
+    pub can_prepare: bool,
 }
