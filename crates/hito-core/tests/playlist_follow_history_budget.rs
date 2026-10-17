@@ -114,9 +114,10 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
          INSERT INTO playlists(id,user_id,name,kind)
          VALUES ('playlist-0','account-0','Owned history fixture','followed');
          INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,
-             service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,
+             service_id,service_revision,snapshot_installation_revision,snapshot_service_revision,
+             provider,provider_playlist_id,snapshot,content_digest,
              attribution,interval_seconds,next_refresh_at)
-         VALUES ('playlist-0','account-0','installation-0',1,'service',1,'org.hito.history',
+         VALUES ('playlist-0','account-0','installation-0',1,'service',1,1,1,'org.hito.history',
              'playlist-0','snapshot',printf('%064d',0),'{\"label\":\"Owned history fixture\"}',3600,3600);
          WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i + 1 FROM n WHERE i < 31)
          INSERT INTO playlist_follow_jobs(id,user_id,playlist_id,generation,status,created_at)
@@ -137,9 +138,10 @@ async fn latest_follow_status_work_does_not_grow_with_other_playlists_history() 
          INSERT INTO playlists(id,user_id,name,kind)
          SELECT 'playlist-' || i,'account-' || (i / 256),'Owned history fixture','followed' FROM n;
          INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,
-             service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,
+             service_id,service_revision,snapshot_installation_revision,snapshot_service_revision,
+             provider,provider_playlist_id,snapshot,content_digest,
              attribution,interval_seconds,next_refresh_at)
-         SELECT p.id,p.user_id,installation.id,1,'service',1,'org.hito.history',p.id,'snapshot',
+         SELECT p.id,p.user_id,installation.id,1,'service',1,1,1,'org.hito.history',p.id,'snapshot',
              printf('%064d',0),'{\"label\":\"Owned history fixture\"}',3600,3600
          FROM playlists p JOIN plugin_installations installation ON installation.user_id = p.user_id
          WHERE p.id != 'playlist-0';
