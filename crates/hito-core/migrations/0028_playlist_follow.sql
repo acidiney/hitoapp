@@ -1,6 +1,6 @@
 CREATE TEMP TABLE hito_follow_sync_high_water AS
 SELECT COALESCE(MAX(seq), 0) AS sequence FROM sqlite_sequence WHERE name = 'sync_events';
-CREATE TEMP TABLE hito_follow_import_receipts AS SELECT * FROM playlist_import_receipts;
+CREATE TEMP TABLE hito_follow_import_receipts AS SELECT rowid AS original_rowid,* FROM playlist_import_receipts;
 DROP TABLE playlist_import_receipts;
 CREATE TABLE sync_events_with_follows (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,7 +30,8 @@ CREATE TABLE playlist_import_receipts (
     publication_sequence INTEGER NOT NULL REFERENCES sync_events(sequence),
     PRIMARY KEY(user_id,request_id)
 );
-INSERT INTO playlist_import_receipts SELECT * FROM hito_follow_import_receipts;
+INSERT INTO playlist_import_receipts(rowid,user_id,request_id,request_digest,playlist_id,publication_sequence)
+SELECT original_rowid,user_id,request_id,request_digest,playlist_id,publication_sequence FROM hito_follow_import_receipts;
 DROP TABLE hito_follow_import_receipts;
 DROP TABLE hito_follow_sync_high_water;
 

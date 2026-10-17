@@ -238,6 +238,31 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
         .execute(&mut database)
         .await
         .unwrap();
+    for (account, rowid) in [
+        (actor.user().id.as_str(), 113_i64),
+        (other.user().id.as_str(), 47_i64),
+    ] {
+        assert_eq!(
+            sqlx::query(
+                "UPDATE playlist_import_receipts SET rowid = ? WHERE user_id = ? AND request_id = ?",
+            )
+            .bind(rowid)
+            .bind(account)
+            .bind(request_id.to_string())
+            .execute(&mut database)
+            .await
+            .unwrap()
+            .rows_affected(),
+            1
+        );
+    }
+    let receipt_rowids: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT playlist_id,rowid FROM playlist_import_receipts ORDER BY playlist_id",
+    )
+    .fetch_all(&mut database)
+    .await
+    .unwrap();
+    assert_eq!(receipt_rowids.len(), 2);
     database.close().await.unwrap();
     let before = public_reads(&hito, &actor, copied.playlist_id, &recording.to_string()).await;
     let other_before = public_reads(&hito, &other, other_copy.playlist_id, &other_recording).await;
@@ -303,6 +328,16 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
             .await
             .unwrap(),
         28
+    );
+    assert_eq!(
+        sqlx::query_as::<_, (String, i64)>(
+            "SELECT playlist_id,rowid FROM playlist_import_receipts ORDER BY playlist_id",
+        )
+        .fetch_all(&mut database)
+        .await
+        .unwrap(),
+        receipt_rowids,
+        "The Follow upgrade must preserve each prior import receipt's rowid"
     );
     upgrade::assert_preserved(&mut database, &tables).await;
     assert_eq!(
