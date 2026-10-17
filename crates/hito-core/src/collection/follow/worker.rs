@@ -37,9 +37,7 @@ impl Collection {
         let started = Instant::now();
         let result = self.receive_follow_snapshot(&lease, &mut stopped).await;
         let stopping = *stopped.borrow();
-        let outcome = self
-            .finish_follow_job(&lease, result, stopping)
-            .await?;
+        let outcome = self.finish_follow_job(&lease, result, stopping).await?;
         tracing::info!(job_id = %lease.id, account_id = %lease.user_id, attempt = lease.attempts,
             outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Playlist refresh finished");
         Ok(true)
@@ -69,7 +67,7 @@ impl Collection {
             return Err(Error::Conflict("This playlist connection changed".into()));
         }
         let snapshot = {
-            let receiving = operation.snapshot(
+            let receiving = operation.refresh_snapshot(
                 PlaylistDetailRequest::Canonical {
                     playlist_id: lease.provider_playlist_id.clone(),
                 },

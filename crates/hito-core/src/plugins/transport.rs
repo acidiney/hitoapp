@@ -22,6 +22,8 @@ pub(super) struct ControlClient {
     accounts: super::admission::Accounts,
     artwork_slots: Arc<Semaphore>,
     artwork_accounts: super::admission::Accounts,
+    follow_slots: Arc<Semaphore>,
+    follow_accounts: super::admission::Accounts,
 }
 
 impl ControlClient {
@@ -46,6 +48,8 @@ impl ControlClient {
             accounts: Default::default(),
             artwork_slots: Arc::new(Semaphore::new(4)),
             artwork_accounts: Default::default(),
+            follow_slots: Arc::new(Semaphore::new(4)),
+            follow_accounts: Default::default(),
         })
     }
 
@@ -197,6 +201,18 @@ impl ControlClient {
             .map_err(|_| Error::Conflict("Plugin connections are busy. Try again.".into()))?;
         Ok(Admission {
             _account: account,
+            _global: global,
+        })
+    }
+
+    pub(super) fn admit_follow(&self, account: &str) -> Result<Admission> {
+        let permit = self.follow_accounts.enter(account)?;
+        let global = self.follow_slots.clone().try_acquire_owned().map_err(|_| {
+            Error::Conflict("Background playlist requests are busy. Try again.".into())
+        })?;
+        tracing::debug!(account_id = account, "Background playlist request admitted");
+        Ok(Admission {
+            _account: permit,
             _global: global,
         })
     }

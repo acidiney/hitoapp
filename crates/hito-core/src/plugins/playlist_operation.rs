@@ -95,4 +95,24 @@ impl PlaylistOperation {
             )
             .await
     }
+
+    pub(crate) async fn refresh_snapshot<F, Check>(
+        &self,
+        request: PlaylistDetailRequest,
+        check: F,
+    ) -> Result<PlaylistSnapshot>
+    where
+        F: Fn() -> Check + Send + Sync,
+        Check: std::future::Future<Output = Result<()>> + Send,
+    {
+        self.remote
+            .follow_playlist_snapshot(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+                check,
+            )
+            .await
+    }
 }

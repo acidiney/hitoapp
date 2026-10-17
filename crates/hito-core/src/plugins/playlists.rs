@@ -50,6 +50,38 @@ impl ControlClient {
         Check: std::future::Future<Output = Result<()>> + Send,
     {
         let _admission = self.admit(account)?;
+        self.playlist_snapshot_admitted(base_url, token, request, check)
+            .await
+    }
+
+    pub(super) async fn follow_playlist_snapshot<F, Check>(
+        &self,
+        account: &str,
+        base_url: &str,
+        token: Option<&str>,
+        request: PlaylistDetailRequest,
+        check: F,
+    ) -> Result<PlaylistSnapshot>
+    where
+        F: Fn() -> Check + Send + Sync,
+        Check: std::future::Future<Output = Result<()>> + Send,
+    {
+        let _admission = self.admit_follow(account)?;
+        self.playlist_snapshot_admitted(base_url, token, request, check)
+            .await
+    }
+
+    async fn playlist_snapshot_admitted<F, Check>(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: PlaylistDetailRequest,
+        check: F,
+    ) -> Result<PlaylistSnapshot>
+    where
+        F: Fn() -> Check + Send + Sync,
+        Check: std::future::Future<Output = Result<()>> + Send,
+    {
         tokio::time::timeout(
             Duration::from_secs(60),
             self.read_playlist(base_url, token, request, check),
