@@ -6,8 +6,10 @@ import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 import SourceAvailability from "../components/SourceAvailability";
 import SourceAttachment from "../components/SourceAttachment";
+import SourceChoiceControls from "../components/SourceChoiceControls";
 import RecordingDownload from "../components/downloads/RecordingDownload";
 import { useRecordingDownload } from "../hooks/useRecordingDownload";
+import { useSourceChoice } from "../hooks/useSourceChoice";
 
 export default function RecordingDetailsPage({
   user,
@@ -15,6 +17,11 @@ export default function RecordingDetailsPage({
   native_playback,
 }: RecordingDetailsPageProps) {
   const download = useRecordingDownload(user.id, detail.recording_id);
+  const choice = useSourceChoice(
+    user.id,
+    detail.recording_id,
+    download.invalidateRead,
+  );
   const source = detail.selected_observation;
   const target = { kind: "recording", id: detail.recording_id } as const;
   return (
@@ -38,6 +45,7 @@ export default function RecordingDetailsPage({
         metadata={detail}
       />
       <RecordingDownload {...download} local={native_playback} />
+      <SourceChoiceControls {...choice} />
       {source?.origin === "provider_response" && (
         <SourceAttachment
           key={`attachment/${user.id}/${detail.recording_id}`}

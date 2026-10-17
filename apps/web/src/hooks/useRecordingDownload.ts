@@ -21,6 +21,7 @@ type Owner = {
   read: AbortController | null;
   write: AbortController | null;
   timer: ReturnType<typeof setTimeout> | null;
+  invalidatedRead: boolean;
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,6 +40,9 @@ function validStatus(value: DownloadStatus, recording: string) {
     ) &&
     Number.isSafeInteger(value.bytes_received) &&
     value.bytes_received >= 0 &&
+    Number.isSafeInteger(value.choice_revision) &&
+    value.choice_revision >= 0 &&
+    typeof value.matches_source_choice === "boolean" &&
     (value.total_bytes == null ||
       (Number.isSafeInteger(value.total_bytes) &&
         value.total_bytes >= value.bytes_received)) &&
@@ -62,6 +66,7 @@ export function useRecordingDownload(account: string, recording: string) {
       read: null,
       write: null,
       timer: null,
+      invalidatedRead: false,
     }),
     [account, recording],
   );
@@ -104,6 +109,7 @@ export function useRecordingDownload(account: string, recording: string) {
     const active = () =>
       request.active() && !signal.aborted && owner.read === controller;
     owner.read = controller;
+    owner.invalidatedRead = false;
     publish({ checking: true });
     const started = performance.now();
     const fields = { account_id: account, recording_id: recording };
@@ -222,11 +228,22 @@ export function useRecordingDownload(account: string, recording: string) {
         owner.write = null;
         if (request.active() && !signal.aborted) {
           publish({ pending: null });
-          if (accepted) void load();
+          if (accepted || (owner.invalidatedRead && !owner.data.attempt))
+            void load();
           else schedule();
         }
       }
     }
+  }
+
+  function invalidateRead() {
+    if (!scope.capture().active()) return;
+    clearTimer();
+    owner.read?.abort();
+    owner.read = null;
+    owner.invalidatedRead = true;
+    publish({ checking: true, statusError: "" });
+    if (!owner.write && !owner.data.attempt) void load();
   }
 
   useEffect(() => {
@@ -251,6 +268,7 @@ export function useRecordingDownload(account: string, recording: string) {
     error: current.error,
     statusError: current.statusError,
     check: load,
+    invalidateRead,
     start: () =>
       owner.data.attempt || owner.data.download || owner.write
         ? Promise.resolve()
