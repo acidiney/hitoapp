@@ -1,18 +1,18 @@
 use axum::{
     Router,
-    body::Body,
+    body::{Body, Bytes},
     extract::{Request, State},
     http::{HeaderMap, Method, Response, StatusCode},
 };
 use std::{
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };
 use tokio::{
-    sync::{RwLock, oneshot},
+    sync::{RwLock, oneshot, watch},
     task::JoinHandle,
 };
 
@@ -29,6 +29,7 @@ struct Snapshot {
 struct Feed {
     snapshot: RwLock<Snapshot>,
     ranges: bool,
+    tail: Mutex<Option<Arc<HeldTail>>>,
     requests: AtomicUsize,
     feeds: AtomicUsize,
     enclosures: AtomicUsize,
@@ -65,6 +66,7 @@ impl PodcastAudioServer {
                 audio: Vec::new(),
             }),
             ranges,
+            tail: Mutex::new(None),
             requests: AtomicUsize::new(0),
             feeds: AtomicUsize::new(0),
             enclosures: AtomicUsize::new(0),
@@ -108,6 +110,24 @@ impl PodcastAudioServer {
         snapshot.audio.push(audio);
     }
 
+    #[allow(dead_code)]
+    pub fn hold_enclosure_tail(&self, prefix: usize) -> Arc<HeldTail> {
+        assert!(!self.state.ranges && (1..=65536).contains(&prefix));
+        let mut configured = self.state.tail.lock().unwrap();
+        assert!(
+            configured.is_none(),
+            "the owned fixture permits one held body"
+        );
+        let tail = Arc::new(HeldTail {
+            prefix,
+            entered: watch::channel(false).0,
+            dropped: watch::channel(false).0,
+            release: watch::channel(false).0,
+        });
+        *configured = Some(tail.clone());
+        tail
+    }
+
     pub fn requests(&self) -> usize {
         self.state.requests.load(Ordering::SeqCst)
     }
@@ -122,6 +142,7 @@ impl PodcastAudioServer {
     }
 
     pub async fn finish(&mut self) -> bool {
+        self.release_tail();
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
@@ -137,10 +158,17 @@ impl PodcastAudioServer {
             }
         }
     }
+
+    fn release_tail(&self) {
+        if let Some(tail) = self.state.tail.lock().unwrap().as_ref() {
+            tail.release.send_replace(true);
+        }
+    }
 }
 
 impl Drop for PodcastAudioServer {
     fn drop(&mut self) {
+        self.release_tail();
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
@@ -200,6 +228,10 @@ async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<
                 return invalid(&state);
             };
             state.enclosures.fetch_add(1, Ordering::SeqCst);
+            let tail = state.tail.lock().unwrap().clone();
+            if let Some(tail) = tail {
+                return held_audio(audio, tail);
+            }
             if state.ranges {
                 return ranged_audio(&state, &request, audio);
             }
@@ -213,6 +245,82 @@ async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<
         .header("content-length", body.len())
         .header("accept-ranges", "bytes")
         .body(Body::from(body))
+        .unwrap()
+}
+
+pub struct HeldTail {
+    prefix: usize,
+    entered: watch::Sender<bool>,
+    dropped: watch::Sender<bool>,
+    release: watch::Sender<bool>,
+}
+
+impl HeldTail {
+    #[allow(dead_code)]
+    pub async fn entered(&self) {
+        let mut entered = self.entered.subscribe();
+        tokio::time::timeout(Duration::from_secs(3), entered.wait_for(|entered| *entered))
+            .await
+            .expect("the actual WAV body must reach its held tail")
+            .expect("the owned tail signal must remain available");
+    }
+
+    #[allow(dead_code)]
+    pub async fn dropped(&self) {
+        let mut dropped = self.dropped.subscribe();
+        tokio::time::timeout(Duration::from_secs(3), dropped.wait_for(|dropped| *dropped))
+            .await
+            .expect("the revoked client must drop the actual held WAV body")
+            .expect("the owned body-drop signal must remain available");
+    }
+
+    #[allow(dead_code)]
+    pub fn released(&self) -> bool {
+        *self.release.borrow()
+    }
+}
+
+struct HeldBody {
+    prefix: Option<Bytes>,
+    tail: Option<Bytes>,
+    released: watch::Receiver<bool>,
+    gate: Arc<HeldTail>,
+}
+
+impl Drop for HeldBody {
+    fn drop(&mut self) {
+        self.gate.dropped.send_replace(true);
+    }
+}
+
+fn held_audio(audio: &[u8], gate: Arc<HeldTail>) -> Response<Body> {
+    assert!(
+        gate.prefix < audio.len(),
+        "the owned WAV must have a pending tail"
+    );
+    let body = HeldBody {
+        prefix: Some(Bytes::copy_from_slice(&audio[..gate.prefix])),
+        tail: Some(Bytes::copy_from_slice(&audio[gate.prefix..])),
+        released: gate.release.subscribe(),
+        gate,
+    };
+    let stream = futures_util::stream::unfold(body, |mut body| async move {
+        if let Some(prefix) = body.prefix.take() {
+            return Some((Ok::<_, std::convert::Infallible>(prefix), body));
+        }
+        body.tail.as_ref()?;
+        body.gate.entered.send_replace(true);
+        if body.released.wait_for(|released| *released).await.is_err() {
+            return None;
+        }
+        body.tail.take().map(|tail| (Ok(tail), body))
+    });
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("content-type", "audio/wav")
+        .header("content-length", audio.len())
+        .header("accept-ranges", "bytes")
+        .body(Body::from_stream(stream))
         .unwrap()
 }
 
