@@ -16,6 +16,18 @@ pub struct RefreshPodcast {
     pub request_id: Uuid,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UnsubscribePodcast {
+    pub request_id: Uuid,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PodcastUnsubscribeReceipt {
+    pub request_id: Uuid,
+    pub subscription_id: Uuid,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct PodcastRefreshReceipt {
     pub request_id: Uuid,

@@ -56,7 +56,8 @@ pub use plugins::{
 };
 pub use podcasts::{
     PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
-    PodcastSubscription, PodcastSubscriptionReceipt, Podcasts, RefreshPodcast, SubscribePodcast,
+    PodcastSubscription, PodcastSubscriptionReceipt, PodcastUnsubscribeReceipt, Podcasts,
+    RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
 };
 pub use remote_http::PodcastNetworkConfig;
 use store::Store;

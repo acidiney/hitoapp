@@ -1,6 +1,7 @@
 use super::{
     PodcastRefreshReceipt, PodcastSubscription, PodcastSubscriptionReceipt, Podcasts,
     RefreshPodcast, SubscribePodcast,
+    lifecycle::{reactivate, subscription_state},
 };
 use crate::{Actor, Error, Result};
 use sha2::{Digest, Sha256};
@@ -29,6 +30,7 @@ impl Podcasts {
             }
             tx.commit().await?;
             actor.check_session(&self.store).await?;
+            tracing::info!(subscription_id = %subscription, job_id = %job, outcome = "replayed", elapsed_ms = started.elapsed().as_millis() as u64, "Podcast subscription accepted");
             return Ok(PodcastSubscriptionReceipt {
                 request_id: request.request_id,
                 subscription_id: identity(&subscription)?,
@@ -37,26 +39,22 @@ impl Podcasts {
         }
         check_request_capacity(&mut tx, actor.id()).await?;
         let existing: Option<String> = sqlx::query_scalar(
-            "SELECT id FROM podcast_subscriptions WHERE user_id=? AND feed_url=? AND active=1",
+            "SELECT id FROM podcast_subscriptions WHERE user_id=? AND feed_url=?",
         )
         .bind(actor.id())
         .bind(&url)
         .fetch_optional(&mut *tx)
         .await?;
+        let mut reactivation_job = None;
         let subscription = if let Some(existing) = existing {
+            let state = subscription_state(&mut tx, actor.id(), &existing).await?;
+            if !state.active {
+                reactivation_job =
+                    Some(reactivate(&mut tx, actor.id(), &existing, state.generation).await?);
+            }
             existing
         } else {
-            let count: i64 = sqlx::query_scalar(
-                "SELECT count(*) FROM podcast_subscriptions WHERE user_id=? AND active=1",
-            )
-            .bind(actor.id())
-            .fetch_one(&mut *tx)
-            .await?;
-            if count >= 100 {
-                return Err(Error::Conflict(
-                    "This account already has 100 podcast subscriptions".into(),
-                ));
-            }
+            check_subscription_capacity(&mut tx, actor.id()).await?;
             let library = crate::identity::personal_library(&mut tx, actor.id()).await?;
             let grant: String = sqlx::query_scalar(
                 "SELECT id FROM library_access_grants WHERE library_id=? AND user_id=?",
@@ -70,29 +68,33 @@ impl Podcasts {
                 .bind(&id).bind(actor.id()).bind(library).bind(grant).bind(&url).bind(&url).execute(&mut *tx).await?;
             id
         };
-        let job: Option<String> = sqlx::query_scalar("SELECT id FROM podcast_refresh_jobs WHERE subscription_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1")
-            .bind(&subscription).fetch_optional(&mut *tx).await?;
-        let job = if let Some(job) = job {
+        let outcome = if reactivation_job.is_some() {
+            "reactivated"
+        } else {
+            "accepted"
+        };
+        let job = if let Some(job) = reactivation_job {
             job
         } else {
-            let (account, all): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(user_id=?),0),count(*) FROM podcast_refresh_jobs WHERE status IN ('queued','running')")
-                .bind(actor.id()).fetch_one(&mut *tx).await?;
-            if account >= 16 || all >= 128 {
-                return Err(Error::Conflict(
-                    "Podcast refresh work is busy. Try again.".into(),
-                ));
+            let job: Option<String> = sqlx::query_scalar("SELECT id FROM podcast_refresh_jobs WHERE subscription_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1")
+                .bind(&subscription).fetch_optional(&mut *tx).await?;
+            if let Some(job) = job {
+                job
+            } else {
+                let generation: i64 =
+                    sqlx::query_scalar("SELECT generation FROM podcast_subscriptions WHERE id=?")
+                        .bind(&subscription)
+                        .fetch_one(&mut *tx)
+                        .await?;
+                queue_refresh(&mut tx, actor.id(), &subscription, generation).await?
             }
-            let job = Uuid::new_v4().to_string();
-            sqlx::query("INSERT INTO podcast_refresh_jobs(id,subscription_id,user_id,generation,status) VALUES(?,?,?,1,'queued')")
-                .bind(&job).bind(&subscription).bind(actor.id()).execute(&mut *tx).await?;
-            job
         };
         sqlx::query("INSERT INTO podcast_subscription_receipts(user_id,request_id,request_digest,subscription_id,job_id) VALUES(?,?,?,?,?)")
             .bind(actor.id()).bind(request.request_id.to_string()).bind(digest).bind(&subscription).bind(&job).execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         actor.check_session(&self.store).await?;
-        tracing::info!(subscription_id = %subscription, job_id = %job, outcome = "accepted", elapsed_ms = started.elapsed().as_millis() as u64, "Podcast subscription accepted");
+        tracing::info!(subscription_id = %subscription, job_id = %job, outcome, elapsed_ms = started.elapsed().as_millis() as u64, "Podcast subscription accepted");
         Ok(PodcastSubscriptionReceipt {
             request_id: request.request_id,
             subscription_id: identity(&subscription)?,
@@ -142,17 +144,7 @@ impl Podcasts {
             }
             job
         } else {
-            let (account,all): (i64,i64) = sqlx::query_as("SELECT coalesce(sum(user_id=?),0),count(*) FROM podcast_refresh_jobs WHERE status IN ('queued','running')")
-                .bind(actor.id()).fetch_one(&mut *tx).await?;
-            if account >= 16 || all >= 128 {
-                return Err(Error::Conflict(
-                    "Podcast refresh work is busy. Try again.".into(),
-                ));
-            }
-            let job = Uuid::new_v4().to_string();
-            sqlx::query("INSERT INTO podcast_refresh_jobs(id,subscription_id,user_id,generation,status) VALUES(?,?,?,?,'queued')")
-                .bind(&job).bind(&subscription).bind(actor.id()).bind(generation).execute(&mut *tx).await?;
-            job
+            queue_refresh(&mut tx, actor.id(), &subscription, generation).await?
         };
         sqlx::query("INSERT INTO podcast_refresh_receipts(user_id,request_id,subscription_id,job_id) VALUES(?,?,?,?)")
             .bind(actor.id()).bind(request.request_id.to_string()).bind(&subscription).bind(&job).execute(&mut *tx).await?;
@@ -187,7 +179,7 @@ impl Podcasts {
     }
 }
 
-async fn check_request_capacity(
+pub(super) async fn check_request_capacity(
     connection: &mut sqlx::SqliteConnection,
     account: &str,
 ) -> Result<()> {
@@ -197,6 +189,43 @@ async fn check_request_capacity(
         return Err(Error::Conflict("Podcast request history is full".into()));
     }
     Ok(())
+}
+
+pub(super) async fn check_subscription_capacity(
+    connection: &mut sqlx::SqliteConnection,
+    account: &str,
+) -> Result<()> {
+    let count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM podcast_subscriptions WHERE user_id=? AND active=1",
+    )
+    .bind(account)
+    .fetch_one(connection)
+    .await?;
+    if count >= 100 {
+        return Err(Error::Conflict(
+            "This account already has 100 podcast subscriptions".into(),
+        ));
+    }
+    Ok(())
+}
+
+pub(super) async fn queue_refresh(
+    connection: &mut sqlx::SqliteConnection,
+    account: &str,
+    subscription: &str,
+    generation: i64,
+) -> Result<String> {
+    let (owned, all): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(user_id=?),0),count(*) FROM podcast_refresh_jobs WHERE status IN ('queued','running')")
+        .bind(account).fetch_one(&mut *connection).await?;
+    if owned >= 16 || all >= 128 {
+        return Err(Error::Conflict(
+            "Podcast refresh work is busy. Try again.".into(),
+        ));
+    }
+    let job = Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO podcast_refresh_jobs(id,subscription_id,user_id,generation,status) VALUES(?,?,?,?,'queued')")
+        .bind(&job).bind(subscription).bind(account).bind(generation).execute(connection).await?;
+    Ok(job)
 }
 
 pub(super) fn identity(value: &str) -> Result<Uuid> {

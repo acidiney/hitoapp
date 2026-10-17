@@ -1,5 +1,6 @@
 mod episodes;
 mod feed;
+mod lifecycle;
 mod refresh;
 mod subscriptions;
 mod types;
@@ -17,7 +18,8 @@ mod work_meter;
 use crate::{Catalog, remote_http::RemoteHttp, store::Store};
 pub use types::{
     PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
-    PodcastSubscription, PodcastSubscriptionReceipt, RefreshPodcast, SubscribePodcast,
+    PodcastSubscription, PodcastSubscriptionReceipt, PodcastUnsubscribeReceipt, RefreshPodcast,
+    SubscribePodcast, UnsubscribePodcast,
 };
 
 #[derive(Clone)]
