@@ -51,9 +51,8 @@ pub(super) async fn identities(
             let retained = if let Some(occurrence) = &entry.occurrence_id {
                 occurrences
                     .get(occurrence)
-                    .filter(|(_, old_kind, old_recording)| {
-                        old_recording.as_deref() == recording
-                            && (old_kind == kind || recording.is_some())
+                    .filter(|(_, _, old_recording)| {
+                        recording.is_some() && old_recording.as_deref() == recording
                     })
                     .map(|(id, _, _)| *id)
             } else {

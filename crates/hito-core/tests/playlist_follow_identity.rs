@@ -212,3 +212,106 @@ async fn a_stable_provider_occurrence_keeps_its_entry_id_when_the_recording_beco
         1
     );
 }
+
+#[tokio::test]
+async fn an_unknown_occurrence_without_a_recording_witness_gets_a_new_entry_id_each_snapshot() {
+    let server = fixture::ProviderServer::start().await;
+    let (_directory, hito, actor, _shared, _music) = support::library("follow-unknown").await;
+    let installation = fixture::connect(&hito, &actor, &server, &["playlists"]).await;
+    let unknown =
+        || json!({"occurrence_id": "snapshot-local-occurrence", "item": {"kind": "unknown"}});
+    fixture::playlist(&server, "playlist/unknown", "initial", vec![unknown()]).await;
+    let copied = hito
+        .collection
+        .import_provider_playlist(
+            &actor,
+            &installation.id,
+            ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installation.revision,
+                playlist_reference: "https://provider.invalid/unknown-selection".into(),
+            },
+        )
+        .await
+        .unwrap();
+    support::synchronize(
+        &hito,
+        &actor,
+        vec![Action::PlaylistRename {
+            playlist_id: copied.playlist_id,
+            name: "My unknown selection".into(),
+        }],
+    )
+    .await;
+    let copy_before = serde_json::to_value(
+        hito.collection
+            .playlist(&actor, &copied.playlist_id.to_string())
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let followed = hito
+        .collection
+        .follow_provider_playlist(
+            &actor,
+            &installation.id,
+            FollowProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installation.revision,
+                playlist_reference: "https://provider.invalid/unknown-selection".into(),
+                interval: PlaylistFollowInterval::Hourly,
+            },
+        )
+        .await
+        .unwrap();
+    let playlist = followed.playlist_id.to_string();
+    let initial = hito.collection.playlist(&actor, &playlist).await.unwrap();
+    assert_eq!(initial.entries.len(), 1);
+    let previous = initial.entries[0].entry_id.clone();
+    assert!(initial.entries[0].recording_id.is_none());
+
+    fixture::playlist(&server, "playlist/unknown", "next", vec![unknown()]).await;
+    refresh(&hito, &actor, &playlist).await;
+    let current = hito.collection.playlist(&actor, &playlist).await.unwrap();
+    assert_eq!(current.playlist.kind, "followed");
+    assert_eq!(current.origin.as_ref().unwrap().snapshot, "next");
+    assert_eq!(current.entries.len(), 1);
+    assert_eq!(current.entries[0].position, 0);
+    assert_ne!(
+        current.entries[0].entry_id, previous,
+        "A snapshot-local occurrence ID without a provider recording witness must not invent cross-snapshot identity"
+    );
+    assert!(
+        current
+            .entries
+            .iter()
+            .all(|entry| entry.entry_id != previous)
+    );
+    assert!(current.entries[0].recording_id.is_none());
+    assert!(!current.entries[0].available);
+    let origin = current.entries[0].origin.as_ref().unwrap();
+    assert!(matches!(origin.kind, ImportedPlaylistEntryKind::Unknown));
+    assert!(origin.provider_recording_id.is_none());
+    assert_eq!(
+        origin.occurrence_id.as_deref(),
+        Some("snapshot-local-occurrence")
+    );
+    assert_eq!(
+        hito.catalog
+            .recordings(&actor, Default::default())
+            .await
+            .unwrap()
+            .total,
+        0
+    );
+    assert_eq!(
+        serde_json::to_value(
+            hito.collection
+                .playlist(&actor, &copied.playlist_id.to_string())
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        copy_before
+    );
+}
