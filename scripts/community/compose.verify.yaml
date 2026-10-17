@@ -1,0 +1,55 @@
+services:
+  community-verify:
+    profiles: [community-verify]
+    image: python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
+    user: "10001:10001"
+    network_mode: service:community
+    entrypoint: [python3, -B, /opt/hito-community-verify.py]
+    command: [first]
+    environment:
+      HITO_COMMUNITY_STATE_VOLUME: ${HITO_COMMUNITY_STATE_VOLUME:?Set a fresh application state volume}
+      HITO_COMMUNITY_CREDENTIAL_VOLUME: ${HITO_COMMUNITY_CREDENTIAL_VOLUME:?Set a fresh private credential volume}
+      HITO_COMMUNITY_VERIFY_VOLUME: ${HITO_COMMUNITY_VERIFY_VOLUME:?Set a distinct fresh private verification volume}
+    volumes:
+      - type: bind
+        source: ./verify.py
+        target: /opt/hito-community-verify.py
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: volume
+        source: community-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+      - type: volume
+        source: community-verification
+        target: /var/lib/hito-community-verify
+        volume:
+          nocopy: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=8m,noexec,nosuid,nodev
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 16
+    mem_limit: 64m
+    cpus: "0.5"
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"
+  community-verify-logs:
+    extends:
+      service: community-verify
+    network_mode: none
+    command: [logs]
+    stdin_open: true
+volumes:
+  community-verification:
+    external: true
+    name: ${HITO_COMMUNITY_VERIFY_VOLUME:?Set a distinct fresh private verification volume}
