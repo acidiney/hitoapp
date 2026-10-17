@@ -15,6 +15,7 @@ type View = {
 type Owner = {
   view: View;
   generation: number;
+  requested: boolean;
   choiceRevision: number | undefined;
   read: AbortController | null;
   confirmations: Set<AbortController>;
@@ -54,6 +55,7 @@ export function useSourceAvailability(
         revision: 0,
       },
       generation: 0,
+      requested: false,
       choiceRevision,
       read: null,
       confirmations: new Set(),
@@ -90,6 +92,7 @@ export function useSourceAvailability(
       owner.read === controller &&
       owner.generation === generation;
     owner.read = controller;
+    owner.requested = true;
     publish({ pending: true, verified: false, error: "" });
     const started = performance.now();
     const fields = {
@@ -150,6 +153,7 @@ export function useSourceAvailability(
       const generation = owner.generation;
       const controller = new AbortController();
       owner.confirmations.add(controller);
+      owner.requested = true;
       const combined = AbortSignal.any([
         request.signal,
         signal,
@@ -203,10 +207,7 @@ export function useSourceAvailability(
     const previous = owner.choiceRevision;
     owner.choiceRevision = choiceRevision;
     if (previous === undefined || previous === choiceRevision) return;
-    const observed =
-      owner.view.sources !== null ||
-      owner.read !== null ||
-      owner.confirmations.size > 0;
+    const observed = owner.requested;
     owner.generation++;
     owner.read?.abort();
     owner.read = null;
