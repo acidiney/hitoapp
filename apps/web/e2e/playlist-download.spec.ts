@@ -1,16 +1,37 @@
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test as baseTest, type Route } from "@playwright/test";
 import type { components } from "../src/generated";
 import { preparePlaylistDownload } from "./fixtures/playlist-download";
 import { providerFixture } from "./fixtures/provider";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const optedIn = process.env.HITO_PLAYLIST_DOWNLOAD_E2E === "1";
+const test = baseTest.extend<{ playlistDownloadPrivacy: void }>({
+  playlistDownloadPrivacy: [
+    async ({}, use) => {
+      if (!optedIn) {
+        await use();
+        return;
+      }
+      const previous = process.env.PLAYWRIGHT_NO_COPY_PROMPT;
+      process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+      try {
+        await use();
+      } finally {
+        if (previous === undefined)
+          delete process.env.PLAYWRIGHT_NO_COPY_PROMPT;
+        else process.env.PLAYWRIGHT_NO_COPY_PROMPT = previous;
+      }
+    },
+    { auto: true },
+  ],
+});
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 
 test.describe("explicit persistent playlist download", () => {
   test.skip(
-    process.env.HITO_PLAYLIST_DOWNLOAD_E2E !== "1",
+    !optedIn,
     "Requires an opted-in fresh disposable playlist download server",
   );
 
@@ -20,41 +41,66 @@ test.describe("explicit persistent playlist download", () => {
     baseURL,
   }) => {
     test.setTimeout(90_000);
-    if (!baseURL)
-      throw new Error("The disposable server URL must be configured");
-    const fixture = await providerFixture("Download");
-    const origin = new URL(baseURL).origin;
     const creations: string[] = [];
     const removals: string[] = [];
+    let provider: Awaited<ReturnType<typeof providerFixture>> | null = null;
+    let phase = "configuration";
+    let failedPhase: string | null = null;
     let downloadPath = "";
     let individualWrites = 0;
     let browserAudioRequests = 0;
     let statusChecks = 0;
     let pageErrors = 0;
-    page.on("pageerror", () => pageErrors++);
-    context.on("request", (request) => {
-      const url = new URL(request.url());
-      if (url.origin !== origin) return;
-      if (/^\/api\/v1\/sources\/[0-9a-f-]+\/audio$/.test(url.pathname))
-        browserAudioRequests++;
-      if (
-        request.method() === "POST" &&
-        /^\/api\/v1\/recordings\/[0-9a-f-]+\/download$/.test(url.pathname)
-      )
-        individualWrites++;
-      if (url.pathname === downloadPath) {
-        if (request.method() === "POST") {
-          const body: Schema["DownloadRequest"] = request.postDataJSON();
-          creations.push(body.request_id);
-        } else if (request.method() === "GET") statusChecks++;
+    let callbackFailures = 0;
+    let cleanupFailures = 0;
+    const closePrivatePage = async () => {
+      if (page.isClosed()) return;
+      try {
+        await page.close({ runBeforeUnload: false });
+      } catch {
+        cleanupFailures++;
+        try {
+          await context.close();
+        } catch {
+          cleanupFailures++;
+        }
       }
-      if (
-        request.method() === "DELETE" &&
-        /^\/api\/v1\/downloads\/[0-9a-f-]+$/.test(url.pathname)
-      )
-        removals.push(url.pathname);
-    });
+    };
     try {
+      if (!baseURL)
+        throw new Error("The disposable server URL must be configured");
+      const origin = new URL(baseURL).origin;
+      phase = "provider_fixture";
+      const fixture = await providerFixture("Download");
+      provider = fixture;
+      page.on("pageerror", () => pageErrors++);
+      context.on("request", (request) => {
+        try {
+          const url = new URL(request.url());
+          if (url.origin !== origin) return;
+          if (/^\/api\/v1\/sources\/[0-9a-f-]+\/audio$/.test(url.pathname))
+            browserAudioRequests++;
+          if (
+            request.method() === "POST" &&
+            /^\/api\/v1\/recordings\/[0-9a-f-]+\/download$/.test(url.pathname)
+          )
+            individualWrites++;
+          if (url.pathname === downloadPath) {
+            if (request.method() === "POST") {
+              const body: Schema["DownloadRequest"] = request.postDataJSON();
+              creations.push(body.request_id);
+            } else if (request.method() === "GET") statusChecks++;
+          }
+          if (
+            request.method() === "DELETE" &&
+            /^\/api\/v1\/downloads\/[0-9a-f-]+$/.test(url.pathname)
+          )
+            removals.push(url.pathname);
+        } catch {
+          callbackFailures++;
+        }
+      });
+      phase = "setup";
       const library = await preparePlaylistDownload(page, baseURL, fixture);
       downloadPath = library.downloadPath;
       fixture.failSource(fixture.source, 503);
@@ -80,13 +126,17 @@ test.describe("explicit persistent playlist download", () => {
         await audio.evaluate((element: HTMLAudioElement) => element.paused),
       ).toBe(true);
 
-      const initialResponse = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === downloadPath &&
-          response.request().method() === "POST",
-      );
+      phase = "initial_download";
+      const initialResponse = page
+        .waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === downloadPath &&
+            response.request().method() === "POST",
+        )
+        .catch(() => null);
       await download.click();
       const initial = await initialResponse;
+      if (initial === null) throw new Error("The initial response must arrive");
       expect(initial.status()).toBe(202);
       const accepted: Schema["PlaylistDownloadReceipt"] = await initial.json();
       expect(
@@ -98,6 +148,7 @@ test.describe("explicit persistent playlist download", () => {
           creations[0] === accepted.request_id &&
           uuid.test(creations[0]),
       ).toBe(true);
+      phase = "terminal_failure";
       await expect(
         section.getByText("2 entries could not be downloaded.", {
           exact: true,
@@ -118,21 +169,31 @@ test.describe("explicit persistent playlist download", () => {
       await library.assertNoIndividualDownload(page);
       await library.assertRetained(page);
 
+      phase = "retry_lost_acknowledgement";
       fixture.failSource(fixture.source, 0);
       let committed = false;
       const lostReceipts: Schema["PlaylistDownloadReceipt"][] = [];
       const routePattern = `**${downloadPath}`;
       const loseAcknowledgement = async (route: Route) => {
-        if (route.request().method() !== "POST" || committed) {
-          await route.continue();
-          return;
+        try {
+          if (route.request().method() !== "POST" || committed) {
+            await route.continue();
+            return;
+          }
+          const actual = await route.fetch();
+          expect(actual.status()).toBe(202);
+          lostReceipts.push(await actual.json());
+          committed = true;
+          await actual.dispose();
+          await route.abort("failed");
+        } catch {
+          callbackFailures++;
+          try {
+            await route.abort("failed");
+          } catch {
+            callbackFailures++;
+          }
         }
-        const actual = await route.fetch();
-        expect(actual.status()).toBe(202);
-        lostReceipts.push(await actual.json());
-        committed = true;
-        await actual.dispose();
-        await route.abort("failed");
       };
       await page.route(routePattern, loseAcknowledgement);
       await section
@@ -157,15 +218,19 @@ test.describe("explicit persistent playlist download", () => {
           lostReceipt.request_id === creations[1],
       ).toBe(true);
       await page.unroute(routePattern, loseAcknowledgement);
-      const replayResponse = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === downloadPath &&
-          response.request().method() === "POST",
-      );
+      phase = "retry_confirmation";
+      const replayResponse = page
+        .waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === downloadPath &&
+            response.request().method() === "POST",
+        )
+        .catch(() => null);
       const checksBeforeRecovery = statusChecks;
       const retryStarted = Date.now();
       await recoverRequest.click();
       const replay = await replayResponse;
+      if (replay === null) throw new Error("The replay response must arrive");
       expect(replay.status()).toBe(202);
       const replayed: Schema["PlaylistDownloadReceipt"] = await replay.json();
       expect(
@@ -176,6 +241,7 @@ test.describe("explicit persistent playlist download", () => {
       expect(creations.length === 3 && creations[2] === creations[1]).toBe(
         true,
       );
+      phase = "natural_readiness";
       await expect(section.getByRole("status")).toHaveText(
         "2 of 2 entries saved.",
         { timeout: 36_000 },
@@ -206,6 +272,7 @@ test.describe("explicit persistent playlist download", () => {
       await library.assertNoIndividualDownload(page);
       await library.assertRetained(page);
 
+      phase = "navigation_reload";
       await page
         .getByRole("navigation", { name: "Main navigation" })
         .getByRole("link", { name: "History", exact: true })
@@ -229,6 +296,7 @@ test.describe("explicit persistent playlist download", () => {
       expect(creations.length).toBe(3);
       expect(browserAudioRequests).toBe(0);
 
+      phase = "managed_playback";
       fixture.failSource(fixture.source, 503);
       await library.assertOwnedAudio(page, source);
       const providerReads = fixture.requests.length;
@@ -260,16 +328,21 @@ test.describe("explicit persistent playlist download", () => {
         )
         .toBe(true);
 
+      phase = "removal";
       const removalPath = `/api/v1/downloads/${accepted.retention_id}`;
-      const removedResponse = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === removalPath &&
-          response.request().method() === "DELETE",
-      );
+      const removedResponse = page
+        .waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === removalPath &&
+            response.request().method() === "DELETE",
+        )
+        .catch(() => null);
       await section
         .getByRole("button", { name: "Remove download", exact: true })
         .click();
-      expect((await removedResponse).status()).toBe(204);
+      const removed = await removedResponse;
+      if (removed === null) throw new Error("The removal response must arrive");
+      expect(removed.status()).toBe(204);
       await expect(
         section.getByRole("button", { name: "Download", exact: true }),
       ).toBeEnabled();
@@ -290,8 +363,38 @@ test.describe("explicit persistent playlist download", () => {
       await library.assertNoIndividualDownload(page);
       await library.assertRetained(page);
       expect(pageErrors).toBe(0);
+      expect(callbackFailures).toBe(0);
+    } catch {
+      failedPhase = phase;
     } finally {
-      await fixture.close();
+      if (failedPhase !== null) await closePrivatePage();
+      try {
+        await provider?.close();
+      } catch {
+        cleanupFailures++;
+        failedPhase ??= "provider_cleanup";
+      }
+      if (callbackFailures > 0) failedPhase ??= "browser_callback";
+      if (failedPhase !== null) await closePrivatePage();
+    }
+    if (failedPhase !== null) {
+      const failure = new Error(
+        `Playlist download check failed: ${failedPhase}; counts=${JSON.stringify(
+          {
+            creations: creations.length,
+            removals: removals.length,
+            provider_requests: provider?.requests.length ?? 0,
+            individual_writes: individualWrites,
+            browser_audio_requests: browserAudioRequests,
+            status_checks: statusChecks,
+            page_errors: pageErrors,
+            callback_failures: callbackFailures,
+            cleanup_failures: cleanupFailures,
+          },
+        )}`,
+      );
+      failure.stack = failure.message;
+      throw failure;
     }
   });
 });
