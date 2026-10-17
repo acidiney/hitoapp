@@ -1,4 +1,5 @@
 #[path = "fixtures/playlist_download_fixture.rs"]
+#[allow(dead_code)]
 mod fixture;
 #[path = "fixtures/playlist_download_fresh_fixture.rs"]
 mod fresh;
