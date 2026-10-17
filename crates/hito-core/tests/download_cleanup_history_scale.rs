@@ -115,6 +115,134 @@ async fn managed_source_cleanup_does_not_scan_inactive_download_intent_history()
     }
 }
 
+#[tokio::test]
+async fn managed_source_cleanup_does_not_scan_unrelated_catalog_recordings() {
+    for statistics in ["none", "before-growth", "after-growth"] {
+        let library = AudioLibrary::start().await;
+        library.ready().await;
+        let accepted = library
+            .hito
+            .downloads
+            .create(
+                &library.actor,
+                &library.source.recording_id,
+                DownloadRequest {
+                    request_id: Uuid::new_v4(),
+                },
+            )
+            .await
+            .unwrap();
+        assert!(
+            library
+                .hito
+                .downloads
+                .run_next_job_until(pending())
+                .await
+                .unwrap()
+        );
+        library.hito.downloads.finish_downloads().await.unwrap();
+        let ready = library
+            .hito
+            .downloads
+            .status(&library.actor, &library.source.recording_id)
+            .await
+            .unwrap();
+        assert!(matches!(ready.status, DownloadState::Ready));
+        assert_eq!(ready.intent_id, accepted.intent_id);
+        let source = ready.source_id.as_deref().unwrap();
+        assert_ne!(source, library.source.id.as_str());
+        let options = SqliteConnectOptions::new()
+            .filename(library.directory.path().join("hito.db"))
+            .foreign_keys(true);
+        let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+        let file: String = sqlx::query_scalar(
+            "SELECT intent.file_id FROM download_retentions root
+            JOIN download_intents intent ON intent.id=root.transfer_id WHERE root.id=?",
+        )
+        .bind(&accepted.intent_id)
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+        let initial: i64 = sqlx::query_scalar("SELECT count(*) FROM recordings")
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+        catalog_history(
+            &mut connection,
+            &library.source.recording_id,
+            1,
+            32,
+            initial,
+        )
+        .await;
+        if statistics == "before-growth" {
+            sqlx::query("ANALYZE")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+        }
+        connection.close().await.unwrap();
+        let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+        let small = delete_and_rollback(&mut connection, source, &file, 0).await;
+        assert_ready(&library, &ready).await;
+        catalog_history(
+            &mut connection,
+            &library.source.recording_id,
+            33,
+            20_000,
+            initial,
+        )
+        .await;
+        if statistics == "after-growth" {
+            sqlx::query("ANALYZE")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+        }
+        connection.close().await.unwrap();
+        let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+        let large = delete_and_rollback(&mut connection, source, &file, 0).await;
+        assert_ready(&library, &ready).await;
+        connection.close().await.unwrap();
+        eprintln!(
+            "Managed-source cleanup DELETE statistics={statistics} unrelated_recordings=32->20000 VM_steps~small:{} large:{} plan={:?}",
+            small.steps, large.steps, large.plan
+        );
+        assert!(
+            large.steps < 10_000,
+            "{statistics}: actual managed source DELETE scanned unrelated catalog recordings in {} VM steps: {:?}",
+            large.steps,
+            large.plan
+        );
+        assert!(
+            large.steps <= small.steps + 2000,
+            "{statistics}: unrelated catalog recordings grew actual managed source DELETE from {} to {} VM steps: {:?}",
+            small.steps,
+            large.steps,
+            large.plan
+        );
+    }
+}
+
+async fn catalog_history(
+    connection: &mut SqliteConnection,
+    recording: &str,
+    first: i64,
+    last: i64,
+    initial: i64,
+) {
+    let inserted = sqlx::query("WITH RECURSIVE n(i) AS (VALUES(?) UNION ALL SELECT i+1 FROM n WHERE i<?)
+        INSERT INTO recordings(id,library_id,title,artist,provenance,metadata_source_id)
+        SELECT printf('50000000-0000-4000-8000-%012x',n.i),r.library_id,'Owned unavailable diagnostic recording',r.artist,'provider_response',NULL
+        FROM n CROSS JOIN recordings r WHERE r.id=?")
+        .bind(first).bind(last).bind(recording).execute(&mut *connection).await.unwrap();
+    assert_eq!(inserted.rows_affected(), (last - first + 1) as u64);
+    let (total, unavailable): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(id LIKE '50000000-0000-4000-8000-%' AND metadata_source_id IS NULL),0) FROM recordings")
+        .fetch_one(&mut *connection).await.unwrap();
+    assert_eq!((total, unavailable), (initial + last, last));
+    foreign_keys(connection).await;
+}
+
 fn statement(prefix: &str) -> &'static str {
     let start = CLEANUP
         .find(prefix)
@@ -174,6 +302,12 @@ async fn metadata(connection: &mut SqliteConnection) -> Vec<IntentMetadata> {
     .unwrap()
 }
 
+async fn catalog_metadata(connection: &mut SqliteConnection) -> Vec<String> {
+    sqlx::query_scalar("SELECT json_array(rowid,id,library_id,release_id,title,artist,duration_ms,initial_file_checksum,
+        provenance,metadata_source_id,metadata_observation_id,metadata_binding_id) FROM recordings ORDER BY rowid")
+        .fetch_all(connection).await.unwrap()
+}
+
 async fn delete_and_rollback(
     connection: &mut SqliteConnection,
     source: &str,
@@ -182,6 +316,7 @@ async fn delete_and_rollback(
 ) -> Measurement {
     foreign_keys(connection).await;
     let before = metadata(connection).await;
+    let before_catalog = catalog_metadata(connection).await;
     assert_eq!(before.len() as i64, history + 1);
     let before_file: (String, Option<String>) =
         sqlx::query_as("SELECT state,source_id FROM download_files WHERE id=?")
@@ -237,6 +372,7 @@ async fn delete_and_rollback(
         .await
         .unwrap();
     let during = metadata(&mut tx).await;
+    let during_catalog = catalog_metadata(&mut tx).await;
     foreign_keys(&mut tx).await;
     let rollback = tx.rollback().await;
     let restored: i64 = sqlx::query_scalar("SELECT count(*) FROM sources WHERE id=?")
@@ -251,6 +387,7 @@ async fn delete_and_rollback(
             .await
             .unwrap();
     let after = metadata(connection).await;
+    let after_catalog = catalog_metadata(connection).await;
     foreign_keys(connection).await;
     assert!(rollback.is_ok(), "the cleanup probe must roll back");
     assert!(
@@ -263,6 +400,14 @@ async fn delete_and_rollback(
     assert_eq!(restored, 1);
     assert_eq!(during, before, "source deletion must preserve every intent");
     assert_eq!(after, before, "rollback must preserve every intent");
+    assert!(
+        during_catalog == before_catalog,
+        "source deletion must preserve every recording"
+    );
+    assert!(
+        after_catalog == before_catalog,
+        "rollback must preserve every recording"
+    );
     assert_eq!(
         after_file, before_file,
         "rollback must restore the ready file"
