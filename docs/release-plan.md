@@ -15,7 +15,7 @@ This file preserves the requested scope. A working development deployment does n
 ## Library, identity, and sync
 
 - Automatic standard Music-folder scanning on desktop; additional folders and drives.
-- Read tags before optional enrichment, including MusicBrainz. Enrichment can be disabled.
+- Read tags before optional enrichment. MusicBrainz is the built-in default metadata provider, ready to use without a separate plugin deployment. Users can replace it with compatible HTTP metadata plugins or disable enrichment. The built-in provider and external plugins use shared capability contracts; Hito owns rendering and preserves provenance and personal overrides.
 - Standalone SQLite; server-authoritative remote mode with local cache and durable offline operations.
 - Stable playlist-entry IDs, idempotency, independent offline merges, deletion wins, conflicting fields ordered by server acceptance.
 - Device-only files available on their owning device. Other devices need another source.
