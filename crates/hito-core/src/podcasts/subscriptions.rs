@@ -7,6 +7,16 @@ use crate::{Actor, Error, Result};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+#[derive(sqlx::FromRow)]
+struct SubscriptionRow {
+    id: String,
+    title: Option<String>,
+    refresh_pending: bool,
+    refresh_failed: bool,
+    last_refreshed_at: Option<i64>,
+    content_revision: i64,
+}
+
 impl Podcasts {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), request_id = %request.request_id))]
     pub async fn subscribe(
@@ -162,15 +172,27 @@ impl Podcasts {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn subscriptions(&self, actor: &Actor) -> Result<Vec<PodcastSubscription>> {
         actor.check_session(&self.store).await?;
-        let rows: Vec<(String, Option<String>)> = sqlx::query_as(
-            "SELECT p.id,p.title FROM podcast_subscriptions p JOIN current_podcast_authority a ON a.id=p.id WHERE p.user_id=? ORDER BY p.created_at,p.id LIMIT 100",
-        ).bind(actor.id()).fetch_all(&self.store.pool).await?;
+        let rows: Vec<SubscriptionRow> = sqlx::query_as(
+            "SELECT p.id,p.title,j.id IS NOT NULL AS refresh_pending,
+                p.error IS NOT NULL AS refresh_failed,p.last_refreshed_at,p.content_revision
+             FROM podcast_subscriptions p JOIN current_podcast_authority a ON a.id=p.id
+             LEFT JOIN podcast_refresh_jobs j ON j.subscription_id=p.id
+                AND j.generation=p.generation AND j.status IN ('queued','running')
+             WHERE p.user_id=? ORDER BY p.created_at,p.id LIMIT 100",
+        )
+        .bind(actor.id())
+        .fetch_all(&self.store.pool)
+        .await?;
         let result = rows
             .into_iter()
-            .map(|(id, title)| {
+            .map(|row| {
                 Ok(PodcastSubscription {
-                    subscription_id: identity(&id)?,
-                    title,
+                    subscription_id: identity(&row.id)?,
+                    title: row.title,
+                    refresh_pending: row.refresh_pending,
+                    refresh_failed: row.refresh_failed,
+                    last_refreshed_at: row.last_refreshed_at,
+                    content_revision: row.content_revision,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

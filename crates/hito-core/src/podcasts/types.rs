@@ -46,6 +46,10 @@ pub struct PodcastSubscriptionReceipt {
 pub struct PodcastSubscription {
     pub subscription_id: Uuid,
     pub title: Option<String>,
+    pub refresh_pending: bool,
+    pub refresh_failed: bool,
+    pub last_refreshed_at: Option<i64>,
+    pub content_revision: i64,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -67,4 +71,5 @@ pub struct PodcastEpisodePage {
     pub total: i64,
     pub limit: u16,
     pub next_cursor: Option<String>,
+    pub content_revision: i64,
 }

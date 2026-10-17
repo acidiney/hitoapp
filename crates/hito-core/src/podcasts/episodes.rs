@@ -129,6 +129,7 @@ impl Podcasts {
             total,
             limit,
             next_cursor,
+            content_revision: revision,
         })
     }
 }
