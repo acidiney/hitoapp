@@ -2,6 +2,7 @@
 mod fixture;
 #[path = "fixtures/download_host.rs"]
 mod host;
+#[allow(dead_code)]
 #[path = "fixtures/artwork_http.rs"]
 mod http;
 
@@ -109,18 +110,26 @@ async fn exercise(address: SocketAddr, capable: &Provider, sources_only: &Provid
         recording["library_id"].as_str().unwrap(),
         listener["id"].as_str().unwrap()
     );
+    let counts = (capable.requests(), sources_only.requests());
     request(
         address,
         "PUT",
         &access,
         Value::Null,
         Some(token),
-        StatusCode::NO_CONTENT,
+        StatusCode::UNPROCESSABLE_ENTITY,
     )
     .await;
-    let listener_sources = sources(address, listener_token, &path, capable).await;
-    assert!(listener_sources.as_array().unwrap().is_empty());
-    let counts = (capable.requests(), sources_only.requests());
+    let listener_sources = request(
+        address,
+        "GET",
+        &path,
+        Value::Null,
+        Some(listener_token),
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+    assert_private_sources(&listener_sources, capable);
     let response = http::call(
         address,
         "POST",
