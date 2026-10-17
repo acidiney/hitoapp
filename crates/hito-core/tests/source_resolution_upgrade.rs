@@ -105,13 +105,14 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 38);
+    assert_eq!(version, 39);
     for table in [
         "recording_source_choices",
         "source_resolutions",
         "source_resolution_receipts",
         "automatic_source_decisions",
         "source_choice_receipts",
+        "source_choice_reset_receipts",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&pool)
