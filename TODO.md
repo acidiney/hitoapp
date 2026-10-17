@@ -64,6 +64,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Define and implement Download behavior for existing user-owned local originals.
 - [ ] Keep followed downloads synchronized with reference counting; preserve originals and library records.
 - [ ] Separate temporary playback cache from persistent downloads; handle disk exhaustion and interrupted transfers.
+- [ ] Add configurable automatic storage cleanup for all Hito-managed media, including music, podcast episodes, audiobooks and associated media assets. Rank eligible saved copies by playback frequency and recency within a storage budget, reclaim less-used media and retrieve it again on demand. Expose a visible feature flag users can disable. Preserve user-owned originals, library records, metadata, progress and shared retention references. Define the default setting and how explicit Download / Keep offline selections are protected before implementation; verify unavailable sources, offline playback and shared copies.
 
 ## Providers and content
 
