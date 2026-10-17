@@ -5,6 +5,7 @@ use serde_json::json;
 
 pub(super) struct PlaylistProvider {
     pub server: ProviderServer,
+    pub installation_id: String,
     pub import_path: String,
     pub revision: i64,
 }
@@ -82,6 +83,7 @@ pub(super) async fn connect(app: &Router, token: &str) -> PlaylistProvider {
     assert_eq!(status, StatusCode::CREATED);
     PlaylistProvider {
         server,
+        installation_id: installation["id"].as_str().unwrap().to_owned(),
         import_path: format!(
             "/api/v1/plugins/{}/playlists/import",
             installation["id"].as_str().unwrap()

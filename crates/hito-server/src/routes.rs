@@ -1,8 +1,8 @@
 use crate::{
     Config,
     api::{
-        self, browsing, catalog, collection, identity, jobs, player, plugin_authorization, plugins,
-        providers, source_bindings, source_refresh, storage,
+        self, browsing, catalog, collection, identity, jobs, player, playlist_follow,
+        plugin_authorization, plugins, providers, source_bindings, source_refresh, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -89,6 +89,9 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
         .routes(routes!(collection::import_provider_playlist))
+        .routes(routes!(playlist_follow::follow_provider_playlist))
+        .routes(routes!(playlist_follow::playlist_follow))
+        .routes(routes!(playlist_follow::refresh_followed_playlist))
         .routes(routes!(collection::sync, collection::sync_events))
         .routes(routes!(collection::activity));
     router = router
