@@ -388,6 +388,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/playlists/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["playlist_download"];
+        put?: never;
+        post: operations["download_playlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/playlists/{id}/follow": {
         parameters: {
             query?: never;
@@ -1692,6 +1708,35 @@ export interface components {
             follow_content_revision?: number | null;
             origin?: components["schemas"]["ImportedPlaylistOrigin"] | null;
             playlist: components["schemas"]["Playlist"];
+        };
+        PlaylistDownloadEntries: {
+            items: components["schemas"]["PlaylistDownloadEntry"][];
+            next_cursor?: string | null;
+        };
+        PlaylistDownloadEntry: {
+            entry_id: string;
+            error?: string | null;
+            recording_id?: string | null;
+            source_id?: string | null;
+            status: components["schemas"]["PlaylistDownloadEntryState"];
+        };
+        /** @enum {string} */
+        PlaylistDownloadEntryState: "pending" | "waiting_for_source" | "queued" | "running" | "verifying" | "ready" | "failed" | "unavailable";
+        PlaylistDownloadReceipt: {
+            playlist_id: string;
+            /** Format: uuid */
+            request_id: string;
+            retention_id: string;
+        };
+        PlaylistDownloadStatus: {
+            /** Format: int64 */
+            desired_revision: number;
+            entries: components["schemas"]["PlaylistDownloadEntries"];
+            host_device_id: string;
+            playlist_id: string;
+            /** Format: int64 */
+            reconciled_revision: number;
+            retention_id: string;
         };
         PlaylistEntry: {
             artist: string;
@@ -3499,6 +3544,183 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    playlist_download: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDownloadStatus"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_playlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DownloadRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDownloadReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

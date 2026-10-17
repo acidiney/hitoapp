@@ -1947,6 +1947,244 @@
         ]
       }
     },
+    "/api/v1/playlists/{id}/download": {
+      "get": {
+        "operationId": "playlist_download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistDownloadStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "download_playlist",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistDownloadReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/playlists/{id}/follow": {
       "get": {
         "operationId": "playlist_follow",
@@ -8360,6 +8598,125 @@
           },
           "playlist": {
             "$ref": "#/components/schemas/Playlist"
+          }
+        }
+      },
+      "PlaylistDownloadEntries": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaylistDownloadEntry"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PlaylistDownloadEntry": {
+        "type": "object",
+        "required": [
+          "entry_id",
+          "status"
+        ],
+        "properties": {
+          "entry_id": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlaylistDownloadEntryState"
+          }
+        }
+      },
+      "PlaylistDownloadEntryState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "waiting_for_source",
+          "queued",
+          "running",
+          "verifying",
+          "ready",
+          "failed",
+          "unavailable"
+        ]
+      },
+      "PlaylistDownloadReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "retention_id",
+          "playlist_id"
+        ],
+        "properties": {
+          "playlist_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "retention_id": {
+            "type": "string"
+          }
+        }
+      },
+      "PlaylistDownloadStatus": {
+        "type": "object",
+        "required": [
+          "retention_id",
+          "playlist_id",
+          "host_device_id",
+          "desired_revision",
+          "reconciled_revision",
+          "entries"
+        ],
+        "properties": {
+          "desired_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "entries": {
+            "$ref": "#/components/schemas/PlaylistDownloadEntries"
+          },
+          "host_device_id": {
+            "type": "string"
+          },
+          "playlist_id": {
+            "type": "string"
+          },
+          "reconciled_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retention_id": {
+            "type": "string"
           }
         }
       },
