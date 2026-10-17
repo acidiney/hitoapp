@@ -322,13 +322,32 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
         original_audio
     );
     let mut database = upgrade::connect(&baseline).await;
+    let migrations = sqlx::migrate!("./migrations");
+    let latest = migrations
+        .iter()
+        .map(|migration| migration.version)
+        .max()
+        .unwrap();
+    let follow = migrations
+        .iter()
+        .find(|migration| migration.version == 28)
+        .unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT max(version) FROM _sqlx_migrations")
             .fetch_one(&mut database)
             .await
             .unwrap(),
-        28
+        latest
     );
+    let applied_follow: Vec<(i64, Vec<u8>, bool)> =
+        sqlx::query_as("SELECT version,checksum,success FROM _sqlx_migrations WHERE version=28")
+            .fetch_all(&mut database)
+            .await
+            .unwrap();
+    assert_eq!(applied_follow.len(), 1);
+    assert_eq!(applied_follow[0].0, 28);
+    assert_eq!(applied_follow[0].1.as_slice(), follow.checksum.as_ref());
+    assert!(applied_follow[0].2);
     assert_eq!(
         sqlx::query_as::<_, (String, i64)>(
             "SELECT playlist_id,rowid FROM playlist_import_receipts ORDER BY playlist_id",
