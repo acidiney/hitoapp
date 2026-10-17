@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
 import { playlistFollowApi } from "../playlistFollowApi";
 import { HttpError } from "../http";
@@ -31,7 +31,11 @@ function busy(follow: PlaylistFollow | null) {
   return follow?.status === "queued" || follow?.status === "running";
 }
 
-export function usePlaylistFollow(account: string, playlist: string | null) {
+export function usePlaylistFollow(
+  account: string,
+  playlist: string | null,
+  renderedSnapshot: string | null,
+) {
   const scope = useRequestScope(JSON.stringify([account, playlist]));
   const owner = useMemo<FollowOwner>(
     () => ({
@@ -46,6 +50,8 @@ export function usePlaylistFollow(account: string, playlist: string | null) {
     }),
     [account, playlist],
   );
+  const rendered = useRef({ owner, snapshot: renderedSnapshot });
+  rendered.current = { owner, snapshot: renderedSnapshot };
   const [state, setState] = useState<FollowState | null>(null);
   const current = state?.owner === owner ? state : null;
 
@@ -95,6 +101,11 @@ export function usePlaylistFollow(account: string, playlist: string | null) {
       if (follow.playlist_id !== playlist)
         throw new Error("Hito returned a different playlist status");
       const previous = owner.follow;
+      const initialContentChanged =
+        previous === null &&
+        rendered.current.owner === owner &&
+        rendered.current.snapshot !== null &&
+        rendered.current.snapshot !== follow.snapshot;
       const changed =
         previous !== null &&
         (previous.last_refreshed_at !== follow.last_refreshed_at ||
@@ -102,7 +113,9 @@ export function usePlaylistFollow(account: string, playlist: string | null) {
           previous.snapshot !== follow.snapshot);
       const reload =
         !busy(follow) &&
-        (owner.waiting || (follow.status === "ready" && changed));
+        (owner.waiting ||
+          initialContentChanged ||
+          (follow.status === "ready" && changed));
       owner.follow = follow;
       owner.waiting = busy(follow);
       owner.statusError = "";
