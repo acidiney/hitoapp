@@ -8,6 +8,8 @@ mod library_storage;
 mod maintenance;
 mod metadata;
 mod plugins;
+mod podcasts;
+mod remote_http;
 mod store;
 
 pub use catalog::{
@@ -51,6 +53,11 @@ pub use plugins::{
     PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginInstallation,
     PluginRefresh, PluginService, PluginSettings, Plugins, RefreshPlugin,
 };
+pub use podcasts::{
+    PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
+    PodcastSubscription, PodcastSubscriptionReceipt, Podcasts, RefreshPodcast, SubscribePodcast,
+};
+pub use remote_http::PodcastNetworkConfig;
 use store::Store;
 
 #[derive(Clone)]
@@ -61,6 +68,7 @@ pub struct Services {
     pub storage: LibraryStorage,
     pub plugins: Plugins,
     pub downloads: Downloads,
+    pub podcasts: Podcasts,
     store: Store,
 }
 
@@ -78,21 +86,27 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let managed =
         library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
     let plugins = Plugins::new(store.clone(), &config.database).await?;
+    let catalog = Catalog {
+        plugins: plugins.clone(),
+        store: store.clone(),
+        host: config.host_device.clone(),
+        artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+        provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+        resolution_callers: Default::default(),
+        directories: storage.directories.clone(),
+        managed: managed.clone(),
+    };
     tracing::info!("Core services ready");
     Ok(Services {
         identity: Identity {
             store: store.clone(),
         },
-        catalog: Catalog {
-            plugins: plugins.clone(),
+        podcasts: Podcasts {
             store: store.clone(),
-            host: config.host_device.clone(),
-            artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
-            provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
-            resolution_callers: Default::default(),
-            directories: storage.directories.clone(),
-            managed: managed.clone(),
+            catalog: catalog.clone(),
+            remote: remote_http::RemoteHttp::new(&config.podcast_network),
         },
+        catalog,
         collection: Collection {
             store: store.clone(),
             host: config.host_device.clone(),

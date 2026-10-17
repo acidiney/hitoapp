@@ -47,6 +47,7 @@ pub struct CoreConfig {
     pub storage: StorageConfig,
     pub host_device: HostDeviceId,
     pub media_tools: MediaTools,
+    pub podcast_network: crate::PodcastNetworkConfig,
 }
 
 impl CoreConfig {
@@ -56,6 +57,7 @@ impl CoreConfig {
             storage: StorageConfig::LegacyFolder(music_root),
             host_device,
             media_tools: MediaTools::default(),
+            podcast_network: Default::default(),
         }
     }
 
@@ -69,6 +71,7 @@ impl CoreConfig {
             storage: StorageConfig::SharedDirectories(directories),
             host_device,
             media_tools: MediaTools::default(),
+            podcast_network: Default::default(),
         }
     }
 }
