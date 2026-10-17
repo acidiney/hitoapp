@@ -1904,6 +1904,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-plugin-jamendo"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "futures-util",
+ "hito-plugin-sdk",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "hito-plugin-sdk"
 version = "0.1.0-dev"
 dependencies = [
