@@ -17,18 +17,31 @@ const LARGE: i64 = 4096;
 const FIXED_WORK: u64 = 200_000;
 const WORK_PER_BINDING: u64 = 2500;
 
-#[tokio::test]
-async fn rebuilding_provider_bindings_keeps_foreign_key_work_bounded_as_child_history_grows() {
-    let directory = tempfile::tempdir().unwrap();
-    let small = migrate(directory.path(), SMALL).await;
-    let large = migrate(directory.path(), LARGE).await;
-    assert!(
-        large <= small * 24 + FIXED_WORK,
-        "production binding upgrade work grew beyond the logarithmic index allowance: small={small}, large={large}"
-    );
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Statistics {
+    Absent,
+    BeforeGrowth,
+    AfterGrowth,
 }
 
-async fn migrate(directory: &Path, count: i64) -> u64 {
+#[tokio::test]
+async fn rebuilding_provider_bindings_keeps_foreign_key_work_bounded_as_child_history_grows() {
+    for statistics in [
+        Statistics::Absent,
+        Statistics::BeforeGrowth,
+        Statistics::AfterGrowth,
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let small = migrate(directory.path(), SMALL, statistics).await;
+        let large = migrate(directory.path(), LARGE, statistics).await;
+        assert!(
+            large <= small * 24 + FIXED_WORK,
+            "production binding upgrade work grew beyond the logarithmic index allowance with {statistics:?}: small={small}, large={large}"
+        );
+    }
+}
+
+async fn migrate(directory: &Path, count: i64, statistics: Statistics) -> u64 {
     let options = SqliteConnectOptions::new()
         .filename(directory.join(format!("bindings-{count}.db")))
         .create_if_missing(true)
@@ -56,14 +69,23 @@ async fn migrate(directory: &Path, count: i64) -> u64 {
         .execute(&mut connection)
         .await
         .unwrap();
-    sqlx::query("WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<?) INSERT INTO hito_resolution_work_numbers SELECT i FROM n")
-        .bind(count).execute(&mut connection).await.unwrap();
-    let mut transaction = connection.begin().await.unwrap();
-    sqlx::raw_sql(include_str!("fixtures/source_resolution_upgrade_work.sql"))
-        .execute(&mut *transaction)
-        .await
-        .unwrap();
-    transaction.commit().await.unwrap();
+    if statistics == Statistics::BeforeGrowth {
+        history(&mut connection, 1, 32).await;
+        sqlx::query("ANALYZE")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        history(&mut connection, 33, count).await;
+    } else {
+        history(&mut connection, 1, count).await;
+        if statistics == Statistics::AfterGrowth {
+            sqlx::query("ANALYZE")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+        }
+    }
+    assert_statistics(&mut connection, count, statistics).await;
     assert_fixture(&mut connection, count).await;
     connection.close().await.unwrap();
 
@@ -71,6 +93,7 @@ async fn migrate(directory: &Path, count: i64) -> u64 {
         .await
         .unwrap();
     assert_fixture(&mut connection, count).await;
+    assert_statistics(&mut connection, count, statistics).await;
     let budget = FIXED_WORK + (count as u64 + 3) * WORK_PER_BINDING;
     let steps = Arc::new(AtomicU64::new(0));
     let exceeded = Arc::new(AtomicBool::new(false));
@@ -120,7 +143,7 @@ async fn migrate(directory: &Path, count: i64) -> u64 {
     }
     connection.close().await.unwrap();
     eprintln!(
-        "Provider binding upgrade rows={} VM_steps~{work} budget={budget} progress_aborted={aborted}",
+        "Provider binding upgrade statistics={statistics:?} rows={} VM_steps~{work} budget={budget} progress_aborted={aborted}",
         count + 3
     );
     assert!(
@@ -134,6 +157,55 @@ async fn migrate(directory: &Path, count: i64) -> u64 {
     );
     assert!(work < budget);
     work
+}
+
+async fn history(connection: &mut SqliteConnection, first: i64, last: i64) {
+    let mut transaction = connection.begin().await.unwrap();
+    sqlx::query("DELETE FROM hito_resolution_work_numbers")
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    sqlx::query("WITH RECURSIVE n(i) AS (VALUES(?) UNION ALL SELECT i+1 FROM n WHERE i<?) INSERT INTO hito_resolution_work_numbers SELECT i FROM n")
+        .bind(first).bind(last).execute(&mut *transaction).await.unwrap();
+    sqlx::raw_sql(include_str!("fixtures/source_resolution_upgrade_work.sql"))
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    transaction.commit().await.unwrap();
+}
+
+async fn assert_statistics(connection: &mut SqliteConnection, count: i64, statistics: Statistics) {
+    let statistics_tables: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM sqlite_schema WHERE name='sqlite_stat1'")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+    if statistics == Statistics::Absent {
+        assert_eq!(
+            statistics_tables, 0,
+            "the absent-statistics case must not inherit ANALYZE output"
+        );
+        return;
+    }
+    assert_eq!(
+        statistics_tables, 1,
+        "the analyzed fixture must retain persisted planner statistics"
+    );
+    let stat: String =
+        sqlx::query_scalar("SELECT stat FROM sqlite_stat1 WHERE idx='provider_sources_recording'")
+            .fetch_one(connection)
+            .await
+            .unwrap();
+    let analyzed_rows: i64 = stat.split_whitespace().next().unwrap().parse().unwrap();
+    let expected_rows = match statistics {
+        Statistics::BeforeGrowth => 32 + 3,
+        Statistics::AfterGrowth => count + 3,
+        Statistics::Absent => unreachable!(),
+    };
+    assert_eq!(
+        analyzed_rows, expected_rows,
+        "the {statistics:?} fixture must retain statistics from its intended sample"
+    );
 }
 
 async fn assert_fixture(connection: &mut SqliteConnection, count: i64) {
