@@ -3,8 +3,10 @@ import EmptyState from "../components/EmptyState";
 import PageHeading from "../components/PageHeading";
 import PodcastEpisodes from "../components/podcasts/PodcastEpisodes";
 import PodcastStatus from "../components/podcasts/PodcastStatus";
+import PodcastControls from "../components/podcasts/PodcastControls";
 import { useMutation } from "../hooks/useMutation";
 import { usePodcastEpisodes } from "../hooks/usePodcastEpisodes";
+import { usePodcastRefresh } from "../hooks/usePodcastRefresh";
 import type { PodcastPageProps } from "../types";
 
 export default function PodcastPage({
@@ -21,17 +23,19 @@ export default function PodcastPage({
     episodes,
     progress,
   );
+  const refresh = usePodcastRefresh(user.id, subscription, workflow);
   return (
     <>
       <PageHeading
-        title={subscription.title || "Untitled podcast"}
+        title={refresh.subscription.title || "Untitled podcast"}
         description={`${workflow.page.total} ${workflow.page.total === 1 ? "episode" : "episodes"}`}
       >
         <Link className="button" href="/podcasts">
           All podcasts
         </Link>
       </PageHeading>
-      <PodcastStatus subscription={subscription} />
+      <PodcastStatus subscription={refresh.subscription} />
+      <PodcastControls {...refresh} />
       {workflow.loading && (
         <p role="status">Loading episodes and saved positions…</p>
       )}
@@ -40,7 +44,7 @@ export default function PodcastPage({
           <p role="alert">{workflow.error}</p>
           <button
             className="button"
-            disabled={workflow.loading}
+            disabled={workflow.loading || workflow.refreshing}
             onClick={() =>
               void (workflow.stale ? workflow.first() : workflow.retry())
             }
@@ -67,19 +71,25 @@ export default function PodcastPage({
         <nav className="pagination" aria-label="Episode pages">
           <button
             className="button"
-            disabled={workflow.loading || workflow.offset === 0}
+            disabled={
+              workflow.loading || workflow.refreshing || workflow.offset === 0
+            }
             onClick={() => void workflow.first()}
           >
             First episodes
           </button>
           <span>
             {workflow.offset + 1} to{" "}
-            {workflow.offset + workflow.page.items.length} of {workflow.page.total}
+            {workflow.offset + workflow.page.items.length} of{" "}
+            {workflow.page.total}
           </span>
           <button
             className="button"
             disabled={
-              workflow.loading || workflow.stale || !workflow.page.next_cursor
+              workflow.loading ||
+              workflow.refreshing ||
+              workflow.stale ||
+              !workflow.page.next_cursor
             }
             onClick={() => void workflow.next()}
           >

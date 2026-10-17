@@ -92,3 +92,5 @@ export type PodcastEpisode = Schema["PodcastEpisode"];
 export type PodcastEpisodePage = Schema["PodcastEpisodePage"];
 export type RecordingProgress = Schema["RecordingProgress"];
 export type SavedPlaybackRequest = Schema["SavedPlaybackRequest"];
+export type RefreshPodcast = Schema["RefreshPodcast"];
+export type PodcastRefreshReceipt = Schema["PodcastRefreshReceipt"];

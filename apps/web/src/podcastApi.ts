@@ -1,14 +1,32 @@
 import { request } from "./http";
 import type {
   PodcastEpisodePage,
+  PodcastRefreshReceipt,
   PodcastSubscription,
   PodcastSubscriptionReceipt,
   RecordingProgress,
+  RefreshPodcast,
   SavedPlaybackRequest,
   SubscribePodcast,
 } from "./types";
 
 export const podcastApi = {
+  async refresh(
+    account: string,
+    subscription: string,
+    body: Readonly<RefreshPodcast>,
+    signal: AbortSignal,
+  ): Promise<PodcastRefreshReceipt> {
+    return (
+      await request(`/podcasts/${encodeURIComponent(subscription)}/refresh`, {
+        action: "podcasts.refresh",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
   async episodes(
     account: string,
     subscription: string,
