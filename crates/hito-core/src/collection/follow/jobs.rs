@@ -29,6 +29,7 @@ impl Collection {
             WHERE f.playlist_id = ? AND f.user_id = ? AND f.active = 1")
             .bind(playlist).bind(actor.id()).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         check_authority(&mut tx, playlist).await?;
+        receipts::check_refresh_capacity(&mut tx, actor.id()).await?;
         let pending: Option<String> = sqlx::query_scalar("SELECT id FROM playlist_follow_jobs WHERE playlist_id = ? AND status IN ('queued','running')")
             .bind(playlist).fetch_optional(&mut *tx).await?;
         let job = if let Some(id) = pending {

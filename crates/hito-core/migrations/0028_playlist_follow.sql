@@ -102,8 +102,12 @@ CREATE TABLE playlist_follow_refresh_receipts (
     request_id TEXT NOT NULL,
     playlist_id TEXT NOT NULL REFERENCES playlist_follows(playlist_id),
     job_id TEXT NOT NULL REFERENCES playlist_follow_jobs(id),
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY(user_id,request_id)
 );
+CREATE INDEX playlist_follow_refresh_expiry ON playlist_follow_refresh_receipts(created_at);
+CREATE INDEX playlist_follow_refresh_account ON playlist_follow_refresh_receipts(user_id,created_at,request_id);
+CREATE INDEX playlist_follow_refresh_job ON playlist_follow_refresh_receipts(job_id);
 CREATE VIEW current_playlist_follow_authority AS
 SELECT f.playlist_id FROM playlist_follows f
 JOIN users account ON account.id = f.user_id

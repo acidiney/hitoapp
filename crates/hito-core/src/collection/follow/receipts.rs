@@ -4,6 +4,9 @@ use sha2::{Digest, Sha256};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
+const MAX_ACCOUNT_REFRESH_RECEIPTS: i64 = 256;
+const MAX_REFRESH_RECEIPTS: i64 = 4096;
+
 pub(super) fn fingerprint(installation: &str, request: &FollowProviderPlaylist) -> Result<String> {
     let bytes = serde_json::to_vec(&("hito-playlist-follow:v1", installation, request))
         .map_err(|_| Error::Internal("Playlist follow request could not be encoded".into()))?;
@@ -55,6 +58,30 @@ pub(super) async fn refresh(
             })
         })
         .transpose()
+}
+
+pub(super) async fn check_refresh_capacity(
+    connection: &mut SqliteConnection,
+    account: &str,
+) -> Result<()> {
+    let (account_count, total): (i64, i64) = sqlx::query_as(
+        "SELECT coalesce(sum(user_id = ?),0),count(*) FROM playlist_follow_refresh_receipts",
+    )
+    .bind(account)
+    .fetch_one(connection)
+    .await?;
+    if account_count >= MAX_ACCOUNT_REFRESH_RECEIPTS || total >= MAX_REFRESH_RECEIPTS {
+        tracing::debug!(
+            account_receipts = account_count,
+            total_receipts = total,
+            outcome = "capacity_reached",
+            "Manual follow refresh request rejected"
+        );
+        return Err(Error::Conflict(
+            "The retained manual playlist refresh request limit has been reached".into(),
+        ));
+    }
+    Ok(())
 }
 
 pub(super) fn identity(value: &str) -> Result<Uuid> {
