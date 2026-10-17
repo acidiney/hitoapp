@@ -41,6 +41,8 @@ CREATE TABLE playlist_follows (
     installation_revision INTEGER NOT NULL CHECK(installation_revision > 0),
     service_id TEXT NOT NULL REFERENCES plugin_services(id),
     service_revision INTEGER NOT NULL CHECK(service_revision > 0),
+    snapshot_installation_revision INTEGER NOT NULL CHECK(snapshot_installation_revision > 0),
+    snapshot_service_revision INTEGER NOT NULL CHECK(snapshot_service_revision > 0),
     provider TEXT NOT NULL,
     provider_playlist_id TEXT NOT NULL,
     snapshot TEXT NOT NULL,

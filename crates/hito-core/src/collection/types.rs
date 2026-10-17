@@ -66,6 +66,12 @@ pub enum Action {
     PlaylistDelete {
         playlist_id: Uuid,
     },
+    PlaylistFollowResume {
+        playlist_id: Uuid,
+        expected_generation: i64,
+        installation_revision: i64,
+        service_revision: i64,
+    },
     EntryInsert {
         playlist_id: Uuid,
         entry_id: Uuid,
@@ -99,6 +105,7 @@ impl Action {
             Self::PlaylistCreate { .. } => "playlist_create",
             Self::PlaylistRename { .. } => "playlist_rename",
             Self::PlaylistDelete { .. } => "playlist_delete",
+            Self::PlaylistFollowResume { .. } => "playlist_follow_resume",
             Self::EntryInsert { .. } => "entry_insert",
             Self::EntryRemove { .. } => "entry_remove",
             Self::EntryMove { .. } => "entry_move",

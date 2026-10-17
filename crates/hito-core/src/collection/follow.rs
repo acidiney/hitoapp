@@ -4,9 +4,11 @@ mod lease;
 mod persist;
 mod receipts;
 mod reconcile;
+mod resume;
 mod types;
 mod worker;
 pub(super) use persist::origin;
+pub(super) use resume::resume;
 
 pub use types::{
     FollowProviderPlaylist, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,

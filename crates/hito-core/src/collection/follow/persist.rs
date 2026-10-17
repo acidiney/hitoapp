@@ -32,10 +32,11 @@ pub(super) async fn create(
         .bind(&snapshot.detail.name)
         .execute(&mut **tx)
         .await?;
-    sqlx::query("INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,attribution,interval_seconds,next_refresh_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,unixepoch() + ?)")
+    sqlx::query("INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,service_id,service_revision,snapshot_installation_revision,snapshot_service_revision,provider,provider_playlist_id,snapshot,content_digest,attribution,interval_seconds,next_refresh_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch() + ?)")
         .bind(&playlist).bind(&operation.account).bind(&operation.installation).bind(operation.installation_revision)
-        .bind(&operation.service).bind(operation.service_revision).bind(&operation.provider)
+        .bind(&operation.service).bind(operation.service_revision)
+        .bind(operation.installation_revision).bind(operation.service_revision).bind(&operation.provider)
         .bind(&snapshot.detail.id).bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(attribution)
         .bind(request.interval.seconds()).bind(request.interval.seconds()).execute(&mut **tx).await?;
     let publication = snapshot_for_publication(tx, operation, &playlist, snapshot).await?;
@@ -239,7 +240,7 @@ pub(in crate::collection) async fn origin(
     connection: &mut SqliteConnection,
     playlist: &str,
 ) -> Result<Option<ImportedPlaylistOrigin>> {
-    let row = sqlx::query("SELECT installation_id,installation_revision,service_id,service_revision,provider,provider_playlist_id,snapshot,attribution,created_at FROM playlist_follows WHERE playlist_id = ?")
+    let row = sqlx::query("SELECT installation_id,snapshot_installation_revision AS installation_revision,service_id,snapshot_service_revision AS service_revision,provider,provider_playlist_id,snapshot,attribution,created_at FROM playlist_follows WHERE playlist_id = ?")
         .bind(playlist).fetch_optional(connection).await?;
     row.map(|row| {
         let attribution: String = row.try_get("attribution")?;

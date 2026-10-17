@@ -3,7 +3,7 @@ mod likes;
 mod playlists;
 mod progress;
 
-use super::{Action, Operation};
+use super::{Action, Operation, follow};
 use crate::{
     Actor, Result,
     metadata::{self, TextField},
@@ -127,6 +127,22 @@ pub(super) async fn action(
             playlists::rename(tx, actor, playlist_id, name).await
         }
         Action::PlaylistDelete { playlist_id } => playlists::delete(tx, actor, playlist_id).await,
+        Action::PlaylistFollowResume {
+            playlist_id,
+            expected_generation,
+            installation_revision,
+            service_revision,
+        } => {
+            follow::resume(
+                tx,
+                actor,
+                playlist_id,
+                *expected_generation,
+                *installation_revision,
+                *service_revision,
+            )
+            .await
+        }
         Action::EntryInsert {
             playlist_id,
             entry_id,

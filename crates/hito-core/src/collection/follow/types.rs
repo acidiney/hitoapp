@@ -50,6 +50,7 @@ pub struct PlaylistFollowRefresh {
 #[derive(Serialize, ToSchema)]
 pub struct PlaylistFollow {
     pub playlist_id: Uuid,
+    pub generation: i64,
     pub interval: PlaylistFollowInterval,
     pub snapshot: String,
     pub last_refreshed_at: i64,
