@@ -1,6 +1,6 @@
 # Manual audio sources
 
-Manual source choice is in development on the automatic-resolution branch. HTTP workflows pass against real temporary Hito servers, SQLite and owned protocol providers. The normal server has not been upgraded, and browser controls are not implemented yet.
+Manual source choice is in development on the automatic-resolution branch. HTTP workflows pass against real temporary Hito servers, SQLite and owned protocol providers. Functional web controls pass React tests through the HTTP boundary. The normal server has not been upgraded, and final browser acceptance remains unfinished.
 
 ## Choice and ownership
 
@@ -40,6 +40,12 @@ Both commands require current ownership and account access. Reusing a request id
 
 Returning to Automatic permits a fresh resolution while retaining the confirmed binding and its complete metadata observation history. It does not download or play audio.
 
+## Web controls
+
+Track details expose Playback source controls separately from source preparation. Choosing an option stages it; Use source submits the durable choice. Return to automatic uses the revision from the latest choice read. An unavailable current source can still be chosen.
+
+If Hito cannot confirm a write, Retry source choice repeats its frozen request with a fresh request signal. A confirmed acknowledgement triggers a current-state read before enabling another command. The tested historical acknowledgement at revision 1 therefore leads to a reset using the actual current revision 3. Unsaved metadata edits remain intact, and the controls do not start playback, downloads or a page reload. Confirmed changes refresh the separate download read.
+
 ## Downloads
 
 A saved copy proves its provider origin through the file's retained intent references and their immutable origin fields. A completed download job's lease token is not its origin. Conflicting references cannot establish eligibility for a chosen binding.
@@ -68,4 +74,8 @@ The populated 0038-to-0039 case preserves all prior typed values, rowids, 38 mig
 
 The download-status tracer first failed on its missing current revision. It now checks six observations across retained A, a B pin, failed B admission, explicit B replacement, plugin disconnection and restart. Each observation preserves the exact ready transfer facts and makes no provider request. Download HTTP isolation, shared retention, original preservation, missing/corrupt files and late-writer regressions pass with strict workspace all-target Clippy on `dfdbb40`.
 
-This evidence covers HTTP workflows and exact audio bodies. It does not establish browser decoding, native output, complete authority/race coverage, production-volume upgrade or final-image acceptance. Browser correction controls, download-status presentation, Follow and concurrent-operation tests remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
+A further HTTP case verifies two accounts using the same offered service with independent recordings, sources and request receipts. Foreign reads, changes and replay are unavailable. Logout revokes control reads and both receipt replays; a fresh session retrieves the old acknowledgements without replacing a newer pin. Complete metadata snapshots remain unchanged, provider counters do not advance, and no audio or download begins. This characterization and its strict target Clippy pass on `a8e932f`.
+
+The first web tracer reached the missing Playback source region, then passed exact-request recovery, current-state reconciliation, reset, draft preservation, safe error/log output and unmount cancellation. The full frontend at `731048e` passes 221 cases across 62 files, both TypeScript checks and the production build. Existing workflow fixtures now model the new initial choice GET explicitly while retaining their original request, privacy and cancellation assertions.
+
+This evidence covers HTTP workflows, exact audio bodies and React rendering. It does not establish browser decoding, native output, complete authority/race coverage, production-volume upgrade or final-image acceptance. Download-status presentation, broader UI ownership and invalidation cases, Follow and concurrent-operation tests remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
