@@ -1,4 +1,5 @@
 #[path = "fixtures/provider_attachment.rs"]
+#[allow(dead_code, unused_imports)]
 mod fixture;
 mod support;
 

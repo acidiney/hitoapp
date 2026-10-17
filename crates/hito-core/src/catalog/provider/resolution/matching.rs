@@ -100,6 +100,9 @@ fn known_artist(value: &str) -> bool {
 
 fn versions(title: &str, album: Option<&str>) -> BTreeSet<&'static str> {
     let mut result = BTreeSet::new();
+    if album.is_some_and(|album| normalized(album) == "live") {
+        result.insert("live");
+    }
     for value in [Some(title), album].into_iter().flatten() {
         let normalized = normalized(value);
         let words = normalized.split_whitespace().collect::<Vec<_>>();
