@@ -24,6 +24,8 @@ declare global {
   }
 }
 
+test.use({ launchOptions: { args: [] } });
+
 if (process.env.HITO_TEST_MOBILE === "1")
   test.use({ viewport: { width: 390, height: 844 } });
 
