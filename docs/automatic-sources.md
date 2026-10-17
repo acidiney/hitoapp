@@ -82,7 +82,7 @@ That image precedes the publication-cancellation fix. A final accepted image mus
 
 ## Remaining work
 
-Durable manual selection must survive automatic retries, Follow updates and restart. Choosing provider binding B must exclude known-wrong binding A and its saved copies while allowing a verified saved copy of B during an outage. Download admission must not reuse A solely because it belongs to the same recording. Explicit attachment remains an independent operation that adds an alternate source.
+The first [manual-selection workflow](manual-sources.md) now verifies binding B across representation changes, provider disconnection and restart, including distinct downloaded audio and physical cleanup after replacement. Current-choice reads, return to Automatic, correction controls and download-status presentation remain unfinished. Automatic retries, Follow updates and concurrent operations still need their own acceptance cases. Explicit attachment remains an independent operation that adds an alternate source.
 
 Both independent security, correctness and performance review rounds are complete for the first automatic-resolution artifact. The first round found five issues. Public regressions and fixes cover migration child-reference work, candidate calls after revocation, an explicit release titled Live, bounded caller admission and binding collisions before or during publication. The second round passed security and performance source review and found one remaining correctness issue in broader live album contexts. Its public regression and minimal fix pass resolver verification; there was no third review.
 
