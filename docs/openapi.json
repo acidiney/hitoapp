@@ -4343,6 +4343,224 @@
         ]
       }
     },
+    "/api/v1/recordings/{recording}/sources/{source}/preparation": {
+      "get": {
+        "operationId": "source_preparation_status",
+        "parameters": [
+          {
+            "name": "recording",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcePreparationStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "prepare_source",
+        "parameters": [
+          {
+            "name": "recording",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareSource"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcePreparationReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/releases": {
       "get": {
         "operationId": "releases",
@@ -6147,6 +6365,7 @@
           "catalog",
           "metadata",
           "sources",
+          "source_preparation",
           "playlists",
           "artwork",
           "dashboard",
@@ -8818,6 +9037,33 @@
           }
         }
       },
+      "PreparationReason": {
+        "type": "string",
+        "enum": [
+          "authorization_required",
+          "quota_reached",
+          "rate_limited",
+          "provider_restricted",
+          "source_unavailable",
+          "source_changed",
+          "unsupported",
+          "provider_unavailable",
+          "invalid_response"
+        ]
+      },
+      "PrepareSource": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "ProviderCandidate": {
         "type": "object",
         "required": [
@@ -9326,6 +9572,111 @@
           },
           "recording_id": {
             "type": "string"
+          }
+        }
+      },
+      "SourcePreparationPhase": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "submitting",
+          "preparing",
+          "ready",
+          "blocked",
+          "failed",
+          "submission_unknown",
+          "cancelled"
+        ]
+      },
+      "SourcePreparationReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "preparation_id",
+          "recording_id",
+          "source_id"
+        ],
+        "properties": {
+          "preparation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_id": {
+            "type": "string"
+          }
+        }
+      },
+      "SourcePreparationStatus": {
+        "type": "object",
+        "required": [
+          "preparation_id",
+          "recording_id",
+          "source_id",
+          "phase",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "eta_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "next_check_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/SourcePreparationPhase"
+          },
+          "preparation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "progress_basis_points": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PreparationReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
