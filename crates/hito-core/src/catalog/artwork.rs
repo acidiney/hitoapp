@@ -1,8 +1,15 @@
 use super::{Catalog, SourceAccess, push_source_access};
 use crate::{Actor, Result};
 use sqlx::QueryBuilder;
+mod assets;
+mod availability;
 mod budget;
+mod jobs;
+mod lease;
 mod reader;
+mod worker;
+pub use availability::ArtworkAvailability;
+pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
 
 use reader::read_artwork;
 
@@ -14,6 +21,7 @@ pub struct Artwork {
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), recording_id))]
     pub async fn artwork(&self, actor: &Actor, recording: &str) -> Result<Option<Artwork>> {
+        actor.check_session(&self.store).await?;
         let sources = self.sources(actor, recording).await?;
         tracing::Span::current().record("recording_id", recording);
         let sources: Vec<String> = sources
@@ -22,7 +30,12 @@ impl Catalog {
             .take(4)
             .map(|source| source.id)
             .collect();
-        self.read_source_artwork(actor, &sources).await
+        let local = self.read_source_artwork(actor, &sources).await?;
+        actor.check_session(&self.store).await?;
+        if local.is_some() {
+            return Ok(local);
+        }
+        self.retained_artwork(actor, recording).await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), release_id))]

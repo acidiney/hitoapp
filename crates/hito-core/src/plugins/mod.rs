@@ -22,6 +22,7 @@ pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
 pub(crate) use playlists::PlaylistSnapshot;
 pub(crate) use transport::SourceBatch;
+pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};
 pub use types::{
     InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
     PluginService, PluginSettings, RefreshPlugin,

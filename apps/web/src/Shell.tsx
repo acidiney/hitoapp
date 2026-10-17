@@ -8,6 +8,7 @@ import Sidebar from "./components/Sidebar";
 import { NoticeBanner, NoticeProvider } from "./components/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 import PlayerDock from "./player/PlayerDock";
+import { ArtworkProvider } from "./ArtworkProvider";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();
@@ -18,35 +19,37 @@ export default function Shell({ children }: { children: ReactNode }) {
   }, [page.component, page.url, user.id]);
   return (
     <NoticeProvider key={user.id}>
-      <PlaybackProvider account={user.id} native={page.props.native_playback}>
-        <a className="skip-link" href="#main">
-          Skip to library
-        </a>
-        <div
-          className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
-        >
-          <Sidebar user={user} playlists={playlists} path={url.pathname} />
-          <div className="workspace">
-            {page.component !== "DiscoverPage" && (
-              <LibrarySearch
-                query={url.searchParams.get("q") ?? ""}
-                target={
-                  page.component === "AlbumIndexPage"
-                    ? "albums"
-                    : page.component === "ArtistIndexPage"
-                      ? "artists"
-                      : "library"
-                }
-              />
-            )}
-            <NoticeBanner />
-            <main id="main" tabIndex={-1}>
-              {children}
-            </main>
+      <ArtworkProvider account={user.id}>
+        <PlaybackProvider account={user.id} native={page.props.native_playback}>
+          <a className="skip-link" href="#main">
+            Skip to library
+          </a>
+          <div
+            className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
+          >
+            <Sidebar user={user} playlists={playlists} path={url.pathname} />
+            <div className="workspace">
+              {page.component !== "DiscoverPage" && (
+                <LibrarySearch
+                  query={url.searchParams.get("q") ?? ""}
+                  target={
+                    page.component === "AlbumIndexPage"
+                      ? "albums"
+                      : page.component === "ArtistIndexPage"
+                        ? "artists"
+                        : "library"
+                  }
+                />
+              )}
+              <NoticeBanner />
+              <main id="main" tabIndex={-1}>
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-        <PlayerDock showListeningPanel={page.component !== "SettingsPage"} />
-      </PlaybackProvider>
+          <PlayerDock showListeningPanel={page.component !== "SettingsPage"} />
+        </PlaybackProvider>
+      </ArtworkProvider>
     </NoticeProvider>
   );
 }

@@ -86,6 +86,20 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) async fn artwork(
+        &self,
+        request: &hito_plugin_sdk::ArtworkRequest,
+    ) -> Result<Option<super::ProviderArtwork>> {
+        self.remote
+            .artwork(
+                &self.account,
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await
+    }
+
     pub(crate) async fn playlist_snapshot(
         &self,
         reference: String,
