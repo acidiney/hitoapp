@@ -7,6 +7,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { manualSourceChoiceFixture } from "./fixtures/manual-source-choice";
+import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import type { components } from "../src/generated";
 
 type Schema = components["schemas"];
@@ -147,9 +148,18 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     external: 0,
     privateLog: 0,
     callback: 0,
+    consoleCallback: 0,
+    requestCallback: 0,
+    responseCallback: 0,
+    consoleText: 0,
+    consoleSerialization: 0,
+    consoleBinding: 0,
     cleanup: 0,
     invalidAudio: 0,
   };
+  const plainProbe = "owned-console-plain-canary";
+  const nestedProbe = "owned-console-nested-canary";
+  const consoleProbes = { text: 0, plain: 0, nested: 0 };
   const writes = {
     downloads: [] as Schema["DownloadRequest"][],
     choices: [] as Schema["ChooseSource"][],
@@ -183,26 +193,31 @@ test("manual source choice saves distinct B audio, plays it locally through prov
   ];
   let origin = "";
 
-  function observe(owned: BrowserContext) {
+  async function observe(owned: BrowserContext) {
     owned.on("page", (opened) => opened.on("pageerror", () => issues.page++));
     owned
       .pages()
       .forEach((opened) => opened.on("pageerror", () => issues.page++));
-    owned.on("console", (message) => {
-      const checking = (async () => {
-        const values = await Promise.all(
-          message.args().map((argument) => argument.jsonValue()),
-        );
-        const text = `${message.text()} ${JSON.stringify(values)}`;
+    await captureConsolePrivacy(
+      owned,
+      (text, capture) => {
         if (privateValues.some((value) => text.includes(value)))
           issues.privateLog++;
-      })()
-        .catch(() => {
-          issues.callback++;
-        })
-        .finally(() => callbacks.delete(checking));
-      callbacks.add(checking);
-    });
+        if (text.includes(plainProbe))
+          if (capture === "text") consoleProbes.text++;
+          else consoleProbes.plain++;
+        if (capture === "snapshot" && text.includes(nestedProbe))
+          consoleProbes.nested++;
+      },
+      (failure) => {
+        issues.callback++;
+        issues.consoleCallback++;
+        if (failure === "text") issues.consoleText++;
+        else if (failure === "serialization") issues.consoleSerialization++;
+        else issues.consoleBinding++;
+      },
+      callbacks,
+    );
     owned.on("request", (request) => {
       try {
         const target = new URL(request.url());
@@ -225,6 +240,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
           writes.preparations++;
       } catch {
         issues.callback++;
+        issues.requestCallback++;
       }
     });
     owned.on("response", (response) => {
@@ -246,6 +262,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
           issues.invalidAudio++;
       } catch {
         issues.callback++;
+        issues.responseCallback++;
       }
     });
   }
@@ -286,7 +303,35 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     origin = configured.origin;
     page.setDefaultTimeout(10_000);
     page.setDefaultNavigationTimeout(10_000);
-    observe(context);
+    await observe(context);
+    const consoleProbe = await context.newPage();
+    try {
+      await consoleProbe.goto("about:blank");
+      await consoleProbe.evaluate(
+        ({ plain, nested }) => {
+          window.addEventListener(
+            "pagehide",
+            () => {
+              console.log(plain);
+              console.info({ nested: { value: nested } });
+            },
+            { once: true },
+          );
+        },
+        { plain: plainProbe, nested: nestedProbe },
+      );
+      await consoleProbe.goto("data:text/html,owned-console-probe");
+      await expect
+        .poll(() => consoleProbes)
+        .toEqual({
+          text: 1,
+          plain: 1,
+          nested: 1,
+        });
+      await settleCallbacks();
+    } finally {
+      await consoleProbe.close();
+    }
     await context.addInitScript(() =>
       localStorage.setItem("hito-log-level", "debug"),
     );
@@ -915,7 +960,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       viewport: { width: 1440, height: 1000 },
     });
     contexts.push(anonymous);
-    observe(anonymous);
+    await observe(anonymous);
     const guest = await anonymous.newPage();
     await guest.goto(`/recordings/${recording}`);
     await expect(
@@ -934,7 +979,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       viewport: { width: 1440, height: 1000 },
     });
     contexts.push(bob);
-    observe(bob);
+    await observe(bob);
     const other = await bob.newPage();
     await other.goto("/library");
     await expect(
@@ -1096,7 +1141,25 @@ test("manual source choice saves distinct B audio, plays it locally through prov
   }
   if (failure !== null) {
     const error = new Error(
-      `Manual source browser check failed at phase ${failure}`,
+      [
+        `Manual source browser check failed at phase ${failure}`,
+        `page=${issues.page}`,
+        `external=${issues.external}`,
+        `privateLog=${issues.privateLog}`,
+        `callback=${issues.callback}`,
+        `consoleCallback=${issues.consoleCallback}`,
+        `requestCallback=${issues.requestCallback}`,
+        `responseCallback=${issues.responseCallback}`,
+        `consoleText=${issues.consoleText}`,
+        `consoleSerialization=${issues.consoleSerialization}`,
+        `consoleBinding=${issues.consoleBinding}`,
+        `cleanup=${issues.cleanup}`,
+        `invalidAudio=${issues.invalidAudio}`,
+        `protocol=${provider?.counts.protocol ?? 0}`,
+        `unexpected=${provider?.counts.unexpected ?? 0}`,
+        `handler=${provider?.counts.handler ?? 0}`,
+        `callbackPending=${callbacks.size}`,
+      ].join("; "),
     );
     error.stack = error.message;
     throw error;
