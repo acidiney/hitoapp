@@ -76,6 +76,13 @@ impl Downloads {
         };
         sqlx::query("INSERT INTO download_playlist_receipts(account_id,request_id,request_digest,retention_id) VALUES(?,?,?,?)")
             .bind(actor.id()).bind(request.request_id.to_string()).bind(digest).bind(&retention_id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO download_playlist_retry_work(retention_id,host_device,request_id,playlist_revision,failure_cutoff)
+            SELECT ?,?,?,revision,(SELECT coalesce(max(sequence),0) FROM download_terminal_failures)
+            FROM download_playlist_changes WHERE playlist_id=?
+            ON CONFLICT(retention_id) DO UPDATE SET request_id=excluded.request_id,playlist_revision=excluded.playlist_revision,
+                failure_cutoff=excluded.failure_cutoff,cursor=NULL,next_attempt_at=0")
+            .bind(&retention_id).bind(self.host.as_str()).bind(request.request_id.to_string()).bind(&playlist)
+            .execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         tracing::info!(retention_id = %retention_id, playlist_id = %playlist, outcome = "retained", elapsed_ms = started.elapsed().as_millis() as u64, "Playlist download requested");

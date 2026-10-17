@@ -5,6 +5,7 @@ mod playlist_admission;
 mod playlist_changes;
 mod playlist_reconcile;
 mod playlist_requests;
+mod playlist_retry;
 mod playlist_status;
 mod playlist_types;
 mod publication;

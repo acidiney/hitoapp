@@ -26,15 +26,16 @@ impl Downloads {
         let (done, finished) = oneshot::channel::<()>();
         let work = async {
             let _completion = done;
-            let first = self.playlist_turn.fetch_add(1, Ordering::Relaxed) % 4;
-            for offset in 0..4 {
+            let first = self.playlist_turn.fetch_add(1, Ordering::Relaxed) % 5;
+            for offset in 0..5 {
                 if *stopped.borrow() {
                     return Ok(false);
                 }
-                let progressed = match (first + offset) % 4 {
+                let progressed = match (first + offset) % 5 {
                     0 => self.dispatch_playlist_change().await?,
                     1 => self.reconcile_playlist().await?,
                     2 => self.admit_playlist_transfers().await?,
+                    3 => self.retry_playlist_transfers().await?,
                     _ => self.reconsider_retirement().await?,
                 };
                 if progressed {
