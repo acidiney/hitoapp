@@ -27,6 +27,11 @@ export async function playlistFollowFixture() {
     protocol_version: 1,
     capabilities: ["playlists"],
   } satisfies Schema["Manifest"];
+  const reviewedManifest = {
+    ...manifest,
+    name: "Reviewed playlist Follow fixture",
+  } satisfies Schema["Manifest"];
+  let currentManifest: Schema["Manifest"] = manifest;
   const recordings = {
     a: {
       id: "recording/a",
@@ -161,7 +166,7 @@ export async function playlistFollowFixture() {
         body === null
       ) {
         counts.manifest++;
-        reply = manifest;
+        reply = currentManifest;
       } else if (
         request.method === "POST" &&
         url.pathname === "/follow/v1/playlists/detail"
@@ -244,6 +249,11 @@ export async function playlistFollowFixture() {
     initial,
     updated,
     counts: () => ({ ...counts }),
+    reviewManifest() {
+      if (closed) throw new Error("The owned manifest control is unavailable");
+      currentManifest = reviewedManifest;
+      return reviewedManifest;
+    },
     advanceAndHold() {
       if (closed || held)
         throw new Error("The owned refresh gate is unavailable");
