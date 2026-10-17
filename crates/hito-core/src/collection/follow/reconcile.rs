@@ -52,7 +52,8 @@ pub(super) async fn identities(
                 occurrences
                     .get(occurrence)
                     .filter(|(_, old_kind, old_recording)| {
-                        old_kind == kind && old_recording.as_deref() == recording
+                        old_recording.as_deref() == recording
+                            && (old_kind == kind || recording.is_some())
                     })
                     .map(|(id, _, _)| *id)
             } else {
