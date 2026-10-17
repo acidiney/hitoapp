@@ -42,6 +42,8 @@ test("a lost download acknowledgement retries the exact request with a new live 
     recording_id: savedRecording.id,
     source_id: "4a79410c-7ddb-4bc4-bc36-4e8672745034",
     host_device_id: "owned-download-host",
+    choice_revision: 0,
+    matches_source_choice: true,
     bytes_received: 16_044,
     total_bytes: 16_044,
     error: null,

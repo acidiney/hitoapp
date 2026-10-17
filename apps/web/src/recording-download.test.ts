@@ -48,6 +48,8 @@ test("a track downloads only on request and removes its saved server copy by int
             recording_id: savedRecording.id,
             source_id: "ad034b36-2274-4e56-bef5-9b63e3bb2055",
             host_device_id: "owned-server-host",
+            choice_revision: 0,
+            matches_source_choice: true,
             bytes_received: 16_044,
             total_bytes: 16_044,
             error: null,

@@ -4116,6 +4116,83 @@
       }
     },
     "/api/v1/recordings/{id}/source-choice": {
+      "get": {
+        "operationId": "source_choice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceChoice"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
       "post": {
         "operationId": "choose_source",
         "parameters": [
@@ -4144,6 +4221,131 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SourceChoiceReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/source-choice/reset": {
+      "post": {
+        "operationId": "reset_source_choice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetSourceChoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceChoiceResetReceipt"
                 }
               }
             }
@@ -7165,10 +7367,17 @@
           "intent_id",
           "recording_id",
           "host_device_id",
+          "choice_revision",
+          "matches_source_choice",
           "bytes_received"
         ],
         "properties": {
           "bytes_received": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "choice_revision": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
@@ -7184,6 +7393,9 @@
           },
           "intent_id": {
             "type": "string"
+          },
+          "matches_source_choice": {
+            "type": "boolean"
           },
           "recording_id": {
             "type": "string"
@@ -10083,6 +10295,25 @@
       "ReleasePage": {
         "$ref": "#/components/schemas/Page_Release"
       },
+      "ResetSourceChoice": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "ResolveSource": {
         "type": "object",
         "required": [
@@ -10230,6 +10461,60 @@
           }
         }
       },
+      "SourceChoice": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "revision",
+          "mode",
+          "sources"
+        ],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/SourceChoiceMode"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceChoiceEntry"
+            }
+          }
+        }
+      },
+      "SourceChoiceEntry": {
+        "type": "object",
+        "required": [
+          "source",
+          "selected",
+          "selectable"
+        ],
+        "properties": {
+          "selectable": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source"
+          }
+        }
+      },
+      "SourceChoiceMode": {
+        "type": "string",
+        "enum": [
+          "automatic",
+          "manual",
+          "reviewed"
+        ]
+      },
       "SourceChoiceReceipt": {
         "type": "object",
         "required": [
@@ -10253,6 +10538,27 @@
           "source_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "SourceChoiceResetReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "recording_id",
+          "revision"
+        ],
+        "properties": {
+          "recording_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -102,6 +102,8 @@ test.each(["account", "recording"] as const)(
       recording_id: current.detail.recording_id,
       source_id: null,
       host_device_id: "owned-download-host",
+      choice_revision: 0,
+      matches_source_choice: true,
       bytes_received: 128,
       total_bytes: 256,
       error: null,

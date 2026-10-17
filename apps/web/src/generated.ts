@@ -731,9 +731,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["source_choice"];
         put?: never;
         post: operations["choose_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/source-choice/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reset_source_choice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1287,9 +1303,12 @@ export interface components {
         DownloadStatus: {
             /** Format: int64 */
             bytes_received: number;
+            /** Format: int64 */
+            choice_revision: number;
             error?: string | null;
             host_device_id: string;
             intent_id: string;
+            matches_source_choice: boolean;
             recording_id: string;
             source_id?: string | null;
             status: components["schemas"]["DownloadState"];
@@ -2018,6 +2037,12 @@ export interface components {
             title: components["schemas"]["TextMetadata"];
         };
         ReleasePage: components["schemas"]["Page_Release"];
+        ResetSourceChoice: {
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+        };
         ResolveSource: {
             /** Format: uuid */
             request_id: string;
@@ -2053,6 +2078,20 @@ export interface components {
             ready: boolean;
             recording_id: string;
         };
+        SourceChoice: {
+            mode: components["schemas"]["SourceChoiceMode"];
+            recording_id: string;
+            /** Format: int64 */
+            revision: number;
+            sources: components["schemas"]["SourceChoiceEntry"][];
+        };
+        SourceChoiceEntry: {
+            selectable: boolean;
+            selected: boolean;
+            source: components["schemas"]["Source"];
+        };
+        /** @enum {string} */
+        SourceChoiceMode: "automatic" | "manual" | "reviewed";
         SourceChoiceReceipt: {
             recording_id: string;
             /** Format: uuid */
@@ -2061,6 +2100,13 @@ export interface components {
             revision: number;
             /** Format: uuid */
             source_id: string;
+        };
+        SourceChoiceResetReceipt: {
+            recording_id: string;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int64 */
+            revision: number;
         };
         /** @enum {string} */
         SourcePreparationPhase: "queued" | "submitting" | "preparing" | "ready" | "blocked" | "failed" | "submission_unknown" | "cancelled";
@@ -5275,6 +5321,67 @@ export interface operations {
             };
         };
     };
+    source_choice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceChoice"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     choose_source: {
         parameters: {
             query?: never;
@@ -5296,6 +5403,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceChoiceReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_source_choice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetSourceChoice"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceChoiceResetReceipt"];
                 };
             };
             400: {
