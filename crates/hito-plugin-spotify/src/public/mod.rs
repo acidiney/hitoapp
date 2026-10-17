@@ -1,3 +1,4 @@
+mod artwork;
 mod model;
 mod session;
 mod snapshot;
@@ -9,12 +10,14 @@ use hito_plugin_sdk::{
     PlaylistPage, ProviderPlaylist,
 };
 use snapshot::{Cache, Snapshot};
+use std::sync::Arc;
 use tokio::sync::Semaphore;
 use transport::Transport;
 
 pub(crate) struct Client {
     transport: Transport,
-    slots: Semaphore,
+    slots: Arc<Semaphore>,
+    artwork_slots: Arc<Semaphore>,
     cache: Cache,
 }
 
@@ -22,7 +25,8 @@ impl Client {
     pub(crate) fn new(config: &Config) -> Result<Self, InitError> {
         Ok(Self {
             transport: Transport::new(config)?,
-            slots: Semaphore::new(4),
+            slots: Arc::new(Semaphore::new(4)),
+            artwork_slots: Arc::new(Semaphore::new(4)),
             cache: Cache::default(),
         })
     }

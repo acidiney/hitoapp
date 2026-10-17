@@ -84,7 +84,7 @@ where
     String::deserialize(deserializer).map(Zeroizing::new)
 }
 
-fn script_contents(html: &str) -> Result<&str, Error> {
+pub(super) fn script_contents(html: &str) -> Result<&str, Error> {
     let mut remaining = html;
     let mut found = None;
     while let Some(start) = remaining.find("<script") {

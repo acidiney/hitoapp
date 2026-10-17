@@ -7,8 +7,8 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::{
-    Capability, Manifest, PROTOCOL_VERSION, PlaylistDetailRequest, PlaylistItemsRequest,
-    PlaylistPage, ProviderPlaylist,
+    ArtworkRequest, Capability, Manifest, PROTOCOL_VERSION, PlaylistDetailRequest,
+    PlaylistItemsRequest, PlaylistPage, ProviderPlaylist,
 };
 use std::{
     collections::BTreeSet,
@@ -24,6 +24,7 @@ pub fn router(config: Config) -> Result<Router, InitError> {
     let client = Arc::new(Client::new(&config)?);
     Ok(Router::new()
         .route("/v1/manifest", get(manifest))
+        .route("/v1/artwork", post(artwork))
         .route("/v1/playlists/detail", post(playlist_detail))
         .route("/v1/playlists/items", post(playlist_items))
         .layer(DefaultBodyLimit::max(4096))
@@ -36,9 +37,26 @@ async fn manifest() -> Json<Manifest> {
         id: "org.hito.spotify".into(),
         name: "Spotify public playlists".into(),
         protocol_version: PROTOCOL_VERSION,
-        capabilities: BTreeSet::from([Capability::Playlists]),
+        capabilities: BTreeSet::from([Capability::Playlists, Capability::Artwork]),
         authorization: None,
     })
+}
+
+async fn artwork(
+    State(client): State<Arc<Client>>,
+    payload: Result<Json<ArtworkRequest>, JsonRejection>,
+) -> Result<Response, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidArtworkRequest)?;
+    let artwork = client.artwork(request).await?;
+    Ok((
+        [
+            ("content-type", artwork.content_type),
+            ("cache-control", "private, no-store"),
+            ("etag", artwork.etag.as_str()),
+        ],
+        artwork.bytes,
+    )
+        .into_response())
 }
 
 async fn playlist_detail(
@@ -62,6 +80,7 @@ async fn observe(request: Request, next: Next) -> Response {
     let request_id = SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let operation = match request.uri().path() {
         "/v1/manifest" => "manifest",
+        "/v1/artwork" => "artwork",
         "/v1/playlists/detail" => "playlist_detail",
         "/v1/playlists/items" => "playlist_items",
         _ => "unknown",
@@ -72,6 +91,7 @@ async fn observe(request: Request, next: Next) -> Response {
         let response = match tokio::time::timeout(Duration::from_secs(10), next.run(request)).await
         {
             Ok(response) => response,
+            Err(_) if operation == "artwork" => Error::ArtworkDeadline.into_response(),
             Err(_) => Error::Deadline.into_response(),
         };
         tracing::info!(
