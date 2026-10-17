@@ -153,7 +153,7 @@ impl Catalog {
         let sources = self.sources(actor, recording).await?;
         let protected = {
             let mut connection = self.store.pool.acquire().await?;
-            authority::protected(&mut connection, recording).await?
+            authority::protected(&mut connection, actor, recording).await?
         };
         if protected {
             return Ok(PreparedResolution::Existing(

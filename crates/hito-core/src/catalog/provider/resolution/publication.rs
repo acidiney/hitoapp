@@ -33,7 +33,7 @@ impl Catalog {
         authority::access(&mut tx, actor, recording).await?;
         receipts::recheck_on(&mut tx, attempt).await?;
         let current = authority::capture(&mut tx, actor, recording).await?;
-        let outcome = if authority::protected(&mut tx, recording).await? {
+        let outcome = if authority::protected(&mut tx, actor, recording).await? {
             SourceResolutionOutcome::ProtectedChoice
         } else if current.digest()? != attempt.target_digest {
             SourceResolutionOutcome::Cancelled
@@ -141,7 +141,7 @@ impl Catalog {
         authority::access(&mut tx, actor, recording).await?;
         receipts::recheck_on(&mut tx, attempt).await?;
         let current = authority::capture(&mut tx, actor, recording).await?;
-        let outcome = if authority::protected(&mut tx, recording).await? {
+        let outcome = if authority::protected(&mut tx, actor, recording).await? {
             SourceResolutionOutcome::ProtectedChoice
         } else if current.digest()? != attempt.target_digest {
             SourceResolutionOutcome::Cancelled

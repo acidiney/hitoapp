@@ -73,8 +73,12 @@ pub(super) async fn capture(
     })
 }
 
-pub(super) async fn protected(connection: &mut SqliteConnection, recording: &str) -> Result<bool> {
+pub(super) async fn protected(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+) -> Result<bool> {
     Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM provider_items WHERE recording_id = ? AND retired = 0 AND evidence = 'user_confirmed')
-        OR EXISTS(SELECT 1 FROM recording_source_choices WHERE recording_id=? AND binding_id IS NOT NULL)")
-        .bind(recording).bind(recording).fetch_one(connection).await?)
+        OR EXISTS(SELECT 1 FROM recording_source_choices WHERE user_id=? AND recording_id=? AND binding_id IS NOT NULL)")
+        .bind(recording).bind(actor.id()).bind(recording).fetch_one(connection).await?)
 }
