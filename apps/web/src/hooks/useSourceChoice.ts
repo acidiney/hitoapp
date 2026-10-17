@@ -29,7 +29,7 @@ type Owner = {
 export function useSourceChoice(
   account: string,
   recording: string,
-  confirmed: () => void,
+  confirmed: (revision: number) => void,
 ) {
   const scope = useRequestScope(JSON.stringify([account, recording]));
   const onConfirmed = useRef(confirmed);
@@ -93,6 +93,7 @@ export function useSourceChoice(
         });
         return;
       }
+      const previousRevision = owner.view.choice?.revision;
       publish({
         choice,
         stagedSource: null,
@@ -101,9 +102,12 @@ export function useSourceChoice(
         error: "",
         statusError: "",
       });
-      if (choice !== null && owner.refreshDownload) {
+      if (
+        choice !== null &&
+        (owner.refreshDownload || choice.revision !== previousRevision)
+      ) {
         owner.refreshDownload = false;
-        onConfirmed.current();
+        onConfirmed.current(choice.revision);
       }
     } catch {
       if (active())

@@ -22,6 +22,7 @@ type Owner = {
   write: AbortController | null;
   timer: ReturnType<typeof setTimeout> | null;
   invalidatedRead: boolean;
+  choiceRevision: number | undefined;
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,7 +30,11 @@ const busy = (download: DownloadStatus | null) =>
   download !== null &&
   ["queued", "running", "verifying"].includes(download.status);
 
-function validStatus(value: DownloadStatus, recording: string) {
+function validStatus(
+  value: DownloadStatus,
+  recording: string,
+  choiceRevision: number | undefined,
+) {
   return (
     value.recording_id === recording &&
     uuid.test(value.intent_id) &&
@@ -42,6 +47,8 @@ function validStatus(value: DownloadStatus, recording: string) {
     value.bytes_received >= 0 &&
     Number.isSafeInteger(value.choice_revision) &&
     value.choice_revision >= 0 &&
+    (choiceRevision === undefined ||
+      value.choice_revision === choiceRevision) &&
     typeof value.matches_source_choice === "boolean" &&
     (value.total_bytes == null ||
       (Number.isSafeInteger(value.total_bytes) &&
@@ -67,6 +74,7 @@ export function useRecordingDownload(account: string, recording: string) {
       write: null,
       timer: null,
       invalidatedRead: false,
+      choiceRevision: undefined,
     }),
     [account, recording],
   );
@@ -116,7 +124,10 @@ export function useRecordingDownload(account: string, recording: string) {
     try {
       const download = await downloadApi.status(account, recording, signal);
       if (!active()) return;
-      if (download !== null && !validStatus(download, recording))
+      if (
+        download !== null &&
+        !validStatus(download, recording, owner.choiceRevision)
+      )
         throw new Error("Hito returned an invalid download status");
       publish({ download, checking: false, statusError: "" });
       log.debug("download.status_checked", {
@@ -236,8 +247,17 @@ export function useRecordingDownload(account: string, recording: string) {
     }
   }
 
-  function invalidateRead() {
+  function invalidateRead(revision: number) {
     if (!scope.capture().active()) return;
+    const initial = owner.choiceRevision === undefined;
+    owner.choiceRevision = revision;
+    if (
+      initial &&
+      (owner.read !== null ||
+        owner.data.download === null ||
+        owner.data.download.choice_revision === revision)
+    )
+      return;
     clearTimer();
     owner.read?.abort();
     owner.read = null;
