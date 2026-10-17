@@ -106,13 +106,12 @@ impl Downloads {
                     ON CONFLICT(retention_id,entry_id) DO UPDATE SET recording_id=excluded.recording_id,seen_revision=excluded.seen_revision,
                     next_attempt_at=CASE WHEN recording_id IS excluded.recording_id THEN next_attempt_at ELSE excluded.next_attempt_at END")
                     .bind(&selected.retention_id).bind(self.host.as_str()).bind(entry).bind(recording).bind(selected.revision).bind(recording).execute(&mut *tx).await?;
-                if let Some(previous_recording) = previous_recording {
-                    if let Some(file) = self
+                if let Some(previous_recording) = previous_recording
+                    && let Some(file) = self
                         .retire_unreferenced_on(&mut tx, &selected.account_id, &previous_recording)
                         .await?
-                    {
-                        retired.push(file);
-                    }
+                {
+                    retired.push(file);
                 }
             }
             if entries.len() < 32 {
@@ -143,13 +142,12 @@ impl Downloads {
                 .bind(entry)
                 .execute(&mut *tx)
                 .await?;
-                if let Some(recording) = recording {
-                    if let Some(file) = self
+                if let Some(recording) = recording
+                    && let Some(file) = self
                         .retire_unreferenced_on(&mut tx, &selected.account_id, recording)
                         .await?
-                    {
-                        retired.push(file);
-                    }
+                {
+                    retired.push(file);
                 }
             }
             (entries.len(), entries.len() < 32)
