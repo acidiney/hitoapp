@@ -16,6 +16,7 @@ pub struct PlaybackCandidates {
     recording: String,
     remaining: u64,
     local: bool,
+    download: bool,
     after: Option<String>,
     ceiling: Option<String>,
     providers: VecDeque<ProviderSnapshot>,
@@ -32,14 +33,13 @@ impl Catalog {
             actor.check_session(&self.store).await?;
             let mut connection = self.store.pool.acquire().await?;
             recording_access(&mut connection, actor, recording).await?;
-            let (count, ceiling): (i64, Option<String>) = sqlx::query_as(
-                "SELECT count(*), max(id) FROM sources INDEXED BY sources_metadata_owner
-                WHERE recording_id=? AND ready=1 AND provider='local' AND device_id=?",
-            )
-            .bind(recording)
-            .bind(self.host.as_str())
-            .fetch_one(&mut *connection)
-            .await?;
+            let mut files = QueryBuilder::new(
+                "SELECT count(*), max(s.id) FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id=",
+            );
+            files.push_bind(recording.to_owned()).push(" AND s.provider IN ('local','download') AND ");
+            push_source_access(&mut files, &self.host, actor.id(), SourceAccess::LocalFile);
+            let (count, ceiling): (i64, Option<String>) = files.build_query_as()
+                .fetch_one(&mut *connection).await?;
             let providers: Vec<ProviderSnapshot> = sqlx::query_as(
                 "SELECT item.id AS binding_id,item.revision,state.generation FROM provider_items item
                 JOIN provider_source_state state ON state.binding_id = item.id
@@ -60,6 +60,7 @@ impl Catalog {
                 recording: recording.to_owned(),
                 remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64,
                 local: count > 0,
+                download: count > 0,
                 after: None,
                 ceiling,
                 providers: providers.into(),
@@ -87,14 +88,21 @@ impl PlaybackCandidates {
         let mut connection = self.catalog.store.pool.acquire().await?;
         recording_access(&mut connection, &self.actor, &self.recording).await?;
         while self.remaining > 0 {
-            let mut query = if self.local {
+            let mut query = if self.local || self.download {
                 let mut query = QueryBuilder::new(
                     "SELECT s.id FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id=",
                 );
-                query
-                    .push_bind(self.recording.clone())
-                    .push(" AND s.provider='local' AND ");
-                push_source_access(&mut query, &self.catalog.host, SourceAccess::LocalFile);
+                query.push_bind(self.recording.clone()).push(if self.local {
+                    " AND s.provider='local' AND "
+                } else {
+                    " AND s.provider='download' AND "
+                });
+                push_source_access(
+                    &mut query,
+                    &self.catalog.host,
+                    self.actor.id(),
+                    SourceAccess::LocalFile,
+                );
                 if let Some(ceiling) = &self.ceiling {
                     query.push(" AND s.id<=").push_bind(ceiling.clone());
                 }
@@ -116,7 +124,12 @@ impl PlaybackCandidates {
                     .push(" AND state.generation=")
                     .push_bind(snapshot.generation)
                     .push(" AND s.provider='plugin' AND ");
-                push_source_access(&mut query, &self.catalog.host, SourceAccess::Playable);
+                push_source_access(
+                    &mut query,
+                    &self.catalog.host,
+                    self.actor.id(),
+                    SourceAccess::Playable,
+                );
                 query
             } else {
                 self.remaining = 0;
@@ -125,7 +138,7 @@ impl PlaybackCandidates {
             if let Some(after) = &self.after {
                 query.push(" AND s.id>").push_bind(after.clone());
             }
-            query.push(if self.local {
+            query.push(if self.local || self.download {
                 " ORDER BY s.id LIMIT 1"
             } else {
                 " ORDER BY ps.source_id LIMIT 1"
@@ -137,6 +150,11 @@ impl PlaybackCandidates {
             let Some(source) = source else {
                 if self.local {
                     self.local = false;
+                    self.after = None;
+                    continue;
+                }
+                if self.download {
+                    self.download = false;
                     self.after = None;
                     continue;
                 }

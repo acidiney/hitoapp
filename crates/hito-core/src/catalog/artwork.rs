@@ -52,7 +52,7 @@ impl Catalog {
             .push(" AND access.user_id = ")
             .push_bind(actor.id().to_owned())
             .push(" AND s.provider = 'local' AND ");
-        push_source_access(&mut query, &self.host, SourceAccess::LocalFile);
+        push_source_access(&mut query, &self.host, actor.id(), SourceAccess::LocalFile);
         query.push(" ORDER BY s.id LIMIT 4");
         let sources: Vec<String> = query
             .build_query_scalar()

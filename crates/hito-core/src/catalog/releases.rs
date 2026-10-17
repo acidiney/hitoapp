@@ -93,7 +93,7 @@ impl Catalog {
             .push(" AS title, m.title AS inherited_title, ")
             .push(metadata::APPEARANCE_ARTIST)
             .push(" AS artist, m.artist AS inherited_artist, a.title AS album, m.duration_ms, ");
-        push_available(&mut query, &self.host);
+        push_available(&mut query, &self.host, actor.id());
         query
             .push(
                 " AS available, COALESCE(l.liked, 0) AS liked, m.source_id AS entry_id, m.disc_number, m.track_number FROM entries e

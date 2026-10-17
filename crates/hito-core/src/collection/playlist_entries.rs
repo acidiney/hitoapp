@@ -28,7 +28,7 @@ pub(super) async fn read(
                 CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
                 (m.user_id IS NOT NULL AND ",
     );
-    push_available(&mut query, host);
+    push_available(&mut query, host, actor.id());
     query.push(
         ") AS available FROM playlist_entries e
          LEFT JOIN playlist_import_entries imported ON imported.playlist_id = e.playlist_id AND imported.entry_id = e.id

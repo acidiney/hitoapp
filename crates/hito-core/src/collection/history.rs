@@ -10,7 +10,7 @@ impl Collection {
             .push(metadata::RECORDING_TITLE)
             .push(" AS title, r.title AS inherited_title, ").push(metadata::RECORDING_ARTIST)
             .push(" AS artist, r.artist AS inherited_artist, r.duration_ms, p.position_ms, p.speed, p.updated_at, ");
-        push_available(&mut query, &self.host);
+        push_available(&mut query, &self.host, actor.id());
         query.push(
             " AS available, COALESCE(l.liked, 0) AS liked
               FROM listening_progress p

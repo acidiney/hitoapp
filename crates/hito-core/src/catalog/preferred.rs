@@ -20,9 +20,9 @@ impl Catalog {
             );
             local
                 .push_bind(recording.to_owned())
-                .push(" AND s.ready = 1 AND s.provider = 'local' AND ");
-            push_source_access(&mut local, &self.host, SourceAccess::LocalFile);
-            local.push(" ORDER BY s.id LIMIT 1");
+                .push(" AND s.provider IN ('local','download') AND ");
+            push_source_access(&mut local, &self.host, actor.id(), SourceAccess::LocalFile);
+            local.push(" ORDER BY CASE s.provider WHEN 'local' THEN 0 ELSE 1 END, s.id LIMIT 1");
             let source: Option<String> = local
                 .build_query_scalar()
                 .fetch_optional(&mut *connection)
@@ -41,7 +41,12 @@ impl Catalog {
                     provider
                         .push_bind(recording.to_owned())
                         .push(" AND s.provider = 'plugin' AND ");
-                    push_source_access(&mut provider, &self.host, SourceAccess::Playable);
+                    push_source_access(
+                        &mut provider,
+                        &self.host,
+                        actor.id(),
+                        SourceAccess::Playable,
+                    );
                     provider.push(" ORDER BY ps.source_id LIMIT 1");
                     provider
                         .build_query_scalar()

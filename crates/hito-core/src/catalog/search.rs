@@ -43,7 +43,7 @@ impl Catalog {
                 .push(
                     " AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ",
                 );
-            push_available(&mut query, &self.host);
+            push_available(&mut query, &self.host, actor.id());
             query.push(" AS available, COALESCE(l.liked, 0) AS liked");
             filters(&mut query, actor, &search, &terms, personal, true);
         }

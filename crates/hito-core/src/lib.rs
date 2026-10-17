@@ -1,6 +1,7 @@
 mod catalog;
 mod collection;
 mod context;
+mod downloads;
 mod error;
 mod identity;
 mod library_storage;
@@ -25,6 +26,7 @@ pub use collection::{
     SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
+pub use downloads::{DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus, Downloads};
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
 pub use library_storage::{
@@ -49,6 +51,7 @@ pub struct Services {
     pub collection: Collection,
     pub storage: LibraryStorage,
     pub plugins: Plugins,
+    pub downloads: Downloads,
     store: Store,
 }
 
@@ -63,6 +66,8 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         inspector: library_storage::FileInspector::new(config.media_tools),
     };
     storage.initialize().await?;
+    let managed =
+        library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
     let plugins = Plugins::new(store.clone(), &config.database).await?;
     tracing::info!("Core services ready");
     Ok(Services {
@@ -76,6 +81,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
             provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
             directories: storage.directories.clone(),
+            managed: managed.clone(),
         },
         collection: Collection {
             store: store.clone(),
@@ -83,6 +89,13 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             plugins: plugins.clone(),
         },
         storage,
+        downloads: Downloads {
+            store: store.clone(),
+            plugins: plugins.clone(),
+            host: config.host_device.clone(),
+            files: managed.clone(),
+            active: Default::default(),
+        },
         plugins,
         store,
     })

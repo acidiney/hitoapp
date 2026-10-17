@@ -85,7 +85,7 @@ pub(super) async fn selected(
     let mut query = QueryBuilder::new(
         "SELECT r.id,r.library_id,r.release_id,COALESCE(p.override_title,r.title) AS title,r.title AS inherited_title,COALESCE(p.override_artist,r.artist) AS artist,r.artist AS inherited_artist,a.title AS album,r.duration_ms,",
     );
-    crate::catalog::push_available(&mut query, host);
+    crate::catalog::push_available(&mut query, host, actor.id());
     query.push(" AS available,COALESCE(k.liked,0) AS liked FROM recordings r LEFT JOIN personal_recording_metadata p ON p.recording_id = r.id AND p.user_id = ").push_bind(actor.id().to_owned())
         .push(" LEFT JOIN account_releases a ON a.id = r.release_id AND a.user_id = ").push_bind(actor.id().to_owned())
         .push(" LEFT JOIN likes k ON k.recording_id = r.id AND k.user_id = ").push_bind(actor.id().to_owned())

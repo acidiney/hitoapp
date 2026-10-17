@@ -39,7 +39,7 @@ impl Catalog {
             .push(" AS title, r.title AS inherited_title, ")
             .push(metadata::RECORDING_ARTIST)
             .push(" AS artist, r.artist AS inherited_artist, a.title AS album, r.duration_ms, ");
-        push_available(&mut query, &self.host);
+        push_available(&mut query, &self.host, actor.id());
         query.push(" AS available, COALESCE(l.liked, 0) AS liked FROM json_each(")
             .push_bind(requested)
             .push(") requested CROSS JOIN recordings r ON r.id = requested.value

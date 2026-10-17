@@ -5,6 +5,7 @@ mod availability;
 mod browse;
 mod candidates;
 pub use candidates::PlaybackCandidates;
+mod managed;
 mod media;
 mod playback;
 pub use playback::PlaybackSource;
@@ -41,4 +42,5 @@ pub struct Catalog {
     pub(crate) artwork_slots: Arc<Semaphore>,
     pub(crate) provider_artwork_slots: Arc<Semaphore>,
     pub(crate) directories: crate::library_storage::Directories,
+    pub(crate) managed: crate::library_storage::ManagedFiles,
 }

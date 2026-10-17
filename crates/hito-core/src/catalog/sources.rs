@@ -13,22 +13,29 @@ impl Catalog {
         );
         query
             .push_bind(recording.to_owned())
+            .push(" AND (provider != 'download' OR EXISTS (SELECT 1 FROM download_files file
+                WHERE file.source_id = sources.id AND file.account_id = ")
+            .push_bind(actor.id().to_owned())
+            .push(" AND file.state = 'ready'))")
             .push(
                 " UNION ALL
             SELECT ps.source_id FROM provider_items item CROSS JOIN provider_source_state state ON state.binding_id = item.id
             CROSS JOIN provider_sources ps INDEXED BY provider_sources_generation
             ON ps.binding_id = state.binding_id AND ps.generation = state.generation
-            WHERE item.retired = 0 AND item.recording_id = ",
+            JOIN plugin_installations installation ON installation.id = item.installation_id
+            WHERE item.retired = 0 AND installation.user_id = ",
             )
+            .push_bind(actor.id().to_owned())
+            .push(" AND item.recording_id = ")
             .push_bind(recording.to_owned())
             .push(
                 ")
             SELECT s.id, s.recording_id, s.provider, s.device_id, (",
             );
-        push_source_access(&mut query, &self.host, SourceAccess::Playable);
+        push_source_access(&mut query, &self.host, actor.id(), SourceAccess::Playable);
         query
             .push(") AS ready FROM selected ids CROSS JOIN sources s ON s.id = ids.id")
-            .push(" ORDER BY CASE s.provider WHEN 'local' THEN 0 ELSE 1 END, ready DESC, s.id");
+            .push(" ORDER BY CASE s.provider WHEN 'local' THEN 0 WHEN 'download' THEN 1 ELSE 2 END, ready DESC, s.id");
         Ok(query.build_query_as().fetch_all(&mut *connection).await?)
     }
 }
