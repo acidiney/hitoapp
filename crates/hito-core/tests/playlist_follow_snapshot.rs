@@ -68,6 +68,7 @@ async fn playlist_detail_reads_one_accepted_snapshot_while_a_background_refresh_
             .unwrap(),
     )
     .unwrap();
+    assert!(copy_before.get("follow_content_revision").is_none());
     let followed = hito
         .collection
         .follow_provider_playlist(
@@ -128,11 +129,17 @@ async fn playlist_detail_reads_one_accepted_snapshot_while_a_background_refresh_
     let latest = hito.collection.playlist(&actor, &playlist).await.unwrap();
     assert_eq!(latest.playlist.name, "Version two");
     assert_eq!(latest.origin.as_ref().unwrap().snapshot, "snapshot-two");
-    let accepted = match read.origin.as_ref().unwrap().snapshot.as_str() {
-        "snapshot-one" => "one",
-        "snapshot-two" => "two",
+    assert_eq!(latest.follow_content_revision, Some(2));
+    let (accepted, revision) = match read.origin.as_ref().unwrap().snapshot.as_str() {
+        "snapshot-one" => ("one", 1),
+        "snapshot-two" => ("two", 2),
         _ => panic!("Playlist origin must identify a complete accepted fixture version"),
     };
+    assert_eq!(
+        read.follow_content_revision,
+        Some(revision),
+        "A playlist detail must return its content revision from the same accepted snapshot"
+    );
     assert_eq!(
         read.playlist.name,
         format!("Version {accepted}"),

@@ -404,6 +404,7 @@ async fn refreshing_an_unchanged_complete_snapshot_updates_the_schedule_without_
     assert_eq!(status.status, PlaylistFollowStatus::Ready);
     assert!(status.error.is_none());
     assert_eq!(status.snapshot, "stable");
+    assert_eq!(status.content_revision, status_before.content_revision);
     assert!(status.last_refreshed_at >= status_before.last_refreshed_at + 100);
     assert!(status.next_refresh_at >= status_before.next_refresh_at + 100);
     assert_eq!(status.next_refresh_at - status.last_refreshed_at, 3600);
