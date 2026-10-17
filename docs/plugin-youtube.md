@@ -1,6 +1,6 @@
 # YouTube plugin development
 
-The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The current image is verified in an isolated Docker project. Installation, adoption, playback and reviewed Spotify-to-YouTube attachment through the Hito UI remain to be verified.
+The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The current image is verified in an isolated Docker project. Address-only installation, discovery, saving and real playback through the Hito UI pass in WebKit against a disposable library. Reviewed Spotify-to-YouTube attachment and normal deployment remain to be verified.
 
 ## Isolated Docker service
 
@@ -66,4 +66,10 @@ The packaged arm64 image `sha256:fe3f2abaff3df419a332bc3d34ad3d037a7b79afee154ea
 
 The ignored test requires `HITO_YOUTUBE_LIVE=1`, an explicit isolated `HITO_YOUTUBE_LIVE_BASE_URL` and a canonical public `HITO_YOUTUBE_LIVE_VIDEO_ID`. It accepts only loopback or named isolated-service endpoints, writes encoded bytes to a mode-0600 temporary file, bounds transfer and decode work, and prints numeric evidence without titles, identifiers, URLs or paths. Invoke it through the Docker Rust tools service with `cargo test --locked -p hito-plugin-youtube --test live_audio -- --ignored --exact release_image_relays_public_aac_with_ranges_and_native_decoding --nocapture`.
 
-The amd64 runtime, broader upstream and challenge compatibility, expiry and range-recovery countercases, full Hito installation/adoption/playback, reviewed Spotify attachment, other codecs, physical output and platform/public-release acceptance remain open. Complete runtime dependency attribution and redistribution acceptance are also still required.
+An explicitly opted-in release-image WebKit workflow passed in 21.7 seconds. It offered the service address, connected without a bearer, searched, saved the recording, played AAC through the authorized Hito source URL, sought to 7.9 seconds and continued through navigation. Presented time reached 8.33 seconds with media error zero. No browser request reached the plugin or media CDN. This sample sought within buffered audio; the separate live HTTP check above exercises a nonzero upstream byte range.
+
+The test distinguishes WebKit's headerless synthetic network observation from a real HTTP response. It requires that observation to finish normally and match an actual same-URL 200/206 response with valid audio framing. Zero is never counted as HTTP success. Media errors, malformed responses, failed requests, external URLs and stalled presentation still fail the workflow.
+
+The packaged Chromium test browser reports no AAC support. The packaged Firefox advertises AAC but raises a media decode error in the real workflow. These are unresolved compatibility limits of the current test images; they do not establish behavior in every installed browser. Conversion and broader browser acceptance remain open. Source and browser-test TypeScript and formatting passed. Scoped scans of 1,316 Hito and 562 plugin log lines found no configured video identifier, signed media host/expiry or bearer values.
+
+The amd64 runtime, broader upstream and challenge compatibility, expiry and range-recovery countercases, reviewed Spotify attachment, other codecs, physical output and platform/public-release acceptance remain open. Complete runtime dependency attribution and redistribution acceptance are also still required.
