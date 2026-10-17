@@ -1,6 +1,6 @@
 # Source preparation
 
-This contract is under development. The normal local server has explicit provider-track downloads on migration 29; source preparation is not deployed there. The core/server regression suite and ten focused preparation cases pass. UI integration, the four debrid adapters and release acceptance remain unfinished.
+The generic source-preparation backend is deployed to the normal local development server on migration 35. The complete feature remains under development. The core/server regression suite and ten focused preparation cases pass. UI integration, the four debrid adapters and release acceptance remain unfinished.
 
 ## Ownership
 

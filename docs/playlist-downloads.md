@@ -1,6 +1,6 @@
 # Playlist downloads
 
-Playlist downloads are implemented in the development branch through migration 35. They are not deployed to the normal local server, which still runs migration 29. The [public-release plan](release-plan.md) remains the required scope.
+Playlist downloads are deployed to the normal local development server on migration 35. The [public-release plan](release-plan.md) remains unfinished and defines the required scope.
 
 Selecting **Download** retains the current playlist on the backend host. Reading a playlist, following it, importing it, or playing a track does not request a persistent copy. Web copies stay on the server; listening through the browser still requires that server connection.
 
@@ -60,10 +60,14 @@ After those fixes, the combined core/server suite passes 343 distinct cases and 
 
 The latest eight directed core/server tests also preserve retry cutoffs, duplicate-entry behavior and existing data through migrations 29 to 35. Strict core/server Clippy, the default workspace check across all targets and Rust formatting pass. Actual managed-source deletion remains below the diagnostic's 100-step measurement resolution with 20,000 inactive transfers and, separately, 20,000 unrelated recordings under absent, inherited and fresh SQLite statistics. These are query diagnostics, not release latency measurements.
 
-The development [migration-only command](database-maintenance.md) upgrades a populated library without starting application workers. Its 11 directed tests check populated preservation, rejection boundaries, exact-version replay, literal file selection and observer cancellation through connection close. The earlier full combined run and these final directed checks remain separate evidence. Real contention/signals and stopped backup/migration restoration remain acceptance work.
+The development [migration-only command](database-maintenance.md) upgrades a populated library without starting application workers. Its 11 directed tests check populated preservation, rejection boundaries, exact-version replay, literal file selection and observer cancellation through connection close. The earlier full combined run and these final directed checks remain separate evidence. Real contention, graceful CLI signals and public upgrade acceptance remain separate work.
 
 The `linux/arm64` release image built from `77e0a19` passes a fresh disposable Chromium workflow in 45.3 seconds. It downloads duplicate occurrences through one retained copy, recovers a committed response using the same request UUID, reloads and plays the verified saved audio while its provider returns 503, then removes the exact playlist retention while preserving an original file, personal metadata, likes, progress and an independent playlist. No individual recording Download is used. The complete workflow duration is not a start or recovery latency measurement.
 
 Read-only checks against that same isolated server confirm the generated OpenAPI, built JS/CSS, health and unauthenticated player rejection. Twelve private fixture patterns are absent from 10,052 captured log lines. This is scoped synthetic evidence, not a complete logging audit. The server used temporary storage, no published ports and no external network; it was stopped after verification. Normal listener data and services were unchanged.
+
+The normal local deployment uses that same release image. A fresh stopped whole-volume backup was restored into an isolated owned volume before rehearsal. Both the rehearsal and final normal migration ran the migration-only command before application startup. Their audits preserve exact typed rows and rowids across 80 prior tables, sequences, receipts, all non-SQLite files, keys and host identity, with the schema and backfills defined by the actual six migrations. All 35 checksums, foreign keys, database integrity and six FTS integrity checks pass.
+
+The application then started and stopped separately for runtime verification. Neither run changed database rows or managed files. The original port was restored after the normal checkpoint passed; the published runtime passes health, exact OpenAPI/assets and anonymous-player rejection. Other services and normal account connections were preserved. See [backup and deployment evidence](status.md#running-local-deployment). These checks establish this local upgrade, not platform or public-release acceptance.
 
 Local-original Download behavior, temporary playback-cache policy, disk reservations and exhaustion, forced crashes, broader source/provider races, Windows private ACLs, all desktop platforms and the release performance/codec gates remain open. Playlist downloads do not automatically match Spotify metadata to YouTube audio.

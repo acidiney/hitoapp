@@ -1,6 +1,6 @@
 # Database maintenance
 
-The development server includes an explicit migration-only command. It is not yet included in the normal local deployment. It exists so an upgrade can inspect migrated data before normal startup launches background work.
+The server includes an explicit migration-only command, now included in the normal local development deployment. It exists so an upgrade can inspect migrated data before normal startup launches background work.
 
 ```text
 hito-server migrate --database PATH --expect-version VERSION
