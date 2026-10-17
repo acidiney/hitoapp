@@ -78,7 +78,16 @@ pub(super) async fn protected(
     actor: &Actor,
     recording: &str,
 ) -> Result<bool> {
-    Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM provider_items WHERE recording_id = ? AND retired = 0 AND evidence = 'user_confirmed')
-        OR EXISTS(SELECT 1 FROM recording_source_choices WHERE user_id=? AND recording_id=? AND binding_id IS NOT NULL)")
-        .bind(recording).bind(actor.id()).bind(recording).fetch_one(connection).await?)
+    Ok(sqlx::query_scalar(
+        "SELECT CASE WHEN choice.binding_id IS NOT NULL THEN 1
+        WHEN COALESCE(choice.revision,0)>0 THEN 0
+        ELSE EXISTS(SELECT 1 FROM provider_items item WHERE item.recording_id=recording.id
+            AND item.retired=0 AND item.evidence='user_confirmed') END
+        FROM recordings recording LEFT JOIN recording_source_choices choice
+            ON choice.user_id=? AND choice.recording_id=recording.id WHERE recording.id=?",
+    )
+    .bind(actor.id())
+    .bind(recording)
+    .fetch_one(connection)
+    .await?)
 }

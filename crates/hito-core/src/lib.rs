@@ -15,9 +15,10 @@ pub use catalog::{
     ArtworkFetchStatus, AttachReviewedProviderSource, AudioContent, AudioFile, AudioRequest,
     AudioStream, Browse, ByteRange, Catalog, ChooseSource, OpenedAudio, Page, PlaybackCandidates,
     PlaybackSource, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
-    Recording, Release, ReleaseDetail, ReleaseTrack, ResolveSource, Search, Source,
-    SourceChoiceReceipt, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
-    SourceResolution, SourceResolutionOutcome,
+    Recording, Release, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search,
+    Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
+    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
+    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,

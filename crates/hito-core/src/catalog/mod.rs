@@ -22,7 +22,10 @@ mod search;
 mod selection;
 mod source_choice;
 pub(crate) use source_choice::push_source_choice;
-pub use source_choice::{ChooseSource, SourceChoiceReceipt};
+pub use source_choice::{
+    ChooseSource, ResetSourceChoice, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
+    SourceChoiceReceipt, SourceChoiceResetReceipt,
+};
 mod sources;
 mod types;
 
