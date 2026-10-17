@@ -16,11 +16,13 @@ pub use catalog::{
     ReleaseTrack, Search, Source,
 };
 pub use collection::{
-    Action, Activity, Collection, CollectionPublication, HistoryEntry, ImportProviderPlaylist,
-    ImportedPlaylistEntry, ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin,
-    ImportedPlaylistOrigin, ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation,
-    Playlist, PlaylistDetail, PlaylistEntry, PlaylistImportReceipt, SavedPosition, SyncBatch,
-    SyncEvent, SyncPage, SyncReceipt,
+    Action, Activity, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,
+    ImportProviderPlaylist, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
+    ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
+    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
+    PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
+    PlaylistImportReceipt, RefreshFollowedPlaylist, SavedPosition, SyncBatch, SyncEvent, SyncPage,
+    SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use error::{Error, Result};

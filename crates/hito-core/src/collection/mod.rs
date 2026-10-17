@@ -1,5 +1,6 @@
 mod apply;
 mod events;
+mod follow;
 mod history;
 mod import;
 mod import_persist;
@@ -12,6 +13,10 @@ mod service;
 mod types;
 
 use crate::{HostDeviceId, store::Store};
+pub use follow::{
+    FollowProviderPlaylist, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
+    PlaylistFollowRefresh, PlaylistFollowStatus, RefreshFollowedPlaylist,
+};
 pub use import::ImportProviderPlaylist;
 pub use import_publication::{
     CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistEntryKind,

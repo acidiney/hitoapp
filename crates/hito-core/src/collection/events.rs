@@ -88,7 +88,7 @@ async fn read(
             operation: serde_json::from_str(&payload)
                 .map_err(|_| Error::Internal("Stored sync operation is invalid".into()))?,
         }),
-        ("playlist_import", None) => Ok(SyncEvent::Publication {
+        ("playlist_import" | "playlist_follow", None) => Ok(SyncEvent::Publication {
             sequence,
             publication: serde_json::from_str(&payload)
                 .map_err(|_| Error::Internal("Stored collection publication is invalid".into()))?,

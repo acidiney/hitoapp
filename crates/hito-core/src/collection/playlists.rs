@@ -1,4 +1,4 @@
-use super::{Collection, Playlist, PlaylistDetail, import_persist, playlist_entries};
+use super::{Collection, Playlist, PlaylistDetail, follow, import_persist, playlist_entries};
 use crate::{Actor, Error, Result};
 
 impl Collection {
@@ -25,7 +25,12 @@ impl Collection {
         .await?
         .ok_or(Error::NotFound)?;
         let entries = playlist_entries::read(&self.store, &self.host, actor, id).await?;
-        let origin = import_persist::origin(&mut *self.store.pool.acquire().await?, id).await?;
+        let mut connection = self.store.pool.acquire().await?;
+        let origin = if let Some(origin) = import_persist::origin(&mut connection, id).await? {
+            Some(origin)
+        } else {
+            follow::origin(&mut connection, id).await?
+        };
         Ok(PlaylistDetail {
             playlist,
             entries,

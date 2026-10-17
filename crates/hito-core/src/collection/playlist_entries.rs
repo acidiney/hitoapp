@@ -11,17 +11,19 @@ pub(super) async fn read(
     let mut query = QueryBuilder::new(
         "SELECT e.id AS entry_id, e.recording_id, e.position,
                 COALESCE(k.liked, 0) AS liked, (m.user_id IS NOT NULL) AS authorized,
-                imported.kind AS import_kind, imported.provider_recording_id, imported.occurrence_id,
-                CASE WHEN e.recording_id IS NULL AND imported.kind IS NOT NULL THEN COALESCE(imported.title,
-                    CASE WHEN imported.kind = 'unknown' THEN 'Unknown provider item' ELSE 'Unavailable provider item' END)
+                COALESCE(imported.kind,followed.kind) AS import_kind,
+                COALESCE(imported.provider_recording_id,followed.provider_recording_id) AS provider_recording_id,
+                COALESCE(imported.occurrence_id,followed.occurrence_id) AS occurrence_id,
+                CASE WHEN e.recording_id IS NULL AND COALESCE(imported.kind,followed.kind) IS NOT NULL THEN COALESCE(imported.title,followed.title,
+                    CASE WHEN COALESCE(imported.kind,followed.kind) = 'unknown' THEN 'Unknown provider item' ELSE 'Unavailable provider item' END)
                     WHEN m.user_id IS NULL THEN 'Unavailable recording'
                     ELSE COALESCE(personal_metadata.override_title, r.title) END AS title,
-                CASE WHEN e.recording_id IS NULL AND imported.kind IS NOT NULL THEN COALESCE(imported.title,
-                    CASE WHEN imported.kind = 'unknown' THEN 'Unknown provider item' ELSE 'Unavailable provider item' END)
+                CASE WHEN e.recording_id IS NULL AND COALESCE(imported.kind,followed.kind) IS NOT NULL THEN COALESCE(imported.title,followed.title,
+                    CASE WHEN COALESCE(imported.kind,followed.kind) = 'unknown' THEN 'Unknown provider item' ELSE 'Unavailable provider item' END)
                     WHEN m.user_id IS NULL THEN 'Unavailable recording' ELSE r.title END AS inherited_title,
-                CASE WHEN e.recording_id IS NULL AND imported.kind IS NOT NULL THEN COALESCE(imported.artist, '')
+                CASE WHEN e.recording_id IS NULL AND COALESCE(imported.kind,followed.kind) IS NOT NULL THEN COALESCE(imported.artist,followed.artist, '')
                     WHEN m.user_id IS NULL THEN '' ELSE COALESCE(personal_metadata.override_artist, r.artist) END AS artist,
-                CASE WHEN e.recording_id IS NULL AND imported.kind IS NOT NULL THEN COALESCE(imported.artist, '')
+                CASE WHEN e.recording_id IS NULL AND COALESCE(imported.kind,followed.kind) IS NOT NULL THEN COALESCE(imported.artist,followed.artist, '')
                     WHEN m.user_id IS NULL THEN '' ELSE r.artist END AS inherited_artist,
                 CASE WHEN m.user_id IS NULL THEN 0 ELSE r.duration_ms END AS duration_ms,
                 (m.user_id IS NOT NULL AND ",
@@ -30,6 +32,7 @@ pub(super) async fn read(
     query.push(
         ") AS available FROM playlist_entries e
          LEFT JOIN playlist_import_entries imported ON imported.playlist_id = e.playlist_id AND imported.entry_id = e.id
+         LEFT JOIN playlist_follow_entries followed ON followed.playlist_id = e.playlist_id AND followed.entry_id = e.id
          LEFT JOIN recordings r ON r.id = e.recording_id
          LEFT JOIN library_members m ON m.library_id = r.library_id AND m.user_id = ",
     ).push_bind(actor.id().to_owned()).push(

@@ -12,6 +12,16 @@ pub enum CollectionPublication {
         publication_id: Uuid,
         snapshot: ImportedPlaylistSnapshot,
     },
+    PlaylistFollowed {
+        publication_id: Uuid,
+        interval: super::PlaylistFollowInterval,
+        snapshot: ImportedPlaylistSnapshot,
+    },
+    PlaylistFollowRefreshed {
+        publication_id: Uuid,
+        interval: super::PlaylistFollowInterval,
+        snapshot: ImportedPlaylistSnapshot,
+    },
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]
