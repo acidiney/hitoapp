@@ -46,6 +46,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.
 - [ ] Add verified HTTP sources, preference ranking, manual override, server relay, direct fallback, conversion, and bitrate settings.
 - [ ] Complete failover near the current position, deferred-source handling, gapless playback, and codec compatibility fixtures.
+- [ ] Prepare the next queue entry in the background while the current track plays. Check local files, saved copies and verified ready sources first; otherwise search approved providers, resolve a suitable match and start source preparation early. Buffer playable audio before the transition to avoid waiting at track end. Bound lookahead, cancel stale work after queue/account/source-choice changes, preserve current playback and manual choices, and keep temporary buffering separate from explicit downloads. Verify browser/native transitions with shuffle, repeat, skips and slow providers.
 - [ ] Verify local audio opens, metadata, and ongoing reads on stalled or disconnected drives.
 - [ ] Verify metadata compatibility, including a bounded policy for compressed ID3 tags, which are currently unsupported.
 - [ ] Complete queue reordering and playback across catalog pages; verify very large queues against the performance gates.
