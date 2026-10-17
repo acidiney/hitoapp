@@ -1,3 +1,9 @@
+CREATE INDEX recording_metadata_binding ON recordings(metadata_binding_id);
+CREATE INDEX artwork_binding ON artwork_fetches(binding_id);
+CREATE INDEX source_preparation_binding ON source_preparations(binding_id);
+CREATE INDEX download_intent_binding ON download_intents(binding_id);
+CREATE INDEX provider_sources_binding_reference ON provider_sources(binding_id,installation_id,recording_id);
+
 PRAGMA defer_foreign_keys = ON;
 CREATE TEMP TABLE hito_resolution_bindings AS SELECT rowid AS preserved_rowid,* FROM provider_items;
 DROP TABLE provider_items;
