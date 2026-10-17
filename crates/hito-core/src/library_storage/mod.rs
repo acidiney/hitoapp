@@ -8,6 +8,7 @@ mod inspection;
 mod lease;
 mod legacy;
 pub(crate) mod local_path;
+mod managed;
 mod metadata_owner;
 mod observations;
 mod persistence;
@@ -26,6 +27,8 @@ pub(crate) use directories::OpenedMedia;
 pub use directories::SharedDirectory;
 pub use folder_types::{ConnectFolder, DirectoryRef, MusicFolder};
 pub(crate) use inspection::FileInspector;
+pub(crate) use managed::managed_mime;
+pub(crate) use managed::{MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles};
 pub(crate) use root::Root;
 pub use types::Job;
 

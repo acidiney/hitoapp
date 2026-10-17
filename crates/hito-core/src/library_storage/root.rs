@@ -17,6 +17,16 @@ pub(crate) struct Root {
 }
 
 impl Root {
+    #[cfg(unix)]
+    pub(super) fn from_owned_dir(path: PathBuf, directory: Dir, slots: Arc<Semaphore>) -> Self {
+        Self {
+            path,
+            directory: Arc::new(directory),
+            slots,
+            walk_slots: Arc::new(Semaphore::new(1)),
+        }
+    }
+
     pub async fn open(
         path: &Path,
         slots: &Arc<Semaphore>,
