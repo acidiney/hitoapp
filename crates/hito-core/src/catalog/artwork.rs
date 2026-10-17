@@ -2,11 +2,13 @@ use super::{Catalog, SourceAccess, push_source_access};
 use crate::{Actor, Result};
 use sqlx::QueryBuilder;
 mod assets;
+mod availability;
 mod budget;
 mod jobs;
 mod lease;
 mod reader;
 mod worker;
+pub use availability::ArtworkAvailability;
 pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
 
 use reader::read_artwork;

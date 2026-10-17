@@ -23,7 +23,7 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artists::{Artist, ArtistDetail};
-pub use artwork::{Artwork, ArtworkFetch, ArtworkFetchStatus};
+pub use artwork::{Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus};
 pub use audio::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;

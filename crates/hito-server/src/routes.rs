@@ -74,6 +74,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
+        .routes(routes!(api::artwork::artwork_availability))
         .routes(routes!(api::artwork::fetch_recording_artwork))
         .routes(routes!(api::artwork::artwork_fetch))
         .routes(routes!(api::artwork::release_artwork))

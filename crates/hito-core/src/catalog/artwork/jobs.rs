@@ -72,28 +72,21 @@ impl Catalog {
             return Ok(fetch);
         }
         capacity(&mut tx, actor.id()).await?;
+        let provider = super::availability::approved_provider(&mut tx, actor.id(), recording)
+            .await?
+            .ok_or_else(|| {
+                Error::Invalid("This recording has no approved artwork provider".into())
+            })?;
         let id = Uuid::new_v4().to_string();
-        let inserted = sqlx::query(
+        sqlx::query(
             "INSERT INTO artwork_fetches(id,user_id,recording_id,session_hash,observation_id,binding_id,binding_revision,
                 installation_id,installation_revision,service_id,service_revision,status,reservation_bytes)
-             SELECT ?,?,r.id,?,o.id,binding.id,binding.revision,p.id,p.revision,service.id,service.revision,'queued',?
-             FROM recordings r JOIN libraries l ON l.id = r.library_id AND l.owner_id = ?
-             JOIN metadata_observations o ON o.id = r.metadata_observation_id AND o.recording_id = r.id
-                AND o.origin = 'provider_response'
-             JOIN provider_items binding ON binding.id = r.metadata_binding_id AND binding.id = o.provider_binding_id
-                AND binding.recording_id = r.id AND binding.retired = 0
-                AND binding.installation_id = o.plugin_installation_id AND binding.provider_recording_id = o.provider_recording_id
-             JOIN plugin_installations p ON p.id = binding.installation_id AND p.user_id = ? AND p.active = 1
-                AND json_extract(p.manifest,'$.id') = o.provider
-             JOIN plugin_services service ON service.id = p.service_id AND service.active = 1
-             WHERE r.id = ? AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value = 'artwork')",
-        ).bind(&id).bind(actor.id()).bind(actor.session_binding()).bind(RESERVATION_BYTES)
-            .bind(actor.id()).bind(actor.id()).bind(recording).execute(&mut *tx).await?.rows_affected();
-        if inserted != 1 {
-            return Err(Error::Invalid(
-                "This recording has no approved artwork provider".into(),
-            ));
-        }
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,'queued',?)",
+        ).bind(&id).bind(actor.id()).bind(recording).bind(actor.session_binding())
+            .bind(provider.observation_id).bind(provider.binding_id).bind(provider.binding_revision)
+            .bind(provider.installation_id).bind(provider.installation_revision)
+            .bind(provider.service_id).bind(provider.service_revision).bind(RESERVATION_BYTES)
+            .execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;
         let fetch = read_on(&mut tx, actor.id(), &id).await?;
         tx.commit().await?;
