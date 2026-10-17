@@ -1,5 +1,6 @@
 mod admission;
 mod config;
+mod contract;
 mod error;
 mod http;
 mod outcomes;

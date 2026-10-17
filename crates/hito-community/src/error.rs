@@ -1,9 +1,9 @@
+use crate::wire::Rejection;
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,10 +40,6 @@ impl IntoResponse for Error {
             Self::Input(status) => (status, "invalid_input"),
             _ => (StatusCode::SERVICE_UNAVAILABLE, "unavailable"),
         };
-        #[derive(Serialize)]
-        struct Rejection {
-            error: &'static str,
-        }
         tracing::debug!(
             event = "community_request_rejected",
             status = status.as_u16(),

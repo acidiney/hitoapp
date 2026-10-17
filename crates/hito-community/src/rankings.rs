@@ -3,7 +3,7 @@ use std::{cmp::Reverse, collections::HashSet, sync::Arc};
 use crate::{
     Error,
     storage::Storage,
-    wire::{RankCandidates, RankedSource, Ranking},
+    wire::{MAX_CANDIDATES, RankCandidates, RankedSource, Ranking},
 };
 
 #[derive(Clone)]
@@ -17,7 +17,7 @@ impl Rankings {
     }
 
     pub(crate) async fn rank(&self, request: RankCandidates) -> Result<Ranking, Error> {
-        if request.candidates.is_empty() || request.candidates.len() > 32 {
+        if request.candidates.is_empty() || request.candidates.len() > MAX_CANDIDATES {
             return Err(Error::InvalidInput);
         }
         let mut seen = HashSet::new();

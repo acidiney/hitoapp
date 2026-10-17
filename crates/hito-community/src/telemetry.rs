@@ -16,6 +16,7 @@ pub(crate) async fn request(request: Request, next: Next) -> Response {
         .map(MatchedPath::as_str)
         .unwrap_or("unmatched");
     let method = match request.method().as_str() {
+        "GET" => "GET",
         "POST" => "POST",
         _ => "other",
     };

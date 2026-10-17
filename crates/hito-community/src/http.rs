@@ -1,31 +1,46 @@
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{DefaultBodyLimit, FromRequest, FromRequestParts, Request, State},
     http::{StatusCode, request::Parts},
     middleware,
-    routing::post,
 };
 use serde::de::DeserializeOwned;
+use std::sync::Arc;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     Error, Service,
     admission::{Administrator, Reporter},
     wire::{
-        OutcomeReceipt, ProvisionReporter, RankCandidates, Ranking, ReporterCredential,
+        OutcomeReceipt, ProvisionReporter, RankCandidates, Ranking, Rejection, ReporterCredential,
         SubmitOutcome,
     },
 };
 
 pub fn router(service: Service) -> Router {
-    Router::new()
-        .route("/v1/admin/reporters", post(provision))
-        .route("/v1/outcomes", post(submit))
-        .route("/v1/rankings", post(rank))
+    let (router, document) = OpenApiRouter::with_openapi(crate::contract::base_document())
+        .routes(routes!(provision))
+        .routes(routes!(submit))
+        .routes(routes!(rank))
+        .routes(routes!(crate::contract::serve))
+        .split_for_parts();
+    router
+        .layer(Extension(Arc::new(document)))
         .layer(DefaultBodyLimit::max(16_384))
         .layer(middleware::from_fn(crate::telemetry::request))
         .with_state(service)
 }
 
+/// Provision a pseudonymous reporter. The random credential is returned only on creation.
+#[utoipa::path(post, path = "/v1/admin/reporters",
+    request_body(content = ProvisionReporter, description = "Strict JSON body, at most 16 KiB."),
+    security(("administratorBearer" = [])), responses(
+        (status = 201, body = ReporterCredential),
+        (status = 400, body = Rejection), (status = 401, body = Rejection),
+        (status = 413, body = Rejection), (status = 415, body = Rejection),
+        (status = 422, body = Rejection), (status = 503, body = Rejection),
+    ),
+)]
 async fn provision(
     State(service): State<Service>,
     administrator: Administrator,
@@ -37,6 +52,17 @@ async fn provision(
     ))
 }
 
+/// Accept a successful-playback claim; exact retries recover the original durable receipt.
+#[utoipa::path(post, path = "/v1/outcomes",
+    request_body(content = SubmitOutcome, description = "Strict JSON body, at most 16 KiB."),
+    security(("reporterBearer" = [])), responses(
+        (status = 201, body = OutcomeReceipt), (status = 200, body = OutcomeReceipt),
+        (status = 400, body = Rejection), (status = 401, body = Rejection),
+        (status = 409, body = Rejection), (status = 413, body = Rejection),
+        (status = 415, body = Rejection), (status = 422, body = Rejection),
+        (status = 503, body = Rejection),
+    ),
+)]
 async fn submit(
     State(service): State<Service>,
     reporter: Reporter,
@@ -53,6 +79,15 @@ async fn submit(
     ))
 }
 
+/// Rank only the supplied public candidates by distinct reporters of successful playback.
+#[utoipa::path(post, path = "/v1/rankings",
+    request_body(content = RankCandidates, description = "Strict JSON body, at most 16 KiB."),
+    responses(
+        (status = 200, body = Ranking), (status = 400, body = Rejection),
+        (status = 413, body = Rejection), (status = 415, body = Rejection),
+        (status = 422, body = Rejection), (status = 503, body = Rejection),
+    ),
+)]
 async fn rank(
     State(service): State<Service>,
     SafeJson(request): SafeJson<RankCandidates>,

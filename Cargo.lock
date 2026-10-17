@@ -1812,6 +1812,8 @@ dependencies = [
  "tokio",
  "tower",
  "tracing",
+ "utoipa",
+ "utoipa-axum",
  "uuid",
 ]
 

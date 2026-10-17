@@ -17,6 +17,8 @@ sqlx.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
 uuid.workspace = true
 
 [target.'cfg(unix)'.dependencies]
