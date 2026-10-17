@@ -19,7 +19,12 @@ impl Catalog {
         attempt: &Attempt,
         candidate: Option<Candidate>,
     ) -> Result<SourceResolutionOutcome> {
-        tracing::debug!(event = "source_resolution_write_started", resolution_id = attempt.id, account_id = actor.id(), "Publishing automatic source resolution");
+        tracing::debug!(
+            event = "source_resolution_write_started",
+            resolution_id = attempt.id,
+            account_id = actor.id(),
+            "Publishing automatic source resolution"
+        );
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         authority::access(&mut tx, actor, recording).await?;
         receipts::recheck_on(&mut tx, attempt).await?;

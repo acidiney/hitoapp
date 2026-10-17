@@ -6,11 +6,17 @@ mod receipts;
 mod types;
 
 use crate::{Actor, Catalog, Error, Result};
+use provider::Candidate;
 use receipts::{Admission, Attempt, Lease};
 use std::{future::Future, time::Duration};
 use tokio::time::Instant;
 pub use types::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 use uuid::Uuid;
+
+enum PreparedResolution {
+    Existing(SourceResolutionOutcome),
+    Candidate(Option<Box<Candidate>>),
+}
 
 impl Catalog {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id(), request_id = %request.request_id))]
@@ -38,21 +44,49 @@ impl Catalog {
         };
         let (id, outcome) = match admitted {
             Admission::Execute(attempt) => {
-                let outcome = tokio::select! {
+                let prepared = tokio::select! {
                     biased;
                     _ = &mut cancelled => None,
                     _ = tokio::time::sleep_until(deadline) => None,
-                    result = self.execute_resolution(actor, recording, &attempt) => Some(result),
+                    result = self.prepare_resolution(actor, recording, &attempt) => Some(result),
                 };
-                match outcome {
-                    Some(Ok(outcome)) => (attempt.id, outcome),
+                let prepared = match prepared {
+                    Some(Ok(prepared)) => tokio::select! {
+                        biased;
+                        _ = &mut cancelled => None,
+                        _ = tokio::time::sleep_until(deadline) => None,
+                        _ = std::future::ready(()) => Some(prepared),
+                    },
                     Some(Err(error)) => {
                         lease.cancel().await?;
                         return Err(error);
                     }
+                    None => None,
+                };
+                let settled = match prepared {
+                    Some(PreparedResolution::Existing(outcome)) => {
+                        self.finish_available_resolution(actor, recording, &attempt, outcome)
+                            .await
+                    }
+                    Some(PreparedResolution::Candidate(candidate)) => {
+                        self.complete_resolution(
+                            actor,
+                            recording,
+                            &attempt,
+                            candidate.map(|candidate| *candidate),
+                        )
+                        .await
+                    }
                     None => {
                         lease.cancel().await?;
-                        (attempt.id, SourceResolutionOutcome::Cancelled)
+                        Ok(SourceResolutionOutcome::Cancelled)
+                    }
+                };
+                match settled {
+                    Ok(outcome) => (attempt.id, outcome),
+                    Err(error) => {
+                        lease.cancel().await?;
+                        return Err(error);
                     }
                 }
             }
@@ -102,40 +136,27 @@ impl Catalog {
         }
     }
 
-    async fn execute_resolution(
+    async fn prepare_resolution(
         &self,
         actor: &Actor,
         recording: &str,
         attempt: &Attempt,
-    ) -> Result<SourceResolutionOutcome> {
+    ) -> Result<PreparedResolution> {
         let sources = self.sources(actor, recording).await?;
         let protected = {
             let mut connection = self.store.pool.acquire().await?;
             authority::protected(&mut connection, recording).await?
         };
         if protected {
-            return self
-                .finish_available_resolution(
-                    actor,
-                    recording,
-                    attempt,
-                    SourceResolutionOutcome::ProtectedChoice,
-                )
-                .await;
+            return Ok(PreparedResolution::Existing(
+                SourceResolutionOutcome::ProtectedChoice,
+            ));
         }
         if sources.iter().any(|source| source.ready) {
-            return self
-                .finish_available_resolution(
-                    actor,
-                    recording,
-                    attempt,
-                    SourceResolutionOutcome::Ready,
-                )
-                .await;
+            return Ok(PreparedResolution::Existing(SourceResolutionOutcome::Ready));
         }
         let candidate = self.resolution_candidates(actor, attempt).await?;
-        self.complete_resolution(actor, recording, attempt, candidate)
-            .await
+        Ok(PreparedResolution::Candidate(candidate.map(Box::new)))
     }
 }
 
