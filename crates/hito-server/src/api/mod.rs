@@ -14,6 +14,7 @@ pub mod providers;
 pub mod source_bindings;
 pub mod source_preparation;
 pub mod source_refresh;
+pub mod source_resolution;
 pub mod storage;
 
 use axum::{Extension, Json, extract::State, http::StatusCode};

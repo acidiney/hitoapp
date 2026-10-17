@@ -772,6 +772,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/sources/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/sources/review": {
         parameters: {
             query?: never;
@@ -1980,6 +1996,10 @@ export interface components {
             title: components["schemas"]["TextMetadata"];
         };
         ReleasePage: components["schemas"]["Page_Release"];
+        ResolveSource: {
+            /** Format: uuid */
+            request_id: string;
+        };
         SearchPage: {
             items: components["schemas"]["ProviderRecording"][];
             next_cursor?: string | null;
@@ -2041,6 +2061,17 @@ export interface components {
         };
         /** @enum {string} */
         SourceRefreshPurpose: "manual" | "playback";
+        SourceResolution: {
+            outcome: components["schemas"]["SourceResolutionOutcome"];
+            recording_id: string;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: uuid */
+            resolution_id: string;
+            sources: components["schemas"]["Source"][];
+        };
+        /** @enum {string} */
+        SourceResolutionOutcome: "ready" | "no_suitable_source" | "protected_choice" | "cancelled";
         SyncBatch: {
             device_id: string;
             operations: components["schemas"]["Operation"][];
@@ -5443,6 +5474,111 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resolve_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveSource"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceResolution"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

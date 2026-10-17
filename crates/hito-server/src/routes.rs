@@ -3,7 +3,7 @@ use crate::{
     api::{
         self, browsing, catalog, collection, downloads, identity, jobs, player, playlist_follow,
         plugin_authorization, plugins, providers, source_bindings, source_preparation,
-        source_refresh, storage,
+        source_refresh, source_resolution, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -82,6 +82,7 @@ fn api_routes() -> OpenApiRouter<Services> {
             source_preparation::status
         ))
         .routes(routes!(source_refresh::refresh_sources))
+        .routes(routes!(source_resolution::resolve_source))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))

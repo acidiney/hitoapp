@@ -87,8 +87,8 @@ async fn exercise(address: SocketAddr, provider: &fixture::Provider) {
         "only the suitable studio candidate needs details"
     );
     let replay = call(address, "POST", &resolve, body, Some(token), StatusCode::OK).await;
-    assert_eq!(
-        replay, result,
+    assert!(
+        replay == result,
         "replayed receipt must preserve the committed identities"
     );
     assert_eq!(
@@ -98,12 +98,18 @@ async fn exercise(address: SocketAddr, provider: &fixture::Provider) {
     );
     let after_metadata = http::get(address, token, &metadata_path).await;
     assert!(before_metadata["selected_observation"]["id"].is_string());
-    assert_eq!(
-        after_metadata["selected_observation"],
-        before_metadata["selected_observation"]
+    assert!(
+        after_metadata["selected_observation"] == before_metadata["selected_observation"],
+        "automatic resolution must preserve the primary selected observation"
     );
-    assert_eq!(after_metadata["title"], before_metadata["title"]);
-    assert_eq!(after_metadata["artist"], before_metadata["artist"]);
+    assert!(
+        after_metadata["title"] == before_metadata["title"],
+        "display title must remain unchanged"
+    );
+    assert!(
+        after_metadata["artist"] == before_metadata["artist"],
+        "display artist must remain unchanged"
+    );
     let recordings = http::get(address, token, "/api/v1/recordings").await;
     assert_eq!(
         recordings["items"].as_array().unwrap().len(),
