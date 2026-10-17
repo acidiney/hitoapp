@@ -63,7 +63,7 @@ export default function SourceAvailability({
           </button>
         )}
         {(error || (sources !== null && !ready)) && (
-          <Link className="text-link" href="/settings?tab=plugins">
+          <Link className="text-link" href="/settings?section=plugins">
             Music service settings
           </Link>
         )}

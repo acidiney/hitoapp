@@ -162,6 +162,6 @@ test("a failed check can be retried while duplicate requests remain blocked", as
     screen
       .getByRole("link", { name: "Music service settings" })
       .getAttribute("href"),
-  ).toBe("/settings?tab=plugins");
+  ).toBe("/settings?section=plugins");
   expect(player.playQueue).not.toHaveBeenCalled();
 });
