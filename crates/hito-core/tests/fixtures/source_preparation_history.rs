@@ -95,9 +95,13 @@ async fn exchange(State(counts): State<Arc<Counts>>, request: Request) -> Respon
         ("/v1/recordings/detail", Some(id @ (RECORDING | OTHER_RECORDING))) => json!({
             "id": id, "title": "Owned recording", "artist": "Owned artist"
         }),
-        ("/v1/sources", Some(RECORDING | OTHER_RECORDING)) => json!({
+        ("/v1/sources", Some(recording @ (RECORDING | OTHER_RECORDING))) => json!({
             "items": [{
-                "id": "owned:immutable-exact-file/sha256-1",
+                "id": if recording == RECORDING {
+                    "owned:immutable-exact-file/sha256-1"
+                } else {
+                    "owned:immutable-exact-file/sha256-2"
+                },
                 "label": "Owned unavailable exact file",
                 "ready": false
             }]
