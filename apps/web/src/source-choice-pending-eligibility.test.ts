@@ -190,7 +190,6 @@ test("an unresolved source choice gates new work while preserving exact preparat
     for (const name of ["Play track", "Prepare audio"]) {
       for (const button of availability().queryAllByRole("button", {
         name,
-        exact: true,
       })) {
         expect(button).toHaveProperty("disabled", true);
         fireEvent.click(button);
@@ -203,7 +202,6 @@ test("an unresolved source choice gates new work while preserving exact preparat
     ]) {
       for (const button of download().queryAllByRole("button", {
         name,
-        exact: true,
       })) {
         expect(button).toHaveProperty("disabled", true);
         fireEvent.click(button);
