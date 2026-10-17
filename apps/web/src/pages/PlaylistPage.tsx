@@ -7,15 +7,19 @@ import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
 import PlaylistFollowResume from "../components/playlists/PlaylistFollowResume";
+import PlaylistDownload from "../components/downloads/PlaylistDownload";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
+import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
 
 export default function PlaylistPage({
   user,
   playlists,
   detail,
+  native_playback,
 }: PlaylistPageProps) {
   const { mutate, pending } = useMutation(user.id);
+  const download = usePlaylistDownload(user.id, detail.playlist.id);
   const followed = detail.playlist.kind === "followed";
   const follow = usePlaylistFollow(
     user.id,
@@ -88,6 +92,7 @@ export default function PlaylistPage({
           )}
         </div>
       </section>
+      <PlaylistDownload {...download} local={native_playback} />
       {followed && <PlaylistFollowStatus {...follow} />}
       {followed && detail.origin && (
         <PlaylistFollowResume
