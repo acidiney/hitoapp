@@ -80,7 +80,8 @@ impl Downloads {
             SELECT ?,?,?,revision,(SELECT coalesce(max(sequence),0) FROM download_terminal_failures)
             FROM download_playlist_changes WHERE playlist_id=?
             ON CONFLICT(retention_id) DO UPDATE SET request_id=excluded.request_id,playlist_revision=excluded.playlist_revision,
-                failure_cutoff=excluded.failure_cutoff,cursor=NULL,next_attempt_at=0")
+                failure_cutoff=excluded.failure_cutoff,cursor=NULL,next_attempt_at=0,scan_complete=0,scan_next_attempt_at=0,
+                command_generation=download_playlist_retry_work.command_generation+1")
             .bind(&retention_id).bind(self.host.as_str()).bind(request.request_id.to_string()).bind(&playlist)
             .execute(&mut *tx).await?;
         actor.check_session_on(&mut tx).await?;

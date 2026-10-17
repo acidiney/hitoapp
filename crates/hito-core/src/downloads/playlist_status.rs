@@ -53,6 +53,13 @@ impl Downloads {
         let (after, limit) = page.selection(&retention, revision)?;
         let mut query = QueryBuilder::new("SELECT e.id AS entry_id,e.recording_id,access.id AS access_grant_id,m.seen_revision,
             i.state,i.error,f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
+            EXISTS(SELECT 1 FROM download_playlist_retry_waiting pending
+                JOIN download_playlist_retry_work command ON command.retention_id=pending.retention_id
+                    AND command.host_device=pending.host_device AND command.command_generation=pending.command_generation
+                JOIN download_terminal_failures failure ON failure.intent_id=pending.failed_intent_id
+                WHERE pending.retention_id=m.retention_id AND pending.recording_id=e.recording_id
+                    AND pending.host_device=i.host_device AND pending.failed_intent_id=i.id
+                    AND i.state='failed' AND failure.sequence<=command.failure_cutoff) AS retry_waiting,
             EXISTS(SELECT 1 FROM sources s JOIN provider_sources ps ON ps.source_id=s.id AND ps.recording_id=s.recording_id
                 JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
                 JOIN provider_source_state source_state ON source_state.binding_id=item.id AND source_state.generation=ps.generation
@@ -129,6 +136,9 @@ fn entry(row: &SqliteRow, revision: i64) -> Result<PlaylistDownloadEntry> {
             Some("queued") => (State::Queued, None),
             Some("running") => (State::Running, None),
             Some("verifying") => (State::Verifying, None),
+            Some("failed") if row.try_get::<bool, _>("retry_waiting")? => {
+                (State::WaitingForSource, None)
+            }
             Some(_) => (State::Failed, row.try_get("error")?),
             None if row.try_get::<bool, _>("provider_ready")? => (State::Pending, None),
             None => (State::WaitingForSource, None),

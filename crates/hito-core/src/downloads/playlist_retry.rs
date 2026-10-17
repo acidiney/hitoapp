@@ -1,16 +1,24 @@
 use super::{Downloads, retention::Admission};
 use crate::Result;
+use sqlx::SqliteConnection;
 use std::time::Instant;
+
+mod waiting;
 
 #[derive(sqlx::FromRow)]
 struct RetryWork {
     retention_id: String,
+    host_device: String,
     request_id: String,
     account_id: String,
     playlist_id: String,
     playlist_revision: i64,
     failure_cutoff: i64,
     cursor: Option<String>,
+    command_generation: i64,
+    scan_complete: bool,
+    scan_next_attempt_at: i64,
+    now: i64,
     live: bool,
 }
 
@@ -29,8 +37,9 @@ impl Downloads {
         }
         let started = Instant::now();
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        let selected: Option<RetryWork> = sqlx::query_as("SELECT work.retention_id,work.request_id,root.account_id,root.playlist_id,
-            work.playlist_revision,work.failure_cutoff,work.cursor,
+        let selected: Option<RetryWork> = sqlx::query_as("SELECT work.retention_id,work.host_device,work.request_id,root.account_id,root.playlist_id,
+            work.playlist_revision,work.failure_cutoff,work.cursor,work.command_generation,work.scan_complete,
+            work.scan_next_attempt_at,unixepoch() AS now,
             (root.state='active' AND root.kind='playlist' AND p.deleted=0 AND p.user_id=root.account_id) AS live
             FROM download_playlist_retry_work work JOIN download_retentions root
                 ON root.id=work.retention_id AND root.host_device=work.host_device
@@ -38,27 +47,51 @@ impl Downloads {
             WHERE work.host_device=? AND work.next_attempt_at<=unixepoch()
             ORDER BY work.next_attempt_at,work.retention_id LIMIT 1")
             .bind(self.host.as_str()).fetch_optional(&mut *tx).await?;
-        let Some(selected) = selected else {
+        let Some(mut selected) = selected else {
             tx.commit().await?;
             return Ok(false);
         };
         if !selected.live || selected.failure_cutoff == 0 {
-            sqlx::query("DELETE FROM download_playlist_retry_work WHERE retention_id=?")
-                .bind(&selected.retention_id)
-                .execute(&mut *tx)
-                .await?;
+            waiting::prune_on(&mut tx, &selected).await?;
+            waiting::schedule_on(&mut tx, &selected).await?;
             tx.commit().await?;
             tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
-                outcome = if selected.live { "no_failures" } else { "withdrawn" }, "Playlist download retry finished");
+                outcome = if selected.live { "no_failures" } else { "withdrawn" }, "Playlist download retry authority checked");
             return Ok(true);
         }
+        let waiting_count = self.retry_waiting_on(&mut tx, &selected).await?;
+        waiting::prune_on(&mut tx, &selected).await?;
+        let (entry_count, recording_count, busy) =
+            if !selected.scan_complete && selected.scan_next_attempt_at <= selected.now {
+                let progress = self
+                    .discover_playlist_retries_on(&mut tx, &mut selected)
+                    .await?;
+                selected.scan_next_attempt_at = selected.now + if progress.2 { 5 } else { 1 };
+                progress
+            } else {
+                (0, 0, false)
+            };
+        waiting::schedule_on(&mut tx, &selected).await?;
+        tx.commit().await?;
+        tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
+            revision = selected.playlist_revision, failure_cutoff = selected.failure_cutoff,
+            command_generation = selected.command_generation, entry_count, recording_count, waiting_count, busy,
+            scan_complete = selected.scan_complete, elapsed_ms = started.elapsed().as_millis() as u64,
+            "Playlist download retry batch finished");
+        Ok(true)
+    }
+
+    async fn discover_playlist_retries_on(
+        &self,
+        connection: &mut SqliteConnection,
+        selected: &mut RetryWork,
+    ) -> Result<(usize, usize, bool)> {
         let mut recordings: Vec<String> = sqlx::query_scalar("SELECT recording_id FROM playlist_entries INDEXED BY playlist_download_retry_scan
             WHERE playlist_id=? AND deleted=0 AND recording_id>coalesce(?,'') ORDER BY recording_id LIMIT 32")
-            .bind(&selected.playlist_id).bind(&selected.cursor).fetch_all(&mut *tx).await?;
+            .bind(&selected.playlist_id).bind(&selected.cursor).fetch_all(&mut *connection).await?;
         let entry_count = recordings.len();
         recordings.dedup();
-        let mut cursor = selected.cursor.clone();
-        let mut deferred = false;
+        let mut busy = false;
         for recording in &recordings {
             let authority: Option<(String, String)> = sqlx::query_as("SELECT recording.library_id,access.id
                 FROM download_intents intent JOIN download_terminal_failures failure ON failure.intent_id=intent.id
@@ -67,58 +100,63 @@ impl Downloads {
                 WHERE intent.account_id=? AND intent.recording_id=? AND intent.host_device=?
                     AND intent.state!='removed' AND intent.state='failed' AND failure.sequence<=?")
                 .bind(&selected.account_id).bind(recording).bind(self.host.as_str()).bind(selected.failure_cutoff)
-                .fetch_optional(&mut *tx).await?;
+                .fetch_optional(&mut *connection).await?;
             let Some((library, grant)) = authority else {
-                cursor = Some(recording.clone());
+                selected.cursor = Some(recording.clone());
                 continue;
             };
-            sqlx::query("SAVEPOINT playlist_download_retry_admission")
-                .execute(&mut *tx)
-                .await?;
-            let admission = self
-                .admit_transfer_on(&mut tx, &selected.account_id, recording, &library, &grant)
-                .await?;
-            let (rollback, busy, outcome) = match admission {
-                Admission::Retained(transfer) => {
-                    tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
-                        transfer_id = %transfer, "Playlist download retry transfer retained");
-                    (false, false, "retained")
+            match self
+                .retry_admission_on(connection, selected, recording, &library, &grant)
+                .await?
+            {
+                Admission::Retained(_) => {}
+                Admission::Busy => {
+                    busy = true;
+                    break;
                 }
-                Admission::Busy => (true, true, "capacity_deferred"),
-                Admission::WaitingForSource => (true, false, "source_unavailable"),
-            };
-            if rollback {
-                sqlx::query("ROLLBACK TO SAVEPOINT playlist_download_retry_admission")
-                    .execute(&mut *tx)
-                    .await?;
+                Admission::WaitingForSource => {
+                    waiting::defer_on(connection, selected, recording).await?
+                }
             }
-            sqlx::query("RELEASE SAVEPOINT playlist_download_retry_admission")
-                .execute(&mut *tx)
+            selected.cursor = Some(recording.clone());
+        }
+        selected.scan_complete = !busy && entry_count < 32;
+        Ok((entry_count, recordings.len(), busy))
+    }
+
+    async fn retry_admission_on(
+        &self,
+        connection: &mut SqliteConnection,
+        selected: &RetryWork,
+        recording: &str,
+        library: &str,
+        grant: &str,
+    ) -> Result<Admission> {
+        sqlx::query("SAVEPOINT playlist_download_retry_admission")
+            .execute(&mut *connection)
+            .await?;
+        let admission = self
+            .admit_transfer_on(connection, &selected.account_id, recording, library, grant)
+            .await?;
+        if !matches!(&admission, Admission::Retained(_)) {
+            sqlx::query("ROLLBACK TO SAVEPOINT playlist_download_retry_admission")
+                .execute(&mut *connection)
                 .await?;
-            tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
-                recording_id = %recording, outcome, "Playlist download retry admission checked");
-            if busy {
-                deferred = true;
-                break;
+        }
+        sqlx::query("RELEASE SAVEPOINT playlist_download_retry_admission")
+            .execute(&mut *connection)
+            .await?;
+        let outcome = match &admission {
+            Admission::Retained(transfer) => {
+                tracing::debug!(retention_id = %selected.retention_id, transfer_id = %transfer,
+                    "Playlist download retry transfer retained");
+                "retained"
             }
-            cursor = Some(recording.clone());
-        }
-        let complete = !deferred && entry_count < 32;
-        if complete {
-            sqlx::query("DELETE FROM download_playlist_retry_work WHERE retention_id=?")
-                .bind(&selected.retention_id)
-                .execute(&mut *tx)
-                .await?;
-        } else {
-            sqlx::query("UPDATE download_playlist_retry_work SET cursor=?,next_attempt_at=unixepoch()+? WHERE retention_id=?")
-                .bind(cursor).bind(if deferred { 5_i64 } else { 1 }).bind(&selected.retention_id)
-                .execute(&mut *tx).await?;
-        }
-        tx.commit().await?;
+            Admission::Busy => "capacity_deferred",
+            Admission::WaitingForSource => "source_deferred",
+        };
         tracing::debug!(retention_id = %selected.retention_id, request_id = %selected.request_id,
-            revision = selected.playlist_revision, failure_cutoff = selected.failure_cutoff,
-            entry_count, recording_count = recordings.len(), deferred, complete,
-            elapsed_ms = started.elapsed().as_millis() as u64, "Playlist download retry batch finished");
-        Ok(true)
+            recording_id = %recording, outcome, "Playlist download retry admission checked");
+        Ok(admission)
     }
 }
