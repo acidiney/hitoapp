@@ -6,6 +6,8 @@ mod support;
 mod capable;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
+#[path = "fixtures/source_preparation_reconnection.rs"]
+mod reconnection;
 
 use axum::{
     Json, Router,
@@ -189,6 +191,23 @@ async fn a_capable_source_is_prepared_once_and_resumes_polling_after_restart() {
     ))
     .catch_unwind()
     .await;
+    for host in &mut hosts {
+        host.finish().await;
+    }
+    if let Err(panic) = outcome {
+        std::panic::resume_unwind(panic);
+    }
+}
+
+#[tokio::test]
+async fn a_recreated_connection_cannot_duplicate_an_unresolved_preparation() {
+    let directory = tempfile::tempdir().unwrap();
+    let audio = support::write_wav(&directory.path().join("owned-unresolved-file.wav"));
+    let provider = capable::CapableProvider::start(audio).await;
+    let mut hosts = Vec::new();
+    let outcome = AssertUnwindSafe(reconnection::run(directory.path(), &provider, &mut hosts))
+        .catch_unwind()
+        .await;
     for host in &mut hosts {
         host.finish().await;
     }
@@ -428,6 +447,7 @@ async fn prepare_with_runtime(
     )
     .await;
     assert_eq!(audio_response.status, StatusCode::OK);
+    assert_eq!(audio_response.headers["content-type"], "audio/wav");
     assert_eq!(audio_response.body, audio);
     let response = http::call(
         address,

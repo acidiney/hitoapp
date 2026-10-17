@@ -60,14 +60,23 @@ impl Exchange {
     }
 
     pub fn ready(self) {
-        let response = json!({
+        let response = self.ready_response();
+        self.reply.send(response).unwrap();
+    }
+
+    pub fn ready_if_waiting(self) {
+        let response = self.ready_response();
+        let _ = self.reply.send(response);
+    }
+
+    fn ready_response(&self) -> Value {
+        json!({
             "operation_id": self.body["operation_id"],
             "recording_id": self.body["recording_id"],
             "source_id": self.body["source_id"],
             "handle": self.body["handle"],
             "status": {"phase": "ready"}
-        });
-        self.reply.send(response).unwrap();
+        })
     }
 }
 
