@@ -1,9 +1,45 @@
 use super::Downloads;
-use crate::Result;
+use crate::{Error, Result};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
 impl Downloads {
+    pub(super) async fn ensure_transfer_on(
+        &self,
+        connection: &mut SqliteConnection,
+        account: &str,
+        recording: &str,
+        library: &str,
+        grant: &str,
+    ) -> Result<String> {
+        if let Some(intent) = self
+            .retain_existing_on(connection, account, recording, grant)
+            .await?
+        {
+            return Ok(intent);
+        }
+        let (account_pending, pending): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(account_id=?),0),count(*) FROM download_jobs WHERE status IN ('queued','running')")
+            .bind(account).fetch_one(&mut *connection).await?;
+        if account_pending >= 32 || pending >= 256 {
+            return Err(Error::Conflict("Download work is busy. Try again.".into()));
+        }
+        let origin = self
+            .plugins
+            .capture_download_origin_on(connection, account, recording)
+            .await?;
+        let intent = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,
+            provider_source_id,binding_id,binding_revision,remote_source_id,installation_id,installation_revision,service_id,service_revision,credential_digest,audio_generation)
+            VALUES(?,?,?,?,?,?,'queued',?,?,?,?,?,?,?,?,?,?)")
+            .bind(&intent).bind(account).bind(recording).bind(library).bind(grant).bind(self.host.as_str())
+            .bind(origin.provider_source_id).bind(origin.binding_id).bind(origin.binding_revision).bind(origin.remote_source_id)
+            .bind(origin.installation_id).bind(origin.installation_revision).bind(origin.service_id).bind(origin.service_revision)
+            .bind(origin.credential_digest).bind(origin.audio_generation).execute(&mut *connection).await?;
+        sqlx::query("INSERT INTO download_jobs(id,account_id,intent_id,generation,status) VALUES(?,?,?,1,'queued')")
+            .bind(Uuid::new_v4().to_string()).bind(account).bind(&intent).execute(connection).await?;
+        Ok(intent)
+    }
+
     pub(super) async fn retain_existing_on(
         &self,
         connection: &mut SqliteConnection,

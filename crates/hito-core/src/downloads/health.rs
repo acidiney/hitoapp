@@ -46,9 +46,11 @@ impl Downloads {
     ) -> Result<(DownloadStatus, Option<ReadyCopy>)> {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let row = sqlx::query("SELECT i.id,i.state,i.generation AS intent_generation,i.access_grant_id,i.bytes_received,i.total_bytes,i.error,
+        let row = sqlx::query("SELECT root.id AS retention_id,i.id,i.state,i.generation AS intent_generation,i.access_grant_id,i.bytes_received,i.total_bytes,i.error,
             f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime
             FROM download_intents i JOIN recordings r ON r.id=i.recording_id AND r.library_id=i.library_id
+            JOIN download_retentions root ON root.account_id=i.account_id AND root.recording_id=i.recording_id AND root.access_grant_id=i.access_grant_id
+                AND root.host_device=i.host_device AND root.kind='recording' AND root.state='active'
             JOIN library_access_grants g ON g.library_id=i.library_id AND g.user_id=i.account_id AND g.id=i.access_grant_id
             LEFT JOIN download_files f ON f.id=i.file_id AND f.account_id=i.account_id AND f.host_device=i.host_device
                 AND f.recording_id=i.recording_id AND f.state='ready'
@@ -63,7 +65,7 @@ impl Downloads {
         };
         let result = DownloadStatus {
             status,
-            intent_id: row.try_get("id")?,
+            intent_id: row.try_get("retention_id")?,
             recording_id: recording.into(),
             source_id: row.try_get("source_id")?,
             host_device_id: self.host.as_str().into(),
@@ -85,21 +87,25 @@ impl Downloads {
 }
 
 fn ready_copy(row: &SqliteRow, intent: &str) -> Result<ReadyCopy> {
-    let mime: String = row.try_get("mime")?;
-    let byte_length =
-        u64::try_from(row.try_get::<i64, _>("byte_length")?).map_err(|_| Error::NotFound)?;
     Ok(ReadyCopy {
-        file: ManagedFileLocation {
-            file_id: stored_uuid(row.try_get("file_id")?)?,
-            attempt_id: stored_uuid(row.try_get("attempt_id")?)?,
-            generation: row.try_get("file_generation")?,
-            checksum: row.try_get("checksum")?,
-            byte_length,
-            mime: managed_mime(&mime).ok_or(Error::NotFound)?,
-        },
+        file: ready_file(row)?,
         intent_id: intent.into(),
         intent_generation: row.try_get("intent_generation")?,
         access_grant: row.try_get("access_grant_id")?,
+    })
+}
+
+pub(super) fn ready_file(row: &SqliteRow) -> Result<ManagedFileLocation> {
+    let mime: String = row.try_get("mime")?;
+    let byte_length =
+        u64::try_from(row.try_get::<i64, _>("byte_length")?).map_err(|_| Error::NotFound)?;
+    Ok(ManagedFileLocation {
+        file_id: stored_uuid(row.try_get("file_id")?)?,
+        attempt_id: stored_uuid(row.try_get("attempt_id")?)?,
+        generation: row.try_get("file_generation")?,
+        checksum: row.try_get("checksum")?,
+        byte_length,
+        mime: managed_mime(&mime).ok_or(Error::NotFound)?,
     })
 }
 

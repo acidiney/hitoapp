@@ -26,7 +26,11 @@ pub use collection::{
     SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
-pub use downloads::{DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus, Downloads};
+pub use downloads::{
+    DownloadReceipt, DownloadRequest, DownloadState, DownloadStatus, Downloads,
+    PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,
+    PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
+};
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
 pub use library_storage::{
@@ -95,6 +99,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             host: config.host_device.clone(),
             files: managed.clone(),
             active: Default::default(),
+            playlist_turn: Default::default(),
         },
         plugins,
         store,

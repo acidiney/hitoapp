@@ -48,14 +48,18 @@ pub(super) async fn rename(
 
 pub(super) async fn delete(tx: &mut Transaction<'_>, actor: &Actor, playlist: &Uuid) -> Result<()> {
     check_owner(tx, actor, playlist).await?;
-    sqlx::query(
+    let changed = sqlx::query(
         "INSERT INTO playlists(id, user_id, name, deleted) VALUES (?, ?, '', 1)
-         ON CONFLICT(id) DO UPDATE SET deleted = 1",
+         ON CONFLICT(id) DO UPDATE SET deleted = 1 WHERE playlists.deleted=0",
     )
     .bind(playlist.to_string())
     .bind(actor.id())
     .execute(&mut **tx)
-    .await?;
+    .await?
+    .rows_affected();
+    if changed > 0 {
+        crate::downloads::playlist_changed_on(tx, playlist).await?;
+    }
     let deactivated = sqlx::query("UPDATE playlist_follows SET active = 0,generation = generation + 1 WHERE playlist_id = ? AND user_id = ? AND active = 1")
         .bind(playlist.to_string()).bind(actor.id()).execute(&mut **tx).await?.rows_affected();
     if deactivated > 0 {

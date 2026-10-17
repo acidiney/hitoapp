@@ -61,6 +61,7 @@ pub(super) fn push_managed_access(
         .push_bind(account.to_owned())
         .push(
             " AND EXISTS (SELECT 1 FROM download_intents intent
+        JOIN retained_download_intents retained ON retained.id=intent.id
         JOIN library_access_grants access ON access.library_id = intent.library_id
             AND access.user_id = intent.account_id AND access.id = intent.access_grant_id
         WHERE intent.file_id = file.id AND intent.account_id = file.account_id

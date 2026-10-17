@@ -28,7 +28,7 @@ pub(super) async fn insert(
             "Playlist entry IDs cannot be reused for a different recording".into(),
         ));
     }
-    sqlx::query(
+    let changed = sqlx::query(
         "INSERT OR IGNORE INTO playlist_entries(playlist_id, id, recording_id, position)
          VALUES (?, ?, ?, ?)",
     )
@@ -37,7 +37,11 @@ pub(super) async fn insert(
     .bind(recording.to_string())
     .bind(position)
     .execute(&mut **tx)
-    .await?;
+    .await?
+    .rows_affected();
+    if changed > 0 {
+        crate::downloads::playlist_changed_on(tx, playlist).await?;
+    }
     Ok(())
 }
 
@@ -50,14 +54,18 @@ pub(super) async fn remove(
     if !playlists::editable(tx, actor, playlist).await? {
         return Ok(());
     }
-    sqlx::query(
+    let changed = sqlx::query(
         "INSERT INTO playlist_entries(playlist_id, id, deleted) VALUES (?, ?, 1)
-         ON CONFLICT(playlist_id, id) DO UPDATE SET deleted = 1",
+         ON CONFLICT(playlist_id, id) DO UPDATE SET deleted = 1 WHERE playlist_entries.deleted=0",
     )
     .bind(playlist.to_string())
     .bind(entry.to_string())
     .execute(&mut **tx)
-    .await?;
+    .await?
+    .rows_affected();
+    if changed > 0 {
+        crate::downloads::playlist_changed_on(tx, playlist).await?;
+    }
     Ok(())
 }
 

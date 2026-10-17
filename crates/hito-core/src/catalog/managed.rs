@@ -40,6 +40,7 @@ impl Catalog {
              JOIN download_intents intent ON intent.file_id = file.id AND intent.account_id = file.account_id
                 AND intent.host_device = file.host_device AND intent.recording_id = file.recording_id
                 AND intent.library_id = recording.library_id AND intent.state = 'ready'
+             JOIN retained_download_intents retained ON retained.id=intent.id
              JOIN library_access_grants access ON access.library_id = intent.library_id
                 AND access.user_id = intent.account_id AND access.id = intent.access_grant_id
              WHERE s.id = ? AND s.provider = 'download' AND s.ready = 1 AND s.device_id = ?

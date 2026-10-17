@@ -12,7 +12,7 @@ use crate::{
 };
 use hito_plugin_sdk::ProviderPlaylistItem;
 use sqlx::{Row, Sqlite, SqliteConnection, Transaction};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 pub(super) async fn create(
@@ -153,10 +153,17 @@ async fn snapshot_for_publication(
 ) -> Result<ImportedPlaylistSnapshot> {
     let library = catalog::provider_library(tx, &operation.account).await?;
     let library_id = receipts::identity(&library)?;
-    sqlx::query("UPDATE playlist_entries SET deleted = 1 WHERE playlist_id = ?")
-        .bind(playlist)
-        .execute(&mut **tx)
-        .await?;
+    let previous: Vec<String> = sqlx::query_scalar(
+        "UPDATE playlist_entries SET deleted = 1 WHERE playlist_id = ? AND deleted=0 RETURNING id",
+    )
+    .bind(playlist)
+    .fetch_all(&mut **tx)
+    .await?;
+    let previous: HashSet<String> = previous.into_iter().collect();
+    let membership_changed = previous.len() != entry_ids.len()
+        || entry_ids
+            .iter()
+            .any(|id| !previous.contains(&id.to_string()));
     let mut identities = HashMap::new();
     let mut recordings = Vec::new();
     let mut entries = Vec::with_capacity(snapshot.entries.len());
@@ -245,6 +252,9 @@ async fn snapshot_for_publication(
         .bind(playlist)
         .execute(&mut **tx)
         .await?;
+    if membership_changed {
+        crate::downloads::playlist_changed_on(tx, &receipts::identity(playlist)?).await?;
+    }
     Ok(ImportedPlaylistSnapshot {
         playlist_id: receipts::identity(playlist)?,
         name: snapshot.detail.name,
