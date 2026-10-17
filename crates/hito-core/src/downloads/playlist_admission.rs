@@ -54,7 +54,7 @@ impl Downloads {
             ) {
                 let failed: bool = sqlx::query_scalar(
                     "SELECT EXISTS(SELECT 1 FROM download_intents
-                    WHERE account_id=? AND recording_id=? AND host_device=? AND state='failed')",
+                    WHERE account_id=? AND recording_id=? AND host_device=? AND state!='removed' AND state='failed')",
                 )
                 .bind(&candidate.account_id)
                 .bind(recording)
