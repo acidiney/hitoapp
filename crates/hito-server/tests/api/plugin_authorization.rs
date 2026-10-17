@@ -31,11 +31,18 @@ async fn plugin_consent_attempt_is_durable_and_bound_to_the_original_session() {
         Some(&original_session),
     )
     .await;
+    let after = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     assert_eq!(status, StatusCode::CREATED);
     let attempt_id = attempt["id"].as_str().unwrap();
     assert!(!attempt_id.is_empty());
     let expires_at = attempt["expires_at"].as_u64().unwrap();
-    assert!((before + 1..=before + 600).contains(&expires_at));
+    assert!(
+        (before + 600..=after + 600).contains(&expires_at),
+        "Authorization expiry timing before={before} after={after} expires_at={expires_at}"
+    );
     let authorization_url = attempt["authorization_url"].as_str().unwrap();
     let uri: Uri = authorization_url.parse().unwrap();
     assert_eq!(uri.scheme_str(), Some("https"));
