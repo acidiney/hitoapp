@@ -19,5 +19,10 @@ case "$target" in
         printf '3\n' >> "$directory/calls"
         cat "$directory/channel.json"
         ;;
+    'https://www.youtube.com/watch?v=HitoCheck'[0-9][0-9])
+        printf '4\n' >> "$directory/calls"
+        id=${target##*=}
+        cat "$directory/$id.json"
+        ;;
     *) exit 1 ;;
 esac
