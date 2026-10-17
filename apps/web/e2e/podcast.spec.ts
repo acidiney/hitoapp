@@ -58,7 +58,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Set up Hito" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Set up Hito" }),
+  ).toBeVisible();
   await page.getByLabel("Username", { exact: true }).fill("admin");
   await page
     .getByLabel("Password", { exact: true })
@@ -85,7 +87,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   const podcast = page.getByRole("link", { name: feedTitle, exact: true });
   await expect(podcast).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Last checked", { exact: false })).toBeVisible();
-  await expect(page.getByText("Checking feed…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Checking feed…", { exact: true })).toHaveCount(
+    0,
+  );
   const podcastPath = await podcast.getAttribute("href");
   if (!podcastPath)
     throw new Error("The podcast detail link is missing its address");
@@ -102,7 +106,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     exact: true,
   });
   await expect(playEpisode).toBeEnabled();
-  await expect(episodes.getByRole("button", { name: /Download/ })).toHaveCount(0);
+  await expect(episodes.getByRole("button", { name: /Download/ })).toHaveCount(
+    0,
+  );
   const subscription = new URL(detailUrl).pathname.split("/").at(-1)!;
   const published = await page.request.get(
     `/api/v1/podcasts/${subscription}/episodes`,
@@ -151,7 +157,10 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   expect(new URL(source).origin).toBe(origin);
   expect(new URL(source).pathname).toMatch(audioPath);
   expect(source).not.toContain("episode.wav");
-  const dock = page.getByRole("contentinfo", { name: "Audio player", exact: true });
+  const dock = page.getByRole("contentinfo", {
+    name: "Audio player",
+    exact: true,
+  });
   await expect(dock.locator(".now-playing strong")).toHaveText(title);
   const beforeNavigation = await position();
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
@@ -188,7 +197,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     .poll(async () => {
       const progress = await page.request.post("/api/v1/recordings/progress", {
         headers: { origin, "x-hito-request": "1" },
-        data: { recording_ids: [recording] } satisfies Schema["SavedPlaybackRequest"],
+        data: {
+          recording_ids: [recording],
+        } satisfies Schema["SavedPlaybackRequest"],
       });
       expect(progress.status()).toBe(200);
       const stored: Schema["RecordingProgress"][] = await progress.json();
@@ -211,7 +222,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await resume.click();
   await expect.poll(position).toBeGreaterThan(durableMs / 1000 - 0.1);
   expect(await position()).toBeLessThan(durableMs / 1000 + 3);
-  await expect(dock.getByRole("button", { name: "Pause", exact: true })).toBeEnabled();
+  await expect(
+    dock.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeEnabled();
   await episodes
     .getByRole("button", { name: `Start over ${title}`, exact: true })
     .click();
@@ -219,6 +232,127 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await expect.poll(position).toBeGreaterThan(0.2);
   expect(await position()).toBeLessThan(2);
   await dock.getByRole("button", { name: "Pause", exact: true }).click();
+
+  const restartedMs = Math.floor((await position()) * 1000);
+  await expect
+    .poll(async () =>
+      Math.abs(
+        (await recordingProgress(page, recording)).position_ms - restartedMs,
+      ),
+    )
+    .toBeLessThan(250);
+  await episodes
+    .getByRole("button", { name: `Like ${title}`, exact: true })
+    .click();
+  const unlike = episodes.getByRole("button", {
+    name: `Unlike ${title}`,
+    exact: true,
+  });
+  await expect(unlike).toBeVisible();
+  const retainedProgress = await recordingProgress(page, recording);
+  const beforeRefresh = await fixtureStatus(page);
+  const requestsBeforeRefresh = audioRequests.length;
+  const mediaBeforeRefresh = await audio.evaluate(
+    (element: HTMLAudioElement) => ({
+      paused: element.paused,
+      position: element.currentTime,
+      source: element.currentSrc,
+    }),
+  );
+  expect(mediaBeforeRefresh.paused).toBe(true);
+  expect(beforeRefresh.feed_requests).toBe(1);
+  const refreshPath = `/api/v1/podcasts/${subscription}/refresh`;
+  const refreshAccepted = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === refreshPath &&
+      candidate.request().method() === "POST",
+  );
+  const refreshedEpisodes = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname ===
+        `/api/v1/podcasts/${subscription}/episodes` &&
+      candidate.request().method() === "GET" &&
+      candidate.status() === 200,
+  );
+  const refreshedProgress = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === "/api/v1/recordings/progress" &&
+      candidate.request().method() === "POST" &&
+      candidate.status() === 200 &&
+      (
+        candidate.request().postDataJSON() as Schema["SavedPlaybackRequest"]
+      ).recording_ids.includes(recording),
+  );
+  const refresh = page.getByRole("button", {
+    name: "Refresh feed",
+    exact: true,
+  });
+  await refresh.click();
+  const accepted = await refreshAccepted;
+  expect(accepted.status()).toBe(202);
+  const requested: Schema["RefreshPodcast"] = accepted.request().postDataJSON();
+  const receipt: Schema["PodcastRefreshReceipt"] = await accepted.json();
+  expect(receipt.request_id).toBe(requested.request_id);
+  expect(receipt.subscription_id).toBe(subscription);
+  expect(receipt.job_id).toMatch(/^[a-f0-9-]{36}$/);
+  await expect
+    .poll(async () => (await fixtureStatus(page)).feed_requests)
+    .toBe(2);
+  await expect
+    .poll(async () => {
+      const status = await page.request.get("/api/v1/podcasts");
+      expect(status.status()).toBe(200);
+      const subscriptions: Schema["PodcastSubscription"][] =
+        await status.json();
+      return subscriptions.find(
+        (item) => item.subscription_id === subscription,
+      );
+    })
+    .toMatchObject({
+      content_revision: archive.content_revision + 1,
+      refresh_pending: false,
+      refresh_failed: false,
+    });
+  const refreshed: Schema["PodcastEpisodePage"] = await (
+    await refreshedEpisodes
+  ).json();
+  expect(refreshed.content_revision).toBe(archive.content_revision + 1);
+  expect(refreshed.total).toBe(1);
+  expect(
+    refreshed.items.map((item) => [item.episode_id, item.recording.id]),
+  ).toEqual(archive.items.map((item) => [item.episode_id, item.recording.id]));
+  expect(refreshed.items[0].recording.liked).toBe(true);
+  expect(await (await refreshedProgress).json()).toEqual([retainedProgress]);
+  const refreshedSources = await page.request.get(
+    `/api/v1/recordings/${recording}/sources`,
+  );
+  expect(refreshedSources.status()).toBe(200);
+  const sources: Schema["Source"][] = await refreshedSources.json();
+  expect(sources.map((item) => item.id)).toEqual([
+    new URL(source).pathname.split("/").at(-2),
+  ]);
+  expect(await recordingProgress(page, recording)).toEqual(retainedProgress);
+  await expect(refresh).toBeEnabled({ timeout: 15_000 });
+  await expect(page.getByText("Checking feed…", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Loading episodes and saved positions…", { exact: true }),
+  ).toHaveCount(0);
+  await expect(unlike).toBeVisible();
+  await expect(resume).toBeVisible();
+  expect(
+    await audio.evaluate((element: HTMLAudioElement) => ({
+      paused: element.paused,
+      position: element.currentTime,
+      source: element.currentSrc,
+    })),
+  ).toEqual(mediaBeforeRefresh);
+  const afterRefresh = await fixtureStatus(page);
+  expect(afterRefresh.enclosure_requests).toBe(
+    beforeRefresh.enclosure_requests,
+  );
+  expect(audioRequests).toHaveLength(requestsBeforeRefresh);
   await expectNoDownload(page, recording);
   const played = await fixtureStatus(page);
   expect(played.enclosure_requests).toBeGreaterThan(0);
@@ -235,8 +369,26 @@ async function fixtureStatus(page: Page): Promise<FixtureStatus> {
 }
 
 async function expectNoDownload(page: Page, recording: string) {
-  const response = await page.request.get(`/api/v1/recordings/${recording}/download`);
+  const response = await page.request.get(
+    `/api/v1/recordings/${recording}/download`,
+  );
   expect(response.status()).toBe(404);
+}
+
+async function recordingProgress(
+  page: Page,
+  recording: string,
+): Promise<Schema["RecordingProgress"]> {
+  const response = await page.request.post("/api/v1/recordings/progress", {
+    headers: { origin, "x-hito-request": "1" },
+    data: {
+      recording_ids: [recording],
+    } satisfies Schema["SavedPlaybackRequest"],
+  });
+  expect(response.status()).toBe(200);
+  const progress: Schema["RecordingProgress"][] = await response.json();
+  expect(progress).toHaveLength(1);
+  return progress[0];
 }
 
 function isAudio(response: Response): boolean {
