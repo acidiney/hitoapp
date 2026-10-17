@@ -47,13 +47,20 @@ impl Downloads {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let row = sqlx::query("SELECT root.id AS retention_id,i.id,i.state,i.generation AS intent_generation,i.access_grant_id,i.bytes_received,i.total_bytes,i.error,
-            f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime
+            f.source_id,f.id AS file_id,f.attempt_id,f.generation AS file_generation,f.checksum,f.byte_length,f.mime,
+            COALESCE(choice.revision,0) AS choice_revision,
+            (choice.binding_id IS NULL OR (EXISTS(SELECT 1 FROM source_choice_bindings permitted
+                WHERE permitted.user_id=i.account_id AND permitted.recording_id=i.recording_id AND permitted.binding_id=i.binding_id)
+                AND (i.state!='ready' OR EXISTS(SELECT 1 FROM download_file_origins origin
+                    WHERE origin.file_id=f.id AND origin.account_id=i.account_id AND origin.recording_id=i.recording_id
+                        AND origin.host_device=i.host_device AND origin.binding_id=i.binding_id)))) AS matches_source_choice
             FROM download_intents i JOIN recordings r ON r.id=i.recording_id AND r.library_id=i.library_id
             JOIN download_retentions root ON root.account_id=i.account_id AND root.recording_id=i.recording_id AND root.access_grant_id=i.access_grant_id
                 AND root.host_device=i.host_device AND root.kind='recording' AND root.state='active'
             JOIN library_access_grants g ON g.library_id=i.library_id AND g.user_id=i.account_id AND g.id=i.access_grant_id
             LEFT JOIN download_files f ON f.id=i.file_id AND f.account_id=i.account_id AND f.host_device=i.host_device
                 AND f.recording_id=i.recording_id AND f.state='ready'
+            LEFT JOIN recording_source_choices choice ON choice.user_id=i.account_id AND choice.recording_id=i.recording_id
             WHERE i.account_id=? AND i.recording_id=? AND i.host_device=? AND i.state!='removed'")
             .bind(actor.id()).bind(recording).bind(self.host.as_str()).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         let status = match row.try_get::<&str, _>("state")? {
@@ -69,6 +76,8 @@ impl Downloads {
             recording_id: recording.into(),
             source_id: row.try_get("source_id")?,
             host_device_id: self.host.as_str().into(),
+            choice_revision: row.try_get("choice_revision")?,
+            matches_source_choice: row.try_get("matches_source_choice")?,
             bytes_received: row.try_get::<i64, _>("bytes_received")? as u64,
             total_bytes: row
                 .try_get::<Option<i64>, _>("total_bytes")?

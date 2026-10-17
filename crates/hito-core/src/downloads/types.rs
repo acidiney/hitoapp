@@ -32,6 +32,9 @@ pub struct DownloadStatus {
     pub recording_id: String,
     pub source_id: Option<String>,
     pub host_device_id: String,
+    #[schema(minimum = 0)]
+    pub choice_revision: i64,
+    pub matches_source_choice: bool,
     pub bytes_received: u64,
     pub total_bytes: Option<u64>,
     pub error: Option<String>,
