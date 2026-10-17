@@ -42,6 +42,9 @@ async fn migrate_owned(database: PathBuf, expected_version: i64) -> Result<Migra
             "Use an existing regular Hito database".into(),
         ));
     }
+    let database = tokio::fs::canonicalize(database)
+        .await
+        .map_err(|_| Error::NotFound)?;
     let mut connection = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
             .filename(database)
