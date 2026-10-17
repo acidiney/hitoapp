@@ -32,7 +32,7 @@ impl Write for Capture {
 }
 
 #[tokio::test]
-async fn manifest_declares_only_implemented_search_without_starting_the_executable() {
+async fn manifest_declares_implemented_search_and_sources_without_starting_the_executable() {
     let _ambient_no_subscriber_dispatch =
         tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let logs = Capture::default();
@@ -88,7 +88,10 @@ async fn manifest_declares_only_implemented_search_without_starting_the_executab
     assert_eq!(manifest.id, "org.hito.youtube");
     assert_eq!(manifest.name, "YouTube");
     assert_eq!(manifest.protocol_version, 1);
-    assert_eq!(manifest.capabilities, BTreeSet::from([Capability::Search]));
+    assert_eq!(
+        manifest.capabilities,
+        BTreeSet::from([Capability::Search, Capability::Sources])
+    );
     assert!(manifest.authorization.is_none());
     let wire: Value = serde_json::from_slice(&bytes).unwrap();
     assert!(wire.get("authorization").is_none());

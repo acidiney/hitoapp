@@ -12,11 +12,15 @@ use nix::{
 use std::time::Instant;
 use std::{future::Future, path::PathBuf};
 
+pub(crate) enum Intent {
+    Search { query: String, limit: u16 },
+    Recording { id: String },
+}
+
 #[cfg(all(target_os = "linux", not(target_env = "uclibc")))]
 pub(crate) async fn run(
     executable: PathBuf,
-    query: String,
-    limit: u16,
+    intent: Intent,
     canceled: impl Future<Output = ()>,
 ) -> Result<Vec<u8>, Error> {
     use std::{process::Stdio, time::Duration};
@@ -32,22 +36,42 @@ pub(crate) async fn run(
         _ = std::future::ready(()) => {},
     }
     let mut command = Command::new(executable);
+    command.args([
+        "--ignore-config",
+        "--no-config-locations",
+        "--simulate",
+        "--skip-download",
+        "--no-cookies",
+        "--no-cookies-from-browser",
+        "--no-plugin-dirs",
+        "--no-remote-components",
+        "--no-cache-dir",
+        "--dump-single-json",
+    ]);
+    match intent {
+        Intent::Search { query, limit } => {
+            command
+                .args(["--flat-playlist", "--"])
+                .arg(format!("ytsearch{limit}:{query}"));
+        }
+        Intent::Recording { id } => {
+            if !crate::recordings::valid_id(&id) {
+                return Err(Error::InvalidRecordingRequest);
+            }
+            command
+                .args([
+                    "--no-playlist",
+                    "--no-js-runtimes",
+                    "--js-runtimes",
+                    "deno:/usr/local/bin/deno",
+                    "--format",
+                    "bestaudio[ext=m4a][acodec=mp4a.40.2][vcodec=none][protocol=https]",
+                    "--",
+                ])
+                .arg(format!("https://www.youtube.com/watch?v={id}"));
+        }
+    }
     command
-        .args([
-            "--ignore-config",
-            "--no-config-locations",
-            "--simulate",
-            "--skip-download",
-            "--no-cookies",
-            "--no-cookies-from-browser",
-            "--no-plugin-dirs",
-            "--no-remote-components",
-            "--no-cache-dir",
-            "--dump-single-json",
-            "--flat-playlist",
-            "--",
-        ])
-        .arg(format!("ytsearch{limit}:{query}"))
         .env_clear()
         .env("PATH", "/usr/local/bin:/usr/bin:/bin")
         .env("LANG", "C.UTF-8")
@@ -95,8 +119,7 @@ pub(crate) async fn run(
 #[cfg(not(all(target_os = "linux", not(target_env = "uclibc"))))]
 pub(crate) async fn run(
     _executable: PathBuf,
-    _query: String,
-    _limit: u16,
+    _intent: Intent,
     _canceled: impl Future<Output = ()>,
 ) -> Result<Vec<u8>, Error> {
     Err(Error::Unavailable)

@@ -34,6 +34,38 @@ impl Extractor {
     }
 
     pub(crate) async fn search(&self, request: SearchRequest) -> Result<SearchPage, Error> {
+        let limit = request.limit;
+        self.execute(
+            process::Intent::Search {
+                query: request.query,
+                limit,
+            },
+            "youtube_search_complete",
+            move |bytes| recordings::normalize(&bytes, limit),
+        )
+        .await
+    }
+
+    pub(crate) async fn recording(&self, id: String) -> Result<crate::recording::Resolved, Error> {
+        let owner = id.clone();
+        self.execute(
+            process::Intent::Recording { id },
+            "youtube_recording_complete",
+            move |bytes| crate::recording::resolve(&bytes, &owner),
+        )
+        .await
+    }
+
+    pub(crate) fn available(&self) -> bool {
+        !self.stopped.is_cancelled() && !self.failed.load(Ordering::Acquire)
+    }
+
+    async fn execute<T: Send + 'static>(
+        &self,
+        intent: process::Intent,
+        event: &'static str,
+        normalize: impl FnOnce(Vec<u8>) -> Result<T, Error> + Send + 'static,
+    ) -> Result<T, Error> {
         let receiver = {
             let _gate = self
                 .admission
@@ -63,15 +95,15 @@ impl Extractor {
                             _ = sender.closed() => {},
                         }
                     };
-                    let result = process::run(executable, request.query, request.limit, canceled)
+                    let result = process::run(executable, intent, canceled)
                         .await
-                        .and_then(|bytes| recordings::normalize(&bytes, request.limit));
+                        .and_then(normalize);
                     if matches!(result, Err(Error::CleanupFailed)) {
                         failed.store(true, Ordering::Release);
                         stopped.cancel();
                     }
                     tracing::info!(
-                        event = "youtube_search_complete",
+                        event,
                         outcome = result
                             .as_ref()
                             .map_or_else(|error| error.outcome(), |_| "complete"),

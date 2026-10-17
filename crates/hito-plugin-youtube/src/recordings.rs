@@ -10,7 +10,7 @@ struct SearchResults {
 }
 
 #[derive(Deserialize)]
-struct SearchEntry {
+pub(crate) struct SearchEntry {
     id: String,
     title: String,
     artist: Option<String>,
@@ -27,12 +27,34 @@ pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
     }
     let mut items = Vec::with_capacity(results.entries.len());
     for entry in results.entries {
-        if entry.id.len() != 11
-            || !entry
-                .id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
-        {
+        items.push(entry.recording()?);
+    }
+    let mut page = SearchPage {
+        items,
+        next_cursor: None,
+    };
+    page.validate(50).map_err(|_| Error::InvalidResponse)?;
+    page.items.truncate(usize::from(limit));
+    let length = serde_json::to_vec(&page)
+        .map_err(|_| Error::InvalidResponse)?
+        .len();
+    if length > MAX_RESPONSE_BYTES {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(page)
+}
+
+pub(crate) fn valid_id(id: &str) -> bool {
+    id.len() == 11
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
+}
+
+impl SearchEntry {
+    pub(crate) fn recording(self) -> Result<ProviderRecording, Error> {
+        let entry = self;
+        if !valid_id(&entry.id) {
             return Err(Error::InvalidResponse);
         }
         let artist = match entry.artist {
@@ -59,7 +81,7 @@ pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
                 Ok(milliseconds as u64)
             })
             .transpose()?;
-        items.push(ProviderRecording {
+        let recording = ProviderRecording {
             id: entry.id,
             title: entry.title,
             artist,
@@ -68,19 +90,8 @@ pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
             disc_number: None,
             track_number: None,
             revision: None,
-        });
+        };
+        recording.validate().map_err(|_| Error::InvalidResponse)?;
+        Ok(recording)
     }
-    let mut page = SearchPage {
-        items,
-        next_cursor: None,
-    };
-    page.validate(50).map_err(|_| Error::InvalidResponse)?;
-    page.items.truncate(usize::from(limit));
-    let length = serde_json::to_vec(&page)
-        .map_err(|_| Error::InvalidResponse)?
-        .len();
-    if length > MAX_RESPONSE_BYTES {
-        return Err(Error::InvalidResponse);
-    }
-    Ok(page)
 }

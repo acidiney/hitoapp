@@ -13,6 +13,7 @@ mod cancellation;
 mod lifecycle;
 mod logging;
 mod manifest;
+mod sources;
 
 #[tokio::test]
 async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
