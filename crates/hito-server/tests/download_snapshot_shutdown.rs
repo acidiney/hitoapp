@@ -9,7 +9,7 @@ mod support;
 
 use axum::http::StatusCode;
 use futures_util::FutureExt;
-use hito_core::{CoreConfig, HostDeviceId};
+use hito_core::{CoreConfig, DownloadState, HostDeviceId};
 use http::{call, get};
 use serde_json::{Value, json};
 use std::{
@@ -22,11 +22,22 @@ use tokio::{net::TcpListener, sync::oneshot};
 use uuid::Uuid;
 
 const TEST: &str = "a_download_host_waits_for_its_snapshot_reader_before_shutdown";
+const EXPIRED_TEST: &str =
+    "a_download_interrupted_during_snapshot_remains_queued_after_lease_expiry";
 
 #[tokio::test]
 async fn a_download_host_waits_for_its_snapshot_reader_before_shutdown() {
+    isolated(TEST, Duration::from_secs(1), false).await;
+}
+
+#[tokio::test]
+async fn a_download_interrupted_during_snapshot_remains_queued_after_lease_expiry() {
+    isolated(EXPIRED_TEST, Duration::from_secs(33), true).await;
+}
+
+async fn isolated(test: &str, hold: Duration, reopen: bool) {
     if std::env::var_os("HITO_DOWNLOAD_SNAPSHOT_CHILD").is_some() {
-        child().await;
+        child(hold, reopen).await;
         return;
     }
     let directory = tempfile::tempdir().unwrap();
@@ -59,7 +70,7 @@ async fn a_download_host_waits_for_its_snapshot_reader_before_shutdown() {
         "the owned regular-file read interposer must compile"
     );
     let mut process = tokio::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", TEST])
+        .args(["--exact", test])
         .env("HITO_DOWNLOAD_SNAPSHOT_CHILD", "1")
         .env("HITO_SNAPSHOT_DATA_ROOT", &data)
         .env("HITO_SNAPSHOT_MANAGED_ROOT", data.join("hito.downloads"))
@@ -69,7 +80,8 @@ async fn a_download_host_waits_for_its_snapshot_reader_before_shutdown() {
         .kill_on_drop(true)
         .spawn()
         .unwrap();
-    let result = tokio::time::timeout(Duration::from_secs(20), process.wait()).await;
+    let limit = Duration::from_secs(if reopen { 75 } else { 20 });
+    let result = tokio::time::timeout(limit, process.wait()).await;
     std::fs::write(gate.join("release"), b"").unwrap();
     if result.is_err() {
         let _ = process.kill().await;
@@ -81,7 +93,7 @@ async fn a_download_host_waits_for_its_snapshot_reader_before_shutdown() {
     );
 }
 
-async fn child() {
+async fn child(hold: Duration, reopen: bool) {
     let data = PathBuf::from(std::env::var_os("HITO_SNAPSHOT_DATA_ROOT").unwrap());
     let managed = PathBuf::from(std::env::var_os("HITO_SNAPSHOT_MANAGED_ROOT").unwrap());
     let gate = PathBuf::from(std::env::var_os("HITO_SNAPSHOT_GATE_ROOT").unwrap());
@@ -156,6 +168,9 @@ async fn child() {
         .await;
         assert_eq!(accepted.status, StatusCode::ACCEPTED);
         assert_eq!(accepted.headers["content-type"], "application/json");
+        let receipt = accepted.json();
+        let intent = receipt["intent_id"].as_str().unwrap().to_owned();
+        assert!(receipt["recording_id"] == recording);
         wait_until(|| gate.join("entered").exists(), Duration::from_secs(5))
             .await
             .expect("the owned regular managed-file read must enter its gate");
@@ -171,7 +186,7 @@ async fn child() {
         assert!(verifying["source_id"].is_null());
         assert_eq!(provider.requests("v1/audio").await.len(), 1);
         stop.take().unwrap().send(()).unwrap();
-        let completed = wait_until(|| host.is_finished(), Duration::from_secs(1)).await;
+        let completed = wait_until(|| host.is_finished(), hold).await;
         assert!(
             gate.join("active").exists(),
             "the snapshot read must still be held"
@@ -180,6 +195,7 @@ async fn child() {
             completed.is_err(),
             "host shutdown completed before the owned snapshot reader retired"
         );
+        (token, recording, intent)
     })
     .catch_unwind()
     .await;
@@ -209,13 +225,34 @@ async fn child() {
         "owned snapshot readers and temporary files must retire before teardown"
     );
     assert!(std::fs::read(data.join("music/original.wav")).unwrap() == original);
-    if let Err(panic) = outcome {
-        std::panic::resume_unwind(panic);
-    }
+    let (token, recording, intent) = match outcome {
+        Ok(context) => context,
+        Err(panic) => std::panic::resume_unwind(panic),
+    };
     assert!(
         clean_at_join,
         "host completion must follow reader and snapshot cleanup"
     );
+    if reopen {
+        let reopened = hito_core::open(CoreConfig::new(
+            data.join("hito.db"),
+            data.join("music"),
+            HostDeviceId::new("snapshot-shutdown-host").unwrap(),
+        ))
+        .await
+        .unwrap();
+        let actor = reopened.identity.authenticate(&token).await.unwrap();
+        let queued = reopened.downloads.status(&actor, &recording).await.unwrap();
+        assert!(queued.intent_id == intent);
+        assert!(queued.recording_id == recording);
+        assert!(
+            matches!(queued.status, DownloadState::Queued),
+            "an interrupted intent must remain queued when its reader retires after lease expiry"
+        );
+        assert!(queued.source_id.is_none());
+        assert!(queued.error.is_none());
+        assert_eq!(provider.requests("v1/audio").await.len(), 1);
+    }
 }
 
 fn clean(managed: &Path, snapshots: &Path, gate: &Path) -> bool {
