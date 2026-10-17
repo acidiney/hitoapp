@@ -100,7 +100,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 36);
+    assert_eq!(version, 37);
     for table in [
         "recording_source_choices",
         "source_resolutions",
