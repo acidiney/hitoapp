@@ -1,4 +1,4 @@
-use super::Downloads;
+use super::{Downloads, OriginSelection};
 use crate::{Error, Result};
 use sqlx::{QueryBuilder, SqliteConnection};
 use uuid::Uuid;
@@ -7,6 +7,7 @@ pub(super) enum Admission {
     Retained(String),
     Busy,
     WaitingForSource,
+    Restricted,
 }
 
 impl Downloads {
@@ -27,6 +28,9 @@ impl Downloads {
             Admission::WaitingForSource => Err(Error::Conflict(
                 "No verified audio source is available for this download".into(),
             )),
+            Admission::Restricted => Err(Error::Conflict(
+                "This source supports playback only. Downloads are unavailable.".into(),
+            )),
         }
     }
 
@@ -44,15 +48,21 @@ impl Downloads {
         {
             return Ok(Admission::Retained(intent));
         }
+        let origin = match self
+            .capture_origin_on(connection, account, recording)
+            .await?
+        {
+            OriginSelection::Available(origin) => Some(origin),
+            OriginSelection::Unavailable => None,
+            OriginSelection::Restricted => return Ok(Admission::Restricted),
+        };
         let (account_pending, pending): (i64, i64) = sqlx::query_as("SELECT coalesce(sum(account_id=?),0),count(*) FROM download_jobs WHERE status IN ('queued','running')")
             .bind(account).fetch_one(&mut *connection).await?;
         if account_pending >= 32 || pending >= 256 {
             return Ok(Admission::Busy);
         }
-        let origin = match self.capture_origin_on(connection, account, recording).await {
-            Ok(origin) => origin,
-            Err(Error::Conflict(_)) => return Ok(Admission::WaitingForSource),
-            Err(error) => return Err(error),
+        let Some(origin) = origin else {
+            return Ok(Admission::WaitingForSource);
         };
         let intent = Uuid::new_v4().to_string();
         let mut query = QueryBuilder::new("INSERT INTO download_intents(id,account_id,recording_id,library_id,access_grant_id,host_device,state,origin_kind,

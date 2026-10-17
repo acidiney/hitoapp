@@ -1,10 +1,16 @@
 use super::Downloads;
-use crate::{Error, Result, plugins::ProviderDownloadOrigin};
+use crate::{Result, plugins::ProviderDownloadOrigin};
 use sqlx::{FromRow, QueryBuilder, Row, Sqlite, SqliteConnection, sqlite::SqliteRow};
 
 pub(super) enum DownloadOrigin {
     Provider(ProviderDownloadOrigin),
     Podcast(PodcastDownloadOrigin),
+}
+
+pub(crate) enum OriginSelection<T> {
+    Available(T),
+    Unavailable,
+    Restricted,
 }
 
 #[derive(sqlx::FromRow)]
@@ -35,15 +41,17 @@ impl Downloads {
         connection: &mut SqliteConnection,
         account: &str,
         recording: &str,
-    ) -> Result<DownloadOrigin> {
+    ) -> Result<OriginSelection<DownloadOrigin>> {
         match self
             .plugins
             .capture_download_origin_on(connection, account, recording)
-            .await
+            .await?
         {
-            Ok(origin) => return Ok(DownloadOrigin::Provider(origin)),
-            Err(Error::Conflict(_)) => {}
-            Err(error) => return Err(error),
+            OriginSelection::Available(origin) => {
+                return Ok(OriginSelection::Available(DownloadOrigin::Provider(origin)));
+            }
+            OriginSelection::Restricted => return Ok(OriginSelection::Restricted),
+            OriginSelection::Unavailable => {}
         }
         let origin = sqlx::query_as(
             "SELECT enclosure.source_id AS podcast_source_id,enclosure.episode_id AS podcast_episode_id,
@@ -61,9 +69,11 @@ impl Downloads {
         .bind(account)
         .bind(recording)
         .fetch_optional(connection)
-        .await?
-        .ok_or_else(|| Error::Conflict("No verified audio source is available for this download".into()))?;
-        Ok(DownloadOrigin::Podcast(origin))
+        .await?;
+        Ok(match origin {
+            Some(origin) => OriginSelection::Available(DownloadOrigin::Podcast(origin)),
+            None => OriginSelection::Unavailable,
+        })
     }
 }
 

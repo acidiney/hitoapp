@@ -76,6 +76,11 @@ impl Downloads {
                             grant,
                         )
                         .await?;
+                    if !matches!(&admission, Admission::Retained(_)) {
+                        sqlx::query("ROLLBACK TO SAVEPOINT playlist_download_admission")
+                            .execute(&mut *tx)
+                            .await?;
+                    }
                     let result = match admission {
                         Admission::Retained(transfer) => {
                             tracing::debug!(retention_id = %candidate.retention_id, entry_id = %candidate.entry_id,
@@ -84,12 +89,8 @@ impl Downloads {
                         }
                         Admission::Busy => (Some(5), "capacity_deferred"),
                         Admission::WaitingForSource => (Some(30), "source_deferred"),
+                        Admission::Restricted => (None, "policy_restricted"),
                     };
-                    if result.0.is_some() {
-                        sqlx::query("ROLLBACK TO SAVEPOINT playlist_download_admission")
-                            .execute(&mut *tx)
-                            .await?;
-                    }
                     sqlx::query("RELEASE SAVEPOINT playlist_download_admission")
                         .execute(&mut *tx)
                         .await?;

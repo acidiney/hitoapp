@@ -1,5 +1,6 @@
 use super::Plugins;
-use crate::{AudioRequest, Error, OpenedAudio, Result};
+use crate::{AudioRequest, Error, OpenedAudio, Result, downloads::OriginSelection};
+use hito_plugin_sdk::{Manifest, SourcePersistence};
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqliteConnection};
 
@@ -23,10 +24,11 @@ impl Plugins {
         connection: &mut SqliteConnection,
         account: &str,
         recording: &str,
-    ) -> Result<ProviderDownloadOrigin> {
+    ) -> Result<OriginSelection<ProviderDownloadOrigin>> {
+        let started = std::time::Instant::now();
         let row = sqlx::query("SELECT s.id AS provider_source_id,item.id AS binding_id,item.revision AS binding_revision,
             ps.provider_source_id AS remote_source_id,p.id AS installation_id,p.revision AS installation_revision,
-            p.service_id,service.revision AS service_revision,p.credential,p.audio_generation
+            p.service_id,service.revision AS service_revision,p.credential,p.audio_generation,p.manifest
             FROM sources s JOIN provider_sources ps ON ps.source_id=s.id AND ps.recording_id=s.recording_id
             JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
             JOIN provider_source_state state ON state.binding_id=item.id AND state.generation=ps.generation
@@ -36,10 +38,27 @@ impl Plugins {
             WHERE s.recording_id=? AND s.ready=1
             AND EXISTS(SELECT 1 FROM json_each(p.manifest,'$.capabilities') WHERE value='sources')
             ORDER BY s.id LIMIT 1")
-            .bind(account).bind(recording).fetch_optional(connection).await?
-            .ok_or_else(|| Error::Conflict("No verified provider audio source is available for this download".into()))?;
+            .bind(account).bind(recording).fetch_optional(connection).await?;
+        let Some(row) = row else {
+            return Ok(OriginSelection::Unavailable);
+        };
+        let manifest: Manifest = serde_json::from_str(row.try_get("manifest")?)
+            .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
+        if manifest
+            .content_policy
+            .is_some_and(|policy| policy.source_persistence == SourcePersistence::PlaybackOnly)
+        {
+            tracing::debug!(
+                account_id = account,
+                recording_id = recording,
+                outcome = "playback_only",
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Provider download admission restricted"
+            );
+            return Ok(OriginSelection::Restricted);
+        }
         let credential: Option<Vec<u8>> = row.try_get("credential")?;
-        Ok(ProviderDownloadOrigin {
+        Ok(OriginSelection::Available(ProviderDownloadOrigin {
             provider_source_id: row.try_get("provider_source_id")?,
             binding_id: row.try_get("binding_id")?,
             binding_revision: row.try_get("binding_revision")?,
@@ -50,7 +69,7 @@ impl Plugins {
             service_revision: row.try_get("service_revision")?,
             credential_digest: credential_digest(credential.as_deref()),
             audio_generation: row.try_get("audio_generation")?,
-        })
+        }))
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = account))]

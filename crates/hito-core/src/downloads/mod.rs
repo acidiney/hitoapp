@@ -21,6 +21,7 @@ mod worker;
 use crate::{HostDeviceId, Plugins, library_storage::ManagedFiles, store::Store};
 pub(crate) use health::retire_unusable_copy;
 pub(crate) use lease::DownloadAuthority;
+pub(crate) use origin::OriginSelection;
 pub(crate) use playlist_changes::playlist_changed_on;
 pub use playlist_types::{
     PlaylistDownloadEntries, PlaylistDownloadEntry, PlaylistDownloadEntryState,

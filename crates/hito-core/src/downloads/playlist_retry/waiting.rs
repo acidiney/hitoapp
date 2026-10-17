@@ -1,5 +1,5 @@
 use super::{Admission, Downloads, RetryWork};
-use crate::{Error, Result};
+use crate::{Result, downloads::OriginSelection};
 use sqlx::SqliteConnection;
 
 pub(super) async fn defer_on(
@@ -46,19 +46,20 @@ impl Downloads {
             let (delay, outcome) = if let Some((library, grant)) = authority {
                 let admission = match self
                     .capture_origin_on(connection, &work.account_id, recording)
-                    .await
+                    .await?
                 {
-                    Ok(_) => {
+                    OriginSelection::Available(_) => {
                         self.retry_admission_on(connection, work, recording, &library, &grant)
                             .await?
                     }
-                    Err(Error::Conflict(_)) => Admission::WaitingForSource,
-                    Err(error) => return Err(error),
+                    OriginSelection::Unavailable => Admission::WaitingForSource,
+                    OriginSelection::Restricted => Admission::Restricted,
                 };
                 match admission {
                     Admission::Retained(_) => (None, "retained"),
                     Admission::Busy => (Some(5_i64), "capacity_deferred"),
                     Admission::WaitingForSource => (Some(30), "source_deferred"),
+                    Admission::Restricted => (None, "policy_restricted"),
                 }
             } else {
                 (None, "withdrawn")
