@@ -2,7 +2,7 @@ use super::{Control, MediaSnapshot, Mode, Prepared, Snapshot, changed, unreadabl
 use crate::{Result, library_storage::root::Root};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{File, Metadata},
+    fs::{File, Metadata, OpenOptions},
     io::{Read, Seek, Write},
     path::Path,
     sync::Arc,
@@ -73,14 +73,23 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
         file.rewind().map_err(|_| unreadable())?;
     }
     control.check()?;
-    let directory = Arc::new(
-        tempfile::Builder::new()
-            .prefix("hito-media-")
-            .tempdir()
-            .map_err(|_| unreadable())?,
-    );
+    let mut directory = tempfile::Builder::new();
+    directory.prefix("hito-media-");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        directory.permissions(std::fs::Permissions::from_mode(0o700));
+    }
+    let directory = Arc::new(directory.tempdir().map_err(|_| unreadable())?);
     let media_path = directory.path().join("media");
-    let mut output = File::create(&media_path).map_err(|_| unreadable())?;
+    let mut output = OpenOptions::new();
+    output.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        output.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let mut output = output.open(&media_path).map_err(|_| unreadable())?;
     let checksum = transfer(&mut file, initial.size, Some(&mut output), control)?;
     output.flush().map_err(|_| unreadable())?;
     drop(output);
