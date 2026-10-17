@@ -1,6 +1,6 @@
 # Podcasts in development
 
-RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. The branch includes shared subscription and episode pages with manual feed refresh and unsubscribe. Core also supports explicit podcast downloads. RSS is not deployed to the normal server. Complete download, browser/native and deployment acceptance remain unfinished.
+RSS subscriptions, episodes, authorized playback, hourly conditional updates, manual refresh, unsubscribe and explicit downloads are deployed to the local development server. Shared subscription and episode pages use the existing player. The packaged server passes a public-feed workflow in Chromium and WebKit. Native playback, broader recovery, packaged-download acceptance and public-release gates remain unfinished.
 
 ## Ownership
 
@@ -38,13 +38,13 @@ Subscribing again with a new request UUID and the same normalized feed address r
 
 The development server exposes authenticated JSON routes through the shared account extractor. The Rust handlers generate OpenAPI and TypeScript.
 
-| Method | Route | Result |
-| --- | --- | --- |
-| GET | `/api/v1/podcasts` | The account's active subscriptions |
-| POST | `/api/v1/podcasts` | A subscription receipt, HTTP 202 |
-| GET | `/api/v1/podcasts/{id}/episodes` | An authorized continuation page |
-| POST | `/api/v1/podcasts/{id}/refresh` | A refresh receipt, HTTP 202 |
-| POST | `/api/v1/podcasts/{id}/unsubscribe` | An immutable acknowledgement |
+| Method | Route                               | Result                             |
+| ------ | ----------------------------------- | ---------------------------------- |
+| GET    | `/api/v1/podcasts`                  | The account's active subscriptions |
+| POST   | `/api/v1/podcasts`                  | A subscription receipt, HTTP 202   |
+| GET    | `/api/v1/podcasts/{id}/episodes`    | An authorized continuation page    |
+| POST   | `/api/v1/podcasts/{id}/refresh`     | A refresh receipt, HTTP 202        |
+| POST   | `/api/v1/podcasts/{id}/unsubscribe` | An immutable acknowledgement       |
 
 Two polling workers belong to the server host and join its shutdown. Episodes use the existing recording-source and audio routes. Feed retrieval starts no audio or persistent download.
 
@@ -101,6 +101,32 @@ podcast_compose --profile e2e run --rm -e HITO_PODCAST_DOWNLOAD_E2E=1 browser np
 ```
 
 Recreate the host again before its WebKit run or before switching workflows; the download workflow stops its owned upstream service. Finish with `podcast_compose --profile e2e down`. The overlay publishes no host ports and mounts no persistent application data.
+
+### Packaged public-feed verification
+
+The opt-in `podcast-live.spec.ts` workflow uses the actual packaged server with fresh tmpfs data and no production network exceptions. On 18 October 2026, Chromium and WebKit passed UI setup, subscription to [Rustacean Station's public feed](https://rustacean-station.org/podcast.rss), actual episode playback, uninterrupted navigation, pause, seek and resume. Both require an actual HTTP 200/206 audio response, advancing media time and the expected source. Navigation retains the same audio element with no pause, emptied, ended or error events; the later intentional UI pause verifies the observer.
+
+The workflow rejects an initialized server before entering disposable credentials. It verifies no Download command, no persistent download intent and no new saved source, blocks external browser requests and checks captured console arguments for the selected metadata, feed address, media URL and password. The server alone retrieves public RSS and media. Scoped server-log checks also exclude the disposable password, feed hostname and selected private path patterns. Every disposable host stopped with exit 0, no OOM kill and no restart. These exclusions do not establish complete production-log privacy.
+
+WebKit initially exposed a status-zero browser event before the actual HTTP responses. A diagnostic run retained the failing HTTP assertion and observed subsequent 200/206 delivery with advancing audio from the same source and no media error. The final wait excludes only non-HTTP status zero; actual HTTP errors still fail, and zero-only playback times out. One later run exceeded the initial media-advancement deadline; its cause remains unconfirmed. A subsequent run passed the unchanged playback conditions after adding safe boolean diagnostics. This is one public-feed compatibility check, not codec coverage, a startup reliability result or a release latency benchmark.
+
+Use an existing packaged image built from the matching application source and the installed browser dependencies:
+
+```sh
+export HITO_PODCAST_E2E_IMAGE=sha256:976ad6692811c8b14633b125c3e5ec015b1f8dd9ae06d0ef3c6906298ab2ff11
+export HITO_PODCAST_LIVE_E2E=1
+podcast_live() {
+  docker compose -p hito-podcast-live -f compose.yaml -f scripts/podcasts/compose.live.e2e.yaml --profile e2e "$@"
+}
+podcast_live up -d --wait --no-build --pull never e2e-server
+podcast_live run --rm --no-deps --pull never browser npm run e2e -- e2e/podcast-live.spec.ts --browser=chromium
+podcast_live down
+podcast_live up -d --wait --no-build --pull never e2e-server
+podcast_live run --rm --no-deps --pull never browser npm run e2e -- e2e/podcast-live.spec.ts --browser=webkit
+podcast_live down
+```
+
+The overlay publishes no ports and mounts no persistent application library or music folder. Each engine requires a new first-run server. `HITO_PODCAST_LIVE_FEED` optionally selects another canonical public HTTPS RSS feed. This live check needs external availability; the owned fixtures above remain the reproducible behavior checks.
 
 ## Scheduled and conditional updates
 
@@ -174,7 +200,7 @@ Episode Details uses the shared recording Download component. No episode-row pol
 
 The same browser workflow removes the download through the UI and verifies HTTP 204, then HTTP 404 for its status and managed audio. The managed source disappears from public source facts, while the retained podcast source remains unready. The recording stays in the library with its personal metadata, like and saved progress intact. A separately ingested user-owned original retains its metadata, availability and exact audio bytes. These HTTP checks prove access revocation, not physical disk reclamation or shared-reference handling. Browser console canaries pass, but do not establish privacy for all server logs or native metadata.
 
-Crash recovery, shared-reference removal, native playback and downloads, backup/restore rehearsal, packaging and deployment acceptance remain open. These development fixtures do not complete the release gates.
+Crash recovery, physical reclamation and shared-reference removal, native playback and downloads, packaged-download behavior and broader deployment acceptance remain open. These development fixtures do not complete the release gates.
 
 ## Candidate image and restored-volume rehearsal
 
@@ -184,10 +210,18 @@ The stopped audit preserved typed rows and rowids across all 97 prior tables, se
 
 The candidate then ran separately with the restored volume, original read-only music bind, matching runtime configuration, no published ports and no network. Health, generated OpenAPI, exact image JS/CSS and anonymous player rejection passed. It stopped with exit 0, no OOM kill and no restart. A separate stopped runtime audit found no logical database changes, managed-file additions, changes or removals, or changes to other volume files and identity. This audit covers the data volume; it does not establish fresh byte checks for every file on external music binds.
 
-The private audit adaptation passed 37 owned probes with one STAT4 case skipped because the Python engine lacks that extension; rejection of unsupported expectations is tested separately. Those probes use actual populated version-39 SQLite fixtures and migrations 40–44, while Docker and HTTP control calls are mocked. Three independent source reviews accepted the audit delta. The subsequent archive, restoration, migration and runtime results above came from actual containers and the copied library. The five ordered deployment overlays also pass configuration preflight. The normal library has not been upgraded by this rehearsal, and packaged browser/live-feed acceptance remains separate.
+The private audit adaptation ran 37 owned probes: 36 passed and one STAT4 case was skipped because the Python engine lacks that extension. Rejection of unsupported expectations is tested separately. Those probes use actual populated version-39 SQLite fixtures and migrations 40–44, while Docker and HTTP control calls are mocked. Three independent source reviews accepted the audit delta. The subsequent archive, restoration, migration and runtime results above came from actual containers and the copied library. The five ordered deployment overlays also pass configuration preflight. The rehearsal itself did not upgrade the normal library.
+
+### Local server upgrade
+
+After the packaged public-feed checks, a new stopped whole-volume backup preceded the normal migration-only command. It applied exactly versions 40–44 and passed the same 97-table preservation audit. The candidate then started without published ports, passed its runtime checks, stopped with exit 0 and passed a separate unchanged-runtime checkpoint. Database rows and managed files did not change during that checkpoint; other volume files, keys and host identity remained intact.
+
+A preflight bound to that stopped candidate preserved all five ordered configuration overlays before restoring the original published ports. The running normal server uses image `sha256:976ad6692811c8b14633b125c3e5ec015b1f8dd9ae06d0ef3c6906298ab2ff11` on migration 0044. Generated OpenAPI, exact image JS/CSS, health and anonymous player rejection pass. LAN and both loopback aliases are reachable. No normal listener account was authenticated or edited, and the folder, Spotify and YouTube containers were unchanged.
+
+The rehearsal archive is `backups/hito-before-source-choice-clone-20261017T231142.967770Z.tar.gz`; the final normal backup is `backups/hito-before-source-choice-normal-20261017T233509.956093Z.tar.gz`. Both retain private mode 0600. The default local server image alias now points to the accepted image, with the preceding image retained separately. This is a local development deployment, not a completed public release.
 
 ## Remaining integration
 
-The next work includes broader failure recovery, complete shared UI workflows, authorized browser/native playback and download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are implemented; full podcast acceptance remains open. Before a normal-server upgrade, complete packaged browser checks and take a new stopped backup. Native recovery and platform verification remain public-release requirements. See [the release checklist](../TODO.md).
+The next work includes broader failure recovery, complete shared UI workflows, native playback/resume and packaged-download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are deployed locally; full podcast acceptance remains open. Startup reliability, native recovery and platform verification remain public-release requirements. See [the release checklist](../TODO.md).
 
 Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.
