@@ -75,10 +75,12 @@ The next functional priority is automatic audio resolution for imported playlist
 - [ ] Automatically find and select suitable audio for imported playlists through approved connected providers, including Spotify metadata with YouTube audio. Keep playback usable without per-track source confirmation, preserve recording versions and private identities, bound background work, and provide a durable manual source override that automatic retries and Follow synchronization cannot replace. Verify actual playback and the absence of implicit persistent downloads.
   - [x] Implement bounded core/browser resolution, inherited musical metadata and approved provider evidence in the development branch.
   - [x] Implement durable manual source choice, current-state reads, return to Automatic and retained-copy origin checks. Verify unread saved-body revocation and dependent-action gating after review findings.
-  - [ ] Finish conflict-driven download-status reconciliation, then verify concurrent choices and Follow updates preserve the correction.
-  - [ ] Verify the final complete image in a disposable browser with automatic playback, manual correction and saved playback. Earlier images do not contain the final fixes.
+  - [x] Reconcile saved-copy eligibility after source-choice conflicts and refresh available choices after successful attachment without losing drafts.
+  - [ ] Verify later concurrent choice revisions and Follow updates preserve the correction and recover current eligibility.
+  - [x] Verify the complete image in disposable Chromium with automatic playback, manual correction and distinct saved audio during a provider outage. Live-provider and other platform gates remain separate.
   - [ ] Verify live Spotify-to-YouTube matching, remaining codec paths and native integration.
-  - [ ] Rehearse migrations 0036–0039 on a restored whole-volume clone, then back up and upgrade the normal server and required plugin services.
+  - [x] Rehearse migrations 0036–0039 on a stopped whole-volume backup restored into a separate clone; verify preservation and the candidate runtime without account changes.
+  - [ ] Back up and upgrade the normal server and required plugin services after browser and live-provider acceptance.
 - [ ] Complete remaining plugin capability requests/results, conversion, and operational capability negotiation.
 - [x] Implement and verify the generic source-preparation backend and plugin contract in development, including durable receipts, restart polling and uncertain-submission guards. The backend is deployed locally after stopped backup/restoration and migration checks. Deferred playback and concrete adapters remain open. See [evidence and limits](docs/source-preparation.md).
 - [x] Implement and verify the shared preparation UI with source labels, current eligibility, exact-request retry, bounded cancellable polling and explicit Play after readiness. The separate release image passes its real Chromium workflow; it is not yet deployed to the normal server. See [UI evidence](docs/source-preparation.md#ui-verification).
