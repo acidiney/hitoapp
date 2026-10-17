@@ -7,6 +7,7 @@ use hito_plugin_sdk::{
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod preparation;
 mod source_batch;
 pub(crate) use source_batch::SourceBatch;
 
@@ -24,6 +25,8 @@ pub(super) struct ControlClient {
     artwork_accounts: super::admission::Accounts,
     follow_slots: Arc<Semaphore>,
     follow_accounts: super::admission::Accounts,
+    preparation_slots: Arc<Semaphore>,
+    preparation_accounts: super::admission::Accounts,
 }
 
 impl ControlClient {
@@ -50,6 +53,8 @@ impl ControlClient {
             artwork_accounts: Default::default(),
             follow_slots: Arc::new(Semaphore::new(4)),
             follow_accounts: Default::default(),
+            preparation_slots: Arc::new(Semaphore::new(2)),
+            preparation_accounts: Default::default(),
         })
     }
 

@@ -4,6 +4,7 @@ mod bindings;
 mod evidence;
 mod metadata;
 mod persist;
+mod preparation;
 mod refresh;
 mod search;
 mod sources;
@@ -14,4 +15,7 @@ pub use attachment::{AttachReviewedProviderSource, ProviderCandidate, ProviderSo
 pub(crate) use bindings::MAX_PLAYBACK_BINDINGS;
 pub(crate) use metadata::publish as publish_provider_metadata;
 pub(crate) use persist::library as provider_library;
+pub use preparation::{
+    PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
+};
 pub use search::ProviderSearch;

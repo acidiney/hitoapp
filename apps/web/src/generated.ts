@@ -772,6 +772,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{recording}/sources/{source}/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["source_preparation_status"];
+        put?: never;
+        post: operations["prepare_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/releases": {
         parameters: {
             query?: never;
@@ -1148,7 +1164,7 @@ export interface components {
             offset?: number | null;
         };
         /** @enum {string} */
-        Capability: "search" | "catalog" | "metadata" | "sources" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks";
+        Capability: "search" | "catalog" | "metadata" | "sources" | "source_preparation" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks";
         CatalogPageProps: components["schemas"]["SharedPageProps"] & {
             query: string;
             recordings: components["schemas"]["RecordingPage"];
@@ -1815,6 +1831,12 @@ export interface components {
             installations: components["schemas"]["PluginInstallation"][];
             services: components["schemas"]["PluginService"][];
         };
+        /** @enum {string} */
+        PreparationReason: "authorization_required" | "quota_reached" | "rate_limited" | "provider_restricted" | "source_unavailable" | "source_changed" | "unsupported" | "provider_unavailable" | "invalid_response";
+        PrepareSource: {
+            /** Format: uuid */
+            request_id: string;
+        };
         ProviderCandidate: {
             installation_id: string;
             /** Format: int64 */
@@ -1941,6 +1963,34 @@ export interface components {
             provider: string;
             ready: boolean;
             recording_id: string;
+        };
+        /** @enum {string} */
+        SourcePreparationPhase: "queued" | "submitting" | "preparing" | "ready" | "blocked" | "failed" | "submission_unknown" | "cancelled";
+        SourcePreparationReceipt: {
+            /** Format: uuid */
+            preparation_id: string;
+            recording_id: string;
+            /** Format: uuid */
+            request_id: string;
+            source_id: string;
+        };
+        SourcePreparationStatus: {
+            /** Format: int64 */
+            created_at: number;
+            /** Format: int32 */
+            eta_seconds?: number | null;
+            /** Format: int64 */
+            next_check_at?: number | null;
+            phase: components["schemas"]["SourcePreparationPhase"];
+            /** Format: uuid */
+            preparation_id: string;
+            /** Format: int32 */
+            progress_basis_points?: number | null;
+            reason?: components["schemas"]["PreparationReason"] | null;
+            recording_id: string;
+            source_id: string;
+            /** Format: int64 */
+            updated_at: number;
         };
         /** @enum {string} */
         SourceRefreshPurpose: "manual" | "playback";
@@ -5282,6 +5332,166 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    source_preparation_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePreparationStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    prepare_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording: string;
+                source: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareSource"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePreparationReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
