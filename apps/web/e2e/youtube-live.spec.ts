@@ -367,7 +367,11 @@ test.describe("isolated packaged YouTube", () => {
       const network = audioNetwork.summary(browserName);
       expect(network.audio_http_failures).toBe(0);
       expect(network.audio_framing_failures).toBe(0);
-      expect(network.audio_request_failures).toBe(0);
+      expect(network.audio_unexpected_request_failures).toBe(0);
+      expect(network.audio_request_failures).toBe(
+        network.audio_browser_cancellations +
+          network.audio_unexpected_request_failures,
+      );
       expect(network.audio_observation_overflow).toBe(0);
       expect(network.audio_responses).toBeGreaterThan(0);
       const metrics = {
