@@ -93,6 +93,11 @@ impl Catalog {
                 .then_with(|| left.id.cmp(&right.id))
         });
         for summary in page.items.into_iter().take(3) {
+            {
+                let mut connection = self.store.pool.acquire().await?;
+                actor.check_session_on(&mut connection).await?;
+                operation.recheck(&mut connection).await?;
+            }
             let request = RecordingRequest {
                 recording_id: summary.id.clone(),
             };
