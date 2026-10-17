@@ -1,4 +1,5 @@
 use crate::{Error, Result};
+pub(super) mod artwork;
 use hito_plugin_sdk::{
     DETAIL_PATH, MANIFEST_PATH, Manifest, ProviderRecording, RecordingRequest, SEARCH_PATH,
     SOURCES_PATH, SearchPage, SearchRequest, SourcePage,
@@ -16,6 +17,8 @@ pub(super) struct ControlClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
     accounts: super::admission::Accounts,
+    artwork_slots: Arc<Semaphore>,
+    artwork_accounts: super::admission::Accounts,
 }
 
 impl ControlClient {
@@ -38,6 +41,8 @@ impl ControlClient {
             client,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Default::default(),
+            artwork_slots: Arc::new(Semaphore::new(4)),
+            artwork_accounts: Default::default(),
         })
     }
 
