@@ -52,5 +52,9 @@ export type ProviderSearch = Schema["ProviderSearch"];
 export type ProviderRecording = Schema["ProviderRecording"];
 export type ProviderSearchPage = Schema["SearchPage"];
 export type AdoptProviderRecording = Schema["AdoptProviderRecording"];
+export type ProviderCandidate = Schema["ProviderCandidate"];
+export type ProviderSourceReview = Schema["ProviderSourceReview"];
+export type AttachReviewedProviderSource =
+  Schema["AttachReviewedProviderSource"];
 export type ImportProviderPlaylist = Schema["ImportProviderPlaylist"];
 export type PlaylistImportReceipt = Schema["PlaylistImportReceipt"];
