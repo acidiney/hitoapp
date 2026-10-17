@@ -1,6 +1,6 @@
 # Source preparation
 
-The generic source-preparation backend is deployed to the normal local development server on migration 35. The complete feature remains under development. The core/server regression suite and ten focused preparation cases pass. UI integration, the four debrid adapters and release acceptance remain unfinished.
+The generic source-preparation backend is deployed to the normal local development server on migration 35. Its shared web UI is implemented and verified in a separate release image, but is not yet deployed to that server. Deferred playback, the four debrid adapters and release acceptance remain unfinished.
 
 ## Ownership
 
@@ -73,6 +73,36 @@ The public routes are generated from actual Rust handlers and wire types:
 
 The public interface exposes Hito identities, never provider identifiers or handles. It is independent of download references and per-device playback queues. Logs must use safe Hito correlation identities, static outcomes and timings. Credentials, handles, provider identifiers, bodies and signed URLs must not appear in logs.
 
+## Shared browser workflow
+
+Recording details show an Audio availability section independently of metadata provenance. Source reads return a human label and current `can_prepare` eligibility. Core derives these from the current source generation, binding, account and approved connection capabilities without contacting a provider. Local sources use a fixed label and cannot be prepared. Revoking a plugin connection removes its eligibility while preserving retained source identities.
+
+One cancellable workflow hook owns the selected account, recording and source. Prepare audio freezes a request UUID and body. If the acknowledgement is lost, malformed or unsuccessful, Retry preparation request resends that exact request. A status GET cannot acknowledge a pending POST. Mismatched preparation identities stop observation rather than switching to unrelated work.
+
+Polling never overlaps and starts at a five-second minimum. Unchanged work slows to thirty seconds, failures back off through 5, 15, 60 and 300 seconds, and a later server scheduling hint takes precedence. Terminal, denied and unscheduled uncertain states stop polling. Changing account, recording or source and unmounting cancels requests and rejects late results. Explicit availability refresh can recover a stopped observer without discarding a pending request receipt.
+
+Ready status checks the current sources once, then offers Play track only when that same authorized source is ready. Preparation does not play audio or create a Download. A known failed or ready operation permits a fresh explicit preparation if that source later becomes unavailable and remains eligible. Cancellation, blocked status and unresolved submission do not prove that resubmission is safe.
+
+```mermaid
+flowchart LR
+  Page[Recording details] --> Hook[Cancellable preparation workflow]
+  Hook -->|Frozen request or exact retry| Prepare[Authenticated preparation API]
+  Hook -->|One status observer| Status[Authorized status API]
+  Status -->|Ready| Sources[Check same current source]
+  Sources --> Action[Explicit Play track action]
+  Action --> Player[Existing playback owner]
+```
+
+## UI verification
+
+The frontend passes 218 cases across 59 files, both TypeScript checks and the production build. Public HTTP fixtures verify provider-free labels and eligibility, current capability and revocation changes, account isolation and shared local-source privacy. Two independent specialist review rounds are complete; the final ready-to-unavailable recovery finding has direct failing-then-passing coverage.
+
+The combined core/server run passed 353 distinct cases before one existing uncertainty test failed because its whole-source snapshot expected preparation eligibility to survive connection revocation. A test-only correction changes that eligibility expectation and retains the remaining snapshot and uncertainty assertions. The corrected case and the previously unreached storage-manifest case pass separately. The aggregate is 355 distinct passing cases and one normally ignored case out of a 356-case inventory. This is not a claim of a single fresh, fully passing combined run. Workspace formatting, strict default-workspace all-target Clippy and the directed final test-target Clippy pass.
+
+Release image `sha256:e3d2e830ce8875ae4ae12188ae4e99efad32d0d56fbc44a823b607eac624c8af`, built from source `bc72f4a`, passes the actual isolated Chromium workflow in 8.4 seconds. A committed preparation acknowledgement is deliberately lost; retry recovers the identical receipt and request body with only one provider begin. The page shows 25% progress, observes readiness for the same source and keeps audio paused with no Download until an explicit Play advances the owned WAV. The old deployed image fails this case at the missing availability label/control.
+
+The same isolated image passes health, exact generated OpenAPI, exact served JavaScript/CSS bytes, anonymous native-player rejection and fixture-secret/title log-redaction checks. It has no published ports or persistent data mounts and is stopped after verification. The normal server and its plugin services remain unchanged. These checks do not establish native GUI, live debrid, automatic matching or public-release acceptance.
+
 ## Evidence and remaining work
 
 The SDK passes 13 cases, including six preparation contracts and existing manifest/authorization compatibility. Strict SDK Clippy passes with all targets and features. Seven HTTP/runtime cases cover approved-capability rejection, durable acceptance, immutable replay, coalescence, one begin request, private handles, polling after restart, ready publication, complete WAV playback, preserved playback authority and absence of a persistent Download. A recreated connection cannot duplicate an unresolved preparation. Terminal acknowledgement before or after connection revocation permits a later operation while preserving old receipts.
@@ -91,4 +121,4 @@ Two independent review rounds are complete. Their terminal-history, receipt-limi
 
 Final Docker verification passes 226 distinct core tests and 101 distinct server tests. Four subprocess cases also report their child execution separately, for 331 passing executions in total. One existing filesystem-fault test remains normally ignored. Strict core/server Clippy with all targets, the workspace default-feature all-target compile check and workspace formatting also pass. These checks do not establish desktop GUI, live debrid or public-release acceptance.
 
-Manual retry of an unsubmitted request blocked by its initial budget remains unimplemented. Further submission-loss reconciliation, lease/authority races, broader joined-shutdown checks, deferred playback, generic UI, concrete Real-Debrid/AllDebrid/Premiumize/TorBox services, provider credentials, fixture/live checks and release gates remain required. See [the release plan](release-plan.md).
+Manual retry of an unsubmitted request blocked by its initial budget remains unimplemented. Further submission-loss reconciliation, lease/authority races, broader joined-shutdown checks, deferred playback, deployment of the verified UI, concrete Real-Debrid/AllDebrid/Premiumize/TorBox services, provider credentials, fixture/live checks and release gates remain required. See [the release plan](release-plan.md).
