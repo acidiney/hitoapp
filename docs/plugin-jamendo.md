@@ -103,6 +103,8 @@ The project publishes only loopback port 18094 in this example. A successful man
 
 The packaged image `sha256:da966315a4c7e05bcfd5900e8f4dd52d4c745c30bbcaa3f080555bfb5db702d5` passed an isolated Docker Compose check with an owned fixture client ID. Root inspection verified the effective user, credential ownership and permissions, read-only mount/root, capabilities, resource limits, log rotation and loopback binding. The manifest returned 200 and an invalid local search returned 400. Twelve structured TRACE records retained request correlations and lifecycle outcomes without the controlled private inputs, client ID, paths, URLs or provider-I/O events. Idle SIGTERM shutdown exited successfully without an OOM kill. The test project was removed afterward; no Hito application volume or normal service was used. Independent packaging review passed. Active upstream-audio shutdown and live-provider acceptance remain open.
 
+A rebuild from the integrated workspace, including the pinned SQLite dependency source, produced `sha256:d4cef640695cd030e7e02c4db9dd6e0b20a2c9bdb4ff2e694334175893d88db9`. A second isolated run passed the same effective configuration, manifest, rejection, TRACE-redaction and idle SIGTERM checks. Its project and fake-credential volume were removed afterward. These checks made no provider request and installed no account connection.
+
 ## Verification and remaining work
 
 Docker checks exercise actual HTTP against owned provider and audio fixtures. The initial workflow validates SDK manifest/search/detail/source responses, exact WAV delivery, zero metadata audio requests, caller-header isolation and omission of private transport data. This fixture verifies transport behavior, not live MP3 compatibility.
