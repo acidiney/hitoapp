@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{Instrument, instrument::WithSubscriber};
+use tracing_subscriber::prelude::*;
 
 pub async fn run(
     config: RuntimeConfig,
@@ -14,16 +15,25 @@ pub async fn run(
 ) -> RuntimeResult<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "hito_server=info,hito_core=info".into());
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::filter_fn(
+            crate::telemetry::application_log,
+        ))
+        .with(filter);
     if config.json_logs {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-            .json()
+        subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+                    .json(),
+            )
             .try_init()?;
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
+            )
             .try_init()?;
     }
     tracing::info!(event = "server_starting", "Starting Hito");

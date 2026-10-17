@@ -6,6 +6,7 @@ use exit::{Decision, Lifecycle};
 use hito_desktop::{LocalHost, Paths};
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWindowResponse};
+use tracing_subscriber::prelude::*;
 
 struct Desktop(Mutex<Lifecycle>);
 
@@ -14,11 +15,17 @@ fn main() {
         "hito_desktop=info,hito_server=info,hito_core=info,hito_playback=info,hito_audio=info"
             .into()
     });
-    let _ = tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_env_filter(filter)
-        .json()
-        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+    let _ = tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::filter_fn(
+            hito_server::application_log,
+        ))
+        .with(filter)
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stderr)
+                .json()
+                .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
+        )
         .try_init();
     tracing::info!(event = "desktop_starting", "Starting Hito desktop");
     let app = tauri::Builder::default()

@@ -7,6 +7,25 @@ use std::time::Instant;
 use tracing::Instrument;
 use uuid::Uuid;
 
+pub fn application_log(metadata: &tracing::Metadata<'_>) -> bool {
+    let target = metadata.target();
+    [
+        "hito_server",
+        "hito_core",
+        "hito_playback",
+        "hito_audio",
+        "hito_desktop",
+        "hito_plugin_sdk",
+    ]
+    .iter()
+    .any(|prefix| {
+        target == *prefix
+            || target
+                .strip_prefix(*prefix)
+                .is_some_and(|suffix| suffix.starts_with("::"))
+    })
+}
+
 pub async fn request(request: Request, next: Next) -> Response {
     let request_id = Uuid::new_v4().to_string();
     let route = request

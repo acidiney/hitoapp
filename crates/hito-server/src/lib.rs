@@ -16,3 +16,4 @@ mod telemetry;
 pub use config::{Config, RuntimeConfig};
 pub use routes::{openapi, router, router_with_config, router_with_player};
 pub use runtime::{run, serve};
+pub use telemetry::application_log;
