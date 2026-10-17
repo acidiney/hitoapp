@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useEffect, useMemo, useState } from "react";
 import { playlistFollowApi } from "../playlistFollowApi";
 import { HttpError } from "../http";
@@ -244,7 +245,7 @@ export function usePlaylistFollow(
     refresh: () =>
       owner.attempt || owner.waiting || !owner.follow
         ? Promise.resolve(false)
-        : perform({ request_id: crypto.randomUUID() }, "refresh"),
+        : perform({ request_id: createUuid() }, "refresh"),
     retryRefresh: () =>
       owner.attempt ? perform(owner.attempt, "retry") : Promise.resolve(false),
     retryStatus: load,

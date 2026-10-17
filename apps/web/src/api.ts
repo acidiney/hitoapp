@@ -1,3 +1,4 @@
+import { createUuid } from "./uuid";
 import type {
   Action,
   Credentials,
@@ -158,7 +159,7 @@ export const accountsApi = {
 function deviceId() {
   const saved = localStorage.getItem("hito-device");
   if (saved) return saved;
-  const device = crypto.randomUUID();
+  const device = createUuid();
   localStorage.setItem("hito-device", device);
   return device;
 }
@@ -166,7 +167,7 @@ function deviceId() {
 export function prepareChange(action: Action): SyncBatch {
   return {
     device_id: deviceId(),
-    operations: [{ id: crypto.randomUUID(), action }],
+    operations: [{ id: createUuid(), action }],
   };
 }
 

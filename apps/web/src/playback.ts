@@ -1,3 +1,4 @@
+import { createUuid } from "./uuid";
 import type {
   PlaybackStart,
   PlaybackView,
@@ -240,7 +241,7 @@ export class Playback implements Player {
 
   async playQueue(queue: Track[], index = 0, start?: PlaybackStart) {
     const position = start?.position ?? 0;
-    this.entryIds = queue.map(() => crypto.randomUUID());
+    this.entryIds = queue.map(() => createUuid());
     this.traversal.reset(this.entryIds, this.entryIds[index]);
     log.info("queue.play", {
       count: queue.length,

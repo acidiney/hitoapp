@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../http";
 import { log } from "../log";
@@ -339,7 +340,7 @@ export function useSourcePreparation(
     start: () =>
       owner.write || !startable(owner.view)
         ? Promise.resolve()
-        : perform(Object.freeze({ request_id: crypto.randomUUID() })),
+        : perform(Object.freeze({ request_id: createUuid() })),
     retry: () =>
       owner.view.attempt ? perform(owner.view.attempt) : Promise.resolve(),
   };

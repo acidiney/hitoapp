@@ -1,3 +1,4 @@
+import { createUuid } from "../uuid";
 import { Link, router } from "@inertiajs/react";
 import { Heart, Info, X } from "lucide-react";
 import type { Action, Playlist } from "../types";
@@ -92,7 +93,7 @@ export default function TrackActions({
                   void update({
                     kind: "entry_insert",
                     playlist_id: event.target.value,
-                    entry_id: crypto.randomUUID(),
+                    entry_id: createUuid(),
                     recording_id: track.id,
                     position: Date.now(),
                   });
