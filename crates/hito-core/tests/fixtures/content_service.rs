@@ -116,6 +116,11 @@ impl ProviderServer {
             .map(|(_, headers, body)| (headers.clone(), body.clone()))
             .collect()
     }
+    pub async fn shutdown(mut self) {
+        let _ = self.closed.send(true);
+        self.task.abort();
+        let _ = (&mut self.task).await;
+    }
 }
 async fn audio(
     State(state): State<Arc<Fixture>>,
