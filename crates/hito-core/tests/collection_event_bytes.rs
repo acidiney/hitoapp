@@ -214,6 +214,12 @@ async fn real_import_publications_page_by_encoded_bytes_with_neighboring_client_
                 );
                 format!("playlist/{}", snapshot.playlist_id)
             }
+            SyncEvent::Publication {
+                publication:
+                    CollectionPublication::PlaylistFollowed { .. }
+                    | CollectionPublication::PlaylistFollowRefreshed { .. },
+                ..
+            } => panic!("the import byte-boundary fixture must not publish followed playlists"),
         })
         .collect::<Vec<_>>();
     println!(

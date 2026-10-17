@@ -529,6 +529,12 @@ fn assert_feed(
                 assert_eq!(snapshot.recordings[0].metadata.id, "recording/shared");
                 assert_eq!(snapshot.recordings[0].metadata.title, "Provider recording");
             }
+            SyncEvent::Publication {
+                publication:
+                    CollectionPublication::PlaylistFollowed { .. }
+                    | CollectionPublication::PlaylistFollowRefreshed { .. },
+                ..
+            } => panic!("an import-only account feed must not contain follow publications"),
         }
     }
     assert_eq!(publications, 1);

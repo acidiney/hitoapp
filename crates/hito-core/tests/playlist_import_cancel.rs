@@ -132,6 +132,12 @@ async fn cancelling_a_held_import_frees_control_admission_without_publishing_lat
             assert_eq!(snapshot.entries.len(), 1);
             assert_eq!(snapshot.recordings.len(), 1);
         }
+        SyncEvent::Publication {
+            publication:
+                CollectionPublication::PlaylistFollowed { .. }
+                | CollectionPublication::PlaylistFollowRefreshed { .. },
+            ..
+        } => panic!("the accepted import must not produce a follow publication"),
         SyncEvent::Operation { .. } => {
             panic!("the accepted import must produce one immutable publication")
         }

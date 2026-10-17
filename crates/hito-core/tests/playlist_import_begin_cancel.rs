@@ -200,6 +200,12 @@ async fn cancelling_after_begin_ack_releases_the_writer_and_leaves_no_import_rec
             assert_eq!(snapshot.entries.len(), 1);
             assert_eq!(snapshot.recordings.len(), 1);
         }
+        SyncEvent::Publication {
+            publication:
+                CollectionPublication::PlaylistFollowed { .. }
+                | CollectionPublication::PlaylistFollowRefreshed { .. },
+            ..
+        } => panic!("the import retry must not produce a follow publication"),
         SyncEvent::Operation { .. } => panic!("only the successful retry may publish the import"),
     }
     assert_eq!(server.requests("v1/playlists/detail").await.len(), 4);
