@@ -1,4 +1,4 @@
-use super::{Downloads, lease::stored_uuid};
+use super::{Downloads, lease::stored_uuid, playlist_changes::wake_playlist_retirements_on};
 use crate::{Actor, Error, Result};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -58,6 +58,9 @@ impl Downloads {
             } else {
                 sqlx::query("UPDATE download_playlist_work SET status='queued',phase='prune',cursor=NULL,next_attempt_at=0 WHERE retention_id=?")
                     .bind(&retention).execute(&mut *tx).await?;
+                if let Some(playlist) = &playlist {
+                    wake_playlist_retirements_on(&mut tx, playlist).await?;
+                }
                 None
             }
         } else {

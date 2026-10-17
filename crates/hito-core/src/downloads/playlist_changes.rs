@@ -10,9 +10,23 @@ pub(crate) async fn playlist_changed_on(
 ) -> Result<()> {
     let changed = sqlx::query("UPDATE download_playlist_changes SET revision=revision+1,dirty=1,cursor=NULL,retirement_cursor=NULL,
         roots_done=0,retirements_done=0,next_dispatch_at=0 WHERE playlist_id=?
-        AND EXISTS(SELECT 1 FROM download_retentions root WHERE root.playlist_id=download_playlist_changes.playlist_id AND root.kind='playlist' AND root.state='active')")
+        AND (EXISTS(SELECT 1 FROM download_retentions root WHERE root.playlist_id=download_playlist_changes.playlist_id AND root.kind='playlist' AND root.state='active')
+            OR EXISTS(SELECT 1 FROM download_retirement_work work WHERE work.playlist_id=download_playlist_changes.playlist_id))")
         .bind(playlist.to_string()).execute(connection).await?.rows_affected();
     tracing::debug!(changed, "Playlist download reconciliation marked");
+    Ok(())
+}
+
+#[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playlist_id = %playlist))]
+pub(super) async fn wake_playlist_retirements_on(
+    connection: &mut SqliteConnection,
+    playlist: &str,
+) -> Result<()> {
+    let changed = sqlx::query("UPDATE download_playlist_changes SET dirty=1,retirement_cursor=NULL,retirements_done=0,next_dispatch_at=0,
+        roots_done=CASE WHEN dirty=0 THEN 1 ELSE roots_done END WHERE playlist_id=?
+        AND EXISTS(SELECT 1 FROM download_retirement_work work WHERE work.playlist_id=download_playlist_changes.playlist_id)")
+        .bind(playlist).execute(connection).await?.rows_affected();
+    tracing::debug!(changed, "Playlist download retirement marked");
     Ok(())
 }
 

@@ -96,9 +96,9 @@ CREATE TABLE download_retirement_work (
     transfer_id TEXT PRIMARY KEY REFERENCES download_intents(id),
     host_device TEXT NOT NULL,
     playlist_id TEXT NOT NULL REFERENCES download_playlist_changes(playlist_id),
-    next_check_at INTEGER NOT NULL
+    next_check_at INTEGER
 );
-CREATE INDEX download_retirement_due ON download_retirement_work(host_device,next_check_at,transfer_id);
+CREATE INDEX download_retirement_due ON download_retirement_work(host_device,next_check_at,transfer_id) WHERE next_check_at IS NOT NULL;
 CREATE INDEX download_retirement_playlist ON download_retirement_work(playlist_id,transfer_id);
 
 CREATE VIEW retained_download_intents AS

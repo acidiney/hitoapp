@@ -26,7 +26,7 @@ impl Downloads {
                 AND root.kind='playlist' AND root.state='active' WHERE i.id=? ORDER BY p.id LIMIT 1")
             .bind(transfer).fetch_optional(&mut *connection).await?;
         if let Some(playlist) = playlist {
-            sqlx::query("INSERT INTO download_retirement_work(transfer_id,host_device,playlist_id,next_check_at) VALUES(?,?,?,unixepoch()+5)
+            sqlx::query("INSERT INTO download_retirement_work(transfer_id,host_device,playlist_id,next_check_at) VALUES(?,?,?,NULL)
                 ON CONFLICT(transfer_id) DO UPDATE SET playlist_id=excluded.playlist_id,next_check_at=excluded.next_check_at")
                 .bind(transfer).bind(self.host.as_str()).bind(playlist).execute(connection).await?;
         }
@@ -34,7 +34,7 @@ impl Downloads {
     }
 
     pub(super) async fn reconsider_retirement(&self) -> Result<bool> {
-        let eligible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM download_retirement_work WHERE host_device=? AND next_check_at<=unixepoch())")
+        let eligible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM download_retirement_work WHERE host_device=? AND next_check_at IS NOT NULL AND next_check_at<=unixepoch())")
             .bind(self.host.as_str()).fetch_one(&self.store.pool).await?;
         if !eligible {
             return Ok(false);
@@ -42,7 +42,7 @@ impl Downloads {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let candidates: Vec<(String, String, String, String)> = sqlx::query_as("SELECT work.transfer_id,i.account_id,i.recording_id,i.state
             FROM download_retirement_work work JOIN download_intents i ON i.id=work.transfer_id
-            WHERE work.host_device=? AND work.next_check_at<=unixepoch() ORDER BY work.next_check_at,work.transfer_id LIMIT 32")
+            WHERE work.host_device=? AND work.next_check_at IS NOT NULL AND work.next_check_at<=unixepoch() ORDER BY work.next_check_at,work.transfer_id LIMIT 32")
             .bind(self.host.as_str()).fetch_all(&mut *tx).await?;
         let mut files = Vec::new();
         for (transfer, account, recording, state) in &candidates {

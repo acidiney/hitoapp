@@ -91,6 +91,10 @@ impl Downloads {
         }
         sqlx::query("UPDATE download_intents SET state='removed',generation=generation+1,updated_at=unixepoch() WHERE id=?")
             .bind(&previous).execute(&mut *connection).await?;
+        sqlx::query("DELETE FROM download_retirement_work WHERE transfer_id=?")
+            .bind(&previous)
+            .execute(&mut *connection)
+            .await?;
         sqlx::query("UPDATE download_jobs SET status='cancelled',updated_at=unixepoch() WHERE intent_id=? AND status='queued'")
             .bind(&previous).execute(&mut *connection).await?;
         if state == "ready" && reusable {
