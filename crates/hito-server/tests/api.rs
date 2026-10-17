@@ -37,6 +37,9 @@ mod playlist_import;
 #[path = "api/playlist_follow.rs"]
 mod playlist_follow;
 
+#[path = "api/playlist_follow_access.rs"]
+mod playlist_follow_access;
+
 #[path = "api/playlist_fixture.rs"]
 mod playlist_fixture;
 
