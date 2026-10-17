@@ -43,9 +43,16 @@ test("wholly retained and unavailable playlists remain visible and editable with
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   for (const props of unavailablePlaylistPages) {
     vi.mocked(router.reload).mockClear();
+    const downloadPath = `/api/v1/playlists/${props.detail.playlist.id}/download`;
     const fetch = vi
       .fn()
       .mockImplementation(async (path: string, options: RequestInit) => {
+        if (
+          path === downloadPath &&
+          options.method === "GET" &&
+          new Headers(options.headers).get("x-hito-account") === props.user.id
+        )
+          return Response.json({ error: "Not found" }, { status: 404 });
         if (path !== "/api/v1/sync")
           throw new Error("Unavailable rows must not request sources");
         const batch: SyncBatch = JSON.parse(String(options.body));
@@ -120,7 +127,19 @@ test("wholly retained and unavailable playlists remain visible and editable with
     }
     expect(player.queueSnapshot().total).toBe(0);
     expect((await player.queuePage(0, 10)).entries).toEqual([]);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]).toEqual([
+      downloadPath,
+      expect.objectContaining({
+        method: "GET",
+        credentials: "same-origin",
+        headers: expect.objectContaining({ "x-hito-account": props.user.id }),
+        signal: expect.any(AbortSignal),
+      }),
+    ]);
+    expect(
+      fetch.mock.calls.filter(([, options]) => options?.method !== "GET"),
+    ).toHaveLength(0);
     expect(play).not.toHaveBeenCalled();
     const removed = props.detail.entries[1];
     fireEvent.click(
@@ -129,9 +148,9 @@ test("wholly retained and unavailable playlists remain visible and editable with
       }),
     );
     await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch.mock.calls[0][0]).toBe("/api/v1/sync");
-    expect(JSON.parse(fetch.mock.calls[0][1].body).operations).toEqual([
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe("/api/v1/sync");
+    expect(JSON.parse(fetch.mock.calls[1][1].body).operations).toEqual([
       {
         id: expect.any(String),
         action: {

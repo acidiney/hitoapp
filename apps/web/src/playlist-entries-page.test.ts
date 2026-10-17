@@ -46,9 +46,16 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const downloadPath = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const fetch = vi
     .fn()
     .mockImplementation(async (path: string, options: RequestInit) => {
+      if (
+        path === downloadPath &&
+        options.method === "GET" &&
+        new Headers(options.headers).get("x-hito-account") === props.user.id
+      )
+        return Response.json({ error: "Not found" }, { status: 404 });
       if (path === `/api/v1/recordings/${recordingA}/sources`) {
         return new Response(
           JSON.stringify([
@@ -135,8 +142,18 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
     },
   ]);
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+    downloadPath,
     `/api/v1/recordings/${recordingA}/sources`,
     "/api/v1/sync",
+  ]);
+  expect(fetch.mock.calls[0]).toEqual([
+    downloadPath,
+    expect.objectContaining({
+      method: "GET",
+      credentials: "same-origin",
+      headers: expect.objectContaining({ "x-hito-account": props.user.id }),
+      signal: expect.any(AbortSignal),
+    }),
   ]);
   expect(screen.getByText(/Curated by the fixture owner/)).toBeTruthy();
   expect(screen.getByRole("table", { name: "Playlist entries" })).toBe(table);

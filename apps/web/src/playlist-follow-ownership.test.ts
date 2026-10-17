@@ -111,6 +111,11 @@ test("account and playlist changes fence held Follow responses and keep polling 
   const currentReady = ready(current);
   const statusPath = (props: PlaylistPageProps) =>
     `/api/v1/playlists/${props.detail.playlist.id}/follow`;
+  const downloadPath = (props: PlaylistPageProps) =>
+    `/api/v1/playlists/${props.detail.playlist.id}/download`;
+  const owners = [first, second, current];
+  const accountOf = (options?: RequestInit) =>
+    new Headers(options?.headers).get("x-hito-account");
   const firstPath = statusPath(first);
   const secondPath = statusPath(second);
   const currentPath = statusPath(current);
@@ -122,6 +127,16 @@ test("account and playlist changes fence held Follow responses and keep polling 
   let currentReads = 0;
   const fetch = vi.fn((path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (
+      method === "GET" &&
+      owners.some(
+        (props) =>
+          path === downloadPath(props) && accountOf(options) === props.user.id,
+      )
+    )
+      return Promise.resolve(
+        Response.json({ error: "Not found" }, { status: 404 }),
+      );
     if (path === firstPath && method === "GET") {
       firstReads++;
       return firstReads === 1
@@ -263,6 +278,24 @@ test("account and playlist changes fence held Follow responses and keep polling 
     1,
   );
   expect(currentReads).toBe(3);
+  for (const props of owners) {
+    expect(
+      fetch.mock.calls.filter(
+        ([path, options]) =>
+          path === downloadPath(props) && accountOf(options) === props.user.id,
+      ),
+    ).toEqual([
+      [
+        downloadPath(props),
+        expect.objectContaining({
+          method: "GET",
+          credentials: "same-origin",
+          headers: expect.objectContaining({ "x-hito-account": props.user.id }),
+          signal: expect.any(AbortSignal),
+        }),
+      ],
+    ]);
+  }
   expect(entries()).toEqual(currentEntries);
   expect(router.reload).not.toHaveBeenCalled();
   expect(router.visit).not.toHaveBeenCalled();

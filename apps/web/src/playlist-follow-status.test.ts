@@ -69,11 +69,20 @@ test("a followed playlist retains its entries and reloads once after a refresh w
   };
   const statusPath = `/api/v1/playlists/${ready.playlist_id}/follow`;
   const refreshPath = `${statusPath}/refresh`;
+  const downloadPath = `/api/v1/playlists/${ready.playlist_id}/download`;
   const accepted = heldResponse();
   const running = heldResponse();
   const completed = heldResponse();
   let statusReads = 0;
   const fetch = vi.fn((path: string, options?: RequestInit) => {
+    if (
+      path === downloadPath &&
+      options?.method === "GET" &&
+      new Headers(options.headers).get("x-hito-account") === props.user.id
+    )
+      return Promise.resolve(
+        Response.json({ error: "Not found" }, { status: 404 }),
+      );
     if (path === statusPath && (options?.method ?? "GET") === "GET") {
       statusReads++;
       if (statusReads === 1) return Promise.resolve(Response.json(ready));
@@ -129,7 +138,17 @@ test("a followed playlist retains its entries and reloads once after a refresh w
   const retainedEntries = rows().map((row) => row.textContent);
   expect(retainedEntries).toHaveLength(props.detail.entries.length);
   expect(statusReads).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
   expect(fetch.mock.calls[0]).toEqual([
+    downloadPath,
+    expect.objectContaining({
+      method: "GET",
+      credentials: "same-origin",
+      headers: expect.objectContaining({ "x-hito-account": props.user.id }),
+      signal: expect.any(AbortSignal),
+    }),
+  ]);
+  expect(fetch.mock.calls[1]).toEqual([
     statusPath,
     expect.objectContaining({
       headers: expect.objectContaining({ "x-hito-account": props.user.id }),
@@ -211,6 +230,9 @@ test("a followed playlist retains its entries and reloads once after a refresh w
   expect(play).not.toHaveBeenCalled();
   expect(
     fetch.mock.calls.filter(([path]) => path === refreshPath),
+  ).toHaveLength(1);
+  expect(
+    fetch.mock.calls.filter(([path]) => path === downloadPath),
   ).toHaveLength(1);
   const requestsBeforeUnmount = fetch.mock.calls.length;
   view.unmount();

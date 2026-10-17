@@ -127,6 +127,8 @@ test.each(["account", "playlist"] as const)(
     });
     const statusPath = (props: PlaylistPageProps) =>
       `/api/v1/playlists/${props.detail.playlist.id}/follow`;
+    const downloadPath = (props: PlaylistPageProps) =>
+      `/api/v1/playlists/${props.detail.playlist.id}/download`;
     const accountOf = (options?: RequestInit) =>
       new Headers(options?.headers).get("x-hito-account");
     const oldSettings = heldResponse();
@@ -137,6 +139,16 @@ test.each(["account", "playlist"] as const)(
     const fetch = vi.fn((path: string, options?: RequestInit) => {
       const method = options?.method ?? "GET";
       if (method === "GET") {
+        if (
+          pages.some(
+            (props) =>
+              path === downloadPath(props) &&
+              accountOf(options) === props.user.id,
+          )
+        )
+          return Promise.resolve(
+            Response.json({ error: "Not found" }, { status: 404 }),
+          );
         const index = pages.findIndex(
           (props) =>
             path === statusPath(props) && accountOf(options) === props.user.id,
@@ -272,6 +284,27 @@ test.each(["account", "playlist"] as const)(
       ).disabled,
     ).toBe(false);
     expect(screen.queryByRole("alert")).toBeNull();
+    for (const props of pages) {
+      expect(
+        fetch.mock.calls.filter(
+          ([path, options]) =>
+            path === downloadPath(props) &&
+            accountOf(options) === props.user.id,
+        ),
+      ).toEqual([
+        [
+          downloadPath(props),
+          expect.objectContaining({
+            method: "GET",
+            credentials: "same-origin",
+            headers: expect.objectContaining({
+              "x-hito-account": props.user.id,
+            }),
+            signal: expect.any(AbortSignal),
+          }),
+        ],
+      ]);
+    }
     expect(entries()).toEqual(currentEntries);
     expect(router.reload).not.toHaveBeenCalled();
     expect(router.visit).not.toHaveBeenCalled();
