@@ -1,12 +1,15 @@
+#![allow(dead_code)]
+
 use axum::{
     Json, Router,
-    extract::{OriginalUri, State},
+    extract::{OriginalUri, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use serde_json::{Value, json};
 use std::{
+    collections::HashMap,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -14,7 +17,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    sync::{Mutex, Semaphore, watch},
+    sync::{Mutex, RwLock, Semaphore, watch},
     task::JoinHandle,
 };
 
@@ -25,6 +28,8 @@ pub enum Event {
     SourcesA,
     DetailB,
     SourcesB,
+    AudioA,
+    AudioB,
 }
 
 struct StateData {
@@ -32,6 +37,7 @@ struct StateData {
     entered: Semaphore,
     release: Semaphore,
     authenticated: AtomicBool,
+    audio: RwLock<Option<(Vec<u8>, Vec<u8>)>>,
     closed: watch::Receiver<bool>,
 }
 
@@ -50,6 +56,7 @@ impl Provider {
             entered: Semaphore::new(0),
             release: Semaphore::new(0),
             authenticated: AtomicBool::new(true),
+            audio: RwLock::new(None),
             closed: receiver.clone(),
         });
         let router = Router::new()
@@ -66,6 +73,7 @@ impl Provider {
             .route("/audio/v1/search", post(exchange))
             .route("/audio/v1/recordings/detail", post(exchange))
             .route("/audio/v1/sources", post(exchange))
+            .route("/audio/v1/audio", get(audio))
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base_url = format!("http://{}/", listener.local_addr().unwrap());
@@ -102,6 +110,11 @@ impl Provider {
     }
     pub fn release_candidate_sources(&self) {
         self.state.release.add_permits(1);
+    }
+
+    pub async fn ready_audio(&self, first: Vec<u8>, second: Vec<u8>) {
+        *self.state.audio.write().await = Some((first, second));
+        self.state.release.close();
     }
 
     pub async fn close(mut self) -> bool {
@@ -179,10 +192,36 @@ async fn exchange(
             }
         }
         return Json(json!({"items": [{
-            "id": format!("{id}/source"), "label": "Owned audio source", "ready": id == "owned/candidate-b"
+            "id": format!("{id}/source"), "label": "Owned audio source", "ready": id == "owned/candidate-b" || state.audio.read().await.is_some()
         }]})).into_response();
     }
     StatusCode::NOT_FOUND.into_response()
+}
+
+async fn audio(
+    State(state): State<Arc<StateData>>,
+    Query(query): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    if headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        != Some("Bearer owned-resolution-private-token")
+    {
+        state.authenticated.store(false, Ordering::SeqCst);
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let audio = state.audio.read().await;
+    let Some((first, second)) = audio.as_ref() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let (event, bytes) = match query.get("source_id").map(String::as_str) {
+        Some("owned/candidate-a/source") => (Event::AudioA, first.clone()),
+        Some("owned/candidate-b/source") => (Event::AudioB, second.clone()),
+        _ => return StatusCode::NOT_FOUND.into_response(),
+    };
+    state.events.lock().await.push(event);
+    ([("content-type", "audio/wav")], bytes).into_response()
 }
 
 fn detail(id: &str) -> Value {
