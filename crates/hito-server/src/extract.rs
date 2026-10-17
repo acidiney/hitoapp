@@ -1,6 +1,7 @@
 use crate::error;
 use axum::{
     Json,
+    body::{Body, Bytes},
     extract::{FromRequest, FromRequestParts, Query, Request, rejection::JsonRejection},
     http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
@@ -8,6 +9,7 @@ use axum::{
 use serde::de::DeserializeOwned;
 
 pub struct JsonBody<T>(pub T);
+pub struct OptionalJsonBody<T>(pub Option<T>);
 pub struct QueryParams<T>(pub T);
 
 pub struct InputError {
@@ -51,6 +53,32 @@ where
                     message,
                 }
             })
+    }
+}
+
+impl<S, T> FromRequest<S> for OptionalJsonBody<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned,
+{
+    type Rejection = InputError;
+
+    async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let headers = request.headers().clone();
+        let bytes = Bytes::from_request(request, state)
+            .await
+            .map_err(|rejection| InputError {
+                status: rejection.status(),
+                kind: "json_body",
+                message: "Request body could not be read",
+            })?;
+        if bytes.is_empty() {
+            return Ok(Self(None));
+        }
+        let mut request = Request::new(Body::from(bytes));
+        *request.headers_mut() = headers;
+        let JsonBody(value) = JsonBody::<Option<T>>::from_request(request, state).await?;
+        Ok(Self(value))
     }
 }
 

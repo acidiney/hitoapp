@@ -6,7 +6,11 @@ Generic playlist Import a copy is deployed on the local development server, with
 
 ## Settings
 
-Open Settings → Plugins. An administrator can expand **Services for this server** to offer a name and base address. Offers are shared choices, not shared credentials or automatic installations. Only administrators can choose addresses that Hito will contact. Ordinary accounts select an offered service and optionally enter its bearer token. No environment-variable editing is needed.
+Open Settings → Plugins. An administrator expands **Services for this server**, enters the service address, and selects **Offer service**. Hito fetches the public manifest and uses its validated name. **Advanced settings** has an optional custom label for services that require a token before exposing their manifest. An explicit label skips this initial lookup; the personal connection still validates the manifest with its own optional token.
+
+Offers are shared choices, not shared credentials or automatic installations. Only administrators can choose addresses that Hito will contact. Ordinary accounts select an offered service and optionally enter its bearer token. No environment-variable editing is needed. Existing service labels remain unchanged.
+
+An automatic name lookup sends no credentials or browser cookies. Failed validation saves no offer. Hito rechecks the administrator's live session after the HTTP request, without holding a SQLite write transaction during network work.
 
 Each account owns its connections. Administrators cannot list, check, or clear another account's connection. Removing a personal connection clears its saved token. Withdrawing an offered service disconnects all installations of that service and clears their tokens. Both actions retain an inactive identity record. Reoffering the same address creates a new service identity.
 
@@ -144,7 +148,7 @@ The client disables automatic redirects, system proxies, and retries. It uses a 
 
 ### Optional authorization declaration
 
-The development SDK accepts an `oauth2_pkce` declaration. The development branch can also begin and inspect a pending authorization attempt, as described below. This groundwork is not a completed Spotify connection or a feature deployed on the normal local server. A declaration alone does not obtain or store an access token.
+The SDK accepts an `oauth2_pkce` declaration. The local server can begin and inspect a pending authorization attempt, as described below. This groundwork does not complete an account connection. A declaration alone does not obtain or store an access token.
 
 ```json
 {
@@ -188,7 +192,7 @@ flowchart LR
 
 Attempts last ten minutes, with at most eight live attempts per account. `GET /api/v1/plugins/{id}/authorization/{attempt}` returns only the attempt ID, `pending` status and expiry. It requires the original live session and matching active installation/service revisions. Another session of the same account cannot inspect the attempt. Restart preserves a valid attempt; expiry, logout or changed authority makes it unavailable. Both routes return `Cache-Control: no-store`.
 
-Callback validation, one-time code exchange, access/refresh-token handling, the connection UI and the desktop browser launcher remain unfinished. These routes do not make Spotify connection or playlist import usable. The normal local deployment remains on migration 0024 without this authorization work.
+Callback validation, one-time code exchange, access/refresh-token handling, the connection UI and the desktop browser launcher remain unfinished. The normal local server includes the migration 0025 attempt table and begin/status routes. Public Spotify playlist import uses its separate anonymous path and needs none of this authorization work.
 
 ### Public Spotify playlist import
 
@@ -198,12 +202,12 @@ The service is running in the local development deployment. Ten owned TCP tests 
 
 ## Application API
 
-The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table below describes the deployed routes; the development-only authorization routes are described above.
+The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table below describes the deployed routes; the pending authorization groundwork is described above.
 
 | Route                                          | Behavior                                                                                                                     |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/plugins`                          | Offered services, this account's installations, credential-storage readiness                                                 |
-| `POST /api/v1/plugins/services`                | Administrator offers a name and base address                                                                                 |
+| `POST /api/v1/plugins/services`                | Administrator offers an address; the validated manifest supplies its name unless an explicit custom label is provided       |
 | `DELETE /api/v1/plugins/services/{id}`         | Administrator withdraws the expected revision                                                                                |
 | `POST /api/v1/plugins`                         | Installs an offered service revision with an optional write-only bearer token                                                |
 | `POST /api/v1/plugins/{id}/refresh`            | Checks an expected installation revision; optional reviewed digest and keep/replace credential action                        |

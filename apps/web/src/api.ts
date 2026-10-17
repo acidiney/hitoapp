@@ -2,6 +2,7 @@ import type {
   Action,
   Credentials,
   Job,
+  RefreshSources,
   Source,
   SyncBatch,
   SyncReceipt,
@@ -82,6 +83,21 @@ export const libraryApi = {
       await request(`/recordings/${part(recording)}/sources/refresh`, {
         action: "sources.refresh",
         method: "POST",
+        account,
+        signal,
+      })
+    ).json();
+  },
+  async recoverSources(
+    account: string,
+    recording: string,
+    signal?: AbortSignal,
+  ): Promise<Source[]> {
+    return (
+      await request(`/recordings/${part(recording)}/sources/refresh`, {
+        action: "sources.recover",
+        method: "POST",
+        body: { purpose: "playback" } satisfies RefreshSources,
         account,
         signal,
       })

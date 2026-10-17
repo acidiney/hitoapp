@@ -1,5 +1,6 @@
 use super::{OfferPluginService, PluginService, Plugins};
 use crate::{Actor, Error, Result};
+use std::time::Instant;
 use url::Url;
 use uuid::Uuid;
 
@@ -39,17 +40,33 @@ impl Plugins {
         actor: &Actor,
         request: OfferPluginService,
     ) -> Result<PluginService> {
+        let started = Instant::now();
         actor.require_admin()?;
-        if request.name.trim().is_empty()
-            || request.name.len() > 256
-            || request.name.chars().any(char::is_control)
-        {
+        if request.name.len() > 256 || request.name.chars().any(char::is_control) {
             return Err(Error::Invalid(
                 "Use a service name of 1 to 256 bytes without control characters".into(),
             ));
         }
+        let automatic_name = request.name.trim().is_empty();
         let base_url = endpoint(&request.base_url)?.to_string();
+        actor.check_session(&self.store).await?;
+        let name = if automatic_name {
+            match self.remote.manifest(actor.id(), &base_url, None).await {
+                Ok(manifest) => manifest.name,
+                Err(error) => {
+                    tracing::info!(
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        outcome = error.code(),
+                        "Plugin service offer failed"
+                    );
+                    return Err(error);
+                }
+            }
+        } else {
+            request.name
+        };
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
         let count: i64 =
             sqlx::query_scalar("SELECT count(*) FROM plugin_services WHERE active = 1")
                 .fetch_one(&mut *tx)
@@ -70,7 +87,7 @@ impl Plugins {
         }
         let service = PluginService {
             id: Uuid::new_v4().to_string(),
-            name: request.name,
+            name,
             base_url,
             revision: 1,
         };
@@ -81,7 +98,12 @@ impl Plugins {
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
-        tracing::info!(service_id = service.id, "Plugin service offered");
+        tracing::info!(
+            service_id = service.id,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            outcome = "offered",
+            "Plugin service offered"
+        );
         Ok(service)
     }
 }

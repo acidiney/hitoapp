@@ -25,6 +25,106 @@ async function signIn(page: Page, username: string, password: string) {
   ).toBeVisible();
 }
 
+test("an administrator offers only an address before connecting with the plugin name", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  const browserProviderRequests: string[] = [];
+  const requests: {
+    authorization?: string;
+    cookie?: string;
+    protocol?: string | string[];
+  }[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const manifest = {
+    id: "org.hito.browser.automatic-name",
+    name: "Automatic fixture provider",
+    protocol_version: 1,
+    capabilities: ["search", "sources"],
+  };
+  const service = createServer((request, response) => {
+    requests.push({
+      authorization: request.headers.authorization,
+      cookie: request.headers.cookie,
+      protocol: request.headers["x-hito-plugin-protocol"],
+    });
+    if (request.url !== "/fixture/v1/manifest") {
+      response.writeHead(404).end();
+      return;
+    }
+    response
+      .writeHead(200, { "content-type": "application/json" })
+      .end(JSON.stringify(manifest));
+  });
+  await new Promise<void>((resolve) => service.listen(0, "127.0.0.1", resolve));
+  const address = `http://127.0.0.1:${(service.address() as AddressInfo).port}/fixture`;
+  page.on("request", (request) => {
+    if (request.url().startsWith(address)) {
+      browserProviderRequests.push(request.url());
+    }
+  });
+  try {
+    await signIn(page, "admin", "docker browser test password");
+    await page.getByText("Services for this server", { exact: true }).click();
+    const serviceAddress = page.getByLabel("Service address", { exact: true });
+    await expect(serviceAddress).toHaveJSProperty("required", true);
+    await expect(
+      page.getByLabel("Service name", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByLabel("Custom label (optional)", { exact: true }),
+    ).toBeHidden();
+    await serviceAddress.fill(address);
+    const offered = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === "/api/v1/plugins/services",
+    );
+    await page
+      .getByRole("button", { name: "Offer service", exact: true })
+      .click();
+    expect((await offered).postDataJSON()).toEqual({ base_url: address });
+    const selector = page.getByRole("combobox", {
+      name: "Service",
+      exact: true,
+    });
+    await expect(selector).toContainText(manifest.name);
+    await expect(page.getByText(`${address}/`, { exact: true })).toHaveCount(2);
+    await expect(
+      page.getByText("No plugins connected to this account.", { exact: true }),
+    ).toBeVisible();
+    expect(requests).toEqual([
+      { authorization: undefined, cookie: undefined, protocol: "1" },
+    ]);
+    await page
+      .getByRole("button", { name: "Connect service", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Check connection", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("No plugins connected to this account.", { exact: true }),
+    ).toHaveCount(0);
+    expect(requests).toEqual([
+      { authorization: undefined, cookie: undefined, protocol: "1" },
+      { authorization: undefined, cookie: undefined, protocol: "1" },
+    ]);
+    expect(browserProviderRequests).toEqual([]);
+    await page
+      .getByRole("button", { name: "Withdraw service", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Withdraw for everyone", exact: true })
+      .click();
+    await expect(selector).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      service.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
 test("personal plugin connections review changes and remain private across accounts", async ({
   page,
 }) => {
@@ -57,8 +157,9 @@ test("personal plugin connections review changes and remain private across accou
   try {
     await signIn(page, "admin", "docker browser test password");
     await page.getByText("Services for this server", { exact: true }).click();
+    await page.getByText("Advanced settings", { exact: true }).click();
     await page
-      .getByLabel("Service name", { exact: true })
+      .getByLabel("Custom label (optional)", { exact: true })
       .fill("Browser fixture service");
     await page.getByLabel("Service address", { exact: true }).fill(address);
     await page
@@ -67,6 +168,7 @@ test("personal plugin connections review changes and remain private across accou
     await expect(
       page.getByRole("combobox", { name: "Service", exact: true }),
     ).toHaveValue(/.+/);
+    expect(requests).toEqual([]);
     await page.setViewportSize({ width: 390, height: 844 });
     const connectButton = page.getByRole("button", {
       name: "Connect service",

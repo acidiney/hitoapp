@@ -32,7 +32,7 @@ pub async fn settings(
 }
 
 #[utoipa::path(post, path = "/api/v1/plugins/services", operation_id = "offer_plugin_service", request_body = OfferPluginService, security(("session" = []), ("bearer" = [])), responses(
-    (status = 201, body = PluginService), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 201, body = PluginService), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse), (status = 502, body = ErrorResponse),
 ))]
 pub async fn offer(
     State(services): State<Services>,

@@ -19,6 +19,7 @@ export type TextMetadata = Schema["TextMetadata"];
 export type MetadataObservation = Schema["MetadataObservation"];
 export type ObservationPage = Schema["ObservationPage"];
 export type Source = Schema["Source"];
+export type RefreshSources = Schema["RefreshSources"];
 export type Job = Schema["Job"];
 export type MusicFolder = Schema["MusicFolder"];
 export type SharedDirectory = Schema["SharedDirectory"];
@@ -51,5 +52,9 @@ export type ProviderSearch = Schema["ProviderSearch"];
 export type ProviderRecording = Schema["ProviderRecording"];
 export type ProviderSearchPage = Schema["SearchPage"];
 export type AdoptProviderRecording = Schema["AdoptProviderRecording"];
+export type ProviderCandidate = Schema["ProviderCandidate"];
+export type ProviderSourceReview = Schema["ProviderSourceReview"];
+export type AttachReviewedProviderSource =
+  Schema["AttachReviewedProviderSource"];
 export type ImportProviderPlaylist = Schema["ImportProviderPlaylist"];
 export type PlaylistImportReceipt = Schema["PlaylistImportReceipt"];

@@ -20,7 +20,7 @@ http://plugin-folder:8090/
 ```
 
 1. Sign in to Hito as an administrator. Open Settings, then Plugins.
-2. Expand Services for this server. Enter `Folder demo` and the internal address above, then select Offer service.
+2. Expand Services for this server. Enter the internal address above, then select Offer service. Hito obtains the name `Hito music folder` automatically.
 3. Select that offered service, leave Bearer token empty, and select Connect service. Review the displayed `Hito music folder` identity and its `search` and `sources` capabilities. Check connection revalidates the manifest. Each listener personally installs their own connection.
 4. Open Discover, select the service, and search for `Hito demo`. The tracks are synthetic test signals, not commercial music.
 5. Select Add to library to save a recording without starting playback. Select Play to adopt and play another track. Use the Seek control to change position.
