@@ -1,4 +1,4 @@
-use super::{FollowProviderPlaylist, PlaylistFollowReceipt, PlaylistFollowRefresh};
+use super::{FollowProviderPlaylist, PlaylistFollowReceipt, PlaylistFollowRefresh, history};
 use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 use sqlx::SqliteConnection;
@@ -86,13 +86,21 @@ pub(super) async fn check_refresh_capacity(
 }
 
 pub(super) async fn expire_refresh_receipts(connection: &mut SqliteConnection) -> Result<()> {
-    let expired = sqlx::query("DELETE FROM playlist_follow_refresh_receipts WHERE created_at <= unixepoch() - ?
+    let expired: Vec<String> = sqlx::query_scalar("DELETE FROM playlist_follow_refresh_receipts WHERE created_at <= unixepoch() - ?
         AND EXISTS(SELECT 1 FROM playlist_follow_jobs job WHERE job.id = playlist_follow_refresh_receipts.job_id
-            AND job.status IN ('complete','failed','cancelled'))")
-        .bind(REFRESH_RECEIPT_RETENTION_SECONDS).execute(connection).await?.rows_affected();
-    if expired > 0 {
+            AND job.status IN ('complete','failed','cancelled')) RETURNING playlist_id")
+        .bind(REFRESH_RECEIPT_RETENTION_SECONDS).fetch_all(&mut *connection).await?;
+    if !expired.is_empty() {
+        let count = expired.len();
+        let affected: std::collections::BTreeSet<_> = expired.into_iter().collect();
+        let mut pruned = 0;
+        for playlist in &affected {
+            pruned += history::prune(connection, playlist).await?;
+        }
         tracing::debug!(
-            expired_receipts = expired,
+            expired_receipts = count,
+            affected_playlists = affected.len(),
+            pruned_jobs = pruned,
             "Expired manual follow refresh requests released"
         );
     }

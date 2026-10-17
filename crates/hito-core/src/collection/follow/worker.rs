@@ -1,4 +1,4 @@
-use super::{Collection, lease::Lease, persist};
+use super::{Collection, history, lease::Lease, persist};
 use crate::{
     Error, Result,
     plugins::{PlaylistOperation, PlaylistSnapshot},
@@ -165,10 +165,7 @@ impl Collection {
             .bind(status).bind(error).bind(delay).bind(i64::from(refund)).bind(&lease.id).bind(&lease.lease_token).execute(&mut *tx).await?;
         sqlx::query("UPDATE playlist_follows SET error = ?,next_refresh_at = CASE WHEN ? IN ('failed','cancelled') THEN unixepoch() + interval_seconds ELSE next_refresh_at END WHERE playlist_id = ?")
             .bind(error).bind(status).bind(&lease.playlist_id).execute(&mut *tx).await?;
-        sqlx::query("DELETE FROM playlist_follow_jobs WHERE playlist_id = ? AND status IN ('complete','failed','cancelled')
-            AND NOT EXISTS(SELECT 1 FROM playlist_follow_refresh_receipts receipt WHERE receipt.job_id = playlist_follow_jobs.id)
-            AND id NOT IN (SELECT id FROM playlist_follow_jobs WHERE playlist_id = ? AND status IN ('complete','failed','cancelled') ORDER BY created_at DESC,rowid DESC LIMIT 32)")
-            .bind(&lease.playlist_id).bind(&lease.playlist_id).execute(&mut *tx).await?;
+        history::prune(&mut tx, &lease.playlist_id).await?;
         tx.commit().await?;
         Ok(status)
     }

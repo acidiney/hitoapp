@@ -1,3 +1,4 @@
+mod history;
 mod jobs;
 mod lease;
 mod persist;
