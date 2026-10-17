@@ -65,6 +65,7 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [x] Add authenticated provider search/adoption APIs and bounded private audio relay with byte ranges and live cancellation.
 - [x] Add browser discovery, explicit save/adoption, and playback through authorized server-relayed provider sources.
 - [x] Add source-only provider refresh, bounded browser failover near the requested position, and explicit track-details availability checks.
+- [x] Review and attach alternate provider audio to an existing recording without replacing its metadata or playlist identities. Verify the complete copied-track workflow and recovery through actual audio in Chromium. Integrated source awaits deployment; see [source attachment](docs/provider-sources.md).
 - [ ] Complete remaining plugin capability requests/results, conversion, and operational capability negotiation.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
 - [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
