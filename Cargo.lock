@@ -1812,9 +1812,11 @@ dependencies = [
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber",
  "utoipa",
  "utoipa-axum",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
