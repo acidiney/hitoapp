@@ -11,6 +11,8 @@ mod host;
 #[allow(dead_code)]
 #[path = "fixtures/artwork_http.rs"]
 mod http;
+#[path = "fixtures/manual_choice_status.rs"]
+mod status;
 
 use axum::http::StatusCode;
 use choice_http::{
@@ -22,6 +24,7 @@ use files::ManagedCopy;
 use fixture::Provider;
 use futures_util::FutureExt;
 use serde_json::json;
+use status::assert_status;
 use std::{panic::AssertUnwindSafe, path::Path};
 use uuid::Uuid;
 
@@ -91,6 +94,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     let saved_a_source = saved_a["source_id"].as_str().unwrap().to_owned();
     assert_audio(address, token, &saved_a_source, a.audio()).await;
     let retained_a = ManagedCopy::capture(directory, a.audio());
+    assert_status(address, token, &saved_a, 0, true, [a, b]).await;
     assert!(a.audio_requests() > 0);
     assert_eq!(b.audio_requests(), 0);
 
@@ -208,6 +212,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     );
     assert_denied_audio(address, token, &source_a).await;
     assert_denied_audio(address, token, &saved_a_source).await;
+    assert_status(address, token, &saved_a, 1, false, [a, b]).await;
 
     b.replace_unavailable();
     let unavailable = call(
@@ -258,6 +263,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     assert_denied_audio(address, token, &source_a).await;
     assert_denied_audio(address, token, &saved_a_source).await;
     retained_a.assert_retained(a.audio());
+    assert_status(address, token, &saved_a, 1, false, [a, b]).await;
 
     b.make_ready();
     let ready = call(
@@ -298,6 +304,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     );
     assert_audio(address, token, saved_b_source, b.audio()).await;
     retained_a.assert_replaced(b.audio()).await;
+    assert_status(address, token, &saved_b, 1, true, [a, b]).await;
     let audio_control = (a.audio_requests(), b.audio_requests());
     let request_control = (a.requests(), b.requests());
 
@@ -313,6 +320,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     b.offline();
     assert_saved_selection(address, token, &sources_path, saved_b_source, &source_a).await;
     assert_audio(address, token, saved_b_source, b.audio()).await;
+    assert_status(address, token, &saved_b, 1, true, [a, b]).await;
     assert_eq!(
         (a.audio_requests(), b.audio_requests()),
         audio_control,
@@ -346,6 +354,7 @@ async fn exercise(directory: &Path, a: &Provider, b: &Provider, hosts: &mut Vec<
     assert_saved_selection(restarted, token, &sources_path, saved_b_source, &source_a).await;
     assert_audio(restarted, token, saved_b_source, b.audio()).await;
     assert_denied_audio(restarted, token, &source_a).await;
+    assert_status(restarted, token, &saved_b, 1, true, [a, b]).await;
     assert_collection(restarted, token, recording, &collection, true).await;
     assert_eq!((a.audio_requests(), b.audio_requests()), audio_control);
     assert_eq!((a.unexpected(), b.unexpected()), (0, 0));
