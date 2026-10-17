@@ -40,7 +40,11 @@ pub async fn browser_security(
     mut request: Request,
     next: Next,
 ) -> Response {
-    if !origin::allowed(&request, &security.config.origin) {
+    if !origin::allowed(
+        &request,
+        &security.config.origin,
+        &security.config.additional_origins,
+    ) {
         tracing::warn!(
             event = "origin_rejected",
             "Request origin could not be verified"

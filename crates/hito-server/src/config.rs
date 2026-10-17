@@ -1,4 +1,7 @@
+mod origins;
+
 use hito_core::{CoreConfig, HostDeviceId, StorageConfig};
+use origins::{parse_additional_origins, validate_combined_origins};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
 
@@ -7,6 +10,7 @@ pub type RuntimeResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 #[derive(Clone)]
 pub struct Config {
     pub origin: String,
+    pub additional_origins: Vec<String>,
     pub web_dir: PathBuf,
     pub asset_version: String,
 }
@@ -15,6 +19,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             origin: "http://localhost:8080".into(),
+            additional_origins: Vec::new(),
             web_dir: "apps/web/dist".into(),
             asset_version: "development".into(),
         }
@@ -30,6 +35,17 @@ pub struct RuntimeConfig {
 
 impl RuntimeConfig {
     pub async fn from_env() -> RuntimeResult<Self> {
+        let additional_origins = match std::env::var("HITO_ADDITIONAL_ORIGINS") {
+            Ok(value) => parse_additional_origins(&value)?,
+            Err(std::env::VarError::NotPresent) => Vec::new(),
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "HITO_ADDITIONAL_ORIGINS must contain valid UTF-8",
+                )
+                .into());
+            }
+        };
         let database = PathBuf::from(
             std::env::var("HITO_DATABASE").unwrap_or_else(|_| "/data/hito.db".into()),
         );
@@ -55,6 +71,8 @@ impl RuntimeConfig {
         }
         config.http.origin =
             std::env::var("HITO_PUBLIC_ORIGIN").unwrap_or_else(|_| "http://localhost:8080".into());
+        validate_combined_origins(&config.http.origin, &additional_origins)?;
+        config.http.additional_origins = additional_origins;
         config.listen = std::env::var("HITO_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:8080".into())
             .parse()?;
@@ -119,6 +137,7 @@ impl RuntimeConfig {
             },
             http: Config {
                 origin: Config::default().origin,
+                additional_origins: Vec::new(),
                 web_dir,
                 asset_version,
             },

@@ -7,6 +7,112 @@ use serde_json::json;
 use tower::ServiceExt;
 
 #[tokio::test]
+async fn configured_lan_origin_preserves_primary_origin_and_mutation_guards() {
+    let directory = tempfile::tempdir().unwrap();
+    let services =
+        super::support::services(directory.path(), &directory.path().join("music")).await;
+    let app = hito_server::router_with_config(
+        services,
+        hito_server::Config {
+            origin: "http://localhost:8080".into(),
+            additional_origins: vec!["http://192.168.1.50:8080".into()],
+            ..Default::default()
+        },
+    );
+    let credentials =
+        json!({"username":"admin","password":"administrator test password"}).to_string();
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/setup")
+                .header("content-type", "application/json")
+                .header("x-hito-request", "1")
+                .header("origin", "http://localhost:8080")
+                .body(Body::from(credentials.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    for (origin, guard, bearer, body, expected) in [
+        (
+            "http://localhost:8080",
+            true,
+            false,
+            credentials.as_str(),
+            StatusCode::OK,
+        ),
+        (
+            "http://192.168.1.50:8080",
+            true,
+            false,
+            credentials.as_str(),
+            StatusCode::OK,
+        ),
+        (
+            "http://localhost:8080",
+            true,
+            false,
+            "{",
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "http://192.168.1.50:8080",
+            true,
+            false,
+            "{",
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "https://untrusted.example",
+            true,
+            false,
+            "{",
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            "https://untrusted.example",
+            false,
+            true,
+            "{",
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            "http://192.168.1.50:8080",
+            false,
+            false,
+            "{",
+            StatusCode::FORBIDDEN,
+        ),
+    ] {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/login")
+            .header("content-type", "application/json")
+            .header("origin", origin);
+        if guard {
+            request = request.header("x-hito-request", "1");
+        }
+        if bearer {
+            request = request.header("authorization", "Bearer test-token");
+        }
+        let response = app
+            .clone()
+            .oneshot(request.body(Body::from(body.to_owned())).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            expected,
+            "origin={origin}, guard={guard}, bearer={bearer}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn browser_sessions_use_http_only_cookies_and_mutations_reject_cross_origin_requests() {
     let (_dir, app) = app().await;
     let response = app
