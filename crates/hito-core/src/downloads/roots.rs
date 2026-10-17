@@ -94,15 +94,8 @@ impl Downloads {
             return Ok(None);
         };
         if retained {
-            if file.is_some() {
-                self.retain_retirement_candidate_on(connection, &intent)
-                    .await?;
-            } else {
-                sqlx::query("DELETE FROM download_retirement_work WHERE transfer_id=?")
-                    .bind(&intent)
-                    .execute(connection)
-                    .await?;
-            }
+            self.retain_retirement_candidate_on(connection, &intent)
+                .await?;
             return Ok(None);
         }
         sqlx::query("DELETE FROM download_retirement_work WHERE transfer_id=?")
