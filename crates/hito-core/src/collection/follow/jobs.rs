@@ -19,6 +19,7 @@ impl Collection {
     ) -> Result<PlaylistFollowRefresh> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
+        receipts::expire_refresh_receipts(&mut tx).await?;
         if let Some(receipt) =
             receipts::refresh(&mut tx, actor.id(), playlist, request.request_id).await?
         {
