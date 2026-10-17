@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+directory=${0%/*}
+target=
+for argument do
+    target=$argument
+done
+printf '%s\n' 'private-extractor-stderr-sentinel' >&2
+case "$target" in
+    ytsearch2:*)
+        printf '1\n' >> "$directory/calls"
+        cat "$directory/search.json"
+        ;;
+    'https://www.youtube.com/watch?v=HitoMeta001')
+        printf '2\n' >> "$directory/calls"
+        cat "$directory/structured.json"
+        ;;
+    'https://www.youtube.com/watch?v=HitoMeta002')
+        printf '3\n' >> "$directory/calls"
+        cat "$directory/channel.json"
+        ;;
+    *) exit 1 ;;
+esac
