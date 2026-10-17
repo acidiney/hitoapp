@@ -38,6 +38,7 @@ afterEach(() => {
 
 test("local metadata provenance does not hide an eligible plugin audio source", async () => {
   const detail = sourceAttachmentPage.detail;
+  const sourceChoice = `/api/v1/recordings/${detail.recording_id}/source-choice`;
   const source: Source = {
     id: "99f1ecbe-613b-4170-a8fe-26f80eb1d6fa",
     recording_id: detail.recording_id,
@@ -48,6 +49,8 @@ test("local metadata provenance does not hide an eligible plugin audio source", 
     can_prepare: true,
   };
   const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+    if (url === sourceChoice && options?.method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (url.endsWith("/sources/refresh")) return Response.json([source]);
     if (url.endsWith("/preparation") && options?.method === "GET")
       return new Response(null, { status: 404 });
@@ -78,10 +81,25 @@ test("local metadata provenance does not hide an eligible plugin audio source", 
     "disabled",
     false,
   );
-  expect(fetch.mock.calls.map(([, options]) => options?.method)).toEqual([
-    "POST",
-    "GET",
-  ]);
+  const choiceReads = fetch.mock.calls.filter(
+    ([url, options]) => url === sourceChoice && options?.method === "GET",
+  );
+  expect(choiceReads).toHaveLength(1);
+  expect(choiceReads[0][1]).toMatchObject({
+    credentials: "same-origin",
+    headers: { "x-hito-account": sourceAttachmentPage.user.id },
+    signal: expect.any(AbortSignal),
+  });
+  expect(choiceReads[0][1]?.signal?.aborted).toBe(false);
+  expect(choiceReads[0][1]?.body).toBeUndefined();
+  expect(
+    fetch.mock.calls
+      .filter(
+        ([url, options]) =>
+          !(url === sourceChoice && options?.method === "GET"),
+      )
+      .map(([, options]) => options?.method),
+  ).toEqual(["POST", "GET"]);
   expect(
     fetch.mock.calls.some(
       ([url]) => url.includes("/download") || url.includes("/audio"),

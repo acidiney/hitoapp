@@ -33,6 +33,7 @@ test("a track downloads only on request and removes its saved server copy by int
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const path = `/api/v1/recordings/${savedRecording.id}/download`;
+  const sourceChoice = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const intent = "70baaa3a-6ec3-47ad-9f93-bda782f31fb7";
   const removePath = `/api/v1/downloads/${intent}`;
   let saved = false;
@@ -40,6 +41,8 @@ test("a track downloads only on request and removes its saved server copy by int
   let finishRemove!: (response: Response) => void;
   const fetch = vi.fn(async (url: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (url === sourceChoice && method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (url === path && method === "GET")
       return saved
         ? Response.json({
@@ -98,6 +101,17 @@ test("a track downloads only on request and removes its saved server copy by int
       ),
     ).toBe(true),
   );
+  const choiceReads = fetch.mock.calls.filter(
+    ([url, options]) => url === sourceChoice && options?.method === "GET",
+  );
+  expect(choiceReads).toHaveLength(1);
+  expect(choiceReads[0][1]).toMatchObject({
+    credentials: "same-origin",
+    headers: { "x-hito-account": attachedPage.user.id },
+    signal: expect.any(AbortSignal),
+  });
+  expect(choiceReads[0][1]?.signal?.aborted).toBe(false);
+  expect(choiceReads[0][1]?.body).toBeUndefined();
   expect(
     fetch.mock.calls.every(([, options]) => options?.method === "GET"),
   ).toBe(true);
@@ -180,6 +194,12 @@ test("a track downloads only on request and removes its saved server copy by int
     fetch.mock.calls.filter(([, options]) => options?.method !== "GET"),
   ).toHaveLength(2);
   expect(play).not.toHaveBeenCalled();
+  expect(
+    fetch.mock.calls.filter(
+      ([url, options]) => url === sourceChoice && options?.method === "GET",
+    ),
+  ).toHaveLength(1);
   unmount();
+  expect(choiceReads[0][1]?.signal?.aborted).toBe(true);
   expect(document.querySelectorAll("audio")).toHaveLength(0);
 });

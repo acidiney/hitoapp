@@ -35,6 +35,7 @@ test("a lost download acknowledgement retries the exact request with a new live 
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
   const path = `/api/v1/recordings/${savedRecording.id}/download`;
+  const sourceChoice = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const privateFailure = "private signed download response failure";
   const ready: DownloadStatus = {
     status: "ready",
@@ -52,6 +53,8 @@ test("a lost download acknowledgement retries the exact request with a new live 
   let writes = 0;
   let finishRetry!: (response: Response) => void;
   const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+    if (url === sourceChoice && options?.method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (url !== path)
       throw new Error("Unexpected request outside owned download recovery");
     if (options?.method === "POST") {
@@ -80,6 +83,17 @@ test("a lost download acknowledgement retries the exact request with a new live 
     ),
   );
   await act(async () => {});
+  const choiceReads = fetch.mock.calls.filter(
+    ([url, options]) => url === sourceChoice && options?.method === "GET",
+  );
+  expect(choiceReads).toHaveLength(1);
+  expect(choiceReads[0][1]).toMatchObject({
+    credentials: "same-origin",
+    headers: { "x-hito-account": attachedPage.user.id },
+    signal: expect.any(AbortSignal),
+  });
+  expect(choiceReads[0][1]?.signal?.aborted).toBe(false);
+  expect(choiceReads[0][1]?.body).toBeUndefined();
   expect(writes).toBe(0);
   fireEvent.click(screen.getByRole("button", { name: "Download" }));
   const retry = await screen.findByRole("button", {
@@ -147,4 +161,9 @@ test("a lost download acknowledgement retries the exact request with a new live 
   expect(play).not.toHaveBeenCalled();
   expect(document.querySelector("audio")?.getAttribute("src")).toBeNull();
   expect(JSON.stringify(warnings.mock.calls)).not.toContain(privateFailure);
+  expect(
+    fetch.mock.calls.filter(
+      ([url, options]) => url === sourceChoice && options?.method === "GET",
+    ),
+  ).toHaveLength(1);
 });

@@ -196,9 +196,12 @@ test("recording details retries failed artwork only after an explicit action", a
   const firstStatus = `/api/v1/artwork-fetches/${firstJob.id}`;
   const retryStatus = `/api/v1/artwork-fetches/${retryJob.id}`;
   const downloadStatus = `/api/v1/recordings/${recording}/download`;
+  const sourceChoice = `/api/v1/recordings/${recording}/source-choice`;
   let enqueues = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (path === sourceChoice && method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (path === downloadStatus && method === "GET")
       return Response.json({ error: "Not found" }, { status: 404 });
     if (path === availability && method === "GET")
@@ -229,7 +232,10 @@ test("recording details retries failed artwork only after an explicit action", a
   const requests = () =>
     fetch.mock.calls.filter(
       ([path, options]) =>
-        !(path === downloadStatus && (options?.method ?? "GET") === "GET"),
+        !(
+          (path === downloadStatus || path === sourceChoice) &&
+          (options?.method ?? "GET") === "GET"
+        ),
     );
   vi.stubGlobal("fetch", fetch);
   const { container } = render(
@@ -280,6 +286,12 @@ test("recording details retries failed artwork only after an explicit action", a
     );
     expect(options?.signal).toBeInstanceOf(AbortSignal);
   }
+  const choiceReads = fetch.mock.calls.filter(
+    ([path, options]) => path === sourceChoice && options?.method === "GET",
+  );
+  expect(choiceReads).toHaveLength(1);
+  expect(choiceReads[0][1]?.signal?.aborted).toBe(false);
+  expect(choiceReads[0][1]?.body).toBeUndefined();
   expect(play).not.toHaveBeenCalled();
   expect(document.querySelector("audio")?.getAttribute("src")).toBeNull();
   expect(vi.getTimerCount()).toBe(0);

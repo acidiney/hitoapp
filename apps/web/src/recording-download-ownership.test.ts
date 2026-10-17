@@ -93,6 +93,12 @@ test.each(["account", "recording"] as const)(
         ? props("bob", recordingA, "Second owned recording")
         : props("alice", recordingB, "Second owned recording");
     const current = props("bob", recordingB, "Current owned recording");
+    const sourceChoicePaths = [recordingA, recordingB].map(
+      (recording) => `/api/v1/recordings/${recording}/source-choice`,
+    );
+    const downloadPaths = [recordingA, recordingB].map(
+      (recording) => `/api/v1/recordings/${recording}/download`,
+    );
     const oldRead = heldResponse();
     const oldWrite = heldResponse();
     const currentRead = heldResponse();
@@ -119,6 +125,10 @@ test.each(["account", "recording"] as const)(
     const fetch = vi.fn((url: string, options?: RequestInit) => {
       const account = new Headers(options?.headers).get("x-hito-account");
       if (options?.method === "GET") {
+        if (sourceChoicePaths.includes(url))
+          return Promise.resolve(
+            Response.json({ error: "Not found" }, { status: 404 }),
+          );
         if (owned(first, account, url)) return oldRead.response;
         if (owned(middle, account, url))
           return Promise.resolve(
@@ -135,13 +145,31 @@ test.each(["account", "recording"] as const)(
         return oldWrite.response;
       throw new Error("Unexpected request outside download ownership checks");
     });
+    const choiceReads = () =>
+      fetch.mock.calls.filter(
+        ([url, options]) =>
+          sourceChoicePaths.includes(url) && options?.method === "GET",
+      );
+    const downloadRequests = () =>
+      fetch.mock.calls.filter(([url]) => downloadPaths.includes(url));
     vi.stubGlobal("fetch", fetch);
     const view = render(page(first));
-    expect(fetch).toHaveBeenCalledTimes(1);
-    const oldReadSignal = fetch.mock.calls[0][1]?.signal;
+    expect(downloadRequests()).toHaveLength(1);
+    expect(choiceReads()).toHaveLength(1);
+    expect(choiceReads()[0][1]?.headers).toMatchObject({
+      "x-hito-account": first.user.id,
+    });
+    expect(choiceReads()[0][1]?.signal?.aborted).toBe(false);
+    const oldReadSignal = downloadRequests()[0][1]?.signal;
     expect(oldReadSignal?.aborted).toBe(false);
     view.rerender(page(middle));
     expect(oldReadSignal?.aborted).toBe(true);
+    expect(choiceReads()[0][1]?.signal?.aborted).toBe(true);
+    expect(choiceReads()).toHaveLength(2);
+    expect(choiceReads()[1][1]?.headers).toMatchObject({
+      "x-hito-account": middle.user.id,
+    });
+    expect(choiceReads()[1][1]?.signal?.aborted).toBe(false);
     await act(async () => {});
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Download" }));
@@ -154,6 +182,12 @@ test.each(["account", "recording"] as const)(
     expect(oldWriteSignal?.aborted).toBe(false);
     view.rerender(page(current));
     expect(oldWriteSignal?.aborted).toBe(true);
+    expect(choiceReads()[1][1]?.signal?.aborted).toBe(true);
+    expect(choiceReads()).toHaveLength(3);
+    expect(choiceReads()[2][1]?.headers).toMatchObject({
+      "x-hito-account": current.user.id,
+    });
+    expect(choiceReads()[2][1]?.signal?.aborted).toBe(false);
     await act(async () => {});
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       current.detail.title.value,
@@ -199,7 +233,7 @@ test.each(["account", "recording"] as const)(
       await vi.advanceTimersByTimeAsync(1000);
     });
     expect(currentReads).toBe(2);
-    const poll = fetch.mock.calls[fetch.mock.calls.length - 1];
+    const poll = downloadRequests()[downloadRequests().length - 1];
     expect(poll[0]).toBe(
       `/api/v1/recordings/${current.detail.recording_id}/download`,
     );
@@ -219,7 +253,26 @@ test.each(["account", "recording"] as const)(
       fetch.mock.calls.filter(([, options]) => options?.method === "POST"),
     ).toHaveLength(1);
     expect(play).not.toHaveBeenCalled();
+    expect(
+      choiceReads().map(([url, options]) => [
+        url,
+        new Headers(options?.headers).get("x-hito-account"),
+      ]),
+    ).toEqual(
+      [first, middle, current].map((owner) => [
+        `/api/v1/recordings/${owner.detail.recording_id}/source-choice`,
+        owner.user.id,
+      ]),
+    );
+    for (const [, options] of choiceReads()) {
+      expect(options?.credentials).toBe("same-origin");
+      expect(options?.signal).toBeInstanceOf(AbortSignal);
+      expect(options?.body).toBeUndefined();
+    }
     view.unmount();
+    expect(choiceReads().every(([, options]) => options?.signal?.aborted)).toBe(
+      true,
+    );
     expect(poll[1]?.signal?.aborted).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
     await act(async () => {

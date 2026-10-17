@@ -53,7 +53,10 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       this.dispatchEvent(new Event("play"));
     });
   const base = `/api/v1/recordings/${savedRecording.id}/sources`;
+  const sourceChoice = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const fetch = vi.fn(async (path: string, _options?: RequestInit) => {
+    if (path === sourceChoice && _options?.method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (path.endsWith("/download") && (_options?.method ?? "GET") === "GET")
       return Response.json({ error: "Not found" }, { status: 404 });
     const responses: Record<string, unknown> = {
@@ -73,7 +76,12 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   const requests = () =>
     fetch.mock.calls.filter(
       ([path, options]) =>
-        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET"),
+        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET") &&
+        !(path === sourceChoice && options?.method === "GET"),
+    );
+  const choiceReads = () =>
+    fetch.mock.calls.filter(
+      ([path, options]) => path === sourceChoice && options?.method === "GET",
     );
   vi.stubGlobal("fetch", fetch);
   let player!: Player;
@@ -96,6 +104,14 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
   }) as HTMLInputElement;
   fireEvent.change(draft, { target: { value: "Unsent personal title" } });
   expect(requests()).toHaveLength(0);
+  expect(choiceReads()).toHaveLength(1);
+  expect(choiceReads()[0][1]).toMatchObject({
+    credentials: "same-origin",
+    headers: { "x-hito-account": sourceAttachmentPage.user.id },
+    signal: expect.any(AbortSignal),
+  });
+  expect(choiceReads()[0][1]?.signal?.aborted).toBe(false);
+  expect(choiceReads()[0][1]?.body).toBeUndefined();
   expect(play).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
   const service = await screen.findByRole("combobox", {
@@ -202,6 +218,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     );
     expect(options?.signal).toBeInstanceOf(AbortSignal);
   }
+  expect(choiceReads()).toHaveLength(1);
   unmount();
   expect(
     fetch.mock.calls.every(([, options]) => options?.signal?.aborted),
@@ -254,8 +271,13 @@ test("a delayed review cannot cross an account and recording change or load the 
     ],
   };
   const reviewPath = `/api/v1/recordings/${savedRecording.id}/sources/review`;
+  const sourceChoicePaths = [savedRecording.id, recordingB].map(
+    (recording) => `/api/v1/recordings/${recording}/source-choice`,
+  );
   let completeReview!: (response: Response) => void;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
+    if (sourceChoicePaths.includes(path) && options?.method === "GET")
+      return Response.json({ error: "Not found" }, { status: 404 });
     if (path.endsWith("/download") && (options?.method ?? "GET") === "GET")
       return Response.json({ error: "Not found" }, { status: 404 });
     if (path === "/api/v1/plugins") {
@@ -277,7 +299,13 @@ test("a delayed review cannot cross an account and recording change or load the 
   const requests = () =>
     fetch.mock.calls.filter(
       ([path, options]) =>
-        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET"),
+        !(path.endsWith("/download") && (options?.method ?? "GET") === "GET") &&
+        !(sourceChoicePaths.includes(path) && options?.method === "GET"),
+    );
+  const choiceReads = () =>
+    fetch.mock.calls.filter(
+      ([path, options]) =>
+        sourceChoicePaths.includes(path) && options?.method === "GET",
     );
   vi.stubGlobal("fetch", fetch);
   const view = (props: RecordingDetailsPageProps) =>
@@ -290,6 +318,11 @@ test("a delayed review cannot cross an account and recording change or load the 
       }),
     );
   const { rerender, unmount } = render(view(sourceAttachmentPage));
+  expect(choiceReads()).toHaveLength(1);
+  expect(choiceReads()[0][1]?.headers).toMatchObject({
+    "x-hito-account": "alice",
+  });
+  expect(choiceReads()[0][1]?.signal?.aborted).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Find a source" }));
   await screen.findByRole("combobox", { name: "Music service" });
   fireEvent.change(screen.getByRole("searchbox", { name: "Search music" }), {
@@ -307,6 +340,23 @@ test("a delayed review cannot cross an account and recording change or load the 
     "Bob saved title",
   );
   expect(reviewSignal?.aborted).toBe(true);
+  expect(choiceReads()).toHaveLength(2);
+  expect(choiceReads()[0][1]?.signal?.aborted).toBe(true);
+  expect(choiceReads()[1][1]?.signal?.aborted).toBe(false);
+  expect(
+    choiceReads().map(([path, options]) => [
+      path,
+      new Headers(options?.headers).get("x-hito-account"),
+    ]),
+  ).toEqual([
+    [sourceChoicePaths[0], "alice"],
+    [sourceChoicePaths[1], "bob"],
+  ]);
+  for (const [, options] of choiceReads()) {
+    expect(options?.credentials).toBe("same-origin");
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
+    expect(options?.body).toBeUndefined();
+  }
   expect(requests()).toHaveLength(3);
   expect(screen.queryByRole("combobox", { name: "Music service" })).toBeNull();
   expect(screen.getByRole("button", { name: "Find a source" })).toBeTruthy();
@@ -333,6 +383,10 @@ test("a delayed review cannot cross an account and recording change or load the 
     expect.objectContaining({ "x-hito-account": "bob" }),
   );
   expect(screen.queryByRole("button", { name: "Use this source" })).toBeNull();
+  expect(choiceReads()).toHaveLength(2);
   unmount();
+  expect(choiceReads().every(([, options]) => options?.signal?.aborted)).toBe(
+    true,
+  );
   expect(requests()[3][1]?.signal?.aborted).toBe(true);
 });
