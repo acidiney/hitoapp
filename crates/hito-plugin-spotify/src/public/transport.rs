@@ -71,25 +71,7 @@ impl Transport {
     }
 
     pub(super) async fn image(&self, location: &str) -> Result<Vec<u8>, Error> {
-        if location.len() > 2048
-            || location.trim() != location
-            || location.chars().any(char::is_control)
-            || location.contains(['@', '\\'])
-        {
-            return Err(Error::InvalidResponse);
-        }
-        let endpoint = Url::parse(location).map_err(|_| Error::InvalidResponse)?;
-        if !self.image_origin_allowed(&endpoint)
-            || !endpoint.username().is_empty()
-            || endpoint.password().is_some()
-            || endpoint.query().is_some()
-            || endpoint.fragment().is_some()
-            || !endpoint.path().strip_prefix("/image/").is_some_and(|key| {
-                key.len() == 40 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
-            })
-        {
-            return Err(Error::InvalidResponse);
-        }
+        let endpoint = self.image_endpoint(location)?;
         let response = self
             .http
             .get(endpoint)
@@ -103,22 +85,53 @@ impl Transport {
         Ok(std::mem::take(&mut *bytes))
     }
 
-    fn image_origin_allowed(&self, endpoint: &Url) -> bool {
-        if endpoint.scheme() == "https"
-            && endpoint.port().is_none()
-            && matches!(
-                endpoint.host_str(),
-                Some("image-cdn-ak.spotifycdn.com" | "image-cdn-fa.spotifycdn.com")
-            )
+    fn image_endpoint(&self, location: &str) -> Result<Url, Error> {
+        if location.len() > 2048
+            || location.trim() != location
+            || location.chars().any(char::is_control)
+            || location.contains(['@', '\\'])
         {
-            return true;
+            return Err(Error::InvalidResponse);
+        }
+        let endpoint = Url::parse(location).map_err(|_| Error::InvalidResponse)?;
+        if endpoint.as_str() != location
+            || !self.image_location_allowed(&endpoint)
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+        {
+            return Err(Error::InvalidResponse);
+        }
+        Ok(endpoint)
+    }
+
+    fn image_location_allowed(&self, endpoint: &Url) -> bool {
+        let image_path = endpoint
+            .path()
+            .strip_prefix("/image/")
+            .is_some_and(|key| key.len() == 40 && key.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        let mosaic_path = endpoint.path().strip_prefix('/').is_some_and(|path| {
+            path.split_once('/').is_some_and(|(size, key)| {
+                size.parse::<u16>().is_ok_and(|size_value| {
+                    (1..=1024).contains(&size_value) && size_value.to_string() == size
+                }) && key.len() == 160
+                    && key.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+        });
+        if endpoint.scheme() == "https" && endpoint.port().is_none() {
+            return match endpoint.host_str() {
+                Some("image-cdn-ak.spotifycdn.com" | "image-cdn-fa.spotifycdn.com") => image_path,
+                Some("mosaic.scdn.co") => mosaic_path,
+                _ => false,
+            };
         }
         #[cfg(test)]
         if endpoint.scheme() == "http"
             && endpoint.host_str() == Some("127.0.0.1")
             && endpoint.origin() == self.public_base.origin()
         {
-            return true;
+            return image_path || mosaic_path;
         }
         false
     }
@@ -154,6 +167,10 @@ impl Transport {
         read_response(response, &["application/json"], MAX_PAGE_BYTES).await
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/artwork_url_policy.rs"]
+mod artwork_url_policy;
 
 async fn read_response(
     mut response: reqwest::Response,
