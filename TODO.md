@@ -96,7 +96,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Implement, verify and deploy the shared preparation UI with source labels, current eligibility, exact-request retry, bounded cancellable polling and explicit Play after readiness. Its isolated Chromium workflow passes. See [UI evidence](docs/source-preparation.md#ui-verification).
 - [ ] Integrate deferred sources into playback at track boundaries.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
-- [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins.
+- [ ] Ship separately deployed music-folder, Jamendo, and yt-dlp reference plugins. The isolated Jamendo adapter has fixture-tested metadata and explicit relay; runtime packaging, generic attribution/persistence policy and live acceptance remain open. See [Jamendo development evidence](docs/plugin-jamendo.md).
 - [x] Make the first reference plugin runnable in Docker with demo audio and documented UI installation; verify installation, discovery, adoption, playback, and seeking, start the local service, and notify the user here.
 - [x] Deploy the folder plugin's private durable recording/release registry, conservative split/merge handling and retained availability to the local development service. Verify its release-image browser workflow, legacy identity/source preservation and restart-stable metadata/revisions.
 - [ ] Complete folder-plugin public-release acceptance: active-journal accounting, broader cancellation/crash and codec/upgrade fixtures, full native/GUI, platform and release gates. The service still requires a restart to rescan. See [folder identity and limits](docs/plugin-folder.md).
