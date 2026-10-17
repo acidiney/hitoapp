@@ -18,6 +18,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
 import Shell from "./Shell";
 import { installSessionBoundary } from "./session";
+import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
 import "./style.css";
 
 const layout = (page: ReactNode) => <Shell>{page}</Shell>;
@@ -37,8 +38,10 @@ const pages = {
   HistoryPage: Object.assign(HistoryPage, { layout }),
   SettingsPage: Object.assign(SettingsPage, { layout }),
 };
+installHistoryPolicy();
 void createInertiaApp({
-  resolve: (name) => {
+  resolve: (name, page) => {
+    prepareHistoryPage(page);
     if (!Object.hasOwn(pages, name)) throw new Error(`Unknown page: ${name}`);
     return pages[name as keyof typeof pages];
   },
