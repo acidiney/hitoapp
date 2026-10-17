@@ -63,3 +63,6 @@ export type PlaylistImportReceipt = Schema["PlaylistImportReceipt"];
 export type FollowProviderPlaylist = Schema["FollowProviderPlaylist"];
 export type PlaylistFollowReceipt = Schema["PlaylistFollowReceipt"];
 export type PlaylistFollowInterval = Schema["PlaylistFollowInterval"];
+export type PlaylistFollow = Schema["PlaylistFollow"];
+export type PlaylistFollowRefresh = Schema["PlaylistFollowRefresh"];
+export type RefreshFollowedPlaylist = Schema["RefreshFollowedPlaylist"];
