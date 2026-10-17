@@ -9,6 +9,7 @@ export type LogFields = {
   library_id?: string;
   folder_id?: string;
   operation_id?: string;
+  preparation_id?: string;
   method?: string;
   route?: string;
   action?: string;
@@ -48,6 +49,7 @@ const permitted = new Set([
   "library_id",
   "folder_id",
   "operation_id",
+  "preparation_id",
   "method",
   "route",
   "action",
