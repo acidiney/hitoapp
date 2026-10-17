@@ -87,6 +87,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             host: config.host_device.clone(),
             artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
             provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+            resolution_callers: Default::default(),
             directories: storage.directories.clone(),
             managed: managed.clone(),
         },

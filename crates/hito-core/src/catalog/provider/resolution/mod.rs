@@ -1,3 +1,4 @@
+mod admission;
 mod authority;
 mod matching;
 mod provider;
@@ -6,6 +7,7 @@ mod receipts;
 mod types;
 
 use crate::{Actor, Catalog, Error, Result};
+pub(crate) use admission::CallerAdmission;
 use provider::Candidate;
 use receipts::{Admission, Attempt, Lease};
 use std::{future::Future, time::Duration};
@@ -33,6 +35,7 @@ impl Catalog {
             ));
         }
         let started = Instant::now();
+        let _caller = self.resolution_callers.enter(actor.id())?;
         let deadline = started + Duration::from_secs(10);
         tokio::pin!(cancelled);
         let lease = Lease::new(&self.store);

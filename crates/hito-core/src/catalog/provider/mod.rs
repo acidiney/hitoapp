@@ -19,5 +19,6 @@ pub(crate) use persist::library as provider_library;
 pub use preparation::{
     PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
 };
+pub(crate) use resolution::CallerAdmission;
 pub use resolution::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 pub use search::ProviderSearch;
