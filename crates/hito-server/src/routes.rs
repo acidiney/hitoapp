@@ -2,8 +2,8 @@ use crate::{
     Config,
     api::{
         self, browsing, catalog, collection, downloads, identity, jobs, player, playlist_follow,
-        plugin_authorization, plugins, providers, source_bindings, source_preparation,
-        source_refresh, source_resolution, storage,
+        plugin_authorization, plugins, providers, source_bindings, source_choice,
+        source_preparation, source_refresh, source_resolution, storage,
     },
     inertia::{self, props::*},
     security, telemetry,
@@ -77,6 +77,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(downloads::remove))
         .routes(routes!(source_bindings::review))
         .routes(routes!(source_bindings::attach))
+        .routes(routes!(source_choice::choose_source))
         .routes(routes!(
             source_preparation::create,
             source_preparation::status

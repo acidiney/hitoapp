@@ -12,6 +12,7 @@ pub mod plugin_authorization;
 pub mod plugins;
 pub mod providers;
 pub mod source_bindings;
+pub mod source_choice;
 pub mod source_preparation;
 pub mod source_refresh;
 pub mod source_resolution;
