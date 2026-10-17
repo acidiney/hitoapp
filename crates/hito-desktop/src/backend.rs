@@ -6,13 +6,13 @@ use tokio::{net::TcpListener, sync::oneshot};
 pub(super) async fn run(
     listener: TcpListener,
     app: axum::Router,
-    storage: hito_core::LibraryStorage,
+    services: hito_core::Services,
     player: PlayerOwner,
     mut stopped: oneshot::Receiver<()>,
     library: File,
 ) -> Result<()> {
     let (stop_http, http_stopped) = oneshot::channel();
-    let http = hito_server::serve(listener, app, storage, async {
+    let http = hito_server::serve(listener, app, services, async {
         let _ = http_stopped.await;
     });
     tokio::pin!(http);

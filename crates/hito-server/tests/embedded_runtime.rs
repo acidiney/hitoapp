@@ -30,7 +30,7 @@ async fn a_local_host_serves_shared_pages_and_joins_its_worker_without_owning_gl
         let serving = tokio::spawn(hito_server::serve(
             listener,
             hito_server::router_with_config(services.clone(), config),
-            services.storage.clone(),
+            services.clone(),
             async {
                 let _ = stopped.await;
             },
@@ -114,7 +114,7 @@ async fn dropping_the_host_future_does_not_leave_an_index_worker_running() {
     let serving = tokio::spawn(hito_server::serve(
         listener,
         hito_server::router(services.clone()),
-        services.storage.clone(),
+        services.clone(),
         std::future::pending(),
     ));
     let mut stream = TcpStream::connect(address).await.unwrap();

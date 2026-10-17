@@ -55,7 +55,7 @@ async fn exercise(body: bool, abort: bool) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (stop, stopped) = oneshot::channel();
-    let serving = tokio::spawn(hito_server::serve(listener, app, core.storage, async {
+    let serving = tokio::spawn(hito_server::serve(listener, app, core, async {
         let _ = stopped.await;
     }));
     let mut socket = TcpStream::connect(address).await.unwrap();
