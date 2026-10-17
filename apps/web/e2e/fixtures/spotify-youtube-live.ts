@@ -1,81 +1,9 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { components } from "../../src/generated";
 
 type Schema = components["schemas"];
 
 export class SpotifyYouTubeLiveFailure extends Error {}
-
-export async function installSpotifyYouTubeMediaDiagnostics(
-  page: Page,
-  started: number,
-) {
-  await page.addInitScript((startedAt) => {
-    const target = window as typeof window & {
-      __hitoLiveMediaEvents?: Record<string, number>[];
-    };
-    const events: Record<string, number>[] = [];
-    target.__hitoLiveMediaEvents = events;
-    const kinds = [
-      "loadedmetadata",
-      "durationchange",
-      "canplay",
-      "playing",
-      "seeking",
-      "seeked",
-      "waiting",
-      "stalled",
-      "suspend",
-      "abort",
-      "error",
-      "emptied",
-      "ended",
-      "progress",
-      "pause",
-      "timeupdate",
-    ];
-    for (const [index, kind] of kinds.entries()) {
-      document.addEventListener(
-        kind,
-        (event) => {
-          const audio = event.target;
-          if (
-            !(audio instanceof HTMLAudioElement) ||
-            !audio.matches("audio[data-hito-player]")
-          )
-            return;
-          const last = audio.buffered.length - 1;
-          events.push({
-            kind: index + 1,
-            at_ms: Date.now() - startedAt,
-            current_time: Number.isFinite(audio.currentTime)
-              ? audio.currentTime
-              : -1,
-            duration: Number.isFinite(audio.duration) ? audio.duration : -1,
-            ready_state: audio.readyState,
-            network_state: audio.networkState,
-            paused: Number(audio.paused),
-            seeking: Number(audio.seeking),
-            media_error: audio.error?.code ?? 0,
-            buffered_ranges: audio.buffered.length,
-            buffered_start: last >= 0 ? audio.buffered.start(0) : -1,
-            buffered_end: last >= 0 ? audio.buffered.end(last) : -1,
-          });
-          if (events.length > 256) events.shift();
-        },
-        true,
-      );
-    }
-  }, started);
-}
-
-export async function spotifyYouTubeMediaEvents(page: Page) {
-  return page.evaluate(() => {
-    const target = window as typeof window & {
-      __hitoLiveMediaEvents?: Record<string, number>[];
-    };
-    return (target.__hitoLiveMediaEvents ?? []).map((event) => ({ ...event }));
-  });
-}
 
 export function spotifyYouTubeConfiguration() {
   const rawPlaylist = process.env.HITO_SPOTIFY_TEST_PLAYLIST;
@@ -118,18 +46,6 @@ export function spotifyYouTubeConfiguration() {
     youtube: youtube.href,
     playlist: playlist.href,
   };
-}
-
-export async function readSpotifyYouTube<T>(
-  page: Page,
-  path: string,
-): Promise<T> {
-  const response = await page.request.get(path);
-  if (response.status() !== 200)
-    throw new SpotifyYouTubeLiveFailure(
-      `Collection inspection returned HTTP ${response.status()}`,
-    );
-  return response.json();
 }
 
 export async function connectLiveProvider(
@@ -270,14 +186,135 @@ export function conservativeCandidate(
   return { ...ranked[0], qualifying: ranked.length };
 }
 
-export function retainedImportedPlaylist(
-  detail: Schema["PlaylistDetail"],
-  recording: string,
+export async function reviewLiveCandidate(
+  page: Page,
+  {
+    panel,
+    result,
+    recording,
+    selection,
+    original,
+    personalTitle,
+    personalArtist,
+  }: {
+    panel: Locator;
+    result: Locator;
+    recording: string;
+    selection: { candidate: Schema["ProviderRecording"] };
+    original: Schema["MetadataObservation"];
+    personalTitle: string;
+    personalArtist: string;
+  },
 ) {
-  return {
-    ...detail,
-    entries: detail.entries.map((entry) =>
-      entry.recording_id === recording ? { ...entry, available: false } : entry,
-    ),
-  };
+  const reviewedResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname ===
+        `/api/v1/recordings/${recording}/sources/review` &&
+      response.request().method() === "POST",
+  );
+  await result
+    .getByRole("button", { name: "Review match", exact: true })
+    .click();
+  const reviewed = await reviewedResponse;
+  if (reviewed.status() !== 200)
+    throw new SpotifyYouTubeLiveFailure(
+      `Source review returned HTTP ${reviewed.status()}`,
+    );
+  const review: Schema["ProviderSourceReview"] = await reviewed.json();
+  expect(review.candidate.id === selection.candidate.id).toBe(true);
+  conservativeCandidate(original, [review.candidate]);
+  const comparison = panel.getByRole("region", {
+    name: "Review source match",
+    exact: true,
+  });
+  await expect(
+    comparison.getByRole("heading", { name: "Saved track", exact: true }),
+  ).toBeVisible();
+  await expect(
+    comparison.getByRole("heading", {
+      name: "Candidate source",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(
+    await comparison
+      .locator(":scope > div")
+      .nth(0)
+      .evaluate(
+        (element, saved) =>
+          element.textContent?.includes(saved.title) &&
+          element.textContent?.includes(saved.artist),
+        { title: personalTitle, artist: personalArtist },
+      ),
+  ).toBe(true);
+  expect(
+    await comparison
+      .locator(":scope > div")
+      .nth(1)
+      .evaluate(
+        (element, candidate) =>
+          element.textContent?.includes(candidate.title) &&
+          element.textContent?.includes(candidate.artist),
+        { title: review.candidate.title, artist: review.candidate.artist },
+      ),
+  ).toBe(true);
+  return { review, comparison };
+}
+
+export async function searchLiveCandidate(
+  page: Page,
+  {
+    youtube,
+    original,
+  }: {
+    youtube: Schema["PluginInstallation"];
+    original: Schema["MetadataObservation"];
+  },
+) {
+  const panel = page.getByRole("region", {
+    name: "Add an audio source",
+    exact: true,
+  });
+  await panel
+    .getByRole("button", { name: "Find a source", exact: true })
+    .click();
+  await panel
+    .getByRole("combobox", { name: "Music service", exact: true })
+    .selectOption(youtube.id);
+  const query = `${original.title} ${original.artist}`.trim();
+  if (query.length > 512)
+    throw new SpotifyYouTubeLiveFailure(
+      "The original metadata exceeds the bounded search input",
+    );
+  await panel
+    .getByRole("searchbox", { name: "Search music", exact: true })
+    .fill(query);
+  const searchedResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname ===
+        `/api/v1/plugins/${youtube.id}/search` &&
+      response.request().method() === "POST",
+  );
+  await panel.getByRole("button", { name: "Search", exact: true }).click();
+  const searched = await searchedResponse;
+  if (searched.status() !== 200)
+    throw new SpotifyYouTubeLiveFailure(
+      `Source search returned HTTP ${searched.status()}`,
+    );
+  const results: Schema["SearchPage"] = await searched.json();
+  const selection = conservativeCandidate(original, results.items);
+  const result = panel
+    .getByRole("list", { name: "Source search results" })
+    .locator(":scope > li")
+    .nth(selection.index);
+  await expect(result.getByRole("heading")).toBeVisible();
+  expect(
+    await result
+      .getByRole("heading")
+      .evaluate(
+        (element, title) => element.textContent === title,
+        selection.candidate.title,
+      ),
+  ).toBe(true);
+  return { panel, results, selection, result };
 }
