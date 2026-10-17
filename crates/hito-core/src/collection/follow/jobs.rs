@@ -31,9 +31,18 @@ impl Collection {
             .bind(playlist).bind(actor.id()).fetch_optional(&mut *tx).await?.ok_or(Error::NotFound)?;
         check_authority(&mut tx, playlist).await?;
         receipts::check_refresh_capacity(&mut tx, actor.id()).await?;
-        let pending: Option<String> = sqlx::query_scalar("SELECT id FROM playlist_follow_jobs WHERE playlist_id = ? AND status IN ('queued','running')")
+        let pending: Option<(String, i64)> = sqlx::query_as("SELECT id,generation FROM playlist_follow_jobs WHERE playlist_id = ? AND status IN ('queued','running')")
             .bind(playlist).fetch_optional(&mut *tx).await?;
-        let job = if let Some(id) = pending {
+        let job = if let Some((id, pending_generation)) = pending {
+            if pending_generation != generation {
+                tracing::debug!(
+                    outcome = "previous_generation_pending",
+                    "Playlist refresh request deferred"
+                );
+                return Err(Error::Conflict(
+                    "A previous playlist update is still finishing. Try again.".into(),
+                ));
+            }
             id
         } else {
             check_capacity(&mut tx, actor.id()).await?;
