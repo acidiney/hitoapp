@@ -5,6 +5,8 @@ import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
 import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
+import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
+import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 
 export default function PlaylistPage({
   user,
@@ -12,6 +14,11 @@ export default function PlaylistPage({
   detail,
 }: PlaylistPageProps) {
   const { mutate, pending } = useMutation(user.id);
+  const followed = detail.playlist.kind === "followed";
+  const follow = usePlaylistFollow(
+    user.id,
+    followed ? detail.playlist.id : null,
+  );
   const rows = detail.entries.map<TrackTableRow>((entry) => {
     const { recording_id, ...metadata } = entry;
     return recording_id == null
@@ -54,29 +61,25 @@ export default function PlaylistPage({
       <section className="collection-hero">
         <Artwork recording={tracks[0]?.id} playlist />
         <div>
-          <span>
-            {detail.playlist.kind === "followed"
-              ? "Followed playlist"
-              : "Your playlist"}
-          </span>
+          <span>{followed ? "Followed playlist" : "Your playlist"}</span>
           <h1>{detail.playlist.name}</h1>
           <p>
             {entryCount} {entryCount === 1 ? "entry" : "entries"} ·{" "}
-            {detail.playlist.kind === "followed"
-              ? "Updated by its provider"
-              : "Collected by you"}
+            {followed ? "Updated by its provider" : "Collected by you"}
           </p>
           {detail.origin && (
             <>
               <p>{detail.origin.attribution.label}</p>
               <p>
-                Editable copy. Provider changes will not update it. Tracks need
-                an available source to play.
+                {followed
+                  ? "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play."
+                  : "Editable copy. Provider changes will not update it. Tracks need an available source to play."}
               </p>
             </>
           )}
         </div>
       </section>
+      {followed && <PlaylistFollowStatus {...follow} />}
       {entryCount > 0 ? (
         <>
           <TrackToolbar
@@ -97,8 +100,16 @@ export default function PlaylistPage({
         <>
           <div className="list-toolbar">{deletion}</div>
           <EmptyState
-            title="This playlist is ready for music"
-            text="Add tracks using the playlist menu in your library."
+            title={
+              followed
+                ? "The provider's playlist is empty"
+                : "This playlist is ready for music"
+            }
+            text={
+              followed
+                ? "Hito will check for new entries on the next update."
+                : "Add tracks using the playlist menu in your library."
+            }
           />
         </>
       )}
