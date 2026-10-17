@@ -1851,6 +1851,9 @@ version = "0.1.0-dev"
 dependencies = [
  "axum",
  "hito-plugin-sdk",
+ "http-body-util",
+ "image",
+ "png 0.18.1",
  "reqwest",
  "rustls",
  "serde",
@@ -1858,10 +1861,13 @@ dependencies = [
  "sha2",
  "thiserror 2.0.21",
  "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "url",
  "zeroize",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
