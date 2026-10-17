@@ -14,7 +14,10 @@ pub(super) struct Projection {
     rows: Vec<Vec<Cell>>,
 }
 
-pub(super) async fn capture(connection: &mut SqliteConnection) -> Vec<Projection> {
+pub(super) async fn capture(
+    connection: &mut SqliteConnection,
+    migration_version: i64,
+) -> Vec<Projection> {
     let tables: Vec<(String, i64)> = sqlx::query_as(
         "SELECT schema.name,metadata.wr FROM sqlite_schema schema
          JOIN pragma_table_list metadata ON metadata.schema='main' AND metadata.name=schema.name
@@ -47,9 +50,9 @@ pub(super) async fn capture(connection: &mut SqliteConnection) -> Vec<Projection
             &columns
         };
         let filter = if table == "_sqlx_migrations" {
-            " WHERE version<=36"
+            format!(" WHERE version<={migration_version}")
         } else {
-            ""
+            String::new()
         };
         let statement = format!(
             "SELECT {selected} FROM {}{filter} ORDER BY {order}",

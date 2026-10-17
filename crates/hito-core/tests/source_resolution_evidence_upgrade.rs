@@ -33,7 +33,7 @@ async fn musical_evidence_upgrade_preserves_populated_legacy_decisions_and_recei
     assert_version(&mut connection, 36).await;
     assert_legacy_chain(&mut connection).await;
     assert_integrity(&mut connection).await;
-    let before = capture(&mut connection).await;
+    let before = capture(&mut connection, 36).await;
     let metadata_columns: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM pragma_table_info('automatic_source_decisions') WHERE name='musical_metadata'",
     )
