@@ -69,6 +69,7 @@ impl Catalog {
             next_check_at = NULL,updated_at = unixepoch() WHERE id IN (
                 SELECT id FROM source_preparations INDEXED BY source_preparation_due WHERE next_check_at <= unixepoch()
                     AND created_at + 86400 <= unixepoch() AND lease_token IS NULL AND authority_cancelled = 0
+                    AND NOT (submission_state = 'submitted' AND remote_handle IS NOT NULL)
                     AND (phase IN ('queued','preparing','blocked')
                         OR (phase = 'submission_unknown' AND submission_state = 'submitted' AND remote_handle IS NOT NULL AND remote_outcome IS NULL))
                     ORDER BY created_at,id LIMIT 16)",
