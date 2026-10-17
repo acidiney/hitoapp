@@ -7861,6 +7861,18 @@
         },
         "additionalProperties": false
       },
+      "ContentPolicy": {
+        "type": "object",
+        "required": [
+          "source_persistence"
+        ],
+        "properties": {
+          "source_persistence": {
+            "$ref": "#/components/schemas/SourcePersistence"
+          }
+        },
+        "additionalProperties": false
+      },
       "Credentials": {
         "type": "object",
         "required": [
@@ -8616,6 +8628,16 @@
               "$ref": "#/components/schemas/Capability"
             },
             "uniqueItems": true
+          },
+          "content_policy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ContentPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "type": "string"
@@ -11465,6 +11487,13 @@
             "format": "int64"
           }
         }
+      },
+      "SourcePersistence": {
+        "type": "string",
+        "enum": [
+          "explicit_download",
+          "playback_only"
+        ]
       },
       "SourcePreparationPhase": {
         "type": "string",

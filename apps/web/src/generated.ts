@@ -1344,6 +1344,9 @@ export interface components {
             directory: components["schemas"]["DirectoryRef"];
             name?: string | null;
         };
+        ContentPolicy: {
+            source_persistence: components["schemas"]["SourcePersistence"];
+        };
         Credentials: {
             password: string;
             username: string;
@@ -1529,6 +1532,7 @@ export interface components {
         Manifest: {
             authorization?: components["schemas"]["Authorization"] | null;
             capabilities: components["schemas"]["Capability"][];
+            content_policy?: components["schemas"]["ContentPolicy"] | null;
             id: string;
             name: string;
             /** Format: int32 */
@@ -2259,6 +2263,8 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        /** @enum {string} */
+        SourcePersistence: "explicit_download" | "playback_only";
         /** @enum {string} */
         SourcePreparationPhase: "queued" | "submitting" | "preparing" | "ready" | "blocked" | "failed" | "submission_unknown" | "cancelled";
         SourcePreparationReceipt: {

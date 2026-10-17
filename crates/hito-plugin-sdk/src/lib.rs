@@ -39,6 +39,23 @@ pub struct Manifest {
     pub capabilities: BTreeSet<Capability>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization: Option<Authorization>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_policy: Option<ContentPolicy>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ContentPolicy {
+    pub source_persistence: SourcePersistence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SourcePersistence {
+    ExplicitDownload,
+    PlaybackOnly,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
