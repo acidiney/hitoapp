@@ -2,7 +2,7 @@ use axum::{
     Router,
     body::Body,
     extract::{Request, State},
-    http::{Method, Response, StatusCode},
+    http::{HeaderMap, Method, Response, StatusCode},
 };
 use std::{
     sync::{
@@ -28,6 +28,7 @@ struct Snapshot {
 
 struct Feed {
     snapshot: RwLock<Snapshot>,
+    ranges: bool,
     requests: AtomicUsize,
     feeds: AtomicUsize,
     enclosures: AtomicUsize,
@@ -45,6 +46,15 @@ pub struct PodcastAudioServer {
 
 impl PodcastAudioServer {
     pub async fn start(audio: Vec<u8>) -> Self {
+        Self::start_owned(audio, false).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn start_with_ranges(audio: Vec<u8>) -> Self {
+        Self::start_owned(audio, true).await
+    }
+
+    async fn start_owned(audio: Vec<u8>, ranges: bool) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let feed_url = format!("{origin}/feed.xml");
@@ -54,6 +64,7 @@ impl PodcastAudioServer {
                 xml: String::new(),
                 audio: Vec::new(),
             }),
+            ranges,
             requests: AtomicUsize::new(0),
             feeds: AtomicUsize::new(0),
             enclosures: AtomicUsize::new(0),
@@ -142,7 +153,8 @@ impl Drop for PodcastAudioServer {
 async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<Body> {
     state.requests.fetch_add(1, Ordering::SeqCst);
     let headers = request.headers();
-    let valid = request.method() == Method::GET
+    let valid = (request.method() == Method::GET
+        || (state.ranges && request.method() == Method::HEAD))
         && headers
             .get("accept-encoding")
             .is_some_and(|value| value == "identity")
@@ -158,14 +170,16 @@ async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<
             "cookie",
             "proxy-authorization",
             "x-hito-plugin-protocol",
-            "range",
         ]
         .iter()
-        .all(|name| !headers.contains_key(*name));
+        .all(|name| !headers.contains_key(*name))
+        && (state.ranges || !headers.contains_key("range"));
     let snapshot = state.snapshot.read().await;
     let (mime, body) = match (request.uri().path(), request.uri().query()) {
         ("/feed.xml", None)
             if valid
+                && request.method() == Method::GET
+                && !headers.contains_key("range")
                 && headers
                     .get("accept")
                     .and_then(|value| value.to_str().ok())
@@ -186,6 +200,9 @@ async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<
                 return invalid(&state);
             };
             state.enclosures.fetch_add(1, Ordering::SeqCst);
+            if state.ranges {
+                return ranged_audio(&state, &request, audio);
+            }
             ("audio/wav", audio.clone())
         }
         _ => return invalid(&state),
@@ -197,6 +214,99 @@ async fn exchange(State(state): State<Arc<Feed>>, request: Request) -> Response<
         .header("accept-ranges", "bytes")
         .body(Body::from(body))
         .unwrap()
+}
+
+fn ranged_audio(state: &Feed, request: &Request, audio: &[u8]) -> Response<Body> {
+    let head = request.method() == Method::HEAD;
+    let selection = if head {
+        None
+    } else {
+        match audio_range(request.headers(), audio.len()) {
+            Ok(selection) => selection,
+            Err(StatusCode::RANGE_NOT_SATISFIABLE) => {
+                return Response::builder()
+                    .status(StatusCode::RANGE_NOT_SATISFIABLE)
+                    .header("content-range", format!("bytes */{}", audio.len()))
+                    .header("content-length", 0)
+                    .header("accept-ranges", "bytes")
+                    .body(Body::empty())
+                    .unwrap();
+            }
+            Err(_) => return invalid(state),
+        }
+    };
+    let bytes = selection
+        .map(|(first, last)| &audio[first..=last])
+        .unwrap_or(audio);
+    let mut response = Response::builder()
+        .status(if selection.is_some() {
+            StatusCode::PARTIAL_CONTENT
+        } else {
+            StatusCode::OK
+        })
+        .header("content-type", "audio/wav")
+        .header("content-length", bytes.len())
+        .header("accept-ranges", "bytes");
+    if let Some((first, last)) = selection {
+        response = response.header(
+            "content-range",
+            format!("bytes {first}-{last}/{}", audio.len()),
+        );
+    }
+    response
+        .body(if head {
+            Body::empty()
+        } else {
+            Body::from(bytes.to_vec())
+        })
+        .unwrap()
+}
+
+fn audio_range(headers: &HeaderMap, length: usize) -> Result<Option<(usize, usize)>, StatusCode> {
+    let mut values = headers.get_all("range").iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
+    };
+    if values.next().is_some() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let value = value.to_str().map_err(|_| StatusCode::BAD_REQUEST)?;
+    if value.len() > 1024 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let value = value
+        .strip_prefix("bytes=")
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let (first, last) = value.split_once('-').ok_or(StatusCode::BAD_REQUEST)?;
+    let total = length as u64;
+    if first.is_empty() {
+        let suffix = decimal(last)?;
+        if suffix == 0 || total == 0 {
+            return Err(StatusCode::RANGE_NOT_SATISFIABLE);
+        }
+        return Ok(Some((total.saturating_sub(suffix) as usize, length - 1)));
+    }
+    let first = decimal(first)?;
+    let last = if last.is_empty() {
+        total.saturating_sub(1)
+    } else {
+        let last = decimal(last)?;
+        if last < first {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        last
+    };
+    if first >= total {
+        return Err(StatusCode::RANGE_NOT_SATISFIABLE);
+    }
+    Ok(Some((first as usize, last.min(total - 1) as usize)))
+}
+
+fn decimal(value: &str) -> Result<u64, StatusCode> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    value.parse().map_err(|_| StatusCode::BAD_REQUEST)
 }
 
 fn invalid(state: &Feed) -> Response<Body> {
