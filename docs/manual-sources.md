@@ -1,6 +1,6 @@
 # Manual audio sources
 
-Manual source choice is in development on the automatic-resolution branch. HTTP workflows pass against real temporary Hito servers, SQLite and owned protocol providers. Functional web controls pass React tests through the HTTP boundary. The normal server has not been upgraded, and final browser acceptance remains unfinished.
+Manual source choice is deployed to the normal local development server. Public HTTP workflows, React checks and the complete controlled Chromium playback workflow pass. The stopped whole-volume upgrade also passes preservation checks. Native, broader concurrency and public-release acceptance remain unfinished.
 
 ## Choice and ownership
 
@@ -112,4 +112,4 @@ The complete image `sha256:4924140bb50cf9858fb6964e0f0916ca25a6c86d791faeb2b677b
 
 The browser's initial log observer failed while reading live console handles. The final test captures structured arguments at emission and cached text independently, with plain and nested navigation canaries. Capture failures still fail the privacy gate. The unchanged image passes with this correction, zero privacy/callback/media errors and joined cleanup. Both TypeScript checks pass. This test does not identify the exact exception classes from the earlier observer failures.
 
-These checks establish controlled-provider Chromium playback alongside HTTP, exact audio-body and React evidence. A restored whole-volume 0035-to-0039 rehearsal also passes; the normal installation remains on 0035. Native output, real automatic Spotify/YouTube matching, other codecs, later concurrent revisions and Follow acceptance remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.
+These checks establish controlled-provider Chromium playback alongside HTTP, exact audio-body and React evidence. A restored whole-volume 0035-to-0039 rehearsal and the normal upgrade pass. One real automatic Spotify/YouTube target also passes in WebKit. Native output, broader live matching, other codecs, later concurrent revisions and Follow acceptance remain unfinished. The full automatic-source item in [TODO.md](../TODO.md) stays open.

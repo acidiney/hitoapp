@@ -1,6 +1,6 @@
 # YouTube plugin development
 
-The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The verified image now runs on the normal local Docker network. Address-only installation, discovery, saving, playback and reviewed Spotify-to-YouTube attachment pass in WebKit against disposable libraries. Each listener connects personally; deployment did not authenticate or change a normal account.
+The separate YouTube HTTP service implements search, recording details, musical metadata, AAC/M4A sources and audio relay. Its manifest declares `search`, `metadata` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The verified image runs on the normal local Docker network. Address-only installation, discovery, saving, playback, reviewed attachment and one real automatic Spotify-to-YouTube target pass in WebKit against disposable libraries. Each listener connects personally; deployment did not authenticate or change a normal account.
 
 ## Isolated Docker service
 
@@ -19,9 +19,9 @@ The service runs as UID 10001 with a read-only root filesystem, no extra capabil
 
 ## Testing on the normal local installation
 
-The normal service runs the same accepted image at `http://plugin-youtube:8093/`, with a loopback host manifest at `http://localhost:8093/v1/manifest`. Its health, manifest and reachability from the normal server passed. The runtime retains the read-only root, UID 10001, dropped capabilities, temporary-filesystem and resource limits described above, with no Hito data or music volume.
+The normal service runs image `sha256:a57e5da04f07139db2ca6b970403fd77616f254896bcdc6a8e192ce66ba01d81` at `http://plugin-youtube:8093/`, with a loopback host manifest at `http://localhost:8093/v1/manifest`. Its health, manifest and reachability from the normal server passed. The runtime retains its exact environment, command, network, ports, read-only root, UID 10001, dropped capabilities, temporary-filesystem and resource limits, with no Hito data or music volume.
 
-In Settings, Plugins, offer that internal address and connect without a bearer token. Discover can search and save YouTube recordings. For an imported Spotify track, open its details, select Find a source, inspect the Saved track and Candidate source comparison, then select Use this source. The saved recording and playlist entries retain their identities and Spotify metadata owner. Association is manual; this does not automatically resolve an entire imported playlist.
+In Settings, Plugins, offer that internal address and connect without a bearer token. Existing connections use Check connection, then Accept changes to approve the new metadata capability. Discover can search and save YouTube recordings. Ordinary Play on a saved Spotify recording can now resolve its audio automatically. For a correction, open its details, use Find a source to review and attach an alternative, then choose that playback source. Both paths retain the recording and playlist identities and Spotify metadata owner. Resolution happens when playback needs it; importing a playlist does not start persistent downloads. See [automatic matching policy and live evidence](automatic-sources.md).
 
 ## Process ownership
 

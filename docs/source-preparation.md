@@ -1,6 +1,6 @@
 # Source preparation
 
-The generic source-preparation backend is deployed to the normal local development server on migration 35. Its shared web UI is implemented and verified in a separate release image, but is not yet deployed to that server. Deferred playback, the four debrid adapters and release acceptance remain unfinished.
+The generic source-preparation backend and shared web UI are deployed to the normal local development server on migration 39. Deferred playback, the four debrid adapters and release acceptance remain unfinished.
 
 ## Ownership
 
@@ -101,7 +101,7 @@ The combined core/server run passed 353 distinct cases before one existing uncer
 
 Release image `sha256:e3d2e830ce8875ae4ae12188ae4e99efad32d0d56fbc44a823b607eac624c8af`, built from source `bc72f4a`, passes the actual isolated Chromium workflow in 8.4 seconds. A committed preparation acknowledgement is deliberately lost; retry recovers the identical receipt and request body with only one provider begin. The page shows 25% progress, observes readiness for the same source and keeps audio paused with no Download until an explicit Play advances the owned WAV. The old deployed image fails this case at the missing availability label/control.
 
-The same isolated image passes health, exact generated OpenAPI, exact served JavaScript/CSS bytes, anonymous native-player rejection and fixture-secret/title log-redaction checks. It has no published ports or persistent data mounts and is stopped after verification. The normal server and its plugin services remain unchanged. These checks do not establish native GUI, live debrid, automatic matching or public-release acceptance.
+The same isolated image passes health, exact generated OpenAPI, exact served JavaScript/CSS bytes, anonymous native-player rejection and fixture-secret/title log-redaction checks. It has no published ports or persistent data mounts and is stopped after verification. The later combined image includes this UI and is deployed after the migration-39 preservation audit; see [current deployment](status.md#running-local-deployment). These preparation checks do not establish native GUI, live debrid or public-release acceptance.
 
 ## Evidence and remaining work
 
@@ -121,4 +121,4 @@ Two independent review rounds are complete. Their terminal-history, receipt-limi
 
 Final Docker verification passes 226 distinct core tests and 101 distinct server tests. Four subprocess cases also report their child execution separately, for 331 passing executions in total. One existing filesystem-fault test remains normally ignored. Strict core/server Clippy with all targets, the workspace default-feature all-target compile check and workspace formatting also pass. These checks do not establish desktop GUI, live debrid or public-release acceptance.
 
-Manual retry of an unsubmitted request blocked by its initial budget remains unimplemented. Further submission-loss reconciliation, lease/authority races, broader joined-shutdown checks, deferred playback, deployment of the verified UI, concrete Real-Debrid/AllDebrid/Premiumize/TorBox services, provider credentials, fixture/live checks and release gates remain required. See [the release plan](release-plan.md).
+Manual retry of an unsubmitted request blocked by its initial budget remains unimplemented. Further submission-loss reconciliation, lease/authority races, broader joined-shutdown checks, deferred playback, concrete Real-Debrid/AllDebrid/Premiumize/TorBox services, provider credentials, fixture/live checks and release gates remain required. See [the release plan](release-plan.md).
