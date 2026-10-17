@@ -83,3 +83,7 @@ export type PlaylistFollowInterval = Schema["PlaylistFollowInterval"];
 export type PlaylistFollow = Schema["PlaylistFollow"];
 export type PlaylistFollowRefresh = Schema["PlaylistFollowRefresh"];
 export type RefreshFollowedPlaylist = Schema["RefreshFollowedPlaylist"];
+export type PodcastIndexPageProps = Schema["PodcastIndexPageProps"];
+export type PodcastSubscription = Schema["PodcastSubscription"];
+export type SubscribePodcast = Schema["SubscribePodcast"];
+export type PodcastSubscriptionReceipt = Schema["PodcastSubscriptionReceipt"];

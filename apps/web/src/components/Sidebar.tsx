@@ -12,6 +12,7 @@ import {
   LogOut,
   Settings,
   Plus,
+  Podcast,
 } from "lucide-react";
 import { sessionApi } from "../api";
 import { errorMessage } from "../format";
@@ -29,6 +30,7 @@ const navigation = [
       { href: "/albums", label: "Albums", icon: Disc3 },
       { href: "/artists", label: "Artists", icon: Mic2 },
       { href: "/playlists", label: "Playlists", icon: ListMusic },
+      { href: "/podcasts", label: "Podcasts", icon: Podcast },
     ],
   },
   {

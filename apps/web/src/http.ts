@@ -62,6 +62,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action === "downloads.status" ||
       options.action === "source_preparation.status" ||
       options.action === "playlists.follow.status" ||
+      options.action === "podcasts.status" ||
       options.action.startsWith("artwork.") ||
       options.action === "progress.save" ||
       options.action.startsWith("native.")
