@@ -1,0 +1,49 @@
+services:
+  community:
+    profiles: [community]
+    image: hito-community:${HITO_COMMUNITY_IMAGE_TAG:-development}
+    build:
+      context: ../..
+      dockerfile: Dockerfile.community
+      args:
+        HITO_COMMUNITY_CACHE_ID: hito-community-${COMPOSE_PROJECT_NAME:-standalone}
+    user: "10001:10001"
+    network_mode: none
+    environment:
+      RUST_LOG: ${HITO_COMMUNITY_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: community-state
+        target: /var/lib/hito-community
+        volume:
+          nocopy: true
+      - type: volume
+        source: community-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  community-state:
+    external: true
+    name: ${HITO_COMMUNITY_STATE_VOLUME:?Set HITO_COMMUNITY_STATE_VOLUME to a fresh provisioned local volume}
+  community-credentials:
+    external: true
+    name: ${HITO_COMMUNITY_CREDENTIAL_VOLUME:?Set HITO_COMMUNITY_CREDENTIAL_VOLUME to a fresh provisioned private volume}

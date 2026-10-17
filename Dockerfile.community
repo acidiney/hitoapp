@@ -1,0 +1,27 @@
+FROM rust:1.99-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS community-build
+WORKDIR /workspace
+ARG HITO_COMMUNITY_CACHE_ID=hito-community-standalone
+ARG TARGETARCH
+ENV CARGO_TARGET_DIR=/build/community-release-target \
+    CARGO_BUILD_JOBS=2 \
+    CARGO_PROFILE_DEV_DEBUG=0 \
+    CARGO_PROFILE_TEST_DEBUG=0 \
+    CARGO_PROFILE_RELEASE_DEBUG=0 \
+    CARGO_PROFILE_RELEASE_INCREMENTAL=false \
+    CARGO_INCREMENTAL=0
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY .cargo .cargo
+COPY crates crates
+COPY vendor vendor
+RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_COMMUNITY_CACHE_ID}-${TARGETARCH},target=/build/community-release-target cargo build --locked --release -j 2 -p hito-community && cp /build/community-release-target/release/hito-community /hito-community
+
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && groupadd --gid 10001 hito-community && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin hito-community && install -d -o 10001 -g 10001 -m 0700 /var/lib/hito-community /run/secrets
+COPY --from=community-build --chown=0:0 --chmod=0555 /hito-community /usr/local/bin/hito-community
+COPY --chown=0:0 --chmod=0444 LICENSE /usr/local/share/licenses/hito-community/LICENSE
+COPY --chown=0:0 --chmod=0444 vendor/sqlx-sqlite/LICENSE-APACHE vendor/sqlx-sqlite/LICENSE-MIT docs/third-party/sqlx-sqlite.md /usr/local/share/licenses/sqlx-sqlite/
+USER 10001:10001
+EXPOSE 8095
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 CMD curl -fsS --noproxy '*' --max-time 2 --output /dev/null http://127.0.0.1:8095/v1/openapi.json || exit 1
+ENTRYPOINT ["/usr/local/bin/hito-community"]
+CMD ["--state-directory", "/var/lib/hito-community", "--admin-token-file", "/run/secrets/hito-community-admin-token"]
