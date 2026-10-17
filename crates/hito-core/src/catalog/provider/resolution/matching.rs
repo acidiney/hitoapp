@@ -154,6 +154,7 @@ fn versions(title: &str, album: Option<&str>) -> BTreeSet<&'static str> {
             result.insert("sped_up");
         }
         if normalized.starts_with("live at ")
+            || normalized.contains(" live at ")
             || normalized.starts_with("live from ")
             || normalized.starts_with("live in ")
             || normalized.ends_with(" live")
