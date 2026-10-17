@@ -19,9 +19,11 @@ The service runs as UID 10001 with a read-only root filesystem, no extra capabil
 
 ## Testing on the normal local installation
 
-The normal service runs image `sha256:a57e5da04f07139db2ca6b970403fd77616f254896bcdc6a8e192ce66ba01d81` at `http://plugin-youtube:8093/`, with a loopback host manifest at `http://localhost:8093/v1/manifest`. Its health, manifest and reachability from the normal server passed. The runtime retains its exact environment, command, network, ports, read-only root, UID 10001, dropped capabilities, temporary-filesystem and resource limits, with no Hito data or music volume.
+The normal service runs image `sha256:497267e06352260f159ae0410869cd9dcbe5302b9ba5baedae3f1444305fa797`, built from `2b4ad7e`, at `http://plugin-youtube:8093/`, with a loopback host manifest at `http://localhost:8093/v1/manifest`. It searches the music catalog. Its health, manifest and reachability from the normal server passed. The runtime retains its exact environment, command, network, ports, read-only root, UID 10001, dropped capabilities, temporary-filesystem and resource limits, with no Hito data or music volume.
 
 In Settings, Plugins, offer that internal address and connect without a bearer token. Existing connections use Check connection, then Accept changes to approve the new metadata capability. Discover can search and save YouTube recordings. Ordinary Play on a saved Spotify recording can now resolve its audio automatically. For a correction, open its details, use Find a source to review and attach an alternative, then choose that playback source. Both paths retain the recording and playlist identities and Spotify metadata owner. Resolution happens when playback needs it; importing a playlist does not start persistent downloads. See [automatic matching policy and live evidence](automatic-sources.md).
+
+The music-search update keeps the existing manifest and permissions. An already approved metadata connection needs no reinstall or additional approval for this update.
 
 ## Process ownership
 
@@ -36,7 +38,9 @@ flowchart LR
   Cleanup --> Release[Release worker capacity]
 ```
 
-The extractor passes literal arguments without a shell and clears the inherited environment. It disables configuration, cookies, browser cookies, plugin directories, remote components, downloads and disk caching. Search allows at most 50 results. Output is limited to 2 MiB on stdout and 64 KiB on stderr, then normalized to a maximum 256 KiB SDK response. Search terms and upstream output stay out of operational logs.
+The extractor passes literal arguments without a shell and clears the inherited environment. It disables configuration, cookies, browser cookies, plugin directories, remote components, downloads and disk caching. Search uses the YouTube Music songs catalog, with an encoded query and `--playlist-end` set to the requested limit, at most 50. This is music-catalog discovery; ordinary YouTube video search is not exposed. Existing explicit video identities still use the same detail and audio endpoints. Output is limited to 2 MiB on stdout and 64 KiB on stderr, then normalized to a maximum 256 KiB SDK response. Search terms and upstream output stay out of operational logs.
+
+Flat music results contain only identity and title. When artist evidence is absent, search returns `Unknown artist` with an optional duration. Detail extraction remains strict and independent. The plugin never fills musical credits or track titles from the listener's query.
 
 The worker retains its capacity until process-group cleanup finishes, including when the HTTP caller disconnects. Shutdown stops admission, cancels workers and joins cleanup. A cleanup failure stops further extraction. These process-ownership checks currently target Linux GNU, which is the service container platform.
 
