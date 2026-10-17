@@ -84,7 +84,6 @@ test("a track downloads only on request and removes its saved server copy by int
   );
   const download = screen.getByRole("button", {
     name: "Download",
-    exact: true,
   });
   const title = screen.getByRole("textbox", {
     name: "Track title",
@@ -149,7 +148,6 @@ test("a track downloads only on request and removes its saved server copy by int
 
   const remove = screen.getByRole("button", {
     name: "Remove download",
-    exact: true,
   });
   act(() => {
     fireEvent.click(remove);
@@ -173,7 +171,7 @@ test("a track downloads only on request and removes its saved server copy by int
   expect(removal[1]?.signal?.aborted).toBe(false);
   expect((remove as HTMLButtonElement).disabled).toBe(true);
   await act(async () => finishRemove(new Response(null, { status: 204 })));
-  await screen.findByRole("button", { name: "Download", exact: true });
+  await screen.findByRole("button", { name: "Download" });
   expect(screen.queryByText("Saved on this server")).toBeNull();
   expect(title.value).toBe("Unsent personal title");
   expect(
