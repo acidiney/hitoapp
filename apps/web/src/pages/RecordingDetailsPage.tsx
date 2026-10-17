@@ -1,6 +1,7 @@
 import { Link } from "@inertiajs/react";
 import type { RecordingDetailsPageProps } from "../types";
 import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 import SourceAvailability from "../components/SourceAvailability";
@@ -23,6 +24,7 @@ export default function RecordingDetailsPage({
           <span>Track details</span>
           <h1>{detail.title.value}</h1>
           <p>{detail.artist.value}</p>
+          <ArtworkStatus recording={detail.recording_id} />
         </div>
       </section>
       <MetadataEditor

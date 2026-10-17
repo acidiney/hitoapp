@@ -38,19 +38,18 @@ impl LocalHost {
         let origin = Url::parse(&format!("http://{address}")).map_err(|_| Error::Startup)?;
         config.http.origin = origin.origin().ascii_serialization();
         let (access, entry) = Access::new(&origin);
-        let storage = services.storage.clone();
         #[cfg(feature = "device")]
         let (player, owner) = hito_playback::Player::native(services.clone());
         #[cfg(not(feature = "device"))]
         let (player, owner) = hito_playback::Player::start(services.clone());
         let app = access.protect(hito_server::router_with_player(
-            services,
+            services.clone(),
             config.http,
             player,
         ));
         let (stop, stopped) = oneshot::channel();
         let serving = tokio::spawn(
-            crate::backend::run(listener, app, storage, owner, stopped, lock)
+            crate::backend::run(listener, app, services, owner, stopped, lock)
                 .instrument(tracing::Span::current())
                 .with_current_subscriber(),
         );

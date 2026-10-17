@@ -45,7 +45,7 @@ async fn exercise(abort: bool) {
     let serving = tokio::spawn(hito_server::serve(
         listener,
         hito_server::router(core.clone()),
-        core.storage.clone(),
+        core.clone(),
         async {
             let _ = stopped.await;
         },

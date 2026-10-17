@@ -1,5 +1,8 @@
 use crate::{RuntimeConfig, config::RuntimeResult, router_with_config};
-use std::{future::Future, time::Duration};
+use std::{
+    future::Future,
+    time::{Duration, Instant},
+};
 use tracing::{Instrument, instrument::WithSubscriber};
 
 pub async fn run(
@@ -23,11 +26,10 @@ pub async fn run(
     tracing::info!(event = "server_starting", "Starting Hito");
     let services = hito_core::open(config.core).await?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
-    let storage = services.storage.clone();
     serve(
         listener,
-        router_with_config(services, config.http),
-        storage,
+        router_with_config(services.clone(), config.http),
+        services,
         shutdown,
     )
     .await
@@ -36,12 +38,12 @@ pub async fn run(
 pub async fn serve(
     listener: tokio::net::TcpListener,
     app: axum::Router,
-    indexer: hito_core::LibraryStorage,
+    services: hito_core::Services,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (cancel, cancelled) = tokio::sync::oneshot::channel::<()>();
     let serving = tokio::spawn(
-        serve_owned(listener, app, indexer, async move {
+        serve_owned(listener, app, services, async move {
             tokio::select! {
                 _ = shutdown => {},
                 _ = cancelled => {},
@@ -58,19 +60,20 @@ pub async fn serve(
 async fn serve_owned(
     listener: tokio::net::TcpListener,
     app: axum::Router,
-    indexer: hito_core::LibraryStorage,
+    services: hito_core::Services,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
-    let worker = worker(indexer.clone(), stopped);
+    let indexing = indexing_worker(services.storage.clone(), stopped.clone());
+    let artwork = artwork_worker(services.catalog, stopped);
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, ()) = tokio::join!(http, worker);
-    indexer.finish_indexing().await?;
+    let (result, (), ()) = tokio::join!(http, indexing, artwork);
+    services.storage.finish_indexing().await?;
     tracing::info!(event = "server_stopped", "Hito stopped");
     result
 }
 
-async fn worker(
+async fn indexing_worker(
     indexer: hito_core::LibraryStorage,
     mut stopped: tokio::sync::watch::Receiver<bool>,
 ) {
@@ -99,4 +102,44 @@ async fn worker(
         }
     }
     tracing::info!(event = "worker_stopped", "Indexing worker stopped");
+}
+
+async fn artwork_worker(
+    catalog: hito_core::Catalog,
+    mut stopped: tokio::sync::watch::Receiver<bool>,
+) {
+    tracing::info!(event = "artwork_worker_started", "Artwork worker started");
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped.changed() => break,
+            _ = interval.tick() => {}
+        }
+        let started = Instant::now();
+        let result = catalog
+            .run_next_artwork_job_until(async {
+                let _ = stopped.changed().await;
+            })
+            .await;
+        match result {
+            Ok(claimed) => tracing::debug!(
+                event = "artwork_worker_polled",
+                claimed,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Artwork worker checked pending work"
+            ),
+            Err(error) => tracing::error!(
+                event = "artwork_worker_failed",
+                error_kind = error.code(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Artwork worker failed"
+            ),
+        }
+        if *stopped.borrow() {
+            break;
+        }
+    }
+    tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
 }

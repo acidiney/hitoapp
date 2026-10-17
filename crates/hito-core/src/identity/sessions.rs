@@ -80,6 +80,26 @@ impl Identity {
 }
 
 impl Actor {
+    pub(crate) async fn resume_session_on(
+        connection: &mut sqlx::SqliteConnection,
+        account: &str,
+        session_hash: &str,
+    ) -> Result<Self> {
+        let user = sqlx::query_as(
+            "SELECT u.id,u.username,u.admin FROM users u JOIN sessions s ON s.user_id = u.id
+             WHERE s.user_id = ? AND s.token_hash = ? AND s.expires_at > unixepoch()",
+        )
+        .bind(account)
+        .bind(session_hash)
+        .fetch_optional(connection)
+        .await?
+        .ok_or(Error::Unauthorized)?;
+        Ok(Self {
+            user,
+            session_hash: session_hash.to_owned(),
+        })
+    }
+
     pub(crate) async fn check_session(&self, store: &crate::Store) -> Result<()> {
         self.check_session_on(&mut *store.pool.acquire().await?)
             .await
