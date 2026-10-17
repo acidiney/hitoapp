@@ -1,6 +1,7 @@
 mod artwork;
 mod authorization;
 mod content;
+mod metadata;
 mod playlists;
 mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
@@ -10,6 +11,7 @@ pub use content::{
     ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
     SourcePage,
 };
+pub use metadata::{MAX_RECORDING_METADATA_BYTES, METADATA_PATH, RecordingMetadata};
 pub use playlists::{
     MAX_PLAYLIST_ITEMS, MAX_PLAYLIST_PAGE_ITEMS, PLAYLIST_DETAIL_PATH, PLAYLIST_ITEMS_PATH,
     PlaylistAttribution, PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage,
