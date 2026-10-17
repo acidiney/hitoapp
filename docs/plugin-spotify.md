@@ -44,7 +44,7 @@ The anonymous bootstrap secret stays in memory and uses zeroizing storage. It is
 
 ## Local setup
 
-The verified local image is `sha256:3b06cf67cf197f9e253a1be4256dc7b6643db24f878c9b0406de8de6bf238598`. It passed startup, manifest, graceful SIGTERM shutdown and the isolated live browser case. The normal service is healthy and uses that same image.
+The normal service is healthy on verified image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca620e0bb3c67c8c8e798e`. The original import image passed startup, manifest, graceful SIGTERM shutdown and the isolated live browser case. The updated producer passed 20 fixture cases, strict Clippy and the live artwork checks below.
 
 Build and inspect the plugin in a separate Compose project first. The project name also gives the Dockerfile a separate Cargo build cache. Keep different source snapshots on separate caches. Run compiler-heavy checks sequentially, with debug information and incremental compilation disabled. Check host free space and combined Hito Cargo targets before and during builds; retain at least 40 GiB of host headroom and keep those targets within 10 GiB.
 
@@ -69,9 +69,19 @@ http://plugin-spotify:8092/
 
 An administrator opens Settings, Plugins, Services for this server, enters the internal address above, then selects Offer service. Hito obtains `Spotify public playlists` from the manifest automatically. Advanced settings has an optional custom label for protected services. Each listener selects the offer, leaves Bearer token empty, and selects Connect service. Once connected, that listener uses Playlists, Import, and Import a copy. The offer does not install the connection for every account.
 
-The deployed import does not yet include playlist or album cover images. Artwork support and adding missing covers to existing copies are tracked in [the backlog](../TODO.md).
+The deployed server retrieves missing recording covers for existing copies after the listener approves the artwork capability. A reload may be needed after approval. Playlist and album entity storage and artwork jobs remain in [the backlog](../TODO.md).
 
 The overlay binds the host port to loopback, runs the plugin as a non-root user with a read-only root filesystem, and mounts no Hito data volume. This is a local development configuration. Public release and remote hosting need their own acceptance evidence.
+
+## Artwork in verified source
+
+The current deployed image also declares `artwork` and returns validated PNG/JPEG bytes for recording, release and playlist requests. It accepts the exact Spotify ak/fa image CDN origins and playlist mosaics on `mosaic.scdn.co`, with separate canonical path rules. URLs with aliases, credentials, explicit ports, query strings, fragments or redirects are rejected before fetching image bytes. The browser receives Hito's authorized image route, not a Spotify URL.
+
+Twenty fixture cases and strict all-target Clippy pass. New regressions first reproduced rejected valid mosaics and accepted normalized dot paths, then passed the fixes. Public HTTP tests verify raster bytes, independent admission and rejection before network I/O. A 22-case policy table exercises the actual URL validator with production origins. The focused URL change passed two independent review rounds.
+
+The isolated packaged image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca620e0bb3c67c8c8e798e` returned a real public playlist cover of 99,323 bytes and a recording cover of 194,151 bytes. Both were JPEG and decoded at 640 × 640. This is limited live evidence, not general image compatibility. The normal service now uses this same image. Its effective environment, process, mounts, ports, network and resource policy were preserved; no listener connection or permission was changed during deployment.
+
+The host currently retains recording covers, including those already referenced by independent copies. Release and playlist entity storage/jobs remain unfinished. See [private artwork ownership, UI retrieval and remaining work](plugin-artwork.md).
 
 ## External dependency and diagnostics
 
