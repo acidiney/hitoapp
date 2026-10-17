@@ -55,7 +55,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 - [ ] Add previewed standalone-library import while preserving its separate database.
 - [ ] Verify concurrent edits, duplicate delivery, deletions, permissions, and device-local availability across replicas.
 - [x] Deploy explicit provider-track downloads with durable intents, transfer progress, verification, restart/provider-outage playback and intent-specific removal. Verify the release-image browser workflow and migration preservation. See [download evidence and limits](docs/persistent-downloads.md).
-- [ ] Add playlist downloads and define Download behavior for existing user-owned local originals.
+- [x] Implement playlist downloads in development with private retention roots, shared copies, Follow reconciliation, durable explicit retries and a cancellable web workflow. Verify duplicate entries, membership changes, temporary source loss, cleanup and original/private-state preservation. See [development evidence and remaining checks](docs/playlist-downloads.md).
+- [ ] Complete playlist-download release-image browser verification, stopped backup/restoration and deployment acceptance; define Download behavior for existing user-owned local originals.
 - [ ] Keep followed downloads synchronized with reference counting; preserve originals and library records.
 - [ ] Separate temporary playback cache from persistent downloads; handle disk exhaustion and interrupted transfers.
 
