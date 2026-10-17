@@ -46,6 +46,133 @@ JSON lifecycle logs carry a generated service-instance UUID, safe outcomes and e
 
 The runtime instance span covers readiness, shutdown request, runtime state-close and stopped events. Library initialization and lifecycle tasks do not all inherit that span. In particular, the existing `community_state_closed` event is not guaranteed to carry `service_id`. The runtime-owned `community_service_state_closed` acknowledgment follows the actual awaited close and supplies that correlation without changing library logging.
 
+## Private development container
+
+[Dockerfile.community](../Dockerfile.community) and [scripts/community/compose.yaml](../scripts/community/compose.yaml) package the executable for an isolated local project. On 18 October 2026, the `linux/arm64` image built from community source `9c85538` passed health, effective configuration, private-volume provisioning, authenticated HTTP, persisted-receipt replay, log privacy and held-request shutdown checks. This configuration does not change the normal Hito deployment or complete a public-release gate.
+
+Compose uses `network_mode: none`, with no published ports or application network. Only the container's IPv4 loopback is available, so external HTTP clients cannot reach the service; inspect it through `docker compose exec`. This follows Docker's [none-network behavior](https://docs.docker.com/engine/network/drivers/none/). The binary retains its default `127.0.0.1:8095` listener. A schema health check runs every five seconds without credentials or provider requests.
+
+The pinned Rust and Debian stages follow the existing plugin images. The build copies the workspace manifests, crates and patched SQLx source, builds only `hito-community` in release mode with two jobs, and disables debug information and incremental compilation. Its cache uses `HITO_COMMUNITY_CACHE_ID` and `TARGETARCH`; Compose derives the cache identity from the isolated project. Use a different project and image tag for each source snapshot. Keep at least 40 GiB host headroom and combined Hito Cargo targets within 10 GiB, with compiler-heavy work run sequentially. The runtime also retains Hito's license and the vendored SQLx licenses and provenance.
+
+The service runs as UID/GID 10001 with a read-only root filesystem, dropped capabilities, no-new-privileges, one CPU, 256 MiB memory and 64 PIDs. A private 16 MiB `/tmp` tmpfs supports temporary files. Logs rotate at 10 MiB with three files. SIGTERM has a 30-second Compose grace period for HTTP drain and joined state cleanup; Docker can force termination after that deadline. Restart is explicit.
+
+State and credentials use separate, explicitly named external Docker volumes with copying disabled. Use fresh local-driver volumes for this procedure. State is writable at `/var/lib/hito-community`; `/run/secrets` is mounted read-only. Both volume roots must be owned by 10001:10001 with mode `0700`, and the administrator file must have mode `0400` and one hard link. File-backed Compose secrets cannot supply reliable UID remapping; see [Docker's secret ownership rules](https://docs.docker.com/reference/compose-file/services/#secrets). Provisioning inside the Linux volumes preserves the executable's existing policy.
+
+From this checkout, choose fresh names and build the isolated image:
+
+```sh
+export HITO_COMMUNITY_PROJECT=hito-community-dev
+export HITO_COMMUNITY_IMAGE_TAG=development
+export HITO_COMMUNITY_STATE_VOLUME=hito-community-dev-state
+export HITO_COMMUNITY_CREDENTIAL_VOLUME=hito-community-dev-credentials
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community config --quiet
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community build community
+```
+
+The administrator token belongs in an existing private file outside this checkout and its build context. Use an owned fake canary for packaging verification. Token contents pass through standard input, never process arguments, environment values or terminal output. Do not enable shell tracing. This one-time procedure refuses existing volumes, nonempty volume roots and credential overwrite. It checks the exact token syntax and sets all modes while root still owns the entries, then transfers ownership as its final operation. The offline provisioning process receives only the CHOWN capability.
+
+```sh
+export HITO_COMMUNITY_ADMIN_TOKEN_FILE=/absolute/private/hito-community-admin-token
+(
+  set -eu
+  test "$HITO_COMMUNITY_STATE_VOLUME" != "$HITO_COMMUNITY_CREDENTIAL_VOLUME"
+  for volume in "$HITO_COMMUNITY_STATE_VOLUME" "$HITO_COMMUNITY_CREDENTIAL_VOLUME"; do
+    if docker volume inspect "$volume" >/dev/null 2>&1; then
+      printf '%s\n' 'Refusing an existing community volume' >&2
+      exit 1
+    fi
+  done
+  docker volume create --driver local --label org.hito.purpose=community-state "$HITO_COMMUNITY_STATE_VOLUME" >/dev/null
+  docker volume create --driver local --label org.hito.purpose=community-credentials "$HITO_COMMUNITY_CREDENTIAL_VOLUME" >/dev/null
+  docker run --rm -i --network none --read-only --user 0:0 --log-driver none \
+    --cap-drop ALL --cap-add CHOWN --security-opt no-new-privileges:true \
+    --mount "type=volume,source=$HITO_COMMUNITY_STATE_VOLUME,target=/var/lib/hito-community,volume-nocopy" \
+    --mount "type=volume,source=$HITO_COMMUNITY_CREDENTIAL_VOLUME,target=/run/secrets,volume-nocopy" \
+    --entrypoint /bin/sh "hito-community:$HITO_COMMUNITY_IMAGE_TAG" -eu -c '
+      reject() { printf "%s\n" "Community volume provisioning rejected" >&2; exit 1; }
+      for directory in /run/secrets /var/lib/hito-community; do
+        test "$(stat -c %u:%g "$directory" 2>/dev/null)" = 0:0 || reject
+        for entry in "$directory"/* "$directory"/.[!.]* "$directory"/..?*; do
+          { test ! -e "$entry" && test ! -L "$entry"; } || reject
+        done
+      done
+      chmod 0700 /run/secrets /var/lib/hito-community 2>/dev/null || reject
+      umask 077
+      set -C
+      token=/run/secrets/hito-community-admin-token
+      head -c 67 2>/dev/null > "$token" || reject
+      test -f "$token" && test ! -L "$token" || reject
+      test "$(stat -c %h "$token" 2>/dev/null)" = 1 || reject
+      size=$(stat -c %s "$token" 2>/dev/null) || reject
+      case "$size" in
+        64) ;;
+        65) test "$(tail -c 1 "$token" 2>/dev/null | od -An -tx1 | tr -d " \n")" = 0a || reject ;;
+        66) test "$(tail -c 2 "$token" 2>/dev/null | od -An -tx1 | tr -d " \n")" = 0d0a || reject ;;
+        *) reject ;;
+      esac
+      head -c 64 "$token" 2>/dev/null | LC_ALL=C grep -Eq "^[0-9a-f]{64}$" || reject
+      chmod 0400 "$token" 2>/dev/null || reject
+      chown 10001:10001 "$token" /run/secrets /var/lib/hito-community 2>/dev/null || reject
+    ' < "$HITO_COMMUNITY_ADMIN_TOKEN_FILE"
+)
+```
+
+Both volumes are external: Compose neither creates them nor deletes them with the project. See [external volume lifecycle](https://docs.docker.com/reference/compose-file/volumes/#external). A failed provisioning attempt requires inspection of its dedicated volumes before any retry; the recipe does not replace existing data.
+
+Start and inspect only this project. These commands show schema readiness and metadata without reading the token:
+
+```sh
+export HITO_COMMUNITY_LOG_LEVEL=trace
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community up --wait --wait-timeout 30 --no-deps --no-build community
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community exec -T community id
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community exec -T community stat -c '%u:%g %a %h %F' /var/lib/hito-community /run/secrets /run/secrets/hito-community-admin-token
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community exec -T community curl -fsS --noproxy '*' --max-time 2 --output /dev/null http://127.0.0.1:8095/v1/openapi.json
+HITO_COMMUNITY_CONTAINER=$(docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community ps -q community)
+docker inspect --format '{{.State.Health.Status}} {{.Config.User}} {{.HostConfig.ReadonlyRootfs}} {{.HostConfig.NetworkMode}} {{json .HostConfig.CapDrop}} {{json .HostConfig.SecurityOpt}} {{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{json .HostConfig.LogConfig}}' "$HITO_COMMUNITY_CONTAINER"
+docker inspect --format '{{range .Mounts}}{{println .Type .Destination .RW}}{{end}}' "$HITO_COMMUNITY_CONTAINER"
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community stop community
+docker inspect --format '{{.State.ExitCode}} {{.State.OOMKilled}}' "$HITO_COMMUNITY_CONTAINER"
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community up --wait --wait-timeout 30 --no-deps --no-build community
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community stop community
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml --profile community down
+```
+
+These inspection commands establish configuration and readiness only. The protocol checks below supply separate persistence, privacy and active-request evidence. The external state and credential volumes remain after `down`. Public networking, TLS, hosting and operational safeguards remain outside this private example.
+
+### Packaged protocol verification
+
+[verify.py](../scripts/community/verify.py) and [compose.verify.yaml](../scripts/community/compose.verify.yaml) exercise the packaged HTTP service through its container loopback. Use only fresh test volumes and a fake administrator credential. The verifier needs a third, distinct external volume selected with `HITO_COMMUNITY_VERIFY_VOLUME`, provisioned empty with owner 10001:10001 and mode `0700`. It stores its returned reporter credentials and receipts privately with mode `0600`. It never mounts the application database.
+
+```mermaid
+flowchart LR
+  Credential[Private credential volume] -->|read only| Service[Packaged community service]
+  Service --> Database[Separate state volume]
+  Credential -->|read only| Verifier[HTTP verifier]
+  Verifier -->|container loopback| Service
+  Verifier --> Journal[Separate verification volume]
+  Operator[Operator] -->|SIGTERM| Service
+  Service -->|captured JSON logs on stdin| LogCheck[Offline log verifier]
+  Journal --> LogCheck
+```
+
+The `first`, `restart`, `drain` and `logs` phases each have a ten-second absolute deadline and static pass/fail output. HTTP responses, input logs and credential files have explicit size bounds. The HTTP verifier shares the service network namespace; the log verifier runs with no network after the service stops. Both retain the unprivileged, read-only-root and dropped-capability restrictions.
+
+Use both Compose files and profiles for each phase:
+
+```sh
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml -f scripts/community/compose.verify.yaml --profile community --profile community-verify run -T --rm --no-deps --pull never community-verify first
+# Stop the actual community container, require exit 0, then restart it with TRACE logging.
+docker compose -p "$HITO_COMMUNITY_PROJECT" -f scripts/community/compose.yaml -f scripts/community/compose.verify.yaml --profile community --profile community-verify run -T --rm --no-deps --pull never community-verify restart
+```
+
+The first phase checks the generated schema, actual missing-bearer and reporter-bearer administrator rejections, private administrator provisioning, an accepted playback outcome, candidate-only rankings and safe invalid-input responses. After an actual container stop and restart, the second phase uses the saved reporter to recover the exact original receipt with HTTP 200. The ranking remains one successful reporter, and a candidate list excluding that source never returns it.
+
+The drain phase needs coordinated operator actions within its deadline. Start it detached with a unique container name. It opens an authenticated administrator request with `Expect: 100-continue`, requires the actual interim response and writes a fresh private `drain-held` marker before withholding the body. After observing that marker, signal the service with SIGTERM. Independently require a new `community_shutdown_requested` event, a still-running service and the still-held request. Create an empty, fresh mode-0600 `drain-release` file in the verifier volume to release the body. Require both containers to exit with status 0 and no OOM kill. A verifier success alone does not prove those external observations.
+
+Capture the service's original JSON logs without Docker timestamp prefixes, then pass them through stdin to `community-verify-logs`. It verifies the administrator and both returned reporter tokens are absent, along with the query, cookie, header, body, source and path canaries. It requires two complete lifecycles with distinct service UUIDs. In the final lifecycle, the exact held request's correlated HTTP 201 must precede library state close, followed by the runtime close acknowledgment and stopped event. Library events are not required to carry the runtime span.
+
+All four phases passed against image `39f29901bc55`, with the actual stop/restart and SIGTERM/aliveness observations performed separately. Both service and held-request verifier exited 0 without OOM kills. Two independent review rounds found and corrected missing authentication-denial probes and an insufficient log-order assertion. No application code changed to satisfy these checks. This is one owned Linux container workflow; public networking, TLS, application opt-ins, rate limits, production credentials, load and other platforms remain unverified.
+
 ## Private state and teardown
 
 ```mermaid
@@ -100,4 +227,4 @@ The startup fixture previously required the close callback's observed OS thread 
 
 The preceding foundation passed workspace and modified-driver formatting, strict all-target Clippy for community, core, server and the folder plugin, and 55 directed driver compatibility cases. Those comprise twelve selected core cases, all 38 folder-plugin cases and five server cases covering embedded lifecycle, signals and download restart. These are development checks, not full workspace, packaged-image or platform acceptance. Caller-cancellation, setup-timeout, spawn-failure, wider alias and ownership cases, and load behavior need their own controlled evidence.
 
-The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, container packaging, deployment configuration, rate limits, quotas, retention and erasure, reporter revocation, moderation, correction suggestions, provider-backed validation, live hosting, and DNS remain open. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. Separate disabled-by-default application opt-ins, account isolation, personal overrides, and playback during community outages remain client work. There is currently no application-to-community network path and no outbound provider fetch in this crate.
+The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, public deployment configuration, rate limits, quotas, retention and erasure, reporter revocation, moderation, correction suggestions, provider-backed validation, live hosting, and DNS remain open. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. Separate disabled-by-default application opt-ins, account isolation, personal overrides, and playback during community outages remain client work. There is currently no application-to-community network path and no outbound provider fetch in this crate.
