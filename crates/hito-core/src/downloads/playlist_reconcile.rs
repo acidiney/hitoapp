@@ -91,11 +91,28 @@ impl Downloads {
             .fetch_all(&mut *tx)
             .await?;
             for (entry, recording) in &entries {
+                let previous_recording: Option<String> = sqlx::query_scalar(
+                    "SELECT recording_id FROM download_playlist_members WHERE retention_id=? AND entry_id=?
+                    AND recording_id IS NOT NULL AND recording_id IS NOT ?",
+                )
+                .bind(&selected.retention_id)
+                .bind(entry)
+                .bind(recording)
+                .fetch_optional(&mut *tx)
+                .await?;
                 sqlx::query("INSERT INTO download_playlist_members(retention_id,host_device,entry_id,recording_id,seen_revision,next_attempt_at)
                     VALUES(?,?,?,?,?,CASE WHEN ? IS NOT NULL THEN 0 END)
                     ON CONFLICT(retention_id,entry_id) DO UPDATE SET recording_id=excluded.recording_id,seen_revision=excluded.seen_revision,
                     next_attempt_at=CASE WHEN recording_id IS excluded.recording_id THEN next_attempt_at ELSE excluded.next_attempt_at END")
                     .bind(&selected.retention_id).bind(self.host.as_str()).bind(entry).bind(recording).bind(selected.revision).bind(recording).execute(&mut *tx).await?;
+                if let Some(previous_recording) = previous_recording {
+                    if let Some(file) = self
+                        .retire_unreferenced_on(&mut tx, &selected.account_id, &previous_recording)
+                        .await?
+                    {
+                        retired.push(file);
+                    }
+                }
             }
             if entries.len() < 32 {
                 selected.phase = "prune".into();
