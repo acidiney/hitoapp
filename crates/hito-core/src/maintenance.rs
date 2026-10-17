@@ -106,6 +106,16 @@ async fn migrate_on(
             "The database migration history is incomplete or unsupported".into(),
         ));
     }
+    let invalid_success: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM _sqlx_migrations WHERE typeof(success) <> 'integer' OR success <> 1)",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    if invalid_success {
+        return Err(Error::Invalid(
+            "The database migration history contains invalid success values".into(),
+        ));
+    }
     MIGRATOR.run_direct(&mut *connection).await?;
     let current_version = sqlx::query_scalar("SELECT max(version) FROM _sqlx_migrations")
         .fetch_one(connection)
