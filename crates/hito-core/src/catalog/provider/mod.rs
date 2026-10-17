@@ -6,6 +6,7 @@ mod metadata;
 mod persist;
 mod preparation;
 mod refresh;
+mod resolution;
 mod search;
 mod sources;
 
@@ -18,4 +19,5 @@ pub(crate) use persist::library as provider_library;
 pub use preparation::{
     PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
 };
+pub use resolution::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 pub use search::ProviderSearch;

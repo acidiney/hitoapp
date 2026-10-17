@@ -13,8 +13,8 @@ mod preferred;
 mod provider;
 pub use provider::{
     AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
-    ProviderSearch, ProviderSourceReview, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus,
+    ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub(crate) use provider::{provider_library, publish_provider_metadata};
 mod releases;
