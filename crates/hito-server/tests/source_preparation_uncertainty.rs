@@ -73,6 +73,10 @@ async fn exercise(directory: &Path, provider: &fixture::Provider, hosts: &mut Ve
     let service = response.json();
     let original = connect(address, token, &service).await;
     let (recording, source, original_sources) = adopt(address, token, &original).await;
+    assert!(
+        original_sources[0]["can_prepare"].as_bool() == Some(true),
+        "the original active connection must offer preparation"
+    );
     let path = format!("/api/v1/recordings/{recording}/sources/{source}/preparation");
     let request = json!({"request_id": "ab0d3897-53b3-4bbd-bc0e-585f73936fe2"});
     let response = http::call(address, "POST", &path, Some(request.clone()), Some(token)).await;
@@ -172,6 +176,10 @@ async fn exercise(directory: &Path, provider: &fixture::Provider, hosts: &mut Ve
     assert_eq!(replacement["service_id"], service["id"]);
     let (replacement_recording, replacement_source, replacement_sources) =
         adopt(address, token, &replacement).await;
+    assert!(
+        replacement_sources[0]["can_prepare"].as_bool() == Some(true),
+        "the replacement active connection must offer preparation"
+    );
     assert_ne!(replacement_recording, recording);
     assert_ne!(replacement_source, source);
     let replacement_path = format!(
@@ -214,22 +222,30 @@ async fn exercise(directory: &Path, provider: &fixture::Provider, hosts: &mut Ve
     assert_eq!(unknown["phase"], "submission_unknown");
     assert_identity(&unknown, operation, &recording, &source);
     assert_uncertain(&unknown);
-    for (recording, source, sources) in [
-        (&recording, &source, original_sources),
+    let mut revoked_sources = original_sources;
+    revoked_sources[0]["can_prepare"] = json!(false);
+    for (recording, source, sources, can_prepare) in [
+        (&recording, &source, revoked_sources, false),
         (
             &replacement_recording,
             &replacement_source,
             replacement_sources,
+            true,
         ),
     ] {
-        assert_eq!(
-            http::get(
-                address,
-                token,
-                &format!("/api/v1/recordings/{recording}/sources")
-            )
-            .await,
-            sources
+        let current_sources = http::get(
+            address,
+            token,
+            &format!("/api/v1/recordings/{recording}/sources"),
+        )
+        .await;
+        assert!(
+            current_sources[0]["can_prepare"].as_bool() == Some(can_prepare),
+            "preparation eligibility must distinguish revoked and active connections"
+        );
+        assert!(
+            current_sources == sources,
+            "every source snapshot field must be preserved except revoked preparation eligibility"
         );
         assert_eq!(sources[0]["ready"], false);
         assert_eq!(
