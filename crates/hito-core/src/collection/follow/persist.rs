@@ -32,11 +32,11 @@ pub(super) async fn create(
         .bind(&snapshot.detail.name)
         .execute(&mut **tx)
         .await?;
-    sqlx::query("INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,service_id,service_revision,provider,provider_playlist_id,snapshot,attribution,interval_seconds,next_refresh_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,unixepoch() + ?)")
+    sqlx::query("INSERT INTO playlist_follows(playlist_id,user_id,installation_id,installation_revision,service_id,service_revision,provider,provider_playlist_id,snapshot,content_digest,attribution,interval_seconds,next_refresh_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,unixepoch() + ?)")
         .bind(&playlist).bind(&operation.account).bind(&operation.installation).bind(operation.installation_revision)
         .bind(&operation.service).bind(operation.service_revision).bind(&operation.provider)
-        .bind(&snapshot.detail.id).bind(&snapshot.detail.snapshot).bind(attribution)
+        .bind(&snapshot.detail.id).bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(attribution)
         .bind(request.interval.seconds()).bind(request.interval.seconds()).execute(&mut **tx).await?;
     let publication = snapshot_for_publication(tx, operation, &playlist, snapshot).await?;
     let sequence = publish(
@@ -63,15 +63,25 @@ pub(super) async fn refresh(
     playlist: &str,
     snapshot: PlaylistSnapshot,
 ) -> Result<()> {
-    let interval: i64 =
-        sqlx::query_scalar("SELECT interval_seconds FROM playlist_follows WHERE playlist_id = ?")
-            .bind(playlist)
-            .fetch_one(&mut **tx)
-            .await?;
+    let (interval, previous_digest): (i64, String) = sqlx::query_as(
+        "SELECT interval_seconds,content_digest FROM playlist_follows WHERE playlist_id = ?",
+    )
+    .bind(playlist)
+    .fetch_one(&mut **tx)
+    .await?;
+    if previous_digest == snapshot.content_digest {
+        sqlx::query("UPDATE playlist_follows SET last_refreshed_at = unixepoch(),next_refresh_at = unixepoch() + interval_seconds,error = NULL WHERE playlist_id = ?")
+            .bind(playlist).execute(&mut **tx).await?;
+        tracing::debug!(
+            outcome = "unchanged",
+            "Follow snapshot checked without collection publication"
+        );
+        return Ok(());
+    }
     let attribution = serde_json::to_string(&snapshot.detail.attribution)
         .map_err(|_| Error::Internal("Playlist attribution could not be encoded".into()))?;
-    sqlx::query("UPDATE playlist_follows SET snapshot = ?,attribution = ?,last_refreshed_at = unixepoch(),next_refresh_at = unixepoch() + interval_seconds,error = NULL WHERE playlist_id = ?")
-        .bind(&snapshot.detail.snapshot).bind(attribution).bind(playlist).execute(&mut **tx).await?;
+    sqlx::query("UPDATE playlist_follows SET snapshot = ?,content_digest = ?,attribution = ?,last_refreshed_at = unixepoch(),next_refresh_at = unixepoch() + interval_seconds,error = NULL WHERE playlist_id = ?")
+        .bind(&snapshot.detail.snapshot).bind(&snapshot.content_digest).bind(attribution).bind(playlist).execute(&mut **tx).await?;
     sqlx::query("UPDATE playlists SET name = ? WHERE id = ?")
         .bind(&snapshot.detail.name)
         .bind(playlist)

@@ -5,6 +5,7 @@ use hito_plugin_sdk::{
     PlaylistDetailRequest, PlaylistItemsRequest, PlaylistPage, ProviderPlaylist,
     ProviderPlaylistEntry, ProviderPlaylistItem,
 };
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     time::Duration,
@@ -16,6 +17,20 @@ const MAX_PAGES: usize = MAX_PLAYLIST_ITEMS / MAX_PLAYLIST_PAGE_ITEMS as usize;
 pub(crate) struct PlaylistSnapshot {
     pub(crate) detail: ProviderPlaylist,
     pub(crate) entries: Vec<ProviderPlaylistEntry>,
+    pub(crate) content_digest: String,
+}
+
+struct SnapshotDigest(Sha256);
+
+impl std::io::Write for SnapshotDigest {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 impl ControlClient {
@@ -209,12 +224,25 @@ impl ControlClient {
                 "The provider playlist changed during import",
             ));
         }
+        let mut digest = SnapshotDigest(Sha256::new());
+        serde_json::to_writer(
+            &mut digest,
+            &("hito-playlist-snapshot:v1", &detail, &entries),
+        )
+        .map_err(|_| {
+            Error::Internal("Provider playlist snapshot could not be fingerprinted".into())
+        })?;
+        let content_digest = format!("{:x}", digest.0.finalize());
         tracing::debug!(
             entries = entries.len(),
             bytes = SNAPSHOT_BYTES - remaining,
             "Provider playlist snapshot completed"
         );
-        Ok(PlaylistSnapshot { detail, entries })
+        Ok(PlaylistSnapshot {
+            detail,
+            entries,
+            content_digest,
+        })
     }
 
     async fn playlist_detail(
