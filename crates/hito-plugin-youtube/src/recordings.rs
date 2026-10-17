@@ -28,7 +28,7 @@ pub(crate) fn normalize(bytes: &[u8], limit: u16) -> Result<SearchPage, Error> {
     }
     let mut items = Vec::with_capacity(results.entries.len());
     for entry in results.entries {
-        items.push(entry.recording()?);
+        items.push(entry.summary()?);
     }
     let mut page = SearchPage {
         items,
@@ -53,6 +53,17 @@ pub(crate) fn valid_id(id: &str) -> bool {
 }
 
 impl SearchEntry {
+    fn summary(mut self) -> Result<ProviderRecording, Error> {
+        if self.artists.as_ref().is_none_or(Vec::is_empty)
+            && self.artist.is_none()
+            && self.channel.is_none()
+            && self.uploader.is_none()
+        {
+            self.artist = Some("Unknown artist".into());
+        }
+        self.recording()
+    }
+
     pub(crate) fn recording(self) -> Result<ProviderRecording, Error> {
         let entry = self;
         if !valid_id(&entry.id) {

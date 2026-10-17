@@ -72,6 +72,9 @@ fn binary_search_supplies_only_the_owned_runtime_environment() {
     assert_eq!(environment, expected);
 
     let arguments = records(&directory.path().join("arguments"));
+    let mut expected_query = url::Url::parse("https://music.youtube.com/search").unwrap();
+    expected_query.query_pairs_mut().append_pair("q", query);
+    expected_query.set_fragment(Some("songs"));
     let expected_arguments: Vec<_> = [
         "--ignore-config",
         "--no-config-locations",
@@ -84,13 +87,18 @@ fn binary_search_supplies_only_the_owned_runtime_environment() {
         "--no-cache-dir",
         "--dump-single-json",
         "--flat-playlist",
+        "--playlist-end",
+        "1",
         "--",
     ]
     .into_iter()
     .map(str::to_owned)
-    .chain([format!("ytsearch1:{query}")])
+    .chain([expected_query.to_string()])
     .collect();
-    assert_eq!(arguments, expected_arguments);
+    assert!(
+        arguments == expected_arguments,
+        "the owned runtime must receive the exact encoded Music search process arguments"
+    );
 
     let mut logs = String::new();
     File::open(directory.path().join("host.jsonl"))

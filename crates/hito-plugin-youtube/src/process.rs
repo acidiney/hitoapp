@@ -50,9 +50,15 @@ pub(crate) async fn run(
     ]);
     match intent {
         Intent::Search { query, limit } => {
+            let mut target = url::Url::parse("https://music.youtube.com/search")
+                .map_err(|_| Error::Unavailable)?;
+            target.query_pairs_mut().append_pair("q", &query);
+            target.set_fragment(Some("songs"));
             command
-                .args(["--flat-playlist", "--"])
-                .arg(format!("ytsearch{limit}:{query}"));
+                .args(["--flat-playlist", "--playlist-end"])
+                .arg(limit.to_string())
+                .arg("--")
+                .arg(target.as_str());
         }
         Intent::Recording { id } => {
             if !crate::recordings::valid_id(&id) {

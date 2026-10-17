@@ -19,9 +19,9 @@ for argument in "$@"; do
     selector=$argument
 done
 case "$selector" in
-    ytsearch1:private-first-query-sentinel) slot=first ;;
-    ytsearch1:private-second-query-sentinel) slot=second ;;
-    ytsearch1:private-fourth-query-sentinel)
+    'https://music.youtube.com/search?q=private-first-query-sentinel#songs') slot=first ;;
+    'https://music.youtube.com/search?q=private-second-query-sentinel#songs') slot=second ;;
+    'https://music.youtube.com/search?q=private-fourth-query-sentinel#songs')
         printf '%s\n' '{"entries":[{"id":"HitoTone004","title":"Owned resumed tone","artist":"Hito test performer","duration":12.5}]}'
         exit 0
         ;;

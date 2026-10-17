@@ -7,7 +7,7 @@ for argument do
 done
 printf '%s\n' 'private-extractor-stderr-sentinel' >&2
 case "$target" in
-    ytsearch2:*)
+    'https://music.youtube.com/search?q='*'#songs')
         printf '1\n' >> "$directory/calls"
         cat "$directory/search.json"
         ;;

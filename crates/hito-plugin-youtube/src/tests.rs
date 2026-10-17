@@ -13,6 +13,7 @@ mod cancellation;
 mod lifecycle;
 mod logging;
 mod manifest;
+mod music_search;
 mod sources;
 
 #[tokio::test]
@@ -26,7 +27,9 @@ async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
         "Owned tune; $(touch {}) `printf unexpected` 'literal' \"query\"",
         marker.display()
     );
-    let expected_query = format!("ytsearch2:{query}");
+    let mut expected_query = url::Url::parse("https://music.youtube.com/search").unwrap();
+    expected_query.query_pairs_mut().append_pair("q", &query);
+    expected_query.set_fragment(Some("songs"));
     let app = router(Config { executable });
     let mut identities = Vec::new();
 
@@ -93,12 +96,23 @@ async fn search_uses_an_owned_executable_and_returns_bounded_sdk_recordings() {
         ] {
             assert!(arguments.contains(&flag), "missing process policy {flag}");
         }
-        assert_eq!(arguments.last().copied(), Some(expected_query.as_str()));
+        assert!(
+            arguments.last().copied() == Some(expected_query.as_str()),
+            "search must preserve the encoded Music query as one literal URL argument"
+        );
         assert_eq!(arguments[arguments.len() - 2], "--");
+        let end = arguments
+            .iter()
+            .position(|argument| *argument == "--playlist-end")
+            .unwrap_or_else(|| panic!("search must set its extraction result bound"));
+        assert!(
+            end + 2 == arguments.len() - 2 && arguments[end + 1] == "2",
+            "search must pass the requested result bound before the URL separator"
+        );
         assert_eq!(
             arguments
                 .iter()
-                .filter(|argument| **argument == expected_query)
+                .filter(|argument| **argument == expected_query.as_str())
                 .count(),
             1
         );
