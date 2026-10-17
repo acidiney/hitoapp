@@ -57,7 +57,11 @@ To restore, stop the server, extract into a new empty Docker volume, and start a
 
 ## Network and sessions
 
-The default listener is exposed only on `127.0.0.1`. A public installation needs an HTTPS reverse proxy and an exact `HITO_PUBLIC_ORIGIN` matching the browser URL. Set that environment variable in Compose when changing the origin. HTTPS makes session cookies Secure; cookies are always HttpOnly and SameSite Strict. Inertia encrypted history requires HTTPS or localhost.
+The default listener is exposed only on `127.0.0.1`. A public installation needs an HTTPS reverse proxy and an exact `HITO_PUBLIC_ORIGIN` matching the browser URL. Set that environment variable in Compose when changing the origin. HTTPS makes session cookies Secure; cookies are always HttpOnly and SameSite Strict.
+
+For access over a local network, publish the server port on the host's LAN address and explicitly list any other browser origins in `HITO_ADDITIONAL_ORIGINS`. For example, a primary origin of `http://192.168.1.50:8080` can also accept `http://localhost:8080,http://127.0.0.1:8080`. The list permits at most 16 comma-separated, canonical HTTP(S) origins, with no paths, trailing slash, credentials or wildcards. The primary origin still controls cookies and authorization callbacks. An HTTPS primary requires HTTPS aliases so its Secure cookies remain usable.
+
+Browsers with Web Crypto retain encrypted Inertia history. On local HTTP without `crypto.subtle`, browser history contains only a navigation marker and bounded scroll coordinates. Back and Forward fetch an authenticated page again while keeping the player mounted. Private page and form data are never written to unencrypted history. UUID creation uses cryptographic `getRandomValues` when `randomUUID` is unavailable.
 
 Cookie-authenticated mutations send `X-Hito-Request: 1`. API clients can use bearer tokens. Login/setup have per-client rate limits, bounded request bodies, a body-read timeout, and limited password-hashing concurrency. Do not trust arbitrary forwarded IP headers; the server uses its actual connection peer. Behind a reverse proxy, shared peer limits apply until trusted-proxy handling is implemented.
 
