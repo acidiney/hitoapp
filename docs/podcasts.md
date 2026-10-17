@@ -176,8 +176,18 @@ The same browser workflow removes the download through the UI and verifies HTTP 
 
 Crash recovery, shared-reference removal, native playback and downloads, backup/restore rehearsal, packaging and deployment acceptance remain open. These development fixtures do not complete the release gates.
 
+## Candidate image and restored-volume rehearsal
+
+On 18 October 2026, the `linux/arm64` server image built from application source `16f009c` passed a restored-volume rehearsal. The normal server stopped for a fresh whole-volume backup and restarted on its existing image. The archive was verified and restored into a new labeled volume, preserving file bytes, permissions, ownership and timestamps before migration. The candidate migration-only command then applied exactly versions 40–44 to that restored version-39 library, without starting HTTP or application workers.
+
+The stopped audit preserved typed rows and rowids across all 97 prior tables, sequences, receipts, keys, host identity and every non-SQLite volume entry. It checked the exact source-defined schema and backfills, nine new tables, two new views, all 44 migration checksums, foreign keys, database integrity and six FTS indexes. Independent origin checks require every legacy intent to retain its original values and rowid plus the text `provider` discriminator and six NULL podcast fields.
+
+The candidate then ran separately with the restored volume, original read-only music bind, matching runtime configuration, no published ports and no network. Health, generated OpenAPI, exact image JS/CSS and anonymous player rejection passed. It stopped with exit 0, no OOM kill and no restart. A separate stopped runtime audit found no logical database changes, managed-file additions, changes or removals, or changes to other volume files and identity. This audit covers the data volume; it does not establish fresh byte checks for every file on external music binds.
+
+The private audit adaptation passed 37 owned probes with one STAT4 case skipped because the Python engine lacks that extension; rejection of unsupported expectations is tested separately. Those probes use actual populated version-39 SQLite fixtures and migrations 40–44, while Docker and HTTP control calls are mocked. Three independent source reviews accepted the audit delta. The subsequent archive, restoration, migration and runtime results above came from actual containers and the copied library. The five ordered deployment overlays also pass configuration preflight. The normal library has not been upgraded by this rehearsal, and packaged browser/live-feed acceptance remains separate.
+
 ## Remaining integration
 
-The next work includes broader failure recovery, complete shared UI workflows, authorized browser/native playback and download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are implemented; full podcast acceptance remains open. Complete browser/native checks and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+The next work includes broader failure recovery, complete shared UI workflows, authorized browser/native playback and download acceptance. Status, saved-position reads, Inertia pages, manual refresh, unsubscribe and durable podcast download origins are implemented; full podcast acceptance remains open. Before a normal-server upgrade, complete packaged browser checks and take a new stopped backup. Native recovery and platform verification remain public-release requirements. See [the release checklist](../TODO.md).
 
 Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.

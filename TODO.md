@@ -1,6 +1,6 @@
 # Hito TODO
 
-Updated 2026-10-17. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
+Updated 2026-10-18. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
 Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track and album details now support private title and artist edits with local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
@@ -142,7 +142,8 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 ## Community service
 
-- [ ] Build and deploy the separate source-ranking/correction API. The development crate has a private SQLite store, closed reporter provisioning, durable playback receipts, candidate-only rankings, generated public `GET /v1/openapi.json` and an executable with private-token-file bootstrap on default loopback port `8095`. Eight community cases pass in Docker, including real-child SIGTERM drain, joined state close, correlated lifecycle logs, TRACE privacy, persisted-reporter restart, private-credential denials, malformed-filter fallback and failed-bind recovery. Container/deployment work, corrections, moderation, rates/quotas, retention, revocation, application opt-ins and live hosting remain open. See [community evidence and limits](docs/community-service.md).
+- [ ] Build and deploy the separate source-ranking/correction API. The development crate has a private SQLite store, closed reporter provisioning, durable playback receipts, candidate-only rankings, generated public `GET /v1/openapi.json` and an executable with private-token-file bootstrap on default loopback port `8095`. Eight community cases pass in Docker, including real-child SIGTERM drain, joined state close, correlated lifecycle logs, TRACE privacy, persisted-reporter restart, private-credential denials, malformed-filter fallback and failed-bind recovery. Public deployment, corrections, moderation, rates/quotas, retention, revocation, application opt-ins and live hosting remain open. See [community evidence and limits](docs/community-service.md).
+- [x] Package the community service with private local state/credential volumes and an unprivileged isolated container. Verify actual administrator denials, persisted reporter/receipt replay after container restart, candidate-only ranking, TRACE privacy and an authenticated held request completing before joined SIGTERM shutdown. This private Linux workflow does not connect the application or establish public operation.
 - [ ] Add separate disabled-by-default opt-ins for playback reporting and metadata corrections.
 - [ ] Validate and redact contributions; rank successful playback and filter by configured providers.
 - [ ] Add correction suggestions, provider validation/maintainer review, moderation, and rate limits.
