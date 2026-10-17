@@ -1,4 +1,4 @@
-use super::{Collection, jobs};
+use super::{Collection, history, jobs};
 use crate::{Error, Result, Store};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -31,18 +31,38 @@ impl Collection {
             return Ok(None);
         }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        sqlx::query("UPDATE playlist_follow_jobs SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'queued' END,
+        let expired: Vec<(String, String)> = sqlx::query_as("UPDATE playlist_follow_jobs SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'queued' END,
             lease_token = NULL,lease_until = NULL,error = 'lease_expired',updated_at = unixepoch()
-            WHERE status = 'running' AND lease_until <= unixepoch()")
-            .execute(&mut *tx).await?;
+            WHERE status = 'running' AND lease_until <= unixepoch() RETURNING playlist_id,status")
+            .fetch_all(&mut *tx).await?;
         sqlx::query("UPDATE playlist_follows SET error = 'refresh_failed',next_refresh_at = unixepoch() + interval_seconds
             WHERE next_refresh_at <= unixepoch() AND EXISTS(SELECT 1 FROM playlist_follow_jobs j WHERE j.playlist_id = playlist_follows.playlist_id
                 AND j.status = 'failed' AND j.error = 'lease_expired' AND j.updated_at = unixepoch())")
             .execute(&mut *tx).await?;
-        sqlx::query("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'authority_changed',updated_at = unixepoch()
+        let cancelled: Vec<String> = sqlx::query_scalar("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'authority_changed',updated_at = unixepoch()
             WHERE status = 'queued' AND NOT EXISTS(SELECT 1 FROM playlist_follows f JOIN current_playlist_follow_authority authority ON authority.playlist_id = f.playlist_id
-                WHERE f.playlist_id = playlist_follow_jobs.playlist_id AND f.generation = playlist_follow_jobs.generation)")
-            .execute(&mut *tx).await?;
+                WHERE f.playlist_id = playlist_follow_jobs.playlist_id AND f.generation = playlist_follow_jobs.generation) RETURNING playlist_id")
+            .fetch_all(&mut *tx).await?;
+        let expired_count = expired.len();
+        let cancelled_count = cancelled.len();
+        let mut affected: std::collections::BTreeSet<String> = expired
+            .into_iter()
+            .filter_map(|(playlist, status)| (status == "failed").then_some(playlist))
+            .collect();
+        affected.extend(cancelled);
+        let mut pruned = 0;
+        for playlist in &affected {
+            pruned += history::prune(&mut tx, playlist).await?;
+        }
+        if expired_count > 0 || cancelled_count > 0 {
+            tracing::debug!(
+                expired_leases = expired_count,
+                cancelled_jobs = cancelled_count,
+                affected_playlists = affected.len(),
+                pruned_jobs = pruned,
+                "Follow lease recovery completed"
+            );
+        }
         let due: Option<(String, String, i64)> = sqlx::query_as("SELECT f.playlist_id,f.user_id,f.generation FROM playlist_follows f
             JOIN current_playlist_follow_authority authority ON authority.playlist_id = f.playlist_id
             WHERE f.active = 1 AND f.next_refresh_at <= unixepoch()
