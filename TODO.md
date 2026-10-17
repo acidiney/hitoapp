@@ -114,9 +114,12 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Play imported Spotify playlist tracks through the yt-dlp YouTube plugin by explicit source review. The live WebKit case imported 411 entries, attached and played one candidate without replacing identities or private edits, and retained the remaining unavailable entries. The service is deployed locally; automatic playlist-wide association and broader codec/browser acceptance remain open. See [YouTube testing and limits](docs/plugin-youtube.md).
 - [ ] Add podcast RSS subscriptions, updates, progress, and downloads.
   - [x] Verify the private core subscription and retained-episode foundation in development, including durable refresh receipts, bounded parsing and archive queries, account isolation and personal-state preservation. See [evidence and remaining work](docs/podcasts.md).
-  - [x] Add authorized core RSS audio with stable source IDs, shared stream framing, ranges and unread revocation. Verify exact WAV delivery, preserved state and the 0040-to-0041 backfill across restart. Web/native workflows, scheduled updates, downloads and normal-server deployment remain unfinished.
+  - [x] Add authorized core RSS audio with stable source IDs, shared stream framing, ranges and unread revocation. Verify exact WAV delivery, preserved state and the 0040-to-0041 backfill across restart. Web/native workflows, downloads and normal-server deployment remain unfinished.
   - [x] Preserve identities and private state across unsubscribe, restart, immutable receipt replay and reactivation. Verify obsolete running-worker retirement and old-grant rejection after reactivation.
   - [x] Expose authenticated RSS JSON routes and join two refresh workers to server shutdown. Verify actual HTTP publication, private audio, account isolation and generated contracts in development. UI, broader active-cancellation checks and normal deployment remain open.
+  - [x] Add hourly due checks, exact-address conditional validators, accepted 304 retention and bounded receipt-safe job cleanup. Verify redirect isolation, 36 automatic checks and the additive 0043 migration. Broader recovery and cancellation acceptance remains open.
+  - [ ] Expose truthful subscription status and authorized episode resume positions, then build and verify the shared Inertia workflow.
+  - [ ] Extend durable download origins and authority to RSS episodes, preserving the existing explicit-download and removal rules.
 - [ ] Add audiobook grouping, chapters, bookmarks, speed, and resume positions.
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
 - [ ] Run reproducible fixture tests and live checks for every official provider.

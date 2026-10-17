@@ -1,6 +1,6 @@
 # Podcasts in development
 
-RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle and the HTTP runtime are verified in development. RSS is not deployed to the normal server or available in the web interface yet. Scheduled updates, complete browser/native workflows and explicit downloads remain unfinished.
+RSS support is being built in `feature/podcasts`. Private subscriptions, episode publication, authorized audio, subscription lifecycle, scheduled conditional updates and the HTTP runtime are verified in development. RSS is not deployed to the normal server or available in the web interface yet. Complete browser/native workflows and explicit podcast downloads remain unfinished.
 
 ## Ownership
 
@@ -11,8 +11,11 @@ flowchart LR
     Request[Subscribe or refresh] --> Podcasts
     Podcasts --> Receipt[Durable request receipt]
     Podcasts --> Jobs[Private refresh jobs]
+    Due[Authorized hourly refresh] --> Jobs
     Jobs --> HTTP[Validated HTTP destination]
-    HTTP --> Parser[Bounded RSS parser]
+    HTTP --> Response{Feed response}
+    Response -->|200| Parser[Bounded RSS parser]
+    Response -->|Validated 304| Checked[Schedule next check]
     Parser --> Publish[Atomic episode publication]
     Publish --> Catalog[Existing recording IDs]
     Catalog --> Collection[Personal metadata and activity]
@@ -47,7 +50,19 @@ Two polling workers belong to the server host and join its shutdown. Episodes us
 
 The lifecycle workflow passes through unsubscribe, restart, exact receipt replay and reactivation, including exact WAV playback and retained private state. A separate held-request scenario proves reactivation conflicts while the genuine old worker future is pending, then succeeds after that same worker retires. The old audio grant is first checked after reactivation and remains revoked.
 
-The actual TCP server workflow passes account setup, subscription, background episode publication, source discovery and exact WAV delivery. Another account and anonymous requests cannot read the private episodes or audio. The fixture and host join on success or failure. Twenty-two selected core cases, this HTTP workflow, the additional held-worker case, strict core/server all-target Clippy and the generated frontend production build pass. This is selected development evidence, with no claim about UI operation or shutdown during every active network phase.
+The actual TCP server workflow passes account setup, subscription, background episode publication, source discovery and exact WAV delivery. Another account and anonymous requests cannot read the private episodes or audio. The fixture and host join on success or failure. A separate public HTTP case verifies strict inputs, browser-origin protection, all five served OpenAPI operations and immutable command replay across reactivation. This is development evidence, with no claim about UI operation or shutdown during every active network phase.
+
+## Scheduled and conditional updates
+
+Successful feed checks schedule the next update one hour later. The public worker admits due subscriptions inside its existing claim transaction. Automatic checks create no client request receipts and retain the existing limits of 16 pending jobs per account, 128 globally, one running per account and two globally.
+
+Core stores validated ETag and Last-Modified values with the exact normalized address of the successful representation. Conditional headers go only to that address, including across redirects. A 304 response requires a previous complete publication and a conditional request actually sent to the final address. It advances the successful-check time and schedule without publishing episodes or changing archive cursors, source identities or playback grants. A 200 response replaces validators, clearing omitted values. A valid 304 retains missing values. Malformed, duplicate or oversized optional validators are ignored.
+
+Only a successful, authorized transaction may retain a new fetch address from an entirely permanent redirect chain. The original feed identity remains unchanged. Failed retrieval, parsing or publication preserves the last good snapshot. Recoverable publication errors roll back a savepoint before the worker records failure and releases its lease. Ordinary retries wait two and four seconds; a third failure or exhausted recovered lease postpones the next automatic job by one hour.
+
+Cleanup keeps the newest 32 terminal jobs without client receipts for each subscription. Jobs referenced by immutable subscribe or refresh receipts remain retained. Both receipt lookups have dedicated indexes. This cleanup changes refresh bookkeeping, not listening history or personal data.
+
+The public due-check fixture reopens core, ages only the due timestamp and verifies the actual conditional request and accepted 304. Its old cursor and captured grant still work, including exact WAV delivery. A real same-origin redirect to another path receives no old validators; its unsolicited 304 is rejected without replacing the last successful feed state. Another fixture performs 36 automatic checks after an initial publication and explicit refresh. Exactly the newest 32 automatic jobs and both receipt-backed jobs survive, with unchanged private metadata, duplicate playlist entries, progress, activity, synchronization events and exact receipt replay. These tests advance fixture timestamps; they do not prove an hour of wall-clock scheduling.
 
 ## Network and parsing
 
@@ -61,7 +76,9 @@ The current parser accepts UTF-8 RSS 2.0, including iTunes author and duration f
 
 ## Verified so far
 
-The earlier core-media checkpoint on 17 October 2026 passed 41 core cases and one production-process logging case. The core cases included 17 foundation checks, four media scenarios and 20 existing playback/provider compatibility checks. Lifecycle and HTTP evidence is recorded above. These are selected checks, not a full-suite or release result.
+Current selected Docker verification on 17 October 2026 passes 26 core cases and three server cases. Formatting and strict core/server all-target Clippy pass. The HTTP milestone also regenerated OpenAPI and TypeScript and passed the frontend production build. Separate independent reviews of lifecycle/HTTP and scheduled/conditional production changes each passed their first round. These are selected checks, not a full-suite or release result.
+
+The earlier core-media checkpoint passed 41 core cases and one production-process logging case, including 20 existing playback/provider compatibility cases. Its coverage overlaps the current checks and must not be added to their count.
 
 Foundation checks cover opaque GUIDs, relative enclosure addresses, empty optional feed fields, XML name validation, rejected external and undeclared entities, declared and unique expanded attribute names, actual pinned TCP delivery, blocked private redirects, mixed DNS rejection and rejection of empty userinfo before a connection or subscription is persisted.
 
@@ -73,16 +90,18 @@ The logging regression launches the real server with a temporary database and `R
 
 The request-work case uses 60,003 terminal jobs and 60,003 retained request receipts. Indexed job lookup and transactional receipt counters reduce measured new subscription work from about 840,000 to between 100 and 300 SQLite VM instructions, and refresh work from about 660,200 to between 200 and 300. Exact replays stay below 200 instructions at the meter's 100-instruction resolution.
 
-Archive browsing uses a retained episode count and indexed continuation queries. Pages order dated episodes first, by publication time and episode ID descending, followed by undated episodes in descending ID order. Continuation cursors belong to one account, subscription and content revision; a successful refresh requires browsing to restart. A 100,000-episode fixture with repeated dates and 40,000 undated entries reaches deep pages through the public API. Twenty-row pages at depths 0, 59,998 and 99,980 each use about 2,200 to 2,900 SQLite VM instructions in the current media build, compared with about 602,500, 962,600 and 1,202,000 before the change. Exact episode and recording order, total counts and the terminal page are verified. These are query-work measurements, not latency benchmarks.
+Archive browsing uses a retained episode count and indexed continuation queries. Pages order dated episodes first, by publication time and episode ID descending, followed by undated episodes in descending ID order. Continuation cursors belong to one account, subscription and content revision; a successful 200 publication requires browsing to restart, while an accepted 304 retains the cursor. A 100,000-episode fixture with repeated dates and 40,000 undated entries reaches deep pages through the public API. Twenty-row pages at depths 0, 59,998 and 99,980 used about 2,200 to 2,900 SQLite VM instructions in the core-media checkpoint, compared with about 602,500, 962,600 and 1,202,000 before the change. Exact episode and recording order, total counts and the terminal page are verified. These are query-work measurements, not latency benchmarks.
 
 A separate public scenario verifies that refreshing the same GUIDs invalidates an old cursor while retaining episode IDs, total count and personal state. A fresh continuation works with a changed page size. Basic malformed-cursor, foreign-account and wrong-subscription reads are rejected. More malformed payload and concurrent authority boundaries remain unverified.
 
 Personal-library creation belongs to identity and access management. RSS, provider adoption, playlist copies and Follow reuse that private library operation. Six existing provider, playlist-copy and Follow scenarios pass after moving the helper without changing its SQL, labels or ownership behavior. Strict Clippy passes for all core targets.
 
-These checks do not establish the public release gates. The populated full-migration regression now reaches 0042 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences, then reopens through the latest core migration. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
+These checks do not establish the public release gates. The populated full-migration regression now reaches 0043 and preserves its prior data checks; the historical reset migration remains tested through 0039. A separate closed/reopened 0040-to-0041 database verifies typed old rows, rowids, generated sort keys, schema and migration checksums, private metadata/activity and duplicate playlist occurrences, then reopens through the latest core migration. It accepts only the intended additive validator column in the original table definition, verifies NULL legacy values and checks both exact receipt-index definitions. Exactly two new podcast source UUIDs remain stable across two core restarts, and an existing unavailable local source stays intact. This is a migration fixture, not a deployment backup rehearsal.
 
 Podcast-specific pending-handshake/read cancellation, logout, original-grant replacement, mixed manual source choices, hostile framing/redirect races, candidate iteration and global stream saturation still need broader public coverage. Existing provider cases exercise several shared mechanisms, but do not prove those podcast paths. Crash recovery, retained-episode removal, native output and release performance also remain open.
 
 ## Remaining integration
 
-The next work includes scheduled and conditional refresh, complete failure recovery, Inertia contracts, shared UI workflows, authorized browser/native playback, and explicit downloads. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+The next work includes broader failure recovery, Inertia contracts, shared UI workflows, authorized browser/native playback, and explicit podcast downloads. Subscription reads need truthful pending/failure state, and episode resume needs an authorized saved-position read rather than searching the latest 200 history entries. Existing persistent-download admission and storage capture plugin origins only; RSS needs its own durable origin and authority support before exposing Download. A complete browser workflow and a restored-volume migration rehearsal are required before deployment. See [the release checklist](../TODO.md).
+
+Admission saturation, exhausted-lease recovery, missing-validator responses, publication rollback and cancellation during publication still need direct broader coverage. Passing conditional and retention fixtures does not establish those boundaries.
