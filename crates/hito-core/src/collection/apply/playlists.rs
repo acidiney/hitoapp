@@ -1,5 +1,5 @@
 use super::Transaction;
-use crate::{Actor, Error, Result};
+use crate::{Actor, Error, Result, collection::follow::history};
 use uuid::Uuid;
 
 pub(super) async fn create(
@@ -62,9 +62,11 @@ pub(super) async fn delete(tx: &mut Transaction<'_>, actor: &Actor, playlist: &U
         let cancelled = sqlx::query("UPDATE playlist_follow_jobs SET status = 'cancelled',error = 'follow_removed',updated_at = unixepoch()
             WHERE playlist_id = ? AND user_id = ? AND status = 'queued'")
             .bind(playlist.to_string()).bind(actor.id()).execute(&mut **tx).await?.rows_affected();
+        let pruned = history::prune(tx, &playlist.to_string()).await?;
         tracing::debug!(
             deactivated,
             cancelled_jobs = cancelled,
+            pruned_jobs = pruned,
             "Deleted playlist follow deactivated"
         );
     }

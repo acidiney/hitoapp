@@ -3,7 +3,10 @@ use sqlx::SqliteConnection;
 
 const MAX_UNREFERENCED_JOBS: i64 = 32;
 
-pub(super) async fn prune(connection: &mut SqliteConnection, playlist: &str) -> Result<u64> {
+pub(in crate::collection) async fn prune(
+    connection: &mut SqliteConnection,
+    playlist: &str,
+) -> Result<u64> {
     let pruned = sqlx::query("DELETE FROM playlist_follow_jobs WHERE rowid IN (
         SELECT job.rowid FROM playlist_follow_jobs job
         WHERE job.playlist_id = ? AND job.status IN ('complete','failed','cancelled')

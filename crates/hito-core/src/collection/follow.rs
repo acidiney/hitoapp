@@ -1,4 +1,4 @@
-mod history;
+pub(in crate::collection) mod history;
 mod jobs;
 mod lease;
 mod persist;
