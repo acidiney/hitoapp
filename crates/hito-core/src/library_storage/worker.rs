@@ -5,9 +5,12 @@ use uuid::Uuid;
 impl LibraryStorage {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn finish_indexing(&self) -> Result<()> {
-        self.inspector.settle_commands().await?;
+        let started = std::time::Instant::now();
+        self.inspector.settle().await?;
         tracing::info!(
             event = "indexing_cleanup_finished",
+            outcome = "retired",
+            elapsed_ms = started.elapsed().as_millis() as u64,
             "Media inspection cleanup finished"
         );
         Ok(())

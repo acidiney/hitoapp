@@ -1,5 +1,6 @@
 mod cache;
 mod command;
+mod ownership;
 mod probe;
 mod snapshot;
 
@@ -10,6 +11,7 @@ use super::{
 use crate::{Error, MediaTools, Result};
 pub(crate) use cache::CachedFile;
 use command::Commands;
+pub(super) use ownership::Scope;
 use probe::Probe;
 use sha2::{Digest, Sha256};
 use std::{ffi::OsString, path::Path, time::Duration};
@@ -29,8 +31,17 @@ enum AudioInspection {
 }
 
 impl FileInspector {
-    pub(super) async fn settle_commands(&self) -> Result<()> {
+    pub(super) async fn settle(&self) -> Result<()> {
+        self.snapshots.settle().await?;
         self.commands.settle().await
+    }
+
+    pub(super) fn scoped(&self, retirement: Scope) -> Self {
+        Self {
+            tools: self.tools.clone(),
+            commands: self.commands.scoped(retirement.clone()),
+            snapshots: self.snapshots.scoped(retirement),
+        }
     }
 
     pub(crate) fn new(tools: MediaTools) -> Self {
@@ -63,6 +74,32 @@ impl FileInspector {
         path: &Path,
         cached: Option<CachedFile>,
     ) -> Result<IndexedFile> {
+        Ok(self.inspect_media(root, path, cached).await?.0)
+    }
+
+    pub(super) async fn inspect_download(
+        &self,
+        root: &Root,
+        path: &Path,
+    ) -> Result<(IndexedFile, &'static str)> {
+        let (file, mime) = self.inspect_media(root, path, None).await?;
+        if file.audio.is_none() {
+            return Err(Error::Invalid(
+                "This audio profile cannot be verified for download".into(),
+            ));
+        }
+        Ok((
+            file,
+            mime.ok_or_else(|| Error::Invalid("This audio format cannot be downloaded".into()))?,
+        ))
+    }
+
+    async fn inspect_media(
+        &self,
+        root: &Root,
+        path: &Path,
+        cached: Option<CachedFile>,
+    ) -> Result<(IndexedFile, Option<&'static str>)> {
         let prepared = self
             .snapshots
             .prepare(
@@ -78,7 +115,7 @@ impl FileInspector {
                 event = "media_inspection_reused",
                 "Unchanged file inspection reused"
             );
-            return Ok(cached.into_indexed(before));
+            return Ok((cached.into_indexed(before), None));
         }
         let media = prepared
             .media
@@ -86,7 +123,7 @@ impl FileInspector {
         let mut arguments = input(&media.path);
         arguments.extend([
             "-select_streams", "a", "-show_entries",
-            "stream=codec_name,sample_rate,channels,channel_layout,bits_per_sample,bits_per_raw_sample:format=duration:format_tags=title,artist,album,album_artist,disc,track:stream_tags=title,artist,album,album_artist,disc,track",
+            "stream=codec_name,sample_rate,channels,channel_layout,bits_per_sample,bits_per_raw_sample:format=duration,format_name:format_tags=title,artist,album,album_artist,disc,track:stream_tags=title,artist,album,album_artist,disc,track",
             "-of", "json",
         ].map(OsString::from));
         let bytes = self
@@ -129,23 +166,27 @@ impl FileInspector {
             .tag("artist")
             .unwrap_or_else(|| "Unknown artist".into());
         let album_artist = probe.tag("album_artist").unwrap_or_else(|| artist.clone());
-        Ok(IndexedFile {
-            path: before.path,
-            checksum: before.checksum,
-            size: before.size,
-            title,
-            artist,
-            album_artist,
-            album: probe.tag("album").unwrap_or_else(|| "Unknown album".into()),
-            duration_ms: probe.duration_ms(),
-            disc_number: probe.number("disc"),
-            track_number: probe.number("track"),
-            tag_details: Some(
-                serde_json::to_string(&probe.tags())
-                    .map_err(|_| Error::Internal("Observed tags could not be encoded".into()))?,
-            ),
-            audio,
-        })
+        Ok((
+            IndexedFile {
+                path: before.path,
+                checksum: before.checksum,
+                size: before.size,
+                title,
+                artist,
+                album_artist,
+                album: probe.tag("album").unwrap_or_else(|| "Unknown album".into()),
+                duration_ms: probe.duration_ms(),
+                disc_number: probe.number("disc"),
+                track_number: probe.number("track"),
+                tag_details: Some(
+                    serde_json::to_string(&probe.tags()).map_err(|_| {
+                        Error::Internal("Observed tags could not be encoded".into())
+                    })?,
+                ),
+                audio,
+            },
+            probe.mime(),
+        ))
     }
 
     pub(super) async fn checksum(&self, root: &Root, path: &Path) -> Result<String> {

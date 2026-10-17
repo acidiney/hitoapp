@@ -23,12 +23,27 @@ pub(super) struct Stream {
 
 #[derive(Deserialize)]
 pub(super) struct Format {
+    pub format_name: Option<String>,
     pub duration: Option<String>,
     #[serde(default)]
     pub tags: BTreeMap<String, String>,
 }
 
 impl Probe {
+    pub(super) fn mime(&self) -> Option<&'static str> {
+        match self.format.format_name.as_deref()?.split(',').next()? {
+            "wav" => Some("audio/wav"),
+            "flac" => Some("audio/flac"),
+            "mp3" => Some("audio/mpeg"),
+            "ogg" => Some("audio/ogg"),
+            "mov" => Some("audio/mp4"),
+            "aac" => Some("audio/aac"),
+            "aiff" => Some("audio/aiff"),
+            "asf" => Some("audio/x-ms-wma"),
+            _ => None,
+        }
+    }
+
     pub(super) fn number(&self, name: &str) -> Option<i64> {
         self.tag(name)?
             .split('/')

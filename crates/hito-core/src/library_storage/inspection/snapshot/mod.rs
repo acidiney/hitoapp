@@ -1,5 +1,6 @@
 mod file;
 
+use super::ownership::Scope;
 use crate::{Error, Result, library_storage::root::Root};
 use std::{
     path::{Path, PathBuf},
@@ -10,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tempfile::TempDir;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, oneshot};
 
 #[derive(PartialEq)]
 pub(super) struct Snapshot {
@@ -30,7 +31,10 @@ pub(super) struct Prepared {
 }
 
 #[derive(Clone)]
-pub(super) struct Reader(Arc<Semaphore>);
+pub(super) struct Reader {
+    slots: Arc<Semaphore>,
+    retirement: Option<Scope>,
+}
 
 enum Mode {
     Checksum,
@@ -62,7 +66,22 @@ impl Control {
 
 impl Reader {
     pub(super) fn new() -> Self {
-        Self(Arc::new(Semaphore::new(2)))
+        Self {
+            slots: Arc::new(Semaphore::new(2)),
+            retirement: None,
+        }
+    }
+
+    pub(super) fn scoped(&self, retirement: Scope) -> Self {
+        Self {
+            slots: self.slots.clone(),
+            retirement: Some(retirement),
+        }
+    }
+
+    pub(super) async fn settle(&self) -> Result<()> {
+        let _idle = self.slots.acquire_many(2).await.map_err(|_| stopped())?;
+        Ok(())
     }
 
     pub(super) async fn checksum(
@@ -103,19 +122,26 @@ impl Reader {
             timeout,
         };
         let _cancel = CancelOnDrop(control.cancelled.clone());
-        let slots = self.0.clone();
+        let slots = self.slots.clone();
+        let retirement = self.retirement.clone();
         let root = root.clone();
         let path = path.to_owned();
         let span = tracing::Span::current();
         let operation = async move {
             let permit = slots.acquire_owned().await.map_err(|_| stopped())?;
-            tokio::task::spawn_blocking(move || {
+            let retirement = match retirement {
+                Some(scope) => Some(scope.acquire().await?),
+                None => None,
+            };
+            let (finished, result) = oneshot::channel();
+            let _task = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
+                let _retirement = retirement;
                 let _entered = span.enter();
-                file::read(&root, &path, mode, &control)
-            })
-            .await
-            .map_err(|_| unreadable())?
+                let outcome = file::read(&root, &path, mode, &control);
+                let _ = finished.send(outcome);
+            });
+            result.await.map_err(|_| unreadable())?
         };
         tokio::time::timeout(timeout, operation)
             .await
