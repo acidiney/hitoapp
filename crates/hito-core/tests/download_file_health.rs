@@ -219,6 +219,141 @@ async fn a_missing_download_requires_a_fresh_explicit_request_and_preserves_the_
     );
 }
 
+#[tokio::test]
+async fn a_checksum_mismatch_fails_the_retained_copy_without_starting_an_implicit_transfer() {
+    let fixture = AudioLibrary::start().await;
+    fixture.ready().await;
+    let request = Uuid::new_v4();
+    let accepted = fixture
+        .hito
+        .downloads
+        .create(
+            &fixture.actor,
+            &fixture.source.recording_id,
+            DownloadRequest {
+                request_id: request,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        fixture
+            .hito
+            .downloads
+            .run_next_job_until(pending())
+            .await
+            .unwrap()
+    );
+    let ready = fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap();
+    assert!(matches!(ready.status, DownloadState::Ready));
+    let source = ready.source_id.unwrap();
+    let owned_media = owned_generated_media(&fixture);
+    let mut changed = fixture.original.clone();
+    changed[44] ^= 1;
+    std::fs::write(owned_media, &changed).unwrap();
+    assert_eq!(changed.len(), fixture.original.len());
+    assert_ne!(changed, fixture.original);
+    let transfers = fixture.server.requests("v1/audio").await.len();
+
+    assert!(
+        fixture
+            .hito
+            .catalog
+            .open_audio(&fixture.actor, &source, AudioRequest::default())
+            .await
+            .is_err()
+    );
+    let failed = fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap();
+    assert!(matches!(failed.status, DownloadState::Failed));
+    assert_eq!(failed.intent_id, accepted.intent_id);
+    assert_eq!(failed.error.as_deref(), Some("file_unavailable"));
+    assert!(failed.source_id.is_none());
+    fixture
+        .hito
+        .downloads
+        .run_next_job_until(pending())
+        .await
+        .unwrap();
+    assert_eq!(fixture.server.requests("v1/audio").await.len(), transfers);
+    let replay = fixture
+        .hito
+        .downloads
+        .create(
+            &fixture.actor,
+            &fixture.source.recording_id,
+            DownloadRequest {
+                request_id: request,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(replay.intent_id, accepted.intent_id);
+    assert!(matches!(
+        fixture
+            .hito
+            .downloads
+            .status(&fixture.actor, &fixture.source.recording_id)
+            .await
+            .unwrap()
+            .status,
+        DownloadState::Failed
+    ));
+
+    let fresh = fixture
+        .hito
+        .downloads
+        .create(
+            &fixture.actor,
+            &fixture.source.recording_id,
+            DownloadRequest {
+                request_id: Uuid::new_v4(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_ne!(fresh.intent_id, accepted.intent_id);
+    assert!(
+        fixture
+            .hito
+            .downloads
+            .run_next_job_until(pending())
+            .await
+            .unwrap()
+    );
+    let repaired = fixture
+        .hito
+        .downloads
+        .status(&fixture.actor, &fixture.source.recording_id)
+        .await
+        .unwrap();
+    assert!(matches!(repaired.status, DownloadState::Ready));
+    assert_eq!(repaired.intent_id, fresh.intent_id);
+    let repaired_source = repaired.source_id.unwrap();
+    assert_ne!(repaired_source, source);
+    assert_eq!(
+        read_audio(&fixture, &repaired_source).await,
+        fixture.original
+    );
+    assert_eq!(
+        fixture.server.requests("v1/audio").await.len(),
+        transfers + 1
+    );
+    assert_eq!(
+        std::fs::read(fixture.music.join("original.wav")).unwrap(),
+        fixture.original
+    );
+}
+
 fn owned_generated_media(fixture: &AudioLibrary) -> PathBuf {
     let owned = fixture.directory.path().join("hito.downloads");
     assert_eq!(owned.parent(), Some(fixture.directory.path()));
