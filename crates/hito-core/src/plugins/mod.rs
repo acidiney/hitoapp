@@ -9,6 +9,7 @@ mod offers;
 mod operation;
 mod playlist_operation;
 mod playlists;
+mod preparation;
 mod refresh;
 mod removal;
 mod transport;
@@ -25,6 +26,7 @@ pub(crate) use media::{Authority as AudioAuthority, RemoteAudio};
 pub(crate) use operation::Operation;
 pub(crate) use playlist_operation::PlaylistOperation;
 pub(crate) use playlists::PlaylistSnapshot;
+pub(crate) use preparation::PreparationConnection;
 pub(crate) use transport::SourceBatch;
 pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};
 pub use types::{

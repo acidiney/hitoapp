@@ -12,8 +12,9 @@ pub use playback::PlaybackSource;
 mod preferred;
 mod provider;
 pub use provider::{
-    AdoptProviderRecording, AttachReviewedProviderSource, ProviderCandidate, ProviderSearch,
-    ProviderSourceReview,
+    AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
+    ProviderSearch, ProviderSourceReview, SourcePreparationPhase, SourcePreparationReceipt,
+    SourcePreparationStatus,
 };
 pub(crate) use provider::{provider_library, publish_provider_metadata};
 mod releases;
