@@ -1,6 +1,6 @@
 # YouTube plugin development
 
-The separate YouTube HTTP service currently supports search. It returns bounded SDK recording metadata through `v1/search`. Recording detail, playable sources, audio relay and Spotify-to-YouTube matching are still being implemented. Its manifest advertises search only, so Hito keeps playback and adoption disabled for these results.
+The separate YouTube HTTP service implements search, recording details, AAC/M4A sources and audio relay. Its manifest declares `search` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The current image is verified in an isolated Docker project. Installation, adoption, playback and reviewed Spotify-to-YouTube attachment through the Hito UI remain to be verified.
 
 ## Isolated Docker service
 
@@ -34,10 +34,36 @@ The extractor passes literal arguments without a shell and clears the inherited 
 
 The worker retains its capacity until process-group cleanup finishes, including when the HTTP caller disconnects. Shutdown stops admission, cancels workers and joins cleanup. A cleanup failure stops further extraction. These process-ownership checks currently target Linux GNU, which is the service container platform.
 
+## Audio ownership and bounds
+
+Recording details and sources use a canonical eleven-character video identifier. A source ID identifies the selected format, length and upstream modification witness. It contains no signed URL. The 128-entry LRU cache can reextract an evicted or expired item; a changed representation cannot reuse an old source ID. These witnesses do not establish cryptographic content identity.
+
+Only original, progressive HTTPS AAC LC in an M4A container is supported, up to 128 MiB. The extractor does not pass its returned cookies or authorization headers into audio requests. Audio endpoints accept HEAD, full GET and one byte range. Hito verifies upstream status, length, range, media type and available validators before sending audio. Conversion and other codecs remain open.
+
+```mermaid
+flowchart LR
+  Sources[Typed source request] --> Extractor[Owned extractor and bounded cache]
+  Extractor --> Descriptor[Private validated media descriptor]
+  Audio[Audio request] --> Admission[Four relay permits]
+  Admission --> Descriptor
+  Descriptor --> Driver[Owned HTTP/1 driver and verified TLS socket]
+  Driver --> Output[Original bytes in frames up to 64 KiB]
+  Cancel[Body drop or service shutdown] --> Close[Drop driver and socket]
+  Close --> Release[Release relay permit and tracked work]
+```
+
+The HTTP connection driver stays inside the response owner; it is not spawned into a detached client task. Header requests are bounded by the existing eight-second open budget. DNS, TCP and TLS connection establishment has a two-second timeout; HTTP parsing allows 32 fields, 16 KiB of headers and a 256 KiB read buffer. These async deadlines do not establish a bound on underlying operating-system resolver work.
+
+A ten-second idle deadline applies while actively waiting for upstream audio. Downstream pauses do not consume that deadline, and buffered bytes can resume after a pause. Incoming frames larger than 64 KiB are split without copying their payload. Admission remains held with the owned stream and pending bytes until cleanup. Shutdown closes retained bodies and waits for admitted opens and process cleanup.
+
 ## Verification and remaining work
 
-Eight fixture cases passed through Docker, including the real host executable's SIGTERM path, retained capacity during cancellation, descendant cleanup, the exact child environment and INFO/TRACE redaction. Formatting and strict all-target Clippy passed for that source checkpoint.
+Sixteen fixture cases passed through Docker, together with formatting and strict all-target Clippy. They cover executable SIGTERM and descendant cleanup, the exact child environment, metadata/source validation, cache eviction and changed representation identity, full AAC delivery, ranges, native decoding, four-body admission, consumer pauses, active input timeout, large real HTTPS frames, correlated completion logs and INFO/TRACE privacy. A current-thread Linux regression observes the concrete client socket inode and verifies it is closed before shutdown returns, even while the caller retains an unpolled response body.
 
-The packaged arm64 image started under the configured restrictions, reported both pinned runtime versions and completed an offline Deno program. A live public search through the packaged HTTP service returned a validated recording. Rebuilding with the Deno notices preserved those checks; the live request took 1,053 ms. That single observation is a functional check, not a latency benchmark.
+Two review rounds found defects that received failing public-boundary regressions and passing resolver checks. The final ownership fix uses the direct HTTP driver described above. No third independent clean verdict is claimed.
 
-The amd64 runtime, detailed extraction, JavaScript challenge compatibility, AAC/M4A relay, seeking, expiry and range recovery, bounded source caching, full Hito installation/adoption/playback, uncertain matching and platform release acceptance remain open. A working search service does not establish playable YouTube audio.
+The packaged arm64 image `sha256:fe3f2abaff3df419a332bc3d34ad3d037a7b79afee154ea6e2ed77291b381178` is healthy in the isolated project. An explicitly opted-in live test passed SDK details/sources, HEAD, a nonzero byte range, full transfer and native Symphonia decoding. It received 527,856 encoded bytes and decoded 2,871,296 finite samples at 44.1 kHz stereo with nonzero energy. HEAD, range and full transfer together took 16,291 ms; decoding took 316 ms. The recording was about 33 seconds long. These are functional observations, not playback-start or release latency measurements.
+
+The ignored test requires `HITO_YOUTUBE_LIVE=1`, an explicit isolated `HITO_YOUTUBE_LIVE_BASE_URL` and a canonical public `HITO_YOUTUBE_LIVE_VIDEO_ID`. It accepts only loopback or named isolated-service endpoints, writes encoded bytes to a mode-0600 temporary file, bounds transfer and decode work, and prints numeric evidence without titles, identifiers, URLs or paths. Invoke it through the Docker Rust tools service with `cargo test --locked -p hito-plugin-youtube --test live_audio -- --ignored --exact release_image_relays_public_aac_with_ranges_and_native_decoding --nocapture`.
+
+The amd64 runtime, broader upstream and challenge compatibility, expiry and range-recovery countercases, full Hito installation/adoption/playback, reviewed Spotify attachment, other codecs, physical output and platform/public-release acceptance remain open. Complete runtime dependency attribution and redistribution acceptance are also still required.
