@@ -68,7 +68,7 @@ test("browser repeat modes exhaust unavailable occurrences without looping", asy
         })),
         1,
       );
-      expect(resolve).toHaveBeenCalledTimes(shuffled || cycles === 1 ? 4 : 2);
+      expect(resolve).toHaveBeenCalledTimes(shuffled || cycles === 1 ? 6 : 3);
       expect(player.snapshot().playing).toBe(false);
       expect(player.snapshot().loading).toBe(false);
       expect(player.snapshot().error).toContain("Audio is unavailable");

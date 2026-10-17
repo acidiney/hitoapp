@@ -41,17 +41,22 @@ const track = (id: string) => ({
 
 test("exhausted cached audio refreshes once and resumes the same recording near its saved position", async () => {
   const media = new Media();
-  const requests: boolean[] = [];
+  const requests: string[] = [];
   const player = new Playback(media, async (_id, options) => {
-    requests.push(options?.refresh ?? false);
-    return [{ id: options?.refresh ? "replacement" : "expired", ready: true }];
+    requests.push(options.purpose);
+    return [
+      {
+        id: options.purpose === "refresh" ? "replacement" : "expired",
+        ready: true,
+      },
+    ];
   });
   await player.playQueue([track("saved")]);
   media.dispatchEvent(new Event("loadedmetadata"));
   player.seek(12.5);
   player.speed(1.25);
   await player.recover();
-  expect(requests).toEqual([false, true]);
+  expect(requests).toEqual(["cached", "refresh"]);
   expect(media.src).toContain("/replacement/audio");
   media.dispatchEvent(new Event("loadedmetadata"));
   expect(media.currentTime).toBe(12.5);
@@ -69,7 +74,7 @@ test("a rejected old refresh is aborted and cannot skip a newer queue selection"
     started = resolve;
   });
   const player = new Playback(media, async (id, options) => {
-    if (id === "old" && options.refresh) {
+    if (id === "old" && options.purpose === "refresh") {
       signal = options.signal;
       return new Promise((_, reject) => {
         fail = reject;
@@ -98,7 +103,7 @@ test("a seek made while replacement audio is being found wins over the failed po
     started = resolve;
   });
   const player = new Playback(media, async (_id, options) =>
-    options.refresh
+    options.purpose === "refresh"
       ? new Promise((resolve) => {
           finish = resolve;
           started();
@@ -130,7 +135,7 @@ test("cached alternatives play before a provider refresh and every source cycle 
   const media = new FailingMedia();
   const requests: string[] = [];
   const player = new Playback(media, async (id, options) => {
-    requests.push(`${id}:${options.refresh}`);
+    requests.push(`${id}:${options.purpose}`);
     if (id === "next") return [{ id: "healthy", ready: true }];
     return [
       { id: "failed-a", ready: true },
@@ -139,7 +144,12 @@ test("cached alternatives play before a provider refresh and every source cycle 
     ];
   });
   await player.playQueue([track("failed"), track("next")]);
-  expect(requests).toEqual(["failed:false", "failed:true", "next:false"]);
+  expect(requests).toEqual([
+    "failed:cached",
+    "failed:refresh",
+    "failed:resolve",
+    "next:cached",
+  ]);
   expect(media.attempts.map((path) => path.split("/").at(-2))).toEqual([
     "failed-a",
     "failed-b",
@@ -160,7 +170,7 @@ test("pressing play while a refresh is pending does not resume expired audio or 
     started = resolve;
   });
   const player = new Playback(media, async (_id, options) =>
-    options.refresh
+    options.purpose === "refresh"
       ? new Promise((resolve) => {
           finish = resolve;
           started();
@@ -181,15 +191,16 @@ test("pressing play while a refresh is pending does not resume expired audio or 
 test("a failed refresh can use a newer cached source accepted by another request", async () => {
   const media = new Media();
   let reads = 0;
-  const calls: boolean[] = [];
+  const calls: string[] = [];
   const player = new Playback(media, async (_id, options) => {
-    calls.push(options.refresh);
-    if (options.refresh) throw new Error("Sources changed during refresh");
+    calls.push(options.purpose);
+    if (options.purpose === "refresh")
+      throw new Error("Sources changed during refresh");
     return [{ id: reads++ === 0 ? "expired" : "peer-source", ready: true }];
   });
   await player.playQueue([track("saved")]);
   await player.recover();
-  expect(calls).toEqual([false, true, false]);
+  expect(calls).toEqual(["cached", "refresh", "cached"]);
   expect(media.src).toContain("/peer-source/audio");
   expect(player.snapshot().error).toBe("");
 });

@@ -13,6 +13,7 @@ import type { Player } from "./model";
 import { log } from "../log";
 import { useRequestScope } from "../hooks/useRequestScope";
 import { NativePlayback } from "./native/NativePlayback";
+import { sourceResolutionApi } from "../sourceResolutionApi";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -49,10 +50,20 @@ function BrowserAccountPlayback({
     const audio = new Audio();
     const player = new Playback(
       audio,
-      (recording, options) =>
-        options.refresh
+      async (recording, options) => {
+        if (options.purpose === "resolve")
+          return (
+            await sourceResolutionApi.resolve(
+              account,
+              recording,
+              options.body,
+              options.signal,
+            )
+          ).sources;
+        return options.purpose === "refresh"
           ? libraryApi.recoverSources(account, recording, options.signal)
-          : libraryApi.sources(account, recording, options.signal),
+          : libraryApi.sources(account, recording, options.signal);
+      },
       (track, position, speed) => {
         const request = scope.capture();
         void change(
