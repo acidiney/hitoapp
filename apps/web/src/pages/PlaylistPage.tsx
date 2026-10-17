@@ -18,7 +18,7 @@ export default function PlaylistPage({
   const follow = usePlaylistFollow(
     user.id,
     followed ? detail.playlist.id : null,
-    detail.origin?.snapshot ?? null,
+    detail.follow_content_revision ?? null,
   );
   const rows = detail.entries.map<TrackTableRow>((entry) => {
     const { recording_id, ...metadata } = entry;

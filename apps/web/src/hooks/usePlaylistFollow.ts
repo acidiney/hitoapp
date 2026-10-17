@@ -34,7 +34,7 @@ function busy(follow: PlaylistFollow | null) {
 export function usePlaylistFollow(
   account: string,
   playlist: string | null,
-  renderedSnapshot: string | null,
+  renderedRevision: number | null,
 ) {
   const scope = useRequestScope(JSON.stringify([account, playlist]));
   const owner = useMemo<FollowOwner>(
@@ -50,7 +50,7 @@ export function usePlaylistFollow(
     }),
     [account, playlist],
   );
-  const detail = useFollowDetail(account, playlist, renderedSnapshot);
+  const detail = useFollowDetail(account, playlist, renderedRevision);
   const [state, setState] = useState<FollowState | null>(null);
   const current = state?.owner === owner ? state : null;
 
@@ -99,19 +99,10 @@ export function usePlaylistFollow(
       if (!active()) return;
       if (follow.playlist_id !== playlist)
         throw new Error("Hito returned a different playlist status");
-      const previous = owner.follow;
-      const initialContentChanged =
-        previous === null && detail.differsFromRendered(follow.snapshot);
-      const changed =
-        previous !== null &&
-        (previous.last_refreshed_at !== follow.last_refreshed_at ||
-          previous.next_refresh_at !== follow.next_refresh_at ||
-          previous.snapshot !== follow.snapshot);
+      const completed = owner.waiting && !busy(follow);
       const reload =
         !busy(follow) &&
-        (owner.waiting ||
-          initialContentChanged ||
-          (follow.status === "ready" && changed));
+        (completed || detail.differsFromRendered(follow.content_revision));
       owner.follow = follow;
       owner.waiting = busy(follow);
       owner.statusError = "";
@@ -122,7 +113,7 @@ export function usePlaylistFollow(
         duration_ms: Math.round(performance.now() - started),
       });
       if (reload) {
-        detail.markChanged(follow.snapshot);
+        detail.markChanged(follow.content_revision, completed);
       }
       if (!busy(follow)) detail.reload();
     } catch (error) {

@@ -7,7 +7,7 @@ type ReloadOptions = NonNullable<Parameters<typeof router.reload>[0]>;
 type ReloadPage = Parameters<NonNullable<ReloadOptions["onSuccess"]>>[0];
 type DetailRun = {
   generation: number;
-  target: string | null;
+  target: number;
   outcome: "pending" | "success" | "failed";
   cancel: (() => void) | null;
   abort: () => void;
@@ -15,8 +15,8 @@ type DetailRun = {
 type DetailOwner = {
   generation: number;
   applied: number;
-  target: string | null;
-  snapshot: string | null;
+  target: number | null;
+  revision: number | null;
   run: DetailRun | null;
 };
 
@@ -24,7 +24,12 @@ function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
 
-function belongs(page: ReloadPage, account: string, playlist: string) {
+function belongs(
+  page: ReloadPage,
+  account: string,
+  playlist: string,
+  target: number,
+) {
   const user = page.props.user;
   const detail = page.props.detail;
   return (
@@ -34,42 +39,65 @@ function belongs(page: ReloadPage, account: string, playlist: string) {
     record(detail) &&
     record(detail.playlist) &&
     detail.playlist.id === playlist &&
-    detail.playlist.kind === "followed"
+    detail.playlist.kind === "followed" &&
+    typeof detail.follow_content_revision === "number" &&
+    Number.isSafeInteger(detail.follow_content_revision) &&
+    detail.follow_content_revision >= target
   );
 }
 
 export function useFollowDetail(
   account: string,
   playlist: string | null,
-  snapshot: string | null,
+  revision: number | null,
 ) {
   const scope = useRequestScope(JSON.stringify([account, playlist]));
   const owner = useMemo<DetailOwner>(
-    () => ({ generation: 0, applied: 0, target: null, snapshot, run: null }),
+    () => ({
+      generation: 0,
+      applied: 0,
+      target: revision,
+      revision,
+      run: null,
+    }),
     [account, playlist],
   );
-  const rendered = useRef({ owner, snapshot });
-  rendered.current = { owner, snapshot };
+  const rendered = useRef({ owner, revision });
+  rendered.current = { owner, revision };
   const [failure, setFailure] = useState<{
     owner: DetailOwner;
     message: string;
   } | null>(null);
 
   useEffect(() => {
-    if (owner.snapshot !== snapshot && owner.target === snapshot) {
-      owner.applied = owner.run?.generation ?? owner.generation;
-      if (owner.run?.target === snapshot) owner.run.outcome = "success";
-      setFailure({ owner, message: "" });
+    if (revision !== null && owner.revision !== revision) {
+      if (owner.target !== null && revision >= owner.target) {
+        owner.applied = Math.max(
+          owner.applied,
+          owner.run?.generation ?? owner.generation,
+        );
+        if (owner.run && revision >= owner.run.target)
+          owner.run.outcome = "success";
+        setFailure({ owner, message: "" });
+      }
+      owner.target = Math.max(owner.target ?? revision, revision);
     }
-    owner.snapshot = snapshot;
-  }, [owner, snapshot]);
+    owner.revision = revision;
+  }, [owner, revision]);
 
   useEffect(() => () => owner.run?.abort(), [owner]);
 
-  function markChanged(target: string) {
+  function markChanged(target: number, completed = false) {
     if (!scope.capture().active()) return;
+    if (
+      !completed &&
+      owner.target !== null &&
+      target <= owner.target &&
+      owner.generation > owner.applied
+    )
+      return;
     owner.generation++;
-    owner.target = target;
+    owner.target = Math.max(owner.target ?? target, target);
   }
 
   function reload() {
@@ -78,6 +106,7 @@ export function useFollowDetail(
       !playlist ||
       !request.active() ||
       owner.run ||
+      owner.target === null ||
       owner.generation <= owner.applied
     )
       return;
@@ -99,7 +128,11 @@ export function useFollowDetail(
     request.signal.addEventListener("abort", abort, { once: true });
     const active = () => request.active() && owner.run === run;
     const started = performance.now();
-    const fields = { account_id: account, playlist_id: playlist };
+    const fields = {
+      account_id: account,
+      playlist_id: playlist,
+      content_revision: run.target,
+    };
     function failed(reason: string) {
       if (!active() || run.outcome !== "pending") return;
       run.outcome = "failed";
@@ -131,7 +164,7 @@ export function useFollowDetail(
         },
         onSuccess: (page) => {
           if (!active()) return;
-          if (!belongs(page, account, playlist)) {
+          if (!belongs(page, account, playlist, run.target)) {
             failed("response");
             return;
           }
@@ -164,10 +197,10 @@ export function useFollowDetail(
 
   return {
     detailError: failure?.owner === owner ? failure.message : "",
-    differsFromRendered: (target: string) =>
+    differsFromRendered: (target: number) =>
       rendered.current.owner === owner &&
-      rendered.current.snapshot !== null &&
-      rendered.current.snapshot !== target,
+      (rendered.current.revision === null ||
+        target > rendered.current.revision),
     markChanged,
     reload,
   };
