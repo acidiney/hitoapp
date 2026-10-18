@@ -152,6 +152,7 @@ async fn detail(
         disc_number: None,
         track_number: None,
         revision: None,
+        attribution: None,
     })
     .into_response()
 }

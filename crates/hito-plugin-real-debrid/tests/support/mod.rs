@@ -45,5 +45,6 @@ pub fn recording() -> ProviderRecording {
         disc_number: None,
         track_number: None,
         revision: Some("curated-wav-v1".into()),
+        attribution: None,
     }
 }

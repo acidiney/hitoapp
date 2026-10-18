@@ -113,6 +113,7 @@ impl SearchEntry {
             disc_number: None,
             track_number: None,
             revision: None,
+            attribution: None,
         };
         recording.validate().map_err(|_| Error::InvalidResponse)?;
         Ok(recording)

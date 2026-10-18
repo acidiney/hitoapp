@@ -1,4 +1,5 @@
 mod artwork;
+mod attribution;
 mod authorization;
 mod catalog;
 mod content;
@@ -6,6 +7,7 @@ mod metadata;
 mod playlists;
 mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
+pub use attribution::RecordingAttribution;
 pub use authorization::Authorization;
 pub use catalog::{
     ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistDiscographyPage,

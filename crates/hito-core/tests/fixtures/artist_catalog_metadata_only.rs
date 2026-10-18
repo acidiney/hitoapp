@@ -307,6 +307,7 @@ fn recording(id: &str) -> ProviderRecording {
         disc_number: Some(1),
         track_number: Some(if id == FIRST { 1 } else { 2 }),
         revision: Some("owned-recording-v1".into()),
+        attribution: None,
     }
 }
 

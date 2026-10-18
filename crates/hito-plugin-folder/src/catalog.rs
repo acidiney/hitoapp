@@ -120,6 +120,7 @@ impl Track {
             disc_number: self.disc_number,
             track_number: self.track_number,
             revision: Some(self.revision.clone()),
+            attribution: None,
         }
     }
     pub fn open(&self) -> io::Result<AudioFile> {

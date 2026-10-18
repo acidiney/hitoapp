@@ -36,6 +36,8 @@ pub struct ProviderRecording {
     pub disc_number: Option<u32>,
     pub track_number: Option<u32>,
     pub revision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<crate::RecordingAttribution>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,6 +143,9 @@ impl ProviderRecording {
             text(&release.id, 256)?;
             text(&release.title, 2048)?;
             optional(release.artist.as_deref(), 2048)?;
+        }
+        if let Some(attribution) = &self.attribution {
+            attribution.validate()?;
         }
         Ok(())
     }

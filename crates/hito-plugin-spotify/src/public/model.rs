@@ -176,6 +176,7 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
         disc_number: track.disc_number,
         track_number: track.track_number,
         revision: None,
+        attribution: None,
     };
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(ProviderPlaylistEntry {

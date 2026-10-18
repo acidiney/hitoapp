@@ -99,6 +99,7 @@ async fn recording_sources_relay_owned_aac_with_ranges_and_native_decode() {
                 disc_number: None,
                 track_number: None,
                 revision: None,
+                attribution: None,
             }
     );
     for _ in 0..2 {

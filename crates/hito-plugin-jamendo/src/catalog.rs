@@ -112,6 +112,7 @@ fn recording(track: &Track) -> Result<ProviderRecording, Error> {
         release,
         disc_number: None,
         revision: None,
+        attribution: None,
     };
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(recording)
