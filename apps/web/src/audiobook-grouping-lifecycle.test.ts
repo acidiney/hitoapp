@@ -77,6 +77,7 @@ test("account replacement and unmount abort held confirmation bodies and reject 
     user: { id: "bob", username: "Bob", admin: false },
     books: [],
     playlists: [bobPlaylist],
+    grouping_playlists: [bobPlaylist],
   };
   const bobDetail: AudiobookDetail = {
     ...alice.confirmed,

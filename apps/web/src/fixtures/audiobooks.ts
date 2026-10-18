@@ -81,6 +81,10 @@ export function audiobookPages() {
   const index: Schema["AudiobookIndexPageProps"] = {
     ...shared,
     books: [playlist],
+    book_pagination: { limit: 60, next_cursor: null, previous_cursor: null },
+    grouping_playlists: shared.playlists.filter(
+      (item) => item.id !== playlist.id,
+    ),
   };
   const detail: Schema["AudiobookPageProps"] = {
     ...shared,
@@ -114,6 +118,10 @@ export function audiobookGrouping() {
       followed,
     ],
   };
+  props.grouping_playlists = props.playlists.filter(
+    (item) =>
+      item.kind === "local" && !props.books.some((book) => book.id === item.id),
+  );
   const confirmed: Schema["AudiobookDetail"] = {
     ...detail.detail,
     playlist,

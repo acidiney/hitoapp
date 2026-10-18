@@ -163,6 +163,7 @@ test("a cancelled book navigation can recover while late old-account callbacks c
     user: { id: "bob", username: "Bob", admin: false },
     books: [],
     playlists: [bobPlaylist],
+    grouping_playlists: [bobPlaylist],
   };
   const writes: SyncBatch[] = [];
   request.mockImplementation(async (input, options) => {

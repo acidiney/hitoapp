@@ -2,16 +2,20 @@ import { Link } from "@inertiajs/react";
 import Artwork from "../components/Artwork";
 import EmptyState from "../components/EmptyState";
 import PageHeading from "../components/PageHeading";
+import AudiobookPagination from "../components/audiobooks/AudiobookPagination";
 import AudiobookCreate from "../components/audiobooks/AudiobookCreate";
+import { useAudiobookPageNavigation } from "../hooks/useAudiobookPageNavigation";
 import { useAudiobookGrouping } from "../hooks/useAudiobookGrouping";
 import type { AudiobookIndexPageProps } from "../types";
 
 export default function AudiobookIndexPage({
   user,
-  playlists,
   books,
+  book_pagination,
+  grouping_playlists,
 }: AudiobookIndexPageProps) {
-  const grouping = useAudiobookGrouping(user.id, playlists, books);
+  const navigation = useAudiobookPageNavigation(user.id, book_pagination);
+  const grouping = useAudiobookGrouping(user.id, grouping_playlists, books);
   return (
     <>
       <PageHeading
@@ -23,6 +27,12 @@ export default function AudiobookIndexPage({
         </Link>
       </PageHeading>
       <AudiobookCreate {...grouping} />
+      <AudiobookPagination
+        {...navigation}
+        limit={book_pagination.limit}
+        nextCursor={book_pagination.next_cursor ?? null}
+        previousCursor={book_pagination.previous_cursor ?? null}
+      />
       <div className="playlist-list">
         {books.map((book) => (
           <Link
