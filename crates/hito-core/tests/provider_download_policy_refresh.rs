@@ -47,6 +47,25 @@ async fn a_ready_explicit_copy_survives_approved_playback_only_policy_and_a_stop
     }
 }
 
+#[tokio::test]
+async fn an_approved_playback_only_manifest_retires_a_partial_download_before_its_body_is_released()
+{
+    let library = tokio::time::timeout(Duration::from_secs(10), Library::start())
+        .await
+        .expect("the owned policy fixture must start within its deadline");
+    let outcome = tokio::time::timeout(
+        Duration::from_secs(20),
+        AssertUnwindSafe(active_case(&library)).catch_unwind(),
+    )
+    .await;
+    library.finish().await;
+    match outcome {
+        Ok(Ok(())) => {}
+        Ok(Err(panic)) => std::panic::resume_unwind(panic),
+        Err(_) => panic!("the active-body policy refresh workflow exceeded its deadline"),
+    }
+}
+
 async fn queued_case(library: &mut Library) {
     let recording = library.prepare(None).await;
     assert!(recording.installation.manifest.content_policy.is_none());
@@ -173,6 +192,159 @@ async fn queued_case(library: &mut Library) {
         "withdrawal must preserve catalog identity and private collection state"
     );
     library.assert_isolated(&recording).await;
+}
+
+async fn active_case(library: &Library) {
+    let recording = library.prepare(Some("explicit_download")).await;
+    let server = library.server.as_ref().unwrap();
+    let tail = server.hold_audio_tail(64);
+    let accepted = library
+        .hito
+        .downloads
+        .create(
+            &library.actor,
+            &recording.id,
+            DownloadRequest {
+                request_id: Uuid::new_v4(),
+            },
+        )
+        .await
+        .unwrap();
+    let preserved = library.private_state(&recording).await;
+    library.assert_isolated(&recording).await;
+    let downloads = library.hito.downloads.clone();
+    let mut worker = Box::pin(downloads.run_next_job_until(pending()));
+    tokio::select! {
+        result = &mut worker => panic!("the download finished before its held WAV tail: {}", result.is_ok()),
+        entered = tokio::time::timeout(Duration::from_secs(3), tail.entered()) => {
+            entered.expect("the real provider body must reach its held WAV tail");
+        },
+    }
+    let partial = tokio::select! {
+        result = &mut worker => panic!("the download finished before saving partial progress: {}", result.is_ok()),
+        partial = tokio::time::timeout(Duration::from_secs(3), async {
+            let mut checks = tokio::time::interval(Duration::from_millis(50));
+            loop {
+                checks.tick().await;
+                let status = library.hito.downloads.status(&library.actor, &recording.id).await.unwrap();
+                assert!(matches!(status.status, DownloadState::Running));
+                if status.bytes_received > 0 { return status; }
+            }
+        }) => partial.expect("the worker must save partial bytes while the healthy WAV tail remains held"),
+    };
+    assert_eq!(partial.intent_id, accepted.intent_id);
+    assert_eq!(partial.bytes_received, 64);
+    assert_eq!(partial.total_bytes, Some(library.original.len() as u64));
+    assert!(partial.source_id.is_none() && partial.error.is_none());
+    library.assert_managed_partial(partial.bytes_received);
+    assert!(!tail.released());
+    assert_eq!(server.requests("v1/audio").await.len(), 1);
+
+    let (updated, retired) = tokio::join!(
+        library.approve_playback_only(&recording.installation),
+        tokio::time::timeout(Duration::from_secs(3), &mut worker),
+    );
+    assert_eq!(updated.id, recording.installation.id);
+    assert!(
+        retired
+            .expect(
+                "approved policy tightening must retire the worker while its WAV tail remains held"
+            )
+            .unwrap()
+    );
+    drop(worker);
+    tokio::time::timeout(Duration::from_secs(3), tail.dropped())
+        .await
+        .expect("retirement must drop the actual upstream body without releasing its tail");
+    assert!(!tail.released());
+    library.assert_no_managed_files();
+
+    let failed = library
+        .hito
+        .downloads
+        .status(&library.actor, &recording.id)
+        .await
+        .unwrap();
+    assert!(matches!(failed.status, DownloadState::Failed));
+    assert_eq!(failed.intent_id, accepted.intent_id);
+    assert_eq!(failed.recording_id, recording.id);
+    assert_eq!(failed.error.as_deref(), Some("authority_changed"));
+    assert_eq!(failed.bytes_received, partial.bytes_received);
+    assert_eq!(failed.total_bytes, partial.total_bytes);
+    assert!(failed.source_id.is_none());
+    let terminal = serde_json::to_value(failed).unwrap();
+    let replay = library
+        .hito
+        .downloads
+        .create(
+            &library.actor,
+            &recording.id,
+            DownloadRequest {
+                request_id: accepted.request_id,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(serde_json::to_value(replay).unwrap() == serde_json::to_value(&accepted).unwrap());
+    assert!(
+        !library
+            .hito
+            .downloads
+            .run_next_job_until(pending())
+            .await
+            .unwrap(),
+        "receipt replay must not restart the retired transfer"
+    );
+    let rejection = library
+        .hito
+        .downloads
+        .create(
+            &library.actor,
+            &recording.id,
+            DownloadRequest {
+                request_id: Uuid::new_v4(),
+            },
+        )
+        .await;
+    let message = match rejection {
+        Err(Error::Conflict(message)) => message,
+        Err(error) => panic!("expected a policy conflict, received {}", error.code()),
+        Ok(_) => panic!("approved playback-only policy must deny a fresh persistent transfer"),
+    };
+    assert!(message.contains("playback only") && message.len() <= 256);
+    assert!(!message.contains("private-policy-refresh") && !message.contains("://"));
+    assert!(
+        !library
+            .hito
+            .downloads
+            .run_next_job_until(pending())
+            .await
+            .unwrap(),
+        "new admission rejection must not queue transfer work"
+    );
+    let after = library
+        .hito
+        .downloads
+        .status(&library.actor, &recording.id)
+        .await
+        .unwrap();
+    assert!(serde_json::to_value(after).unwrap() == terminal);
+    let sources = library
+        .hito
+        .catalog
+        .sources(&library.actor, &recording.id)
+        .await
+        .unwrap();
+    assert_eq!(sources.len(), 1);
+    assert!(sources[0].id == recording.source && sources[0].ready);
+    assert!(
+        library.private_state(&recording).await == preserved,
+        "retirement must preserve catalog identity and private collection state"
+    );
+    library.assert_isolated(&recording).await;
+    library.assert_no_managed_files();
+    assert!(!tail.released());
+    assert_eq!(server.requests("v1/audio").await.len(), 1);
 }
 
 async fn ready_case(library: &mut Library) {
