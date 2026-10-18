@@ -1,3 +1,4 @@
+pub(crate) mod artist_catalog;
 mod artists;
 mod artwork;
 pub(crate) mod audio;
@@ -35,6 +36,10 @@ mod sources;
 mod types;
 
 use crate::{HostDeviceId, store::Store};
+pub use artist_catalog::{
+    ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, ArtistProfileAvailability,
+    AssociateRecordingArtist, MetadataProvider, MetadataSettings, UpdateMetadataSettings,
+};
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus};
 pub use audio::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
@@ -50,6 +55,7 @@ pub use types::{Page, Recording, Search, Source};
 pub struct Catalog {
     pub(crate) store: Store,
     pub(crate) plugins: crate::Plugins,
+    pub(crate) artist_catalog: artist_catalog::Host,
     pub(crate) host: HostDeviceId,
     pub(crate) artwork_slots: Arc<Semaphore>,
     pub(crate) provider_artwork_slots: Arc<Semaphore>,

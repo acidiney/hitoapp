@@ -49,9 +49,11 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_release_credits(&mut connection)
         .await
         .expecting_playlist_metadata()
+        .await
+        .expecting_artist_catalog()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 46).await;
+    assert_version(&mut connection, 47).await;
     expected.assert_preserved(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
@@ -385,6 +387,32 @@ impl RetainedState {
             );
             self.indexes
                 .insert(key.clone(), declared_indexes.remove(&key).unwrap());
+        }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_artist_catalog(mut self) -> Self {
+        let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        sqlx::raw_sql(include_str!(
+            "../migrations/0047_artist_catalog_profiles.sql"
+        ))
+        .execute(&mut reference)
+        .await
+        .unwrap();
+        for (key, definition) in schema(&mut reference).await {
+            assert!(
+                !self.schema.contains_key(&key),
+                "the baseline must predate each declared artist catalog schema object"
+            );
+            self.schema.insert(key, definition);
+        }
+        for (key, definition) in indexes(&mut reference).await {
+            assert!(
+                !self.indexes.contains_key(&key),
+                "the baseline must predate each declared artist catalog index"
+            );
+            self.indexes.insert(key, definition);
         }
         reference.close().await.unwrap();
         self

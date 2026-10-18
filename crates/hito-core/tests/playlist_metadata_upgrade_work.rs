@@ -88,7 +88,7 @@ async fn migrate(seed: &work::Seed, events: i64, receipts_per_kind: i64) -> u64 
     let aborted = exceeded.load(Ordering::Relaxed);
     if result.is_ok() {
         work::assert_population(&mut connection, events, receipts_per_kind).await;
-        upgrade::assert_preserved(&mut connection, &before).await;
+        upgrade::assert_preserved(&mut connection, &before, 46).await;
     }
     connection.close().await.unwrap();
     eprintln!(

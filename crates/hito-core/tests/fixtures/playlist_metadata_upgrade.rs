@@ -182,7 +182,7 @@ pub async fn historical_45(source: &Path, destination: &Path) -> Baseline {
     let mut copied_state = copied.clone();
     copied_state.push("sqlite_sequence".into());
     let mut source_connection = connect(source).await;
-    assert_eq!(version(&mut source_connection).await, 46);
+    assert_eq!(version(&mut source_connection).await, 47);
     let source_ledger: Vec<(i64, Vec<u8>, bool)> = sqlx::query_as(
         "SELECT version,checksum,success FROM _sqlx_migrations WHERE version <= 45 ORDER BY version",
     ).fetch_all(&mut source_connection).await.unwrap();
@@ -309,7 +309,11 @@ pub async fn historical_45(source: &Path, destination: &Path) -> Baseline {
     baseline
 }
 
-pub async fn assert_preserved(connection: &mut SqliteConnection, baseline: &Baseline) {
+pub async fn assert_preserved(
+    connection: &mut SqliteConnection,
+    baseline: &Baseline,
+    expected_version: i64,
+) {
     assert!(
         rows(connection, &baseline.tables).await == baseline.rows,
         "Migration 0046 must preserve exact typed rows, application rowids, FTS shadow bytes and the prior ledger"
@@ -346,6 +350,21 @@ pub async fn assert_preserved(connection: &mut SqliteConnection, baseline: &Base
         "playlist_metadata_receipt_immutable",
         "playlist_metadata_receipt_retained",
     ];
+    match expected_version {
+        46 => {}
+        47 => expected.extend([
+            "account_metadata_policies",
+            "sqlite_autoindex_account_metadata_policies_1",
+            "recording_artist_associations",
+            "sqlite_autoindex_recording_artist_associations_1",
+            "sqlite_autoindex_recording_artist_associations_2",
+            "recording_artist_associations_account",
+            "recording_artist_association_scope",
+            "recording_artist_association_immutable",
+            "recording_artist_association_retained",
+        ]),
+        _ => panic!("The upgrade fixture requires an exact supported schema endpoint"),
+    }
     expected.sort_unstable();
     let mut new_names = new_names;
     new_names.sort_unstable();
@@ -373,18 +392,21 @@ pub async fn assert_preserved(connection: &mut SqliteConnection, baseline: &Base
             "Each new receipt index must cover its exact parent-reference column"
         );
     }
-    assert_eq!(version(connection).await, 46);
+    assert_eq!(version(connection).await, expected_version);
     let migration = sqlx::migrate!("./migrations");
-    let expected = migration
-        .iter()
-        .find(|migration| migration.version == 46)
-        .unwrap();
-    let (checksum, success): (Vec<u8>, bool) =
-        sqlx::query_as("SELECT checksum,success FROM _sqlx_migrations WHERE version = 46")
-            .fetch_one(&mut *connection)
-            .await
+    for version in 46..=expected_version {
+        let expected = migration
+            .iter()
+            .find(|migration| migration.version == version)
             .unwrap();
-    assert!(success && checksum.as_slice() == expected.checksum.as_ref());
+        let (checksum, success): (Vec<u8>, bool) =
+            sqlx::query_as("SELECT checksum,success FROM _sqlx_migrations WHERE version = ?")
+                .bind(version)
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+        assert!(success && checksum.as_slice() == expected.checksum.as_ref());
+    }
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count(*) FROM playlist_metadata_refresh_receipts")
             .fetch_one(&mut *connection)

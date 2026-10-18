@@ -89,6 +89,47 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) async fn catalog_profile_supported(&self) -> Result<bool> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_profile_supported_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
+    pub(crate) async fn catalog_artist_profile(
+        &self,
+        request: &hito_plugin_sdk::ArtistProfileRequest,
+    ) -> Result<hito_plugin_sdk::CatalogArtistProfile> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_artist_profile_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
+    async fn check_catalog(&self) -> Result<()> {
+        if !self.approved_capabilities.contains(&Capability::Catalog) {
+            return Err(Error::Invalid(
+                "This plugin has not been approved for artist catalogs".into(),
+            ));
+        }
+        let mut connection = self.store.pool.acquire().await?;
+        self.actor.check_session_on(&mut connection).await?;
+        self.recheck(&mut connection).await
+    }
+
     pub(crate) async fn artwork(
         &self,
         request: &hito_plugin_sdk::ArtworkRequest,

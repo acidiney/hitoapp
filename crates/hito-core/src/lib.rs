@@ -17,14 +17,16 @@ mod store;
 mod test_support;
 
 pub use catalog::{
-    AdoptProviderRecording, Artist, ArtistDetail, Artwork, ArtworkAvailability, ArtworkFetch,
-    ArtworkFetchStatus, AttachReviewedProviderSource, AudioContent, AudioFile, AudioRequest,
-    AudioStream, Browse, ByteRange, Catalog, ChooseSource, OpenedAudio, Page, PlaybackCandidates,
-    PlaybackSource, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
-    Recording, Release, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search,
-    Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
-    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    AdoptProviderRecording, Artist, ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole,
+    ArtistDetail, ArtistProfileAvailability, Artwork, ArtworkAvailability, ArtworkFetch,
+    ArtworkFetchStatus, AssociateRecordingArtist, AttachReviewedProviderSource, AudioContent,
+    AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog, ChooseSource,
+    MetadataProvider, MetadataSettings, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
+    PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview, Recording, Release,
+    ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
+    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
+    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
+    SourceResolutionOutcome, UpdateMetadataSettings,
 };
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,
@@ -96,6 +98,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
     let catalog = Catalog {
         plugins: plugins.clone(),
+        artist_catalog: catalog::artist_catalog::Host::new()?,
         store: store.clone(),
         host: config.host_device.clone(),
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),

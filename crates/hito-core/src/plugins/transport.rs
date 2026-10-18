@@ -8,6 +8,7 @@ use hito_plugin_sdk::{
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
+mod catalog;
 mod preparation;
 mod source_batch;
 pub(crate) use source_batch::SourceBatch;
@@ -263,6 +264,21 @@ impl ControlClient {
         call: Call,
         remaining: &mut usize,
     ) -> Result<T> {
+        self.exchange_optional_admitted(base_url, token, call, remaining, false)
+            .await?
+            .ok_or(Error::Upstream(
+                "The plugin service rejected the connection",
+            ))
+    }
+
+    async fn exchange_optional_admitted<T: serde::de::DeserializeOwned>(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        call: Call,
+        remaining: &mut usize,
+        missing_is_unsupported: bool,
+    ) -> Result<Option<T>> {
         let maximum = call.maximum.min(*remaining);
         let endpoint = super::offers::endpoint(base_url)?
             .join(call.path)
@@ -292,6 +308,9 @@ impl ControlClient {
             operation = call.path,
             "Plugin response received"
         );
+        if missing_is_unsupported && matches!(status.as_u16(), 404 | 501) {
+            return Ok(None);
+        }
         if !status.is_success() {
             return Err(Error::Upstream(
                 "The plugin service rejected the connection",
@@ -340,6 +359,7 @@ impl ControlClient {
         }
         *remaining -= bytes.len();
         serde_json::from_slice(&bytes)
+            .map(Some)
             .map_err(|_| Error::Upstream("The plugin service returned invalid JSON data"))
     }
 }
