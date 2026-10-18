@@ -43,6 +43,14 @@ pub struct ProviderRecording {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
+pub struct ProviderRecordingRef {
+    pub id: String,
+    pub revision: Option<String>,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ProviderRelease {
     pub id: String,
     pub title: String,
@@ -148,6 +156,13 @@ impl ProviderRecording {
             attribution.validate()?;
         }
         Ok(())
+    }
+}
+
+impl ProviderRecordingRef {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        text(&self.id, 256)?;
+        optional(self.revision.as_deref(), 256)
     }
 }
 

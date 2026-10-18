@@ -1,14 +1,22 @@
 mod artwork;
 mod attribution;
 mod authorization;
+mod backing_tracks;
 mod catalog;
 mod content;
+mod encoded_size;
+mod lyrics;
 mod metadata;
 mod playlists;
 mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use attribution::RecordingAttribution;
 pub use authorization::Authorization;
+pub use backing_tracks::{
+    BACKING_TRACKS_CAPABILITIES_PATH, BACKING_TRACKS_PATH, BACKING_TRACKS_VERSION,
+    BackingTracksCapabilities, BackingTracksRequest, BackingTracksResponse,
+    MAX_BACKING_TRACKS_RESPONSE_BYTES,
+};
 pub use catalog::{
     ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistDiscographyPage,
     ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchCandidate, ArtistSearchPage,
@@ -21,9 +29,13 @@ pub use catalog::{
     MAX_CATALOG_PAGE_ITEMS, MAX_CATALOG_PROFILE_BYTES,
 };
 pub use content::{
-    AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
-    ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
-    SourcePage,
+    AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRecordingRef,
+    ProviderRelease, ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage,
+    SearchRequest, SourcePage,
+};
+pub use lyrics::{
+    LYRICS_CAPABILITIES_PATH, LYRICS_PATH, LYRICS_VERSION, LyricsCapabilities, LyricsRequest,
+    LyricsResponse, MAX_LYRICS_RESPONSE_BYTES, TimedLyricLine, TimedLyrics,
 };
 pub use metadata::{MAX_RECORDING_METADATA_BYTES, METADATA_PATH, RecordingMetadata};
 pub use playlists::{
