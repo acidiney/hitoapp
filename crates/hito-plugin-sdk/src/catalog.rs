@@ -1,9 +1,16 @@
 mod discography;
+mod discovery;
 
 pub use discography::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogCreditMember, CatalogReleaseGroup,
     CatalogReleaseGroupKind, MAX_CATALOG_CREDIT_MEMBERS, MAX_CATALOG_CURSOR_BYTES,
     MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PAGE_ITEMS,
+};
+pub use discovery::{
+    ARTIST_SEARCH_PATH, ArtistSearchCandidate, ArtistSearchPage, ArtistSearchRequest,
+    CATALOG_DISCOVERY_CAPABILITIES_PATH, CATALOG_DISCOVERY_VERSION, CatalogDiscoveryCapabilities,
+    CatalogDiscoveryOperation, MAX_ARTIST_SEARCH_PAGE_BYTES, MAX_ARTIST_SEARCH_PAGE_ITEMS,
+    MAX_ARTIST_SEARCH_QUERY_BYTES,
 };
 
 use crate::content::{optional, text};

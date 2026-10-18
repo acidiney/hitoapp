@@ -8,12 +8,15 @@ mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use authorization::Authorization;
 pub use catalog::{
-    ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ArtistDiscographyPage, ArtistDiscographyRequest,
-    ArtistProfileRequest, CATALOG_CAPABILITIES_PATH, CATALOG_VERSION, CatalogArtistKind,
-    CatalogArtistProfile, CatalogArtistRef, CatalogCapabilities, CatalogCreditMember,
-    CatalogOperation, CatalogReleaseGroup, CatalogReleaseGroupKind, MAX_CATALOG_CREDIT_MEMBERS,
-    MAX_CATALOG_CURSOR_BYTES, MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PAGE_ITEMS,
-    MAX_CATALOG_PROFILE_BYTES,
+    ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistDiscographyPage,
+    ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchCandidate, ArtistSearchPage,
+    ArtistSearchRequest, CATALOG_CAPABILITIES_PATH, CATALOG_DISCOVERY_CAPABILITIES_PATH,
+    CATALOG_DISCOVERY_VERSION, CATALOG_VERSION, CatalogArtistKind, CatalogArtistProfile,
+    CatalogArtistRef, CatalogCapabilities, CatalogCreditMember, CatalogDiscoveryCapabilities,
+    CatalogDiscoveryOperation, CatalogOperation, CatalogReleaseGroup, CatalogReleaseGroupKind,
+    MAX_ARTIST_SEARCH_PAGE_BYTES, MAX_ARTIST_SEARCH_PAGE_ITEMS, MAX_ARTIST_SEARCH_QUERY_BYTES,
+    MAX_CATALOG_CREDIT_MEMBERS, MAX_CATALOG_CURSOR_BYTES, MAX_CATALOG_PAGE_BYTES,
+    MAX_CATALOG_PAGE_ITEMS, MAX_CATALOG_PROFILE_BYTES,
 };
 pub use content::{
     AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
@@ -97,8 +100,8 @@ impl Manifest {
         {
             return Err("Plugin IDs must contain 1 to 128 ASCII letters, numbers, dots, hyphens, or underscores".into());
         }
-        if self.name.trim().is_empty()
-            || self.name.len() > 256
+        if self.name.len() > 256
+            || self.name.trim().is_empty()
             || self.name.chars().any(char::is_control)
         {
             return Err(
