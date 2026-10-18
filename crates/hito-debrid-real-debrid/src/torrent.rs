@@ -24,6 +24,11 @@ pub struct TorrentObservation {
     pub progress_basis_points: Option<u16>,
 }
 
+pub(crate) enum BoundTorrent {
+    Downloading { progress_basis_points: u16 },
+    ProviderCompleted { link: Zeroizing<String> },
+}
+
 impl TorrentFileBinding {
     pub(crate) fn validate(&self) -> Result<(), Error> {
         if !bounded_text(&self.torrent_id, 256)
@@ -64,6 +69,23 @@ pub(crate) fn observation(
     bytes: &[u8],
     binding: &TorrentFileBinding,
 ) -> Result<TorrentObservation, Error> {
+    let (phase, progress_basis_points) = match bound_torrent(bytes, binding)? {
+        BoundTorrent::Downloading {
+            progress_basis_points,
+        } => (TorrentPhase::Downloading, progress_basis_points),
+        BoundTorrent::ProviderCompleted { .. } => (TorrentPhase::ProviderCompleted, 10_000),
+    };
+    Ok(TorrentObservation {
+        binding: binding.clone(),
+        phase,
+        progress_basis_points: Some(progress_basis_points),
+    })
+}
+
+pub(crate) fn bound_torrent(
+    bytes: &[u8],
+    binding: &TorrentFileBinding,
+) -> Result<BoundTorrent, Error> {
     let info: Info = serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
     if info.id != binding.torrent_id || info.hash != binding.info_hash {
         return Err(Error::SourceChanged);
@@ -92,8 +114,10 @@ pub(crate) fn observation(
     if info.files.iter().filter(|file| file.selected == 1).count() != 1 {
         return Err(Error::InvalidResponse);
     }
-    let phase = match info.status.as_str() {
-        "downloading" if info.links.is_empty() => TorrentPhase::Downloading,
+    match info.status.as_str() {
+        "downloading" if info.links.is_empty() => Ok(BoundTorrent::Downloading {
+            progress_basis_points: info.progress * 100,
+        }),
         "downloaded" if info.progress == 100 && info.links.len() == 1 => {
             let link = Zeroizing::new(
                 info.links
@@ -102,23 +126,18 @@ pub(crate) fn observation(
                     .ok_or(Error::InvalidResponse)?,
             );
             validate_link(&link)?;
-            TorrentPhase::ProviderCompleted
+            Ok(BoundTorrent::ProviderCompleted { link })
         }
-        "downloading" | "downloaded" => return Err(Error::InvalidResponse),
-        _ => return Err(Error::UnsupportedState),
-    };
-    Ok(TorrentObservation {
-        binding: binding.clone(),
-        phase,
-        progress_basis_points: Some(info.progress * 100),
-    })
+        "downloading" | "downloaded" => Err(Error::InvalidResponse),
+        _ => Err(Error::UnsupportedState),
+    }
 }
 
 fn bounded_text(value: &str, maximum: usize) -> bool {
     !value.trim().is_empty() && value.len() <= maximum && !value.chars().any(char::is_control)
 }
 
-fn validate_link(value: &str) -> Result<(), Error> {
+pub(crate) fn validate_link(value: &str) -> Result<(), Error> {
     if !bounded_text(value, 8192) || value.chars().any(char::is_whitespace) || value.contains('\\')
     {
         return Err(Error::InvalidResponse);

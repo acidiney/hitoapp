@@ -1,4 +1,7 @@
-use crate::{Error, TorrentFileBinding, TorrentObservation, torrent, transport::Transport};
+use crate::{
+    Error, TorrentFileBinding, TorrentObservation, UnrestrictionReceipt, torrent,
+    transport::Transport, unrestriction,
+};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -8,6 +11,7 @@ use uuid::Uuid;
 
 const API_ROOT: &str = "https://api.real-debrid.com/rest/1.0/";
 const OBSERVATION_DEADLINE: Duration = Duration::from_secs(12);
+const UNRESTRICTION_DEADLINE: Duration = Duration::from_secs(12);
 
 #[derive(Clone)]
 pub struct RealDebridClient {
@@ -55,6 +59,7 @@ impl RealDebridClient {
         async {
             let result = tokio::time::timeout(OBSERVATION_DEADLINE, async {
                 binding.validate()?;
+                let _permit = self.transport.admit()?;
                 let bytes = self.transport.torrent_info(&binding.torrent_id).await?;
                 torrent::observation(&bytes, binding)
             })
@@ -69,6 +74,59 @@ impl RealDebridClient {
                 count = if result.is_ok() { 1_u64 } else { 0 },
                 elapsed_ms = started.elapsed().as_millis() as u64,
                 "Real-Debrid torrent observation finished"
+            );
+            result
+        }
+        .instrument(span)
+        .await
+    }
+
+    pub async fn unrestrict_bound_file(
+        &self,
+        binding: &TorrentFileBinding,
+    ) -> Result<UnrestrictionReceipt, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        let span = tracing::debug_span!(
+            "real_debrid_unrestriction", %request_id, operation = "file_unrestriction"
+        );
+        async {
+            let mut post_dispatched = false;
+            let result = tokio::time::timeout(UNRESTRICTION_DEADLINE, async {
+                binding.validate()?;
+                let _permit = self.transport.admit()?;
+                let bytes = self.transport.torrent_info(&binding.torrent_id).await?;
+                let link = match torrent::bound_torrent(&bytes, binding)? {
+                    torrent::BoundTorrent::ProviderCompleted { link } => link,
+                    torrent::BoundTorrent::Downloading { .. } => {
+                        return Err(Error::UnsupportedState);
+                    }
+                };
+                let bytes = self
+                    .transport
+                    .unrestrict_link(&link, &mut post_dispatched)
+                    .await?;
+                unrestriction::receipt(&bytes, binding, &link)
+            })
+            .await
+            .unwrap_or(Err(Error::Deadline));
+            let result = if post_dispatched {
+                result.map_err(|error| match error {
+                    Error::Status(401 | 403) => error,
+                    _ => Error::UnrestrictionUncertain,
+                })
+            } else {
+                result
+            };
+            tracing::debug!(
+                event = "real_debrid_unrestriction_finished",
+                outcome = result
+                    .as_ref()
+                    .map(|_| "success")
+                    .unwrap_or_else(|error| error.outcome()),
+                count = if result.is_ok() { 1_u64 } else { 0 },
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Real-Debrid file unrestriction finished"
             );
             result
         }

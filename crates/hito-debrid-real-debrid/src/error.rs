@@ -12,6 +12,8 @@ pub enum Error {
     Deadline,
     #[error("The Real-Debrid service could not be reached")]
     Transport,
+    #[error("The Real-Debrid unrestriction acknowledgement is uncertain")]
+    UnrestrictionUncertain,
     #[error("The Real-Debrid service rejected the request")]
     Status(u16),
     #[error("The Real-Debrid response exceeds the size limit")]
@@ -33,6 +35,7 @@ impl Error {
             Self::Busy => "busy",
             Self::Deadline => "deadline",
             Self::Transport => "transport",
+            Self::UnrestrictionUncertain => "unrestriction_uncertain",
             Self::Status(_) => "provider_rejected",
             Self::ResponseTooLarge => "response_too_large",
             Self::InvalidResponse => "invalid_response",

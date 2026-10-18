@@ -2,7 +2,7 @@ use crate::Error;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use std::{sync::Arc, time::Duration};
 use tokio::{
-    sync::{Mutex, Semaphore},
+    sync::{Mutex, OwnedSemaphorePermit, Semaphore},
     time::Instant,
 };
 use zeroize::Zeroizing;
@@ -58,18 +58,52 @@ impl Transport {
         })
     }
 
-    pub(crate) async fn torrent_info(&self, torrent_id: &str) -> Result<Zeroizing<Vec<u8>>, Error> {
-        let _permit = self
-            .slots
+    pub(crate) fn admit(&self) -> Result<OwnedSemaphorePermit, Error> {
+        self.slots
             .clone()
             .try_acquire_owned()
-            .map_err(|_| Error::Busy)?;
+            .map_err(|_| Error::Busy)
+    }
+
+    pub(crate) async fn torrent_info(&self, torrent_id: &str) -> Result<Zeroizing<Vec<u8>>, Error> {
         let mut endpoint = self.endpoint.clone();
         endpoint
             .path_segments_mut()
             .map_err(|_| Error::Configuration)?
             .pop_if_empty()
             .extend(["torrents", "info", torrent_id]);
+        self.exchange(self.client.get(endpoint), None).await
+    }
+
+    pub(crate) async fn unrestrict_link(
+        &self,
+        link: &str,
+        post_dispatched: &mut bool,
+    ) -> Result<Zeroizing<Vec<u8>>, Error> {
+        let mut endpoint = self.endpoint.clone();
+        endpoint
+            .path_segments_mut()
+            .map_err(|_| Error::Configuration)?
+            .pop_if_empty()
+            .extend(["unrestrict", "link"]);
+        self.exchange(
+            self.client.post(endpoint).form(&[("link", link)]),
+            Some(post_dispatched),
+        )
+        .await
+    }
+
+    async fn exchange(
+        &self,
+        request: reqwest::RequestBuilder,
+        post_dispatched: Option<&mut bool>,
+    ) -> Result<Zeroizing<Vec<u8>>, Error> {
+        let request = request
+            .header(AUTHORIZATION, self.authorization.clone())
+            .header("accept", "application/json")
+            .header("accept-encoding", "identity")
+            .build()
+            .map_err(request_error)?;
         {
             let mut next_start = self.next_start.lock().await;
             if let Some(next_start) = *next_start {
@@ -77,15 +111,10 @@ impl Transport {
             }
             *next_start = Some(Instant::now() + START_GAP);
         }
-        let mut response = self
-            .client
-            .get(endpoint)
-            .header(AUTHORIZATION, self.authorization.clone())
-            .header("accept", "application/json")
-            .header("accept-encoding", "identity")
-            .send()
-            .await
-            .map_err(request_error)?;
+        if let Some(post_dispatched) = post_dispatched {
+            *post_dispatched = true;
+        }
+        let mut response = self.client.execute(request).await.map_err(request_error)?;
         if response.status() != reqwest::StatusCode::OK {
             return Err(Error::Status(response.status().as_u16()));
         }
