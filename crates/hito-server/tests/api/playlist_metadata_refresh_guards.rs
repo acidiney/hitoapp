@@ -1,7 +1,3 @@
-#[allow(dead_code)]
-#[path = "playlist_metadata_fixture.rs"]
-mod fixture;
-
 #[path = "playlist_metadata_refresh_input.rs"]
 mod input;
 
@@ -9,6 +5,7 @@ mod input;
 mod revision;
 
 use super::support::call;
+use crate::playlist_metadata_fixture as fixture;
 use axum::http::StatusCode;
 use fixture::MetadataCopy;
 use hito_core::RefreshImportedPlaylistMetadata;

@@ -1,7 +1,5 @@
-#[path = "playlist_metadata_fixture.rs"]
-mod fixture;
-
 use super::support::call;
+use crate::playlist_metadata_fixture as fixture;
 use axum::http::StatusCode;
 use fixture::{MetadataCopy, copy_identity, listening_state};
 use hito_core::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
