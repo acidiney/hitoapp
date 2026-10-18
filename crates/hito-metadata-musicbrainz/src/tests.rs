@@ -13,6 +13,9 @@ use tokio::{
     task::JoinHandle,
 };
 
+mod discography;
+mod discography_context;
+mod discography_transport;
 mod http;
 mod limiter;
 mod protocol;
