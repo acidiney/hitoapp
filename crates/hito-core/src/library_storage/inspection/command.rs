@@ -16,6 +16,27 @@ pub(super) struct Commands {
 }
 
 type Outcome<T> = std::result::Result<T, &'static str>;
+type Completion = std::result::Result<Vec<u8>, Failure>;
+
+pub(super) enum Failure {
+    OutputLimit,
+    Other(Error),
+}
+
+impl Failure {
+    pub(super) fn into_error(self) -> Error {
+        match self {
+            Self::OutputLimit => Error::Internal("Media inspection could not finish".into()),
+            Self::Other(error) => error,
+        }
+    }
+}
+
+impl From<Error> for Failure {
+    fn from(error: Error) -> Self {
+        Self::Other(error)
+    }
+}
 
 impl Commands {
     pub(super) fn new() -> Self {
@@ -49,8 +70,26 @@ impl Commands {
         timeout: Duration,
         media_guard: Option<Arc<tempfile::TempDir>>,
     ) -> Result<Vec<u8>> {
+        self.run_until(
+            program,
+            arguments,
+            limit,
+            Instant::now() + timeout,
+            media_guard,
+        )
+        .await
+        .map_err(Failure::into_error)
+    }
+
+    pub(super) async fn run_until(
+        &self,
+        program: &Path,
+        arguments: Vec<OsString>,
+        limit: usize,
+        deadline: Instant,
+        media_guard: Option<Arc<tempfile::TempDir>>,
+    ) -> Completion {
         let started = Instant::now();
-        let deadline = started + timeout;
         let operation = async {
             let program = program.to_owned();
             let permit = self
@@ -64,7 +103,7 @@ impl Commands {
                 None => None,
             };
             if Instant::now() >= deadline {
-                return Err(timed_out(started));
+                return Err(timed_out(started).into());
             }
             let (mut sender, receiver) = oneshot::channel();
             let task = async move {
@@ -76,7 +115,7 @@ impl Commands {
                 }
                 if Instant::now() >= deadline {
                     drop(media_guard);
-                    let _ = sender.send(Err(timed_out(started)));
+                    let _ = sender.send(Err(timed_out(started).into()));
                     return;
                 }
                 let child = Command::new(program)
@@ -93,14 +132,17 @@ impl Commands {
                         match supervise(&mut child, limit, deadline, &mut sender).await {
                             Ok(output) => Ok(output),
                             Err(reason) => {
-                                let _ = child.kill().await;
-                                let _ = child.wait().await;
                                 tracing::debug!(
                                     event = "media_command_failed",
                                     reason,
                                     "Media command stopped"
                                 );
-                                Err(Error::Internal("Media inspection could not finish".into()))
+                                Err(match reason {
+                                    "output_limit" => Failure::OutputLimit,
+                                    _ => Failure::Other(Error::Internal(
+                                        "Media inspection could not finish".into(),
+                                    )),
+                                })
                             }
                         }
                     }
@@ -109,9 +151,9 @@ impl Commands {
                             event = "media_tool_unavailable",
                             "Media inspection tool unavailable"
                         );
-                        Err(Error::Internal(
+                        Err(Failure::Other(Error::Internal(
                             "Media inspection tool is unavailable".into(),
-                        ))
+                        )))
                     }
                 };
                 drop(media_guard);
@@ -122,13 +164,13 @@ impl Commands {
                 .await
                 .map_err(|_| Error::Internal("Media inspection stopped".into()))?;
             if Instant::now() >= deadline {
-                return Err(timed_out(started));
+                return Err(timed_out(started).into());
             }
             result
         };
         tokio::time::timeout_at(deadline, operation)
             .await
-            .map_err(|_| timed_out(started))?
+            .map_err(|_| Failure::Other(timed_out(started)))?
     }
 }
 
@@ -136,22 +178,57 @@ async fn supervise(
     child: &mut Child,
     limit: usize,
     deadline: Instant,
-    sender: &mut oneshot::Sender<Result<Vec<u8>>>,
+    sender: &mut oneshot::Sender<Completion>,
 ) -> Outcome<Vec<u8>> {
-    let stdout = child.stdout.take().ok_or("pipe")?;
-    let stderr = child.stderr.take().ok_or("pipe")?;
-    let operation = async {
-        let (output, ()) =
-            tokio::try_join!(read_output(stdout, limit), reject_diagnostics(stderr))?;
-        let status = child.wait().await.map_err(|_| "wait")?;
-        if !status.success() {
-            return Err("exit");
+    let stdout = child.stdout.take();
+    let mut stderr = child.stderr.take();
+    let result = {
+        let operation = async {
+            let stdout = stdout.ok_or("pipe")?;
+            let stderr = stderr.as_mut().ok_or("pipe")?;
+            let (output, ()) =
+                tokio::try_join!(read_output(stdout, limit), reject_diagnostics(stderr))?;
+            let status = child.wait().await.map_err(|_| "wait")?;
+            if !status.success() {
+                return Err("exit");
+            }
+            Ok(output)
+        };
+        tokio::select! {
+            result = tokio::time::timeout_at(deadline, operation) => result.unwrap_or(Err("timeout")),
+            _ = sender.closed() => Err("cancelled"),
         }
-        Ok(output)
     };
-    tokio::select! {
-        result = tokio::time::timeout_at(deadline, operation) => result.unwrap_or(Err("timeout")),
+    let Err(reason) = result else {
+        return result;
+    };
+    let observed_status = child.try_wait();
+    let _ = child.kill().await;
+    let reaped = child.wait().await;
+    if reason != "output_limit" {
+        return Err(reason);
+    }
+    reaped.map_err(|_| "wait")?;
+    if observed_status
+        .map_err(|_| "wait")?
+        .is_some_and(|status| !status.success())
+    {
+        return Err("exit");
+    }
+    if Instant::now() >= deadline {
+        return Err("timeout");
+    }
+    if sender.is_closed() {
+        return Err("cancelled");
+    }
+    let diagnostics = reject_diagnostics(stderr.as_mut().ok_or("pipe")?);
+    let checked = tokio::select! {
+        result = tokio::time::timeout_at(deadline, diagnostics) => result.unwrap_or(Err("timeout")),
         _ = sender.closed() => Err("cancelled"),
+    };
+    match checked {
+        Ok(()) => Err("output_limit"),
+        Err(reason) => Err(reason),
     }
 }
 
