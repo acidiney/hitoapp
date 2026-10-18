@@ -13,8 +13,8 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::{
-    Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, RecordingRequest, SearchPage,
-    SearchRequest, SourcePage,
+    Capability, ContentPolicy, Manifest, PROTOCOL_VERSION, ProviderRecording, RecordingRequest,
+    SearchPage, SearchRequest, SourcePage, SourcePersistence,
 };
 use std::{
     sync::Arc,
@@ -49,7 +49,9 @@ async fn manifest() -> Json<Manifest> {
         protocol_version: PROTOCOL_VERSION,
         capabilities: [Capability::Search, Capability::Sources].into(),
         authorization: None,
-        content_policy: None,
+        content_policy: Some(ContentPolicy {
+            source_persistence: SourcePersistence::PlaybackOnly,
+        }),
     })
 }
 
