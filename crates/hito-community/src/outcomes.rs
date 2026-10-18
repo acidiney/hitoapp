@@ -30,7 +30,15 @@ impl Outcomes {
             return Err(Error::InvalidInput);
         }
         let OutcomeKind::SuccessfulPlayback = submission.outcome;
-        let mut transaction = self.storage.pool.begin().await?;
+        let mut transaction = self.storage.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let current: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM reporters WHERE id = ?)")
+                .bind(reporter.0.to_string())
+                .fetch_one(&mut *transaction)
+                .await?;
+        if !current {
+            return Err(Error::Unauthorized);
+        }
         let previous = sqlx::query(
             "SELECT receipt_id, provider, recording_id FROM outcomes WHERE reporter_id = ? AND submission_id = ?",
         )

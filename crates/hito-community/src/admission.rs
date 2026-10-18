@@ -60,4 +60,24 @@ impl Admission {
         );
         Ok(ReporterCredential { reporter_id, token })
     }
+
+    pub(crate) async fn revoke(&self, _: Administrator, reporter_id: Uuid) -> Result<(), Error> {
+        let started = std::time::Instant::now();
+        let removed = sqlx::query("DELETE FROM reporters WHERE id = ?")
+            .bind(reporter_id.to_string())
+            .execute(&self.storage.pool)
+            .await?
+            .rows_affected();
+        tracing::debug!(
+            event = "community_reporter_revoked",
+            outcome = if removed == 0 {
+                "already_absent"
+            } else {
+                "removed"
+            },
+            reporter_count = removed,
+            duration_ms = started.elapsed().as_millis() as u64
+        );
+        Ok(())
+    }
 }

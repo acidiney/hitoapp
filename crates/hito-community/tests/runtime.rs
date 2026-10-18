@@ -3,7 +3,7 @@
 #[path = "support/runtime.rs"]
 mod runtime;
 
-use runtime::{Host, PendingProvision};
+use runtime::{Host, PendingRequest};
 use serde_json::{Value, json};
 use std::{
     fs::{OpenOptions, Permissions},
@@ -57,7 +57,8 @@ fn private_bootstrap_drains_authenticated_http_before_shutdown_and_preserves_rep
     );
 
     let payload = "{}\n";
-    let mut pending = PendingProvision::start(host.address, ADMIN_TOKEN, payload);
+    let mut pending =
+        PendingRequest::start(host.address, "/v1/admin/reporters", ADMIN_TOKEN, payload);
     host.signal_term();
     host.wait_event("community_shutdown_requested");
     assert!(
@@ -144,6 +145,187 @@ fn private_bootstrap_drains_authenticated_http_before_shutdown_and_preserves_rep
                 < restarted_index("community_service_stopped")
     );
     assert_ne!(first_service_id, lifecycle_service_id(&restarted_events));
+}
+
+#[test]
+fn revocation_fences_an_already_authenticated_unread_outcome_without_erasing_peer_state() {
+    let fixture = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(fixture.path(), Permissions::from_mode(0o700)).unwrap();
+    let credential_path = fixture.path().join("private-community-revocation-token");
+    let state_directory = fixture.path().join("private-community-revocation-state");
+    let mut credential = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&credential_path)
+        .unwrap();
+    writeln!(credential, "{ADMIN_TOKEN}").unwrap();
+    drop(credential);
+    std::fs::set_permissions(&credential_path, Permissions::from_mode(0o400)).unwrap();
+    let private_bytes = std::fs::read(&credential_path).unwrap();
+    let private_metadata = credential_path.metadata().unwrap();
+    let mut host = Host::start(
+        fixture.path(),
+        &state_directory,
+        &credential_path,
+        "revocation",
+    );
+    host.ready();
+    let (status, reporter) = request_json(
+        &host,
+        "POST",
+        "/v1/admin/reporters",
+        Some(ADMIN_TOKEN),
+        "{}",
+    );
+    assert_eq!(status, 201);
+    let token = reporter["token"].as_str().unwrap();
+    let reporter_id = reporter["reporter_id"].as_str().unwrap();
+    let (status, peer) = request_json(
+        &host,
+        "POST",
+        "/v1/admin/reporters",
+        Some(ADMIN_TOKEN),
+        "{}",
+    );
+    assert_eq!(status, 201);
+    let peer_token = peer["token"].as_str().unwrap();
+    let accepted = json!({
+        "submission_id": "dc601464-f2ec-42bf-b9b5-4509cbe04480",
+        "source": {"provider": "jamendo", "recording_id": "18446744073709551615"},
+        "outcome": "successful_playback"
+    })
+    .to_string();
+    assert_eq!(
+        request_json(&host, "POST", "/v1/outcomes", Some(token), &accepted).0,
+        201
+    );
+    let (status, peer_receipt) =
+        request_json(&host, "POST", "/v1/outcomes", Some(peer_token), &accepted);
+    assert_eq!(status, 201);
+    let held = json!({
+        "submission_id": "bccdbd9e-05d9-41de-b88e-c70df2ab7bb6",
+        "source": {"provider": "youtube", "recording_id": "PrivTone001"},
+        "outcome": "successful_playback"
+    })
+    .to_string();
+    let mut pending = PendingRequest::start(host.address, "/v1/outcomes", token, &held);
+    let path = format!("/v1/admin/reporters/{reporter_id}");
+    let (status, body) = request_json(&host, "DELETE", &path, Some(ADMIN_TOKEN), "");
+    assert_eq!(status, 204);
+    assert_eq!(body, Value::Null);
+    let (status, rejection) = pending.finish(&held).unwrap();
+    assert_eq!(status, 401);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&rejection).unwrap(),
+        json!({"error": "unauthorized"})
+    );
+    assert_eq!(
+        request_json(&host, "POST", "/v1/outcomes", Some(token), &held),
+        (401, json!({"error": "unauthorized"}))
+    );
+    assert_eq!(
+        request_json(&host, "POST", "/v1/outcomes", Some(peer_token), &accepted),
+        (200, peer_receipt)
+    );
+    let candidates = json!({"candidates": [
+        {"provider": "jamendo", "recording_id": "18446744073709551615"},
+        {"provider": "youtube", "recording_id": "PrivTone001"}
+    ]})
+    .to_string();
+    let (status, ranking) = request_json(&host, "POST", "/v1/rankings", None, &candidates);
+    assert_eq!(status, 200);
+    assert_eq!(
+        ranking,
+        json!({"ranked": [
+            {"source": {"provider": "jamendo", "recording_id": "18446744073709551615"}, "successful_reporters": 1},
+            {"source": {"provider": "youtube", "recording_id": "PrivTone001"}, "successful_reporters": 0}
+        ]})
+    );
+    host.signal_term();
+    assert!(host.wait_exit().success());
+    assert!(
+        std::fs::read(&credential_path).unwrap() == private_bytes,
+        "Revocation changed the administrator credential file"
+    );
+    let retained = credential_path.metadata().unwrap();
+    assert_eq!(
+        (
+            retained.dev(),
+            retained.ino(),
+            retained.mode(),
+            retained.uid(),
+            retained.gid(),
+            retained.nlink(),
+            retained.len()
+        ),
+        (
+            private_metadata.dev(),
+            private_metadata.ino(),
+            private_metadata.mode(),
+            private_metadata.uid(),
+            private_metadata.gid(),
+            private_metadata.nlink(),
+            private_metadata.len()
+        )
+    );
+    let events = captured_events(&host, fixture.path(), token);
+    let logs = host.logs();
+    for forbidden in [
+        peer_token,
+        reporter_id,
+        peer["reporter_id"].as_str().unwrap(),
+        "18446744073709551615",
+        "dc601464-f2ec-42bf-b9b5-4509cbe04480",
+        "bccdbd9e-05d9-41de-b88e-c70df2ab7bb6",
+    ] {
+        assert!(
+            !logs.contains(forbidden),
+            "Community revocation logs exposed fixture input"
+        );
+    }
+    let revoked = events
+        .iter()
+        .find(|event| event["fields"]["event"] == "community_reporter_revoked")
+        .expect("Revocation workflow log missing");
+    assert_eq!(revoked["fields"]["outcome"], "removed");
+    assert_eq!(revoked["fields"]["reporter_count"], 1);
+    let request = revoked["spans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|span| span["name"] == "community_http_request")
+        .unwrap();
+    assert_eq!(request["route"], "/v1/admin/reporters/{reporter_id}");
+    assert_eq!(request["method"], "DELETE");
+    assert_eq!(
+        uuid::Uuid::parse_str(request["request_id"].as_str().unwrap())
+            .unwrap()
+            .get_version_num(),
+        4
+    );
+    assert!(events.iter().any(
+        |event| event["fields"]["event"] == "community_http_response"
+            && event["fields"]["status"] == 401
+    ));
+}
+
+fn request_json(
+    host: &Host,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    payload: &str,
+) -> (u16, Value) {
+    let (status, body) = host.request(method, path, token, payload).unwrap();
+    (
+        status,
+        if body.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&body).unwrap()
+        },
+    )
 }
 
 fn lifecycle_service_id(events: &[Value]) -> uuid::Uuid {

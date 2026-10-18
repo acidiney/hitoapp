@@ -172,12 +172,12 @@ impl Drop for Host {
     }
 }
 
-pub struct PendingProvision(TcpStream);
+pub struct PendingRequest(TcpStream);
 
-impl PendingProvision {
-    pub fn start(address: SocketAddr, token: &str, payload: &str) -> Self {
+impl PendingRequest {
+    pub fn start(address: SocketAddr, path: &str, token: &str, payload: &str) -> Self {
         let mut stream = connection(address).expect("Community pending connection failed");
-        write!(stream, "POST /v1/admin/reporters?private-community-query=private-query-value HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/json\r\nAuthorization: Bearer {token}\r\nCookie: private-community-cookie\r\nX-Private-Request: private-community-header\r\nExpect: 100-continue\r\nContent-Length: {}\r\n\r\n", payload.len()).unwrap();
+        write!(stream, "POST {path}?private-community-query=private-query-value HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/json\r\nAuthorization: Bearer {token}\r\nCookie: private-community-cookie\r\nX-Private-Request: private-community-header\r\nExpect: 100-continue\r\nContent-Length: {}\r\n\r\n", payload.len()).unwrap();
         let mut interim = Vec::new();
         while !interim.ends_with(b"\r\n\r\n") {
             let mut byte = [0];

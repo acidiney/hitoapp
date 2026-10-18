@@ -51,13 +51,37 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
     bounded(service.close()).await;
     assert_eq!(status, StatusCode::OK);
     let document: Value = serde_json::from_slice(&bytes).unwrap();
+    if let Some(path) = std::env::var_os("HITO_COMMUNITY_TEST_CONTRACT_CAPTURE") {
+        std::fs::write(path, serde_json::to_vec_pretty(&document).unwrap()).unwrap();
+    }
     assert!(document["openapi"].as_str().unwrap().starts_with("3."));
     assert!(!document["info"]["title"].as_str().unwrap().is_empty());
     assert!(!document["info"]["version"].as_str().unwrap().is_empty());
     let paths = document["paths"].as_object().unwrap();
-    assert_eq!(paths.len(), 4);
+    assert_eq!(paths.len(), 5);
     assert_public(&document, &paths["/v1/openapi.json"]["get"]);
     assert!(paths["/v1/openapi.json"]["get"]["responses"]["200"].is_object());
+    let revoke = &paths["/v1/admin/reporters/{reporter_id}"]["delete"];
+    assert!(revoke.is_object());
+    assert_eq!(
+        effective_security(&document, revoke),
+        Some(&serde_json::json!([{"administratorBearer": []}]))
+    );
+    assert!(revoke.get("requestBody").is_none());
+    let parameter = &revoke["parameters"][0];
+    assert_eq!(parameter["name"], "reporter_id");
+    assert_eq!(parameter["in"], "path");
+    assert_eq!(parameter["required"], true);
+    assert_eq!(resolve(&document, &parameter["schema"])["format"], "uuid");
+    assert!(revoke["responses"]["204"].is_object());
+    assert!(revoke["responses"]["204"].get("content").is_none());
+    for status in ["400", "401", "503"] {
+        let rejection = component(
+            &document,
+            &revoke["responses"][status]["content"]["application/json"]["schema"],
+        );
+        assert!(rejection["properties"]["error"].is_object());
+    }
 
     let operations = [
         OperationContract {

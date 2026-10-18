@@ -1,12 +1,16 @@
 use axum::{
     Extension, Json, Router,
-    extract::{DefaultBodyLimit, FromRequest, FromRequestParts, Request, State},
+    extract::{
+        DefaultBodyLimit, FromRequest, FromRequestParts, Path, Request, State,
+        rejection::PathRejection,
+    },
     http::{StatusCode, request::Parts},
     middleware,
 };
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use utoipa_axum::{router::OpenApiRouter, routes};
+use uuid::Uuid;
 
 use crate::{
     Error, Service,
@@ -20,6 +24,7 @@ use crate::{
 pub fn router(service: Service) -> Router {
     let (router, document) = OpenApiRouter::with_openapi(crate::contract::base_document())
         .routes(routes!(provision))
+        .routes(routes!(revoke))
         .routes(routes!(submit))
         .routes(routes!(rank))
         .routes(routes!(crate::contract::serve))
@@ -50,6 +55,25 @@ async fn provision(
         StatusCode::CREATED,
         Json(service.admission.provision(administrator).await?),
     ))
+}
+
+/// Revoke a reporter credential and erase its outcomes. Existing and unknown UUIDs return 204.
+#[utoipa::path(delete, path = "/v1/admin/reporters/{reporter_id}",
+    params(("reporter_id" = Uuid, Path, description = "Reporter pseudonym to revoke.")),
+    security(("administratorBearer" = [])), responses(
+        (status = 204, description = "Reporter absent and its outcomes erased."),
+        (status = 400, body = Rejection), (status = 401, body = Rejection),
+        (status = 503, body = Rejection),
+    ),
+)]
+async fn revoke(
+    State(service): State<Service>,
+    administrator: Administrator,
+    reporter_id: Result<Path<Uuid>, PathRejection>,
+) -> Result<StatusCode, Error> {
+    let Path(reporter_id) = reporter_id.map_err(|_| Error::InvalidInput)?;
+    service.admission.revoke(administrator, reporter_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Accept a successful-playback claim; exact retries recover the original durable receipt.

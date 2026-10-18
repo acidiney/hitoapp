@@ -18,6 +18,7 @@ pub(crate) async fn request(request: Request, next: Next) -> Response {
     let method = match request.method().as_str() {
         "GET" => "GET",
         "POST" => "POST",
+        "DELETE" => "DELETE",
         _ => "other",
     };
     let span = tracing::debug_span!("community_http_request", request_id, route, method);
