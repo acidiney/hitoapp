@@ -14,6 +14,7 @@ import { log } from "../log";
 import { useRequestScope } from "../hooks/useRequestScope";
 import { NativePlayback } from "./native/NativePlayback";
 import { sourceResolutionApi } from "../sourceResolutionApi";
+import { useBrowserMediaSession } from "./BrowserMediaSession";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -106,6 +107,7 @@ function BrowserAccountPlayback({
     );
     return { audio, media, player };
   });
+  useBrowserMediaSession(player, account);
   useEffect(() => {
     log.info("playback.account_opened", { account_id: account });
     media.set(audio, audio);
