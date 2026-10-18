@@ -35,15 +35,15 @@ pub use catalog::{
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
-    AudiobookDetail, AudiobookPlayback, AudiobookPlaybackAdmission, Collection,
-    CollectionPublication, FollowProviderPlaylist, HistoryEntry, ImportProviderPlaylist,
-    ImportedPlaylistEntry, ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin,
-    ImportedPlaylistMetadataRefresh, ImportedPlaylistOrigin, ImportedPlaylistRecording,
-    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
-    PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
-    PlaylistImportReceipt, PlaylistMetadataRefreshOrigin, RecordingProgress,
-    RefreshFollowedPlaylist, RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent,
-    SyncPage, SyncReceipt,
+    AudiobookDetail, AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPagination,
+    AudiobookPlayback, AudiobookPlaybackAdmission, Collection, CollectionPublication,
+    FollowProviderPlaylist, HistoryEntry, ImportProviderPlaylist, ImportedPlaylistEntry,
+    ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, ImportedPlaylistMetadataRefresh,
+    ImportedPlaylistOrigin, ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation,
+    Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow, PlaylistFollowInterval,
+    PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus, PlaylistImportReceipt,
+    PlaylistMetadataRefreshOrigin, RecordingProgress, RefreshFollowedPlaylist,
+    RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,

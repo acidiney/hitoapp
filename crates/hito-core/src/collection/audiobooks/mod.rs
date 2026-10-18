@@ -1,7 +1,9 @@
 mod admission;
 mod bookmarks;
 mod continuation;
+mod library;
 mod listing;
+mod listing_cursor;
 mod playback;
 mod playback_admission;
 pub use playback_admission::AudiobookPlaybackAdmission;
@@ -19,7 +21,7 @@ pub(super) use bookmarks::{
 pub(super) use continuation::set as set_chapter;
 pub use types::{
     AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation, AudiobookDetail,
-    AudiobookPlayback,
+    AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPagination, AudiobookPlayback,
 };
 
 const MAX_BOOKMARKS: i64 = 256;

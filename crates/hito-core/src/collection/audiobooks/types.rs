@@ -1,6 +1,6 @@
 use super::super::{Playlist, PlaylistEntry, RecordingProgress};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
@@ -43,4 +43,27 @@ pub struct AudiobookBookmark {
     #[schema(minimum = 0)]
     pub position_ms: i64,
     pub label: String,
+}
+
+#[derive(Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct AudiobookLibraryQuery {
+    #[param(minimum = 1, maximum = 100)]
+    pub limit: Option<u16>,
+    #[param(max_length = 4096)]
+    pub cursor: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AudiobookPagination {
+    #[schema(minimum = 1, maximum = 100)]
+    pub limit: u16,
+    pub next_cursor: Option<String>,
+    pub previous_cursor: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AudiobookLibraryPage {
+    pub items: Vec<Playlist>,
+    pub pagination: AudiobookPagination,
 }
