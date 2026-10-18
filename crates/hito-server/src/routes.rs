@@ -72,6 +72,7 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::community::update_preferences
         ))
         .routes(routes!(api::community::reset_credentials))
+        .routes(routes!(api::community::successful_playback))
         .routes(routes!(podcasts::subscriptions, podcasts::subscribe))
         .routes(routes!(podcasts::episodes))
         .routes(routes!(podcasts::refresh))
