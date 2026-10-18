@@ -16,6 +16,9 @@ mod service;
 mod types;
 
 #[cfg(test)]
+#[path = "tests/audiobook_admission_work.rs"]
+mod audiobook_admission_work;
+#[cfg(test)]
 #[path = "tests/saved_playback_work.rs"]
 mod saved_playback_work;
 
