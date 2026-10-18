@@ -193,6 +193,13 @@ async fn a_media_command_deadline_includes_waiting_for_decoder_capacity() {
         std::panic::resume_unwind(panic);
     }
 
+    for folder in folders.iter().take(2) {
+        services
+            .storage
+            .remove_folder(&actor, &folder.id, folder.revision)
+            .await
+            .unwrap();
+    }
     tools.release();
     let job = services
         .storage
