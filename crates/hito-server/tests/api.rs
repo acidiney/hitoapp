@@ -25,6 +25,16 @@ mod catalog;
 #[path = "api/browsing.rs"]
 mod browsing;
 
+#[path = "api/audiobook_pages.rs"]
+mod audiobook_pages;
+#[path = "api/audiobook_pages_access.rs"]
+mod audiobook_pages_access;
+#[path = "api/audiobooks.rs"]
+mod audiobooks;
+#[path = "api/audiobooks_access.rs"]
+mod audiobooks_access;
+#[path = "fixtures/audiobooks.rs"]
+mod audiobooks_fixture;
 #[path = "api/collection.rs"]
 mod collection;
 
