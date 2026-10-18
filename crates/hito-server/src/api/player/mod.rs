@@ -1,3 +1,4 @@
+pub(crate) mod audiobooks;
 mod error;
 pub(crate) mod observations;
 mod wire;

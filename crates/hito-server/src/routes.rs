@@ -128,6 +128,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(collection::playlist))
         .routes(routes!(api::audiobooks::list))
         .routes(routes!(api::audiobooks::detail))
+        .routes(routes!(api::audiobooks::playback))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
@@ -140,6 +141,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(player::claim))
         .routes(routes!(player::submit))
         .routes(routes!(player::queue))
+        .routes(routes!(player::audiobooks::prepare))
+        .routes(routes!(player::audiobooks::cancel))
         .routes(routes!(player::observations::state))
         .routes(routes!(player::observations::position));
     if let Some(components) = router.get_openapi_mut().components.as_mut() {

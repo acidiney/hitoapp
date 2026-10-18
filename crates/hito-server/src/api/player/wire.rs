@@ -1,4 +1,4 @@
-use hito_playback::PlayerSnapshot;
+use hito_playback::{PlayerCommand, PlayerReceipt, PlayerSnapshot};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -23,4 +23,18 @@ pub struct PlayerQueueRequest {
     pub revision: u64,
     pub offset: usize,
     pub limit: usize,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PlayerAudiobookCancel {
+    pub lease: Uuid,
+    pub id: Uuid,
+    #[serde(default)]
+    pub command: Option<PlayerCommand>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PlayerAudiobookSettlement {
+    pub receipt: Option<PlayerReceipt>,
 }
