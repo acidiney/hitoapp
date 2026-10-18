@@ -81,7 +81,10 @@ async fn personal_album_fields_preserve_release_identity_and_private_artist_memb
         .unwrap();
     assert_eq!(albums.total, 1);
     assert_eq!(albums.items[0].id, release.id);
-    assert_eq!(albums.items[0].artist, "Private album credit");
+    assert_eq!(
+        albums.items[0].artist.as_deref(),
+        Some("Private album credit")
+    );
     assert_eq!(
         hito.catalog
             .releases(
@@ -96,7 +99,7 @@ async fn personal_album_fields_preserve_release_identity_and_private_artist_memb
             .total,
         0
     );
-    let artist = &albums.items[0].artist_id;
+    let artist = albums.items[0].artist_id.as_deref().unwrap();
     assert_eq!(
         hito.catalog
             .artist(&alice, artist, Browse::default())

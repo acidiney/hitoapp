@@ -1,4 +1,4 @@
-use super::{Browse, Catalog, Page, Recording, push_available};
+use super::{Browse, Catalog, Page, Recording, SourceAccess, push_source_access};
 use crate::{Actor, Error, Result, metadata};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
@@ -9,8 +9,10 @@ pub struct Release {
     pub id: String,
     pub library_id: String,
     pub title: String,
-    pub artist: String,
-    pub artist_id: String,
+    #[schema(required = true)]
+    pub artist: Option<String>,
+    #[schema(required = true)]
+    pub artist_id: Option<String>,
     pub track_count: i64,
     pub duration_ms: i64,
     pub artwork_recording_id: Option<String>,
@@ -32,16 +34,30 @@ pub struct ReleaseDetail {
     pub tracks: Page<ReleaseTrack>,
 }
 
-const ENTRIES: &str = "), entries AS (
-    SELECT m.release_id, s.recording_id, min(m.source_id) AS source_id
+const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
+    OR EXISTS (SELECT 1 FROM provider_release_appearances appearance WHERE appearance.release_id = a.id))";
+const ENTRIES: &str = "), source_entries AS (
+    SELECT m.release_id, s.recording_id, min(m.source_id) AS entry_id
     FROM selected a CROSS JOIN source_metadata m ON m.release_id = a.id JOIN sources s ON s.id = m.source_id
     GROUP BY m.release_id, s.recording_id, m.disc_number, m.track_number
+), entries AS (
+    SELECT e.release_id, e.recording_id, e.entry_id, m.title, m.artist, m.duration_ms, m.disc_number, m.track_number
+    FROM source_entries e JOIN source_metadata m ON m.source_id = e.entry_id
+    UNION ALL
+    SELECT appearance.release_id, appearance.recording_id, appearance.entry_id,
+        appearance.title, appearance.artist, appearance.duration_ms, appearance.disc_number, appearance.track_number
+    FROM selected a
+    CROSS JOIN provider_release_appearances appearance ON appearance.release_id = a.id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM sources s CROSS JOIN source_metadata m ON m.source_id = s.id
+        WHERE s.recording_id = appearance.recording_id AND m.release_id = appearance.release_id
+            AND m.disc_number IS appearance.disc_number AND m.track_number IS appearance.track_number
+    )
 ) ";
 const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist, a.artist_id,
     count(*) AS track_count, sum(m.duration_ms) AS duration_ms,
-    min(e.recording_id) AS artwork_recording_id
-    FROM selected a JOIN entries e ON e.release_id = a.id
-    JOIN source_metadata m ON m.source_id = e.source_id";
+    min(m.recording_id) AS artwork_recording_id
+    FROM selected a JOIN entries m ON m.release_id = a.id";
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
@@ -56,7 +72,7 @@ impl Catalog {
             "{title artist}",
         )?;
         filter_artist(&mut count, &browse);
-        count.push(" AND EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)");
+        count.push(HAS_ENTRIES);
         let total = count
             .build_query_scalar()
             .fetch_one(&self.store.pool)
@@ -93,18 +109,19 @@ impl Catalog {
             .push(" AS title, m.title AS inherited_title, ")
             .push(metadata::APPEARANCE_ARTIST)
             .push(" AS artist, m.artist AS inherited_artist, a.title AS album, m.duration_ms, ");
-        push_available(&mut query, &self.host, actor.id());
+        query.push("EXISTS (SELECT 1 FROM sources s INDEXED BY sources_metadata_owner WHERE s.recording_id = r.id AND ");
+        push_source_access(&mut query, &self.host, actor.id(), SourceAccess::Playable);
+        query.push(")");
         query
             .push(
-                " AS available, COALESCE(l.liked, 0) AS liked, m.source_id AS entry_id, m.disc_number, m.track_number FROM entries e
-            JOIN selected a ON a.id = e.release_id JOIN recordings r ON r.id = e.recording_id
-            JOIN source_metadata m ON m.source_id = e.source_id
+                " AS available, COALESCE(l.liked, 0) AS liked, m.entry_id, m.disc_number, m.track_number FROM entries m
+            JOIN selected a ON a.id = m.release_id JOIN recordings r ON r.id = m.recording_id
             LEFT JOIN likes l ON l.recording_id = r.id AND l.user_id = ",
             )
             .push_bind(actor.id().to_owned());
         metadata::join_recording_fields(&mut query, actor);
         query
-            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, title COLLATE NOCASE, r.id, m.source_id LIMIT ")
+            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, title COLLATE NOCASE, r.id, m.entry_id LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
@@ -143,7 +160,7 @@ fn selected(
         "{title artist}",
     )?;
     filter_artist(&mut query, browse);
-    query.push(" AND EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)");
+    query.push(HAS_ENTRIES);
     if let Some(id) = id {
         query.push(" AND a.id = ").push_bind(id.to_owned());
     } else {

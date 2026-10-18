@@ -34,7 +34,7 @@ async fn album_pages_preserve_each_release_appearance_of_the_same_recording() {
     let mut recordings = Vec::new();
     for album in albums.items {
         assert_eq!(album.track_count, 1);
-        assert_eq!(album.artist, "Album credit");
+        assert_eq!(album.artist.as_deref(), Some("Album credit"));
         let detail = hito
             .catalog
             .release(&actor, &album.id, Browse::default())

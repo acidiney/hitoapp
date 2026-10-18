@@ -22,7 +22,7 @@ pub struct RecordingMetadata {
 pub struct ReleaseMetadata {
     pub release_id: String,
     pub title: TextMetadata,
-    pub artist: TextMetadata,
+    pub artist: OptionalTextMetadata,
     pub observations: ObservationPage,
 }
 
@@ -30,6 +30,18 @@ pub struct ReleaseMetadata {
 pub struct TextMetadata {
     pub value: String,
     pub inherited: String,
+    #[schema(required = true)]
+    pub personal: Option<String>,
+    #[schema(required = true)]
+    pub operation_id: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct OptionalTextMetadata {
+    #[schema(required = true)]
+    pub value: Option<String>,
+    #[schema(required = true)]
+    pub inherited: Option<String>,
     #[schema(required = true)]
     pub personal: Option<String>,
     #[schema(required = true)]

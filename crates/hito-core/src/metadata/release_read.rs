@@ -1,4 +1,4 @@
-use super::{MetadataHistoryQuery, ReleaseMetadata, TextMetadata, history};
+use super::{MetadataHistoryQuery, OptionalTextMetadata, ReleaseMetadata, TextMetadata, history};
 use crate::{Actor, Catalog, Error, Result};
 use sqlx::Row;
 
@@ -24,7 +24,7 @@ impl Catalog {
             personal: row.try_get("override_title")?,
             operation_id: row.try_get("title_operation_id")?,
         };
-        let artist = TextMetadata {
+        let artist = OptionalTextMetadata {
             value: row.try_get("artist")?,
             inherited: row.try_get("inherited_artist")?,
             personal: row.try_get("override_artist")?,

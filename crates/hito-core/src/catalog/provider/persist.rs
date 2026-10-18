@@ -8,6 +8,7 @@ pub(super) enum ReleasePublication {
     PublishInherited,
 }
 
+#[tracing::instrument(level = "debug", skip_all, err(Debug))]
 pub(super) async fn release(
     tx: &mut Transaction<'_, Sqlite>,
     library: &str,
@@ -18,18 +19,27 @@ pub(super) async fn release(
     let Some(details) = details else {
         return Ok(None);
     };
+    let started = std::time::Instant::now();
     let key = serde_json::to_string(&("plugin", installation, &details.id))
         .map_err(|_| Error::Internal("Provider release identity could not be encoded".into()))?;
     sqlx::query("INSERT INTO releases(id,library_id,title,artist,identity_key) VALUES (?,?,?,?,?) ON CONFLICT(library_id,identity_key) DO UPDATE SET title = excluded.title,artist = excluded.artist WHERE ?")
         .bind(Uuid::new_v4().to_string()).bind(library).bind(&details.title).bind(&details.artist).bind(&key)
         .bind(matches!(publication, ReleasePublication::PublishInherited)).execute(&mut **tx).await?;
-    Ok(
+    let release: Option<String> =
         sqlx::query_scalar("SELECT id FROM releases WHERE library_id = ? AND identity_key = ?")
             .bind(library)
             .bind(key)
             .fetch_optional(&mut **tx)
-            .await?,
-    )
+            .await?;
+    tracing::debug!(
+        event = "provider_release_published",
+        release_id = release.as_deref(),
+        credit_known = details.artist.is_some(),
+        inherited = matches!(publication, ReleasePublication::PublishInherited),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Provider album metadata published"
+    );
+    Ok(release)
 }
 
 pub(super) async fn sources(

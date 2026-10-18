@@ -115,7 +115,7 @@ impl Track {
                 .map(|(title, id)| ProviderRelease {
                     id: id.clone(),
                     title: title.clone(),
-                    artist: self.album_artist.clone(),
+                    artist: Some(self.album_artist.clone()),
                 }),
             disc_number: self.disc_number,
             track_number: self.track_number,

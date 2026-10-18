@@ -93,7 +93,7 @@ fn recording(track: &Track) -> Result<ProviderRecording, Error> {
         Some(ProviderRelease {
             id: format!("jamendo:album:v1:{album}"),
             title: track.album_name.clone(),
-            artist: track.artist_name.clone(),
+            artist: Some(track.artist_name.clone()),
         })
     };
     let recording = ProviderRecording {

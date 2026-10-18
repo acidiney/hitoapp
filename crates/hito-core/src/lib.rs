@@ -50,7 +50,8 @@ pub use library_storage::{
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
     InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
-    ObservedTag, RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
+    ObservedTag, OptionalTextMetadata, RecordingMetadata, ReleaseMetadata, TagLocation,
+    TextMetadata,
 };
 pub use plugins::{
     InstallPlugin, OfferPluginService, PluginAuthorization, PluginAuthorizationRedirect,

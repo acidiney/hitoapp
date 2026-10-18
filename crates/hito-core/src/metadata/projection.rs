@@ -3,7 +3,7 @@ use sqlx::{QueryBuilder, Sqlite, Transaction};
 
 pub(super) const REGISTER_ARTISTS: &str = "INSERT INTO account_artists(user_id, id, library_id, name)
         SELECT t.user_id, COALESCE(shared.id, lower(hex(randomblob(16)))), t.library_id, t.name FROM targets t
-        LEFT JOIN artists shared ON shared.library_id = t.library_id AND shared.name = t.name COLLATE BINARY WHERE 1
+        LEFT JOIN artists shared ON shared.library_id = t.library_id AND shared.name = t.name COLLATE BINARY WHERE t.name IS NOT NULL
         ON CONFLICT(user_id, library_id, name) DO NOTHING";
 
 enum Scope<'a> {
@@ -181,7 +181,7 @@ async fn releases(tx: &mut Transaction<'_, Sqlite>, scope: &Scope<'_>) -> Result
     let mut bind = release_targets(scope);
     bind.push("INSERT INTO account_releases(user_id, id, library_id, title, artist, artist_id)
         SELECT t.user_id, t.id, t.library_id, t.title, t.name, c.id FROM targets t
-        JOIN account_artists c ON c.user_id = t.user_id AND c.library_id = t.library_id AND c.name = t.name COLLATE BINARY WHERE 1
+        LEFT JOIN account_artists c ON c.user_id = t.user_id AND c.library_id = t.library_id AND c.name = t.name COLLATE BINARY WHERE 1
         ON CONFLICT(user_id, id) DO UPDATE SET title = excluded.title, artist = excluded.artist, artist_id = excluded.artist_id
         WHERE title IS NOT excluded.title OR artist IS NOT excluded.artist OR artist_id IS NOT excluded.artist_id");
     bind.build().execute(&mut **tx).await?;

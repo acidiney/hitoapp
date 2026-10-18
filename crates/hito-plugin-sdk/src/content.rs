@@ -44,7 +44,8 @@ pub struct ProviderRecording {
 pub struct ProviderRelease {
     pub id: String,
     pub title: String,
-    pub artist: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -139,7 +140,7 @@ impl ProviderRecording {
         if let Some(release) = &self.release {
             text(&release.id, 256)?;
             text(&release.title, 2048)?;
-            text(&release.artist, 2048)?;
+            optional(release.artist.as_deref(), 2048)?;
         }
         Ok(())
     }

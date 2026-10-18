@@ -78,7 +78,7 @@ fn a_unique_recording_witness_preserves_release_identity_across_retags_moves_and
             let release = recording.release.as_ref().unwrap();
             assert_eq!(release.id, legacy_release);
             assert_eq!(release.title, album);
-            assert_eq!(release.artist, artist);
+            assert_eq!(release.artist.as_deref(), Some(artist));
             let detail: ProviderRecording = service.post(
                 "/v1/recordings/detail",
                 serde_json::json!({"recording_id":recording.id}),

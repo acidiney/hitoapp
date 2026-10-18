@@ -60,7 +60,11 @@ async fn equal_personal_album_names_stay_distinct_and_each_field_resets_independ
     assert_eq!(renamed.items[0].artist_id, renamed.items[1].artist_id);
     assert_eq!(
         hito.catalog
-            .artist(&actor, &renamed.items[0].artist_id, Browse::default())
+            .artist(
+                &actor,
+                renamed.items[0].artist_id.as_deref().unwrap(),
+                Browse::default()
+            )
             .await
             .unwrap()
             .artist
@@ -106,10 +110,14 @@ async fn equal_personal_album_names_stay_distinct_and_each_field_resets_independ
         .await
         .unwrap();
     assert_eq!(detail.release.title, "First");
-    assert_eq!(detail.release.artist, "Album credit First");
+    assert_eq!(detail.release.artist.as_deref(), Some("Album credit First"));
     assert_eq!(
         hito.catalog
-            .artist(&actor, &renamed.items[0].artist_id, Browse::default())
+            .artist(
+                &actor,
+                renamed.items[0].artist_id.as_deref().unwrap(),
+                Browse::default()
+            )
             .await
             .unwrap()
             .artist

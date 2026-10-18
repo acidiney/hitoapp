@@ -57,7 +57,7 @@ async fn search_to_explicit_audio_uses_typed_metadata_without_prefetching_media(
     assert_eq!(found.track_number, Some(3));
     let release = found.release.as_ref().expect("provider album was lost");
     assert_eq!(release.title, fixture::ALBUM);
-    assert_eq!(release.artist, fixture::ARTIST);
+    assert_eq!(release.artist.as_deref(), Some(fixture::ARTIST));
     assert_eq!(
         provider.api_requests(),
         1,

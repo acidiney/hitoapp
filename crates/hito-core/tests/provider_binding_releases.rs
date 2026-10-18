@@ -111,7 +111,10 @@ async fn source_only_attachment_and_readoption_preserve_primary_release_metadata
     let primary_entry = original_release.tracks.items[0].entry_id.clone();
     let primary_appearance = serde_json::to_value(&original_release.tracks.items[0]).unwrap();
     assert_eq!(original_release.release.title, "Primary album");
-    assert_eq!(original_release.release.artist, "Primary album artist");
+    assert_eq!(
+        original_release.release.artist.as_deref(),
+        Some("Primary album artist")
+    );
 
     server.reply("v1/recordings/detail", json!({
         "id": "alternate", "title": "Alternate track", "artist": "Alternate artist", "duration_ms": 95_000,
@@ -176,7 +179,10 @@ async fn source_only_attachment_and_readoption_preserve_primary_release_metadata
             release_metadata.title.inherited, "Primary album",
             "a source-only observation must not publish inherited album metadata"
         );
-        assert_eq!(release_metadata.artist.inherited, "Primary album artist");
+        assert_eq!(
+            release_metadata.artist.inherited.as_deref(),
+            Some("Primary album artist")
+        );
         assert_eq!(attached.album.as_deref(), Some("Primary album"));
         let recordings = hito
             .catalog
@@ -250,7 +256,10 @@ async fn source_only_attachment_and_readoption_preserve_primary_release_metadata
             .await
             .unwrap();
         assert_eq!(detail.release.title, "Primary album");
-        assert_eq!(detail.release.artist, "Primary album artist");
+        assert_eq!(
+            detail.release.artist.as_deref(),
+            Some("Primary album artist")
+        );
         let appearance = detail
             .tracks
             .items
@@ -272,7 +281,7 @@ async fn source_only_attachment_and_readoption_preserve_primary_release_metadata
             .find(|release| release.id == release_id)
             .unwrap();
         assert_eq!(release.title, "Primary album");
-        assert_eq!(release.artist, "Primary album artist");
+        assert_eq!(release.artist.as_deref(), Some("Primary album artist"));
         assert_eq!(
             serde_json::to_value(
                 hito.collection

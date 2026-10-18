@@ -22,12 +22,8 @@ pub struct ArtistDetail {
 }
 
 const SUMMARY: &str = "), associations AS (
-    SELECT c.user_id, c.id AS artist_id, a.id AS release_id FROM selected c
-    CROSS JOIN account_releases a ON a.user_id = c.user_id AND a.artist_id = c.id AND a.library_id = c.library_id
-    WHERE EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
-    UNION ALL
-    SELECT c.user_id, c.id, credit.release_id FROM selected c
-    CROSS JOIN account_source_credits credit ON credit.user_id = c.user_id AND credit.artist_id = c.id
+    SELECT c.user_id, c.id AS artist_id, appearance.release_id FROM selected c
+    CROSS JOIN account_artist_releases appearance ON appearance.user_id = c.user_id AND appearance.artist_id = c.id
 ), counts AS (
     SELECT c.user_id, c.id, c.library_id, c.name, count(DISTINCT ar.release_id) AS release_count, min(ar.release_id) AS cover_release
     FROM selected c LEFT JOIN associations ar ON ar.user_id = c.user_id AND ar.artist_id = c.id GROUP BY c.id
@@ -35,6 +31,8 @@ const SUMMARY: &str = "), associations AS (
     (SELECT count(*) FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id) AS recording_count,
     COALESCE((SELECT s.recording_id FROM source_metadata m JOIN sources s ON s.id = m.source_id
      WHERE m.release_id = c.cover_release ORDER BY m.source_id LIMIT 1),
+    (SELECT appearance.recording_id FROM provider_release_appearances appearance
+     WHERE appearance.release_id = c.cover_release ORDER BY appearance.recording_id LIMIT 1),
     (SELECT rc.recording_id FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id ORDER BY rc.recording_id LIMIT 1)) AS artwork_recording_id
     FROM counts c ORDER BY c.name COLLATE NOCASE, c.id";
 
