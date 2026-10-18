@@ -1,5 +1,7 @@
 # Implementation status
 
+Account metadata preferences now have authenticated GET/PUT routes and a shared Settings tab. Listeners can disable providers, choose approved personal catalogs and save their order explicitly. All 148 server and 298 frontend cases pass, alongside types/build, strict workspace Clippy, formatting and contract reproduction. Independent source reviews and fresh packaged Chromium/WebKit workflows pass, preserving complete private music state and making no catalog, audio or download requests. This source is not deployed on the normal server. Artist review, discography and automatic enrichment remain unfinished. See [preferences and verification](metadata-preferences.md).
+
 Updated 2026-10-18. The full release scope is in [release-plan.md](release-plan.md), with remaining work in [TODO.md](../TODO.md). Hito is a development build. The public release is not ready.
 
 ## Current behavior
