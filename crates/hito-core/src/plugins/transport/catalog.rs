@@ -1,11 +1,11 @@
 use super::{Call, ControlClient};
 use crate::{Error, Result};
 use hito_plugin_sdk::{
-    ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistProfileRequest, ArtistSearchPage,
-    ArtistSearchRequest, CATALOG_CAPABILITIES_PATH, CATALOG_DISCOVERY_CAPABILITIES_PATH,
-    CatalogArtistProfile, CatalogCapabilities, CatalogDiscoveryCapabilities,
-    CatalogDiscoveryOperation, CatalogOperation, MAX_ARTIST_SEARCH_PAGE_BYTES,
-    MAX_CATALOG_PROFILE_BYTES,
+    ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistDiscographyPage,
+    ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage, ArtistSearchRequest,
+    CATALOG_CAPABILITIES_PATH, CATALOG_DISCOVERY_CAPABILITIES_PATH, CatalogArtistProfile,
+    CatalogCapabilities, CatalogDiscoveryCapabilities, CatalogDiscoveryOperation, CatalogOperation,
+    MAX_ARTIST_SEARCH_PAGE_BYTES, MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PROFILE_BYTES,
 };
 
 impl ControlClient {
@@ -130,5 +130,66 @@ impl ControlClient {
             .validate_for(request)
             .map_err(|_| Error::Upstream("The provider returned an invalid artist profile"))?;
         Ok(profile)
+    }
+
+    pub(in crate::plugins) async fn catalog_discography_supported_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+    ) -> Result<bool> {
+        let mut remaining = 4096;
+        let value: Option<serde_json::Value> = self
+            .exchange_optional_admitted(
+                base_url,
+                token,
+                Call {
+                    path: CATALOG_CAPABILITIES_PATH,
+                    body: None,
+                    maximum: 4096,
+                },
+                &mut remaining,
+                true,
+            )
+            .await?;
+        let Some(value) = value else {
+            return Ok(false);
+        };
+        let Ok(capabilities) = serde_json::from_value::<CatalogCapabilities>(value) else {
+            return Ok(false);
+        };
+        Ok(capabilities.validate().is_ok()
+            && capabilities
+                .operations
+                .contains(&CatalogOperation::ArtistDiscography))
+    }
+
+    pub(in crate::plugins) async fn catalog_artist_discography_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &ArtistDiscographyRequest,
+    ) -> Result<ArtistDiscographyPage> {
+        request
+            .validate()
+            .map_err(|_| Error::Invalid("Use a valid artist discography request".into()))?;
+        let body = serde_json::to_value(request).map_err(|_| {
+            Error::Internal("The artist discography request could not be encoded".into())
+        })?;
+        let mut remaining = MAX_CATALOG_PAGE_BYTES;
+        let page: ArtistDiscographyPage = self
+            .exchange_admitted(
+                base_url,
+                token,
+                Call {
+                    path: ARTIST_DISCOGRAPHY_PATH,
+                    body: Some(body),
+                    maximum: MAX_CATALOG_PAGE_BYTES,
+                },
+                &mut remaining,
+            )
+            .await?;
+        page.validate_for(request)
+            .map_err(|_| Error::Upstream("The provider returned an invalid artist discography"))?;
+        Ok(page)
     }
 }

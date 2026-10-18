@@ -153,6 +153,36 @@ impl Operation {
         result
     }
 
+    pub(crate) async fn catalog_discography_supported(&self) -> Result<bool> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_discography_supported_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
+    pub(crate) async fn catalog_artist_discography(
+        &self,
+        request: &hito_plugin_sdk::ArtistDiscographyRequest,
+    ) -> Result<hito_plugin_sdk::ArtistDiscographyPage> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_artist_discography_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
     async fn check_catalog(&self) -> Result<()> {
         if !self.approved_capabilities.contains(&Capability::Catalog) {
             return Err(Error::Invalid(

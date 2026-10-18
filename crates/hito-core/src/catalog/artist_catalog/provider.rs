@@ -2,7 +2,8 @@ use super::{ArtistReviewConnection, MetadataProvider};
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_metadata_musicbrainz::MusicBrainzClient;
 use hito_plugin_sdk::{
-    ArtistProfileRequest, ArtistSearchPage, ArtistSearchRequest, Capability, CatalogArtistProfile,
+    ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
+    ArtistSearchRequest, Capability, CatalogArtistProfile,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -62,6 +63,13 @@ impl Connection {
         }
     }
 
+    pub(super) async fn discography_supported(&self) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(true),
+            Self::Http(operation) => operation.catalog_discography_supported().await,
+        }
+    }
+
     pub(super) async fn search(&self, request: &ArtistSearchRequest) -> Result<ArtistSearchPage> {
         match self {
             Self::Builtin(client) => client
@@ -107,6 +115,31 @@ impl Connection {
         match self {
             Self::Builtin(_) => Ok(()),
             Self::Http(operation) => operation.recheck(connection).await,
+        }
+    }
+
+    pub(super) async fn discography(
+        &self,
+        request: &ArtistDiscographyRequest,
+    ) -> Result<ArtistDiscographyPage> {
+        match self {
+            Self::Builtin(client) => {
+                validate_builtin_id(&request.artist_id)?;
+                client
+                    .artist_discography(ArtistDiscographyRequest {
+                        artist_id: request.artist_id.clone(),
+                        cursor: request.cursor.clone(),
+                        snapshot: request.snapshot.clone(),
+                        limit: request.limit,
+                    })
+                    .await
+                    .map_err(|_| {
+                        Error::Upstream(
+                            "The metadata provider could not return a valid artist discography",
+                        )
+                    })
+            }
+            Self::Http(operation) => operation.catalog_artist_discography(request).await,
         }
     }
 }
