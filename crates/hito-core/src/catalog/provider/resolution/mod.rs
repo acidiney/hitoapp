@@ -8,12 +8,13 @@ mod receipts;
 mod types;
 
 use crate::{Actor, Catalog, Error, Result};
+use admission::Caller;
 pub(crate) use admission::CallerAdmission;
 use cursor::Candidates;
 use publication::Publication;
 use receipts::{Admission, Attempt, Lease};
 use std::{future::Future, pin::Pin, time::Duration};
-use tokio::time::Instant;
+use tokio::{sync::oneshot, time::Instant};
 pub use types::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 use uuid::Uuid;
 
@@ -37,15 +38,63 @@ impl Catalog {
             ));
         }
         let started = Instant::now();
-        let _caller = self.resolution_callers.enter(actor.id())?;
+        let deadline = started + Duration::from_secs(10);
+        let mut caller = self.resolution_callers.enter(actor.id())?;
+        tokio::pin!(cancelled);
+        tokio::select! {
+            biased;
+            _ = &mut cancelled => return Err(Error::Upstream("Source resolution was cancelled before admission")),
+            _ = tokio::time::sleep_until(deadline) => return Err(resolution_timeout()),
+            result = caller.wait() => result?,
+        };
+        let (cancel, cancellation) = oneshot::channel();
+        let operation = self.resolve_source_owned(
+            actor,
+            recording,
+            request,
+            async move {
+                let _ = cancellation.await;
+            },
+            &caller,
+            started,
+        );
+        tokio::pin!(operation);
+        tokio::select! {
+            biased;
+            _ = &mut cancelled => {
+                caller.cancelling();
+                let _ = cancel.send(());
+                operation.await
+            },
+            result = &mut operation => result,
+        }
+    }
+
+    async fn resolve_source_owned(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        request: ResolveSource,
+        cancelled: impl Future<Output = ()> + Send,
+        caller: &Caller,
+        started: Instant,
+    ) -> Result<SourceResolution> {
         let deadline = started + Duration::from_secs(10);
         tokio::pin!(cancelled);
         let lease = Lease::new(&self.store);
         let admitted = tokio::select! {
             biased;
-            _ = &mut cancelled => return Err(Error::Upstream("Source resolution was cancelled before admission")),
-            _ = tokio::time::sleep_until(deadline) => return Err(resolution_timeout()),
-            result = self.await_resolution_admission(actor, recording, request.request_id, lease.token()) => result?,
+            _ = &mut cancelled => Err(Error::Upstream("Source resolution was cancelled before admission")),
+            _ = tokio::time::sleep_until(deadline) => Err(resolution_timeout()),
+            result = self.await_resolution_admission(actor, recording, request.request_id, lease.token()) => result,
+        };
+        let admitted = match admitted {
+            Ok(admitted) => admitted,
+            Err(error) => {
+                caller.cancelling();
+                lease.cancel().await?;
+                return Err(error);
+            }
         };
         let (id, outcome) = match admitted {
             Admission::Execute(attempt) => {
@@ -63,6 +112,7 @@ impl Catalog {
                         _ = std::future::ready(()) => Some(prepared),
                     },
                     Some(Err(error)) => {
+                        caller.cancelling();
                         lease.cancel().await?;
                         return Err(error);
                     }
@@ -89,10 +139,12 @@ impl Catalog {
                 match settled {
                     Ok(Some(outcome)) => (attempt.id, outcome),
                     Ok(None) => {
+                        caller.cancelling();
                         lease.cancel().await?;
                         (attempt.id, SourceResolutionOutcome::Cancelled)
                     }
                     Err(error) => {
+                        caller.cancelling();
                         lease.cancel().await?;
                         return Err(error);
                     }

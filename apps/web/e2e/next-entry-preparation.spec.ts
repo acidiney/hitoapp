@@ -2,6 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { components } from "../src/generated";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { nextEntryFixture } from "./fixtures/next-entry";
+import {
+  NextEntryAudioAudit,
+  type CapturedAudioBody,
+} from "./fixtures/next-entry-audio";
 
 type Schema = components["schemas"];
 type Phase =
@@ -20,6 +24,19 @@ type Phase =
   | "natural_transition"
   | "preservation_and_privacy"
   | "cleanup";
+type PreservationStep =
+  | "not_started"
+  | "playlist_read"
+  | "playlist_identity"
+  | "first_download"
+  | "next_download"
+  | "playlist_download"
+  | "pending_callbacks"
+  | "audio_integrity"
+  | "audio_audit"
+  | "console_probe"
+  | "violation_counters"
+  | "complete";
 
 test.use({
   launchOptions: { args: [] },
@@ -54,16 +71,25 @@ test("playlist Play prepares the next distinct recording while current audio pla
   page,
   context,
   baseURL,
+  browserName,
 }) => {
   test.setTimeout(75_000);
   page.setDefaultTimeout(8_000);
   page.setDefaultNavigationTimeout(8_000);
   let phase: Phase = "configuration";
   let failedPhase: Phase | null = null;
+  let preservationStep: PreservationStep = "not_started";
+  let failureOrigin:
+    | "none"
+    | "test"
+    | "cleanup"
+    | "late_callbacks"
+    | "fixture" = "none";
   let fixture: Awaited<ReturnType<typeof nextEntryFixture>> | null = null;
   let firstPlaybackProven = false;
   let firstStillPlayingAtFailure = false;
   let firstPath = "";
+  let nextPath = "";
   let nextRecording = "";
   let resolutionWrites = 0;
   let firstAdmissionStatus = 0;
@@ -81,11 +107,27 @@ test("playlist Play prepares the next distinct recording while current audio pla
   let leakedConsole = 0;
   let callbackFailures = 0;
   let cleanupFailures = 0;
+  let audioAudit: NextEntryAudioAudit | null = null;
+  const preservationEvidence = {
+    playlistStatus: 0,
+    playlistEntries: -1,
+    playlistIdentity: false,
+    firstDownloadStatus: 0,
+    nextDownloadStatus: 0,
+    playlistDownloadStatus: 0,
+    pendingAudio: -1,
+    pendingConsole: -1,
+    audioBodies: -1,
+    firstAudioBodies: -1,
+    nextAudioBodies: -1,
+    unexpectedAudioBodies: -1,
+    invalidAudioBodies: -1,
+    violations: -1,
+  };
   const consoleProbe = { text: 0, snapshot: 0 };
   const pendingConsole = new Set<Promise<void>>();
   const pendingAudio = new Set<Promise<void>>();
-  const audioBodies: { path: string; bytes: Buffer; contentRange?: string }[] =
-    [];
+  const audioBodies: CapturedAudioBody[] = [];
   const password = "owned next-entry browser password";
   const audio = page.locator("audio[data-hito-player]");
 
@@ -111,6 +153,14 @@ test("playlist Play prepares the next distinct recording while current audio pla
     expect(await read(page, "/api/v1/setup")).toEqual({ needs_setup: true });
     fixture = await nextEntryFixture();
     const provider = fixture;
+    audioAudit = new NextEntryAudioAudit(context, {
+      origin,
+      browserName,
+      expected: () => ({ first: firstPath, next: nextPath }),
+      matches: provider.matchesAudio,
+      bodies: audioBodies,
+      pending: pendingAudio,
+    });
     page.on("pageerror", () => pageErrors++);
     await captureConsolePrivacy(
       context,
@@ -128,11 +178,15 @@ test("playlist Play prepares the next distinct recording while current audio pla
       pendingConsole,
     );
     await context.route("**/*", async (route) => {
+      audioAudit?.routed(route.request());
       const url = new URL(route.request().url());
       if (url.protocol.startsWith("http") && url.origin !== origin) {
         foreignRequests++;
         await route.abort();
-      } else await route.continue();
+      } else {
+        await route.continue();
+        audioAudit?.continued(route.request());
+      }
     });
     context.on("request", (request) => {
       try {
@@ -145,45 +199,6 @@ test("playlist Play prepares the next distinct recording while current audio pla
           resolutionWrites++;
         if (/\/downloads?(?:\/|$)/.test(url.pathname)) downloadWrites++;
         if (/\/sources\/(review|attach)$/.test(url.pathname)) manualWrites++;
-      } catch {
-        callbackFailures++;
-      }
-    });
-    context.on("response", (response) => {
-      try {
-        const url = new URL(response.url());
-        if (
-          url.origin !== origin ||
-          !/^\/api\/v1\/sources\/[0-9a-f-]+\/audio$/.test(url.pathname)
-        )
-          return;
-        if (response.request().method() === "HEAD") return;
-        if (
-          ![200, 206].includes(response.status()) ||
-          !response.headers()["content-type"]?.startsWith("audio/wav") ||
-          audioBodies.length + pendingAudio.size >= 32
-        ) {
-          callbackFailures++;
-          return;
-        }
-        const checking = response
-          .body()
-          .then((bytes) => {
-            if (bytes.length > 1_000_000) {
-              callbackFailures++;
-              return;
-            }
-            audioBodies.push({
-              path: url.pathname,
-              bytes,
-              contentRange: response.headers()["content-range"],
-            });
-          })
-          .catch(() => {
-            callbackFailures++;
-          })
-          .finally(() => pendingAudio.delete(checking));
-        pendingAudio.add(checking);
       } catch {
         callbackFailures++;
       }
@@ -402,7 +417,6 @@ test("playlist Play prepares the next distinct recording while current audio pla
     provider.releaseSearch();
 
     phase = "next_audio_buffered_before_current_end";
-    let nextPath = "";
     await expect
       .poll(
         async () => {
@@ -456,29 +470,70 @@ test("playlist Play prepares the next distinct recording while current audio pla
     expect(resolutionWrites).toBe(1);
 
     phase = "preservation_and_privacy";
-    const after = await read<Schema["PlaylistDetail"]>(
-      page,
+    preservationStep = "playlist_read";
+    const afterResponse = await page.request.get(
       `/api/v1/playlists/${receipt.playlist_id}`,
+      { timeout: 8000 },
     );
+    preservationEvidence.playlistStatus = afterResponse.status();
+    expect(preservationEvidence.playlistStatus).toBe(200);
+    const after: Schema["PlaylistDetail"] = await afterResponse.json();
+    preservationStep = "playlist_identity";
+    preservationEvidence.playlistEntries = after.entries.length;
+    preservationEvidence.playlistIdentity =
+      after.entries.length === before.entries.length &&
+      after.entries.every(
+        (entry, index) =>
+          entry.entry_id === before.entries[index]?.entry_id &&
+          entry.recording_id === before.entries[index]?.recording_id,
+      );
     expect(
       after.entries.map((entry) => [entry.entry_id, entry.recording_id]),
     ).toEqual(
       before.entries.map((entry) => [entry.entry_id, entry.recording_id]),
     );
-    for (const recording of [firstRecording, nextRecording])
-      expect(
-        (
-          await page.request.get(`/api/v1/recordings/${recording}/download`)
-        ).status(),
-      ).toBe(404);
-    expect(
-      (
-        await page.request.get(
-          `/api/v1/playlists/${receipt.playlist_id}/download`,
-        )
-      ).status(),
-    ).toBe(404);
-    await Promise.all([...pendingAudio, ...pendingConsole]);
+    for (const [index, recording] of [
+      firstRecording,
+      nextRecording,
+    ].entries()) {
+      preservationStep = index === 0 ? "first_download" : "next_download";
+      const status = (
+        await page.request.get(`/api/v1/recordings/${recording}/download`)
+      ).status();
+      if (index === 0) preservationEvidence.firstDownloadStatus = status;
+      else preservationEvidence.nextDownloadStatus = status;
+      expect(status).toBe(404);
+    }
+    preservationStep = "playlist_download";
+    preservationEvidence.playlistDownloadStatus = (
+      await page.request.get(
+        `/api/v1/playlists/${receipt.playlist_id}/download`,
+      )
+    ).status();
+    expect(preservationEvidence.playlistDownloadStatus).toBe(404);
+    preservationStep = "pending_callbacks";
+    preservationEvidence.pendingAudio = pendingAudio.size;
+    preservationEvidence.pendingConsole = pendingConsole.size;
+    while (pendingAudio.size || pendingConsole.size)
+      await Promise.all([...pendingAudio, ...pendingConsole]);
+    preservationStep = "audio_integrity";
+    preservationEvidence.audioBodies = audioBodies.length;
+    preservationEvidence.firstAudioBodies = audioBodies.filter(
+      (body) => body.path === firstPath,
+    ).length;
+    preservationEvidence.nextAudioBodies = audioBodies.filter(
+      (body) => body.path === nextPath,
+    ).length;
+    preservationEvidence.unexpectedAudioBodies = audioBodies.filter(
+      (body) => body.path !== firstPath && body.path !== nextPath,
+    ).length;
+    preservationEvidence.invalidAudioBodies = audioBodies.filter(
+      (body) =>
+        !(body.path === firstPath
+          ? provider.matchesAudio("first", body.bytes, body.contentRange)
+          : body.path === nextPath &&
+            provider.matchesAudio("next", body.bytes, body.contentRange)),
+    ).length;
     expect(
       audioBodies.every((body) =>
         body.path === firstPath
@@ -487,7 +542,22 @@ test("playlist Play prepares the next distinct recording while current audio pla
             provider.matchesAudio("next", body.bytes, body.contentRange),
       ),
     ).toBe(true);
+    preservationStep = "audio_audit";
+    expect(audioAudit.check().violations).toBe(0);
+    preservationStep = "console_probe";
     expect(consoleProbe.text > 0 && consoleProbe.snapshot > 0).toBe(true);
+    preservationStep = "violation_counters";
+    preservationEvidence.violations =
+      downloadWrites +
+      manualWrites +
+      foreignRequests +
+      pageErrors +
+      privacyFailures +
+      leakedConsole +
+      callbackFailures +
+      provider.counts.protocol +
+      provider.counts.unexpected +
+      provider.counts.handler;
     expect(
       downloadWrites +
         manualWrites +
@@ -500,8 +570,10 @@ test("playlist Play prepares the next distinct recording while current audio pla
         provider.counts.unexpected +
         provider.counts.handler,
     ).toBe(0);
+    preservationStep = "complete";
   } catch {
     failedPhase = phase;
+    failureOrigin = "test";
     if (firstPlaybackProven && !page.isClosed()) {
       try {
         const current = await playing(audio, firstPath);
@@ -521,32 +593,41 @@ test("playlist Play prepares the next distinct recording while current audio pla
     } catch {
       cleanupFailures++;
     }
-    await Promise.all([...pendingAudio, ...pendingConsole]);
+    while (pendingAudio.size || pendingConsole.size)
+      await Promise.all([...pendingAudio, ...pendingConsole]);
     try {
       await fixture?.close();
     } catch {
       cleanupFailures++;
     }
-    if (cleanupFailures) failedPhase ??= "cleanup";
+    if (cleanupFailures) {
+      if (!failedPhase) failureOrigin = "cleanup";
+      failedPhase ??= "cleanup";
+    }
     if (
       callbackFailures +
       privacyFailures +
       leakedConsole +
       foreignRequests +
-      pageErrors
-    )
+      pageErrors +
+      (audioAudit?.check().violations ?? 0)
+    ) {
+      if (!failedPhase) failureOrigin = "late_callbacks";
       failedPhase ??= "preservation_and_privacy";
+    }
     if (
       fixture &&
       fixture.counts.protocol +
         fixture.counts.unexpected +
         fixture.counts.handler
-    )
+    ) {
+      if (!failedPhase) failureOrigin = "fixture";
       failedPhase ??= "preservation_and_privacy";
+    }
   }
   if (failedPhase) {
     const failure = new Error(
-      `Next-entry check failed at phase ${failedPhase}; first_admission_status=${firstAdmissionStatus}; first_admission_identity=${firstAdmissionIdentity}; first_sources_status=${firstSourcesStatus}; first_sources=${firstSourceCount}; first_ready=${firstReadyCount}; next_sources_status=${nextSourcesStatus}; next_ready=${nextReadyCount}; first_details=${fixture?.counts.firstDetails ?? 0}; first_source_reads=${fixture?.counts.firstSources ?? 0}; fixture_protocol=${fixture?.counts.protocol ?? 0}; fixture_unexpected=${fixture?.counts.unexpected ?? 0}; fixture_handler=${fixture?.counts.handler ?? 0}; first_playback_proven=${firstPlaybackProven}; first_still_playing=${firstStillPlayingAtFailure}; next_searches=${fixture?.counts.search ?? 0}`,
+      `Next-entry check failed at phase ${failedPhase}; first_admission_status=${firstAdmissionStatus}; first_admission_identity=${firstAdmissionIdentity}; first_sources_status=${firstSourcesStatus}; first_sources=${firstSourceCount}; first_ready=${firstReadyCount}; next_sources_status=${nextSourcesStatus}; next_ready=${nextReadyCount}; first_details=${fixture?.counts.firstDetails ?? 0}; first_source_reads=${fixture?.counts.firstSources ?? 0}; fixture_protocol=${fixture?.counts.protocol ?? 0}; fixture_unexpected=${fixture?.counts.unexpected ?? 0}; fixture_handler=${fixture?.counts.handler ?? 0}; first_playback_proven=${firstPlaybackProven}; first_still_playing=${firstStillPlayingAtFailure}; next_searches=${fixture?.counts.search ?? 0}; preservation_step=${preservationStep}; failure_origin=${failureOrigin}; preservation_evidence=${JSON.stringify(preservationEvidence)}; audio_audit=${JSON.stringify(audioAudit?.diagnostics() ?? null)}; console_text=${consoleProbe.text}; console_snapshot=${consoleProbe.snapshot}; download_writes=${downloadWrites}; manual_writes=${manualWrites}; foreign_requests=${foreignRequests}; page_errors=${pageErrors}; privacy_failures=${privacyFailures}; leaked_console=${leakedConsole}; callback_failures=${callbackFailures}; cleanup_failures=${cleanupFailures}; fixture_audio=${JSON.stringify(fixture?.audioResponses ?? [])}; fixture_audio_omitted=${fixture?.audioResponsesOmitted ?? 0}`,
     );
     failure.stack = failure.message;
     throw failure;

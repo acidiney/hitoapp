@@ -43,7 +43,7 @@ Each attempt considers at most four approved personal connections, twenty search
 
 The YouTube plugin searches the YouTube Music songs catalog. Its flat results can contain only a video identity and title, so the summary keeps an unknown artist and missing duration. Core still requires independently hydrated musical title, known artist, duration, version context and complete source witnesses before accepting audio. A search result alone cannot supply that evidence.
 
-Caller admission permits one in-flight resolution call per account and two globally across cloned catalog handles. Excess callers receive a controlled conflict before entering SQLite admission; they do not wait or create observer aliases. Durable pending resolutions retain their account/global limits.
+Caller admission reserves at most two active account slots across cloned catalog handles. A running account rejects excess callers with a controlled conflict before SQLite. In the verified development source, a cancelling owner can reserve one successor in that same slot, with at most two successors globally. Further callers receive Busy before SQLite and create no receipt aliases. Waiting consumes the original ten-second budget; cancelling a waiting successor releases only its exact reservation. Durable pending resolutions retain their account/global limits.
 
 A ten-second budget bounds admission and read-only preparation; a twelve-second lease and token checks fence publication. A started SQLite publication is awaited and can extend beyond the foreground budget. Caller capacity remains held through publication and the final authorized result.
 
@@ -57,7 +57,33 @@ Core stores durable request receipts. Replaying an accepted UUID returns the sam
 
 The browser freezes one UUID and request body. An ambiguous acknowledgement permits one retry with that exact body and the same account-owned cancellation signal. Rejected client requests are not retried automatically. Account or queue replacement cancels the old owner and fences late results. A resolution response cannot replay an audio source already exhausted in that playback cycle.
 
-Supplied cancellation can interrupt read-only candidate work. Once publication starts, core awaits its fenced transaction before settling the caller. If a binding collision rejects that publication, cancellation is checked before further provider IO and settles the same receipt as cancelled. A successful publication still settles as ready after cancellation arrives. Abruptly dropping the entire core future and HTTP disconnect ownership remain separate verification work. No detached cleanup task is used to claim immediate release.
+Supplied cancellation can interrupt read-only candidate work. Once publication starts, core awaits its fenced transaction before settling the caller. If a binding collision rejects that publication, cancellation is checked before further provider IO and settles the same receipt as cancelled. A successful publication still settles as ready after cancellation arrives. Abruptly dropping the entire core future remains outside this guarantee. The verified HTTP ownership work below retains the core future after a response waiter disconnects; no detached cleanup task is used.
+
+## HTTP resolution lifetime in verified source
+
+The real server host owns source-resolution tasks separately from response waiters. Losing the HTTP waiter signals cooperative cancellation. Core cancels read-only provider work, awaits exact-token lease cleanup and retains any started publication and final authorization checks. Core also owns the bounded successor handoff. HTTP does not maintain a business admission queue.
+
+```mermaid
+sequenceDiagram
+  participant Client as Browser waiter
+  participant Host as HTTP task owner
+  participant Core as Catalog resolution
+  participant DB as SQLite publication
+  Client->>Host: Resolve with stable request UUID
+  Host->>Core: Run owned operation with cancellation signal
+  Client--xHost: Disconnect
+  Host->>Core: Signal cancellation
+  Core->>DB: Settle exact lease or finish started publication
+  DB-->>Core: Transaction settled
+  Core-->>Host: Final authorized result
+  Host->>Host: Join operation before host returns
+```
+
+Connection shutdown keeps its existing five-second drain and forced-abort policy. Owned resolutions are joined afterward, before the host reports that it stopped. An embedded router without this host runs inline with its caller's lifetime; this slice does not make an abruptly dropped direct core future safe.
+
+Actual regressions first showed a disconnected provider read ending while its durable lease blocked the next Play, and publication ownership ending before a held writer was released. A later retry-burst regression exposed an unbounded transport wait queue in the prototype. The final implementation passes all four HTTP cases, including forced connection abort during publication. Two additional public core cases verify cancelled reservation replacement and two-account saturation/isolation. Six existing core admission, cancellation, binding-race and revocation cases also pass.
+
+The frozen source passes all 139 distinct server tests, strict all-target core/server Clippy and formatting in Docker. Both independent specialist rounds are complete, with final security, correctness and performance reviews passing. The integrated source also passes 299 distinct core cases with one usual ignored fault case. The combined image `sha256:6eacc678c8f0ff5380c8947e670bde52f9fd17009db7b040eb474ee5fc48f366` passes fresh owned-audio Chromium/WebKit workflows and was deployed locally after stopped clone and normal preservation audits. The later [browser Media Session image](browser-media-session.md) retains that unchanged Rust application and passes fresh next-entry workflows on both engines. Migration 0045 is unchanged. These are source, protocol and packaged browser checks; native, physical-device and release latency guarantees remain open. See [next-entry acceptance](next-entry-preparation.md) and [local deployment](status.md#running-local-deployment).
 
 ## Verified evidence
 

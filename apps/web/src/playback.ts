@@ -520,14 +520,18 @@ export class Playback implements Player {
 
   async toggle() {
     this.selection++;
+    await this.setPlaying(this.media.paused);
+  }
+  async setPlaying(playing: boolean) {
     if (this.state.loading) return;
+    log.info("playback.playing_set", {
+      recording_id: this.state.current?.id,
+      enabled: playing,
+    });
+    if (playing === !this.media.paused) return;
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
-    log.info("playback.toggle", {
-      recording_id: this.state.current?.id,
-      enabled: this.media.paused,
-    });
-    if (this.media.paused) {
+    if (playing) {
       try {
         await this.media.play();
       } catch {

@@ -223,20 +223,22 @@ async fn advance_until(
 ) -> PlaylistDownloadStatus {
     tokio::time::timeout(Duration::from_secs(8), async {
         loop {
-            fixture
+            let reconciliation_progressed = fixture
                 .services
                 .downloads
                 .run_next_playlist_reconciliation_until(pending())
                 .await
                 .unwrap();
-            fixture
+            let download_progressed = fixture
                 .services
                 .downloads
                 .run_next_job_until(pending())
                 .await
                 .unwrap();
             let state = status(fixture).await;
-            if state.desired_revision == state.reconciled_revision
+            if !reconciliation_progressed
+                && !download_progressed
+                && state.desired_revision == state.reconciled_revision
                 && state.entries.items.len() == 1
                 && state.entries.items[0].status == expected
             {

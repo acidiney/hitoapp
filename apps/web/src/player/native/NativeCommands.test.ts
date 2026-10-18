@@ -4,6 +4,47 @@ import { nativeService } from "./fixtures/service";
 
 afterEach(() => vi.unstubAllGlobals());
 
+test("native explicit playback intentions keep their direction with stale observations and preserve a prepared selection", async () => {
+  const service = nativeService();
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    const prepared = player.prepareSelection();
+    await player.setPlaying(true);
+    await player.setPlaying(true);
+    await player.setPlaying(false);
+    expect(service.commands.map((command) => command.action)).toEqual([
+      { kind: "resume" },
+      { kind: "resume" },
+      { kind: "pause" },
+    ]);
+    expect(player.snapshot().playing).toBe(false);
+    expect(
+      await prepared({
+        id: "recording",
+        title: "Private prepared title",
+        artist: "Private prepared artist",
+        duration_ms: 10000,
+        available: true,
+      }),
+    ).toBe(true);
+    expect(service.commands.slice(3).map((command) => command.action)).toEqual([
+      { kind: "pause" },
+      { kind: "replace", recordings: ["recording"], start: 0 },
+      { kind: "resume" },
+    ]);
+    expect(service.commands.map((command) => command.sequence)).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ]);
+    expect(
+      service.requests.every((path) => path.startsWith("/api/v1/player")),
+    ).toBe(true);
+    expect(JSON.stringify(service.commands)).not.toContain("Private prepared");
+  } finally {
+    player.close();
+  }
+});
+
 test("native actions send IDs and controls while keeping source resolution and progress in Rust", async () => {
   const service = nativeService();
   const player = new NativePlayback("alice");
