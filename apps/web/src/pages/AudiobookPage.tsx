@@ -1,15 +1,18 @@
 import { Link } from "@inertiajs/react";
 import EmptyState from "../components/EmptyState";
 import PageHeading from "../components/PageHeading";
+import AudiobookBookmarkForm from "../components/audiobooks/AudiobookBookmarkForm";
+import AudiobookBookmarkList from "../components/audiobooks/AudiobookBookmarkList";
 import { time } from "../format";
+import { useAudiobookBookmarks } from "../hooks/useAudiobookBookmarks";
 import type { AudiobookPageProps } from "../types";
 
-export default function AudiobookPage({ detail }: AudiobookPageProps) {
-  const chapters = new Map(
-    detail.chapters.map(
-      (entry, index) => [entry.entry_id, { entry, number: index + 1 }] as const,
-    ),
-  );
+export default function AudiobookPage({
+  user,
+  detail: rendered,
+}: AudiobookPageProps) {
+  const bookmarks = useAudiobookBookmarks(user.id, rendered);
+  const detail = bookmarks.detail;
   const count = detail.chapters.length;
   return (
     <>
@@ -69,33 +72,12 @@ export default function AudiobookPage({ detail }: AudiobookPageProps) {
       )}
       <section aria-label="Bookmarks">
         <h2>Bookmarks</h2>
-        {detail.bookmarks.length > 0 ? (
-          <ol>
-            {detail.bookmarks.map((bookmark) => {
-              const chapter = chapters.get(bookmark.entry_id);
-              const anchored =
-                chapter?.entry.recording_id === bookmark.recording_id
-                  ? chapter
-                  : undefined;
-              return (
-                <li key={bookmark.id}>
-                  <strong>{bookmark.label}</strong>
-                  <p>
-                    {anchored
-                      ? `Chapter ${anchored.number}: ${anchored.entry.title || "Untitled chapter"}`
-                      : "Chapter unavailable"}
-                  </p>
-                  <span>{time(bookmark.position_ms / 1000)}</span>
-                  {anchored && !anchored.entry.available && (
-                    <p>Chapter unavailable</p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <p>No bookmarks yet.</p>
-        )}
+        <AudiobookBookmarkForm chapters={detail.chapters} {...bookmarks} />
+        <AudiobookBookmarkList
+          detail={detail}
+          disabled={bookmarks.pending || bookmarks.hasAttempt}
+          remove={bookmarks.remove}
+        />
       </section>
     </>
   );
