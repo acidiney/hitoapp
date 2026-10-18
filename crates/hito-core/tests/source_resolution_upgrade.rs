@@ -5,6 +5,8 @@ use sqlx::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 
+#[path = "fixtures/collection_artwork_schema.rs"]
+mod collection_artwork_schema;
 #[path = "fixtures/release_credit_schema.rs"]
 mod release_credit_schema;
 
@@ -82,6 +84,9 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
     .collect();
     reference.close().await.unwrap();
     drop(baseline);
+    let mut reference = collection_artwork_schema::reference().await;
+    let declared_artwork = collection_artwork_schema::schema(&mut reference).await;
+    reference.close().await.unwrap();
 
     all.run(&pool).await.unwrap();
 
@@ -101,6 +106,16 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             | "release_artist_update"
             | "artist_releases"
             | "account_artist_releases" => declared_release.get(&name).unwrap().clone(),
+            "artwork_fetch_identity"
+            | "recording_artwork_owner"
+            | "recording_artwork_update"
+            | "current_artwork_fetch_authority" => declared_artwork
+                .iter()
+                .find(|object| object.1 == name)
+                .unwrap()
+                .3
+                .clone()
+                .unwrap(),
             _ => original,
         };
         let expected = (kind.clone(), definition);
@@ -137,7 +152,8 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 49);
+    assert_eq!(version, 51);
+    collection_artwork_schema::assert_current(&mut pool.acquire().await.unwrap()).await;
     for table in [
         "recording_source_choices",
         "source_resolutions",

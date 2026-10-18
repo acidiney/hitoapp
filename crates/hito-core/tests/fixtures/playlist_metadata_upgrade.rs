@@ -6,6 +6,8 @@ use sqlx::{
 };
 use std::{borrow::Cow, path::Path};
 
+#[path = "collection_artwork_schema.rs"]
+mod collection_artwork_schema;
 #[path = "playlist_metadata_schema.rs"]
 mod playlist_metadata_schema;
 
@@ -80,12 +82,35 @@ async fn layout(connection: &mut SqliteConnection, table: &str) -> TableLayout {
 async fn rows(connection: &mut SqliteConnection, tables: &[String]) -> Vec<TableDigest> {
     let mut result = Vec::new();
     for table in tables {
-        let columns: Vec<String> =
+        let mut columns: Vec<String> =
             sqlx::query_scalar("SELECT name FROM pragma_table_xinfo(?) ORDER BY cid")
                 .bind(table)
                 .fetch_all(&mut *connection)
                 .await
                 .unwrap();
+        let selected = if table == "artwork_fetches" {
+            let legacy = collection_artwork_schema::LEGACY_JOB_COLUMNS
+                .iter()
+                .map(|name| (*name).to_owned())
+                .collect::<Vec<_>>();
+            let extended = collection_artwork_schema::LEGACY_JOB_COLUMNS
+                .iter()
+                .chain(collection_artwork_schema::NEW_JOB_COLUMNS)
+                .map(|name| (*name).to_owned())
+                .collect::<Vec<_>>();
+            assert!(
+                columns == legacy || columns == extended,
+                "only the exact declared collection-target columns may extend historical artwork jobs"
+            );
+            columns = legacy;
+            columns
+                .iter()
+                .map(|name| quoted(name))
+                .collect::<Vec<_>>()
+                .join(",")
+        } else {
+            "*".into()
+        };
         let layout = layout(connection, table).await;
         let filter = if table == "_sqlx_migrations" {
             " WHERE version <= 45"
@@ -94,7 +119,7 @@ async fn rows(connection: &mut SqliteConnection, tables: &[String]) -> Vec<Table
         };
         let identity = if layout.without_rowid { "" } else { "rowid," };
         let query = format!(
-            "SELECT {identity}* FROM {}{filter} ORDER BY {}",
+            "SELECT {identity}{selected} FROM {}{filter} ORDER BY {}",
             quoted(table),
             layout.order
         );
@@ -182,7 +207,8 @@ pub async fn historical_45(source: &Path, destination: &Path) -> Baseline {
     let mut copied_state = copied.clone();
     copied_state.push("sqlite_sequence".into());
     let mut source_connection = connect(source).await;
-    assert_eq!(version(&mut source_connection).await, 49);
+    assert_eq!(version(&mut source_connection).await, 51);
+    collection_artwork_schema::assert_current(&mut source_connection).await;
     let source_ledger: Vec<(i64, Vec<u8>, bool)> = sqlx::query_as(
         "SELECT version,checksum,success FROM _sqlx_migrations WHERE version <= 45 ORDER BY version",
     ).fetch_all(&mut source_connection).await.unwrap();
@@ -325,9 +351,26 @@ pub async fn assert_preserved(
         .iter()
         .find(|object| object.1 == "sync_events")
         .unwrap();
+    let artwork = if expected_version == 51 {
+        let mut reference = collection_artwork_schema::reference().await;
+        let declared = schema(&mut reference).await;
+        reference.close().await.unwrap();
+        declared
+    } else {
+        Vec::new()
+    };
     for object in &baseline.schema {
         let expected = if object.1 == "sync_events" {
             sync_events
+        } else if expected_version == 51
+            && collection_artwork_schema::REPLACED
+                .iter()
+                .any(|(kind, name)| *kind == object.0 && *name == object.1)
+        {
+            artwork
+                .iter()
+                .find(|current| current.0 == object.0 && current.1 == object.1)
+                .unwrap()
         } else {
             object
         };
@@ -352,7 +395,7 @@ pub async fn assert_preserved(
     ];
     match expected_version {
         46 => {}
-        47..=49 => expected.extend([
+        47..=49 | 51 => expected.extend([
             "account_metadata_policies",
             "sqlite_autoindex_account_metadata_policies_1",
             "recording_artist_associations",
@@ -365,13 +408,13 @@ pub async fn assert_preserved(
         ]),
         _ => panic!("The upgrade fixture requires an exact supported schema endpoint"),
     }
-    let declared_audiobooks = if matches!(expected_version, 48 | 49) {
+    let declared_audiobooks = if matches!(expected_version, 48 | 49 | 51) {
         let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
         sqlx::raw_sql(include_str!("../../migrations/0048_audiobooks.sql"))
             .execute(&mut reference)
             .await
             .unwrap();
-        if expected_version == 49 {
+        if matches!(expected_version, 49 | 51) {
             sqlx::raw_sql(include_str!(
                 "../../migrations/0049_audiobook_continuation.sql"
             ))
@@ -392,13 +435,27 @@ pub async fn assert_preserved(
         );
         expected.push(object.1.as_str());
     }
+    if expected_version == 51 {
+        for &(kind, name) in collection_artwork_schema::ADDED {
+            let object = artwork
+                .iter()
+                .find(|object| object.0 == kind && object.1 == name)
+                .unwrap();
+            assert!(
+                after.contains(object),
+                "each collection artwork addition must match its exact declaration"
+            );
+            expected.push(name);
+        }
+        collection_artwork_schema::assert_current(connection).await;
+    }
     expected.sort_unstable();
     let mut new_names = new_names;
     new_names.sort_unstable();
     assert_eq!(new_names, expected);
-    if matches!(expected_version, 48 | 49) {
+    if matches!(expected_version, 48 | 49 | 51) {
         let mut tables = vec!["audiobooks", "audiobook_bookmarks"];
-        if expected_version == 49 {
+        if matches!(expected_version, 49 | 51) {
             tables.push("audiobook_continuations");
         }
         for table in tables {

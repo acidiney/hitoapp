@@ -5,6 +5,8 @@ use sqlx::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 
+#[path = "fixtures/collection_artwork_schema.rs"]
+mod collection_artwork_schema;
 #[path = "fixtures/playlist_metadata_schema.rs"]
 mod playlist_metadata_schema;
 #[path = "fixtures/release_credit_schema.rs"]
@@ -53,10 +55,13 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_artist_catalog()
         .await
         .expecting_audiobooks()
+        .await
+        .expecting_collection_artwork()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 49).await;
+    assert_version(&mut connection, 51).await;
     expected.assert_preserved(&mut connection).await;
+    collection_artwork_schema::assert_current(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
             podcast_subscription_generation,podcast_enclosure_revision,podcast_enclosure_url FROM download_intents").await;
@@ -451,6 +456,53 @@ impl RetainedState {
             "audiobook_bookmarks",
             "audiobook_continuations",
         ] {
+            self.projections.push(Projection {
+                name: name.into(),
+                statement: format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(name)),
+                rows: Vec::new(),
+            });
+        }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_collection_artwork(mut self) -> Self {
+        let mut reference = collection_artwork_schema::reference().await;
+        let declared = schema(&mut reference).await;
+        let mut declared_indexes = indexes(&mut reference).await;
+        for &(kind, name) in collection_artwork_schema::REPLACED {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(
+                self.schema.contains_key(&key),
+                "the baseline must contain {kind} {name}"
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+            if kind == "index" {
+                let table = &declared.get(&key).unwrap().0;
+                let key = (table.clone(), name.to_owned());
+                assert!(self.indexes.contains_key(&key));
+                self.indexes
+                    .insert(key.clone(), declared_indexes.remove(&key).unwrap());
+            }
+        }
+        for &(kind, name) in collection_artwork_schema::ADDED {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(
+                !self.schema.contains_key(&key),
+                "the baseline must predate {kind} {name}"
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+            if kind == "index" {
+                let table = &declared.get(&key).unwrap().0;
+                let key = (table.clone(), name.to_owned());
+                assert!(!self.indexes.contains_key(&key));
+                self.indexes
+                    .insert(key.clone(), declared_indexes.remove(&key).unwrap());
+            }
+        }
+        for &name in collection_artwork_schema::NEW_TABLES {
             self.projections.push(Projection {
                 name: name.into(),
                 statement: format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(name)),

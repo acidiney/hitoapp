@@ -1,4 +1,6 @@
 use futures_util::TryStreamExt;
+#[path = "collection_artwork_schema.rs"]
+mod collection_artwork_schema;
 use sha2::{Digest, Sha256};
 use sqlx::{
     Connection, SqliteConnection,
@@ -41,9 +43,10 @@ pub async fn seed(statistics: Statistics) -> Database {
             .await
             .unwrap();
     assert_eq!(
-        latest, 49,
+        latest, 51,
         "The workload must use the full actual production migration history"
     );
+    collection_artwork_schema::assert_current(&mut connection).await;
     let mut tx = connection.begin().await.unwrap();
     sqlx::raw_sql(
         "WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM n WHERE i<9)

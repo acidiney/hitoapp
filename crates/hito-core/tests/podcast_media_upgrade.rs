@@ -8,6 +8,8 @@ use sqlx::{
 use std::{borrow::Cow, collections::BTreeMap};
 use uuid::Uuid;
 
+#[path = "fixtures/collection_artwork_schema.rs"]
+mod collection_artwork_schema;
 #[path = "fixtures/playlist_metadata_schema.rs"]
 mod playlist_metadata_schema;
 #[path = "fixtures/release_credit_schema.rs"]
@@ -93,8 +95,9 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 49).await;
+    assert_version(&mut connection, 51).await;
     latest.assert_preserved(&mut connection).await;
+    collection_artwork_schema::assert_current(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
     assert_fixture(&mut connection).await;
     assert!(
@@ -497,6 +500,28 @@ impl RetainedState {
             );
             self.schema
                 .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        reference.close().await.unwrap();
+        let mut reference = collection_artwork_schema::reference().await;
+        let declared = schema(&mut reference).await;
+        for &(_, name) in collection_artwork_schema::REPLACED {
+            assert!(
+                self.schema.contains_key(name),
+                "the baseline must contain {name}"
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        for &(kind, name) in collection_artwork_schema::ADDED {
+            if let Some(definition) = declared.get(name) {
+                assert!(
+                    !self.schema.contains_key(name),
+                    "the baseline must predate {name}"
+                );
+                self.schema.insert(name.into(), definition.clone());
+            } else {
+                assert!(kind == "index" && name.starts_with("sqlite_autoindex_"));
+            }
         }
         reference.close().await.unwrap();
         self
