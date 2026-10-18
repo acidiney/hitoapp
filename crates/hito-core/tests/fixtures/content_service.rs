@@ -362,7 +362,12 @@ async fn wait_gate(state: &Fixture, path: &str) -> bool {
     }
     true
 }
-async fn manifest(State(state): State<Arc<Fixture>>) -> Response {
+async fn manifest(State(state): State<Arc<Fixture>>, headers: HeaderMap) -> Response {
+    state
+        .requests
+        .lock()
+        .await
+        .push(("v1/manifest".into(), headers, Value::Null));
     if *state.offline.read().await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
