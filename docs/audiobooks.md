@@ -1,6 +1,6 @@
-# Audiobook core foundation
+# Audiobooks in development
 
-Audiobook grouping and private bookmarks are qualified in core source. This is not a complete audiobook feature: dedicated list/read HTTP routes, shared pages and the audiobook playback workflow are not implemented. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
+Audiobook grouping, private bookmarks, authenticated list/read routes and read-only shared pages are qualified in source. Grouping controls, bookmark editing and the audiobook playback workflow remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
 
 ## Ownership and identities
 
@@ -53,8 +53,16 @@ The first five exercise public capabilities with real temporary SQLite and owned
 
 The integrated full-core run passed 331 distinct cases, with one usual fault case ignored, and exposed six migration fixtures still expecting schema 0047. Their latest endpoints and exact additive schema expectations were corrected without changing historical inputs or preservation checks. All six directed targets then passed, qualifying 337 distinct core cases across those runs. This is not a single green run of all 337 cases.
 
-The combined workspace also passes 148 distinct server cases, strict all-target workspace Clippy and formatting. The generated route/type export changes only the existing `Action` schema and reproduces byte for byte. All 298 frontend cases, both TypeScript configurations and the production web build pass with those generated types. These checks do not add dedicated audiobook pages or read routes.
+The combined workspace also passes 148 distinct server cases, strict all-target workspace Clippy and formatting. The generated route/type export changes only the existing `Action` schema and reproduces byte for byte. All 298 frontend cases, both TypeScript configurations and the production web build pass with those generated types. Those foundation checks precede the read routes and pages below.
 
-The next slice is authenticated list/read adapters, generated contracts and a shared chapter-based workflow for grouping existing playlists, bookmark create/remove/jump, explicit chapter resume and speed controls. Chapter/bookmark limit boundaries, access revocation and removed-chapter bookmark presentation need further qualification. A retained marker must never silently retarget another occurrence.
+## HTTP and read-only pages
+
+`GET /api/v1/audiobooks` reads at most 100 owned, live, editable grouped playlists in one core query. `GET /api/v1/audiobooks/{id}` returns the existing chapter and bookmark projection. The Inertia routes `/audiobooks` and `/audiobooks/{id}` reuse those capabilities through generated page contracts. Detail reads authorize the book before omitting optional props, so partial requests for shared props cannot bypass ownership or deletion. Anonymous browser requests use the existing login page; authenticated responses remain private and not cacheable.
+
+The shared index links to each book. The chapter page preserves server order and exact entry identities, including repeated recordings. Bookmarks match their original entry and recording; removed or mismatched anchors remain visible as unavailable. Rendering opens no audio, provider request or persistent download and changes no listening state. Navigation is registered in the shared shell.
+
+Four real-SQLite HTTP/Inertia cases pass, covering owned reads, exact chapter/bookmark projection, account mismatch, foreign and ungrouped books, full and partial denials, parent deletion, safe anonymous login and preservation of both accounts and original WAV bytes. Strict core/server all-target Clippy and formatting pass. Actual Rust export adds only the two GET routes and four DTO/page schemas; generated TypeScript reproduces and both configurations pass. Three page cases cover list/empty state, duplicate occurrences and unavailable bookmarks with rendering side effects rejected. All 301 frontend cases and the production build pass. Fresh independent reviews pass for the adapters and read-only UI.
+
+The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. The next workflow adds explicit grouping of existing playlists, bookmark create/remove/jump, chapter resume and speed controls. Chapter/bookmark limit boundaries and access revocation need further qualification. Packaged browser and deployment acceptance also remain open.
 
 A book-wide Continue button additionally requires an explicit selected-chapter anchor and collection occurrence provenance through browser and native queues. Recording timestamps or the current recording cannot identify a duplicate chapter occurrence. Automatic advancement, navigation, account switching and consistent resume must use the existing playback owner and per-recording progress, without another position store. These remain required release work, along with packaged browser, native/platform and normal-deployment acceptance.
