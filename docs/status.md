@@ -14,6 +14,8 @@ Account metadata preferences now have authenticated GET/PUT routes and a shared 
 
 Updated 2026-10-18. The full release scope is in [release-plan.md](release-plan.md), with remaining work in [TODO.md](../TODO.md). Hito is a development build. The public release is not ready.
 
+Plugin settings now disclose accepted and proposed persistence declarations through shared rendering. Seven new cases cover policy-only review, decline, exact acceptance and private credential drafts. All 422 frontend cases, types/build and independent review pass; integrated frontend inputs match the qualified snapshot. This is source-qualified display only. Initial policy-bearing connection consent, packaged acceptance and normal deployment remain open. See [persistence declarations](plugins.md#optional-source-persistence-declaration).
+
 ## Current behavior
 
 Core owns identity, catalog, collection transactions, indexing and private SQLite storage. HTTP adapters authenticate through the shared extractor and map typed capability requests and results. Actual Rust routes generate OpenAPI and TypeScript. React pages use workflow hooks for async work; playback position updates do not rerender catalog pages. See [architecture decisions](architecture-decisions.md) and [interface direction](../DESIGN.md).
