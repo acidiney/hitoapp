@@ -20,6 +20,12 @@ export function browserPreparationMedia() {
   >();
   const waiting = new Map<string, (media: HTMLAudioElement) => void>();
   const owned = new Set<HTMLAudioElement>();
+  let heldPlay: {
+    media?: HTMLMediaElement;
+    cancelled: boolean;
+    entered: ReturnType<typeof deferred<HTMLMediaElement>>;
+    gate: ReturnType<typeof deferred<void>>;
+  } | null = null;
   let peak = 0;
   const recordOwnership = (records: MutationRecord[]) => {
     for (const record of records) {
@@ -62,6 +68,18 @@ export function browserPreparationMedia() {
       played.push({ media: this, source: this.getAttribute("src") });
       state(this).paused = false;
       state(this).ended = false;
+      const held = heldPlay;
+      if (held && !held.media) {
+        held.media = this;
+        held.entered.resolve(this);
+        await held.gate.promise;
+        if (heldPlay === held) heldPlay = null;
+        if (held.cancelled)
+          throw new DOMException(
+            "Owned media play was interrupted",
+            "AbortError",
+          );
+      }
       this.dispatchEvent(new Event("play"));
     },
   );
@@ -70,6 +88,7 @@ export function browserPreparationMedia() {
   ) {
     const playing = !state(this).paused;
     state(this).paused = true;
+    if (heldPlay?.media === this) heldPlay.cancelled = true;
     if (playing) this.dispatchEvent(new Event("pause"));
   });
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(function (
@@ -87,6 +106,19 @@ export function browserPreparationMedia() {
     created,
     played,
     loaded,
+    holdNextPlay() {
+      if (heldPlay) throw new Error("Only one owned play boundary may be held");
+      const held = {
+        cancelled: false,
+        entered: deferred<HTMLMediaElement>(),
+        gate: deferred<void>(),
+      };
+      heldPlay = held;
+      return {
+        entered: held.entered.promise,
+        release: () => held.gate.resolve(),
+      };
+    },
     loadedSource(source: string) {
       const path = audioPath(source);
       const existing = loaded.find((load) => load.source === path);
