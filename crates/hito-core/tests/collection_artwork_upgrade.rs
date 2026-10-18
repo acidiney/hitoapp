@@ -4,6 +4,8 @@ mod legacy;
 #[path = "fixtures/collection_artwork.rs"]
 #[allow(dead_code)]
 mod provider;
+#[path = "fixtures/collection_artwork_schema.rs"]
+mod schema;
 #[path = "fixtures/source_resolution_evidence_snapshot.rs"]
 mod snapshot;
 mod support;
@@ -68,13 +70,7 @@ async fn historical_artwork_upgrade_preserves_ready_references_pending_authority
         "every legacy artwork foreign key must survive the generalized job table"
     );
     assert!(upgrade::foreign_keys(&mut connection, "recording_artwork").await == retained_keys);
-    assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT max(version) FROM _sqlx_migrations WHERE success=1")
-            .fetch_one(&mut connection)
-            .await
-            .unwrap(),
-        51
-    );
+    schema::assert_current(&mut connection).await;
     assert_eq!(
         sqlx::query_scalar::<_, String>(
             "SELECT id FROM current_artwork_fetch_authority WHERE id=?"
