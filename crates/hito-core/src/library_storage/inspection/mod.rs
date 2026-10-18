@@ -1,7 +1,9 @@
+mod artist_tags;
 mod cache;
 mod command;
 mod ownership;
 mod probe;
+mod read_probe;
 mod snapshot;
 
 use super::{
@@ -105,45 +107,44 @@ impl FileInspector {
             .prepare(
                 root,
                 path,
-                cached.as_ref().map(|cached| cached.checksum.as_str()),
+                cached
+                    .as_ref()
+                    .filter(|cached| cached.metadata_current())
+                    .map(|cached| cached.checksum.as_str()),
                 self.tools.timeout,
             )
             .await?;
         let before = prepared.file;
-        if let Some(cached) = cached.filter(|cached| cached.checksum == before.checksum) {
-            tracing::trace!(
-                event = "media_inspection_reused",
-                "Unchanged file inspection reused"
-            );
-            return Ok((cached.into_indexed(before), None));
-        }
+        let cached = match cached.filter(|cached| cached.checksum == before.checksum) {
+            Some(cached) if cached.metadata_current() => {
+                tracing::trace!(
+                    event = "media_inspection_reused",
+                    "Unchanged file inspection reused"
+                );
+                return Ok((cached.into_indexed(before), None));
+            }
+            cached => cached,
+        };
         let media = prepared
             .media
             .ok_or_else(|| Error::Internal("Media verification did not prepare an input".into()))?;
-        let mut arguments = input(&media.path);
-        arguments.extend([
-            "-select_streams", "a", "-show_entries",
-            "stream=codec_name,sample_rate,channels,channel_layout,bits_per_sample,bits_per_raw_sample:format=duration,format_name:format_tags=title,artist,album,album_artist,disc,track:stream_tags=title,artist,album,album_artist,disc,track",
-            "-of", "json",
-        ].map(OsString::from));
-        let bytes = self
-            .commands
-            .run(
-                &self.tools.ffprobe,
-                arguments,
-                65536,
-                self.tools.timeout.min(Duration::from_secs(15)),
-                Some(media.directory.clone()),
-            )
-            .await?;
-        let probe: Probe = serde_json::from_slice(&bytes)
-            .map_err(|_| Error::Invalid("Media inspection returned invalid metadata".into()))?;
+        let (probe, tags) = self.read_probe(&media).await?;
         if probe.streams.is_empty() {
             return Err(Error::Invalid("No audio stream found".into()));
         }
-        let audio = match self.audio(&media, &probe).await? {
-            AudioInspection::Verified(evidence) => Some(evidence),
-            AudioInspection::UnsupportedProfile => None,
+        let audio = match cached {
+            Some(cached) => {
+                tracing::debug!(
+                    event = "audio_inspection_reused",
+                    metadata_version = cached.metadata_version,
+                    "Unchanged audio inspection reused for metadata refresh"
+                );
+                cached.audio()
+            }
+            None => match self.audio(&media, &probe).await? {
+                AudioInspection::Verified(evidence) => Some(evidence),
+                AudioInspection::UnsupportedProfile => None,
+            },
         };
         let after = self
             .snapshots
@@ -179,7 +180,7 @@ impl FileInspector {
                 disc_number: probe.number("disc"),
                 track_number: probe.number("track"),
                 tag_details: Some(
-                    serde_json::to_string(&probe.tags()).map_err(|_| {
+                    serde_json::to_string(&tags).map_err(|_| {
                         Error::Internal("Observed tags could not be encoded".into())
                     })?,
                 ),

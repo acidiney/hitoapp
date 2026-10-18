@@ -1539,6 +1539,7 @@ export interface components {
             album_artist: components["schemas"]["ObservedTag"] | null;
             artist: components["schemas"]["ObservedTag"] | null;
             disc: components["schemas"]["ObservedTag"] | null;
+            musicbrainz_artist_tags: components["schemas"]["MusicBrainzArtistTag"][] | null;
             title: components["schemas"]["ObservedTag"] | null;
             track: components["schemas"]["ObservedTag"] | null;
         };
@@ -1602,6 +1603,14 @@ export interface components {
             title: string;
             /** Format: int64 */
             track_number: number | null;
+        };
+        /** @enum {string} */
+        MusicBrainzArtistRole: "artist" | "album_artist";
+        MusicBrainzArtistTag: {
+            key: string;
+            location: components["schemas"]["TagLocation"];
+            role: components["schemas"]["MusicBrainzArtistRole"];
+            value: string;
         };
         MusicFolder: {
             available: boolean;

@@ -8655,7 +8655,8 @@
           "album",
           "album_artist",
           "disc",
-          "track"
+          "track",
+          "musicbrainz_artist_tags"
         ],
         "properties": {
           "album": {
@@ -8697,6 +8698,15 @@
                 "type": "null"
               }
             ]
+          },
+          "musicbrainz_artist_tags": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/MusicBrainzArtistTag"
+            }
           },
           "title": {
             "oneOf": [
@@ -8994,6 +9004,36 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "MusicBrainzArtistRole": {
+        "type": "string",
+        "enum": [
+          "artist",
+          "album_artist"
+        ]
+      },
+      "MusicBrainzArtistTag": {
+        "type": "object",
+        "required": [
+          "role",
+          "key",
+          "value",
+          "location"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/TagLocation"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MusicBrainzArtistRole"
+          },
+          "value": {
+            "type": "string"
           }
         }
       },

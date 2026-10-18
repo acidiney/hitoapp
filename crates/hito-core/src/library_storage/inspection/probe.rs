@@ -59,7 +59,7 @@ impl Probe {
         self.observed_tag(name).map(|tag| tag.value)
     }
 
-    pub(super) fn tags(&self) -> InspectedTags {
+    pub(super) fn tags(&self, artist_tags_known: bool) -> InspectedTags {
         InspectedTags {
             title: self.observed_tag("title"),
             artist: self.observed_tag("artist"),
@@ -67,6 +67,11 @@ impl Probe {
             album_artist: self.observed_tag("album_artist"),
             disc: self.observed_tag("disc"),
             track: self.observed_tag("track"),
+            musicbrainz_artist_tags: if artist_tags_known {
+                super::artist_tags::collect(self)
+            } else {
+                None
+            },
         }
     }
 

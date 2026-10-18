@@ -50,9 +50,9 @@ pub use library_storage::{
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
-    InspectedTags, MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage,
-    ObservedTag, OptionalTextMetadata, RecordingMetadata, ReleaseMetadata, TagLocation,
-    TextMetadata,
+    InspectedTags, MetadataHistoryQuery, MetadataObservation, MusicBrainzArtistRole,
+    MusicBrainzArtistTag, ObservationOrigin, ObservationPage, ObservedTag, OptionalTextMetadata,
+    RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use plugins::{
     InstallPlugin, OfferPluginService, PluginAuthorization, PluginAuthorizationRedirect,

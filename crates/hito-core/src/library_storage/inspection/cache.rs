@@ -1,10 +1,13 @@
 use super::snapshot::Snapshot;
-use crate::library_storage::types::{AUDIO_ALGORITHM, AudioEvidence, IndexedFile};
+use crate::library_storage::types::{
+    AUDIO_ALGORITHM, AudioEvidence, IndexedFile, METADATA_VERSION,
+};
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct CachedFile {
     pub checksum: String,
     pub audio_digest: Option<String>,
+    pub metadata_version: i64,
     pub title: String,
     pub artist: String,
     pub album: String,
@@ -16,6 +19,17 @@ pub(crate) struct CachedFile {
 }
 
 impl CachedFile {
+    pub(super) fn metadata_current(&self) -> bool {
+        self.metadata_version == METADATA_VERSION
+    }
+
+    pub(super) fn audio(&self) -> Option<AudioEvidence> {
+        self.audio_digest.as_ref().map(|digest| AudioEvidence {
+            algorithm: AUDIO_ALGORITHM,
+            digest: digest.clone(),
+        })
+    }
+
     pub(super) fn into_indexed(self, snapshot: Snapshot) -> IndexedFile {
         IndexedFile {
             path: snapshot.path,

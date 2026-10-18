@@ -111,6 +111,24 @@ pub struct InspectedTags {
     pub disc: Option<ObservedTag>,
     #[schema(required = true)]
     pub track: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
+    pub musicbrainz_artist_tags: Option<Vec<MusicBrainzArtistTag>>,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct MusicBrainzArtistTag {
+    pub role: MusicBrainzArtistRole,
+    pub key: String,
+    pub value: String,
+    pub location: TagLocation,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MusicBrainzArtistRole {
+    Artist,
+    AlbumArtist,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -119,7 +137,7 @@ pub struct ObservedTag {
     pub location: TagLocation,
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Copy, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TagLocation {
     Format,
