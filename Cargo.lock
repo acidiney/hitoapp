@@ -1884,6 +1884,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-metadata-musicbrainz"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "futures-util",
+ "hito-plugin-sdk",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "hito-playback"
 version = "0.1.0-dev"
 dependencies = [

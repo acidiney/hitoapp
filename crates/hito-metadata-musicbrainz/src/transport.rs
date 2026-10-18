@@ -1,0 +1,127 @@
+use crate::Error;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::Mutex, time::Instant};
+
+const MAX_PROFILE_BODY_BYTES: usize = 65_536;
+const MAX_BROWSE_BODY_BYTES: usize = 1_048_576;
+
+#[derive(Clone)]
+pub(super) struct Transport {
+    client: reqwest::Client,
+    endpoint: reqwest::Url,
+    next_start: Arc<Mutex<Option<Instant>>>,
+}
+
+impl Transport {
+    pub(super) fn new(endpoint: reqwest::Url) -> Result<Self, Error> {
+        if rustls::crypto::CryptoProvider::get_default().is_none() {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(10))
+            .retry(reqwest::retry::never())
+            .user_agent(concat!(
+                "Hito/",
+                env!("CARGO_PKG_VERSION"),
+                " (contact@example.invalid)"
+            ))
+            .build()
+            .map_err(|_| Error::Configuration)?;
+        Ok(Self {
+            client,
+            endpoint,
+            next_start: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    async fn wait_for_start(&self) {
+        let waiting = Instant::now();
+        let mut next_start = self.next_start.lock().await;
+        if let Some(next_start) = *next_start {
+            tokio::time::sleep_until(next_start).await;
+        }
+        *next_start = Some(Instant::now() + Duration::from_secs(1));
+        drop(next_start);
+        tracing::debug!(
+            wait_ms = waiting.elapsed().as_millis() as u64,
+            "MusicBrainz request start granted"
+        );
+    }
+
+    pub(super) async fn artist(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("artist/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().append_pair("fmt", "json");
+        self.json(endpoint, MAX_PROFILE_BODY_BYTES).await
+    }
+
+    pub(super) async fn release_groups(
+        &self,
+        artist_id: &str,
+        limit: u16,
+        offset: u32,
+    ) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("release-group")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("artist", artist_id),
+            ("fmt", "json"),
+            ("inc", "artist-credits"),
+            ("limit", &limit.to_string()),
+            ("offset", &offset.to_string()),
+        ]);
+        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
+    async fn json(&self, endpoint: reqwest::Url, maximum: usize) -> Result<Vec<u8>, Error> {
+        let request = self
+            .client
+            .get(endpoint)
+            .header("accept", "application/json")
+            .header("accept-encoding", "identity");
+        self.wait_for_start().await;
+        let mut response = request.send().await.map_err(|_| Error::Transport)?;
+        let status = response.status();
+        tracing::debug!(status = status.as_u16(), "MusicBrainz response received");
+        if !status.is_success() {
+            return Err(Error::Status(status.as_u16()));
+        }
+        if response
+            .headers()
+            .get("content-encoding")
+            .is_some_and(|value| value != "identity")
+        {
+            return Err(Error::InvalidResponse);
+        }
+        let json = response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(';').next())
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("application/json"));
+        if !json {
+            return Err(Error::InvalidResponse);
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > maximum as u64)
+        {
+            return Err(Error::ResponseTooLarge);
+        }
+        let mut bytes = Vec::with_capacity(maximum.min(MAX_PROFILE_BODY_BYTES));
+        while let Some(chunk) = response.chunk().await.map_err(|_| Error::Transport)? {
+            if chunk.len() > maximum.saturating_sub(bytes.len()) {
+                return Err(Error::ResponseTooLarge);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        Ok(bytes)
+    }
+}
