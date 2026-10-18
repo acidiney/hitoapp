@@ -1,0 +1,466 @@
+use futures_util::TryStreamExt;
+use sha2::{Digest, Sha256};
+use sqlx::{
+    Connection, Row, SqliteConnection, TypeInfo, ValueRef, migrate::Migrator,
+    sqlite::SqliteConnectOptions,
+};
+use std::{borrow::Cow, path::Path};
+
+#[path = "playlist_metadata_schema.rs"]
+mod playlist_metadata_schema;
+
+type SchemaObject = (String, String, String, Option<String>);
+type TableDigest = (String, Vec<String>, u64, [u8; 32]);
+
+pub struct Baseline {
+    tables: Vec<String>,
+    rows: Vec<TableDigest>,
+    schema: Vec<SchemaObject>,
+}
+
+pub async fn connect(path: &Path) -> SqliteConnection {
+    SqliteConnection::connect_with(
+        &SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true)
+            .foreign_keys(true),
+    )
+    .await
+    .unwrap()
+}
+
+fn quoted(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+async fn schema(connection: &mut SqliteConnection) -> Vec<SchemaObject> {
+    sqlx::query_as("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name")
+        .fetch_all(connection)
+        .await
+        .unwrap()
+}
+
+struct TableLayout {
+    without_rowid: bool,
+    order: String,
+}
+
+async fn layout(connection: &mut SqliteConnection, table: &str) -> TableLayout {
+    let without_rowid: i64 =
+        sqlx::query_scalar("SELECT wr FROM pragma_table_list WHERE schema = 'main' AND name = ?")
+            .bind(table)
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+    let order = if without_rowid == 1 {
+        let primary: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM pragma_table_xinfo(?) WHERE pk > 0 ORDER BY pk")
+                .bind(table)
+                .fetch_all(connection)
+                .await
+                .unwrap();
+        assert!(
+            !primary.is_empty(),
+            "WITHOUT ROWID tables require a primary key"
+        );
+        primary
+            .iter()
+            .map(|name| quoted(name))
+            .collect::<Vec<_>>()
+            .join(",")
+    } else {
+        "rowid".into()
+    };
+    TableLayout {
+        without_rowid: without_rowid == 1,
+        order,
+    }
+}
+
+async fn rows(connection: &mut SqliteConnection, tables: &[String]) -> Vec<TableDigest> {
+    let mut result = Vec::new();
+    for table in tables {
+        let columns: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM pragma_table_xinfo(?) ORDER BY cid")
+                .bind(table)
+                .fetch_all(&mut *connection)
+                .await
+                .unwrap();
+        let layout = layout(connection, table).await;
+        let filter = if table == "_sqlx_migrations" {
+            " WHERE version <= 45"
+        } else {
+            ""
+        };
+        let identity = if layout.without_rowid { "" } else { "rowid," };
+        let query = format!(
+            "SELECT {identity}* FROM {}{filter} ORDER BY {}",
+            quoted(table),
+            layout.order
+        );
+        let mut stream = sqlx::query(&query).fetch(&mut *connection);
+        let mut digest = Sha256::new();
+        let mut count = 0;
+        while let Some(row) = stream.try_next().await.unwrap() {
+            digest.update((row.len() as u64).to_le_bytes());
+            for index in 0..row.len() {
+                let raw = row.try_get_raw(index).unwrap();
+                let kind = raw.type_info();
+                let value = match kind.name() {
+                    "NULL" => Vec::new(),
+                    "INTEGER" => row.get::<i64, _>(index).to_le_bytes().to_vec(),
+                    "REAL" => row.get::<f64, _>(index).to_bits().to_le_bytes().to_vec(),
+                    "TEXT" => row.get::<String, _>(index).into_bytes(),
+                    "BLOB" => row.get::<Vec<u8>, _>(index),
+                    _ => {
+                        panic!("The migration fixture encountered an unsupported SQLite value type")
+                    }
+                };
+                digest.update((kind.name().len() as u64).to_le_bytes());
+                digest.update(kind.name().as_bytes());
+                digest.update((value.len() as u64).to_le_bytes());
+                digest.update(value);
+            }
+            count += 1;
+        }
+        result.push((table.clone(), columns, count, digest.finalize().into()));
+    }
+    result
+}
+
+pub async fn historical_45(source: &Path, destination: &Path) -> Baseline {
+    let mut connection = connect(destination).await;
+    let migrations = sqlx::migrate!("./migrations");
+    let historical = Migrator {
+        migrations: Cow::Owned(
+            migrations
+                .iter()
+                .filter(|migration| migration.version <= 45)
+                .cloned()
+                .collect(),
+        ),
+        ..Migrator::DEFAULT
+    };
+    historical.run(&mut connection).await.unwrap();
+    assert_eq!(version(&mut connection).await, 45);
+    let ledger: Vec<(i64, Vec<u8>, bool)> =
+        sqlx::query_as("SELECT version,checksum,success FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(&mut connection)
+            .await
+            .unwrap();
+    assert_eq!(ledger.len(), historical.iter().count());
+    for ((version, checksum, success), migration) in ledger.iter().zip(historical.iter()) {
+        assert_eq!(*version, migration.version);
+        assert!(checksum.as_slice() == migration.checksum.as_ref() && *success);
+    }
+    let original_schema = schema(&mut connection).await;
+    let ledger_sql = original_schema
+        .iter()
+        .find(|object| object.1 == "sync_events")
+        .unwrap()
+        .3
+        .as_ref()
+        .unwrap();
+    assert!(!ledger_sql.contains("playlist_metadata"));
+    assert!(
+        !original_schema
+            .iter()
+            .any(|object| object.1 == "playlist_metadata_refresh_receipts")
+    );
+    let mut tables: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM pragma_table_list WHERE schema = 'main' AND type IN ('table','shadow')
+         AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    .fetch_all(&mut connection)
+    .await
+    .unwrap();
+    let copied: Vec<String> = tables
+        .iter()
+        .filter(|table| table.as_str() != "_sqlx_migrations")
+        .cloned()
+        .collect();
+    let mut copied_state = copied.clone();
+    copied_state.push("sqlite_sequence".into());
+    let mut source_connection = connect(source).await;
+    assert_eq!(version(&mut source_connection).await, 46);
+    let source_ledger: Vec<(i64, Vec<u8>, bool)> = sqlx::query_as(
+        "SELECT version,checksum,success FROM _sqlx_migrations WHERE version <= 45 ORDER BY version",
+    ).fetch_all(&mut source_connection).await.unwrap();
+    assert!(
+        source_ledger == ledger,
+        "The public seed must use the same historical migration checksums"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM playlist_metadata_refresh_receipts")
+            .fetch_one(&mut source_connection)
+            .await
+            .unwrap(),
+        0
+    );
+    let source_rows = rows(&mut source_connection, &copied_state).await;
+    source_connection.close().await.unwrap();
+    sqlx::query("ATTACH DATABASE ? AS public_seed")
+        .bind(source.to_str().unwrap())
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let mut tx = connection.begin().await.unwrap();
+    sqlx::query("PRAGMA defer_foreign_keys = ON")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    for object in &original_schema {
+        if object.0 == "trigger" {
+            sqlx::query(&format!("DROP TRIGGER {}", quoted(&object.1)))
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+    }
+    for table in &copied {
+        sqlx::query(&format!("DELETE FROM main.{}", quoted(table)))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    for table in &copied {
+        let layout = layout(&mut tx, table).await;
+        let columns =
+            sqlx::query("SELECT name,type,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
+                .bind(table)
+                .fetch_all(&mut *tx)
+                .await
+                .unwrap();
+        let mut names: Vec<String> = columns
+            .iter()
+            .filter(|column| column.get::<i64, _>("hidden") == 0)
+            .map(|column| quoted(column.get::<String, _>("name").as_str()))
+            .collect();
+        let primary: Vec<_> = columns
+            .iter()
+            .filter(|column| column.get::<i64, _>("pk") > 0)
+            .collect();
+        if !layout.without_rowid
+            && (primary.len() != 1
+                || !primary[0]
+                    .get::<String, _>("type")
+                    .eq_ignore_ascii_case("INTEGER"))
+        {
+            names.insert(0, "rowid".into());
+        }
+        let names = names.join(",");
+        sqlx::query(&format!(
+            "INSERT INTO {}({names}) SELECT {names} FROM public_seed.{} ORDER BY {}",
+            quoted(table),
+            quoted(table),
+            layout.order
+        ))
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    }
+    sqlx::query("DELETE FROM sqlite_sequence")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO sqlite_sequence(rowid,name,seq) SELECT rowid,name,seq FROM public_seed.sqlite_sequence
+        WHERE name IN (SELECT name FROM main.sqlite_schema WHERE type = 'table') ORDER BY rowid",
+    )
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    for object in &original_schema {
+        if object.0 == "trigger" {
+            sqlx::raw_sql(object.3.as_ref().unwrap())
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+    }
+    tx.commit().await.unwrap();
+    sqlx::query("DETACH DATABASE public_seed")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    connection.close().await.unwrap();
+    let mut connection = connect(destination).await;
+    assert!(
+        schema(&mut connection).await == original_schema,
+        "Copying public state must retain the exact historical schema"
+    );
+    assert!(
+        rows(&mut connection, &copied_state).await == source_rows,
+        "The actual schema-45 baseline must retain the public seed's typed rows, application rowids and sequence high-water"
+    );
+    tables.push("sqlite_sequence".into());
+    let baseline = Baseline {
+        rows: Vec::new(),
+        tables,
+        schema: original_schema,
+    };
+    let baseline = checkpoint_45(&mut connection, &baseline).await;
+    connection.close().await.unwrap();
+    std::fs::copy(
+        source.with_extension("plugin-key"),
+        destination.with_extension("plugin-key"),
+    )
+    .unwrap();
+    baseline
+}
+
+pub async fn assert_preserved(connection: &mut SqliteConnection, baseline: &Baseline) {
+    assert!(
+        rows(connection, &baseline.tables).await == baseline.rows,
+        "Migration 0046 must preserve exact typed rows, application rowids, FTS shadow bytes and the prior ledger"
+    );
+    let after = schema(connection).await;
+    let mut reference = playlist_metadata_schema::reference().await;
+    let declared = schema(&mut reference).await;
+    let sync_events = declared
+        .iter()
+        .find(|object| object.1 == "sync_events")
+        .unwrap();
+    for object in &baseline.schema {
+        let expected = if object.1 == "sync_events" {
+            sync_events
+        } else {
+            object
+        };
+        assert!(
+            after.contains(expected),
+            "Migration 0046 changed a prior schema object beyond its exact declaration"
+        );
+    }
+    reference.close().await.unwrap();
+    let new_names: Vec<&str> = after
+        .iter()
+        .filter(|object| !baseline.schema.iter().any(|old| old.1 == object.1))
+        .map(|object| object.1.as_str())
+        .collect();
+    let mut expected = vec![
+        "playlist_import_receipt_publication",
+        "playlist_follow_receipt_publication",
+        "playlist_metadata_refresh_receipts",
+        "sqlite_autoindex_playlist_metadata_refresh_receipts_1",
+        "playlist_metadata_receipt_immutable",
+        "playlist_metadata_receipt_retained",
+    ];
+    expected.sort_unstable();
+    let mut new_names = new_names;
+    new_names.sort_unstable();
+    assert_eq!(new_names, expected);
+    for (name, table) in [
+        (
+            "playlist_import_receipt_publication",
+            "playlist_import_receipts",
+        ),
+        (
+            "playlist_follow_receipt_publication",
+            "playlist_follow_receipts",
+        ),
+    ] {
+        let index: SchemaObject = (
+            "index".into(),
+            name.into(),
+            table.into(),
+            Some(format!(
+                "CREATE INDEX {name} ON {table}(publication_sequence)"
+            )),
+        );
+        assert!(
+            after.contains(&index),
+            "Each new receipt index must cover its exact parent-reference column"
+        );
+    }
+    assert_eq!(version(connection).await, 46);
+    let migration = sqlx::migrate!("./migrations");
+    let expected = migration
+        .iter()
+        .find(|migration| migration.version == 46)
+        .unwrap();
+    let (checksum, success): (Vec<u8>, bool) =
+        sqlx::query_as("SELECT checksum,success FROM _sqlx_migrations WHERE version = 46")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+    assert!(success && checksum.as_slice() == expected.checksum.as_ref());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM playlist_metadata_refresh_receipts")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap(),
+        0
+    );
+    integrity(connection).await;
+}
+
+pub async fn checkpoint_45(connection: &mut SqliteConnection, baseline: &Baseline) -> Baseline {
+    assert_eq!(version(connection).await, 45);
+    assert!(
+        schema(connection).await == baseline.schema,
+        "Synthetic history must retain the actual historical schema"
+    );
+    integrity(connection).await;
+    Baseline {
+        tables: baseline.tables.clone(),
+        rows: rows(connection, &baseline.tables).await,
+        schema: baseline.schema.clone(),
+    }
+}
+
+async fn version(connection: &mut SqliteConnection) -> i64 {
+    sqlx::query_scalar("SELECT max(version) FROM _sqlx_migrations WHERE success = 1")
+        .fetch_one(connection)
+        .await
+        .unwrap()
+}
+
+const FTS_TABLES: [&str; 6] = [
+    "recordings_fts",
+    "artists_fts",
+    "releases_fts",
+    "personal_recordings_fts",
+    "account_artists_fts",
+    "account_releases_fts",
+];
+
+async fn integrity(connection: &mut SqliteConnection) {
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("PRAGMA foreign_keys")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap(),
+        1
+    );
+    assert!(
+        sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&mut *connection)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("PRAGMA integrity_check")
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap(),
+        "ok"
+    );
+    for fts in FTS_TABLES {
+        assert!(
+            sqlx::query_scalar::<_, i64>(&format!("SELECT count(*) FROM {fts}_docsize"))
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap()
+                > 0,
+            "The preservation fixture must exercise every populated FTS index"
+        );
+        sqlx::query(&format!(
+            "INSERT INTO {fts}({fts},rank) VALUES ('integrity-check',1)"
+        ))
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    }
+}
