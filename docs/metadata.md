@@ -43,6 +43,18 @@ Current source metadata points to its observation. Recordings keep separate sele
 
 History pages are newest first, default to 20 entries, and return at most 100. The exclusive `before` cursor is constrained to the authorized object. A recording's selected observation is returned separately, even outside that page. The browser replaces one page at a time and cancels stale requests across account, object kind, and object ID changes.
 
+## MusicBrainz artist tag evidence in verified source
+
+Inspection version 3 retains emitted `MusicBrainz Artist Id`, `MUSICBRAINZ_ARTISTID`, `MusicBrainz Album Artist Id` and `MUSICBRAINZ_ALBUMARTISTID` tags. `InspectedTags.musicbrainz_artist_tags` contains their exact key, raw value, performer or album-artist role, and format/audio-stream location. Values remain source assertions. Canonical artist associations and provider enrichment remain separate work.
+
+A null array means evidence was unavailable, including old observations and rejected optional evidence. An empty array means inspection found no recognized artist tag. Values are retained without UUID parsing or delimiter splitting. The collector permits at most 16 assertions, 64 bytes per key, 2,048 bytes per value and 32 KiB for the encoded array. Exceeding a bound makes the optional evidence unavailable.
+
+Expanded FFprobe output remains limited to 65,536 bytes. A clean output-limit failure permits one ordinary-tag probe under the same original deadline, including admission and cleanup. Diagnostics, an observed unsuccessful exit, cancellation, timeout or malformed JSON do not trigger another attempt. Captured processes and private inputs stay owned until retirement. Logs contain controlled reasons, counts and timings rather than values or paths.
+
+On the next scan, unchanged version-2 files refresh metadata while retaining completed decoded-audio evidence, including known unsupported profiles. Current version-3 inspections are reused. Original media, old observations, recording/source IDs and private collection state remain intact.
+
+This source slice is not yet deployed to the normal local server. Public fixtures verify raw assertions, tag-only changes, a truthful version-2 upgrade without redecoding, 70 KiB and 1 MiB optional values, shared deadlines, diagnostics combined with overflow, a proven natural failed exit, cancellation and private log values. The frozen full core run passes 316 distinct cases with one usual filesystem-fault case ignored; the later 1 MiB case passes separately. The server passes 144 distinct cases. Strict workspace Clippy, formatting, generated contracts and frontend checks pass. These Linux fixtures do not establish every container/tag format or other platform's process behavior.
+
 ## Ownership and data flow
 
 ```mermaid
