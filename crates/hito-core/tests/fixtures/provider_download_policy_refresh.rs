@@ -18,7 +18,7 @@ pub struct Library {
     pub server: Option<ProviderServer>,
     pub original: Vec<u8>,
     original_path: PathBuf,
-    _directory: tempfile::TempDir,
+    directory: tempfile::TempDir,
 }
 
 pub struct Recording {
@@ -52,7 +52,7 @@ impl Library {
             server: Some(server),
             original,
             original_path,
-            _directory: directory,
+            directory,
         }
     }
 
@@ -331,6 +331,41 @@ impl Library {
                 .await,
             Err(Error::NotFound)
         ));
+    }
+
+    pub fn assert_managed_partial(&self, bytes: u64) {
+        let owned = self.directory.path().join("hito.downloads");
+        let entries: Vec<_> = std::fs::read_dir(owned)
+            .unwrap()
+            .take(2)
+            .map(|entry| entry.unwrap())
+            .collect();
+        assert_eq!(
+            entries.len(),
+            1,
+            "the owned transfer must have one partial file"
+        );
+        let entry = &entries[0];
+        assert!(entry.file_type().unwrap().is_file());
+        let name = entry.file_name();
+        let parts: Vec<_> = name.to_str().unwrap().split('.').collect();
+        assert_eq!(parts.len(), 3);
+        for part in &parts[..2] {
+            assert_eq!(Uuid::parse_str(part).unwrap().to_string(), *part);
+        }
+        assert_eq!(
+            parts[2], "part",
+            "an unfinished transfer must not publish media"
+        );
+        assert_eq!(entry.metadata().unwrap().len(), bytes);
+    }
+
+    pub fn assert_no_managed_files(&self) {
+        let owned = self.directory.path().join("hito.downloads");
+        assert!(
+            std::fs::read_dir(owned).unwrap().next().is_none(),
+            "retirement must reclaim the owned partial without publishing media"
+        );
     }
 
     pub async fn stop_provider(&mut self) {

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use axum::{
     Json, Router,
+    body::{Body, Bytes},
     extract::{OriginalUri, State},
     http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
@@ -15,6 +16,7 @@ struct Fixture {
     playlist_pages: RwLock<HashMap<Option<String>, Value>>,
     range_chunk: RwLock<Option<usize>>,
     held_range: RwLock<Option<std::ops::Range<usize>>>,
+    held_audio_tail: std::sync::Mutex<Option<Arc<HeldAudioTail>>>,
     broken_tail: RwLock<Option<usize>>,
     audio: RwLock<(StatusCode, HeaderMap, Vec<u8>)>,
     replies: RwLock<HashMap<String, Value>>,
@@ -37,6 +39,7 @@ impl ProviderServer {
             playlist_pages: Default::default(),
             range_chunk: RwLock::new(None),
             held_range: RwLock::new(None),
+            held_audio_tail: Default::default(),
             broken_tail: RwLock::new(None),
             audio: RwLock::new((StatusCode::NOT_FOUND, HeaderMap::new(), Vec::new())),
             replies: Default::default(),
@@ -114,6 +117,22 @@ impl ProviderServer {
         *self.state.broken_tail.write().await = Some(prefix);
         self.hold("audio-tail").await
     }
+    pub fn hold_audio_tail(&self, prefix: usize) -> Arc<HeldAudioTail> {
+        assert!((1..=65536).contains(&prefix));
+        let mut configured = self.state.held_audio_tail.lock().unwrap();
+        assert!(
+            configured.is_none(),
+            "the owned fixture permits one held body"
+        );
+        let tail = Arc::new(HeldAudioTail {
+            prefix,
+            entered: watch::channel(false).0,
+            dropped: watch::channel(false).0,
+            release: watch::channel(false).0,
+        });
+        *configured = Some(tail.clone());
+        tail
+    }
     pub async fn clear_audio_tail_fault(&self) {
         *self.state.broken_tail.write().await = None;
         if let Some(gate) = self.state.gates.write().await.remove("audio-tail") {
@@ -131,9 +150,15 @@ impl ProviderServer {
             .collect()
     }
     pub async fn shutdown(mut self) {
+        self.release_audio_tail();
         let _ = self.closed.send(true);
         self.task.abort();
         let _ = (&mut self.task).await;
+    }
+    fn release_audio_tail(&self) {
+        if let Some(tail) = self.state.held_audio_tail.lock().unwrap().as_ref() {
+            tail.release.send_replace(true);
+        }
     }
 }
 async fn audio(
@@ -195,6 +220,11 @@ async fn audio(
     }) && !wait_gate(&state, "audio-range").await
     {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    let held_tail = state.held_audio_tail.lock().unwrap().clone();
+    if let Some(tail) = held_tail {
+        assert_eq!(status, StatusCode::OK);
+        return held_audio(bytes, headers, tail);
     }
     let gate = state.gates.read().await.get("audio-body").cloned();
     let tail = state.gates.read().await.get("audio-tail").cloned();
@@ -262,9 +292,72 @@ impl tokio::io::AsyncRead for BrokenTail {
 }
 impl Drop for ProviderServer {
     fn drop(&mut self) {
+        self.release_audio_tail();
         let _ = self.closed.send(true);
         self.task.abort();
     }
+}
+
+pub struct HeldAudioTail {
+    prefix: usize,
+    entered: watch::Sender<bool>,
+    dropped: watch::Sender<bool>,
+    release: watch::Sender<bool>,
+}
+
+impl HeldAudioTail {
+    pub async fn entered(&self) {
+        let mut entered = self.entered.subscribe();
+        entered.wait_for(|entered| *entered).await.unwrap();
+    }
+
+    pub async fn dropped(&self) {
+        let mut dropped = self.dropped.subscribe();
+        dropped.wait_for(|dropped| *dropped).await.unwrap();
+    }
+
+    pub fn released(&self) -> bool {
+        *self.release.borrow()
+    }
+}
+
+struct HeldAudioBody {
+    prefix: Option<Bytes>,
+    tail: Option<Bytes>,
+    released: watch::Receiver<bool>,
+    gate: Arc<HeldAudioTail>,
+}
+
+impl Drop for HeldAudioBody {
+    fn drop(&mut self) {
+        self.gate.dropped.send_replace(true);
+    }
+}
+
+fn held_audio(bytes: Vec<u8>, mut headers: HeaderMap, gate: Arc<HeldAudioTail>) -> Response {
+    assert!(
+        gate.prefix < bytes.len(),
+        "the owned WAV must have a pending tail"
+    );
+    headers.insert("content-length", bytes.len().to_string().parse().unwrap());
+    let body = HeldAudioBody {
+        prefix: Some(Bytes::copy_from_slice(&bytes[..gate.prefix])),
+        tail: Some(Bytes::copy_from_slice(&bytes[gate.prefix..])),
+        released: gate.release.subscribe(),
+        gate,
+    };
+    let stream = futures_util::stream::unfold(body, |mut body| async move {
+        if let Some(prefix) = body.prefix.take() {
+            return Some((Ok::<_, std::convert::Infallible>(prefix), body));
+        }
+        body.tail.as_ref()?;
+        body.gate.entered.send_replace(true);
+        if body.released.wait_for(|released| *released).await.is_err() {
+            return None;
+        }
+        body.tail.take().map(|tail| (Ok(tail), body))
+    });
+    (StatusCode::OK, headers, Body::from_stream(stream)).into_response()
 }
 async fn exchange(
     State(state): State<Arc<Fixture>>,
