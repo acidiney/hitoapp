@@ -14,6 +14,62 @@ const ENQUEUE_BUDGET: u64 = 250_000;
 const WORKER_BUDGET: u64 = 500_000;
 
 #[tokio::test]
+async fn artwork_fixture_copies_include_committed_history_while_wal_is_pinned() {
+    let directory = tempfile::tempdir().unwrap();
+    let music = directory.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    let config = |database| {
+        CoreConfig::new(
+            database,
+            music.clone(),
+            HostDeviceId::new("artwork-wal-copy").unwrap(),
+        )
+    };
+    let provider = fixture::provider::ArtworkServer::start().await;
+    let hito = open(config(directory.path().join("seed.db")))
+        .await
+        .unwrap();
+    let expected = fixture::seed(&hito, &provider).await;
+    fixture::grow(&hito, &expected.recording, 1, SMALL).await;
+    sqlx::query("ANALYZE")
+        .execute(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    let checkpoint: (i64, i64, i64) = sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE)")
+        .fetch_one(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    assert_eq!(checkpoint, (0, 0, 0));
+    let mut reader = hito.catalog.store.pool.begin().await.unwrap();
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM artwork_fetches")
+        .fetch_one(&mut *reader)
+        .await
+        .unwrap();
+    assert_eq!(before, SMALL);
+    fixture::history(&hito, &expected.recording).await;
+    fixture::assert_history(&hito, "committed WAL source").await;
+    let copy = directory.path().join("copy.db");
+    fixture::copy_database(&hito, &copy).await;
+    let copied = open(config(copy)).await.unwrap();
+    fixture::assert_history(&copied, "live WAL clone").await;
+    fixture::assert_retained(&copied, SMALL).await;
+    fixture::assert_statistics(&copied, Some((SMALL, SMALL))).await;
+    let rows = "SELECT id,rowid FROM artwork_fetches ORDER BY id";
+    let source: Vec<(String, i64)> = sqlx::query_as(rows)
+        .fetch_all(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    let cloned: Vec<(String, i64)> = sqlx::query_as(rows)
+        .fetch_all(&copied.catalog.store.pool)
+        .await
+        .unwrap();
+    assert_eq!(cloned, source);
+    reader.rollback().await.unwrap();
+    copied.catalog.store.pool.close().await;
+    hito.catalog.store.pool.close().await;
+}
+
+#[tokio::test]
 async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and_album_witnesses() {
     let directory = tempfile::tempdir().unwrap();
     let music = directory.path().join("music");
@@ -44,12 +100,10 @@ async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and
     fixture::assert_history(&hito, "live base").await;
     fixture::assert_statistics(&hito, Some((SMALL, SMALL))).await;
     fixture::assert_retained(&hito, RETAINED).await;
-    hito.catalog.store.pool.close().await;
-    drop(hito);
     let mut measurements = Vec::new();
     for statistics in ["inherited", "absent", "fresh"] {
         let copy = directory.path().join(format!("{statistics}.db"));
-        std::fs::copy(&database, &copy).unwrap();
+        fixture::copy_database(&hito, &copy).await;
         let hito = open(config(&copy)).await.unwrap();
         fixture::assert_history(&hito, statistics).await;
         match statistics {
@@ -178,6 +232,7 @@ async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and
         ));
         hito.catalog.store.pool.close().await;
     }
+    hito.catalog.store.pool.close().await;
     for (statistics, availability, enqueue, worker, read_work, enqueue_work, worker_work) in
         measurements
     {

@@ -9,9 +9,24 @@ pub(super) mod provider {
 
 use crate::{Credentials, ImportProviderPlaylist, Services};
 use sqlx::SqliteConnection;
+use std::path::Path;
 use uuid::Uuid;
 
 pub(super) const HISTORY_ROWS: i64 = 336;
+
+pub(super) async fn copy_database(hito: &Services, destination: &Path) {
+    let image = hito
+        .catalog
+        .store
+        .pool
+        .acquire()
+        .await
+        .unwrap()
+        .serialize(None)
+        .await
+        .unwrap();
+    std::fs::write(destination, &*image).unwrap();
+}
 
 pub(super) struct Expected {
     pub owner_token: String,
