@@ -4555,6 +4555,720 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/artist-associations": {
+      "get": {
+        "operationId": "artist_associations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArtistAssociation"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-associations/{association}/profile": {
+      "get": {
+        "operationId": "recording_artist_profile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "association",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistProfileAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-review/confirm": {
+      "post": {
+        "operationId": "confirm_artist_review",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectArtistCandidate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistAssociation"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-review/context": {
+      "post": {
+        "operationId": "begin_artist_review",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginArtistReview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistReviewContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-review/preview": {
+      "post": {
+        "operationId": "preview_artist_candidate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectArtistCandidate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistCandidatePreviewAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-review/search": {
+      "post": {
+        "operationId": "search_artist_candidates",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchArtistCandidates"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistCandidateSearchAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/artwork": {
       "get": {
         "operationId": "artwork",
@@ -7896,6 +8610,241 @@
           }
         }
       },
+      "ArtistAssociation": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "library_id",
+          "recording_id",
+          "artist_id",
+          "source_id",
+          "observation_id",
+          "role",
+          "provider",
+          "provider_artist_id",
+          "evidence",
+          "revision"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "artist_id": {
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/ArtistAssociationEvidence"
+          },
+          "id": {
+            "type": "string"
+          },
+          "library_id": {
+            "type": "string"
+          },
+          "observation_id": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/MetadataProvider"
+          },
+          "provider_artist_id": {
+            "type": "string"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ArtistCreditRole"
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ArtistAssociationEvidence": {
+        "type": "string",
+        "enum": [
+          "user_confirmed"
+        ]
+      },
+      "ArtistCandidatePreviewAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "context",
+              "profile",
+              "status"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/ArtistReviewContext"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/CatalogArtistProfile"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ArtistCandidateSearchAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "context",
+              "page",
+              "status"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/components/schemas/ArtistReviewContext"
+              },
+              "page": {
+                "$ref": "#/components/schemas/ArtistSearchPage"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ArtistCreditRole": {
+        "type": "string",
+        "enum": [
+          "recording_artist"
+        ]
+      },
       "ArtistDetail": {
         "type": "object",
         "required": [
@@ -7957,6 +8906,305 @@
             }
           }
         ]
+      },
+      "ArtistProfileAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "association_id",
+              "profile",
+              "status"
+            ],
+            "properties": {
+              "association_id": {
+                "type": "string"
+              },
+              "profile": {
+                "$ref": "#/components/schemas/CatalogArtistProfile"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ArtistReviewConnection": {
+        "type": "object",
+        "required": [
+          "installation_revision",
+          "service_id",
+          "service_revision"
+        ],
+        "properties": {
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "service_revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArtistReviewContext": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "recording_id",
+          "library_id",
+          "artist_id",
+          "credited_name",
+          "source_id",
+          "observation_id",
+          "artist_operation_id",
+          "access_grant_id",
+          "metadata_binding",
+          "provider",
+          "policy_revision",
+          "connection"
+        ],
+        "properties": {
+          "access_grant_id": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "artist_id": {
+            "type": "string"
+          },
+          "artist_operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connection": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArtistReviewConnection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credited_name": {
+            "type": "string"
+          },
+          "library_id": {
+            "type": "string"
+          },
+          "metadata_binding": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArtistReviewMetadataBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observation_id": {
+            "type": "string"
+          },
+          "policy_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/MetadataProvider"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArtistReviewMetadataBinding": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArtistSearchCandidate": {
+        "type": "object",
+        "required": [
+          "artist"
+        ],
+        "properties": {
+          "artist": {
+            "$ref": "#/components/schemas/CatalogArtistRef"
+          },
+          "disambiguation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogArtistKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArtistSearchPage": {
+        "type": "object",
+        "required": [
+          "query",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistSearchCandidate"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ArtistSearchRequest": {
+        "type": "object",
+        "required": [
+          "query",
+          "limit"
+        ],
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "query": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "ArtworkAvailability": {
         "type": "object",
@@ -8089,6 +9337,18 @@
           }
         ]
       },
+      "BeginArtistReview": {
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/MetadataProvider"
+          }
+        },
+        "additionalProperties": false
+      },
       "BrowseDirectories": {
         "type": "object",
         "required": [
@@ -8123,6 +9383,73 @@
           "lyrics",
           "backing_tracks"
         ]
+      },
+      "CatalogArtistKind": {
+        "type": "string",
+        "enum": [
+          "person",
+          "group",
+          "orchestra",
+          "choir",
+          "character",
+          "other"
+        ]
+      },
+      "CatalogArtistProfile": {
+        "type": "object",
+        "required": [
+          "artist"
+        ],
+        "properties": {
+          "artist": {
+            "$ref": "#/components/schemas/CatalogArtistRef"
+          },
+          "disambiguation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogArtistKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogArtistRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CatalogPageProps": {
         "allOf": [
@@ -11954,6 +13281,22 @@
         },
         "additionalProperties": false
       },
+      "SearchArtistCandidates": {
+        "type": "object",
+        "required": [
+          "context",
+          "search"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ArtistReviewContext"
+          },
+          "search": {
+            "$ref": "#/components/schemas/ArtistSearchRequest"
+          }
+        },
+        "additionalProperties": false
+      },
       "SearchPage": {
         "type": "object",
         "required": [
@@ -11971,6 +13314,22 @@
               "string",
               "null"
             ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SelectArtistCandidate": {
+        "type": "object",
+        "required": [
+          "context",
+          "provider_artist_id"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ArtistReviewContext"
+          },
+          "provider_artist_id": {
+            "type": "string"
           }
         },
         "additionalProperties": false

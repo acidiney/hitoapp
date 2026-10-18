@@ -756,6 +756,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/artist-associations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_associations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-associations/{association}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recording_artist_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-review/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm_artist_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-review/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["begin_artist_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-review/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preview_artist_candidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-review/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["search_artist_candidates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/artwork": {
         parameters: {
             query?: never;
@@ -1313,6 +1409,61 @@ export interface components {
             /** Format: int64 */
             release_count: number;
         };
+        ArtistAssociation: {
+            account_id: string;
+            artist_id: string;
+            evidence: components["schemas"]["ArtistAssociationEvidence"];
+            id: string;
+            library_id: string;
+            observation_id: string;
+            provider: components["schemas"]["MetadataProvider"];
+            provider_artist_id: string;
+            recording_id: string;
+            /** Format: int64 */
+            revision: number;
+            role: components["schemas"]["ArtistCreditRole"];
+            source_id: string | null;
+        };
+        /** @enum {string} */
+        ArtistAssociationEvidence: "user_confirmed";
+        ArtistCandidatePreviewAvailability: {
+            context: components["schemas"]["ArtistReviewContext"];
+            profile: components["schemas"]["CatalogArtistProfile"];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
+        ArtistCandidateSearchAvailability: {
+            context: components["schemas"]["ArtistReviewContext"];
+            page: components["schemas"]["ArtistSearchPage"];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
+        /** @enum {string} */
+        ArtistCreditRole: "recording_artist";
         ArtistDetail: {
             artist: components["schemas"]["Artist"];
             recordings: components["schemas"]["Page_Recording"];
@@ -1325,6 +1476,72 @@ export interface components {
         ArtistPage: components["schemas"]["Page_Artist"];
         ArtistPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["ArtistDetail"];
+        };
+        ArtistProfileAvailability: {
+            association_id: string;
+            profile: components["schemas"]["CatalogArtistProfile"];
+            /** @enum {string} */
+            status: "available";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
+        ArtistReviewConnection: {
+            /** Format: int64 */
+            installation_revision: number;
+            service_id: string;
+            /** Format: int64 */
+            service_revision: number;
+        };
+        ArtistReviewContext: {
+            access_grant_id: string;
+            account_id: string;
+            artist_id: string;
+            artist_operation_id: string | null;
+            connection: components["schemas"]["ArtistReviewConnection"] | null;
+            credited_name: string;
+            library_id: string;
+            metadata_binding: components["schemas"]["ArtistReviewMetadataBinding"] | null;
+            observation_id: string;
+            /** Format: int64 */
+            policy_revision: number;
+            provider: components["schemas"]["MetadataProvider"];
+            recording_id: string;
+            source_id: string | null;
+        };
+        ArtistReviewMetadataBinding: {
+            id: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        ArtistSearchCandidate: {
+            artist: components["schemas"]["CatalogArtistRef"];
+            disambiguation?: string | null;
+            kind?: components["schemas"]["CatalogArtistKind"] | null;
+        };
+        ArtistSearchPage: {
+            items: components["schemas"]["ArtistSearchCandidate"][];
+            next_cursor?: string | null;
+            query: string;
+            snapshot?: string | null;
+            /** Format: int32 */
+            total_count?: number | null;
+        };
+        ArtistSearchRequest: {
+            cursor?: string | null;
+            /** Format: int32 */
+            limit: number;
+            query: string;
+            snapshot?: string | null;
         };
         ArtworkAvailability: {
             can_fetch: boolean;
@@ -1360,6 +1577,9 @@ export interface components {
             kind: "oauth2_pkce";
             scopes: string[];
         };
+        BeginArtistReview: {
+            provider: components["schemas"]["MetadataProvider"];
+        };
         BrowseDirectories: {
             directory: components["schemas"]["DirectoryRef"];
             /** Format: int32 */
@@ -1367,6 +1587,19 @@ export interface components {
         };
         /** @enum {string} */
         Capability: "search" | "catalog" | "metadata" | "sources" | "source_preparation" | "playlists" | "artwork" | "dashboard" | "lyrics" | "backing_tracks";
+        /** @enum {string} */
+        CatalogArtistKind: "person" | "group" | "orchestra" | "choir" | "character" | "other";
+        CatalogArtistProfile: {
+            artist: components["schemas"]["CatalogArtistRef"];
+            disambiguation?: string | null;
+            kind?: components["schemas"]["CatalogArtistKind"] | null;
+            revision?: string | null;
+            sort_name?: string | null;
+        };
+        CatalogArtistRef: {
+            id: string;
+            name: string;
+        };
         CatalogPageProps: components["schemas"]["SharedPageProps"] & {
             query: string;
             recordings: components["schemas"]["RecordingPage"];
@@ -2333,9 +2566,17 @@ export interface components {
         SavedPlaybackRequest: {
             recording_ids: string[];
         };
+        SearchArtistCandidates: {
+            context: components["schemas"]["ArtistReviewContext"];
+            search: components["schemas"]["ArtistSearchRequest"];
+        };
         SearchPage: {
             items: components["schemas"]["ProviderRecording"][];
             next_cursor?: string | null;
+        };
+        SelectArtistCandidate: {
+            context: components["schemas"]["ArtistReviewContext"];
+            provider_artist_id: string;
         };
         SettingsPageProps: components["schemas"]["SharedPageProps"];
         SetupStatus: {
@@ -5946,6 +6187,557 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_associations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistAssociation"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_artist_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                association: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistProfileAvailability"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm_artist_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectArtistCandidate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistAssociation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    begin_artist_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BeginArtistReview"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistReviewContext"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    preview_artist_candidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectArtistCandidate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistCandidatePreviewAvailability"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    search_artist_candidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchArtistCandidates"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistCandidateSearchAvailability"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

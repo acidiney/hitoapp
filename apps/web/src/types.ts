@@ -18,6 +18,18 @@ export type RecordingDetailsPageProps = Schema["RecordingDetailsPageProps"];
 export type RecordingMetadata = Schema["RecordingMetadata"];
 export type MetadataSettings = Schema["MetadataSettings"];
 export type MetadataProvider = Schema["MetadataProvider"];
+export type ArtistAssociation = Schema["ArtistAssociation"];
+export type ArtistReviewContext = Schema["ArtistReviewContext"];
+export type ArtistSearchCandidate = Schema["ArtistSearchCandidate"];
+export type CatalogArtistProfile = Schema["CatalogArtistProfile"];
+export type BeginArtistReview = Schema["BeginArtistReview"];
+export type SearchArtistCandidates = Schema["SearchArtistCandidates"];
+export type SelectArtistCandidate = Schema["SelectArtistCandidate"];
+export type ArtistCandidateSearchAvailability =
+  Schema["ArtistCandidateSearchAvailability"];
+export type ArtistCandidatePreviewAvailability =
+  Schema["ArtistCandidatePreviewAvailability"];
+export type ArtistProfileAvailability = Schema["ArtistProfileAvailability"];
 export type UpdateMetadataSettings = Schema["UpdateMetadataSettings"];
 export type ReleaseMetadata = Schema["ReleaseMetadata"];
 export type TextMetadata = Schema["TextMetadata"];
