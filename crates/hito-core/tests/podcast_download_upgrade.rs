@@ -5,6 +5,9 @@ use sqlx::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 
+#[path = "fixtures/release_credit_schema.rs"]
+mod release_credit_schema;
+
 const LEGACY_VERSION: i64 = 43;
 
 #[tokio::test]
@@ -38,9 +41,13 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .unwrap();
     assert_version(&mut connection, LEGACY_VERSION).await;
     before.assert_preserved(&mut connection).await;
-    let expected = before.expecting_download_origins().await;
+    let expected = before
+        .expecting_download_origins()
+        .await
+        .expecting_release_credits(&mut connection)
+        .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 44).await;
+    assert_version(&mut connection, 45).await;
     expected.assert_preserved(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
@@ -227,14 +234,22 @@ impl RetainedState {
     }
 
     async fn assert_preserved(&self, connection: &mut SqliteConnection) {
-        assert!(
-            schema(connection).await == self.schema,
-            "the current migrator must retain the exact baseline schema definitions"
-        );
-        assert!(
-            indexes(connection).await == self.indexes,
-            "every legacy index definition, key, collation and uniqueness rule must survive"
-        );
+        let after_schema = schema(connection).await;
+        for (kind, name) in self.schema.keys().chain(after_schema.keys()) {
+            let key = (kind.clone(), name.clone());
+            assert!(
+                after_schema.get(&key) == self.schema.get(&key),
+                "schema {kind} {name} differs from its exact declared expectation"
+            );
+        }
+        let after_indexes = indexes(connection).await;
+        for (table, name) in self.indexes.keys().chain(after_indexes.keys()) {
+            let key = (table.clone(), name.clone());
+            assert!(
+                after_indexes.get(&key) == self.indexes.get(&key),
+                "index {name} on {table} changed its definition, key, collation or uniqueness rule"
+            );
+        }
         for projection in &self.projections {
             assert!(
                 typed_rows(connection, &projection.statement).await == projection.rows,
@@ -291,6 +306,43 @@ impl RetainedState {
             assert!(self.schema.contains_key(&key));
             self.schema
                 .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_release_credits(mut self, baseline: &mut SqliteConnection) -> Self {
+        let mut reference = release_credit_schema::reference(baseline).await;
+        let declared = schema(&mut reference).await;
+        for (kind, name) in release_credit_schema::REPLACED {
+            let key = (kind.as_str().to_owned(), name.to_owned());
+            assert!(
+                self.schema.contains_key(&key),
+                "the baseline must contain {} {name}",
+                kind.as_str()
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        for (kind, name) in release_credit_schema::ADDED {
+            let key = (kind.as_str().to_owned(), name.to_owned());
+            assert!(
+                !self.schema.contains_key(&key),
+                "the baseline must predate {} {name}",
+                kind.as_str()
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        let mut declared_indexes = indexes(&mut reference).await;
+        for (table, name) in release_credit_schema::ADDED_INDEXES {
+            let key = (table.to_owned(), name.to_owned());
+            assert!(
+                !self.indexes.contains_key(&key),
+                "the baseline must predate index {name} on {table}"
+            );
+            self.indexes
+                .insert(key.clone(), declared_indexes.remove(&key).unwrap());
         }
         reference.close().await.unwrap();
         self

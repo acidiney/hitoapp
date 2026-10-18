@@ -8,6 +8,9 @@ use sqlx::{
 use std::{borrow::Cow, collections::BTreeMap};
 use uuid::Uuid;
 
+#[path = "fixtures/release_credit_schema.rs"]
+mod release_credit_schema;
+
 const OWNER: &str = "podcast-migration-owner";
 const TOKEN: &str = "owned-podcast-migration-token";
 const SUBSCRIPTION: &str = "47000000-0000-4000-8000-000000000001";
@@ -70,8 +73,8 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     assert_fixture(&mut connection).await;
     let backfilled = backfilled_sources(&mut connection).await;
     assert_integrity(&mut connection).await;
+    let latest = before.expecting_latest_schema(&mut connection).await;
     connection.close().await.unwrap();
-    let latest = before.expecting_latest_schema().await;
 
     for _ in 0..2 {
         let services = hito_core::open(CoreConfig::with_shared_directories(
@@ -88,7 +91,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 44).await;
+    assert_version(&mut connection, 45).await;
     latest.assert_preserved(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
     assert_fixture(&mut connection).await;
@@ -390,7 +393,7 @@ impl RetainedState {
         }
     }
 
-    async fn expecting_latest_schema(mut self) -> Self {
+    async fn expecting_latest_schema(mut self, baseline: &mut SqliteConnection) -> Self {
         let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
         sqlx::raw_sql(self.schema.get("podcast_subscriptions").unwrap())
             .execute(&mut reference)
@@ -454,17 +457,42 @@ impl RetainedState {
                 .insert(name.into(), declared.get(name).unwrap().clone());
         }
         reference.close().await.unwrap();
+        let mut reference = release_credit_schema::reference(baseline).await;
+        let declared = schema(&mut reference).await;
+        for (kind, name) in release_credit_schema::REPLACED {
+            assert!(
+                self.schema.contains_key(name),
+                "the baseline must contain {} {name}",
+                kind.as_str()
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        for (kind, name) in release_credit_schema::ADDED {
+            assert!(
+                !self.schema.contains_key(name),
+                "the baseline must predate {} {name}",
+                kind.as_str()
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        reference.close().await.unwrap();
         self
     }
 
     async fn assert_preserved(&self, connection: &mut SqliteConnection) {
         let after = schema(connection).await;
-        assert!(
-            self.schema
-                .iter()
-                .all(|(name, definition)| after.get(name) == Some(definition)),
-            "the media migration must retain every original schema definition"
-        );
+        for (name, definition) in &self.schema {
+            let kind = definition
+                .split_whitespace()
+                .find(|word| matches!(*word, "TABLE" | "TRIGGER" | "VIEW" | "INDEX"))
+                .unwrap();
+            assert!(
+                after.get(name) == Some(definition),
+                "schema {kind} {name} differs from its exact declared expectation"
+            );
+        }
         for (statement, before) in &self.tables {
             assert!(
                 typed_rows(connection, statement).await == *before,

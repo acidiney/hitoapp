@@ -1,9 +1,12 @@
 use sqlx::{
-    Row, SqlitePool, TypeInfo, ValueRef,
+    Connection, Row, SqlitePool, TypeInfo, ValueRef,
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteRow},
 };
 use std::{borrow::Cow, collections::BTreeMap};
+
+#[path = "fixtures/release_credit_schema.rs"]
+mod release_credit_schema;
 
 #[derive(PartialEq, Eq)]
 enum Cell {
@@ -67,6 +70,19 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .unwrap();
     assert_eq!(prior_high_water, 900007);
 
+    let mut baseline = pool.acquire().await.unwrap();
+    let mut reference = release_credit_schema::reference(&mut baseline).await;
+    let declared_release: BTreeMap<String, String> = sqlx::query_as(
+        "SELECT name,sql FROM sqlite_schema WHERE type IN ('trigger','view') ORDER BY name",
+    )
+    .fetch_all(&mut reference)
+    .await
+    .unwrap()
+    .into_iter()
+    .collect();
+    reference.close().await.unwrap();
+    drop(baseline);
+
     all.run(&pool).await.unwrap();
 
     let after = snapshots(&pool, &tables).await;
@@ -77,17 +93,33 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
         );
     }
     let after_schema = schema(&pool).await;
-    for (name, original) in before_schema {
-        let expected = match name.as_str() {
+    for (name, (kind, original)) in before_schema {
+        let definition = match name.as_str() {
             "current_download_authority" => declared_download_definition("VIEW", &name, ";"),
             "download_intent_identity" => declared_download_definition("TRIGGER", &name, "END;"),
+            "release_artist_insert"
+            | "release_artist_update"
+            | "artist_releases"
+            | "account_artist_releases" => declared_release.get(&name).unwrap().clone(),
             _ => original,
         };
+        let expected = (kind.clone(), definition);
         assert!(
             after_schema.get(&name) == Some(&expected),
-            "migration changed retained trigger or view {name}"
+            "migration changed retained {kind} {name} beyond its exact declared expectation"
         );
     }
+    assert!(
+        after_schema.get("provider_release_appearances")
+            == Some(&(
+                "view".to_owned(),
+                declared_release
+                    .get("provider_release_appearances")
+                    .unwrap()
+                    .clone(),
+            )),
+        "view provider_release_appearances must match its exact declaration"
+    );
     assert!(
         indexes(&pool, "provider_items").await == before_indexes,
         "provider identity indexes must retain their definitions"
@@ -105,7 +137,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 44);
+    assert_eq!(version, 45);
     for table in [
         "recording_source_choices",
         "source_resolutions",
@@ -218,9 +250,9 @@ fn cells(row: &SqliteRow) -> Vec<Cell> {
         .collect()
 }
 
-async fn schema(pool: &SqlitePool) -> BTreeMap<String, String> {
-    sqlx::query("SELECT name,sql FROM sqlite_schema WHERE type IN ('trigger','view') AND sql IS NOT NULL ORDER BY name")
-        .fetch_all(pool).await.unwrap().into_iter().map(|row| (row.get("name"), row.get("sql"))).collect()
+async fn schema(pool: &SqlitePool) -> BTreeMap<String, (String, String)> {
+    sqlx::query("SELECT name,type,sql FROM sqlite_schema WHERE type IN ('trigger','view') AND sql IS NOT NULL ORDER BY name")
+        .fetch_all(pool).await.unwrap().into_iter().map(|row| (row.get("name"), (row.get("type"), row.get("sql")))).collect()
 }
 
 async fn indexes(pool: &SqlitePool, table: &str) -> BTreeMap<String, Rows> {
