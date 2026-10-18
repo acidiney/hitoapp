@@ -232,7 +232,18 @@ export async function preferencesLibraryState(
     data: { recording_ids: saved.ids } satisfies Schema["SavedPlaybackRequest"],
     timeout: 10_000,
   });
-  expect(progress.status()).toBe(200);
+  let savedProgress: Schema["RecordingProgress"][];
+  try {
+    expect(progress.status()).toBe(200);
+    const body = await progress.body();
+    if (body.length > 524_288)
+      throw new Error("The preferences progress response exceeded its bound");
+    savedProgress = JSON.parse(
+      body.toString(),
+    ) as Schema["RecordingProgress"][];
+  } finally {
+    await progress.dispose();
+  }
   return {
     libraries: await read<Schema["Library"][]>("/api/v1/libraries"),
     catalog: await read<Schema["RecordingPage"]>("/api/v1/recordings"),
@@ -243,7 +254,7 @@ export async function preferencesLibraryState(
     ),
     activity: await read<Schema["Activity"]>("/api/v1/activity"),
     events: await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0"),
-    progress: (await progress.json()) as Schema["RecordingProgress"][],
+    progress: savedProgress,
     metadata: await Promise.all(
       saved.ids.map((id) =>
         read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
