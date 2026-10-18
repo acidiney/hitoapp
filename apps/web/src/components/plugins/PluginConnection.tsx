@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { PluginInstallation, PluginRefresh } from "../../types";
 import type { PluginActions } from "../../hooks/usePlugins";
+import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 type Review = Extract<PluginRefresh, { kind: "review_required" }>;
 const capabilities = (values: PluginInstallation["manifest"]["capabilities"]) =>
@@ -58,6 +59,10 @@ export default function PluginConnection({
           <h3>{plugin.manifest.name}</h3>
           <p>
             Declared capabilities: {capabilities(plugin.manifest.capabilities)}
+          </p>
+          <p>
+            Source persistence:{" "}
+            <PluginPersistencePolicy policy={plugin.manifest.content_policy} />
           </p>
           <p>{plugin.credential_set ? "Token saved" : "No token saved"}</p>
         </div>
@@ -171,6 +176,18 @@ export default function PluginConnection({
             <dd>{capabilities(plugin.manifest.capabilities)}</dd>
             <dt>Proposed capabilities</dt>
             <dd>{capabilities(review.manifest.capabilities)}</dd>
+            <dt>Current source persistence</dt>
+            <dd>
+              <PluginPersistencePolicy
+                policy={plugin.manifest.content_policy}
+              />
+            </dd>
+            <dt>Proposed source persistence</dt>
+            <dd>
+              <PluginPersistencePolicy
+                policy={review.manifest.content_policy}
+              />
+            </dd>
           </dl>
           <div className="plugin-actions">
             <button
