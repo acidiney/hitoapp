@@ -78,6 +78,12 @@ mod artwork;
 
 #[path = "api/metadata.rs"]
 mod metadata;
+#[path = "api/metadata_preferences.rs"]
+mod metadata_preferences;
+#[path = "api/metadata_preferences_access.rs"]
+mod metadata_preferences_access;
+#[path = "fixtures/metadata_preferences.rs"]
+mod metadata_preferences_fixture;
 #[path = "api/plugin_authorization.rs"]
 mod plugin_authorization;
 #[path = "api/plugins.rs"]
