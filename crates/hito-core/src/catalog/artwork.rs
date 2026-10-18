@@ -6,10 +6,17 @@ mod availability;
 mod budget;
 mod jobs;
 mod lease;
+mod playlist;
 mod reader;
+mod release;
+mod target;
+#[cfg(test)]
+#[path = "artwork/tests/work.rs"]
+mod work;
 mod worker;
 pub use availability::ArtworkAvailability;
 pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
+pub use release::ReleaseArtworkFetch;
 
 use reader::read_artwork;
 
@@ -40,6 +47,8 @@ impl Catalog {
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), release_id))]
     pub async fn release_artwork(&self, actor: &Actor, release: &str) -> Result<Option<Artwork>> {
+        actor.check_session(&self.store).await?;
+        release::access_on(&mut *self.store.pool.acquire().await?, actor, release).await?;
         let mut query = QueryBuilder::new(
             "SELECT s.id FROM releases a
             JOIN library_members access ON access.library_id = a.library_id
@@ -61,7 +70,12 @@ impl Catalog {
         if !sources.is_empty() {
             tracing::Span::current().record("release_id", release);
         }
-        self.read_source_artwork(actor, &sources).await
+        let local = self.read_source_artwork(actor, &sources).await?;
+        actor.check_session(&self.store).await?;
+        if local.is_some() {
+            return Ok(local);
+        }
+        self.retained_release_artwork(actor, release).await
     }
 
     async fn read_source_artwork(

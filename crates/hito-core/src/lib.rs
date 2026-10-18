@@ -25,10 +25,11 @@ pub use catalog::{
     AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog, ChooseSource,
     MetadataProvider, MetadataSettings, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
     PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadArtistDiscography,
-    Recording, Release, ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search,
-    Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
-    SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateMetadataSettings,
+    Recording, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack, ResetSourceChoice,
+    ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
+    SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    UpdateMetadataSettings,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

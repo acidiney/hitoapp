@@ -17,6 +17,21 @@ pub enum ArtworkFetchStatus {
     Cancelled,
 }
 
+impl TryFrom<String> for ArtworkFetchStatus {
+    type Error = Error;
+
+    fn try_from(status: String) -> Result<Self> {
+        match status.as_str() {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "ready" => Ok(Self::Ready),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Err(Error::Internal("Stored artwork request is invalid".into())),
+        }
+    }
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct ArtworkFetch {
     pub id: String,
@@ -41,7 +56,7 @@ impl Catalog {
         recording_access(&mut tx, actor, recording).await?;
         maintain(&mut tx).await?;
         let pending: Option<(String, String)> = sqlx::query_as(
-            "SELECT id,session_hash FROM artwork_fetches WHERE user_id = ? AND recording_id = ?
+            "SELECT id,session_hash FROM artwork_fetches WHERE user_id = ? AND recording_id = ? AND entity_kind = 'recording'
              AND status IN ('queued','running')",
         )
         .bind(actor.id())
@@ -56,6 +71,7 @@ impl Catalog {
             }
             let fetch = read_on(&mut tx, actor.id(), &id).await?;
             tx.commit().await?;
+            actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_pending", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
             return Ok(fetch);
         }
@@ -68,6 +84,7 @@ impl Catalog {
         if let Some(id) = previous {
             let fetch = read_on(&mut tx, actor.id(), &id).await?;
             tx.commit().await?;
+            actor.check_session(&self.store).await?;
             tracing::info!(job_id = %id, outcome = "already_retained", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
             return Ok(fetch);
         }
@@ -90,6 +107,7 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         let fetch = read_on(&mut tx, actor.id(), &id).await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::info!(job_id = %id, outcome = "queued", elapsed_ms = started.elapsed().as_millis() as u64, "Artwork request accepted");
         Ok(fetch)
     }
@@ -100,34 +118,58 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         let mut fetch = read_on(&mut tx, actor.id(), id).await?;
         recording_access(&mut tx, actor, &fetch.recording_id).await?;
-        if matches!(
-            &fetch.status,
-            ArtworkFetchStatus::Queued | ArtworkFetchStatus::Running
-        ) {
-            let (current, lease_expired): (bool, bool) = sqlx::query_as(
-                "SELECT EXISTS(SELECT 1 FROM current_artwork_fetch_authority authority WHERE authority.id = j.id),
-                    coalesce(j.lease_until <= unixepoch(),0)
-                 FROM artwork_fetches j WHERE j.id = ? AND j.user_id = ?",
-            ).bind(id).bind(actor.id()).fetch_one(&mut *tx).await?;
-            if !current {
-                fetch.status = ArtworkFetchStatus::Cancelled;
-                fetch.error = Some("authority_changed".into());
-            } else if lease_expired {
-                (fetch.status, fetch.error) = if fetch.attempts < 3 {
-                    (ArtworkFetchStatus::Queued, None)
-                } else {
-                    (
-                        ArtworkFetchStatus::Failed,
-                        Some("attempts_exhausted".into()),
-                    )
-                };
-            }
-        }
-        actor.check_session_on(&mut tx).await?;
+        (fetch.status, fetch.error) = observed_status(
+            &mut tx,
+            actor.id(),
+            id,
+            fetch.status,
+            fetch.attempts,
+            fetch.error,
+        )
+        .await?;
         tx.commit().await?;
+        actor.check_session(&self.store).await?;
         tracing::debug!(job_id = %fetch.id, status = ?fetch.status, "Artwork request read");
         Ok(fetch)
     }
+}
+
+pub(super) async fn observed_status(
+    connection: &mut SqliteConnection,
+    account: &str,
+    id: &str,
+    status: ArtworkFetchStatus,
+    attempts: u32,
+    error: Option<String>,
+) -> Result<(ArtworkFetchStatus, Option<String>)> {
+    if !matches!(
+        &status,
+        ArtworkFetchStatus::Queued | ArtworkFetchStatus::Running
+    ) {
+        return Ok((status, error));
+    }
+    let (current, lease_expired): (bool, bool) = sqlx::query_as(
+        "SELECT EXISTS(SELECT 1 FROM current_artwork_fetch_authority authority WHERE authority.id = j.id),
+            coalesce(j.lease_until <= unixepoch(),0)
+         FROM artwork_fetches j WHERE j.id = ? AND j.user_id = ?",
+    ).bind(id).bind(account).fetch_one(connection).await?;
+    if !current {
+        return Ok((
+            ArtworkFetchStatus::Cancelled,
+            Some("authority_changed".into()),
+        ));
+    }
+    if lease_expired {
+        return Ok(if attempts < 3 {
+            (ArtworkFetchStatus::Queued, None)
+        } else {
+            (
+                ArtworkFetchStatus::Failed,
+                Some("attempts_exhausted".into()),
+            )
+        });
+    }
+    Ok((status, error))
 }
 
 async fn read_on(
@@ -136,16 +178,9 @@ async fn read_on(
     id: &str,
 ) -> Result<ArtworkFetch> {
     let (id, recording_id, status, attempts, error, created_at, updated_at): (String, String, String, i64, Option<String>, i64, i64) =
-        sqlx::query_as("SELECT id,recording_id,status,attempts,error,created_at,updated_at FROM artwork_fetches WHERE id = ? AND user_id = ?")
+        sqlx::query_as("SELECT id,recording_id,status,attempts,error,created_at,updated_at FROM artwork_fetches WHERE id = ? AND user_id = ? AND entity_kind = 'recording'")
             .bind(id).bind(account).fetch_optional(connection).await?.ok_or(Error::NotFound)?;
-    let status = match status.as_str() {
-        "queued" => ArtworkFetchStatus::Queued,
-        "running" => ArtworkFetchStatus::Running,
-        "ready" => ArtworkFetchStatus::Ready,
-        "failed" => ArtworkFetchStatus::Failed,
-        "cancelled" => ArtworkFetchStatus::Cancelled,
-        _ => return Err(Error::Internal("Stored artwork request is invalid".into())),
-    };
+    let status = ArtworkFetchStatus::try_from(status)?;
     Ok(ArtworkFetch {
         id,
         recording_id,
@@ -157,7 +192,7 @@ async fn read_on(
     })
 }
 
-async fn capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {
+pub(super) async fn capacity(connection: &mut SqliteConnection, account: &str) -> Result<()> {
     let (account_assets, account_bytes): (i64, i64) = sqlx::query_as(
         "SELECT count(*),coalesce(sum(length(bytes)),0) FROM artwork_assets WHERE user_id = ?",
     )
@@ -194,33 +229,51 @@ async fn capacity(connection: &mut SqliteConnection, account: &str) -> Result<()
 pub(super) async fn maintain(connection: &mut SqliteConnection) -> Result<()> {
     sqlx::query(
         "UPDATE artwork_fetches SET status = 'cancelled',reservation_bytes = 0,error = 'authority_changed',updated_at = unixepoch()
-         WHERE status IN ('queued','running') AND id NOT IN (SELECT id FROM current_artwork_fetch_authority)",
+         WHERE status IN ('queued','running') AND NOT EXISTS(
+            SELECT 1 FROM current_artwork_fetch_authority authority WHERE authority.id = artwork_fetches.id)",
     ).execute(&mut *connection).await?;
     sqlx::query(
         "UPDATE artwork_fetches SET status = CASE WHEN attempts < 3 THEN 'queued' ELSE 'failed' END,
             reservation_bytes = CASE WHEN attempts < 3 THEN 2097152 ELSE 0 END,
             error = CASE WHEN attempts < 3 THEN NULL ELSE 'attempts_exhausted' END,
             lease_token = NULL,lease_until = NULL,next_attempt_at = unixepoch() + 2,updated_at = unixepoch()
-         WHERE status = 'running' AND lease_until <= unixepoch()",
+         WHERE status = 'running' AND lease_token IS NOT NULL AND lease_until <= unixepoch()",
     ).execute(&mut *connection).await?;
-    sqlx::query("UPDATE artwork_fetches SET lease_token = NULL,lease_until = NULL WHERE status IN ('ready','failed','cancelled') AND lease_until <= unixepoch()")
+    sqlx::query("UPDATE artwork_fetches INDEXED BY artwork_expired_lease SET lease_token = NULL,lease_until = NULL WHERE lease_token IS NOT NULL AND lease_until <= unixepoch() AND status IN ('ready','failed','cancelled')")
         .execute(&mut *connection).await?;
-    sqlx::query("DELETE FROM artwork_fetches WHERE status IN ('ready','failed','cancelled') AND lease_token IS NULL AND updated_at < unixepoch() - 604800 AND NOT EXISTS(SELECT 1 FROM recording_artwork current WHERE current.fetch_id = artwork_fetches.id)")
-        .execute(&mut *connection).await?;
-    sqlx::query(
-        "DELETE FROM artwork_fetches WHERE id IN (
-            SELECT id FROM (SELECT id,row_number() OVER (PARTITION BY user_id ORDER BY updated_at DESC,id DESC) AS position
-                FROM artwork_fetches WHERE status IN ('ready','failed','cancelled') AND lease_token IS NULL
-                AND NOT EXISTS(SELECT 1 FROM recording_artwork current WHERE current.fetch_id = artwork_fetches.id))
-            WHERE position > 256)",
-    ).execute(&mut *connection).await?;
-    sqlx::query(
-        "DELETE FROM artwork_fetches WHERE id IN (SELECT id FROM artwork_fetches
-            WHERE status IN ('ready','failed','cancelled') AND lease_token IS NULL
-            AND NOT EXISTS(SELECT 1 FROM recording_artwork current WHERE current.fetch_id = artwork_fetches.id)
-            ORDER BY updated_at DESC,id DESC LIMIT -1 OFFSET 4096)",
-    ).execute(&mut *connection).await?;
-    sqlx::query("DELETE FROM artwork_assets WHERE NOT EXISTS(SELECT 1 FROM recording_artwork r WHERE r.user_id = artwork_assets.user_id AND r.content_hash = artwork_assets.content_hash)")
-        .execute(connection).await?;
+    trim_history(
+        connection,
+        "SELECT id FROM artwork_fetches INDEXED BY artwork_history
+         WHERE retained = 0 AND status IN ('ready','failed','cancelled') AND lease_token IS NULL
+            AND updated_at < unixepoch() - 604800",
+    )
+    .await?;
+    trim_history(connection,
+        "SELECT id FROM (SELECT id,row_number() OVER (PARTITION BY user_id ORDER BY updated_at DESC,id DESC) AS position
+                FROM artwork_fetches INDEXED BY artwork_history_account
+                WHERE retained = 0 AND status IN ('ready','failed','cancelled') AND lease_token IS NULL
+                AND NOT EXISTS(SELECT 1 FROM retained_artwork_references current WHERE current.fetch_id = artwork_fetches.id))
+            WHERE position > 256",
+    ).await?;
+    trim_history(connection,
+        "SELECT id FROM artwork_fetches INDEXED BY artwork_history
+            WHERE retained = 0 AND status IN ('ready','failed','cancelled') AND lease_token IS NULL
+            AND NOT EXISTS(SELECT 1 FROM retained_artwork_references current WHERE current.fetch_id = artwork_fetches.id)
+            ORDER BY updated_at DESC,id DESC LIMIT -1 OFFSET 4096",
+    ).await?;
+    super::assets::prune(connection, None).await?;
+    Ok(())
+}
+
+async fn trim_history(connection: &mut SqliteConnection, selector: &str) -> Result<()> {
+    let obsolete: Vec<String> = sqlx::query_scalar(selector)
+        .fetch_all(&mut *connection)
+        .await?;
+    for id in obsolete {
+        sqlx::query("DELETE FROM artwork_fetches WHERE id = ? AND retained = 0
+            AND status IN ('ready','failed','cancelled') AND lease_token IS NULL
+            AND NOT EXISTS(SELECT 1 FROM retained_artwork_references current WHERE current.fetch_id = artwork_fetches.id)")
+            .bind(id).execute(&mut *connection).await?;
+    }
     Ok(())
 }

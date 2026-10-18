@@ -5,7 +5,7 @@ use super::{
     lease::Lease,
 };
 use crate::{Error, Result, plugins::ProviderArtwork};
-use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest, Capability};
+use hito_plugin_sdk::Capability;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 
@@ -114,10 +114,7 @@ impl Catalog {
             return Err(Error::Conflict("This artwork provider changed".into()));
         }
         lease.actor(&self.store).await?;
-        let request = ArtworkRequest {
-            entity: ArtworkEntity::Recording,
-            provider_id: lease.provider_recording_id.clone(),
-        };
+        let request = lease.target.request();
         let receiving = operation.artwork(&request);
         tokio::pin!(receiving);
         let mut heartbeat = tokio::time::interval(Duration::from_millis(250));
@@ -177,15 +174,8 @@ impl Catalog {
         } else {
             match result {
                 Ok(Some(image)) => {
-                    assets::publish(
-                        &mut tx,
-                        &lease.user_id,
-                        &lease.recording_id,
-                        &lease.observation_id,
-                        &lease.id,
-                        image,
-                    )
-                    .await?;
+                    assets::publish(&mut tx, &lease.user_id, &lease.target, &lease.id, image)
+                        .await?;
                     ("ready", None, 0, 0)
                 }
                 Err(error) => {
