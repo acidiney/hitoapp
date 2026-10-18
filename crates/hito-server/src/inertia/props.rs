@@ -1,8 +1,8 @@
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
 use hito_core::{
-    Activity, Library, Playlist, PlaylistDetail, PodcastEpisodePage, PodcastSubscription,
-    RecordingProgress, User,
+    Activity, AudiobookDetail, Library, Playlist, PlaylistDetail, PodcastEpisodePage,
+    PodcastSubscription, RecordingProgress, User,
 };
 use hito_core::{ArtistDetail, RecordingMetadata, ReleaseDetail, ReleaseMetadata};
 use serde::Serialize;
@@ -128,6 +128,24 @@ pub struct PlaylistPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct AudiobookIndexPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub books: Option<Vec<Playlist>>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct AudiobookPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<AudiobookDetail>,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct HistoryPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -192,6 +210,8 @@ pub enum PageProps {
     Likes(CatalogPageProps),
     PlaylistIndex(PlaylistIndexPageProps),
     Playlist(PlaylistPageProps),
+    AudiobookIndex(AudiobookIndexPageProps),
+    Audiobook(AudiobookPageProps),
     History(HistoryPageProps),
     Settings(SettingsPageProps),
     Discover(DiscoverPageProps),
@@ -213,6 +233,8 @@ impl PageProps {
             Self::Likes(_) => "LikesPage",
             Self::PlaylistIndex(_) => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",
+            Self::AudiobookIndex(_) => "AudiobookIndexPage",
+            Self::Audiobook(_) => "AudiobookPage",
             Self::History(_) => "HistoryPage",
             Self::Settings(_) => "SettingsPage",
             Self::Discover(_) => "DiscoverPage",

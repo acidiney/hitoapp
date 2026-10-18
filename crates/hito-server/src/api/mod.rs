@@ -2,6 +2,7 @@ pub mod artist_catalog;
 pub mod artist_profiles;
 pub mod artist_review;
 pub mod artwork;
+pub mod audiobooks;
 pub mod browsing;
 pub mod catalog;
 pub mod collection;

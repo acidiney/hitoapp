@@ -35,6 +35,8 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         RecordingDetailsPageProps,
         PlaylistIndexPageProps,
         PlaylistPageProps,
+        AudiobookIndexPageProps,
+        AudiobookPageProps,
         HistoryPageProps,
         SettingsPageProps,
         DiscoverPageProps,
@@ -122,6 +124,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(storage::scan))
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
+        .routes(routes!(api::audiobooks::list))
+        .routes(routes!(api::audiobooks::detail))
         .routes(routes!(collection::import_provider_playlist))
         .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
@@ -192,6 +196,8 @@ fn application(
         .route("/settings", get(inertia::page))
         .route("/playlists", get(inertia::page))
         .route("/playlists/{id}", get(inertia::page))
+        .route("/audiobooks", get(inertia::page))
+        .route("/audiobooks/{id}", get(inertia::page))
         .nest_service(
             "/assets",
             tower_http::services::ServeDir::new(config.web_dir.join("assets")),

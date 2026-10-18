@@ -15,6 +15,8 @@ pub enum Screen<'a> {
     Likes,
     PlaylistIndex,
     Playlist(&'a str),
+    AudiobookIndex,
+    Audiobook(&'a str),
     History,
     Settings,
     Discover,
@@ -28,6 +30,7 @@ impl<'a> Screen<'a> {
             "/" | "/library" => Self::Catalog,
             "/likes" => Self::Likes,
             "/playlists" => Self::PlaylistIndex,
+            "/audiobooks" => Self::AudiobookIndex,
             "/history" => Self::History,
             "/settings" => Self::Settings,
             "/discover" => Self::Discover,
@@ -48,6 +51,9 @@ impl<'a> Screen<'a> {
             _ if path.starts_with("/recordings/") => {
                 Self::RecordingDetails(path.trim_start_matches("/recordings/"))
             }
+            _ if path.starts_with("/audiobooks/") => {
+                Self::Audiobook(path.trim_start_matches("/audiobooks/"))
+            }
             _ => Self::Playlist(path.trim_start_matches("/playlists/")),
         }
     }
@@ -64,6 +70,8 @@ impl<'a> Screen<'a> {
             Self::Likes => "LikesPage",
             Self::PlaylistIndex => "PlaylistIndexPage",
             Self::Playlist(_) => "PlaylistPage",
+            Self::AudiobookIndex => "AudiobookIndexPage",
+            Self::Audiobook(_) => "AudiobookPage",
             Self::History => "HistoryPage",
             Self::Settings => "SettingsPage",
             Self::Discover => "DiscoverPage",
@@ -250,6 +258,24 @@ impl<'a> Screen<'a> {
                 } else {
                     PageProps::Catalog(props)
                 })
+            }
+            Self::AudiobookIndex => {
+                let books = if fields.requested("books") {
+                    Some(services.collection.audiobooks(actor).await?)
+                } else {
+                    None
+                };
+                Ok(PageProps::AudiobookIndex(AudiobookIndexPageProps {
+                    shared,
+                    books,
+                }))
+            }
+            Self::Audiobook(id) => {
+                let detail = services.collection.audiobook(actor, id).await?;
+                Ok(PageProps::Audiobook(AudiobookPageProps {
+                    shared,
+                    detail: fields.requested("detail").then_some(detail),
+                }))
             }
             Self::PlaylistIndex => {
                 let (connections, service_names) =
