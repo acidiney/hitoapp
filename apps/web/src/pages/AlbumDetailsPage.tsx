@@ -1,6 +1,7 @@
 import { Link } from "@inertiajs/react";
 import type { AlbumDetailsPageProps } from "../types";
 import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 
@@ -25,6 +26,7 @@ export default function AlbumDetailsPage({
           <p>{detail.artist.value ?? "Album artist not provided"}</p>
         </div>
       </section>
+      <ArtworkStatus release={target.id} />
       <MetadataEditor
         key={`${user.id}/${target.id}`}
         account={user.id}

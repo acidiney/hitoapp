@@ -1,6 +1,18 @@
 import { request } from "./http";
 import { log } from "./log";
-import type { ArtworkAvailability, ArtworkFetch } from "./types";
+import type {
+  ArtworkAvailability,
+  ArtworkFetch,
+  ReleaseArtworkFetch,
+} from "./types";
+
+export type ArtworkKind = "recording" | "release";
+type ArtworkTarget = { kind: ArtworkKind; id: string };
+type ArtworkJob = ArtworkFetch | ReleaseArtworkFetch;
+
+function keyFor(target: ArtworkTarget) {
+  return JSON.stringify([target.kind, target.id]);
+}
 
 type Phase =
   | "idle"
@@ -17,7 +29,8 @@ export type ArtworkSnapshot = { phase: Phase; revision: number };
 export const idleArtwork: ArtworkSnapshot = { phase: "idle", revision: 0 };
 
 type Entry = {
-  recording: string;
+  target: ArtworkTarget;
+  key: string;
   controller: AbortController;
   snapshot: ArtworkSnapshot;
   running: boolean;
@@ -62,53 +75,57 @@ export class ArtworkRetrieval {
     this.entries.clear();
   }
 
-  subscribe(recording: string, listener: () => void) {
-    const listeners = this.listeners.get(recording) ?? new Set();
-    this.listeners.set(recording, listeners);
+  subscribe(target: ArtworkTarget, listener: () => void) {
+    const key = keyFor(target);
+    const listeners = this.listeners.get(key) ?? new Set();
+    this.listeners.set(key, listeners);
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
       if (listeners.size) return;
-      this.listeners.delete(recording);
-      const entry = this.entries.get(recording);
+      this.listeners.delete(key);
+      const entry = this.entries.get(key);
       if (!entry || (!entry.running && !this.pending.has(entry))) return;
       entry.controller.abort("cancelled");
       this.pending.delete(entry);
-      this.entries.delete(recording);
+      this.entries.delete(key);
     };
   }
 
-  snapshot(recording: string) {
-    return this.entries.get(recording)?.snapshot ?? idleArtwork;
+  snapshot(target: ArtworkTarget) {
+    return this.entries.get(keyFor(target))?.snapshot ?? idleArtwork;
   }
 
-  missing(recording: string) {
-    if (!this.active || this.entries.has(recording)) return;
+  missing(target: ArtworkTarget) {
+    const key = keyFor(target);
+    if (!this.active || this.entries.has(key)) return;
     if (this.entries.size >= 128) {
       for (const candidate of this.entries.values()) {
         if (candidate.running || this.pending.has(candidate)) continue;
-        this.entries.delete(candidate.recording);
+        this.entries.delete(candidate.key);
         break;
       }
       if (this.entries.size >= 128) return;
     }
     const entry: Entry = {
-      recording,
+      target,
+      key,
       controller: new AbortController(),
       snapshot: { phase: "waiting", revision: 0 },
       running: false,
     };
-    this.entries.set(recording, entry);
+    this.entries.set(key, entry);
     this.pending.add(entry);
     this.publish(entry, "waiting");
     this.drain();
   }
 
-  retry(recording: string) {
-    const entry = this.entries.get(recording);
+  retry(target: ArtworkTarget) {
+    const key = keyFor(target);
+    const entry = this.entries.get(key);
     if (entry && (entry.running || this.pending.has(entry))) return;
-    this.entries.delete(recording);
-    this.missing(recording);
+    this.entries.delete(key);
+    this.missing(target);
   }
 
   refreshAvailability() {
@@ -122,8 +139,8 @@ export class ArtworkRetrieval {
         entry.snapshot.phase !== "unavailable"
       )
         continue;
-      this.entries.delete(entry.recording);
-      if (this.listeners.has(entry.recording)) this.missing(entry.recording);
+      this.entries.delete(entry.key);
+      if (this.listeners.has(entry.key)) this.missing(entry.target);
       count++;
     }
     log.debug("artwork.availability_refreshed", {
@@ -135,7 +152,7 @@ export class ArtworkRetrieval {
   }
 
   private owns(entry: Entry) {
-    return this.active && this.entries.get(entry.recording) === entry;
+    return this.active && this.entries.get(entry.key) === entry;
   }
 
   private current(entry: Entry) {
@@ -160,8 +177,7 @@ export class ArtworkRetrieval {
       phase,
       revision: phase === "ready" ? ++this.revision : entry.snapshot.revision,
     };
-    for (const listener of this.listeners.get(entry.recording) ?? [])
-      listener();
+    for (const listener of this.listeners.get(entry.key) ?? []) listener();
   }
 
   private async acquire(signal: AbortSignal) {
@@ -211,11 +227,22 @@ export class ArtworkRetrieval {
     const timer = setTimeout(() => entry.controller.abort("timeout"), 120_000);
     let phase: Phase = "failed";
     let reason = "failed";
-    let job: ArtworkFetch | undefined;
-    const fields = { account_id: this.account, recording_id: entry.recording };
+    let job: ArtworkJob | undefined;
+    const { target } = entry;
+    const fields = {
+      account_id: this.account,
+      mode: target.kind,
+      ...(target.kind === "recording" ? { recording_id: target.id } : {}),
+    };
     log.debug("artwork.started", fields);
     try {
-      const base = `/recordings/${encodeURIComponent(entry.recording)}/artwork`;
+      const collection =
+        target.kind === "recording" ? "recordings" : "releases";
+      const receipts =
+        target.kind === "recording"
+          ? "artwork-fetches"
+          : "release-artwork-fetches";
+      const base = `/${collection}/${encodeURIComponent(target.id)}/artwork`;
       const availability = await this.read<ArtworkAvailability>(
         entry,
         `${base}/availability`,
@@ -227,15 +254,19 @@ export class ArtworkRetrieval {
         reason = "no_provider";
         return;
       }
-      job = await this.read<ArtworkFetch>(
+      job = await this.read<ArtworkJob>(
         entry,
         `${base}/fetch`,
         "artwork.fetch",
         "POST",
       );
       while (this.current(entry)) {
-        if (job.recording_id !== entry.recording)
-          throw new Error("Artwork response did not match the recording");
+        const matches =
+          target.kind === "recording"
+            ? "recording_id" in job && job.recording_id === target.id
+            : "release_id" in job && job.release_id === target.id;
+        if (!matches)
+          throw new Error("Artwork response did not match its entity");
         if (
           job.status === "ready" ||
           job.status === "failed" ||
@@ -248,9 +279,9 @@ export class ArtworkRetrieval {
         this.publish(entry, job.status);
         await waitForPoll(entry.controller.signal);
         if (!this.current(entry)) return;
-        job = await this.read<ArtworkFetch>(
+        job = await this.read<ArtworkJob>(
           entry,
-          `/artwork-fetches/${encodeURIComponent(job.id)}`,
+          `/${receipts}/${encodeURIComponent(job.id)}`,
           "artwork.status",
         );
       }
@@ -268,8 +299,8 @@ export class ArtworkRetrieval {
         phase = reason === "timeout" ? "failed" : "cancelled";
       }
       if (this.owns(entry)) {
-        this.entries.delete(entry.recording);
-        this.entries.set(entry.recording, entry);
+        this.entries.delete(entry.key);
+        this.entries.set(entry.key, entry);
         this.publish(entry, phase);
       }
       const record =

@@ -7,7 +7,11 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { ArtworkRetrieval, idleArtwork } from "./artworkRetrieval";
+import {
+  ArtworkRetrieval,
+  idleArtwork,
+  type ArtworkKind,
+} from "./artworkRetrieval";
 
 const ArtworkContext = createContext<ArtworkRetrieval | null>(null);
 
@@ -37,28 +41,26 @@ export function useRefreshArtworkAvailability(account: string) {
   return useCallback(() => retrieval.refreshAvailability(), [retrieval]);
 }
 
-export function useRecordingArtwork(recording?: string) {
+export function useArtwork(kind: ArtworkKind, id?: string) {
   const retrieval = useContext(ArtworkContext);
+  const target = useMemo(() => (id ? { kind, id } : undefined), [kind, id]);
   const subscribe = useCallback(
     (listener: () => void) =>
-      retrieval && recording
-        ? retrieval.subscribe(recording, listener)
-        : () => {},
-    [retrieval, recording],
+      retrieval && target ? retrieval.subscribe(target, listener) : () => {},
+    [retrieval, target],
   );
   const snapshot = useCallback(
-    () =>
-      retrieval && recording ? retrieval.snapshot(recording) : idleArtwork,
-    [retrieval, recording],
+    () => (retrieval && target ? retrieval.snapshot(target) : idleArtwork),
+    [retrieval, target],
   );
   const state = useSyncExternalStore(subscribe, snapshot);
   return {
     ...state,
     missing: () => {
-      if (recording) retrieval?.missing(recording);
+      if (target) retrieval?.missing(target);
     },
     retry: () => {
-      if (recording) retrieval?.retry(recording);
+      if (target) retrieval?.retry(target);
     },
   };
 }

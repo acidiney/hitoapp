@@ -3,6 +3,7 @@ import type { AlbumPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import { time } from "../format";
 import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import Pagination from "../components/Pagination";
@@ -45,6 +46,7 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
           </Link>
         </div>
       </section>
+      <ArtworkStatus release={release.id} />
       {tracks.length ? (
         <>
           <TrackToolbar

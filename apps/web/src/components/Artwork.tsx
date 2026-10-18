@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Disc3, ListMusic } from "lucide-react";
-import { useRecordingArtwork } from "../ArtworkProvider";
+import { useArtwork } from "../ArtworkProvider";
 
 export default function Artwork({
   recording,
@@ -13,7 +13,8 @@ export default function Artwork({
   playlist?: boolean;
   className?: string;
 }) {
-  const retrieval = useRecordingArtwork(recording);
+  const releaseRetrieval = useArtwork("release", release);
+  const recordingRetrieval = useArtwork("recording", recording);
   const [failedRelease, setFailedRelease] = useState<string>();
   const [failedRecording, setFailedRecording] = useState<string>();
   const releaseUrl = release
@@ -22,9 +23,13 @@ export default function Artwork({
   const recordingUrl = recording
     ? `/api/v1/recordings/${encodeURIComponent(recording)}/artwork`
     : undefined;
-  const recordingKey = JSON.stringify([recordingUrl, retrieval.revision]);
+  const releaseKey = JSON.stringify([releaseUrl, releaseRetrieval.revision]);
+  const recordingKey = JSON.stringify([
+    recordingUrl,
+    recordingRetrieval.revision,
+  ]);
   const url =
-    releaseUrl && failedRelease !== releaseUrl
+    releaseUrl && failedRelease !== releaseKey
       ? releaseUrl
       : recordingUrl && failedRecording !== recordingKey
         ? recordingUrl
@@ -36,15 +41,17 @@ export default function Artwork({
     >
       {url ? (
         <img
-          key={url === recordingUrl ? recordingKey : url}
+          key={url === recordingUrl ? recordingKey : releaseKey}
           src={url}
           alt=""
           loading="lazy"
           onError={() => {
-            if (url === releaseUrl) setFailedRelease(url);
-            else {
+            if (url === releaseUrl) {
+              setFailedRelease(releaseKey);
+              releaseRetrieval.missing();
+            } else {
               setFailedRecording(recordingKey);
-              retrieval.missing();
+              recordingRetrieval.missing();
             }
           }}
         />

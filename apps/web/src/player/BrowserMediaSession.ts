@@ -1,5 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { useRecordingArtwork } from "../ArtworkProvider";
+import { useArtwork } from "../ArtworkProvider";
 import { log } from "../log";
 import type { Player, Track } from "./model";
 import { probeSessionArtwork } from "./BrowserSessionArtwork";
@@ -18,7 +18,7 @@ const actions = [
 export function useBrowserMediaSession(player: Player, account: string) {
   const queue = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const recording = player.snapshot().current?.id;
-  const artwork = useRecordingArtwork(recording);
+  const artwork = useArtwork("recording", recording);
   const connection = useRef<ReturnType<typeof connectSession>>(undefined);
   useEffect(() => {
     const current = connectSession(player, account);
