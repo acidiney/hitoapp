@@ -72,6 +72,7 @@ export type PlaylistIndexPageProps = Schema["PlaylistIndexPageProps"];
 export type PlaylistPageProps = Schema["PlaylistPageProps"];
 export type AudiobookIndexPageProps = Schema["AudiobookIndexPageProps"];
 export type AudiobookPageProps = Schema["AudiobookPageProps"];
+export type AudiobookDetail = Schema["AudiobookDetail"];
 export type HistoryPageProps = Schema["HistoryPageProps"];
 export type SettingsPageProps = Schema["SettingsPageProps"];
 export type LoginPageProps = Schema["LoginPageProps"];
