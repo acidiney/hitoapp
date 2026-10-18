@@ -5,6 +5,7 @@ import AccountSettings from "../components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
 import PluginSettings from "../components/plugins/PluginSettings";
 import MetadataPreferences from "../components/metadata/MetadataPreferences";
+import CommunitySettings from "../components/CommunitySettings";
 import PageHeading from "../components/PageHeading";
 import { log } from "../log";
 
@@ -14,7 +15,9 @@ export default function SettingsPage(props: SettingsPageProps) {
     const section = new URL(url, "http://hito.local").searchParams.get(
       "section",
     );
-    return section === "plugins" || section === "metadata"
+    return section === "plugins" ||
+      section === "metadata" ||
+      section === "privacy"
       ? section
       : "library";
   });
@@ -86,29 +89,7 @@ export default function SettingsPage(props: SettingsPageProps) {
           )}
           {selected === "library" && <LibrarySettings {...props} />}
           {selected === "privacy" && (
-            <section className="settings-panel">
-              <div className="settings-intro">
-                <h2>A private place to listen</h2>
-                <p>
-                  Your playlists, likes, and listening history belong to your
-                  account.
-                </p>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <h3>Playback reporting</h3>
-                  <p>No playback outcomes are sent to a community service.</p>
-                </div>
-                <span className="setting-badge">Off</span>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <h3>Metadata contributions</h3>
-                  <p>No library corrections are shared outside this server.</p>
-                </div>
-                <span className="setting-badge">Off</span>
-              </div>
-            </section>
+            <CommunitySettings key={props.user.id} account={props.user.id} />
           )}
           {selected === "accounts" && props.user.admin && (
             <AccountSettings
