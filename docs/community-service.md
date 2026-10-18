@@ -1,6 +1,31 @@
 # Community service
 
-`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. Application opt-ins, corrections, and public operation remain unfinished under the [release plan](release-plan.md#community-service).
+`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below is being qualified in source. Corrections and public operation remain unfinished under the [release plan](release-plan.md#community-service).
+
+## Application integration in development
+
+Each account has separate playback-reporting and metadata-correction preferences, both disabled by default. Settings reads and updates use the shared authenticated account boundary and a revision check. Enabling metadata corrections does not permit playback reporting; the correction producer remains unfinished.
+
+The browser observes five seconds of advancing media time before submitting a source claim. It excludes seeks, pauses, stalls and stale media generations, and checks advancement against elapsed time and playback speed. This is a listening heuristic, not proof that a person heard the audio. An account-scoped sender admits at most eight claims, sends one at a time and retries the same submission UUID at most once. Its request and response-body deadlines remain independent of progress writes, navigation and Continue.
+
+```mermaid
+flowchart LR
+    Browser[Account browser player] -->|Qualified advancing media|Admission[Authenticated source claim]
+    Consent[Current account consent and source authority] --> Admission
+    Admission -->|Local transaction only|Outbox[Private core SQLite outbox]
+    Outbox --> Worker[Joined background worker]
+    Consent --> Worker
+    Worker -->|Bounded HTTP and stable submission UUID|Community[Separate community service]
+    Community --> Receipt[Idempotent outcome receipt]
+```
+
+Core resolves the claimed source through the account's current approved installation and library access. Only canonical public YouTube and Jamendo references leave the application. Local files, titles, paths, audio, provider credentials and stream URLs are excluded. Admission never contacts the community service. Logout, disabled consent, withdrawn provider access and changed source authority retire queued or running work; held responses cannot restore that authority.
+
+The server integration is optional. Configure both `HITO_COMMUNITY_ORIGIN` and `HITO_COMMUNITY_ADMIN_TOKEN_FILE` to enable delivery. The origin requires HTTPS, with HTTP allowed only for numeric loopback addresses. The token file must be absolute, private, owned by the effective user and contain the community service's administrator token. With neither setting, delivery stays disabled. An incomplete or invalid pair disables it with a static warning. Configuration and startup do not provision reporters or make network requests. Each account's reporter credentials are encrypted separately from plugin credentials through the existing private key store.
+
+The application outbox permits 64 pending reports per account and 256 globally, with one running per account and two globally. Delivery allows three attempts over seven days, two-second bounded exchanges and an eight-second operation deadline. Server shutdown joins the worker. Resetting community credentials affects only the caller's reporter credentials and unfinished reports; it preserves consent preferences, listening state, originals and other accounts.
+
+The combined source passes 495 frontend cases, both TypeScript configurations and the production build, including a shared Provider test with held community delivery, a fixed Continue progress barrier and fresh chapter qualification. The core/HTTP fixtures cover consent, provenance, replay, revocation and credential recovery. Complete combined backend qualification and the real browser-to-service workflow remain in progress. Native outcome production, ranking consumption, correction submission, moderation and normal deployment remain unfinished.
 
 ## Current HTTP contract
 
@@ -227,4 +252,4 @@ The startup fixture previously required the close callback's observed OS thread 
 
 The preceding foundation passed workspace and modified-driver formatting, strict all-target Clippy for community, core, server and the folder plugin, and 55 directed driver compatibility cases. Those comprise twelve selected core cases, all 38 folder-plugin cases and five server cases covering embedded lifecycle, signals and download restart. These are development checks, not full workspace, packaged-image or platform acceptance. Caller-cancellation, setup-timeout, spawn-failure, wider alias and ownership cases, and load behavior need their own controlled evidence.
 
-The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, public deployment configuration, rate limits, quotas, retention and erasure, reporter revocation, moderation, correction suggestions, provider-backed validation, live hosting, and DNS remain open. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. Separate disabled-by-default application opt-ins, account isolation, personal overrides, and playback during community outages remain client work. There is currently no application-to-community network path and no outbound provider fetch in this crate.
+The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, public deployment configuration, service rate limits, quotas, retention and erasure, reporter revocation, moderation, correction suggestions, provider-backed validation, live hosting, and DNS remain open. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. The application path above still needs complete browser/native and outage acceptance. This service crate performs no outbound provider fetch.

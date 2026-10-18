@@ -4,6 +4,20 @@ Hito can retain provider covers in its private SQLite library. The server worker
 
 The plugin SDK declares an `artwork` capability and a typed `POST /v1/artwork` request containing an entity kind and provider identifier. Plugins return PNG or JPEG bytes. They do not return a browser URL or supply UI components. The reference Spotify implementation supports recording, release, and playlist requests without Spotify account authorization.
 
+## Album and imported-playlist covers in source
+
+The integration source extends the existing worker to recordings, releases and imported editable playlists. Each target has its own account-owned reference and receipt. Album requests pin an exact provider release witness. Playlist requests pin the actual import's provider identity, snapshot and import incarnation; they do not invent a recording to hold the cover. All three targets share transport, decoding, quota, lease, publication and retention rules.
+
+Album pages and imported-playlist pages read private cover bytes through authenticated Hito routes. Playlist lists use the playlist's own cover rather than borrowing its first recording. Manually created playlists have no implicit provider, and Follow artwork remains unfinished. No plugin supplies UI or browser image URLs.
+
+Image loading and provider retrieval are separate states. An explicit Retry immediately attempts the retained private image, including after provider disconnection. A ready receipt does not start another provider job merely because an image load failed. Failures stay visible for that image revision even if another renderer loads the same cover successfully. A new account-provider generation retires old image events. Retrying an evicted terminal entry reconstructs it through the same bounded cache without automatic retries or extra capacity.
+
+The independent final frontend repeat passes 472 cases across 148 files, both TypeScript configurations and the production build. Directed DOM controls reproduce and correct ready-image failure, disconnected-provider recovery, same-component account changes, two renderers with different image outcomes, and Retry after 129 settled targets. The last case retains the 128-entry cache and two-request limit. Two correctness review rounds found defects that received failing regressions and passing fixes; no third clean review is claimed.
+
+Core fixtures also exercise the shared worker with 100,000 retained targets and one shared blob under inherited, absent and fresh SQLite statistics. Read, enqueue and worker work stay below their existing 10,000, 250,000 and 500,000 VM-step budgets. A deterministic pinned-reader case proves that fixture snapshots include committed WAL history; it preserves rows, row IDs, retained bytes, foreign keys and the intended statistics. These are query-work and fixture-consistency checks, not playback latency or public backup acceptance.
+
+Complete combined backend, packaged-browser and normal-deployment acceptance remain in progress. The normal server still runs migration 0046 and its recording-cover behavior described below.
+
 ```mermaid
 sequenceDiagram
     participant Caller
@@ -25,7 +39,7 @@ sequenceDiagram
 
 ## Ownership and retention
 
-Artwork belongs to an account and recording. A fetch pins the selected provider metadata observation, binding incarnation, installation revision, service revision, and initiating session. A worker checks that authority during retrieval and again in the publication transaction. Logout or withdrawn authority prevents publication. Network and decoding work happen outside the write transaction.
+Retained artwork is account-owned. A recording fetch pins the selected provider metadata observation, binding incarnation, installation revision, service revision, and initiating session. A worker checks that authority during retrieval and again in the publication transaction. Logout or withdrawn authority prevents publication. Network and decoding work happen outside the write transaction.
 
 Local file artwork remains preferred. A retained provider cover remains readable offline and after the plugin is removed. Retrying a completed request for the same selected metadata owner returns its original ready receipt. Each retained cover protects that exact receipt from history cleanup. Changing metadata ownership can require a fresh fetch while the previous cover remains readable.
 
@@ -69,4 +83,4 @@ A scoped scan of 831 captured server-log lines found no owned fixture metadata, 
 
 Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Host integration passed its second review. These checks do not establish platform or public-release acceptance.
 
-The host currently retrieves recording covers. Although the SDK and Spotify producer also support release and playlist requests, durable storage, jobs and UI reads for those entities remain open. A packaged live check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track performance gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
+The normal deployed host currently retrieves recording covers; the collection source above is not deployed. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
