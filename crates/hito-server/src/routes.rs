@@ -99,6 +99,12 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::artist_catalog::settings,
             api::artist_catalog::update_settings
         ))
+        .routes(routes!(api::artist_review::context))
+        .routes(routes!(api::artist_review::search))
+        .routes(routes!(api::artist_review::preview))
+        .routes(routes!(api::artist_review::confirm))
+        .routes(routes!(api::artist_profiles::associations))
+        .routes(routes!(api::artist_profiles::profile))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))
