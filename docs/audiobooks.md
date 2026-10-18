@@ -237,3 +237,31 @@ Qualification requires the current owner/key, available authority, Ready output,
 Five focused device cases pass with owned WAV files, temporary SQLite, a nonadministrator and an isolated CPAL/PulseAudio monitor. They verify exact second-A selection, both frozen IDs across failed transactions while playback moves to B, atomic rollback and accepted replay, unheard paused seeks followed by immediate hearing, coalesced heard completion and silent EOF. Eight existing device cases across five targets also pass, covering ordinary progress, completion, bounded backpressure, lifecycle and saved-position restoration. Strict device-feature playback all-target Clippy and workspace formatting pass. Final independent security, correctness and performance reviews pass.
 
 The writer retains its existing 64-checkpoint bound, stop reserve, serial retries, fixed settlement barriers and joined shutdown. It creates no new position store or queue copy. These are Linux device-fixture and source checks, not complete native GUI, physical platform, codec, gapless or release-latency acceptance. The new shared browser package, Continue control and migration 0049 deployment remain open.
+
+## Continue from the retained chapter
+
+The audiobook page now offers Continue when an exact retained chapter exists. Both player implementations read the current authorized book and existing recording progress. They preserve duplicate chapter occurrences, omit denied chapters and retain authorized chapters that currently lack a playable source. An unavailable selected chapter produces an error without replacing the current queue.
+
+Browser Continue first settles a fixed prefix of earlier progress writes, then reads the current continuation. Preparation has a deadline and cancels on navigation, account retirement or a newer playback intention. The current queue and output stay in place until preparation succeeds. Earlier rejected writes do not permanently prevent another Continue attempt.
+
+Native Continue prepares one expiring candidate without reserving a command sequence. Final admission checks the session, exact chapter membership and recording grants in core under a bounded SQLite writer reservation. Queue publication happens synchronously before releasing that reservation, so a competing deletion and publication have one order. The player owner continues receiving cancellation and ordinary controls while admission waits.
+
+```mermaid
+sequenceDiagram
+  participant UI as Shared Continue control
+  participant Player as Device player
+  participant Core as Core collection
+  UI->>Player: Prepare retained chapter
+  Player->>Core: Settle prior progress and read current book
+  Core-->>Player: Exact chapter and recording progress
+  UI->>Player: Commit current intention
+  Player->>Core: Revalidate native publication authority
+  Core-->>Player: Bounded admission guard
+  Player->>Player: Publish queue, position and speed
+```
+
+An uncertain native command response requires authoritative settlement before later controls proceed. Settlement returns the exact accepted receipt or confirms cancellation of the prepared command. Malformed or stalled settlement closes the uncertain ownership lane. It does not guess the accepted revision. An externally cancelled Continue can be retried immediately in the same session.
+
+Docker verification passes six public core/player/HTTP cases, all 469 frontend cases, both TypeScript configurations, the production build and strict core/playback/server all-target Clippy. The concurrency fixture observes actual Sync entry, queue publication and committed deletion. Client cases cover request and body cancellation, retry backoff, lost accepted replies, malformed settlement, deadlines and immediate retry. Rust routes produce the generated OpenAPI and TypeScript contracts.
+
+This source is integrated. Actual CPAL Continue output, full-book Continue performance at 10,000 chapters, packaged Chromium/WebKit Continue, desktop GUI/platform checks and normal deployment remain open. The normal server still runs migration 0046.
