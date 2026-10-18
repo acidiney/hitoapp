@@ -107,6 +107,9 @@
 .metadata-observations article {
   overflow-wrap: anywhere;
 }
+.recording-credits {
+  overflow-wrap: anywhere;
+}
 .metadata-observations summary {
   cursor: pointer;
   padding: 8px 0;

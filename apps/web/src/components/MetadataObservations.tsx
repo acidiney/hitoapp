@@ -1,6 +1,7 @@
 import type { MetadataObservation, ObservationPage } from "../types";
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
 import type { MetadataTarget } from "../metadata";
+import RecordingCredits from "./metadata/RecordingCredits";
 
 const tagLabels = {
   title: "Title",
@@ -44,6 +45,7 @@ function Observation({
         <p>
           {observation.artist} · {observation.album ?? "Unknown album"}
         </p>
+        <RecordingCredits attribution={observation.attribution} />
         {observation.origin === "legacy_normalized" ? (
           <p className="metadata-legacy">
             Original tag details were not recorded. The next successful scan can

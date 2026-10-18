@@ -16,6 +16,7 @@ export type ArtistIndexPageProps = Schema["ArtistIndexPageProps"];
 export type ArtistPageProps = Schema["ArtistPageProps"];
 export type RecordingDetailsPageProps = Schema["RecordingDetailsPageProps"];
 export type RecordingMetadata = Schema["RecordingMetadata"];
+export type RecordingAttribution = Schema["RecordingAttribution"];
 export type MetadataSettings = Schema["MetadataSettings"];
 export type MetadataProvider = Schema["MetadataProvider"];
 export type ArtistAssociation = Schema["ArtistAssociation"];

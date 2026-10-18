@@ -5,6 +5,7 @@ import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
 import ArtistReview from "../components/metadata/ArtistReview";
+import RecordingCredits from "../components/metadata/RecordingCredits";
 import SourceAvailability from "../components/SourceAvailability";
 import SourceAttachment from "../components/SourceAttachment";
 import SourceChoiceControls from "../components/SourceChoiceControls";
@@ -39,6 +40,12 @@ export default function RecordingDetailsPage({
           <ArtworkStatus recording={detail.recording_id} />
         </div>
       </section>
+      {source?.origin === "provider_response" && source.attribution && (
+        <section aria-label="Selected metadata credits">
+          <h2>Selected metadata credits</h2>
+          <RecordingCredits attribution={source.attribution} />
+        </section>
+      )}
       <MetadataEditor
         key={`editor/${user.id}/${target.id}`}
         account={user.id}
