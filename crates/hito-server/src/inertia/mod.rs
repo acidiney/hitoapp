@@ -19,6 +19,7 @@ use serde_json::json;
 #[derive(serde::Deserialize)]
 pub(super) struct ArtistPagination {
     recording_offset: Option<i64>,
+    cursor: Option<String>,
 }
 
 pub async fn page(

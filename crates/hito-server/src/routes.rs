@@ -140,6 +140,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
         .routes(routes!(api::audiobooks::list))
+        .routes(routes!(api::audiobooks::page))
         .routes(routes!(api::audiobooks::detail))
         .routes(routes!(api::audiobooks::playback))
         .routes(routes!(collection::import_provider_playlist))

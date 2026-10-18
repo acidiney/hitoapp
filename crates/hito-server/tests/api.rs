@@ -27,6 +27,8 @@ mod browsing;
 
 #[path = "api/audiobook_continuation.rs"]
 mod audiobook_continuation;
+#[path = "api/audiobook_library.rs"]
+mod audiobook_library;
 #[path = "api/audiobook_pages.rs"]
 mod audiobook_pages;
 #[path = "api/audiobook_pages_access.rs"]

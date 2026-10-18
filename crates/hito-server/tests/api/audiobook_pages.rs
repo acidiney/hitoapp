@@ -38,6 +38,16 @@ async fn authenticated_audiobook_pages_retain_private_books_chapter_occurrences_
     assert_page(&index, "AudiobookIndexPage", "/audiobooks");
     let mut expected_index = shared.clone();
     expected_index["books"] = json!([playlist["playlist"]]);
+    expected_index["book_pagination"] =
+        json!({"limit": 60, "next_cursor": null, "previous_cursor": null});
+    expected_index["grouping_playlists"] = json!(
+        before["owner"]["playlists"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|item| item["kind"] == "local" && item["id"] != playlist["playlist"]["id"])
+            .collect::<Vec<_>>()
+    );
     assert!(
         index.body["props"] == expected_index,
         "The Inertia index must contain only the authenticated owner's grouped live book and exact authorized shared props"

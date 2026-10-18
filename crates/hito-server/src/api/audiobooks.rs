@@ -1,12 +1,16 @@
 use crate::{
     auth::Account,
     error::{ApiResult, ErrorResponse},
+    extract::QueryParams,
 };
 use axum::{
     Json,
     extract::{Path, State},
 };
-use hito_core::{AudiobookDetail, AudiobookPlayback, Playlist, Services};
+use hito_core::{
+    AudiobookDetail, AudiobookLibraryPage, AudiobookLibraryQuery, AudiobookPlayback, Playlist,
+    Services,
+};
 
 #[utoipa::path(get, path = "/api/v1/audiobooks", operation_id = "audiobooks",
     security(("session" = []), ("bearer" = [])), responses(
@@ -51,5 +55,24 @@ pub async fn playback(
 ) -> ApiResult<Json<AudiobookPlayback>> {
     Ok(Json(
         services.collection.audiobook_playback(&actor, &id).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/v1/audiobooks/page", operation_id = "audiobook_library",
+    params(AudiobookLibraryQuery),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AudiobookLibraryPage, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+))]
+pub async fn page(
+    State(services): State<Services>,
+    Account(actor): Account,
+    QueryParams(query): QueryParams<AudiobookLibraryQuery>,
+) -> ApiResult<Json<AudiobookLibraryPage>> {
+    Ok(Json(
+        services.collection.audiobook_library(&actor, query).await?,
     ))
 }

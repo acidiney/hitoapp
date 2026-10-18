@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audiobooks/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audiobook_library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audiobooks/{id}": {
         parameters: {
             query?: never;
@@ -1897,10 +1913,22 @@ export interface components {
             playlist: components["schemas"]["Playlist"];
         };
         AudiobookIndexPageProps: components["schemas"]["SharedPageProps"] & {
+            book_pagination: components["schemas"]["AudiobookPagination"];
             books: components["schemas"]["Playlist"][];
+            grouping_playlists: components["schemas"]["Playlist"][];
+        };
+        AudiobookLibraryPage: {
+            items: components["schemas"]["Playlist"][];
+            pagination: components["schemas"]["AudiobookPagination"];
         };
         AudiobookPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["AudiobookDetail"];
+        };
+        AudiobookPagination: {
+            /** Format: int32 */
+            limit: number;
+            next_cursor?: string | null;
+            previous_cursor?: string | null;
         };
         AudiobookPlayback: {
             /** Format: uuid */
@@ -3464,6 +3492,86 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    audiobook_library: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudiobookLibraryPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

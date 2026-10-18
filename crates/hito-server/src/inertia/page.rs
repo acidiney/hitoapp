@@ -1,7 +1,9 @@
 use super::{props::*, protocol::Protocol};
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::{api::catalog::RecordingPage, error::ApiResult};
-use hito_core::{Actor, Browse, Error, PodcastEpisodeQuery, Search, Services};
+use hito_core::{
+    Actor, AudiobookLibraryQuery, Browse, Error, PodcastEpisodeQuery, Search, Services,
+};
 use uuid::Uuid;
 
 pub enum Screen<'a> {
@@ -260,14 +262,52 @@ impl<'a> Screen<'a> {
                 })
             }
             Self::AudiobookIndex => {
-                let books = if fields.requested("books") {
-                    Some(services.collection.audiobooks(actor).await?)
+                let page = if fields.requested("books") || fields.requested("book_pagination") {
+                    Some(
+                        services
+                            .collection
+                            .audiobook_library(
+                                actor,
+                                AudiobookLibraryQuery {
+                                    limit: search.limit.map(u16::try_from).transpose().map_err(
+                                        |_| {
+                                            Error::Invalid(
+                                                "Audiobook pages contain 1 to 100 books".into(),
+                                            )
+                                        },
+                                    )?,
+                                    cursor: pagination.cursor,
+                                },
+                            )
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                let (books, book_pagination) = match page {
+                    Some(page) => (
+                        fields.requested("books").then_some(page.items),
+                        fields
+                            .requested("book_pagination")
+                            .then_some(page.pagination),
+                    ),
+                    None => (None, None),
+                };
+                let grouping_playlists = if fields.requested("grouping_playlists") {
+                    Some(
+                        services
+                            .collection
+                            .audiobook_grouping_playlists(actor)
+                            .await?,
+                    )
                 } else {
                     None
                 };
                 Ok(PageProps::AudiobookIndex(AudiobookIndexPageProps {
                     shared,
                     books,
+                    book_pagination,
+                    grouping_playlists,
                 }))
             }
             Self::Audiobook(id) => {
