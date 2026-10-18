@@ -56,8 +56,12 @@ export function useArtwork(kind: ArtworkKind, id?: string) {
   const state = useSyncExternalStore(subscribe, snapshot);
   return {
     ...state,
+    generation: retrieval?.generation,
     missing: () => {
-      if (target) retrieval?.missing(target);
+      if (target) retrieval?.missing(target, state.revision);
+    },
+    loaded: () => {
+      if (target) retrieval?.loaded(target, state.revision);
     },
     retry: () => {
       if (target) retrieval?.retry(target);

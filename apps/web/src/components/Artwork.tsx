@@ -5,35 +5,54 @@ import { useArtwork } from "../ArtworkProvider";
 export default function Artwork({
   recording,
   release,
+  playlistId,
   playlist = false,
   className = "",
 }: {
   recording?: string;
   release?: string;
+  playlistId?: string;
   playlist?: boolean;
   className?: string;
 }) {
   const releaseRetrieval = useArtwork("release", release);
   const recordingRetrieval = useArtwork("recording", recording);
+  const playlistRetrieval = useArtwork("playlist", playlistId);
   const [failedRelease, setFailedRelease] = useState<string>();
   const [failedRecording, setFailedRecording] = useState<string>();
+  const [failedPlaylist, setFailedPlaylist] = useState<string>();
+  const playlistUrl = playlistId
+    ? `/api/v1/playlists/${encodeURIComponent(playlistId)}/artwork`
+    : undefined;
   const releaseUrl = release
     ? `/api/v1/releases/${encodeURIComponent(release)}/artwork`
     : undefined;
   const recordingUrl = recording
     ? `/api/v1/recordings/${encodeURIComponent(recording)}/artwork`
     : undefined;
-  const releaseKey = JSON.stringify([releaseUrl, releaseRetrieval.revision]);
+  const releaseKey = JSON.stringify([
+    releaseRetrieval.generation,
+    releaseUrl,
+    releaseRetrieval.revision,
+  ]);
+  const playlistKey = JSON.stringify([
+    playlistRetrieval.generation,
+    playlistUrl,
+    playlistRetrieval.revision,
+  ]);
   const recordingKey = JSON.stringify([
+    recordingRetrieval.generation,
     recordingUrl,
     recordingRetrieval.revision,
   ]);
   const url =
-    releaseUrl && failedRelease !== releaseKey
-      ? releaseUrl
-      : recordingUrl && failedRecording !== recordingKey
-        ? recordingUrl
-        : undefined;
+    playlistUrl && failedPlaylist !== playlistKey
+      ? playlistUrl
+      : releaseUrl && failedRelease !== releaseKey
+        ? releaseUrl
+        : recordingUrl && failedRecording !== recordingKey
+          ? recordingUrl
+          : undefined;
   return (
     <div
       className={`artwork ${url ? "has-image" : ""} ${className}`}
@@ -41,12 +60,26 @@ export default function Artwork({
     >
       {url ? (
         <img
-          key={url === recordingUrl ? recordingKey : releaseKey}
+          key={
+            url === playlistUrl
+              ? playlistKey
+              : url === recordingUrl
+                ? recordingKey
+                : releaseKey
+          }
           src={url}
           alt=""
           loading="lazy"
+          onLoad={() => {
+            if (url === playlistUrl) playlistRetrieval.loaded();
+            else if (url === releaseUrl) releaseRetrieval.loaded();
+            else recordingRetrieval.loaded();
+          }}
           onError={() => {
-            if (url === releaseUrl) {
+            if (url === playlistUrl) {
+              setFailedPlaylist(playlistKey);
+              playlistRetrieval.missing();
+            } else if (url === releaseUrl) {
               setFailedRelease(releaseKey);
               releaseRetrieval.missing();
             } else {

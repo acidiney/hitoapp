@@ -3,6 +3,7 @@ import type { PlaylistPageProps } from "../types";
 import { useMutation } from "../hooks/useMutation";
 import EmptyState from "../components/EmptyState";
 import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
@@ -78,7 +79,11 @@ export default function PlaylistPage({
   return (
     <>
       <section className="collection-hero">
-        <Artwork recording={tracks[0]?.id} playlist />
+        <Artwork
+          playlistId={copied ? detail.playlist.id : undefined}
+          recording={copied ? undefined : tracks[0]?.id}
+          playlist
+        />
         <div>
           <span>{followed ? "Followed playlist" : "Your playlist"}</span>
           <h1>{detail.playlist.name}</h1>
@@ -98,6 +103,7 @@ export default function PlaylistPage({
           )}
         </div>
       </section>
+      {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
       <PlaylistDownload
         account={user.id}
         playlist={detail.playlist.id}

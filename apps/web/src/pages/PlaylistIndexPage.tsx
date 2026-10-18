@@ -60,7 +60,10 @@ export default function PlaylistIndexPage({
       <div className="playlist-list">
         {playlists.map((playlist) => (
           <Link href={`/playlists/${playlist.id}`} key={playlist.id}>
-            <Artwork playlist />
+            <Artwork
+              playlistId={playlist.kind === "local" ? playlist.id : undefined}
+              playlist
+            />
             <span>
               <strong>{playlist.name}</strong>
               <small>

@@ -265,7 +265,7 @@ test("recording details retries failed artwork only after an explicit action", a
   await act(async () => {
     fireEvent.click(retry);
   });
-  expect(cover()).toBeNull();
+  expect(cover()?.getAttribute("src")).toBe(artwork);
   await act(async () => {
     await vi.advanceTimersToNextTimerAsync();
   });

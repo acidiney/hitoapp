@@ -3,12 +3,19 @@ import { log } from "./log";
 import type {
   ArtworkAvailability,
   ArtworkFetch,
+  PlaylistArtworkFetch,
   ReleaseArtworkFetch,
 } from "./types";
 
-export type ArtworkKind = "recording" | "release";
+export type ArtworkKind = "recording" | "release" | "playlist";
 type ArtworkTarget = { kind: ArtworkKind; id: string };
-type ArtworkJob = ArtworkFetch | ReleaseArtworkFetch;
+type ArtworkJob = ArtworkFetch | ReleaseArtworkFetch | PlaylistArtworkFetch;
+
+const routes = {
+  recording: { collection: "recordings", receipts: "artwork-fetches" },
+  release: { collection: "releases", receipts: "release-artwork-fetches" },
+  playlist: { collection: "playlists", receipts: "playlist-artwork-fetches" },
+} satisfies Record<ArtworkKind, { collection: string; receipts: string }>;
 
 function keyFor(target: ArtworkTarget) {
   return JSON.stringify([target.kind, target.id]);
@@ -25,8 +32,16 @@ type Phase =
   | "failed"
   | "cancelled";
 
-export type ArtworkSnapshot = { phase: Phase; revision: number };
-export const idleArtwork: ArtworkSnapshot = { phase: "idle", revision: 0 };
+export type ArtworkSnapshot = {
+  phase: Phase;
+  revision: number;
+  imageFailed: boolean;
+};
+export const idleArtwork: ArtworkSnapshot = {
+  phase: "idle",
+  revision: 0,
+  imageFailed: false,
+};
 
 type Entry = {
   target: ArtworkTarget;
@@ -34,6 +49,7 @@ type Entry = {
   controller: AbortController;
   snapshot: ArtworkSnapshot;
   running: boolean;
+  imageStartedAt?: number;
 };
 
 function waitForPoll(signal: AbortSignal) {
@@ -51,7 +67,10 @@ function waitForPoll(signal: AbortSignal) {
   });
 }
 
+let nextGeneration = 0;
+
 export class ArtworkRetrieval {
+  readonly generation = ++nextGeneration;
   private entries = new Map<string, Entry>();
   private listeners = new Map<string, Set<() => void>>();
   private pending = new Set<Entry>();
@@ -96,9 +115,24 @@ export class ArtworkRetrieval {
     return this.entries.get(keyFor(target))?.snapshot ?? idleArtwork;
   }
 
-  missing(target: ArtworkTarget) {
+  missing(target: ArtworkTarget, revision = 0) {
     const key = keyFor(target);
-    if (!this.active || this.entries.has(key)) return;
+    if (!this.active) return;
+    const entry = this.entries.get(key);
+    if (entry) {
+      this.observeImage(entry, revision, true);
+    } else if (revision === 0) {
+      this.start(target, { phase: "waiting", revision, imageFailed: true });
+    }
+  }
+
+  loaded(target: ArtworkTarget, revision: number) {
+    const entry = this.entries.get(keyFor(target));
+    if (entry) this.observeImage(entry, revision, false);
+  }
+
+  private start(target: ArtworkTarget, snapshot: ArtworkSnapshot) {
+    const key = keyFor(target);
     if (this.entries.size >= 128) {
       for (const candidate of this.entries.values()) {
         if (candidate.running || this.pending.has(candidate)) continue;
@@ -111,8 +145,9 @@ export class ArtworkRetrieval {
       target,
       key,
       controller: new AbortController(),
-      snapshot: { phase: "waiting", revision: 0 },
+      snapshot,
       running: false,
+      imageStartedAt: snapshot.imageFailed ? undefined : performance.now(),
     };
     this.entries.set(key, entry);
     this.pending.add(entry);
@@ -123,9 +158,16 @@ export class ArtworkRetrieval {
   retry(target: ArtworkTarget) {
     const key = keyFor(target);
     const entry = this.entries.get(key);
-    if (entry && (entry.running || this.pending.has(entry))) return;
+    if (!this.active || (entry && (entry.running || this.pending.has(entry))))
+      return;
+    const revision = ++this.revision;
+    if (entry?.snapshot.phase === "ready") {
+      entry.imageStartedAt = performance.now();
+      this.publish(entry, "ready", { failed: false, revision });
+      return;
+    }
     this.entries.delete(key);
-    this.missing(target);
+    this.start(target, { phase: "waiting", revision, imageFailed: false });
   }
 
   refreshAvailability() {
@@ -171,11 +213,44 @@ export class ArtworkRetrieval {
     }
   }
 
-  private publish(entry: Entry, phase: Phase) {
+  private observeImage(entry: Entry, revision: number, failed: boolean) {
+    if (!this.owns(entry) || entry.snapshot.revision !== revision) return;
+    if (entry.imageStartedAt !== undefined) {
+      log.debug("artwork.image_finished", {
+        account_id: this.account,
+        mode: entry.target.kind,
+        ...(entry.target.kind === "recording"
+          ? { recording_id: entry.target.id }
+          : {}),
+        ...(entry.target.kind === "playlist"
+          ? { playlist_id: entry.target.id }
+          : {}),
+        reason: failed ? "load_failed" : "loaded",
+        duration_ms: Math.round(performance.now() - entry.imageStartedAt),
+      });
+      entry.imageStartedAt = undefined;
+    }
+    this.publish(entry, entry.snapshot.phase, {
+      failed: failed || entry.snapshot.imageFailed,
+      revision,
+    });
+  }
+
+  private publish(
+    entry: Entry,
+    phase: Phase,
+    image?: { failed: boolean; revision: number },
+  ) {
     if (!this.owns(entry)) return;
+    if (phase === "ready" && !image) entry.imageStartedAt = performance.now();
     entry.snapshot = {
       phase,
-      revision: phase === "ready" ? ++this.revision : entry.snapshot.revision,
+      revision:
+        image?.revision ??
+        (phase === "ready" ? ++this.revision : entry.snapshot.revision),
+      imageFailed:
+        image?.failed ??
+        (phase === "ready" ? false : entry.snapshot.imageFailed),
     };
     for (const listener of this.listeners.get(entry.key) ?? []) listener();
   }
@@ -233,15 +308,11 @@ export class ArtworkRetrieval {
       account_id: this.account,
       mode: target.kind,
       ...(target.kind === "recording" ? { recording_id: target.id } : {}),
+      ...(target.kind === "playlist" ? { playlist_id: target.id } : {}),
     };
     log.debug("artwork.started", fields);
     try {
-      const collection =
-        target.kind === "recording" ? "recordings" : "releases";
-      const receipts =
-        target.kind === "recording"
-          ? "artwork-fetches"
-          : "release-artwork-fetches";
+      const { collection, receipts } = routes[target.kind];
       const base = `/${collection}/${encodeURIComponent(target.id)}/artwork`;
       const availability = await this.read<ArtworkAvailability>(
         entry,
@@ -264,7 +335,9 @@ export class ArtworkRetrieval {
         const matches =
           target.kind === "recording"
             ? "recording_id" in job && job.recording_id === target.id
-            : "release_id" in job && job.release_id === target.id;
+            : target.kind === "release"
+              ? "release_id" in job && job.release_id === target.id
+              : "playlist_id" in job && job.playlist_id === target.id;
         if (!matches)
           throw new Error("Artwork response did not match its entity");
         if (
