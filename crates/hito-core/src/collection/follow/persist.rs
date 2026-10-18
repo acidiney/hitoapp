@@ -273,7 +273,8 @@ async fn publish(
     let id = match &publication {
         CollectionPublication::PlaylistFollowed { publication_id, .. }
         | CollectionPublication::PlaylistFollowRefreshed { publication_id, .. } => publication_id,
-        CollectionPublication::PlaylistImported { .. } => {
+        CollectionPublication::PlaylistImported { .. }
+        | CollectionPublication::PlaylistMetadataRefreshed { .. } => {
             return Err(Error::Internal("Invalid follow publication".into()));
         }
     };

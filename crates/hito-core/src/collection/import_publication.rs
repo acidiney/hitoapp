@@ -22,6 +22,26 @@ pub enum CollectionPublication {
         interval: super::PlaylistFollowInterval,
         snapshot: ImportedPlaylistSnapshot,
     },
+    PlaylistMetadataRefreshed {
+        publication_id: Uuid,
+        playlist_id: Uuid,
+        origin: PlaylistMetadataRefreshOrigin,
+        recordings: Vec<ImportedPlaylistRecording>,
+    },
+}
+
+#[derive(Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PlaylistMetadataRefreshOrigin {
+    pub installation_id: String,
+    pub installation_revision: i64,
+    pub service_id: String,
+    pub service_revision: i64,
+    pub provider: String,
+    pub provider_playlist_id: String,
+    pub snapshot: String,
+    pub attribution: PlaylistAttribution,
+    pub observed_at: i64,
 }
 
 #[derive(Deserialize, Serialize, ToSchema)]

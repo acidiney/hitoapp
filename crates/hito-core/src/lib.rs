@@ -29,11 +29,12 @@ pub use catalog::{
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,
     ImportProviderPlaylist, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
-    ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
-    ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow,
-    PlaylistFollowInterval, PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus,
-    PlaylistImportReceipt, RecordingProgress, RefreshFollowedPlaylist, SavedPosition, SyncBatch,
-    SyncEvent, SyncPage, SyncReceipt,
+    ImportedPlaylistEntryOrigin, ImportedPlaylistMetadataRefresh, ImportedPlaylistOrigin,
+    ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail,
+    PlaylistEntry, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
+    PlaylistFollowRefresh, PlaylistFollowStatus, PlaylistImportReceipt,
+    PlaylistMetadataRefreshOrigin, RecordingProgress, RefreshFollowedPlaylist,
+    RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{
@@ -121,6 +122,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             store: store.clone(),
             host: config.host_device.clone(),
             plugins: plugins.clone(),
+            metadata_refresh_admission: Default::default(),
         },
         storage,
         downloads: Downloads {

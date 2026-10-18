@@ -535,6 +535,12 @@ fn assert_feed(
                     | CollectionPublication::PlaylistFollowRefreshed { .. },
                 ..
             } => panic!("an import-only account feed must not contain follow publications"),
+            SyncEvent::Publication {
+                publication: CollectionPublication::PlaylistMetadataRefreshed { .. },
+                ..
+            } => {
+                panic!("an import-only account feed must not contain metadata refresh publications")
+            }
         }
     }
     assert_eq!(publications, 1);

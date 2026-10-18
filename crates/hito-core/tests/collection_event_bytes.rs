@@ -220,6 +220,10 @@ async fn real_import_publications_page_by_encoded_bytes_with_neighboring_client_
                     | CollectionPublication::PlaylistFollowRefreshed { .. },
                 ..
             } => panic!("the import byte-boundary fixture must not publish followed playlists"),
+            SyncEvent::Publication {
+                publication: CollectionPublication::PlaylistMetadataRefreshed { .. },
+                ..
+            } => panic!("the import byte-boundary fixture must not publish metadata refreshes"),
         })
         .collect::<Vec<_>>();
     println!(

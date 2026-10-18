@@ -18,6 +18,7 @@ pub use provider::{
     ProviderSearch, ProviderSourceReview, ResolveSource, SourcePreparationPhase,
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
+pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_metadata};
 mod releases;
 mod search;
 mod selection;

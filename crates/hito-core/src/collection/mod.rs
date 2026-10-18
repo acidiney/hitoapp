@@ -6,6 +6,7 @@ mod import;
 mod import_persist;
 mod import_publication;
 mod import_receipts;
+mod metadata_refresh;
 mod playlist_entries;
 mod playlists;
 mod saved_playback;
@@ -26,9 +27,10 @@ pub use import::ImportProviderPlaylist;
 pub use import_publication::{
     CollectionPublication, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
     ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin, ImportedPlaylistRecording,
-    ImportedPlaylistSnapshot,
+    ImportedPlaylistSnapshot, PlaylistMetadataRefreshOrigin,
 };
 pub use import_receipts::PlaylistImportReceipt;
+pub use metadata_refresh::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
 pub use types::{
     Action, Activity, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
     RecordingProgress, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
@@ -39,4 +41,5 @@ pub struct Collection {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) plugins: crate::Plugins,
+    pub(crate) metadata_refresh_admission: metadata_refresh::Admission,
 }

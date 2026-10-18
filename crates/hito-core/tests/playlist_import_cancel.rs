@@ -138,6 +138,10 @@ async fn cancelling_a_held_import_frees_control_admission_without_publishing_lat
                 | CollectionPublication::PlaylistFollowRefreshed { .. },
             ..
         } => panic!("the accepted import must not produce a follow publication"),
+        SyncEvent::Publication {
+            publication: CollectionPublication::PlaylistMetadataRefreshed { .. },
+            ..
+        } => panic!("the accepted import must not produce a metadata refresh publication"),
         SyncEvent::Operation { .. } => {
             panic!("the accepted import must produce one immutable publication")
         }
