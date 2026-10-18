@@ -1,3 +1,4 @@
+mod community;
 mod downloads;
 mod podcasts;
 mod source_preparation;
@@ -36,6 +37,13 @@ pub async fn run(
                     .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
             )
             .try_init()?;
+    }
+    if config.community_config_invalid {
+        tracing::warn!(
+            event = "community_configuration_disabled",
+            reason = "invalid_host_configuration",
+            "Community sharing is disabled because the trusted host configuration is invalid"
+        );
     }
     tracing::info!(event = "server_starting", "Starting Hito");
     let services = hito_core::open(config.core).await?;
@@ -80,6 +88,7 @@ async fn serve_owned(
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
+    let reports = community::worker(services.community, stopped.clone());
     let preparation_catalog = services.catalog;
     let preparation_stop = stopped.clone();
     let preparations = async move {
@@ -118,14 +127,15 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), ()) = tokio::join!(
         http,
         indexing,
         artwork,
         follows,
         transfers,
         preparations,
-        refreshes
+        refreshes,
+        reports
     );
     let (downloads_finished, indexing_finished) = tokio::join!(
         download_storage.finish_downloads(),

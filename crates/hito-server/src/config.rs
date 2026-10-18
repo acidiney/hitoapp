@@ -1,6 +1,6 @@
 mod origins;
 
-use hito_core::{CoreConfig, HostDeviceId, StorageConfig};
+use hito_core::{CommunityConfig, CoreConfig, HostDeviceId, StorageConfig};
 use origins::{parse_additional_origins, validate_combined_origins};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
@@ -31,6 +31,7 @@ pub struct RuntimeConfig {
     pub http: Config,
     pub listen: SocketAddr,
     pub json_logs: bool,
+    pub(crate) community_config_invalid: bool,
 }
 
 impl RuntimeConfig {
@@ -63,6 +64,18 @@ impl RuntimeConfig {
             }
             None => Self::load(database, music_root, web_dir, host_device).await?,
         };
+        let community = match (
+            std::env::var("HITO_COMMUNITY_ORIGIN"),
+            std::env::var_os("HITO_COMMUNITY_ADMIN_TOKEN_FILE"),
+        ) {
+            (Err(std::env::VarError::NotPresent), None) => Ok(None),
+            (Ok(origin), Some(file)) => CommunityConfig::new(origin, file.into()).map(Some),
+            _ => Err(hito_core::Error::Invalid(
+                "Community host configuration is incomplete".into(),
+            )),
+        };
+        config.community_config_invalid = community.is_err();
+        config.core.community = community.ok().flatten();
         if let Some(tool) = std::env::var_os("HITO_FFMPEG") {
             config.core.media_tools.ffmpeg = tool.into();
         }
@@ -134,6 +147,7 @@ impl RuntimeConfig {
                 host_device: crate::host_identity::load(&database, host_device).await?,
                 media_tools: Default::default(),
                 podcast_network: Default::default(),
+                community: None,
             },
             http: Config {
                 origin: Config::default().origin,
@@ -143,6 +157,7 @@ impl RuntimeConfig {
             },
             listen: SocketAddr::from(([0, 0, 0, 0], 8080)),
             json_logs: false,
+            community_config_invalid: false,
         })
     }
 }
