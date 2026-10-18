@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
 import {
   liveAudioState,
@@ -143,13 +144,14 @@ test.describe("isolated packaged YouTube", () => {
       await expect(
         page.getByLabel("Bearer token (optional)", { exact: true }),
       ).toHaveValue("");
+      const reviewed = await reviewPluginInstallation(page, offered, "YouTube");
       const installResponse = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/v1/plugins" &&
           response.request().method() === "POST",
       );
       await page
-        .getByRole("button", { name: "Connect service", exact: true })
+        .getByRole("button", { name: "Accept and connect", exact: true })
         .click();
       const installed = await installResponse;
       if (installed.status() !== 201)
@@ -157,6 +159,12 @@ test.describe("isolated packaged YouTube", () => {
           `Service connection returned HTTP ${installed.status()}`,
         );
       expect(installed.request().postDataJSON().bearer_token === null).toBe(
+        true,
+      );
+      const accepted: Schema["InstallPlugin"] = installed
+        .request()
+        .postDataJSON();
+      expect(accepted.accept_manifest_digest === reviewed.body.digest).toBe(
         true,
       );
       const connection: Schema["PluginInstallation"] = await installed.json();

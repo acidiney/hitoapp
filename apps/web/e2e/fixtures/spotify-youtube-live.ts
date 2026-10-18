@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { components } from "../../src/generated";
+import { reviewPluginInstallation } from "./plugin-installation-review";
 
 type Schema = components["schemas"];
 
@@ -123,13 +124,14 @@ export async function connectLiveProvider(
   await expect(
     page.getByLabel("Bearer token (optional)", { exact: true }),
   ).toHaveValue("");
+  const reviewed = await reviewPluginInstallation(page, service, name);
   const installResponse = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/v1/plugins" &&
       response.request().method() === "POST",
   );
   await page
-    .getByRole("button", { name: "Connect service", exact: true })
+    .getByRole("button", { name: "Accept and connect", exact: true })
     .click();
   const installed = await installResponse;
   if (installed.status() !== 201)
@@ -137,6 +139,8 @@ export async function connectLiveProvider(
       `Personal connection returned HTTP ${installed.status()}`,
     );
   expect(installed.request().postDataJSON().bearer_token === null).toBe(true);
+  const accepted: Schema["InstallPlugin"] = installed.request().postDataJSON();
+  expect(accepted.accept_manifest_digest === reviewed.body.digest).toBe(true);
   const connection: Schema["PluginInstallation"] = await installed.json();
   expect(!connection.credential_set && connection.manifest.name === name).toBe(
     true,

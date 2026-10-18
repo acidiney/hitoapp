@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { Page } from "@playwright/test";
+import { reviewPluginInstallation } from "./plugin-installation-review";
 import { creditPost } from "./release-credits";
 import {
   liveCheck,
@@ -60,13 +61,14 @@ export async function prepareSpotifyMetadataUpgrade(
       .getByLabel("Bearer token (optional)", { exact: true })
       .inputValue()) === "",
   );
+  const reviewed = await reviewPluginInstallation(page, service, manifest.name);
   const installed = await creditPost<UpgradeSchema["PluginInstallation"]>(
     page,
     "/api/v1/plugins",
     201,
     () =>
       page
-        .getByRole("button", { name: "Connect service", exact: true })
+        .getByRole("button", { name: "Accept and connect", exact: true })
         .click(),
   );
   const connection = installed.body;
@@ -78,6 +80,7 @@ export async function prepareSpotifyMetadataUpgrade(
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: null,
+        accept_manifest_digest: reviewed.body.digest,
       }),
   );
   await navigation

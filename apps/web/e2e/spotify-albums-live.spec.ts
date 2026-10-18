@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { creditPost } from "./fixtures/release-credits";
 import {
@@ -223,13 +224,18 @@ test("live public Spotify metadata becomes stored albums with honest private cre
         .getByLabel("Bearer token (optional)", { exact: true })
         .inputValue()) === "",
     );
+    const reviewed = await reviewPluginInstallation(
+      page,
+      service,
+      expected.manifestName,
+    );
     const installed = await creditPost<Schema["PluginInstallation"]>(
       page,
       "/api/v1/plugins",
       201,
       () =>
         page
-          .getByRole("button", { name: "Connect service", exact: true })
+          .getByRole("button", { name: "Accept and connect", exact: true })
           .click(),
     );
     const connection = installed.body;
@@ -238,6 +244,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: null,
+        accept_manifest_digest: reviewed.body.digest,
       }),
     );
     liveCheck(
