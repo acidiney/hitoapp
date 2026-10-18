@@ -1,3 +1,4 @@
+mod audio;
 mod lifecycle;
 mod logging;
 mod preparation;
