@@ -111,6 +111,23 @@ export async function nextEntryFixture() {
     unexpected: 0,
     handler: 0,
   };
+  const audioResponses: {
+    source: "first" | "next";
+    method: "GET" | "HEAD";
+    status: number;
+    contentType: "audio/wav";
+    contentLength: number;
+    bodyBytes: number;
+    range: boolean;
+    rangeStart: number;
+    rangeEnd: number;
+    rangeTotal: number;
+    endReturned: boolean;
+    finished: boolean;
+    closed: boolean;
+    closedBeforeFinish: boolean;
+  }[] = [];
+  let audioResponsesOmitted = 0;
   let releaseSearch!: () => void;
   const searchGate = new Promise<void>((resolve) => {
     releaseSearch = resolve;
@@ -157,6 +174,39 @@ export async function nextEntryFixture() {
         }
         if (request.method === "GET")
           source === firstSource ? counts.firstAudio++ : counts.nextAudio++;
+        const observed =
+          audioResponses.length < 32
+            ? {
+                source:
+                  source === firstSource
+                    ? ("first" as const)
+                    : ("next" as const),
+                method:
+                  request.method === "GET"
+                    ? ("GET" as const)
+                    : ("HEAD" as const),
+                status: 0,
+                contentType: "audio/wav" as const,
+                contentLength: end - start + 1,
+                bodyBytes: request.method === "HEAD" ? 0 : end - start + 1,
+                range: range !== undefined,
+                rangeStart: start,
+                rangeEnd: end,
+                rangeTotal: bytes.length,
+                endReturned: false,
+                finished: false,
+                closed: false,
+                closedBeforeFinish: false,
+              }
+            : undefined;
+        if (observed) {
+          audioResponses.push(observed);
+          response.once("finish", () => (observed.finished = true));
+          response.once("close", () => {
+            observed.closed = true;
+            observed.closedBeforeFinish = !response.writableFinished;
+          });
+        } else audioResponsesOmitted++;
         response.writeHead(range ? 206 : 200, {
           "content-type": "audio/wav",
           "content-length": end - start + 1,
@@ -165,11 +215,13 @@ export async function nextEntryFixture() {
             ? { "content-range": `bytes ${start}-${end}/${bytes.length}` }
             : {}),
         });
+        if (observed) observed.status = response.statusCode;
         response.end(
           request.method === "HEAD"
             ? undefined
             : bytes.subarray(start, end + 1),
         );
+        if (observed) observed.endReturned = true;
         return;
       }
       if (url.searchParams.size) throw new ProtocolFailure();
@@ -324,6 +376,10 @@ export async function nextEntryFixture() {
     first,
     next,
     counts,
+    audioResponses,
+    get audioResponsesOmitted() {
+      return audioResponsesOmitted;
+    },
     privateValues: [
       token,
       reference,
