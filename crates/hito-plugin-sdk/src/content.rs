@@ -147,7 +147,7 @@ impl ProviderRecording {
 }
 
 pub(crate) fn text(value: &str, maximum: usize) -> Result<(), &'static str> {
-    if value.trim().is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+    if value.len() > maximum || value.trim().is_empty() || value.chars().any(char::is_control) {
         return Err("Provider fields must use bounded nonempty text without control characters");
     }
     Ok(())
