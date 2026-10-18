@@ -210,11 +210,30 @@ For a new restricted transfer, direct Download returns a safe `Conflict`, mapped
 
 Reusable ready copies are considered before new-transfer admission. This ceiling does not rewrite or blanket-revoke accepted ready copies. User originals, retained-copy access and explicit removal keep their existing behavior. See [persistent download ownership](persistent-downloads.md).
 
-Directed public Docker tests cover exact owned WAV playback alongside restricted direct admission, terminal playlist projection and the same policy outcome with 32 permitted queued downloads. They preserve originals and private collection state. SDK checks cover exact legacy bytes, both typed policies and malformed declarations. Two additional public cases approve a changed manifest through real review: queued work fails with `authority_changed` without fetching audio, receipt replay cannot restart it, and new admission is refused; a previously completed explicit copy remains locally playable after the provider actually stops. Both preserve private state and originals. Active-body policy changes and alternate-binding or mixed-source cases remain open. Generic [recording credits and backlinks](recording-attribution.md) and the installed-policy display below are qualified in source. Initial policy preview and acceptance, packaged policy review, active-body enforcement and live Jamendo acceptance remain open.
+Directed public Docker tests cover exact owned WAV playback alongside restricted direct admission, terminal playlist projection and the same policy outcome with 32 permitted queued downloads. They preserve originals and private collection state. SDK checks cover exact legacy bytes, both typed policies and malformed declarations. Two additional public cases approve a changed manifest through real review: queued work fails with `authority_changed` without fetching audio, receipt replay cannot restart it, and new admission is refused; a previously completed explicit copy remains locally playable after the provider actually stops. Both preserve private state and originals. Active-body policy changes and alternate-binding or mixed-source cases remain open. Generic [recording credits and backlinks](recording-attribution.md), the installed-policy display below and initial core/HTTP review are qualified in source. Initial consent UI, packaged policy review, active-body enforcement and live Jamendo acceptance remain open.
 
 The connection settings now show accepted source persistence and both sides of a proposed declaration change. Shared rendering distinguishes an absent declaration with unknown permission, an explicit-download declaration still subject to Hito checks, and playback-only restrictions on new offline downloads. It explains that completed copies remain retained. This display grants no licence and changes no admission rule, manifest, request or credential workflow.
 
 Seven new React cases exercise all six transitions among these declarations and replacement-token decline through the existing settings and HTTP client. They first failed because the disclosure was absent. Decline sends no request; acceptance sends the exact reviewed digest, and the accepted state stays unchanged until the server returns the update. Existing plugin cases and both type configurations pass. All 422 frontend cases and the production build pass; the integrated frontend is byte-identical to that qualified snapshot. Independent review passes. Initial connection consent, packaged browser acceptance and normal deployment are not included.
+
+### Initial installation review
+
+The development API adds `POST /api/v1/plugins/preview`. It accepts an offered service ID, its revision and an optional write-only bearer token. Core validates a fresh manifest and returns only that manifest and its digest. Preview saves no installation or credential, changes no collection state and requests no audio or download. Session, offer revision, duplicate installation and the 32-connection account limit are checked around provider I/O. A fresh session check after the final read transaction prevents returning a preview from a revoked session.
+
+Installation accepts an optional `accept_manifest_digest` and independently fetches the manifest with the submitted credential. Any supplied digest must match, including when a policy has been removed since preview. A declared `content_policy` requires reviewed acceptance; an undeclared legacy request can still omit it. Credentials are sealed only after this comparison. Final session, service revision and capacity checks guard the serialized publication.
+
+```mermaid
+flowchart LR
+  Client[Client] --> Preview[Core preview]
+  Preview --> Provider[Bounded manifest request]
+  Provider --> Review[Manifest and digest]
+  Review --> Client
+  Client -->|Explicit acceptance| Install[Core installation]
+  Install --> Refetch[Fresh manifest and digest comparison]
+  Refetch --> Publish[Authorized transaction and sealed credential]
+```
+
+Fourteen new public core cases and three HTTP cases pass with real temporary SQLite, owned providers and unchanged original WAV files. They cover exact refetch, ephemeral preview credentials, accepted credentials across restart, malformed requests, service withdrawal/reoffer, concurrent duplicate/capacity changes, logout and private playlist/progress/event preservation. A controlled test first reproduces logout after the final read snapshot was pinned; the added fresh-session fence resolves it. The full source passes 356 distinct core cases with one usual fault case ignored and all 159 distinct server cases. Strict workspace Clippy, formatting and byte-for-byte Rust/TypeScript contract reproduction pass. Integrated Rust inputs and generated contracts match the qualified snapshot. Independent core and HTTP reviews pass. Initial UI consent, packaged acceptance and normal deployment remain open.
 
 ### Optional authorization declaration
 
@@ -272,14 +291,15 @@ The service is running in the local development deployment. Ten owned TCP tests 
 
 ## Application API
 
-The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table below describes the deployed routes; the pending authorization groundwork is described above.
+The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table includes development source routes. Initial preview and digest-bearing installation are not yet on the normal server; authorization groundwork is described above.
 
 | Route                                          | Behavior                                                                                                                     |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/plugins`                          | Offered services, this account's installations, credential-storage readiness                                                 |
 | `POST /api/v1/plugins/services`                | Administrator offers an address; the validated manifest supplies its name unless an explicit custom label is provided       |
 | `DELETE /api/v1/plugins/services/{id}`         | Administrator withdraws the expected revision                                                                                |
-| `POST /api/v1/plugins`                         | Installs an offered service revision with an optional write-only bearer token                                                |
+| `POST /api/v1/plugins/preview`                 | Development: validates an offered service manifest without saving a connection or credential                                  |
+| `POST /api/v1/plugins`                         | Installs an offered revision with an optional write-only bearer; development requires exact digest acceptance for declared policy |
 | `POST /api/v1/plugins/{id}/refresh`            | Checks an expected installation revision; optional reviewed digest and keep/replace credential action                        |
 | `DELETE /api/v1/plugins/{id}/credential`       | Clears this account's credential at the expected revision                                                                    |
 | `DELETE /api/v1/plugins/{id}`                  | Removes this account's installation at the expected revision                                                                 |
