@@ -1,6 +1,6 @@
 # Repairing missing albums in imported copies
 
-This slice is in development. It is not in the running local deployment yet. It repairs missing album associations on an existing editable playlist copy through its original approved provider. It does not synchronize the provider's playlist membership.
+This workflow is deployed on the local development server. It repairs missing album associations on an existing editable playlist copy through its original approved provider. It does not synchronize the provider's playlist membership.
 
 ## Ownership and retained state
 
@@ -52,4 +52,6 @@ The full image built from application source `21ae17a` passes fresh Chromium and
 
 The browser workflow requests no audio, source attachment, adoption or Download writes. Playback and queue preservation are separately checked through the real browser player in component tests. Server logs contain 4,907 Chromium and 3,118 WebKit JSON records with no owned private canaries; both disposable servers shut down cleanly. This does not establish live Spotify, codec, physical-device or public-release acceptance.
 
-An audited local deployment remains open. MusicBrainz enrichment and complete external discographies are separate work.
+The normal local server now runs the same image on migration 0046. A stopped whole-volume backup was restored into a separate clone for migration and runtime rehearsal. A fresh stopped backup preceded the normal upgrade. Both migration audits preserve typed rows and row identities across all 106 prior tables, complete sequence state, earlier receipts, private keys, host identity and non-SQLite volume entries. All 46 migration checksums, integrity, foreign keys and six search indexes pass. Separate stopped runtime checkpoints changed no database rows or managed descendants. The published server serves the verified OpenAPI and assets, remains healthy through loopback and LAN access, and rejects anonymous player access. No listener account was authenticated or changed during deployment.
+
+Live Spotify repair of an existing copy remains open. MusicBrainz enrichment and complete external discographies are separate work.
