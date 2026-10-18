@@ -179,4 +179,26 @@ The write checks live book ownership, exact chapter membership and current recor
 
 Four new public-core cases cover duplicate selection, reopen, replay, reordering, account boundaries, revocation/restoration and deletion. A real-router HTTP/Inertia case verifies exact wire bodies, immutable replay, acknowledgements, transaction rollback, omitted legacy fields, private response headers and private-state/original-file preservation. Independent source and HTTP gate reviews pass. Complete Docker suites pass 361 distinct core and 160 distinct server cases, with one usual core fault case explicitly ignored. Formatting, strict default-feature workspace all-target Clippy, both TypeScript configurations and the production web build pass. Actual Rust OpenAPI and generated TypeScript reproduce byte for byte; six historical upgrade targets retain their original inputs and preservation assertions at the new endpoint.
 
-This qualifies the retained anchor and its existing HTTP transport. Browser/native queues do not yet carry or checkpoint it, and no Continue button is present. Playback must pair the anchor with the first qualified observed progress in the existing ordered writer, including zero, rather than save it merely when a chapter is selected. Packaged playback, native/platform checks, migration 0049 deployment and full Continue acceptance remain open.
+This qualifies the retained anchor and its existing HTTP transport. The native queue admission described below now carries that identity; browser/native checkpoint writers and the Continue control still require separate acceptance. Playback must pair the anchor with the first qualified observed progress in the existing ordered writer, including zero, rather than save it merely when a chapter is selected. Packaged playback, native/platform checks, migration 0049 deployment and full Continue acceptance remain open.
+
+
+## Native queue chapter admission
+
+Native commands accept optional exact chapter context through `replace_entries` and `append_entries`. Each input binds its recording to an audiobook and chapter entry. The existing generated player occurrence ID remains independent of the chapter entry ID, so reordering, removing an earlier duplicate and reattaching retain the selected occurrence. Ordinary `replace` and `append` commands keep their existing wire format; entries without chapter context omit it in responses.
+
+```mermaid
+flowchart LR
+  Command[Authenticated native queue command] --> Session[Owner and receipt fences]
+  Session --> Chapter[Core exact chapter admission]
+  Chapter --> Recording[Bulk recording authorization]
+  Recording --> Queue[One native occurrence queue]
+  Queue --> Page[Private snapshot and bounded queue page]
+```
+
+Core checks the current session, owned live editable grouped playlist, exact live chapter/recording relationship and ordinary library grant. It accepts at most 1,000 anchors per call, including repeated anchors, within a one-second deadline. The native owner performs this check before accepting a new contextual command. Invalid mixed batches leave the entire queue and receipts unchanged. Already accepted command replay retains its receipt and does not reinterpret the chapter against later edits; current session verification still applies.
+
+Two public core cases cover 10,000 chapters, batch bounds, duplicate anchors, current grant revocation/restoration, expired sessions and reopening. Two native queue cases cover A, B, A occurrence identity, legacy serialization, edits, replay, reattachment and sixteen mixed-command denial scenarios. The complete default-feature playback suite passes 25 distinct cases. Formatting, strict default-feature workspace all-target Clippy and actual OpenAPI/TypeScript reproduction pass. Independent security, correctness and performance reviews pass for this admission slice.
+
+The database-work fixture measures the actual public capability with 100,000 recordings, a 10,000-chapter book and 1,000 neighbouring books after reopening under inherited, absent and fresh statistics. Admission of 1,000 anchors uses approximately 61,000 or 72,000 SQLite VM steps, below the unchanged `5,000 + 250 × requested anchors` budget. This proves bounded admission work, not full-book browsing performance, memory use or release playback latency. Fixture setup and preservation reads are outside that measurement.
+
+These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. The normal server remains on migration 0046.
