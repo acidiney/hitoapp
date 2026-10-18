@@ -44,6 +44,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Add filesystem watching, automatic desktop Music-folder discovery, and native desktop folder selection.
 - [x] Add account-owned HTTP plugin connections, encrypted optional bearer tokens, administrator-offered service addresses, manifest review, and local removal.
 - [ ] Complete provider-specific credential flows and shared provider defaults; add optional local PIN locks.
+  - [ ] Implement and verify Windows ACL protection for credential keys and private administrator-token files, including creation, reopening, unsafe permissions, replacement and lost-key recovery. Verify the same ownership guarantees on macOS and Linux before enabling packaged credential storage.
 
 ## Playback and desktop
 
