@@ -117,12 +117,41 @@ pub struct PlayerAttachment {
 pub struct PlayerEntryRef {
     pub id: Uuid,
     pub recording_id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<hito_core::AudiobookChapterAnchor>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PlayerQueueInput {
+    pub recording_id: Uuid,
+    pub chapter: Option<hito_core::AudiobookChapterAnchor>,
+}
+impl PlayerQueueInput {
+    pub(super) fn valid(&self) -> bool {
+        !self.recording_id.is_nil()
+            && self.chapter.is_none_or(|chapter| {
+                !chapter.audiobook_id.is_nil()
+                    && !chapter.entry_id.is_nil()
+                    && chapter.recording_id == self.recording_id
+            })
+    }
+}
+impl From<Uuid> for PlayerQueueInput {
+    fn from(recording_id: Uuid) -> Self {
+        Self {
+            recording_id,
+            chapter: None,
+        }
+    }
 }
 #[derive(Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerQueueEntry {
     pub id: Uuid,
     pub recording: hito_core::Recording,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<hito_core::AudiobookChapterAnchor>,
 }
 #[derive(Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
@@ -149,19 +178,44 @@ pub enum PlayerAction {
     Resume {},
     ResumeSaved {},
     Pause {},
-    Seek { position_ms: u64 },
-    Volume { level: u16 },
-    Speed { rate: u16 },
+    Seek {
+        position_ms: u64,
+    },
+    Volume {
+        level: u16,
+    },
+    Speed {
+        rate: u16,
+    },
     Next {},
     Previous {},
     Repeat {},
     Shuffle {},
     Clear {},
-    Append { recordings: Vec<Uuid> },
-    Select { entry: Uuid },
-    Move { entry: Uuid, before: Option<Uuid> },
-    Remove { entry: Uuid },
-    Replace { recordings: Vec<Uuid>, start: usize },
+    Append {
+        recordings: Vec<Uuid>,
+    },
+    AppendEntries {
+        entries: Vec<PlayerQueueInput>,
+    },
+    Select {
+        entry: Uuid,
+    },
+    Move {
+        entry: Uuid,
+        before: Option<Uuid>,
+    },
+    Remove {
+        entry: Uuid,
+    },
+    Replace {
+        recordings: Vec<Uuid>,
+        start: usize,
+    },
+    ReplaceEntries {
+        entries: Vec<PlayerQueueInput>,
+        start: usize,
+    },
 }
 impl PlayerAction {
     pub(super) fn name(&self) -> &'static str {
@@ -178,10 +232,12 @@ impl PlayerAction {
             Self::Shuffle {} => "shuffle",
             Self::Clear {} => "clear",
             Self::Append { .. } => "append",
+            Self::AppendEntries { .. } => "append_entries",
             Self::Select { .. } => "select",
             Self::Move { .. } => "move",
             Self::Remove { .. } => "remove",
             Self::Replace { .. } => "replace",
+            Self::ReplaceEntries { .. } => "replace_entries",
         }
     }
 }

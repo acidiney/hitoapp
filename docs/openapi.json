@@ -12175,6 +12175,27 @@
           {
             "type": "object",
             "required": [
+              "entries",
+              "kind"
+            ],
+            "properties": {
+              "entries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlayerQueueInput"
+                }
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "append_entries"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
               "entry",
               "kind"
             ],
@@ -12256,6 +12277,32 @@
                   "type": "string",
                   "format": "uuid"
                 }
+              },
+              "start": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "entries",
+              "start",
+              "kind"
+            ],
+            "properties": {
+              "entries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlayerQueueInput"
+                }
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "replace_entries"
+                ]
               },
               "start": {
                 "type": "integer",
@@ -12344,6 +12391,16 @@
           "recording_id"
         ],
         "properties": {
+          "chapter": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudiobookChapterAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -12459,6 +12516,16 @@
           "recording"
         ],
         "properties": {
+          "chapter": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudiobookChapterAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -12467,6 +12534,29 @@
             "$ref": "#/components/schemas/Recording"
           }
         }
+      },
+      "PlayerQueueInput": {
+        "type": "object",
+        "required": [
+          "recording_id"
+        ],
+        "properties": {
+          "chapter": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudiobookChapterAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "PlayerQueuePage": {
         "type": "object",

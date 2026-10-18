@@ -1,6 +1,6 @@
 use super::{
-    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueuePage, PlayerSnapshot,
-    Result,
+    PlayerAction, PlayerEntryRef, PlayerError, PlayerQueueEntry, PlayerQueueInput, PlayerQueuePage,
+    PlayerSnapshot, Result,
 };
 use hito_core::Recording;
 use std::collections::{HashMap, VecDeque};
@@ -107,20 +107,9 @@ impl Queue {
                 self.traversal.replace(&self.entries, Some(entry));
             }
             PlayerAction::Append { recordings } => {
-                if self.entries.len() + recordings.len() > 100_000 {
-                    return Err(PlayerError::Invalid);
-                }
-                let offset = self.entries.len();
-                self.entries
-                    .extend(recordings.into_iter().map(|recording_id| PlayerEntryRef {
-                        id: Uuid::new_v4(),
-                        recording_id,
-                    }));
-                self.traversal.append(&self.entries[offset..]);
-                for (index, entry) in self.entries[offset..].iter().enumerate() {
-                    self.positions.insert(entry.id, offset + index);
-                }
+                self.append(recordings.into_iter().map(PlayerQueueInput::from).collect())?;
             }
+            PlayerAction::AppendEntries { entries } => self.append(entries)?,
             PlayerAction::Next {} => return self.advance(Advance::Requested),
             PlayerAction::Previous {} => {
                 let Some(entry) = self.previous_entry() else {
@@ -133,18 +122,12 @@ impl Queue {
                 }
             }
             PlayerAction::Replace { start, recordings } => {
-                self.history.clear();
-                self.entries = recordings
-                    .into_iter()
-                    .map(|recording_id| PlayerEntryRef {
-                        id: Uuid::new_v4(),
-                        recording_id,
-                    })
-                    .collect();
-                self.current = Some(start);
-                self.reindex();
-                self.traversal.replace(&self.entries, self.current_entry());
+                self.replace(
+                    start,
+                    recordings.into_iter().map(PlayerQueueInput::from).collect(),
+                );
             }
+            PlayerAction::ReplaceEntries { start, entries } => self.replace(start, entries),
             PlayerAction::Move { entry, before } => {
                 let from = self.index(entry)?;
                 if let Some(before) = before {
@@ -181,6 +164,39 @@ impl Queue {
         }
         self.revision = revision;
         Ok(())
+    }
+
+    fn append(&mut self, entries: Vec<PlayerQueueInput>) -> Result<()> {
+        if self.entries.len() + entries.len() > 100_000 {
+            return Err(PlayerError::Invalid);
+        }
+        let offset = self.entries.len();
+        self.entries
+            .extend(entries.into_iter().map(|entry| PlayerEntryRef {
+                id: Uuid::new_v4(),
+                recording_id: entry.recording_id,
+                chapter: entry.chapter,
+            }));
+        self.traversal.append(&self.entries[offset..]);
+        for (index, entry) in self.entries[offset..].iter().enumerate() {
+            self.positions.insert(entry.id, offset + index);
+        }
+        Ok(())
+    }
+
+    fn replace(&mut self, start: usize, entries: Vec<PlayerQueueInput>) {
+        self.history.clear();
+        self.entries = entries
+            .into_iter()
+            .map(|entry| PlayerEntryRef {
+                id: Uuid::new_v4(),
+                recording_id: entry.recording_id,
+                chapter: entry.chapter,
+            })
+            .collect();
+        self.current = Some(start);
+        self.reindex();
+        self.traversal.replace(&self.entries, self.current_entry());
     }
 
     pub fn finish(&mut self, failed: bool) -> Result<()> {
@@ -263,6 +279,7 @@ impl Queue {
                 .map(|(entry, recording)| PlayerQueueEntry {
                     id: entry.id,
                     recording,
+                    chapter: entry.chapter,
                 })
                 .collect(),
         })

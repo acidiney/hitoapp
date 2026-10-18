@@ -1,4 +1,4 @@
-use super::{PlayerError, Request, Result, ownership::State};
+use super::{Action, PlayerAction, PlayerError, Request, Result, ownership::State};
 use hito_core::{Recording, Services};
 use std::{future::Future, pin::Pin};
 use tokio::sync::{mpsc, oneshot};
@@ -58,8 +58,20 @@ pub(super) async fn run(
                     let result = async {
                         services.identity.check_session(&request.actor).await.map_err(PlayerError::from)?;
                         let recordings = preflight?;
-                        if recordings.is_empty() { Ok(Vec::new()) }
-                        else { services.catalog.recordings_by_ids(&request.actor, &recordings).await.map_err(PlayerError::from) }
+                        if recordings.is_empty() { return Ok(Vec::new()); }
+                        if let Action::Submit(command) = &request.action {
+                            match &command.action {
+                                PlayerAction::ReplaceEntries { entries, .. }
+                                | PlayerAction::AppendEntries { entries } => {
+                                    let chapters = entries.iter().filter_map(|entry| entry.chapter).collect::<Vec<_>>();
+                                    if !chapters.is_empty() {
+                                        services.collection.check_audiobook_chapters(&request.actor, &chapters).await.map_err(PlayerError::from)?;
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
+                        services.catalog.recordings_by_ids(&request.actor, &recordings).await.map_err(PlayerError::from)
                     }.await;
                     (request, result)
                 }.instrument(span)));

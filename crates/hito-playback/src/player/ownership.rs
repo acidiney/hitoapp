@@ -37,6 +37,10 @@ impl State {
                 match &command.action {
                     super::PlayerAction::Replace { recordings, .. }
                     | super::PlayerAction::Append { recordings } => Ok(recordings.clone()),
+                    PlayerAction::ReplaceEntries { entries, .. }
+                    | PlayerAction::AppendEntries { entries } => {
+                        Ok(entries.iter().map(|entry| entry.recording_id).collect())
+                    }
                     _ => Ok(Vec::new()),
                 }
             }

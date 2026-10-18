@@ -16,8 +16,8 @@ use tokio::{
 use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
     PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure,
-    PlayerInspection, PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueuePage,
-    PlayerReceipt, PlayerRepeat, PlayerSnapshot,
+    PlayerInspection, PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueueInput,
+    PlayerQueuePage, PlayerReceipt, PlayerRepeat, PlayerSnapshot,
 };
 use uuid::Uuid;
 
@@ -167,6 +167,21 @@ impl Player {
                 if recordings.is_empty()
                     || recordings.len() > 1000
                     || *start >= recordings.len() =>
+            {
+                return Err(PlayerError::Invalid);
+            }
+            PlayerAction::AppendEntries { entries }
+                if entries.is_empty()
+                    || entries.len() > 1000
+                    || entries.iter().any(|entry| !entry.valid()) =>
+            {
+                return Err(PlayerError::Invalid);
+            }
+            PlayerAction::ReplaceEntries { entries, start }
+                if entries.is_empty()
+                    || entries.len() > 1000
+                    || *start >= entries.len()
+                    || entries.iter().any(|entry| !entry.valid()) =>
             {
                 return Err(PlayerError::Invalid);
             }

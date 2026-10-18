@@ -6,7 +6,7 @@ pub use cancel::SourceStop;
 pub use player::{
     Player, PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError,
     PlayerFailure, PlayerInspection, PlayerOwner, PlayerPhase, PlayerPosition, PlayerQueueEntry,
-    PlayerQueuePage, PlayerReceipt, PlayerRepeat, PlayerSnapshot,
+    PlayerQueueInput, PlayerQueuePage, PlayerReceipt, PlayerRepeat, PlayerSnapshot,
 };
 pub use source::Source;
 #[cfg(feature = "device")]

@@ -2206,6 +2206,10 @@ export interface components {
             kind: "append";
             recordings: string[];
         } | {
+            entries: components["schemas"]["PlayerQueueInput"][];
+            /** @enum {string} */
+            kind: "append_entries";
+        } | {
             /** Format: uuid */
             entry: string;
             /** @enum {string} */
@@ -2226,6 +2230,11 @@ export interface components {
             /** @enum {string} */
             kind: "replace";
             recordings: string[];
+            start: number;
+        } | {
+            entries: components["schemas"]["PlayerQueueInput"][];
+            /** @enum {string} */
+            kind: "replace_entries";
             start: number;
         };
         PlayerAttachment: {
@@ -2252,6 +2261,7 @@ export interface components {
             sequence: number;
         };
         PlayerEntryRef: {
+            chapter?: components["schemas"]["AudiobookChapterAnchor"] | null;
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -2282,9 +2292,15 @@ export interface components {
             selection: number;
         };
         PlayerQueueEntry: {
+            chapter?: components["schemas"]["AudiobookChapterAnchor"] | null;
             /** Format: uuid */
             id: string;
             recording: components["schemas"]["Recording"];
+        };
+        PlayerQueueInput: {
+            chapter?: components["schemas"]["AudiobookChapterAnchor"] | null;
+            /** Format: uuid */
+            recording_id: string;
         };
         PlayerQueuePage: {
             entries: components["schemas"]["PlayerQueueEntry"][];
