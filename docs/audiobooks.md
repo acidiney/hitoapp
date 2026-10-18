@@ -1,6 +1,6 @@
 # Audiobooks in development
 
-Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages, explicit playlist grouping and bookmark create/remove controls are qualified in source. The audiobook playback workflow remains unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
+Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages, explicit playlist grouping and bookmark create/remove controls are qualified in source. Explicit chapter/bookmark browser playback is qualified in the isolated package below. Durable book-wide Continue and native platform acceptance remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
 
 ## Ownership and identities
 
@@ -139,8 +139,23 @@ No playback-position subscription is added to the page. Workflow logs contain ge
 
 Two missing-control regressions first reproduce the absent features. Twenty-four new cases cover exact duplicate selection and bookmark milliseconds, unavailable or changed anchors, later playback intentions, held bodies, account/book/props/unmount cancellation, deadline recovery, navigation and ordinary progress ownership. Native protocol coverage selects duplicate index 1002 across command chunks at 35,125 ms. Independent review found a retained-detail cancellation race; its verified-editor regression failed before the minimal raw-snapshot ownership fix. Final correctness/security reviews and the performance review pass. All 387 source and integrated frontend cases, both type configurations and the production build pass.
 
-This qualifies shared browser/native command coordination in source. Packaged audible playback, physical Safari, native platform output, large chapter rendering, book-wide Continue and durable chapter provenance remain unfinished. There is no book-wide resume cursor or current-chapter inference from recording progress.
+This qualifies shared browser/native command coordination in source. Packaged browser media playback is qualified below. Audible output measurement, physical Safari, native platform output, large chapter rendering, book-wide Continue and durable chapter provenance remain unfinished. There is no book-wide resume cursor or current-chapter inference from recording progress.
 
 A preliminary isolated Chromium run of the `5adbedc` web package observes chapter playback from zero, natural advancement, an exact 35,125 ms bookmark on the second duplicate, queue removal preserving that occurrence, the same audio element through two Inertia visits and UI pause. Its five progress writes match actual observed media, and private state, originals and download absence remain preserved. This is media-state evidence, not a measurement of audible output.
 
 The run does not pass the strict transport gate. Native audio requests include aborted open-ended ranges followed by completed tail ranges; some aborted response bodies cannot be inspected. The cause and suitable fail-closed verification remain under investigation. These requests have not been classified as harmless or byte-verified. WebKit, platform output, latency, gapless behavior and deployment remain unqualified.
+
+
+### Packaged chapter and bookmark playback acceptance
+
+The combined application package from `4a42d1c`, image `sha256:ecfaee71be260f83131d9a3d513165f7b52fbcc3925023754c610b461c38e0f8`, passes the complete owned-media workflow in Chromium and WebKit. Each engine uses a fresh private tmpfs database and read-only synthetic 90-second PCM16 WAV files. The workflow plays chapter zero, advances naturally to the next chapter, jumps to a 35,125 ms bookmark on the second occurrence of the first recording, removes the earlier queue occurrence, navigates twice without replacing or interrupting the actual player and pauses through the UI.
+
+The pause checkpoint waits for the trusted native pause, its matching submitted progress operation and that exact accepted acknowledgement before reading preservation state. Private titles/artists, likes, entries, bookmark identity, other-account state, original file hashes and download absence remain intact. Progress is correlated with actual media; no new book-wide cursor is inferred. This measures browser media state, not speaker output.
+
+Sixteen Chromium cases and fifteen WebKit cases pass. The far-seek cancellation characterization is explicitly Chromium-only. All thirteen framing, retained-element, privacy and progress controls pass on both engines, alongside the held pause-acknowledgement case. Exact paired WebKit delegate notifications remain distinct from verified response bodies.
+
+The book-local Chromium classifier preserves raw cancellation and unreadable-body counts. It can explain only the observed exact aborted open-ended range when a complete source was already verified, one trusted retained-player seek advances, and an exact verified replacement covers the requested PCM position. Ownership and interruption observation continue through the bounded final transport read. A real native far-seek positive and 26 one-fact mutations verify that boundary; three delayed-observation repeats pass without relaxing time or position limits. Independent security, correctness and performance reviews pass after correcting a reproduced coupling between native advancement and body-observation latency. Global media prototype instrumentation is absent.
+
+The versioned generator option `--e2e --audiobook` places existing WAV tags before the PCM data. It reproduces the qualified files without changing PCM, tags or duration. No-argument and ordinary `--e2e` output remains byte-identical; duplicate/unknown arguments and standalone `--audiobook` fail before writes. Both TypeScript configurations pass. Reports retain individual 4 KiB and combined 8 KiB bounds; completed-body checks do not establish a browser-process memory limit.
+
+Preparation failures remain separately counted. The final main workflows contain no unexplained playback failure; Chromium verifies four complete 206 bodies, while WebKit verifies four complete 200 bodies with four paired delegate probes. These checks qualify the combined isolated package. Normal deployment, physical Safari, codec coverage, native platform output, latency/gapless targets and durable occurrence-aware Continue remain open.
