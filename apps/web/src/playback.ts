@@ -2,6 +2,7 @@ import { createUuid } from "./uuid";
 import type {
   PlaybackStart,
   PlaybackView,
+  PreparedSelection,
   Player,
   QueueView,
   Track,
@@ -333,15 +334,17 @@ export class Playback implements Player {
     await this.open(index, position);
   }
 
-  prepareSelection(): (track: Track) => Promise<boolean> {
+  prepareSelection(): PreparedSelection {
     const selection = ++this.selection;
     log.debug("playback.selection_prepared");
-    return async (track) => {
+    return async (target) => {
       if (selection !== this.selection) {
         log.debug("playback.selection_superseded");
         return false;
       }
-      await this.playQueue([track]);
+      if ("queue" in target)
+        await this.playQueue(target.queue, target.index, target.start);
+      else await this.playQueue([target]);
       return true;
     };
   }

@@ -1,5 +1,5 @@
 import { log } from "../../log";
-import type { PlaybackStart, Track } from "../model";
+import type { PlaybackStart, PreparedSelection, Track } from "../model";
 import type { Action, Snapshot } from "./api";
 import type { NativeSession, QueueSelection } from "./Session";
 
@@ -39,10 +39,15 @@ export class NativeCommands {
           : { kind: "position", position_ms: Math.round(position * 1000) },
     });
   }
-  prepareSelection = () => {
+  prepareSelection = (): PreparedSelection => {
     const intention = ++this.intention;
-    return async (track: Track) =>
-      intention === this.intention && (await this.play([track], 0));
+    return async (target) => {
+      if (intention !== this.intention) return false;
+      this.intention++;
+      return "queue" in target
+        ? this.play(target.queue, target.index ?? 0, target.start)
+        : this.play([target], 0);
+    };
   };
   selectEntry = async (entry: string) => {
     this.intention++;

@@ -7,6 +7,14 @@ export type Track = Pick<
   Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
 
 export type PlaybackStart = { kind: "saved" | "position"; position: number };
+export type PlaybackSelection = {
+  queue: Track[];
+  index?: number;
+  start?: PlaybackStart;
+};
+export type PreparedSelection = (
+  selection: Track | PlaybackSelection,
+) => Promise<boolean>;
 
 export type PlaybackView = {
   current: Track | null;
@@ -62,7 +70,7 @@ export interface Player {
     index?: number,
     start?: PlaybackStart,
   ): Promise<void>;
-  prepareSelection(): (track: Track) => Promise<boolean>;
+  prepareSelection(): PreparedSelection;
   toggle(): Promise<void>;
   setPlaying(playing: boolean): Promise<void>;
   previous(): Promise<void>;
