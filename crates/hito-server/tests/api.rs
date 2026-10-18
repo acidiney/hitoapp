@@ -76,6 +76,18 @@ mod security;
 #[path = "api/artwork.rs"]
 mod artwork;
 
+#[path = "api/artist_review.rs"]
+mod artist_review;
+#[path = "api/artist_review_authority.rs"]
+mod artist_review_authority;
+#[path = "api/artist_review_disconnect.rs"]
+mod artist_review_disconnect;
+#[path = "fixtures/artist_review.rs"]
+mod artist_review_fixture;
+#[path = "fixtures/download_host.rs"]
+mod artist_review_host;
+#[path = "fixtures/artist_review_tcp.rs"]
+mod artist_review_tcp;
 #[path = "api/metadata.rs"]
 mod metadata;
 #[path = "api/metadata_preferences.rs"]
