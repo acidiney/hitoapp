@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
 import type { components } from "../../src/generated";
+import { reviewPluginInstallation } from "./plugin-installation-review";
 import {
   creditAction,
   creditPost,
@@ -51,20 +52,29 @@ export async function prepareMetadataCopy(
   await page
     .getByLabel("Bearer token (optional)", { exact: true })
     .fill(owned.token);
+  const reviewed = await reviewPluginInstallation(
+    page,
+    offered.body,
+    owned.manifest.name,
+  );
   const installed = await creditPost<Schema["PluginInstallation"]>(
     page,
     "/api/v1/plugins",
     201,
     () =>
       page
-        .getByRole("button", { name: "Connect service", exact: true })
+        .getByRole("button", { name: "Accept and connect", exact: true })
         .click(),
   );
   const connection = installed.body;
   expect(
     connection.credential_set &&
       connection.service_id === offered.body.id &&
-      connection.manifest.capabilities.join(",") === "playlists",
+      connection.manifest.capabilities.join(",") === "playlists" &&
+      isDeepStrictEqual(installed.sent, {
+        ...reviewed.sent,
+        accept_manifest_digest: reviewed.body.digest,
+      }),
   ).toBe(true);
   await navigation
     .getByRole("link", { name: "Playlists", exact: true })

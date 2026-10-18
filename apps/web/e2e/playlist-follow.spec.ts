@@ -413,7 +413,7 @@ test.describe("isolated provider playlist Follow", () => {
       );
       outageCheckpoint = 8;
       expect(fixture.counts()).toEqual({
-        manifest: 2,
+        manifest: 3,
         reference: 2,
         canonical: 5,
         items: 5,
@@ -648,7 +648,7 @@ test.describe("isolated provider playlist Follow", () => {
         ).toBe(0);
       }
       expect(fixture.counts()).toEqual({
-        manifest: 2,
+        manifest: 3,
         reference: 2,
         canonical: 7,
         items: 6,

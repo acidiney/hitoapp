@@ -84,7 +84,7 @@ test("a lost album lookup acknowledgement retries its original receipt offline w
     expect(
       owned.calls.detail === 2 &&
         owned.calls.items === 1 &&
-        owned.calls.manifest === 2,
+        owned.calls.manifest === 3,
     ).toBe(true);
     const panel = page.getByRole("region", {
       name: "Playlist metadata",

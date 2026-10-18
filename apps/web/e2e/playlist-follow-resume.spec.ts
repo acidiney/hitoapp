@@ -352,7 +352,7 @@ test.describe("isolated provider playlist Resume", () => {
         feedBefore,
       );
       expect(fixture.counts()).toEqual({
-        manifest: 4,
+        manifest: 5,
         reference: 2,
         canonical: 2,
         items: 2,
@@ -553,7 +553,7 @@ test.describe("isolated provider playlist Resume", () => {
           ).length,
         ).toBe(0);
       expect(fixture.counts()).toEqual({
-        manifest: 4,
+        manifest: 5,
         reference: 2,
         canonical: 4,
         items: 3,
