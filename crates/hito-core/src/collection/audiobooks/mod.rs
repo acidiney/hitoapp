@@ -1,4 +1,5 @@
 mod bookmarks;
+mod continuation;
 mod listing;
 mod types;
 
@@ -11,7 +12,10 @@ use uuid::Uuid;
 pub(super) use bookmarks::{
     Create as BookmarkCreate, create as create_bookmark, remove as remove_bookmark,
 };
-pub use types::{AudiobookBookmark, AudiobookDetail};
+pub(super) use continuation::set as set_chapter;
+pub use types::{
+    AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation, AudiobookDetail,
+};
 
 const MAX_BOOKMARKS: i64 = 256;
 const MAX_CHAPTERS: i64 = 10_000;
@@ -44,12 +48,14 @@ impl Collection {
                     "The audiobook bookmark limit was exceeded".into(),
                 ));
             }
+            let continuation = continuation::read(&mut tx, actor, id).await?;
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             Ok(AudiobookDetail {
                 playlist,
                 chapters,
                 bookmarks,
+                continuation,
             })
         }
         .await;

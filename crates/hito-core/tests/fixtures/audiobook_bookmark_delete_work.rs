@@ -41,7 +41,7 @@ pub async fn seed(statistics: Statistics) -> Database {
             .await
             .unwrap();
     assert_eq!(
-        latest, 48,
+        latest, 49,
         "The workload must use the full actual production migration history"
     );
     let mut tx = connection.begin().await.unwrap();
@@ -242,6 +242,7 @@ pub async fn snapshot(connection: &mut SqliteConnection) -> Snapshot {
         "playlist_entries",
         "audiobooks",
         "audiobook_bookmarks",
+        "audiobook_continuations",
         "_sqlx_migrations",
         "sqlite_sequence",
     ] {

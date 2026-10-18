@@ -55,7 +55,7 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_audiobooks()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 48).await;
+    assert_version(&mut connection, 49).await;
     expected.assert_preserved(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
@@ -426,6 +426,12 @@ impl RetainedState {
             .execute(&mut reference)
             .await
             .unwrap();
+        sqlx::raw_sql(include_str!(
+            "../migrations/0049_audiobook_continuation.sql"
+        ))
+        .execute(&mut reference)
+        .await
+        .unwrap();
         for (key, definition) in schema(&mut reference).await {
             assert!(
                 !self.schema.contains_key(&key),
@@ -440,7 +446,11 @@ impl RetainedState {
             );
             self.indexes.insert(key, definition);
         }
-        for name in ["audiobooks", "audiobook_bookmarks"] {
+        for name in [
+            "audiobooks",
+            "audiobook_bookmarks",
+            "audiobook_continuations",
+        ] {
             self.projections.push(Projection {
                 name: name.into(),
                 statement: format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(name)),

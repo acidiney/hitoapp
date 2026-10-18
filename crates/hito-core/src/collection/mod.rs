@@ -20,7 +20,9 @@ mod types;
 mod saved_playback_work;
 
 use crate::{HostDeviceId, store::Store};
-pub use audiobooks::{AudiobookBookmark, AudiobookDetail};
+pub use audiobooks::{
+    AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation, AudiobookDetail,
+};
 pub use follow::{
     FollowProviderPlaylist, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
     PlaylistFollowRefresh, PlaylistFollowStatus, RefreshFollowedPlaylist,

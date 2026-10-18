@@ -130,6 +130,9 @@ pub(super) async fn action(
         Action::AudiobookCreate { playlist_id } => {
             audiobooks::create(tx, actor, playlist_id, operation.id).await
         }
+        Action::AudiobookChapterSet { chapter } => {
+            audiobooks::set_chapter(tx, actor, chapter, operation.id).await
+        }
         Action::AudiobookBookmarkCreate {
             audiobook_id,
             bookmark_id,

@@ -1,4 +1,7 @@
-use super::{CollectionPublication, ImportedPlaylistEntryOrigin, ImportedPlaylistOrigin};
+use super::{
+    AudiobookChapterAnchor, CollectionPublication, ImportedPlaylistEntryOrigin,
+    ImportedPlaylistOrigin,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -76,6 +79,9 @@ pub enum Action {
     AudiobookCreate {
         playlist_id: Uuid,
     },
+    AudiobookChapterSet {
+        chapter: AudiobookChapterAnchor,
+    },
     AudiobookBookmarkCreate {
         audiobook_id: Uuid,
         bookmark_id: Uuid,
@@ -128,6 +134,7 @@ impl Action {
             Self::PlaylistRename { .. } => "playlist_rename",
             Self::PlaylistDelete { .. } => "playlist_delete",
             Self::AudiobookCreate { .. } => "audiobook_create",
+            Self::AudiobookChapterSet { .. } => "audiobook_chapter_set",
             Self::AudiobookBookmarkCreate { .. } => "audiobook_bookmark_create",
             Self::AudiobookBookmarkRemove { .. } => "audiobook_bookmark_remove",
             Self::PlaylistFollowResume { .. } => "playlist_follow_resume",

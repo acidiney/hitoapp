@@ -31,12 +31,13 @@ pub use catalog::{
     SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateMetadataSettings,
 };
 pub use collection::{
-    Action, Activity, AudiobookBookmark, AudiobookDetail, Collection, CollectionPublication,
-    FollowProviderPlaylist, HistoryEntry, ImportProviderPlaylist, ImportedPlaylistEntry,
-    ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, ImportedPlaylistMetadataRefresh,
-    ImportedPlaylistOrigin, ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation,
-    Playlist, PlaylistDetail, PlaylistEntry, PlaylistFollow, PlaylistFollowInterval,
-    PlaylistFollowReceipt, PlaylistFollowRefresh, PlaylistFollowStatus, PlaylistImportReceipt,
+    Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,
+    AudiobookDetail, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,
+    ImportProviderPlaylist, ImportedPlaylistEntry, ImportedPlaylistEntryKind,
+    ImportedPlaylistEntryOrigin, ImportedPlaylistMetadataRefresh, ImportedPlaylistOrigin,
+    ImportedPlaylistRecording, ImportedPlaylistSnapshot, Operation, Playlist, PlaylistDetail,
+    PlaylistEntry, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,
+    PlaylistFollowRefresh, PlaylistFollowStatus, PlaylistImportReceipt,
     PlaylistMetadataRefreshOrigin, RecordingProgress, RefreshFollowedPlaylist,
     RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
 };
