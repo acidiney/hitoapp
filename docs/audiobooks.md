@@ -264,4 +264,12 @@ An uncertain native command response requires authoritative settlement before la
 
 Docker verification passes six public core/player/HTTP cases, all 469 frontend cases, both TypeScript configurations, the production build and strict core/playback/server all-target Clippy. The concurrency fixture observes actual Sync entry, queue publication and committed deletion. Client cases cover request and body cancellation, retry backoff, lost accepted replies, malformed settlement, deadlines and immediate retry. Rust routes produce the generated OpenAPI and TypeScript contracts.
 
-This source is integrated. Actual CPAL Continue output, full-book Continue performance at 10,000 chapters, packaged Chromium/WebKit Continue, desktop GUI/platform checks and normal deployment remain open. The normal server still runs migration 0046.
+This source is integrated. The isolated native output checks below now pass. Full-book Continue performance at 10,000 chapters, packaged Chromium/WebKit Continue, desktop GUI/platform checks and normal deployment remain open. The normal server still runs migration 0046.
+
+## Native Continue output verification
+
+Two device cases pass with an isolated CPAL/PulseAudio monitor, owned WAV files and temporary SQLite as a nonadministrator. Continue selects the second A in an A, B, A book, restores its saved 4000 ms position and 0.75 speed, and produces the expected audible marker. The old B remains audible during held preparation and cancellation. Exact accepted receipt replay preserves output, selection and a monotonic source clock without introducing a restart gap. The final stored chapter, position and speed agree with the settled player; private peer state, original files and download records remain unchanged.
+
+The audio fixture distinguishes the region before four seconds, a short marker at four seconds and the later region. A separate real-output control deliberately seeks to three and five seconds and requires the same first-audible-region detector to reject both. This prevents a test from waiting through an incorrect start until the expected tone eventually appears. Tempo measurement aligns its source-clock baseline with monitor frames after the replay acknowledgement; separate checks cover playback during that acknowledgement.
+
+The root verifier repeated both cases successfully in 7.57 seconds. Formatting, strict device-feature Clippy for the test target and the independent second gate review pass. These checks qualify Linux device fixtures. They do not establish sample-perfect seeking, physical speaker output, packaged desktop behavior, codec coverage, gapless transitions, platform support or release latency.
