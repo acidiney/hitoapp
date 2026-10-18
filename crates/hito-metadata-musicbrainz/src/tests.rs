@@ -20,6 +20,7 @@ mod http;
 mod limiter;
 mod protocol;
 mod search;
+mod search_context;
 
 const ARTIST_ID: &str = "0f700000-0000-4000-8000-000000000001";
 const ANOTHER_ARTIST_ID: &str = "0f700000-0000-4000-8000-000000000002";
