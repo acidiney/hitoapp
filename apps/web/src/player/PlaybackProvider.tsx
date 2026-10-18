@@ -17,6 +17,7 @@ import { useBrowserMediaSession } from "./BrowserMediaSession";
 import { BrowserProgress } from "./BrowserProgress";
 import { request } from "../http";
 import type { components } from "../generated";
+import { BrowserCommunityReporting } from "./BrowserCommunityReporting";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -49,10 +50,11 @@ function BrowserAccountPlayback({
 }) {
   const notice = useNotice();
   const scope = useRequestScope(account);
-  const [{ audio, media, player }] = useState(() => {
+  const [{ audio, media, player, community }] = useState(() => {
     const audio = new Audio();
     const media = new Map<MediaPort, HTMLAudioElement>([[audio, audio]]);
     let player: Playback;
+    const community = new BrowserCommunityReporting(account, scope.capture);
     const progress = new BrowserProgress(
       account,
       scope.capture,
@@ -127,11 +129,13 @@ function BrowserAccountPlayback({
         check();
         return playback;
       },
+      (source, claim) => community.admit(source, claim),
     );
-    return { audio, media, player };
+    return { audio, media, player, community };
   });
   useBrowserMediaSession(player, account);
   useEffect(() => {
+    community.activate();
     log.info("playback.account_opened", { account_id: account });
     media.set(audio, audio);
     audio.dataset.hitoPlayer = "";
@@ -140,10 +144,11 @@ function BrowserAccountPlayback({
     return () => {
       log.info("playback.account_closed", { account_id: account });
       player.retire();
+      community.close();
       for (const element of media.values()) element.remove();
       media.clear();
     };
-  }, [account, audio, media, player]);
+  }, [account, audio, media, player, community]);
   return (
     <PlaybackContext.Provider value={player}>
       {children}

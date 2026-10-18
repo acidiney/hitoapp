@@ -20,6 +20,8 @@ import {
 import { BrowserTraversal } from "./player/BrowserTraversal";
 import { BrowserQueue } from "./player/BrowserQueue";
 import { BrowserObservation } from "./player/BrowserObservation";
+import { BrowserCommunityObservation } from "./player/BrowserCommunityObservation";
+import type { SuccessfulPlayback } from "./types";
 import {
   BrowserPreparation,
   type BrowserMediaOwner,
@@ -81,6 +83,7 @@ export class Playback implements Player {
   private queue = new BrowserQueue();
   private traversal = new BrowserTraversal();
   private observation: BrowserObservation;
+  private community: BrowserCommunityObservation | null;
   private openingEntry: PlaybackOccurrence | null = null;
   private queueView: QueueView = {
     version: 0,
@@ -118,7 +121,11 @@ export class Playback implements Player {
       book: string,
       signal: AbortSignal,
     ) => Promise<AudiobookPlayback>,
+    onSuccess?: (source: string, claim: SuccessfulPlayback) => void,
   ) {
+    this.community = onSuccess
+      ? new BrowserCommunityObservation(onSuccess)
+      : null;
     this.observation = new BrowserObservation((sample) => {
       const result = sample.chapter
         ? this.onProgress?.(
@@ -160,6 +167,7 @@ export class Playback implements Player {
       }
     });
     listen("timeupdate", () => {
+      this.community?.observe();
       if (this.activeSource && !media.paused && media.currentTime > 0) {
         this.traversal.resetFailures();
         this.prepareNext();
@@ -173,19 +181,24 @@ export class Playback implements Player {
       this.prepareNext();
     });
     listen("playing", () => {
+      this.community?.observe();
       if (!this.observation.observe()) this.progressBlocked();
     });
     listen("seeked", () => {
+      this.community?.seeked();
+      this.community?.observe();
       this.observation.seeked();
       if (!this.observation.observe()) this.progressBlocked();
     });
     listen("pause", () => {
+      this.community?.reset();
       log.debug("playback.paused", { recording_id: this.state.current?.id });
       if (!this.stoppingForProgress) this.persist();
       this.update({ playing: false });
       if (!media.ended) this.cancelLookahead();
     });
     listen("error", () => {
+      this.community?.reset();
       log.warn("playback.media_failed", {
         recording_id: this.state.current?.id,
       });
@@ -195,6 +208,10 @@ export class Playback implements Player {
       log.info("playback.ended", { recording_id: this.state.current?.id });
       void this.next(true);
     });
+    listen("seeking", () => this.community?.seeking());
+    listen("canplay", () => this.community?.observe());
+    for (const event of ["waiting", "stalled", "ratechange", "loadstart"])
+      listen(event, () => this.community?.reset());
   }
 
   private cancelLookahead() {
@@ -509,6 +526,7 @@ export class Playback implements Player {
     }
     this.selection++;
     this.observation.retire();
+    this.community?.retire();
     if (continuation) {
       this.media.pause();
       this.queue.replace(continuation.queue);
@@ -649,14 +667,19 @@ export class Playback implements Player {
     const media = this.media;
     const generation = this.generation;
     const activeSource = this.activeSource;
-    this.observation.begin(
-      entry,
+    const path = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
+    const current = () =>
+      this.media === media &&
+      this.generation === generation &&
+      this.activeSource === activeSource;
+    this.observation.begin(entry, media, path, current);
+    this.community?.begin(
       media,
-      `/api/v1/sources/${encodeURIComponent(source.id)}/audio`,
+      source.id,
       () =>
-        this.media === media &&
-        this.generation === generation &&
-        this.activeSource === activeSource,
+        current() &&
+        new URL(media.currentSrc || media.src, "http://hito.invalid")
+          .pathname === path,
     );
   }
 
@@ -755,9 +778,13 @@ export class Playback implements Player {
           !this.media.seeking &&
           Math.abs(this.media.currentTime - position) < 0.001;
         this.observation.seeking(position);
+        this.community?.seeking();
         this.media.currentTime = position;
         this.pendingSeek = null;
-        if (alreadyAtPosition) this.observation.seeked();
+        if (alreadyAtPosition) {
+          this.observation.seeked();
+          this.community?.seeked();
+        }
       } catch {
         this.pendingSeek = position;
         void this.recover();
@@ -870,6 +897,7 @@ export class Playback implements Player {
     this.cancelAudiobook();
     if (!this.persist()) return;
     this.observation.retire();
+    this.community?.retire();
     this.openingEntry = null;
     this.cancelLookahead();
     this.openingPreparation?.close();
@@ -896,6 +924,7 @@ export class Playback implements Player {
     });
   }
   retire() {
+    this.community?.retire();
     this.observation.retire();
     this.clear();
   }
