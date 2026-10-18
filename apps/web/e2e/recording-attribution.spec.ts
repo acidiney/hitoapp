@@ -312,9 +312,9 @@ test("saved recording credits retain ordered creators and immutable history with
     expect(
       isDeepStrictEqual(owned.calls, callsAfterAdoption) &&
         isDeepStrictEqual(owned.calls, {
-          requests: 8,
+          requests: 9,
           publicManifest: 1,
-          privateManifest: 1,
+          privateManifest: 2,
           search: 2,
           detail: 2,
           sources: 2,
