@@ -182,7 +182,7 @@ pub async fn historical_45(source: &Path, destination: &Path) -> Baseline {
     let mut copied_state = copied.clone();
     copied_state.push("sqlite_sequence".into());
     let mut source_connection = connect(source).await;
-    assert_eq!(version(&mut source_connection).await, 47);
+    assert_eq!(version(&mut source_connection).await, 48);
     let source_ledger: Vec<(i64, Vec<u8>, bool)> = sqlx::query_as(
         "SELECT version,checksum,success FROM _sqlx_migrations WHERE version <= 45 ORDER BY version",
     ).fetch_all(&mut source_connection).await.unwrap();
@@ -352,7 +352,7 @@ pub async fn assert_preserved(
     ];
     match expected_version {
         46 => {}
-        47 => expected.extend([
+        47 | 48 => expected.extend([
             "account_metadata_policies",
             "sqlite_autoindex_account_metadata_policies_1",
             "recording_artist_associations",
@@ -365,10 +365,41 @@ pub async fn assert_preserved(
         ]),
         _ => panic!("The upgrade fixture requires an exact supported schema endpoint"),
     }
+    let declared_audiobooks = if expected_version == 48 {
+        let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        sqlx::raw_sql(include_str!("../../migrations/0048_audiobooks.sql"))
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        let declared = schema(&mut reference).await;
+        reference.close().await.unwrap();
+        declared
+    } else {
+        Vec::new()
+    };
+    for object in &declared_audiobooks {
+        assert!(
+            after.contains(object),
+            "Each audiobook schema object must match its exact migration0048 declaration"
+        );
+        expected.push(object.1.as_str());
+    }
     expected.sort_unstable();
     let mut new_names = new_names;
     new_names.sort_unstable();
     assert_eq!(new_names, expected);
+    if expected_version == 48 {
+        for table in ["audiobooks", "audiobook_bookmarks"] {
+            let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
+                .fetch_one(&mut *connection)
+                .await
+                .unwrap();
+            assert_eq!(
+                count, 0,
+                "Historical playlists must not become books or bookmarks implicitly"
+            );
+        }
+    }
     for (name, table) in [
         (
             "playlist_import_receipt_publication",

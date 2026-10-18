@@ -51,9 +51,11 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_playlist_metadata()
         .await
         .expecting_artist_catalog()
+        .await
+        .expecting_audiobooks()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 47).await;
+    assert_version(&mut connection, 48).await;
     expected.assert_preserved(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
@@ -413,6 +415,37 @@ impl RetainedState {
                 "the baseline must predate each declared artist catalog index"
             );
             self.indexes.insert(key, definition);
+        }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_audiobooks(mut self) -> Self {
+        let mut reference = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+        sqlx::raw_sql(include_str!("../migrations/0048_audiobooks.sql"))
+            .execute(&mut reference)
+            .await
+            .unwrap();
+        for (key, definition) in schema(&mut reference).await {
+            assert!(
+                !self.schema.contains_key(&key),
+                "the baseline must predate each declared audiobook schema object"
+            );
+            self.schema.insert(key, definition);
+        }
+        for (key, definition) in indexes(&mut reference).await {
+            assert!(
+                !self.indexes.contains_key(&key),
+                "the baseline must predate each declared audiobook index"
+            );
+            self.indexes.insert(key, definition);
+        }
+        for name in ["audiobooks", "audiobook_bookmarks"] {
+            self.projections.push(Projection {
+                name: name.into(),
+                statement: format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(name)),
+                rows: Vec::new(),
+            });
         }
         reference.close().await.unwrap();
         self
