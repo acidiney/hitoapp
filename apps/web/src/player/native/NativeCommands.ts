@@ -54,9 +54,10 @@ export class NativeCommands {
   };
   toggle = async () => {
     this.intention++;
-    await this.run([
-      { kind: this.state()?.desired_playing ? "pause" : "resume" },
-    ]);
+    await this.setPlaying(!this.state()?.desired_playing);
+  };
+  setPlaying = async (playing: boolean) => {
+    await this.run([{ kind: playing ? "resume" : "pause" }]);
   };
   retrySaved = async () => {
     this.intention++;

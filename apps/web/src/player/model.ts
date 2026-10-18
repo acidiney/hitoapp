@@ -64,6 +64,7 @@ export interface Player {
   ): Promise<void>;
   prepareSelection(): (track: Track) => Promise<boolean>;
   toggle(): Promise<void>;
+  setPlaying(playing: boolean): Promise<void>;
   previous(): Promise<void>;
   next(): Promise<void>;
   seek(seconds: number): void;

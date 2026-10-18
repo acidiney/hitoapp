@@ -73,6 +73,7 @@ export class NativePlayback implements Player {
   selectEntry = this.intents.selectEntry;
   removeEntry = this.intents.removeEntry;
   toggle = this.intents.toggle;
+  setPlaying = this.intents.setPlaying;
   retrySaved = this.intents.retrySaved;
   next = this.intents.next;
   previous = this.intents.previous;
