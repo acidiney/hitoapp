@@ -69,7 +69,7 @@ export class BrowserCommunityObservation {
       sample.position < 0 ||
       !Number.isFinite(sample.speed) ||
       sample.speed <= 0 ||
-      sample.speed > 3
+      sample.speed > 4
     ) {
       this.reset();
       return;

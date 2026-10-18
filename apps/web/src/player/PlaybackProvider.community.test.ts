@@ -154,6 +154,19 @@ test("browser community success requires five advancing ready seconds and exclud
       media.ready(audio);
       audio.dispatchEvent(new Event("playing"));
     });
+    for (const speed of [0, -1, 4.01]) {
+      act(() => {
+        audio.playbackRate = speed;
+        audio.dispatchEvent(new Event("ratechange"));
+      });
+      await observe(31_000, 35);
+      await observe(33_000, 40);
+      expect(claims).toHaveLength(0);
+    }
+    act(() => {
+      audio.playbackRate = 1;
+      audio.dispatchEvent(new Event("ratechange"));
+    });
     await observe(Number.NaN, 35);
     await observe(40_000, 36);
     await observe(39_000, 37);
@@ -195,6 +208,85 @@ test("browser community success requires five advancing ready seconds and exclud
     view.unmount();
   }
 });
+
+test.each([3.5, 4])(
+  "Continue at saved speed %s qualifies after five advancing media seconds",
+  async (speed) => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const media = audiobookContinuationMedia();
+    const { detail } = audiobookPages();
+    const entry = {
+      ...detail.detail.chapters[1],
+      recording_id: recording.id,
+    };
+    const book = detail.detail.playlist.id;
+    const saved: components["schemas"]["AudiobookPlayback"] = {
+      audiobook_id: book,
+      chapter: {
+        audiobook_id: book,
+        entry_id: entry.entry_id,
+        recording_id: recording.id,
+      },
+      chapters: [entry],
+      progress: { recording_id: recording.id, position_ms: 30000, speed },
+    };
+    const claims: { path: string; options: RequestInit }[] = [];
+    playbackRequests([recording], (path, options) => {
+      if (path === `/api/v1/audiobooks/${book}/playback`)
+        return Response.json(saved);
+      if (!path.endsWith("/successful-playback")) return;
+      claims.push({ path, options: options! });
+      return Response.json("queued");
+    });
+    const view = renderAccount();
+    const scope = new AbortController();
+    try {
+      await act(async () => {
+        expect(await view.player().continueAudiobook(book, scope.signal)).toBe(
+          true,
+        );
+      });
+      const audio = media.current();
+      act(() => {
+        media.ready(audio);
+        audio.dispatchEvent(new Event("seeked"));
+        audio.dispatchEvent(new Event("playing"));
+        audio.dispatchEvent(new Event("timeupdate"));
+      });
+      expect(audio.currentTime).toBe(30);
+      expect(audio.playbackRate).toBe(speed);
+      expect(claims).toHaveLength(0);
+      for (let second = 1; second <= 5; second++) {
+        await act(async () => {
+          now = second * (1000 / speed + 1);
+          audio.currentTime = 30 + second;
+          audio.dispatchEvent(new Event("timeupdate"));
+        });
+        expect(claims).toHaveLength(second < 5 ? 0 : 1);
+      }
+      expect(claims[0].path).toBe(
+        "/api/v1/sources/49858203-ce08-478f-95fe-482f34e376fb/successful-playback",
+      );
+      expect(new Headers(claims[0].options.headers).get("x-hito-account")).toBe(
+        "owned-system-account",
+      );
+      expect(JSON.parse(String(claims[0].options.body))).toEqual({
+        submission_id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ),
+      });
+      expect(view.player().snapshot()).toMatchObject({
+        playing: true,
+        speed,
+        error: "",
+      });
+    } finally {
+      scope.abort();
+      view.unmount();
+    }
+  },
+);
 
 test("source changes restart qualification and invalid oversized receipts cannot disturb playback", async () => {
   let now = 0;
