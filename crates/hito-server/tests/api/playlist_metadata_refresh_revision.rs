@@ -91,14 +91,19 @@ async fn accepted_receipts_replay_independently_of_new_connection_approval() {
 
     f.publish_verified_album().await;
     let mut current_body = request(&f);
-    reject(
-        &f,
-        current_body.clone(),
-        Some(&f.token),
-        StatusCode::CONFLICT,
-        "This playlist connection changed",
-    )
-    .await;
+    let stale_before = f.state().await;
+    let stale_requests = f.provider_requests().await;
+    let (status, stale_bytes) = f.refresh(&current_body).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let stale: Value = serde_json::from_slice(&stale_bytes).unwrap();
+    assert_eq!(
+        stale,
+        json!({
+            "error": "This playlist connection changed", "code": "operation_rejected"
+        })
+    );
+    assert_eq!(f.state().await, stale_before);
+    assert_eq!(f.provider_requests().await, stale_requests);
     reject(
         &f,
         conflicting.clone(),

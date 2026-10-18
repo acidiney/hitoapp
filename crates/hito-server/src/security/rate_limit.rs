@@ -50,6 +50,7 @@ pub fn response() -> Response {
         [("retry-after", "60")],
         Json(ErrorResponse {
             error: "Too many sign-in attempts. Try again in a minute.".into(),
+            code: None,
         }),
     )
         .into_response()

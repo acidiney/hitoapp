@@ -1423,7 +1423,10 @@ export interface components {
             /** Format: int64 */
             total_bytes?: number | null;
         };
+        /** @enum {string} */
+        ErrorCode: "operation_rejected";
         ErrorResponse: {
+            code?: components["schemas"]["ErrorCode"] | null;
             error: string;
         };
         FolderRevision: {

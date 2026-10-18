@@ -12,6 +12,7 @@ export class HttpError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "HttpError";
@@ -87,5 +88,12 @@ export async function request(path: string, options: RequestOptions) {
     typeof data.error === "string"
       ? data.error
       : `Hito returned ${response.status}. Try again.`;
-  throw new HttpError(response.status, message);
+  const code =
+    data !== null &&
+    typeof data === "object" &&
+    "code" in data &&
+    typeof data.code === "string"
+      ? data.code
+      : undefined;
+  throw new HttpError(response.status, message, code);
 }

@@ -3,7 +3,7 @@ mod publication;
 mod receipts;
 
 use super::Collection;
-use crate::{Actor, Error, Result, admission::Accounts};
+use crate::{Actor, Error, Result, admission::Accounts, plugins::PlaylistOperationFailure};
 use hito_plugin_sdk::PlaylistDetailRequest;
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Instant};
@@ -89,14 +89,45 @@ impl Collection {
             origin
         };
         let _admission = self.metadata_refresh_admission.enter(actor.id())?;
-        let operation = self
+        let operation = match self
             .plugins
             .playlist_operation(
                 actor.id(),
                 &origin.installation_id,
                 request.installation_revision,
             )
-            .await?;
+            .await
+        {
+            Ok(operation) => operation,
+            Err(PlaylistOperationFailure::RevisionChanged { expected, current })
+                if current > expected =>
+            {
+                let mut tx = self.store.pool.begin().await?;
+                actor.check_session_on(&mut tx).await?;
+                let accepted =
+                    receipts::lookup(&mut tx, actor.id(), request.request_id, &digest).await?;
+                actor.check_session_on(&mut tx).await?;
+                tx.commit().await?;
+                if let Some(receipt) = accepted {
+                    tracing::info!(
+                        outcome = "replayed",
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        "Playlist metadata request completed"
+                    );
+                    return Ok(receipt);
+                }
+                tracing::info!(
+                    outcome = "rejected",
+                    reason = "connection_revision_advanced",
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "Playlist metadata request completed"
+                );
+                return Err(Error::OperationRejected(
+                    "This playlist connection changed".into(),
+                ));
+            }
+            Err(error) => return Err(error.into()),
+        };
         authority::check_operation(&origin, &operation)?;
         let scope = {
             let mut tx = self.store.pool.begin().await?;

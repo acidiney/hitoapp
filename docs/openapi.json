@@ -8250,12 +8250,28 @@
           }
         }
       },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "operation_rejected"
+        ]
+      },
       "ErrorResponse": {
         "type": "object",
         "required": [
           "error"
         ],
         "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "error": {
             "type": "string"
           }

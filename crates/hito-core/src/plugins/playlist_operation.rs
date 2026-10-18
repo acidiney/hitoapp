@@ -16,13 +16,41 @@ pub(crate) struct PlaylistOperation {
     remote: ControlClient,
 }
 
+pub(crate) enum PlaylistOperationFailure {
+    RevisionChanged { expected: i64, current: i64 },
+    Core(Error),
+}
+
+impl From<Error> for PlaylistOperationFailure {
+    fn from(error: Error) -> Self {
+        Self::Core(error)
+    }
+}
+
+impl From<sqlx::Error> for PlaylistOperationFailure {
+    fn from(error: sqlx::Error) -> Self {
+        Self::Core(error.into())
+    }
+}
+
+impl From<PlaylistOperationFailure> for Error {
+    fn from(error: PlaylistOperationFailure) -> Self {
+        match error {
+            PlaylistOperationFailure::RevisionChanged { .. } => {
+                Self::Conflict("This playlist connection changed".into())
+            }
+            PlaylistOperationFailure::Core(error) => error,
+        }
+    }
+}
+
 impl Plugins {
     pub(crate) async fn playlist_operation(
         &self,
         account: &str,
         installation: &str,
         expected_revision: i64,
-    ) -> Result<PlaylistOperation> {
+    ) -> std::result::Result<PlaylistOperation, PlaylistOperationFailure> {
         let row = sqlx::query("SELECT p.revision,p.service_id,p.manifest,p.credential,s.revision AS service_revision,s.base_url
             FROM plugin_installations p JOIN plugin_services s ON s.id = p.service_id AND s.active = 1
             JOIN users account ON account.id = p.user_id
@@ -30,14 +58,17 @@ impl Plugins {
             .bind(installation).bind(account).fetch_optional(&self.store.pool).await?.ok_or(Error::NotFound)?;
         let revision: i64 = row.try_get("revision")?;
         if revision != expected_revision {
-            return Err(Error::Conflict("This playlist connection changed".into()));
+            return Err(PlaylistOperationFailure::RevisionChanged {
+                expected: expected_revision,
+                current: revision,
+            });
         }
         let manifest: Manifest = serde_json::from_str(row.try_get("manifest")?)
             .map_err(|_| Error::Internal("Stored plugin manifest is invalid".into()))?;
         if !manifest.capabilities.contains(&Capability::Playlists) {
-            return Err(Error::Conflict(
-                "This connection is not approved for playlists".into(),
-            ));
+            return Err(
+                Error::Conflict("This connection is not approved for playlists".into()).into(),
+            );
         }
         let service: String = row.try_get("service_id")?;
         let credential: Option<Vec<u8>> = row.try_get("credential")?;

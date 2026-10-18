@@ -23,7 +23,7 @@ pub use authorization::{
 pub(crate) use download::ProviderDownloadOrigin;
 pub(crate) use media::Authority as AudioAuthority;
 pub(crate) use operation::Operation;
-pub(crate) use playlist_operation::PlaylistOperation;
+pub(crate) use playlist_operation::{PlaylistOperation, PlaylistOperationFailure};
 pub(crate) use playlists::PlaylistSnapshot;
 pub(crate) use preparation::{PreparationConnection, PreparationExchange, PreparationOperation};
 pub(crate) use transport::SourceBatch;

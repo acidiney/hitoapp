@@ -30,6 +30,7 @@ impl IntoResponse for Error {
             status,
             Json(ErrorResponse {
                 error: self.0.to_string(),
+                code: None,
             }),
         )
             .into_response();
