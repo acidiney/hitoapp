@@ -3,7 +3,7 @@
 #[path = "support/runtime.rs"]
 mod runtime;
 
-use hito_plugin_sdk::Manifest;
+use hito_plugin_sdk::{Capability, ContentPolicy, Manifest, SourcePersistence};
 use runtime::{Host, PendingRequest};
 use serde_json::{Value, json};
 use std::{
@@ -43,6 +43,25 @@ fn runtime_manifest_rejections_and_joined_shutdown_keep_operator_inputs_private(
         .validate()
         .expect("runtime manifest contract failed");
     assert_eq!(manifest.id, "org.hito.jamendo");
+    assert_eq!(
+        manifest.capabilities,
+        [Capability::Search, Capability::Sources].into()
+    );
+    assert!(manifest.authorization.is_none());
+    for path in ["/v1/download", "/v1/cache"] {
+        for method in ["GET", "POST"] {
+            let (status, _) = host
+                .request(method, path, "")
+                .expect("runtime unsupported persistence request failed");
+            assert_eq!(status, 404);
+        }
+    }
+    assert_eq!(
+        manifest.content_policy,
+        Some(ContentPolicy {
+            source_persistence: SourcePersistence::PlaybackOnly,
+        })
+    );
 
     let invalid_search = json!({
         "query": "private-runtime-search-query", "cursor": null, "limit": 0,
@@ -183,6 +202,7 @@ fn runtime_manifest_rejections_and_joined_shutdown_keep_operator_inputs_private(
         ("search", 400),
         ("detail", 400),
         ("audio", 400),
+        ("unknown", 404),
     ] {
         assert!(
             operations.contains(&expected),

@@ -5,7 +5,10 @@ mod logging;
 
 use crate::{Config, router};
 use fixture::{CLIENT_ID, Provider, Server};
-use hito_plugin_sdk::{Capability, Manifest, ProviderRecording, SearchPage, SourcePage};
+use hito_plugin_sdk::{
+    Capability, ContentPolicy, Manifest, ProviderRecording, SearchPage, SourcePage,
+    SourcePersistence,
+};
 use serde_json::json;
 use std::time::Duration;
 
@@ -30,10 +33,36 @@ async fn search_to_explicit_audio_uses_typed_metadata_without_prefetching_media(
     let manifest: Manifest = response.json().await.expect("invalid manifest JSON");
     manifest.validate().expect("invalid manifest contract");
     assert_eq!(manifest.id, "org.hito.jamendo");
-    assert!(manifest.capabilities.contains(&Capability::Search));
-    assert!(manifest.capabilities.contains(&Capability::Sources));
+    assert_eq!(
+        manifest.capabilities,
+        [Capability::Search, Capability::Sources].into()
+    );
+    assert!(manifest.authorization.is_none());
+    assert_eq!(provider.requests(), 0, "manifest contacted the provider");
     assert_eq!(provider.api_requests(), 0, "manifest contacted Jamendo");
     assert_eq!(provider.media_requests(), 0, "manifest fetched media");
+    for path in ["v1/download", "v1/cache"] {
+        for method in [reqwest::Method::GET, reqwest::Method::POST] {
+            let response = client
+                .request(method, plugin.base.join(path).unwrap())
+                .send()
+                .await
+                .expect("unsupported persistence request failed");
+            assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
+        }
+    }
+    assert_eq!(
+        provider.requests(),
+        0,
+        "unsupported persistence path contacted the provider"
+    );
+    assert_eq!(
+        manifest.content_policy,
+        Some(ContentPolicy {
+            source_persistence: SourcePersistence::PlaybackOnly,
+        })
+    );
 
     let response = client
         .post(plugin.base.join("v1/search").unwrap())
