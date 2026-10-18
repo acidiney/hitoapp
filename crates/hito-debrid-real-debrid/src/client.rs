@@ -22,6 +22,30 @@ impl RealDebridClient {
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn with_test_endpoint(
+        provider_access_token: String,
+        endpoint: reqwest::Url,
+    ) -> Result<Self, Error> {
+        let loopback = endpoint
+            .host_str()
+            .and_then(|host| host.parse::<std::net::IpAddr>().ok())
+            .is_some_and(|address| address.is_loopback());
+        if endpoint.scheme() != "http"
+            || !loopback
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+            || endpoint.path() != "/rest/1.0/"
+        {
+            return Err(Error::Configuration);
+        }
+        Ok(Self {
+            transport: Arc::new(Transport::new(provider_access_token, endpoint)?),
+        })
+    }
+
     pub async fn observe(&self, binding: &TorrentFileBinding) -> Result<TorrentObservation, Error> {
         let started = Instant::now();
         let request_id = Uuid::new_v4();
