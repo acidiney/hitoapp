@@ -37,7 +37,9 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artist_catalog::{
-    ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, ArtistProfileAvailability,
+    ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
+    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistProfileAvailability,
+    ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
     AssociateRecordingArtist, MetadataProvider, MetadataSettings, UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};

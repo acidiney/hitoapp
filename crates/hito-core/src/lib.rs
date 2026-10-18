@@ -17,16 +17,18 @@ mod store;
 mod test_support;
 
 pub use catalog::{
-    AdoptProviderRecording, Artist, ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole,
-    ArtistDetail, ArtistProfileAvailability, Artwork, ArtworkAvailability, ArtworkFetch,
-    ArtworkFetchStatus, AssociateRecordingArtist, AttachReviewedProviderSource, AudioContent,
-    AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog, ChooseSource,
-    MetadataProvider, MetadataSettings, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
-    PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview, Recording, Release,
-    ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
-    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
-    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
-    SourceResolutionOutcome, UpdateMetadataSettings,
+    AdoptProviderRecording, Artist, ArtistAssociation, ArtistAssociationEvidence,
+    ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability, ArtistCreditRole,
+    ArtistDetail, ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
+    ArtistReviewMetadataBinding, Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus,
+    AssociateRecordingArtist, AttachReviewedProviderSource, AudioContent, AudioFile, AudioRequest,
+    AudioStream, Browse, ByteRange, Catalog, ChooseSource, MetadataProvider, MetadataSettings,
+    OpenedAudio, Page, PlaybackCandidates, PlaybackSource, PrepareSource, ProviderCandidate,
+    ProviderSearch, ProviderSourceReview, Recording, Release, ReleaseDetail, ReleaseTrack,
+    ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
+    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    UpdateMetadataSettings,
 };
 pub use collection::{
     Action, Activity, Collection, CollectionPublication, FollowProviderPlaylist, HistoryEntry,

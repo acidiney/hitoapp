@@ -1,11 +1,75 @@
 use super::{Call, ControlClient};
 use crate::{Error, Result};
 use hito_plugin_sdk::{
-    ARTIST_PROFILE_PATH, ArtistProfileRequest, CATALOG_CAPABILITIES_PATH, CatalogArtistProfile,
-    CatalogCapabilities, CatalogOperation, MAX_CATALOG_PROFILE_BYTES,
+    ARTIST_PROFILE_PATH, ARTIST_SEARCH_PATH, ArtistProfileRequest, ArtistSearchPage,
+    ArtistSearchRequest, CATALOG_CAPABILITIES_PATH, CATALOG_DISCOVERY_CAPABILITIES_PATH,
+    CatalogArtistProfile, CatalogCapabilities, CatalogDiscoveryCapabilities,
+    CatalogDiscoveryOperation, CatalogOperation, MAX_ARTIST_SEARCH_PAGE_BYTES,
+    MAX_CATALOG_PROFILE_BYTES,
 };
 
 impl ControlClient {
+    pub(in crate::plugins) async fn catalog_discovery_supported_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+    ) -> Result<bool> {
+        let mut remaining = 4096;
+        let value: Option<serde_json::Value> = self
+            .exchange_optional_admitted(
+                base_url,
+                token,
+                Call {
+                    path: CATALOG_DISCOVERY_CAPABILITIES_PATH,
+                    body: None,
+                    maximum: 4096,
+                },
+                &mut remaining,
+                true,
+            )
+            .await?;
+        let Some(value) = value else {
+            return Ok(false);
+        };
+        let Ok(capabilities) = serde_json::from_value::<CatalogDiscoveryCapabilities>(value) else {
+            return Ok(false);
+        };
+        Ok(capabilities.validate().is_ok()
+            && capabilities
+                .operations
+                .contains(&CatalogDiscoveryOperation::ArtistSearch))
+    }
+
+    pub(in crate::plugins) async fn catalog_artist_search_admitted(
+        &self,
+        base_url: &str,
+        token: Option<&str>,
+        request: &ArtistSearchRequest,
+    ) -> Result<ArtistSearchPage> {
+        request
+            .validate()
+            .map_err(|_| Error::Invalid("Use a valid artist candidate search".into()))?;
+        let body = serde_json::to_value(request).map_err(|_| {
+            Error::Internal("The artist candidate request could not be encoded".into())
+        })?;
+        let mut remaining = MAX_ARTIST_SEARCH_PAGE_BYTES;
+        let page: ArtistSearchPage = self
+            .exchange_admitted(
+                base_url,
+                token,
+                Call {
+                    path: ARTIST_SEARCH_PATH,
+                    body: Some(body),
+                    maximum: MAX_ARTIST_SEARCH_PAGE_BYTES,
+                },
+                &mut remaining,
+            )
+            .await?;
+        page.validate_for(request)
+            .map_err(|_| Error::Upstream("The provider returned invalid artist candidates"))?;
+        Ok(page)
+    }
+
     pub(in crate::plugins) async fn catalog_profile_supported_admitted(
         &self,
         base_url: &str,

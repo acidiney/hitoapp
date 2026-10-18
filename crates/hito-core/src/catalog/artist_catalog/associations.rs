@@ -2,10 +2,9 @@ use super::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, AssociateRecordingArtist,
     MAX_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET,
     authority::{self, Credit},
-    policy,
+    policy, provider,
 };
 use crate::{Actor, Catalog, Error, Result, identity::recording_access};
-use hito_plugin_sdk::ArtistProfileRequest;
 use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
@@ -133,20 +132,7 @@ impl Catalog {
         request: AssociateRecordingArtist,
     ) -> Result<ArtistAssociation> {
         actor.check_session(&self.store).await?;
-        request.provider.validate()?;
-        if request.provider_artist_id.len() > 256 {
-            return Err(Error::Invalid(
-                "Use a valid provider artist identifier".into(),
-            ));
-        }
-        ArtistProfileRequest {
-            artist_id: request.provider_artist_id.clone(),
-        }
-        .validate()
-        .map_err(|_| Error::Invalid("Use a valid provider artist identifier".into()))?;
-        if matches!(request.provider, MetadataProvider::BuiltinMusicBrainz) {
-            super::provider::validate_builtin_id(&request.provider_artist_id)?;
-        }
+        provider::validate_artist_id(&request.provider, &request.provider_artist_id)?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let credit = Credit::capture(&mut tx, actor, recording).await?;
         if credit.artist_id != request.artist_id
@@ -162,45 +148,60 @@ impl Catalog {
             return Err(policy::changed());
         }
         policy::approved(&mut tx, actor, &request.provider).await?;
-        let (kind, installation) = authority::provider_columns(&request.provider);
-        let existing: Option<String> = sqlx::query_scalar(
-            "SELECT id FROM recording_artist_associations
-            WHERE user_id=? AND recording_id=? AND artist_id=? AND source_id IS ? AND observation_id=?
-                AND provider_kind=? AND plugin_installation_id IS ? AND provider_artist_id=?",
-        )
-        .bind(actor.id())
-        .bind(recording)
-        .bind(&request.artist_id)
-        .bind(&request.source_id)
-        .bind(&request.observation_id)
-        .bind(kind)
-        .bind(installation)
-        .bind(&request.provider_artist_id)
-        .fetch_optional(&mut *tx)
-        .await?;
-        let id = if let Some(existing) = existing {
-            existing
-        } else {
-            let count: i64 = sqlx::query_scalar("SELECT count(*) FROM recording_artist_associations WHERE user_id=? AND recording_id=?")
-                .bind(actor.id()).bind(recording).fetch_one(&mut *tx).await?;
-            if count >= MAX_ASSOCIATIONS {
-                return Err(Error::Conflict(
-                    "This recording already has 32 retained artist associations".into(),
-                ));
-            }
-            let id = Uuid::new_v4().to_string();
-            sqlx::query("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,
-                source_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence)
-                VALUES (?,?,?,?,?,?,?,'recording_artist',?,?,?,'user_confirmed')")
-                .bind(&id).bind(actor.id()).bind(&credit.library_id).bind(recording).bind(&request.artist_id)
-                .bind(&request.source_id).bind(&request.observation_id).bind(kind).bind(installation)
-                .bind(&request.provider_artist_id).execute(&mut *tx).await?;
-            id
-        };
-        let association = load(&mut tx, actor, recording, &id).await?;
+        let association = retain(&mut tx, actor, recording, &credit.library_id, &request).await?;
         tx.commit().await?;
         Ok(association)
     }
+}
+
+pub(super) async fn retain(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    library: &str,
+    request: &AssociateRecordingArtist,
+) -> Result<ArtistAssociation> {
+    let (kind, installation) = authority::provider_columns(&request.provider);
+    let existing: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM recording_artist_associations
+            WHERE user_id=? AND recording_id=? AND artist_id=? AND source_id IS ? AND observation_id=?
+                AND provider_kind=? AND plugin_installation_id IS ? AND provider_artist_id=?",
+    )
+    .bind(actor.id())
+    .bind(recording)
+    .bind(&request.artist_id)
+    .bind(&request.source_id)
+    .bind(&request.observation_id)
+    .bind(kind)
+    .bind(installation)
+    .bind(&request.provider_artist_id)
+    .fetch_optional(&mut *connection)
+    .await?;
+    let id = if let Some(existing) = existing {
+        existing
+    } else {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM recording_artist_associations WHERE user_id=? AND recording_id=?",
+        )
+        .bind(actor.id())
+        .bind(recording)
+        .fetch_one(&mut *connection)
+        .await?;
+        if count >= MAX_ASSOCIATIONS {
+            return Err(Error::Conflict(
+                "This recording already has 32 retained artist associations".into(),
+            ));
+        }
+        let id = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,
+                source_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence)
+                VALUES (?,?,?,?,?,?,?,'recording_artist',?,?,?,'user_confirmed')")
+            .bind(&id).bind(actor.id()).bind(library).bind(recording).bind(&request.artist_id)
+            .bind(&request.source_id).bind(&request.observation_id).bind(kind).bind(installation)
+            .bind(&request.provider_artist_id).execute(&mut *connection).await?;
+        id
+    };
+    load(connection, actor, recording, &id).await
 }
 
 pub(super) async fn load(

@@ -1,12 +1,18 @@
 mod associations;
 mod authority;
+mod confirmation;
+mod discovery;
 mod policy;
+mod preview;
 mod profile;
 mod provider;
+mod review;
 mod types;
 
 pub use types::{
-    ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, ArtistProfileAvailability,
+    ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
+    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistProfileAvailability,
+    ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
     AssociateRecordingArtist, MetadataProvider, MetadataSettings, UpdateMetadataSettings,
 };
 

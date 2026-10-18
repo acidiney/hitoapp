@@ -89,6 +89,40 @@ impl Plugins {
     }
 }
 impl Operation {
+    pub(crate) fn catalog_installation_revision(&self) -> i64 {
+        self.installation_revision
+    }
+
+    pub(crate) async fn catalog_discovery_supported(&self) -> Result<bool> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_discovery_supported_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
+    pub(crate) async fn catalog_artist_search(
+        &self,
+        request: &hito_plugin_sdk::ArtistSearchRequest,
+    ) -> Result<hito_plugin_sdk::ArtistSearchPage> {
+        self.check_catalog().await?;
+        let result = self
+            .remote
+            .catalog_artist_search_admitted(
+                &self.base_url,
+                self.token.as_deref().map(String::as_str),
+                request,
+            )
+            .await;
+        self.check_catalog().await?;
+        result
+    }
+
     pub(crate) async fn catalog_profile_supported(&self) -> Result<bool> {
         self.check_catalog().await?;
         let result = self

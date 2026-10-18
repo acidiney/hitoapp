@@ -1,17 +1,20 @@
-use super::{ArtistAssociation, MetadataProvider, policy};
+use super::{
+    ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider, policy,
+};
 use crate::{Actor, Error, Result};
 use sqlx::SqliteConnection;
 
 #[derive(PartialEq, Eq, sqlx::FromRow)]
 pub(super) struct Credit {
     pub library_id: String,
-    access_grant: String,
+    pub access_grant: String,
     pub artist_id: String,
+    pub credited_name: String,
     pub source_id: Option<String>,
     pub observation_id: String,
-    credit_operation: Option<String>,
-    metadata_binding_id: Option<String>,
-    metadata_binding_revision: Option<i64>,
+    pub credit_operation: Option<String>,
+    pub metadata_binding_id: Option<String>,
+    pub metadata_binding_revision: Option<i64>,
 }
 
 impl Credit {
@@ -21,7 +24,7 @@ impl Credit {
         recording: &str,
     ) -> Result<Self> {
         actor.check_session_on(connection).await?;
-        sqlx::query_as("SELECT r.library_id,access.id AS access_grant,credit.artist_id,
+        sqlx::query_as("SELECT r.library_id,access.id AS access_grant,credit.artist_id,artist.name AS credited_name,
             observation.source_id,observation.id AS observation_id,personal.artist_operation_id AS credit_operation,
             CASE WHEN observation.source_id IS NULL THEN primary_binding.id END AS metadata_binding_id,
             CASE WHEN observation.source_id IS NULL THEN primary_binding.revision END AS metadata_binding_revision
@@ -29,6 +32,7 @@ impl Credit {
             JOIN libraries library ON library.id=r.library_id
             JOIN library_access_grants access ON access.library_id=r.library_id AND access.user_id=?
             JOIN account_recording_credits credit ON credit.recording_id=r.id AND credit.user_id=access.user_id
+            JOIN account_artists artist ON artist.user_id=credit.user_id AND artist.id=credit.artist_id AND artist.library_id=r.library_id
             JOIN metadata_observations observation ON observation.id=r.metadata_observation_id
                 AND observation.recording_id=r.id
             LEFT JOIN sources source ON source.id=observation.source_id AND source.recording_id=r.id
@@ -54,6 +58,39 @@ impl Credit {
             && self.artist_id == association.artist_id
             && self.source_id == association.source_id
             && self.observation_id == association.observation_id
+    }
+
+    pub(super) fn matches_review(&self, context: &ArtistReviewContext) -> bool {
+        self.library_id == context.library_id
+            && self.artist_id == context.artist_id
+            && self.credited_name == context.credited_name
+            && self.source_id == context.source_id
+            && self.observation_id == context.observation_id
+            && self.access_grant == context.access_grant_id
+            && self.credit_operation == context.artist_operation_id
+            && self.metadata_binding_id.as_deref()
+                == context
+                    .metadata_binding
+                    .as_ref()
+                    .map(|binding| binding.id.as_str())
+            && self.metadata_binding_revision
+                == context
+                    .metadata_binding
+                    .as_ref()
+                    .map(|binding| binding.revision)
+    }
+
+    pub(super) fn review_binding(&self) -> Result<Option<ArtistReviewMetadataBinding>> {
+        match (&self.metadata_binding_id, self.metadata_binding_revision) {
+            (None, None) => Ok(None),
+            (Some(id), Some(revision)) => Ok(Some(ArtistReviewMetadataBinding {
+                id: id.clone(),
+                revision,
+            })),
+            _ => Err(Error::Internal(
+                "The recording metadata binding is invalid".into(),
+            )),
+        }
     }
 
     pub(super) async fn recheck(

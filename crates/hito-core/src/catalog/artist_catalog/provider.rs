@@ -1,7 +1,9 @@
-use super::MetadataProvider;
+use super::{ArtistReviewConnection, MetadataProvider};
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_metadata_musicbrainz::MusicBrainzClient;
-use hito_plugin_sdk::{ArtistProfileRequest, Capability, CatalogArtistProfile};
+use hito_plugin_sdk::{
+    ArtistProfileRequest, ArtistSearchPage, ArtistSearchRequest, Capability, CatalogArtistProfile,
+};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
@@ -11,6 +13,17 @@ pub(super) enum Connection {
 }
 
 impl Connection {
+    pub(super) fn review_connection(&self) -> Option<ArtistReviewConnection> {
+        match self {
+            Self::Builtin(_) => None,
+            Self::Http(operation) => Some(ArtistReviewConnection {
+                installation_revision: operation.catalog_installation_revision(),
+                service_id: operation.service.clone(),
+                service_revision: operation.service_revision,
+            }),
+        }
+    }
+
     pub(super) async fn open(
         catalog: &Catalog,
         actor: &Actor,
@@ -42,6 +55,32 @@ impl Connection {
         }
     }
 
+    pub(super) async fn discovery_supported(&self) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(true),
+            Self::Http(operation) => operation.catalog_discovery_supported().await,
+        }
+    }
+
+    pub(super) async fn search(&self, request: &ArtistSearchRequest) -> Result<ArtistSearchPage> {
+        match self {
+            Self::Builtin(client) => client
+                .artist_search(ArtistSearchRequest {
+                    query: request.query.clone(),
+                    cursor: request.cursor.clone(),
+                    snapshot: request.snapshot.clone(),
+                    limit: request.limit,
+                })
+                .await
+                .map_err(|_| {
+                    Error::Upstream(
+                        "The metadata provider could not return valid artist candidates",
+                    )
+                }),
+            Self::Http(operation) => operation.catalog_artist_search(request).await,
+        }
+    }
+
     pub(super) async fn profile(
         &self,
         request: &ArtistProfileRequest,
@@ -70,6 +109,24 @@ impl Connection {
             Self::Http(operation) => operation.recheck(connection).await,
         }
     }
+}
+
+pub(super) fn validate_artist_id(provider: &MetadataProvider, value: &str) -> Result<()> {
+    provider.validate()?;
+    if value.len() > 256 {
+        return Err(Error::Invalid(
+            "Use a valid provider artist identifier".into(),
+        ));
+    }
+    ArtistProfileRequest {
+        artist_id: value.into(),
+    }
+    .validate()
+    .map_err(|_| Error::Invalid("Use a valid provider artist identifier".into()))?;
+    if matches!(provider, MetadataProvider::BuiltinMusicBrainz) {
+        validate_builtin_id(value)?;
+    }
+    Ok(())
 }
 
 pub(super) fn validate_builtin_id(value: &str) -> Result<()> {
