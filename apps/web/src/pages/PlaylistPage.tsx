@@ -7,9 +7,11 @@ import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
 import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
 import PlaylistFollowResume from "../components/playlists/PlaylistFollowResume";
+import PlaylistMetadataRefresh from "../components/playlists/PlaylistMetadataRefresh";
 import PlaylistDownload from "../components/downloads/PlaylistDownload";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
+import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
 
 export default function PlaylistPage({
   user,
@@ -19,6 +21,12 @@ export default function PlaylistPage({
 }: PlaylistPageProps) {
   const { mutate, pending } = useMutation(user.id);
   const followed = detail.playlist.kind === "followed";
+  const copied = detail.playlist.kind === "local" && detail.origin != null;
+  const metadata = usePlaylistMetadataRefresh(
+    user.id,
+    copied ? detail.playlist.id : null,
+    copied ? detail.origin : null,
+  );
   const follow = usePlaylistFollow(
     user.id,
     followed ? detail.playlist.id : null,
@@ -96,6 +104,7 @@ export default function PlaylistPage({
         local={native_playback}
       />
       {followed && <PlaylistFollowStatus {...follow} />}
+      {copied && <PlaylistMetadataRefresh {...metadata} />}
       {followed && detail.origin && (
         <PlaylistFollowResume
           {...resume}
