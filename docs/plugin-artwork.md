@@ -1,6 +1,6 @@
 # Provider artwork in development
 
-Hito can retain provider covers in its private SQLite library. The server worker and shared web UI can retrieve missing recording covers, including recordings already present in independent playlist copies. The verified image is deployed in the normal installation on migration 0027. The upgrade passed stopped-backup, clone-restoration, data-preservation and runtime checks. Existing connections retain their approved capabilities; each listener must review an added artwork capability before it can be used.
+Hito can retain provider covers in its private SQLite library. The server worker and shared web UI can retrieve missing recording covers, including recordings already present in independent playlist copies. The initial recording-cover deployment on migration 0027 passed stopped-backup, clone-restoration, data-preservation and runtime checks. Existing connections retain their approved capabilities; each listener must review an added artwork capability before it can be used.
 
 The plugin SDK declares an `artwork` capability and a typed `POST /v1/artwork` request containing an entity kind and provider identifier. Plugins return PNG or JPEG bytes. They do not return a browser URL or supply UI components. The reference Spotify implementation supports recording, release, and playlist requests without Spotify account authorization.
 
@@ -49,9 +49,15 @@ The shared account-scoped UI checks missing recording covers through `GET /api/v
 
 Duplicate occurrences and different components share one retrieval for each recording. The browser admits two HTTP requests at a time, including response decoding, and at most 16 workflows. Its cache and waiting queue share a 128-entry bound. Status polling runs every second for at most two minutes. Terminal failures require the track-details Retry artwork action. Navigation and account changes cancel observers and suppress late responses; physical request slots stay occupied until their promises settle.
 
-A newly approved artwork capability can require a reload to clear a previously cached unavailable result. More than 128 simultaneous missing covers can leave placeholders until remount or an explicit retry. Large-library visibility and paging behavior still need release-load verification.
+After an explicit artwork-capability approval is acknowledged, the UI clears that account's completed unavailable checks. Visible observers retry through the existing bounded workflow; other covers wait until viewed. Reviewing changes alone does not enable artwork. Ready covers, active jobs and terminal failures retain their state. This fix is integrated in source and awaits the next normal installation upgrade; the earlier deployed UI can require a reload after approval.
+
+More than 128 simultaneous missing covers can leave placeholders until remount or an explicit retry. Large-library visibility and paging behavior still need release-load verification.
 
 ## Verified evidence and remaining work
+
+The approval-cache change passed 244 frontend cases across 78 files, both TypeScript checks and the production build. A held acknowledgement/account-switch regression verifies that an old account cannot retry another account's missing cover. Two independent source/test reviews found no concrete defect. The packaged Chromium workflow passed in 6.1 seconds with a document token proving uninterrupted SPA navigation through approval and return to the playlist. It decoded the covers, preserved saved state, retained them after provider removal and rejected another account's reads. Download mutations remained zero. A scoped scan of 4,615 isolated server-log records found none of the checked fixture credentials or metadata. This does not establish physical Safari, native or release-load acceptance.
+
+The browser check also exposed two older test assumptions. An unchanged baseline reproduced both: Play is enabled for known unavailable recordings so an explicit click can resolve audio, and an absent playlist-download status returns 404. The test now expects enabled controls and permits only exact owned download-status GET URLs, preserving separate artwork errors and console correlation. It does not explicitly reject an otherwise successful source-resolution request without audio; that remains a coverage limitation.
 
 Public core cases cover private retention across independent copies and restart, unchanged collection state, logout and provider removal during held image bodies, joined shutdown, corrupt PNGs, incomplete JPEGs, retained-receipt cleanup, unrelated writer contention, idle polling under a held writer, and interactive searches and local covers during four background downloads. A real TCP host test verifies automatic worker retrieval, retained bytes, idempotent retry, account isolation and joined shutdown. The read-only eligibility endpoint has a separate account/session and no-side-effect HTTP regression.
 
