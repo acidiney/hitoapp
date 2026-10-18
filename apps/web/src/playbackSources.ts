@@ -23,7 +23,13 @@ export class PlaybackSources {
   constructor(
     private recording: string,
     private resolve: SourceResolver,
-  ) {}
+    seed?: Source,
+  ) {
+    if (seed?.ready) {
+      this.loaded = true;
+      this.candidates = [{ ...seed }];
+    }
+  }
 
   async next(): Promise<Source | undefined> {
     if (this.controller.signal.aborted) return;
@@ -60,6 +66,17 @@ export class PlaybackSources {
       if (source) this.attempted.add(source.id);
       return source;
     }
+  }
+
+  async revalidate(source?: string): Promise<boolean> {
+    if (this.controller.signal.aborted) return false;
+    await this.load({ purpose: "cached" });
+    if (this.controller.signal.aborted) return false;
+    const retained = source !== undefined && this.candidates[0]?.id === source;
+    this.candidates = this.candidates.filter(
+      (candidate) => !this.attempted.has(candidate.id),
+    );
+    return retained;
   }
 
   private async findSource() {

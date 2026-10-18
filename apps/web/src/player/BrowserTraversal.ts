@@ -45,9 +45,28 @@ export class BrowserTraversal {
   ) {
     const entry = entries[current];
     if (!entry) return null;
-    if (reason === "completed" && repeat === "one") return current;
     if (reason === "failed") this.failed.add(entry);
     if (reason === "requested") this.resetFailures();
+    return this.successor(entries, current, repeat, reason === "completed");
+  }
+
+  completed(
+    entries: readonly string[],
+    current: number,
+    repeat: PlaybackView["repeat"],
+  ) {
+    return this.successor(entries, current, repeat, true);
+  }
+
+  private successor(
+    entries: readonly string[],
+    current: number,
+    repeat: PlaybackView["repeat"],
+    completed: boolean,
+  ) {
+    const entry = entries[current];
+    if (!entry) return null;
+    if (completed && repeat === "one") return current;
     const order = this.order ?? entries;
     const index = this.order ? this.shufflePositions.get(entry) : current;
     if (index === undefined) return null;

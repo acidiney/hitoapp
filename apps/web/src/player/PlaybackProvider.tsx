@@ -8,7 +8,7 @@ import {
 import { change, libraryApi } from "../api";
 import { errorMessage } from "../format";
 import { useNotice } from "../components/Notices";
-import { Playback } from "../playback";
+import { Playback, type MediaPort } from "../playback";
 import type { Player } from "./model";
 import { log } from "../log";
 import { useRequestScope } from "../hooks/useRequestScope";
@@ -46,8 +46,9 @@ function BrowserAccountPlayback({
 }) {
   const notice = useNotice();
   const scope = useRequestScope(account);
-  const [{ audio, player }] = useState(() => {
+  const [{ audio, media, player }] = useState(() => {
     const audio = new Audio();
+    const media = new Map<MediaPort, HTMLAudioElement>([[audio, audio]]);
     const player = new Playback(
       audio,
       async (recording, options) => {
@@ -79,20 +80,45 @@ function BrowserAccountPlayback({
           if (request.active()) notice(errorMessage(error));
         });
       },
+      {
+        create: () => {
+          const next = new Audio();
+          next.preload = "auto";
+          next.dataset.hitoPreload = "";
+          media.set(next, next);
+          document.body.append(next);
+          return next;
+        },
+        activate: (current) => {
+          for (const element of media.values())
+            element.removeAttribute("data-hito-player");
+          const element = media.get(current);
+          if (element) {
+            element.removeAttribute("data-hito-preload");
+            element.dataset.hitoPlayer = "";
+          }
+        },
+        release: (current) => {
+          media.get(current)?.remove();
+          media.delete(current);
+        },
+      },
     );
-    return { audio, player };
+    return { audio, media, player };
   });
   useEffect(() => {
     log.info("playback.account_opened", { account_id: account });
+    media.set(audio, audio);
     audio.dataset.hitoPlayer = "";
     audio.preload = "auto";
     document.body.append(audio);
     return () => {
       log.info("playback.account_closed", { account_id: account });
       player.clear();
-      audio.remove();
+      for (const element of media.values()) element.remove();
+      media.clear();
     };
-  }, [account, audio, player]);
+  }, [account, audio, media, player]);
   return (
     <PlaybackContext.Provider value={player}>
       {children}

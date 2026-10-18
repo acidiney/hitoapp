@@ -8,8 +8,16 @@ import type {
 } from "./player/model";
 export type { Track } from "./player/model";
 import { log } from "./log";
-import { PlaybackSources, type SourceResolver } from "./playbackSources";
+import {
+  PlaybackSources,
+  type Source,
+  type SourceResolver,
+} from "./playbackSources";
 import { BrowserTraversal } from "./player/BrowserTraversal";
+import {
+  BrowserPreparation,
+  type BrowserMediaOwner,
+} from "./player/BrowserPreparation";
 export type { Source } from "./playbackSources";
 
 export interface MediaPort extends EventTarget {
@@ -20,6 +28,7 @@ export interface MediaPort extends EventTarget {
   defaultPlaybackRate: number;
   volume: number;
   paused: boolean;
+  ended?: boolean;
   play(): Promise<void>;
   pause(): void;
   load(): void;
@@ -72,7 +81,11 @@ export class Playback implements Player {
   private sourceAttempt = 0;
   private lastSavedPosition = 0;
   private pendingSeek: number | null = null;
-  private activeSource = false;
+  private activeSource: Source | null = null;
+  private lookahead: BrowserPreparation | null = null;
+  private openingPreparation: BrowserPreparation | null = null;
+  private lookaheadRevision = 0;
+  private stopListening: () => void = () => {};
 
   constructor(
     private media: MediaPort,
@@ -82,8 +95,26 @@ export class Playback implements Player {
       position: number,
       speed: number,
     ) => void,
+    private mediaOwner?: BrowserMediaOwner,
   ) {
-    media.addEventListener("loadedmetadata", () => {
+    this.listenMedia();
+  }
+
+  private listenMedia() {
+    const media = this.media;
+    const listeners: [string, EventListener][] = [];
+    const listen = (event: string, action: () => void) => {
+      const listener = () => {
+        if (this.media === media) action();
+      };
+      media.addEventListener(event, listener);
+      listeners.push([event, listener]);
+    };
+    this.stopListening = () => {
+      for (const [event, listener] of listeners)
+        media.removeEventListener(event, listener);
+    };
+    listen("loadedmetadata", () => {
       log.debug("playback.metadata", { recording_id: this.state.current?.id });
       this.update({
         duration: Number.isFinite(media.duration) ? media.duration : 0,
@@ -94,32 +125,81 @@ export class Playback implements Player {
         this.seek(position);
       }
     });
-    media.addEventListener("timeupdate", () => {
-      if (this.activeSource && !media.paused && media.currentTime > 0)
+    listen("timeupdate", () => {
+      if (this.activeSource && !media.paused && media.currentTime > 0) {
         this.traversal.resetFailures();
+        this.prepareNext();
+      }
       this.update({ position: media.currentTime });
       if (Math.abs(media.currentTime - this.lastSavedPosition) >= 10)
         this.persist();
     });
-    media.addEventListener("play", () => {
+    listen("play", () => {
       log.info("playback.started", { recording_id: this.state.current?.id });
       this.update({ playing: true, loading: false });
+      this.prepareNext();
     });
-    media.addEventListener("pause", () => {
+    listen("pause", () => {
       log.debug("playback.paused", { recording_id: this.state.current?.id });
       this.persist();
       this.update({ playing: false });
+      if (!media.ended) this.cancelLookahead();
     });
-    media.addEventListener("error", () => {
+    listen("error", () => {
       log.warn("playback.media_failed", {
         recording_id: this.state.current?.id,
       });
       if (this.activeSource) void this.recover();
     });
-    media.addEventListener("ended", () => {
+    listen("ended", () => {
       log.info("playback.ended", { recording_id: this.state.current?.id });
       void this.next(true);
     });
+  }
+
+  private cancelLookahead() {
+    this.lookaheadRevision++;
+    this.lookahead?.close();
+    this.lookahead = null;
+  }
+
+  private prepareNext() {
+    if (!this.mediaOwner || !this.state.playing || !this.activeSource) return;
+    const index = this.traversal.completed(
+      this.entryIds,
+      this.state.index,
+      this.state.repeat,
+    );
+    const entry = index === null ? undefined : this.entryIds[index];
+    const recording = index === null ? undefined : this.state.queue[index];
+    if (!entry || !recording) {
+      this.cancelLookahead();
+      return;
+    }
+    const target = this.lookahead?.target;
+    if (
+      target?.entry === entry &&
+      target.recording === recording.id &&
+      target.generation === this.generation &&
+      target.revision === this.lookaheadRevision
+    )
+      return;
+    const seed =
+      recording.id === this.state.current?.id && this.activeSource.ready
+        ? { ...this.activeSource }
+        : undefined;
+    this.cancelLookahead();
+    this.lookahead = new BrowserPreparation(
+      {
+        generation: this.generation,
+        revision: this.lookaheadRevision,
+        entry,
+        recording: recording.id,
+      },
+      this.resolve,
+      this.mediaOwner,
+      seed,
+    );
   }
 
   private persist() {
@@ -241,6 +321,7 @@ export class Playback implements Player {
 
   async playQueue(queue: Track[], index = 0, start?: PlaybackStart) {
     const position = start?.position ?? 0;
+    this.cancelLookahead();
     this.entryIds = queue.map(() => createUuid());
     this.traversal.reset(this.entryIds, this.entryIds[index]);
     log.info("queue.play", {
@@ -269,15 +350,28 @@ export class Playback implements Player {
     this.selection++;
     this.persist();
     this.lastSavedPosition = 0;
-    const generation = ++this.generation;
     const current = this.state.queue[index];
+    const candidate = this.lookahead;
+    const prepared =
+      candidate &&
+      candidate.target.entry === this.entryIds[index] &&
+      candidate.target.recording === current?.id &&
+      candidate.target.generation === this.generation &&
+      candidate.target.revision === this.lookaheadRevision
+        ? candidate
+        : null;
+    if (prepared) this.lookahead = null;
+    this.cancelLookahead();
+    this.openingPreparation?.close();
+    this.openingPreparation = prepared;
+    const generation = ++this.generation;
     log.info("playback.resolving", { recording_id: current?.id, index });
     this.sources?.close();
-    this.sources = current
-      ? new PlaybackSources(current.id, this.resolve)
-      : null;
+    this.sources =
+      prepared?.sources ??
+      (current ? new PlaybackSources(current.id, this.resolve) : null);
     this.media.pause();
-    this.activeSource = false;
+    this.activeSource = null;
     this.media.removeAttribute("src");
     this.media.load();
     this.pendingSeek = position;
@@ -294,6 +388,48 @@ export class Playback implements Player {
       return;
     }
     try {
+      if (prepared) {
+        const buffered = await prepared.read();
+        if (
+          generation !== this.generation ||
+          this.openingPreparation !== prepared
+        ) {
+          prepared.close();
+          return;
+        }
+        this.openingPreparation = null;
+        if (buffered && prepared.transfer()) {
+          if (buffered.media && buffered.source) {
+            const previous = this.media;
+            this.stopListening();
+            this.media = buffered.media;
+            this.listenMedia();
+            this.mediaOwner?.activate(this.media);
+            this.mediaOwner?.release(previous);
+            this.media.volume = this.state.volume;
+            this.media.defaultPlaybackRate = this.state.speed;
+            this.media.playbackRate = this.state.speed;
+            this.activeSource = { ...buffered.source };
+            this.update({
+              duration: Number.isFinite(this.media.duration)
+                ? this.media.duration
+                : (current.duration_ms ?? 0) / 1000,
+            });
+            const seek = this.pendingSeek ?? position;
+            if (seek > 0) {
+              this.seek(seek);
+              if (!this.activeSource) return;
+            } else this.pendingSeek = null;
+            log.debug("playback.next_preparation_adopted", {
+              recording_id: current.id,
+              operation_id: prepared.id,
+              source_id: buffered.source.id,
+            });
+            await this.playSource(generation, ++this.sourceAttempt);
+            return;
+          }
+        } else this.sources = new PlaybackSources(current.id, this.resolve);
+      }
       await this.useNextSource(position);
     } catch {
       log.warn("playback.resolution_failed", { recording_id: current.id });
@@ -317,7 +453,7 @@ export class Playback implements Player {
       return;
     }
     this.pendingSeek ??= position;
-    this.activeSource = true;
+    this.activeSource = { ...source };
     log.info("playback.source_changed", {
       recording_id: this.state.current?.id,
       source_id: source.id,
@@ -325,6 +461,10 @@ export class Playback implements Player {
     });
     this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
     this.media.load();
+    await this.playSource(generation, attempt);
+  }
+
+  private async playSource(generation: number, attempt: number) {
     try {
       await this.media.play();
     } catch (error) {
@@ -340,7 +480,7 @@ export class Playback implements Player {
     if (!this.activeSource) return;
     const generation = this.generation;
     const sources = this.sources;
-    this.activeSource = false;
+    this.activeSource = null;
     const position = this.pendingSeek ?? this.media.currentTime;
     this.pendingSeek = position;
     this.media.pause();
@@ -434,6 +574,7 @@ export class Playback implements Player {
   }
   repeat() {
     log.info("queue.repeat", { mode: this.state.repeat });
+    this.cancelLookahead();
     this.update({
       repeat:
         this.state.repeat === "off"
@@ -442,15 +583,18 @@ export class Playback implements Player {
             ? "one"
             : "off",
     });
+    this.prepareNext();
   }
   shuffle() {
     log.info("queue.shuffle", { enabled: !this.state.shuffle });
+    this.cancelLookahead();
     this.update({
       shuffle: this.traversal.toggle(
         this.entryIds,
         this.entryIds[this.state.index],
       ),
     });
+    this.prepareNext();
   }
   async previous() {
     this.selection++;
@@ -474,6 +618,7 @@ export class Playback implements Player {
   }
   remove(index: number) {
     log.info("queue.remove", { index });
+    this.cancelLookahead();
     const next =
       index === this.state.index
         ? this.traversal.next(
@@ -502,8 +647,12 @@ export class Playback implements Player {
         index:
           index < this.state.index ? this.state.index - 1 : this.state.index,
       });
+    this.prepareNext();
   }
   clear() {
+    this.cancelLookahead();
+    this.openingPreparation?.close();
+    this.openingPreparation = null;
     this.entryIds = [];
     this.traversal.reset(this.entryIds);
     this.selection++;
@@ -512,7 +661,7 @@ export class Playback implements Player {
     this.sources?.close();
     this.sources = null;
     this.media.pause();
-    this.activeSource = false;
+    this.activeSource = null;
     this.media.removeAttribute("src");
     this.media.load();
     this.update({
