@@ -10,11 +10,11 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 pub(crate) struct Media {
     slots: Arc<Semaphore>,
     dns: Option<Arc<Dns>>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     tls: Option<TestTls>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 struct TestTls {
     certificate: reqwest::Certificate,
     address: std::net::SocketAddr,
@@ -26,7 +26,7 @@ impl Media {
         Self {
             slots: Arc::new(Semaphore::new(2)),
             dns: Some(dns),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             tls: None,
         }
     }
@@ -40,7 +40,7 @@ impl Media {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn with_test_tls(
         ca_der: &[u8],
         host: &str,
@@ -52,7 +52,7 @@ impl Media {
         Self::test_tls(ca_der, "media.hito-fixture.invalid", address, None)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn test_tls(
         ca_der: &[u8],
         host: &'static str,
@@ -130,7 +130,7 @@ impl Media {
                 host.to_owned(),
                 addresses.clone(),
             )));
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         let builder = match &self.tls {
             Some(tls) => builder.tls_certs_only([tls.certificate.clone()]),
             None => builder,
@@ -161,7 +161,7 @@ impl Media {
     }
 
     async fn addresses(&self, host: &str) -> Result<Vec<std::net::SocketAddr>, Error> {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(tls) = &self.tls {
             if host != tls.host {
                 return Err(Error::MediaDestination);
@@ -176,7 +176,7 @@ impl Media {
             .await
             .map_err(network_error)?;
         let addresses = network::public_addresses(resolved).map_err(network_error)?;
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(tls) = &self.tls {
             return Ok(vec![tls.address]);
         }

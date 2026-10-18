@@ -30,7 +30,7 @@ pub(crate) enum BoundTorrent {
 }
 
 impl TorrentFileBinding {
-    pub(crate) fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), Error> {
         if !bounded_text(&self.torrent_id, 256)
             || matches!(self.torrent_id.as_str(), "." | "..")
             || self.info_hash.len() != 40

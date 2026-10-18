@@ -64,7 +64,7 @@ impl RealDebridClient {
         })
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn with_test_tls(
         provider_access_token: String,
         ca_der: &[u8],

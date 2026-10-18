@@ -12,5 +12,9 @@ pub use error::Error;
 pub use torrent::{TorrentFileBinding, TorrentObservation, TorrentPhase};
 pub use unrestriction::UnrestrictionReceipt;
 
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub mod test_support;
+
 #[cfg(test)]
 mod tests;

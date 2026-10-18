@@ -21,11 +21,11 @@ pub(crate) struct Transport {
     dns: Option<Arc<Dns>>,
     slots: Arc<Semaphore>,
     next_start: Mutex<Option<Instant>>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     tls: Option<TestTls>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 struct TestTls {
     certificate: reqwest::Certificate,
     address: SocketAddr,
@@ -55,7 +55,7 @@ impl Transport {
         ))
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn with_test_tls(
         provider_access_token: String,
         endpoint: reqwest::Url,
@@ -108,7 +108,7 @@ impl Transport {
             dns,
             slots: Arc::new(Semaphore::new(2)),
             next_start: Mutex::new(None),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             tls: None,
         }
     }
@@ -215,7 +215,7 @@ impl Transport {
                 API_HOST.into(),
                 addresses.clone(),
             )));
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         let builder = match &self.tls {
             Some(tls) => builder.tls_certs_only([tls.certificate.clone()]),
             None => builder,
@@ -225,7 +225,7 @@ impl Transport {
     }
 
     async fn addresses(&self) -> Result<Vec<SocketAddr>, Error> {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(tls) = &self.tls
             && self.dns.is_none()
         {
@@ -251,7 +251,7 @@ impl Transport {
             .await
             .map_err(network_error)?;
         let addresses = network::public_addresses(resolved).map_err(network_error)?;
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(tls) = &self.tls {
             return Ok(vec![tls.address]);
         }
