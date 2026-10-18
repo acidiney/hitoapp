@@ -1221,6 +1221,32 @@ export interface components {
             /** Format: uuid */
             playlist_id: string;
         } | {
+            /** @enum {string} */
+            kind: "audiobook_create";
+            /** Format: uuid */
+            playlist_id: string;
+        } | {
+            /** Format: uuid */
+            audiobook_id: string;
+            /** Format: uuid */
+            bookmark_id: string;
+            /** Format: uuid */
+            entry_id: string;
+            /** @enum {string} */
+            kind: "audiobook_bookmark_create";
+            label: string;
+            /** Format: int64 */
+            position_ms: number;
+            /** Format: uuid */
+            recording_id: string;
+        } | {
+            /** Format: uuid */
+            audiobook_id: string;
+            /** Format: uuid */
+            bookmark_id: string;
+            /** @enum {string} */
+            kind: "audiobook_bookmark_remove";
+        } | {
             /** Format: int64 */
             expected_generation: number;
             /** Format: int64 */

@@ -7567,6 +7567,92 @@
             "type": "object",
             "required": [
               "playlist_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "audiobook_create"
+                ]
+              },
+              "playlist_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "audiobook_id",
+              "bookmark_id",
+              "entry_id",
+              "recording_id",
+              "position_ms",
+              "label",
+              "kind"
+            ],
+            "properties": {
+              "audiobook_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "bookmark_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "entry_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "audiobook_bookmark_create"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "position_ms": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "recording_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "audiobook_id",
+              "bookmark_id",
+              "kind"
+            ],
+            "properties": {
+              "audiobook_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "bookmark_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "audiobook_bookmark_remove"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "playlist_id",
               "expected_generation",
               "installation_revision",
               "service_revision",
