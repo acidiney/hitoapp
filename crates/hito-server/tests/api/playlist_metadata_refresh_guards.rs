@@ -4,6 +4,9 @@ mod input;
 #[path = "playlist_metadata_refresh_revision.rs"]
 mod revision;
 
+#[path = "playlist_metadata_refresh_busy.rs"]
+mod busy;
+
 use super::support::call;
 use crate::playlist_metadata_fixture as fixture;
 use axum::http::StatusCode;
