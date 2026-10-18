@@ -2122,6 +2122,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-plugin-real-debrid"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "futures-util",
+ "hito-audio",
+ "hito-debrid-real-debrid",
+ "hito-plugin-sdk",
+ "hyper",
+ "hyper-util",
+ "libc",
+ "rcgen",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "hito-plugin-sdk"
 version = "0.1.0-dev"
 dependencies = [
