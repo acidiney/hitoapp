@@ -44,4 +44,6 @@ WebKit initially failed the final audio audit after successful playback. A lifec
 
 A stopped whole-volume clone rehearsal and a fresh normal backup precede local publication. The migration-only command remains at 0045 with zero migrations applied. Both stopped audits preserve all 106 prior tables, rows and rowids, sequences, receipts, migration checksums, FTS indices, keys, host identity and non-SQLite files. Separate candidate runtime checkpoints change no database rows or managed descendants. Published health, exact OpenAPI/JS/CSS and anonymous player rejection pass, including host checks through loopback and the LAN address. See [deployment evidence](status.md#running-local-deployment).
 
+The later browser Media Session image `sha256:3c2941e1ea009813503c39cd0fb0ca1bfefea5477189d4202c6ae1be5278221c` retains the same Rust application and is now deployed locally. Fresh next-entry workflows on that exact image pass Chromium in 21.6 seconds and WebKit in 22.6 seconds after integration. These remain workflow timings, not latency benchmarks.
+
 Native playback, unavailable/debrid preparation, physical Safari behavior, broader outages, codec coverage, measured start/recovery targets and deterministic gapless verification remain separate gates. See [the release backlog](../TODO.md).
