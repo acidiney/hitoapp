@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -10,33 +10,24 @@ use tokio::{
     task::JoinHandle,
 };
 
-const MAX_REQUEST_BYTES: usize = 8192;
 const MAX_REQUESTS: usize = 8;
 
 mod concurrent;
+mod deadline;
+mod request;
+mod uncertainty;
 pub(super) use concurrent::ConcurrentFixture;
+pub(super) use deadline::DeadlineFixture;
+pub(super) use request::ObservedRequest;
+use request::read_request;
+pub(super) use uncertainty::UncertainFixture;
 
 enum Reply {
     Json(Vec<u8>),
+    StatusJson(u16, Vec<u8>),
     HeldBody(u64),
     HeldChunkedBody(Vec<u8>),
     ChunkedBody(Vec<u8>),
-}
-
-pub(super) struct ObservedRequest {
-    pub method: String,
-    pub target: String,
-    headers: Vec<(String, String)>,
-    pub buffered_body_bytes: usize,
-    pub received_at: Instant,
-}
-
-impl ObservedRequest {
-    pub fn header(&self, name: &str) -> Option<&str> {
-        self.headers
-            .iter()
-            .find_map(|(key, value)| (key == name).then_some(value.as_str()))
-    }
 }
 
 pub(super) struct Fixture {
@@ -51,6 +42,10 @@ pub(super) struct Fixture {
 impl Fixture {
     pub async fn start(replies: Vec<Vec<u8>>) -> Self {
         Self::start_replies(replies.into_iter().map(Reply::Json).collect()).await
+    }
+
+    pub async fn with_acknowledgement(torrent: Vec<u8>, status: u16, body: Vec<u8>) -> Self {
+        Self::start_replies(vec![Reply::Json(torrent), Reply::StatusJson(status, body)]).await
     }
 
     pub async fn with_held_body(declared_length: u64) -> Self {
@@ -73,6 +68,9 @@ impl Fixture {
         assert!(replies.len() <= MAX_REQUESTS);
         assert!(replies.iter().all(|reply| match reply {
             Reply::Json(body) => body.len() <= 65_536,
+            Reply::StatusJson(status, body) => {
+                matches!(status, 200 | 401 | 403 | 500) && body.len() <= 65_536
+            }
             Reply::HeldBody(length) => *length > 0,
             Reply::HeldChunkedBody(body) => body.len() == 65_537,
             Reply::ChunkedBody(body) => !body.is_empty() && body.len() <= 65_536,
@@ -112,11 +110,21 @@ impl Fixture {
                         requests.push(request);
                     }
                     let (status, reply) = match replies.pop_front() {
-                        Some(reply) => ("200 OK", reply),
+                        Some(reply) => {
+                            let status = match &reply {
+                                Reply::StatusJson(401, _) => "401 Unauthorized",
+                                Reply::StatusJson(403, _) => "403 Forbidden",
+                                Reply::StatusJson(500, _) => "500 Internal Server Error",
+                                _ => "200 OK",
+                            };
+                            (status, reply)
+                        }
                         None => ("500 Internal Server Error", Reply::Json(b"{}".to_vec())),
                     };
                     let framing = match &reply {
-                        Reply::Json(body) => format!("Content-Length: {}", body.len()),
+                        Reply::Json(body) | Reply::StatusJson(_, body) => {
+                            format!("Content-Length: {}", body.len())
+                        }
                         Reply::HeldBody(length) => format!("Content-Length: {length}"),
                         Reply::HeldChunkedBody(_) | Reply::ChunkedBody(_) => {
                             "Transfer-Encoding: chunked".into()
@@ -133,7 +141,7 @@ impl Fixture {
                         held_started.send_replace(true);
                     }
                     match reply {
-                        Reply::Json(body) => socket
+                        Reply::Json(body) | Reply::StatusJson(_, body) => socket
                             .write_all(&body)
                             .await
                             .expect("the fixture body must be sent"),
@@ -256,57 +264,4 @@ async fn wait_for_disconnect(socket: &mut TcpStream, disconnected: &watch::Sende
         .expect("the fixture must observe the client connection");
     assert_eq!(received, 0, "the client must close the held response");
     disconnected.send_replace(true);
-}
-
-async fn read_request(socket: &mut TcpStream) -> ObservedRequest {
-    let mut frame = Vec::new();
-    let header_end = loop {
-        if let Some(offset) = frame.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
-            break offset;
-        }
-        let mut chunk = [0_u8; 1024];
-        let length = socket
-            .read(&mut chunk)
-            .await
-            .expect("the fixture request must be readable");
-        assert!(length > 0, "the fixture request ended before its headers");
-        assert!(
-            length <= MAX_REQUEST_BYTES.saturating_sub(frame.len()),
-            "provider request frame exceeded its limit"
-        );
-        frame.extend_from_slice(&chunk[..length]);
-    };
-    let headers =
-        std::str::from_utf8(&frame[..header_end]).expect("the owned request headers must be UTF-8");
-    let received_at = Instant::now();
-    let mut lines = headers.split("\r\n");
-    let mut request_line = lines
-        .next()
-        .expect("the request line must exist")
-        .split(' ');
-    let method = request_line
-        .next()
-        .expect("the method must exist")
-        .to_owned();
-    let target = request_line
-        .next()
-        .expect("the target must exist")
-        .to_owned();
-    assert_eq!(request_line.next(), Some("HTTP/1.1"));
-    assert!(request_line.next().is_none());
-    let headers = lines
-        .map(|line| {
-            let (name, value) = line
-                .split_once(':')
-                .expect("the request header must have a value");
-            (name.to_ascii_lowercase(), value.trim().to_owned())
-        })
-        .collect();
-    ObservedRequest {
-        method,
-        target,
-        headers,
-        buffered_body_bytes: frame.len() - header_end - 4,
-        received_at,
-    }
 }
