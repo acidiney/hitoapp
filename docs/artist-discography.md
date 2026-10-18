@@ -52,4 +52,16 @@ Each browser request has a 20-second deadline through headers and success or err
 
 Twenty-two React boundary cases cover explicit two-page browsing, exact identity and unknowns, retained rows, stale-continuation restart, stalled success/error bodies, scope changes, unmount, late headers/JSON, authority errors and unavailable outcomes. The first browse, restart and deadline cases each failed before their implementation. All 345 frontend cases in the feature snapshot pass with both type configurations and the production build. After integration with bookmark controls, all 363 cases across 128 files, types and build pass. Fresh independent correctness, security and performance reviews pass.
 
-This qualifies the shared recording-detail workflow in source. Packaged browser acceptance, the 50-page boundary, 1,000-row rendering performance, full artist-page navigation and deployment remain separate work.
+This qualifies the shared recording-detail workflow in source. The 50-page boundary, 1,000-row rendering performance, full artist-page navigation and deployment remain separate work. Packaged browsing is qualified below.
+
+## Packaged browsing acceptance
+
+The package from `1c59c48` passes an actual Chromium and WebKit workflow against a fresh isolated database and owned HTTP catalog. An earlier web bundle using the identical Rust binary first fails at the missing Browse discography control. The candidate explicitly searches namesakes, previews the second candidate, confirms that exact identity and opens its saved profile before browsing.
+
+Two pages retain distinct same-title release groups, ordered credits, partial dates and unknown values. Requests use a null continuation first and then the protected Hito continuation, never the provider cursor. Reload makes no automatic discography request; another explicit Browse starts again. Sixteen exact provider calls cover negotiation, search, previews/profile and the three catalog reads. No release is adopted and no audio, source change or Download starts.
+
+The final workflow takes 6.0 seconds in Chromium and 7.9 seconds in WebKit. Exact A,B,A playlist entries, personal pins, likes, progress, metadata observations, source records, provider preferences, approved connections, original WAV hashes and download absence remain unchanged. Correlated frontend workflows and retrospective console canaries pass within fixed request, response and diagnostic bounds. Known synthetic canaries are absent from retained structured backend logs; that check does not prove privacy for every possible value.
+
+Independent review found unbounded shared preparation reads. The acknowledgement and progress helpers now cap bodies before JSON parsing and dispose responses. An owned API regression first reproduces the oversized progress false pass, then verifies rejection and an unchanged valid response. The focused second review, both frontend type configurations and fresh browser reruns pass. Default behavior of the shared provider fixture remains unchanged unless discography is explicitly enabled.
+
+This qualifies the shared reviewed-profile workflow. It does not qualify live MusicBrainz, full artist navigation, selected editions, local/playable availability, browser rendering at the catalog cap or release performance targets. The isolated server is stopped and the normal server is unchanged.
