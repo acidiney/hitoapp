@@ -7,7 +7,7 @@ use hito_core::{
 use hito_plugin_sdk::SourcePersistence;
 use serde_json::{Value, json};
 use std::{net::SocketAddr, path::PathBuf, time::Duration};
-use tokio::net::TcpStream;
+use tokio::net::TcpSocket;
 use uuid::Uuid;
 
 pub struct Library {
@@ -322,14 +322,42 @@ impl Library {
             endpoint.host_str().unwrap().parse().unwrap(),
             endpoint.port().unwrap(),
         );
+        let probe_socket =
+            TcpSocket::new_v4().expect("the owned closure probe socket must initialize");
+        probe_socket
+            .bind(SocketAddr::from(([127, 0, 0, 1], 0)))
+            .expect("the owned closure probe must bind loopback");
+        assert_ne!(
+            probe_socket
+                .local_addr()
+                .expect("the owned closure probe must have an address")
+                .port(),
+            address.port(),
+            "the owned closure probe must use a distinct source port"
+        );
         tokio::time::timeout(Duration::from_secs(2), server.shutdown())
             .await
             .expect("the owned provider must shut down and join");
+        let probe = tokio::time::timeout(Duration::from_secs(1), probe_socket.connect(address))
+            .await
+            .expect("the stopped owned endpoint must reject connections promptly");
+        if let Ok(stream) = &probe {
+            let local = stream.local_addr().ok();
+            let peer = stream.peer_addr().ok();
+            eprintln!(
+                "provider_shutdown_probe target_port={} local_port={} peer_port={} local_known={} peer_known={} local_eq_peer={} local_eq_target={} peer_eq_target={}",
+                address.port(),
+                local.map(|address| address.port()).unwrap_or(0),
+                peer.map(|address| address.port()).unwrap_or(0),
+                local.is_some(),
+                peer.is_some(),
+                local.zip(peer).is_some_and(|(local, peer)| local == peer),
+                local == Some(address),
+                peer == Some(address),
+            );
+        }
         assert!(
-            tokio::time::timeout(Duration::from_secs(1), TcpStream::connect(address))
-                .await
-                .expect("the stopped owned endpoint must reject connections promptly")
-                .is_err(),
+            probe.is_err(),
             "the upstream listener must actually be closed"
         );
     }
