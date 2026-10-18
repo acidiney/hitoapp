@@ -11138,6 +11138,16 @@
           "artist": {
             "type": "string"
           },
+          "attribution": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordingAttribution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "disc_number": {
             "type": [
               "integer",
@@ -13439,6 +13449,16 @@
           "artist": {
             "type": "string"
           },
+          "attribution": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordingAttribution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "disc_number": {
             "type": [
               "integer",
@@ -13629,6 +13649,29 @@
             "type": "string"
           }
         }
+      },
+      "RecordingAttribution": {
+        "type": "object",
+        "required": [
+          "creators",
+          "provider_label",
+          "content_url"
+        ],
+        "properties": {
+          "content_url": {
+            "type": "string"
+          },
+          "creators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provider_label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "RecordingDetailsPageProps": {
         "allOf": [

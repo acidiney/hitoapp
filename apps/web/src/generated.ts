@@ -1969,6 +1969,7 @@ export interface components {
             album: string | null;
             album_artist: string | null;
             artist: string;
+            attribution?: components["schemas"]["RecordingAttribution"] | null;
             /** Format: int64 */
             disc_number: number | null;
             /** Format: int64 */
@@ -2556,6 +2557,7 @@ export interface components {
         };
         ProviderRecording: {
             artist: string;
+            attribution?: components["schemas"]["RecordingAttribution"] | null;
             /** Format: int32 */
             disc_number?: number | null;
             /** Format: int64 */
@@ -2602,6 +2604,11 @@ export interface components {
             liked: boolean;
             release_id?: string | null;
             title: string;
+        };
+        RecordingAttribution: {
+            content_url: string;
+            creators: string[];
+            provider_label: string;
         };
         RecordingDetailsPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["RecordingMetadata"];
