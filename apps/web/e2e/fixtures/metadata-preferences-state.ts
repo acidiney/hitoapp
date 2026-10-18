@@ -183,14 +183,21 @@ export async function seedPreferencesLibrary(
     data: batch,
     timeout: 10_000,
   });
-  expect(response.status()).toBe(200);
-  const receipt = (await response.json()) as Schema["SyncReceipt"];
-  expect(
-    isDeepStrictEqual(
-      receipt.acknowledged,
-      batch.operations.map((operation) => operation.id),
-    ),
-  ).toBe(true);
+  try {
+    expect(response.status()).toBe(200);
+    const body = await response.body();
+    if (body.length > 4096)
+      throw new Error("The preference seed acknowledgement exceeded its bound");
+    const receipt = JSON.parse(body.toString()) as Schema["SyncReceipt"];
+    expect(
+      isDeepStrictEqual(
+        receipt.acknowledged,
+        batch.operations.map((operation) => operation.id),
+      ),
+    ).toBe(true);
+  } finally {
+    await response.dispose();
+  }
   return { ids, playlist, entries, privateValues };
 }
 
