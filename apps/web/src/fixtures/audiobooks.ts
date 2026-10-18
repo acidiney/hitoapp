@@ -88,3 +88,68 @@ export function audiobookPages() {
   };
   return { index, detail, bookmark, removedChapterBookmark };
 }
+
+export function audiobookGrouping() {
+  const { index, detail } = audiobookPages();
+  const playlist: Schema["Playlist"] = {
+    id: "a2a56629-f64a-4bd4-a3dd-83402ecba41c",
+    name: "My chapter selection",
+    kind: "local",
+  };
+  const followed: Schema["Playlist"] = {
+    id: "19105821-69d1-4a4f-8817-c37f9ec4b410",
+    name: "Followed chapters",
+    kind: "followed",
+  };
+  const props: Schema["AudiobookIndexPageProps"] = {
+    ...index,
+    playlists: [
+      index.books[0],
+      {
+        id: "6097548f-c19b-4543-988e-e250243c64db",
+        name: "Ungrouped selection",
+        kind: "local",
+      },
+      playlist,
+      followed,
+    ],
+  };
+  const confirmed: Schema["AudiobookDetail"] = {
+    ...detail.detail,
+    playlist,
+    bookmarks: [],
+  };
+  return { index: props, playlist, followed, confirmed };
+}
+
+export function heldAudiobookBody(value: Schema["AudiobookDetail"]) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  let released = false;
+  const response = new Response(
+    new ReadableStream<Uint8Array>({
+      start(stream) {
+        controller = stream;
+        stream.enqueue(bytes.slice(0, 1));
+      },
+      cancel() {
+        released = true;
+      },
+    }),
+    { headers: { "content-type": "application/json" } },
+  );
+  function release() {
+    if (released) return;
+    released = true;
+    controller.enqueue(bytes.slice(1));
+    controller.close();
+  }
+  return {
+    response,
+    release,
+    async dispose() {
+      release();
+      if (!response.bodyUsed) await response.body?.cancel();
+    },
+  };
+}
