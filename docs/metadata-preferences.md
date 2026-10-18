@@ -34,4 +34,8 @@ Four owned HTTP cases pass with real temporary SQLite and a local catalog fixtur
 
 All 298 frontend cases pass, including nine new preference cases. They cover explicit saving, provider identity and ordering, the eight-provider limit, missing references, StrictMode, canceled reads, account changes, concurrent saves and explicit conflict reload. The real Settings component supports the Metadata deep link and existing keyboard tab navigation. Both TypeScript checks and the production frontend build pass.
 
-Packaged Chromium/WebKit acceptance, combined server/workspace checks, independent source review and deployment qualification are still in progress. These source checks do not establish live metadata availability, physical-device compatibility or public-release performance.
+The combined server run passes 148 distinct cases. After correcting test fixture registration, the four new cases and strict workspace Clippy pass again. Formatting and contract reproduction pass. Independent production security, correctness and performance reviews pass, and the browser gate passes its privacy review.
+
+The complete settings workflow passes in Chromium and WebKit against both the development binary and one immutable release image, with fresh temporary data for each run. It saves four exact revisions, preserves ordered provider identities and complete private music snapshots, separates accounts and retains a removed reference when disabled. Only four manifest requests occur; catalog, audio, download and source mutations remain at zero. Bounded workflow-log checks and the zero-browser-error gate pass. The isolated server stops cleanly.
+
+Normal deployment remains pending. These checks do not establish live metadata availability, physical-device compatibility or public-release performance.
