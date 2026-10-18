@@ -46,4 +46,12 @@ The shared recording page loads provider preferences and retained associations o
 
 Three public HTTP cases cover the workflow, account/origin/context boundaries and a real client disconnect while the upstream response is held. That disconnect retires the upstream request before its release, and a subsequent request succeeds. All 151 server cases, strict all-target workspace Clippy and formatting pass on the combined source. Generated OpenAPI and TypeScript reproduce. All 308 frontend cases, both TypeScript configurations and the production build pass. Independent security, correctness and performance reviews pass after correcting the rendered-credit mismatch with two regressions.
 
-These are source and hosted-HTTP checks. Packaged browser acceptance and live MusicBrainz checks remain open. Discography and selected-edition track traversal, canonical matching, duplicate-artist correction and artist artwork also remain separate work.
+## Packaged browser verification
+
+Image `sha256:79a1e5848641acbed2d3c6ba6cbdd1e173c888c08a5b27744b441053d0a484b1`, built from `a3f6ed8`, passes the complete workflow in fresh disposable Chromium and WebKit sessions. The browser offers an owned HTTP catalog by address, approves its personal connection, replaces the built-in metadata selection, searches two namesakes, previews the second opaque identifier and explicitly confirms it. Reload preserves the retained review. An unsaved track-title draft survives search, preview and confirmation.
+
+The workflow preserves original WAV hashes, duplicate playlist occurrences, personal metadata, likes, progress, source pins, metadata preferences and plugin connections. It verifies ten exact provider protocol requests and seven correlated frontend workflow completions. Audio remains paused without a source; no source writes, persistent downloads, foreign browser requests or private console values are observed. Separate private backend-log checks also pass. Both TypeScript configurations pass for these browser fixtures, and an independent review of the gate passes.
+
+The first observer incorrectly counted the recording page's two existing read-only download-status requests as downloads. A diagnostic run established their exact authenticated GET envelopes and bounded 404 absence replies. The final gate accepts only those two requests and replies; other download requests still fail. The response-size assertions inspect collected bodies and do not qualify streaming memory bounds.
+
+This package uses an owned catalog fixture. Live MusicBrainz acceptance, normal-server publication, discography and selected-edition track traversal, canonical matching, duplicate-artist correction and artist artwork remain separate work.
