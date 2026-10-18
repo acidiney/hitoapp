@@ -2057,6 +2057,7 @@ version = "0.1.0-dev"
 dependencies = [
  "axum",
  "bytes",
+ "futures-util",
  "hito-audio",
  "hito-core",
  "hito-plugin-sdk",

@@ -24,6 +24,7 @@ utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
 hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+futures-util.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
 axum.workspace = true
