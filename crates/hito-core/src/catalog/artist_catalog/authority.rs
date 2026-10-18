@@ -4,7 +4,7 @@ use super::{
 use crate::{Actor, Error, Result};
 use sqlx::SqliteConnection;
 
-#[derive(PartialEq, Eq, sqlx::FromRow)]
+#[derive(PartialEq, Eq, serde::Serialize, sqlx::FromRow)]
 pub(super) struct Credit {
     pub library_id: String,
     pub access_grant: String,

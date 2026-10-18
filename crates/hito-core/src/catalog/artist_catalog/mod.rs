@@ -1,6 +1,8 @@
 mod associations;
 mod authority;
 mod confirmation;
+mod continuation;
+mod discography;
 mod discovery;
 mod policy;
 mod preview;
@@ -11,9 +13,10 @@ mod types;
 
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
-    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistProfileAvailability,
-    ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
-    AssociateRecordingArtist, MetadataProvider, MetadataSettings, UpdateMetadataSettings,
+    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
+    ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
+    ArtistReviewMetadataBinding, AssociateRecordingArtist, MetadataProvider, MetadataSettings,
+    ReadArtistDiscography, UpdateMetadataSettings,
 };
 
 use crate::{Error, Result, admission::Accounts};
@@ -29,6 +32,7 @@ pub(crate) struct Host {
     builtin: MusicBrainzClient,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    continuations: continuation::Key,
 }
 
 impl Host {
@@ -39,6 +43,7 @@ impl Host {
             })?,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Accounts::new(1),
+            continuations: continuation::Key::new(),
         })
     }
 

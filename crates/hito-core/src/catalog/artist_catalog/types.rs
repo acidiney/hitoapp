@@ -1,4 +1,4 @@
-use hito_plugin_sdk::{ArtistSearchPage, CatalogArtistProfile};
+use hito_plugin_sdk::{ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -169,6 +169,39 @@ pub enum ArtistProfileAvailability {
 }
 
 impl ArtistProfileAvailability {
+    pub(super) fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadArtistDiscography {
+    pub limit: u16,
+    pub continuation: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ArtistDiscographyAvailability {
+    Available {
+        association_id: String,
+        page: ArtistDiscographyPage,
+        continuation: Option<String>,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl ArtistDiscographyAvailability {
     pub(super) fn outcome(&self) -> &'static str {
         match self {
             Self::Available { .. } => "available",
