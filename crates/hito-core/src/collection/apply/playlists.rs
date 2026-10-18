@@ -88,7 +88,7 @@ async fn check_owner(tx: &mut Transaction<'_>, actor: &Actor, playlist: &Uuid) -
     Ok(())
 }
 
-pub(super) async fn editable(
+pub(in crate::collection) async fn editable(
     tx: &mut Transaction<'_>,
     actor: &Actor,
     playlist: &Uuid,

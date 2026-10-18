@@ -73,6 +73,21 @@ pub enum Action {
     PlaylistDelete {
         playlist_id: Uuid,
     },
+    AudiobookCreate {
+        playlist_id: Uuid,
+    },
+    AudiobookBookmarkCreate {
+        audiobook_id: Uuid,
+        bookmark_id: Uuid,
+        entry_id: Uuid,
+        recording_id: Uuid,
+        position_ms: i64,
+        label: String,
+    },
+    AudiobookBookmarkRemove {
+        audiobook_id: Uuid,
+        bookmark_id: Uuid,
+    },
     PlaylistFollowResume {
         playlist_id: Uuid,
         expected_generation: i64,
@@ -112,6 +127,9 @@ impl Action {
             Self::PlaylistCreate { .. } => "playlist_create",
             Self::PlaylistRename { .. } => "playlist_rename",
             Self::PlaylistDelete { .. } => "playlist_delete",
+            Self::AudiobookCreate { .. } => "audiobook_create",
+            Self::AudiobookBookmarkCreate { .. } => "audiobook_bookmark_create",
+            Self::AudiobookBookmarkRemove { .. } => "audiobook_bookmark_remove",
             Self::PlaylistFollowResume { .. } => "playlist_follow_resume",
             Self::EntryInsert { .. } => "entry_insert",
             Self::EntryRemove { .. } => "entry_remove",

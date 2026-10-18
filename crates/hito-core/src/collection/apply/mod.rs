@@ -1,9 +1,9 @@
 mod entries;
 mod likes;
-mod playlists;
+pub(super) mod playlists;
 mod progress;
 
-use super::{Action, Operation, follow};
+use super::{Action, Operation, audiobooks, follow};
 use crate::{
     Actor, Result,
     metadata::{self, TextField},
@@ -127,6 +127,36 @@ pub(super) async fn action(
             playlists::rename(tx, actor, playlist_id, name).await
         }
         Action::PlaylistDelete { playlist_id } => playlists::delete(tx, actor, playlist_id).await,
+        Action::AudiobookCreate { playlist_id } => {
+            audiobooks::create(tx, actor, playlist_id, operation.id).await
+        }
+        Action::AudiobookBookmarkCreate {
+            audiobook_id,
+            bookmark_id,
+            entry_id,
+            recording_id,
+            position_ms,
+            label,
+        } => {
+            audiobooks::create_bookmark(
+                tx,
+                actor,
+                audiobooks::BookmarkCreate {
+                    audiobook_id: *audiobook_id,
+                    bookmark_id: *bookmark_id,
+                    entry_id: *entry_id,
+                    recording_id: *recording_id,
+                    position_ms: *position_ms,
+                    label,
+                },
+                operation.id,
+            )
+            .await
+        }
+        Action::AudiobookBookmarkRemove {
+            audiobook_id,
+            bookmark_id,
+        } => audiobooks::remove_bookmark(tx, actor, audiobook_id, bookmark_id, operation.id).await,
         Action::PlaylistFollowResume {
             playlist_id,
             expected_generation,

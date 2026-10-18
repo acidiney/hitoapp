@@ -17,15 +17,7 @@ impl Collection {
     pub async fn playlist(&self, actor: &Actor, id: &str) -> Result<PlaylistDetail> {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        let playlist = sqlx::query_as(
-            "SELECT id, name, kind FROM playlists
-             WHERE id = ? AND user_id = ? AND deleted = 0",
-        )
-        .bind(id)
-        .bind(actor.id())
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(Error::NotFound)?;
+        let playlist = read_owned(&mut tx, actor, id).await?;
         let entries = playlist_entries::read(&mut tx, &self.host, actor, id).await?;
         let origin = if let Some(origin) = import_persist::origin(&mut tx, id).await? {
             Some(origin)
@@ -48,4 +40,20 @@ impl Collection {
             follow_content_revision,
         })
     }
+}
+
+pub(super) async fn read_owned(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    id: &str,
+) -> Result<Playlist> {
+    sqlx::query_as(
+        "SELECT id, name, kind FROM playlists
+         WHERE id = ? AND user_id = ? AND deleted = 0",
+    )
+    .bind(id)
+    .bind(actor.id())
+    .fetch_optional(connection)
+    .await?
+    .ok_or(Error::NotFound)
 }
