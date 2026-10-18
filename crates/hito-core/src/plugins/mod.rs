@@ -3,7 +3,6 @@ mod credentials;
 mod download;
 mod install_preview;
 mod installations;
-mod key_file;
 mod manifest;
 mod media;
 mod offers;
@@ -15,7 +14,7 @@ mod refresh;
 mod removal;
 mod transport;
 mod types;
-mod vault;
+use crate::secrets as vault;
 
 use crate::{Result, store::Store};
 pub use authorization::{
@@ -45,8 +44,7 @@ pub struct Plugins {
 }
 
 impl Plugins {
-    pub(crate) async fn new(store: Store, database: &std::path::Path) -> Result<Self> {
-        let vault = vault::Vault::open(&store, database).await?;
+    pub(crate) async fn new(store: Store, vault: vault::Vault) -> Result<Self> {
         Ok(Self {
             store,
             vault,

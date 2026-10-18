@@ -48,6 +48,7 @@ pub struct CoreConfig {
     pub host_device: HostDeviceId,
     pub media_tools: MediaTools,
     pub podcast_network: crate::PodcastNetworkConfig,
+    pub community: Option<crate::CommunityConfig>,
 }
 
 impl CoreConfig {
@@ -58,6 +59,7 @@ impl CoreConfig {
             host_device,
             media_tools: MediaTools::default(),
             podcast_network: Default::default(),
+            community: None,
         }
     }
 
@@ -72,6 +74,7 @@ impl CoreConfig {
             host_device,
             media_tools: MediaTools::default(),
             podcast_network: Default::default(),
+            community: None,
         }
     }
 }

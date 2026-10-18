@@ -1,3 +1,7 @@
+mod key_file;
+#[cfg(test)]
+mod startup_work;
+
 use crate::{Error, Result, store::Store};
 use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
@@ -37,10 +41,23 @@ impl Vault {
         .fetch_all(&store.pool)
         .await?;
         fingerprints.extend(pending);
+        let community: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM community_reporters
+             INDEXED BY community_credential_fingerprints ORDER BY substr(credential,1,33) ASC LIMIT 1",
+        )
+        .fetch_optional(&store.pool)
+        .await?;
+        fingerprints.extend(community);
+        let community: Option<Vec<u8>> = sqlx::query_scalar(
+            "SELECT substr(credential,1,33) FROM community_reporters
+             INDEXED BY community_credential_fingerprints ORDER BY substr(credential,1,33) DESC LIMIT 1",
+        )
+        .fetch_optional(&store.pool)
+        .await?;
+        fingerprints.extend(community);
         let path = database.with_extension("plugin-key");
         let create = fingerprints.is_empty();
-        let loaded =
-            tokio::task::spawn_blocking(move || super::key_file::load(&path, create)).await;
+        let loaded = tokio::task::spawn_blocking(move || key_file::load(&path, create)).await;
         let key = loaded
             .ok()
             .and_then(std::result::Result::ok)
@@ -126,6 +143,34 @@ impl Vault {
         service: &str,
         envelope: &[u8],
     ) -> Result<Zeroizing<String>> {
+        self.reveal_payload(&context(account, installation, service), envelope)
+    }
+
+    pub(super) fn seal_community(
+        &self,
+        account: &str,
+        service: &str,
+        reporter: &str,
+        token: &str,
+    ) -> Result<Vec<u8>> {
+        validate(token)?;
+        self.seal_payload(
+            &community_context(account, service, reporter),
+            token.as_bytes(),
+        )
+    }
+
+    pub(super) fn reveal_community(
+        &self,
+        account: &str,
+        service: &str,
+        reporter: &str,
+        envelope: &[u8],
+    ) -> Result<Zeroizing<String>> {
+        self.reveal_payload(&community_context(account, service, reporter), envelope)
+    }
+
+    fn reveal_payload(&self, aad: &str, envelope: &[u8]) -> Result<Zeroizing<String>> {
         let key = self.0.as_ref().as_ref().ok_or_else(unavailable)?;
         if !(73..=4169).contains(&envelope.len())
             || envelope[0] != 1
@@ -133,7 +178,6 @@ impl Vault {
         {
             return Err(unavailable());
         }
-        let aad = context(account, installation, service);
         let plaintext = Zeroizing::new(
             key.cipher
                 .decrypt(
@@ -164,6 +208,10 @@ pub(super) fn validate(token: &str) -> Result<()> {
 
 fn context(account: &str, installation: &str, service: &str) -> String {
     format!("hito.plugin.credential.v1|{account}|{installation}|{service}")
+}
+
+fn community_context(account: &str, service: &str, reporter: &str) -> String {
+    format!("hito.community.reporter.v1|{account}|{service}|{reporter}")
 }
 
 fn unavailable() -> Error {

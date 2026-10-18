@@ -1,6 +1,7 @@
 mod admission;
 mod catalog;
 mod collection;
+mod community;
 mod context;
 mod downloads;
 mod error;
@@ -11,6 +12,7 @@ mod metadata;
 mod plugins;
 mod podcasts;
 mod remote_http;
+mod secrets;
 mod store;
 
 #[cfg(test)]
@@ -42,6 +44,10 @@ pub use collection::{
     PlaylistImportReceipt, PlaylistMetadataRefreshOrigin, RecordingProgress,
     RefreshFollowedPlaylist, RefreshImportedPlaylistMetadata, SavedPosition, SyncBatch, SyncEvent,
     SyncPage, SyncReceipt,
+};
+pub use community::{
+    Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,
+    CommunityReportAdmission, SuccessfulPlayback, UpdateCommunityPreferences,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{
@@ -80,6 +86,7 @@ pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
     pub collection: Collection,
+    pub community: Community,
     pub storage: LibraryStorage,
     pub plugins: Plugins,
     pub downloads: Downloads,
@@ -100,7 +107,14 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
     storage.initialize().await?;
     let managed =
         library_storage::ManagedFiles::open(&config.database, storage.inspector.clone()).await?;
-    let plugins = Plugins::new(store.clone(), &config.database).await?;
+    let vault = secrets::Vault::open(&store, &config.database).await?;
+    let plugins = Plugins::new(store.clone(), vault.clone()).await?;
+    let community = Community::new(
+        store.clone(),
+        config.host_device.clone(),
+        vault,
+        config.community,
+    )?;
     let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
     let catalog = Catalog {
         plugins: plugins.clone(),
@@ -121,6 +135,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         identity: Identity {
             store: store.clone(),
         },
+        community,
         podcasts: Podcasts {
             store: store.clone(),
             catalog: catalog.clone(),
