@@ -21,6 +21,7 @@ mod limiter;
 mod protocol;
 mod search;
 mod search_context;
+mod search_limiter;
 mod search_protocol;
 
 const ARTIST_ID: &str = "0f700000-0000-4000-8000-000000000001";
