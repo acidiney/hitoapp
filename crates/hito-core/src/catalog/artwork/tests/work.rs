@@ -41,6 +41,7 @@ async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and
     let hito = open(config(&database)).await.unwrap();
     fixture::grow(&hito, &expected.recording, SMALL, RETAINED).await;
     fixture::history(&hito, &expected.recording).await;
+    fixture::assert_history(&hito, "live base").await;
     fixture::assert_statistics(&hito, Some((SMALL, SMALL))).await;
     fixture::assert_retained(&hito, RETAINED).await;
     hito.catalog.store.pool.close().await;
@@ -50,6 +51,7 @@ async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and
         let copy = directory.path().join(format!("{statistics}.db"));
         std::fs::copy(&database, &copy).unwrap();
         let hito = open(config(&copy)).await.unwrap();
+        fixture::assert_history(&hito, statistics).await;
         match statistics {
             "absent" => {
                 sqlx::raw_sql("DELETE FROM sqlite_stat1; DELETE FROM sqlite_stat4;")
@@ -68,6 +70,7 @@ async fn artwork_work_is_bounded_by_pending_jobs_instead_of_retained_targets_and
         hito.catalog.store.pool.close().await;
         drop(hito);
         let hito = open(config(&copy)).await.unwrap();
+        fixture::assert_history(&hito, "reopened copy").await;
         fixture::assert_statistics(
             &hito,
             match statistics {

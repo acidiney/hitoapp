@@ -100,17 +100,36 @@ pub(super) async fn grow(hito: &Services, recording: &str, start: i64, end: i64)
 pub(super) async fn history(hito: &Services, recording: &str) {
     let mut tx = hito.catalog.store.pool.begin().await.unwrap();
     context(&mut tx, recording).await;
-    sqlx::query("WITH RECURSIVE fixture(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM fixture WHERE i<335)
+    let inserted = sqlx::query("WITH RECURSIVE fixture(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM fixture WHERE i<335)
         INSERT INTO artwork_fetches(id,user_id,recording_id,session_hash,observation_id,binding_id,binding_revision,installation_id,installation_revision,service_id,service_revision,status,attempts,reservation_bytes,created_at,updated_at)
         SELECT printf('af500000-0000-4000-8000-%012x',i),j.user_id,j.recording_id,j.session_hash,j.observation_id,j.binding_id,j.binding_revision,j.installation_id,j.installation_revision,j.service_id,j.service_revision,
             'failed',3,0,1,CASE WHEN i<16 THEN unixepoch()-700000 ELSE unixepoch()-i END
         FROM fixture CROSS JOIN artwork_work_context template JOIN artwork_fetches j ON j.id=template.fetch_id")
-        .execute(&mut *tx).await.unwrap();
+        .execute(&mut *tx).await.unwrap().rows_affected();
+    assert_eq!(
+        inserted, HISTORY_ROWS as u64,
+        "history seed must insert every owned receipt"
+    );
     sqlx::query("DROP TABLE artwork_work_context")
         .execute(&mut *tx)
         .await
         .unwrap();
     tx.commit().await.unwrap();
+}
+
+pub(super) async fn assert_history(hito: &Services, phase: &str) {
+    let (history, unretained): (i64, i64) = sqlx::query_as(
+        "SELECT count(*),coalesce(sum(retained = 0),0) FROM artwork_fetches WHERE id >= 'af500000-' AND id < 'af500001-'",
+    )
+    .fetch_one(&hito.catalog.store.pool)
+    .await
+    .unwrap();
+    eprintln!("Artwork fixture history phase={phase} receipts={history} unretained={unretained}");
+    assert_eq!(
+        (history, unretained),
+        (HISTORY_ROWS, HISTORY_ROWS),
+        "the {phase} fixture must retain all seeded history before maintenance"
+    );
 }
 
 async fn context(connection: &mut SqliteConnection, recording: &str) {
