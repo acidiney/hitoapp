@@ -1,6 +1,15 @@
 use super::{MetadataHistoryQuery, MetadataObservation, ObservationOrigin, ObservationPage};
 use crate::{Error, Result};
+use hito_plugin_sdk::RecordingAttribution;
+use serde::Deserialize;
 use sqlx::{QueryBuilder, Row, Sqlite, Transaction, sqlite::SqliteRow};
+
+const MAX_RETAINED_PROVIDER_METADATA_BYTES: usize = 262_144;
+
+#[derive(Deserialize)]
+struct ProviderMetadata {
+    attribution: Option<RecordingAttribution>,
+}
 
 pub(super) enum Target<'a> {
     Recording(&'a str),
@@ -59,6 +68,23 @@ pub(super) fn observation(row: SqliteRow) -> Result<MetadataObservation> {
         .map(serde_json::from_str)
         .transpose()
         .map_err(|_| Error::Internal("Observed tags could not be read".into()))?;
+    let attribution = if let Some(metadata) = row.try_get::<Option<&str>, _>("provider_metadata")? {
+        if metadata.len() > MAX_RETAINED_PROVIDER_METADATA_BYTES {
+            return Err(Error::Internal(
+                "Provider metadata exceeds the read limit".into(),
+            ));
+        }
+        let metadata: ProviderMetadata = serde_json::from_str(metadata)
+            .map_err(|_| Error::Internal("Provider attribution could not be read".into()))?;
+        if let Some(attribution) = &metadata.attribution {
+            attribution
+                .validate()
+                .map_err(|_| Error::Internal("Provider attribution could not be read".into()))?;
+        }
+        metadata.attribution
+    } else {
+        None
+    };
     Ok(MetadataObservation {
         id: row.try_get("id")?,
         source_id: row.try_get("source_id")?,
@@ -78,5 +104,6 @@ pub(super) fn observation(row: SqliteRow) -> Result<MetadataObservation> {
         disc_number: row.try_get("disc_number")?,
         track_number: row.try_get("track_number")?,
         tags,
+        attribution,
     })
 }

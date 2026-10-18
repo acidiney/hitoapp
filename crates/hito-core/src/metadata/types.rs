@@ -1,3 +1,4 @@
+use hito_plugin_sdk::RecordingAttribution;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -87,6 +88,8 @@ pub struct MetadataObservation {
     pub track_number: Option<i64>,
     #[schema(required = true)]
     pub tags: Option<InspectedTags>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<RecordingAttribution>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
