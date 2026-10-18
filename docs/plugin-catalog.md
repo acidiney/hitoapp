@@ -1,6 +1,6 @@
 # Catalog extension contracts
 
-The Apache-2.0 plugin SDK defines a read-only catalog extension for artist profiles and paged discographies. The core host source can read reviewed artist profiles through an approved personal HTTP connection or the built-in MusicBrainz client. Server routes and catalog pages do not use that host yet. Existing recording metadata and playlist operations remain separate.
+The Apache-2.0 plugin SDK defines read-only artist search, artist profiles and paged discographies. The core host source can read reviewed artist profiles through an approved personal HTTP connection or the built-in MusicBrainz client. Artist search is an SDK contract only; its provider, core and UI integrations remain unfinished. Existing recording metadata and playlist operations remain separate.
 
 ## Negotiation and ownership
 
@@ -18,11 +18,33 @@ flowchart LR
     Contracts --> UI
 ```
 
-This diagram describes intended host ownership. Only the shared contracts exist in this slice. Providers supply structured data. Hito renders it and never executes downloaded plugin code. These catalog responses have no audio, stream URL, HTML or custom UI fields.
+This diagram describes intended page ownership. The reviewed-profile host has separate source verification. Providers supply structured data. Hito renders it and never executes downloaded plugin code. These catalog responses have no audio, stream URL, HTML or custom UI fields.
 
 ## Identity and artist profiles
 
 Provider IDs are opaque, case-sensitive strings scoped to the selected provider connection. Equal strings from different providers are not evidence of equal artists. A host must retain provider provenance and verified associations rather than treating an external ID as a Hito UUID.
+
+## Artist search
+
+Search negotiates independently through `GET v1/catalog/discovery/capabilities`:
+
+```json
+{"discovery_version":1,"operations":["artist_search"]}
+```
+
+The older catalog descriptor and its operation enum remain unchanged. Adding search there would cause a strict older client to reject the descriptor and lose otherwise supported profile reads. A missing discovery descriptor means search is unsupported; it must not disable those earlier operations.
+
+`POST v1/catalog/artists/search` accepts `ArtistSearchRequest`:
+
+```json
+{"query":"Example artist","cursor":null,"snapshot":null,"limit":20}
+```
+
+Queries are nonblank text of at most 512 UTF-8 bytes without control characters. Limits range from 1 to 20 candidates. Cursors have a 2,048-byte limit and snapshots a 256-byte limit. Initial requests cannot choose a snapshot. `ArtistSearchPage` returns the exact query, nullable snapshot, candidate items, nullable total count and nullable next cursor. Continuations preserve the exact snapshot, including null. A next cursor requires a nonempty page and must advance; a host must also detect cursor cycles across requests.
+
+Each candidate contains an artist reference, nullable kind and nullable disambiguation. Distinct IDs may have identical display names. Duplicate IDs within one page are invalid. Candidates are suggestions, not confirmed recording-credit associations. Search itself does not adopt recordings, change metadata, download audio or establish canonical artist identity.
+
+Encoded search pages are limited to 65,536 bytes. Validation checks field lengths before scanning their text, bounds item counts before iterating, and counts serialized bytes without allocating another full response buffer. Unknown fields and unsupported discovery versions fail validation. Transport implementations must separately bound incoming bytes before decoding and preserve authorization and provider provenance.
 
 `POST v1/catalog/artists/profile` accepts `ArtistProfileRequest` with `artist_id`. `CatalogArtistProfile` returns the exact requested artist reference, plus nullable sort name, kind, disambiguation and revision. Artist references contain an ID and display name. Kinds are `person`, `group`, `orchestra`, `choir`, `character` and `other`. Missing optional metadata remains unknown.
 
@@ -44,8 +66,10 @@ Cursors are limited to 2,048 bytes. Complete encoded discography pages are limit
 
 ## Verification and remaining work
 
-All 45 SDK cases pass with generated-schema support, and strict all-target SDK Clippy passes. Compatibility cases preserve exact earlier manifest, recording and playlist wire bytes. Protocol cases cover nullable unknowns, ordered credits, identity mismatch, live and snapshot continuations, partial dates, nested bounds, exact encoded limits and strict generated schemas.
+All 54 SDK cases pass with generated-schema support, and strict all-target SDK Clippy and formatting pass. The nine search cases cover negotiation, unchanged legacy descriptors, same-name distinct identities, continuation state, UTF-8 and nested bounds, exact escaped 65,536-byte pages, generated schemas and allocation rejection. Compatibility cases preserve exact earlier manifest, recording and playlist wire bytes. Earlier profile/discography cases cover nullable unknowns, ordered credits, identity mismatch, live and snapshot continuations, partial dates and exact encoded limits.
 
 An allocation regression constructs a field-valid oversized page before observing public validation. Before the fix, validation requested a 16,777,216-byte allocation. The unchanged test now verifies that no single validation allocation request exceeds the 262,144-byte page budget. It calibrates its observer and does not measure RSS, total allocation volume or peak live memory. Final security, performance and correctness reviews pass after the bounded-writer fix.
 
-Core source separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). The [reviewed-profile host](artist-catalog-host.md) adds account settings, explicit evidence associations and authorized profile reads. Automatic provider selection, candidate discovery and preview, enrichment, caching, artist UI, discography traversal, selected-edition tracks and optional similar artists remain unfinished. These source foundations do not satisfy the complete release requirement.
+The search allocation case separately calibrates its thread-local observer and rejects an encoded page larger than 128 KiB without a single validation allocation request exceeding 65,536 bytes. Independent search correctness and security reviews pass. The performance review found text trimming before length rejection; the length-first fix passes its second review and all 54 unchanged cases. These SDK checks do not establish provider transport, browser or release performance acceptance.
+
+Core source separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). The [reviewed-profile host](artist-catalog-host.md) adds account settings, explicit evidence associations and authorized profile reads. Candidate search transport and orchestration, preview and confirmation UI, automatic enrichment, caching, discography traversal, selected-edition tracks and optional similar artists remain unfinished. These source foundations do not satisfy the complete release requirement.
