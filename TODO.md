@@ -185,6 +185,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Retain an explicit selected chapter through browser/native queue occurrence context for book-wide Continue, automatic advancement and account switching. Reuse existing per-recording position/speed ownership; verify packaged browser, native/platform and deployment acceptance.
     - [x] Add the private exact-chapter anchor, existing progress projection and idempotent sync operation in core and authenticated HTTP/Inertia. All 361 core and 160 server cases, strict workspace checks, generated contracts and web types/build pass. Queues, checkpoint writers, Continue controls and migration 0049 deployment remain open. See [foundation and limits](docs/audiobooks.md#retained-chapter-continuation-foundation).
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
+  - [x] Define independently negotiated SDK contracts with exact provider-version references, bounded rendition timelines, safe credits and distinct backing recordings. All 68 default and 74 schema cases, strict SDK checks and independent reviews pass. Host lookup, alignment, rendering and end-to-end playback remain open. See [contracts and limits](docs/plugin-timed-content.md).
 - [ ] Run reproducible fixture tests and live checks for every official provider.
 
 ## UI and branding
