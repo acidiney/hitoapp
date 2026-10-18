@@ -24,6 +24,18 @@ pub enum Error {
     SourceChanged,
     #[error("The Real-Debrid torrent state is not supported")]
     UnsupportedState,
+    #[error("The bound audio destination is not permitted")]
+    MediaDestination,
+    #[error("The bound audio connection failed")]
+    MediaTransport,
+    #[error("The bound audio response is invalid")]
+    MediaResponse,
+    #[error("The bound audio body exceeded its idle deadline")]
+    MediaIdle,
+    #[error("The bound audio is not a supported canonical PCM16 WAV")]
+    UnsupportedAudio,
+    #[error("The bound audio body does not match its confirmed length")]
+    MediaLength,
 }
 
 impl Error {
@@ -41,6 +53,12 @@ impl Error {
             Self::InvalidResponse => "invalid_response",
             Self::SourceChanged => "source_changed",
             Self::UnsupportedState => "unsupported_state",
+            Self::MediaDestination => "media_destination",
+            Self::MediaTransport => "media_transport",
+            Self::MediaResponse => "media_response",
+            Self::MediaIdle => "media_idle",
+            Self::UnsupportedAudio => "unsupported_audio",
+            Self::MediaLength => "media_length",
         }
     }
 }

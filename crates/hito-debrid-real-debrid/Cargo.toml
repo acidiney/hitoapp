@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+bytes.workspace = true
+futures-util.workspace = true
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["tokio", "system-config"] }
 reqwest = { workspace = true, features = ["form"] }
 rustls.workspace = true
 serde.workspace = true
@@ -17,4 +20,7 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+hito-audio = { path = "../hito-audio" }
+rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+tokio-rustls = { version = "=0.26.6", default-features = false }
 tracing-subscriber.workspace = true

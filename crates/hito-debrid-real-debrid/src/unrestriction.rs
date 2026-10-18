@@ -7,6 +7,21 @@ pub struct UnrestrictionReceipt {
     pub confirmed_bytes: u64,
 }
 
+pub(crate) struct ValidatedCandidate {
+    pub(crate) binding: TorrentFileBinding,
+    pub(crate) confirmed_bytes: u64,
+    pub(crate) download: Zeroizing<String>,
+}
+
+impl ValidatedCandidate {
+    pub(crate) fn into_receipt(self) -> UnrestrictionReceipt {
+        UnrestrictionReceipt {
+            binding: self.binding,
+            confirmed_bytes: self.confirmed_bytes,
+        }
+    }
+}
+
 #[derive(Deserialize)]
 struct UnrestrictedLink {
     filesize: u64,
@@ -16,11 +31,11 @@ struct UnrestrictedLink {
     alternative: Option<IgnoredAny>,
 }
 
-pub(crate) fn receipt(
+pub(crate) fn candidate(
     bytes: &[u8],
     binding: &TorrentFileBinding,
     original_link: &str,
-) -> Result<UnrestrictionReceipt, Error> {
+) -> Result<ValidatedCandidate, Error> {
     if bytes
         .iter()
         .copied()
@@ -40,8 +55,9 @@ pub(crate) fn receipt(
         return Err(Error::SourceChanged);
     }
     torrent::validate_link(&download)?;
-    Ok(UnrestrictionReceipt {
+    Ok(ValidatedCandidate {
         binding: binding.clone(),
         confirmed_bytes: response.filesize,
+        download,
     })
 }
