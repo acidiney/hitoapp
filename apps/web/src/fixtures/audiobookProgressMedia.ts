@@ -81,6 +81,23 @@ export function audiobookProgressMedia() {
       media.dispatchEvent(new Event("playing"));
       media.dispatchEvent(new Event("timeupdate"));
     },
+    advance(media: HTMLAudioElement, position: number) {
+      const state = states.get(media);
+      if (
+        !state ||
+        state.paused ||
+        state.seeking ||
+        state.ready < 3 ||
+        !Number.isFinite(position) ||
+        position <= state.position ||
+        position > media.duration
+      )
+        throw new Error(
+          "The owned ready source must already be playing before its clock advances",
+        );
+      state.position = position;
+      media.dispatchEvent(new Event("timeupdate"));
+    },
     completeSeek(media: HTMLAudioElement) {
       if (!media.seeking)
         throw new Error("The owned source has no pending seek");
