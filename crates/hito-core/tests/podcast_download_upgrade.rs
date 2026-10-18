@@ -5,6 +5,8 @@ use sqlx::{
 };
 use std::{borrow::Cow, collections::BTreeMap};
 
+#[path = "fixtures/playlist_metadata_schema.rs"]
+mod playlist_metadata_schema;
 #[path = "fixtures/release_credit_schema.rs"]
 mod release_credit_schema;
 
@@ -45,9 +47,11 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_download_origins()
         .await
         .expecting_release_credits(&mut connection)
+        .await
+        .expecting_playlist_metadata()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 45).await;
+    assert_version(&mut connection, 46).await;
     expected.assert_preserved(&mut connection).await;
     let origins = typed_rows(&mut connection,
         "SELECT origin_kind,podcast_source_id,podcast_episode_id,podcast_subscription_id,
@@ -336,6 +340,44 @@ impl RetainedState {
         }
         let mut declared_indexes = indexes(&mut reference).await;
         for (table, name) in release_credit_schema::ADDED_INDEXES {
+            let key = (table.to_owned(), name.to_owned());
+            assert!(
+                !self.indexes.contains_key(&key),
+                "the baseline must predate index {name} on {table}"
+            );
+            self.indexes
+                .insert(key.clone(), declared_indexes.remove(&key).unwrap());
+        }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_playlist_metadata(mut self) -> Self {
+        let mut reference = playlist_metadata_schema::reference().await;
+        let declared = schema(&mut reference).await;
+        for (kind, name) in playlist_metadata_schema::REPLACED {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(
+                self.schema.contains_key(&key),
+                "the baseline must contain {kind} {name}"
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        for (kind, name) in playlist_metadata_schema::ADDED_DECLARED
+            .into_iter()
+            .chain(playlist_metadata_schema::ADDED_IMPLICIT)
+        {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(
+                !self.schema.contains_key(&key),
+                "the baseline must predate {kind} {name}"
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
+        }
+        let mut declared_indexes = indexes(&mut reference).await;
+        for (table, name) in playlist_metadata_schema::ADDED_INDEXES {
             let key = (table.to_owned(), name.to_owned());
             assert!(
                 !self.indexes.contains_key(&key),

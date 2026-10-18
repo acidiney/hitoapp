@@ -8,6 +8,8 @@ use sqlx::{
 use std::{borrow::Cow, collections::BTreeMap};
 use uuid::Uuid;
 
+#[path = "fixtures/playlist_metadata_schema.rs"]
+mod playlist_metadata_schema;
 #[path = "fixtures/release_credit_schema.rs"]
 mod release_credit_schema;
 
@@ -91,7 +93,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 45).await;
+    assert_version(&mut connection, 46).await;
     latest.assert_preserved(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
     assert_fixture(&mut connection).await;
@@ -473,6 +475,25 @@ impl RetainedState {
                 !self.schema.contains_key(name),
                 "the baseline must predate {} {name}",
                 kind.as_str()
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        reference.close().await.unwrap();
+        let mut reference = playlist_metadata_schema::reference().await;
+        let declared = schema(&mut reference).await;
+        for (kind, name) in playlist_metadata_schema::REPLACED {
+            assert!(
+                self.schema.contains_key(name),
+                "the baseline must contain {kind} {name}"
+            );
+            self.schema
+                .insert(name.into(), declared.get(name).unwrap().clone());
+        }
+        for (kind, name) in playlist_metadata_schema::ADDED_DECLARED {
+            assert!(
+                !self.schema.contains_key(name),
+                "the baseline must predate {kind} {name}"
             );
             self.schema
                 .insert(name.into(), declared.get(name).unwrap().clone());
