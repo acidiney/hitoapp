@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
 import type { PluginService } from "../../types";
 import type { PluginActions } from "../../hooks/usePlugins";
+import { usePluginInstallation } from "../../hooks/usePluginInstallation";
+import PluginInstallationReview from "./PluginInstallationReview";
 
 export default function ConnectPlugin({
   services,
@@ -11,44 +12,27 @@ export default function ConnectPlugin({
   actions: PluginActions;
   storageReady: boolean;
 }) {
-  const [draft, setDraft] = useState({
-    serviceId: services[0]?.id ?? "",
-    token: "",
-  });
-  const service =
-    services.find((item) => item.id === draft.serviceId) ?? services[0];
-  const serviceId = service?.id ?? "";
-  const token = draft.serviceId === serviceId ? draft.token : "";
-  useEffect(() => {
-    setDraft((current) =>
-      current.serviceId === serviceId ? current : { serviceId, token: "" },
-    );
-  }, [serviceId]);
-  async function connect(event: FormEvent) {
-    event.preventDefault();
-    if (!service) return;
-    const installation = await actions.install({
-      service_id: service.id,
-      service_revision: service.revision,
-      bearer_token: token || null,
-    });
-    if (installation)
-      setDraft((current) =>
-        current.serviceId === service.id ? { ...current, token: "" } : current,
-      );
-  }
+  const workflow = usePluginInstallation(services, actions);
+  const { service, token } = workflow;
+  const pending = actions.pending || workflow.pending;
   if (!service) return null;
   return (
     <div className="plugin-section">
       <h3>Connect a service</h3>
-      <form className="plugin-form" onSubmit={connect}>
+      <form
+        className="plugin-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void workflow.preview();
+        }}
+      >
         <label>
           Service
           <select
             value={service.id}
             disabled={actions.pending}
             onChange={(event) => {
-              setDraft({ serviceId: event.target.value, token: "" });
+              workflow.select(event.target.value);
             }}
           >
             {services.map((item) => (
@@ -67,19 +51,30 @@ export default function ConnectPlugin({
             maxLength={4096}
             disabled={actions.pending || !storageReady}
             value={token}
-            onChange={(event) =>
-              setDraft({ serviceId: service.id, token: event.target.value })
-            }
+            onChange={(event) => workflow.setToken(event.target.value)}
           />
         </label>
         <p>
           Use a token supplied by this service. It stays private to your
           account.
         </p>
-        <button className="button primary" disabled={actions.pending}>
-          {actions.pending ? "Connecting…" : "Connect service"}
+        <button className="button primary" disabled={pending}>
+          {workflow.pending ? "Checking service…" : "Review connection"}
         </button>
       </form>
+      {workflow.error && (
+        <p role="alert" className="form-error">
+          {workflow.error}
+        </p>
+      )}
+      {workflow.review && (
+        <PluginInstallationReview
+          manifest={workflow.review.manifest}
+          pending={pending}
+          onAccept={() => void workflow.accept()}
+          onBack={workflow.back}
+        />
+      )}
     </div>
   );
 }

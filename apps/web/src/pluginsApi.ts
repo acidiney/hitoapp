@@ -3,6 +3,8 @@ import type {
   InstallPlugin,
   OfferPluginService,
   PluginInstallation,
+  PluginInstallationPreview,
+  PreviewPluginInstallation,
   PluginRefresh,
   PluginService,
   PluginSettings,
@@ -98,6 +100,21 @@ export const pluginsApi = {
     return (
       await request("/plugins", {
         action: "plugins.install",
+        method: "POST",
+        account,
+        body,
+        signal,
+      })
+    ).json();
+  },
+  async preview(
+    account: string,
+    body: PreviewPluginInstallation,
+    signal: AbortSignal,
+  ): Promise<PluginInstallationPreview> {
+    return (
+      await request("/plugins/preview", {
+        action: "plugins.preview",
         method: "POST",
         account,
         body,

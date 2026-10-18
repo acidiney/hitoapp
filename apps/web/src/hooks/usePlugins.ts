@@ -6,6 +6,7 @@ import type {
   PluginInstallation,
   PluginService,
   PluginSettings,
+  PreviewPluginInstallation,
   RefreshPlugin,
 } from "../types";
 import { useRequestScope } from "./useRequestScope";
@@ -24,6 +25,7 @@ export function usePlugins(account: string) {
   } | null>(null);
   const [failure, setFailure] = useState<{
     owner: typeof owner;
+    action: string;
     message: string;
   } | null>(null);
   const [pending, setPending] = useState<typeof owner | null>(null);
@@ -52,7 +54,7 @@ export function usePlugins(account: string) {
           !signal.aborted &&
           owner.generation === generation
         )
-          setFailure({ owner, message: errorMessage(error) });
+          setFailure({ owner, action: "list", message: errorMessage(error) });
       });
     return () => controller.abort();
   }, [account, owner, scope, revision]);
@@ -61,16 +63,22 @@ export function usePlugins(account: string) {
     action: string,
     operation: (signal: AbortSignal) => Promise<T>,
     update: (data: PluginSettings, result: T) => PluginSettings,
+    callerSignal?: AbortSignal,
   ) {
     if (busy.current === owner) return null;
     const request = scope.capture();
+    const signal = callerSignal
+      ? AbortSignal.any([request.signal, callerSignal])
+      : request.signal;
+    const active = () => request.active() && !signal.aborted;
+    if (!active()) return null;
     busy.current = owner;
     owner.generation++;
     setPending(owner);
     setFailure(null);
     try {
-      const result = await operation(request.signal);
-      if (!request.active()) return null;
+      const result = await operation(signal);
+      if (!active()) return null;
       setSnapshot((current) =>
         current?.owner === owner
           ? { owner, data: update(current.data, result) }
@@ -79,7 +87,7 @@ export function usePlugins(account: string) {
       log.info("plugins.completed", { account_id: account, action });
       return result;
     } catch (error) {
-      if (request.active()) setFailure({ owner, message: errorMessage(error) });
+      if (active()) setFailure({ owner, action, message: errorMessage(error) });
       return null;
     } finally {
       if (busy.current === owner) busy.current = null;
@@ -99,7 +107,19 @@ export function usePlugins(account: string) {
     reload: () => {
       if (busy.current !== owner) reload((value) => value + 1);
     },
-    install: (body: InstallPlugin) =>
+    preview: async (body: PreviewPluginInstallation, signal: AbortSignal) => {
+      const request = scope.capture();
+      const combined = AbortSignal.any([request.signal, signal]);
+      if (!request.active() || combined.aborted) return null;
+      setFailure((current) =>
+        current?.owner === owner && current.action === "install"
+          ? null
+          : current,
+      );
+      const result = await pluginsApi.preview(account, body, combined);
+      return request.active() && !combined.aborted ? result : null;
+    },
+    install: (body: InstallPlugin, signal?: AbortSignal) =>
       perform(
         "install",
         (signal) => pluginsApi.install(account, body, signal),
@@ -107,6 +127,7 @@ export function usePlugins(account: string) {
           ...data,
           installations: [...data.installations, result],
         }),
+        signal,
       ),
     offer: (body: OfferPluginService) =>
       perform(
