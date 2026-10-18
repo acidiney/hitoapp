@@ -9,6 +9,7 @@ export type Release = Schema["Release"];
 export type Artist = Schema["Artist"];
 export type ArtworkAvailability = Schema["ArtworkAvailability"];
 export type ArtworkFetch = Schema["ArtworkFetch"];
+export type ReleaseArtworkFetch = Schema["ReleaseArtworkFetch"];
 export type AlbumIndexPageProps = Schema["AlbumIndexPageProps"];
 export type AlbumPageProps = Schema["AlbumPageProps"];
 export type AlbumDetailsPageProps = Schema["AlbumDetailsPageProps"];
