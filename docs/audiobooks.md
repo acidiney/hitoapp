@@ -83,7 +83,7 @@ An independent gate review found that early console messages were not rescanned 
 
 This qualifies grouping and recovery in the isolated package. It seeds one backing playlist and does not snapshot metadata-provider settings. It does not qualify bookmark actions, playback, large chapter rendering, physical Safari or normal deployment. The normal server remains unchanged and the disposable server is stopped after verification.
 
-The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. Bookmark jumping, chapter resume and speed controls remain unfinished. Chapter/bookmark limit boundaries and access revocation need further qualification. Deployment acceptance also remains open.
+The legacy JSON list retains its 100-book cap. The shared index uses the paged read described below. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. Bookmark jumping, chapter resume and speed controls remain unfinished. Chapter/bookmark limit boundaries and access revocation need further qualification. Deployment acceptance also remains open.
 
 ## Explicit bookmark changes
 
@@ -273,3 +273,16 @@ Two device cases pass with an isolated CPAL/PulseAudio monitor, owned WAV files 
 The audio fixture distinguishes the region before four seconds, a short marker at four seconds and the later region. A separate real-output control deliberately seeks to three and five seconds and requires the same first-audible-region detector to reject both. This prevents a test from waiting through an incorrect start until the expected tone eventually appears. Tempo measurement aligns its source-clock baseline with monitor frames after the replay acknowledgement; separate checks cover playback during that acknowledgement.
 
 The root verifier repeated both cases successfully in 7.57 seconds. Formatting, strict device-feature Clippy for the test target and the independent second gate review pass. These checks qualify Linux device fixtures. They do not establish sample-perfect seeking, physical speaker output, packaged desktop behavior, codec coverage, gapless transitions, platform support or release latency.
+
+
+## Paged audiobook library
+
+The shared index reads `GET /api/v1/audiobooks/page`, with a default of 60 books and a limit of 1 to 100. The existing vector response from `GET /api/v1/audiobooks` remains unchanged. The new route returns books and pagination metadata from core; Inertia uses those same typed results. OpenAPI and TypeScript come from the actual Rust route and DTOs.
+
+Pages retain alphabetical name order, breaking equal-name ties by playlist ID. Cursors are bounded, versioned and account-scoped. The 4,096-byte encoded bound permits every existing 256-byte playlist name, including names expanded by JSON control-character escaping. Core checks the current owned, live anchor before reading the next or previous page. A renamed or deleted anchor returns a conflict and requires an explicit restart. This is a live view: concurrent additions or renames before the cursor can require returning to the first page. It is not a frozen library snapshot.
+
+Normal Inertia links retain the page URL for reload and browser history. Their workflow owns one visit, a ten-second deadline, exact-link retry, cancellation and account/rendered-page fences. A failed visit keeps the current books visible and offers Retry and First. Grouping choices come from current database membership, so a book on another page is never offered as an ungrouped playlist. The selector retains its existing first-1,000-live-playlist window; pagination of playlist selection is separate work.
+
+Three new real-SQLite HTTP cases pass together with five existing audiobook HTTP/Inertia cases. They traverse 121 equal-named books through 60/60/1 pages and back, verify alphabetical order independently of IDs, reject foreign and malformed cursors and invalid limits, exercise changed/deleted anchors and concurrent additions, and preserve both accounts' musical state, original WAV bytes and explicit download absence. Eight new public page cases cover links, lost visits, deadline recovery, StrictMode, off-page grouping eligibility, account/props retirement and correlated privacy-safe logs. All 477 frontend cases, both TypeScript configurations and the production web build pass. Isolated packaged browser acceptance and independent review of this slice remain separate gates.
+
+The query-work regression traverses all 400 grouped books among 100,000 owned playlists under actual inherited one-row, absent and fresh SQLite statistics. Without fixed membership order and primary-key playlist probes, stale statistics reach the existing 10,000,000-step interruption limit. With those existing indexes selected, all twelve public page reads use approximately 8,800 to 10,900 VM steps, below the unchanged 50,000-step budget. No schema change is needed. This qualifies the core page read at that fixture size, not 100,000 grouped books, full Inertia assembly or release hardware latency.
