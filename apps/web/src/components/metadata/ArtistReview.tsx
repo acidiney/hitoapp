@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useArtistReview } from "../../hooks/useArtistReview";
+import ArtistDiscography from "./ArtistDiscography";
 import type {
   ArtistSearchCandidate,
   CatalogArtistProfile,
@@ -23,6 +24,11 @@ export default function ArtistReview({
   detail: RecordingMetadata;
 }) {
   const workflow = useArtistReview(account, detail);
+  const reviewed =
+    workflow.profile?.status === "available" ? workflow.profile : null;
+  const association = reviewed
+    ? workflow.associations.find((item) => item.id === reviewed.association_id)
+    : undefined;
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
   function search(event: FormEvent) {
@@ -176,6 +182,14 @@ export default function ArtistReview({
         <section aria-label="Reviewed artist profile">
           <h3>Reviewed artist profile</h3>
           <ArtistFacts profile={workflow.profile.profile} />
+          {association && (
+            <ArtistDiscography
+              account={account}
+              recording={detail.recording_id}
+              association={association}
+              profile={workflow.profile.profile}
+            />
+          )}
         </section>
       )}
       {workflow.profile && workflow.profile.status !== "available" && (
