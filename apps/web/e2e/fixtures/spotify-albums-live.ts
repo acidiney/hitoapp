@@ -117,6 +117,7 @@ export async function readSpotifyAlbumsLive(
   request: APIRequestContext,
   playlistId: string,
   reference: string,
+  mode: "current" | "legacy" = "current",
 ) {
   let remaining = 16 * 1024 * 1024;
   let requests = 0;
@@ -260,7 +261,12 @@ export async function readSpotifyAlbumsLive(
   );
   liveCheck(isDeepStrictEqual(initial, final));
   liveCheck(
-    [...recordings.values()].some((recording) => recording.release != null),
+    mode === "legacy"
+      ? recordings.size > 0 &&
+          [...recordings.values()].every(
+            (recording) => recording.release == null,
+          )
+      : [...recordings.values()].some((recording) => recording.release != null),
   );
   return {
     detail: initial,
