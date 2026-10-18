@@ -13,13 +13,15 @@ pub(super) struct Owned {
     pub(super) lease: Uuid,
     pub(super) queue: Queue,
     pub(super) sequence: u64,
-    pub(super) receipts: VecDeque<(PlayerCommand, PlayerReceipt)>,
+    pub(super) receipts: VecDeque<AcceptedCommand>,
+    pub(super) retired_audiobooks: VecDeque<(Uuid, PlayerCommand)>,
     pub(super) published: watch::Sender<PlayerSnapshot>,
     pub(super) scope: Uuid,
     pub(super) desired_playing: bool,
     pub(super) play_revision: u64,
     pub(super) playing: bool,
     pub(super) saved: Option<super::loading::SavedStart>,
+    pub(super) continuation: Option<super::continuation::Prepared>,
     pub(super) seek: Option<super::types::Seek>,
     pub(super) applied_seek: Option<Uuid>,
     pub(super) volume: u16,
@@ -40,12 +42,14 @@ impl Owned {
             queue: Queue::default(),
             sequence: 0,
             receipts: VecDeque::new(),
+            retired_audiobooks: VecDeque::new(),
             published: watch::channel(PlayerSnapshot::default()).0,
             scope: Uuid::new_v4(),
             desired_playing: false,
             play_revision: 0,
             playing: false,
             saved: None,
+            continuation: None,
             seek: None,
             applied_seek: None,
             volume: 1000,
@@ -138,13 +142,13 @@ impl Owned {
         self.applied_seek = None;
     }
     pub(super) fn check(&self, command: &PlayerCommand) -> Result<Option<PlayerReceipt>> {
-        if let Some((accepted, receipt)) = self
+        if let Some(accepted) = self
             .receipts
             .iter()
-            .find(|(accepted, _)| accepted.id == command.id)
+            .find(|accepted| accepted.command.id == command.id)
         {
-            return if accepted == command {
-                Ok(Some(receipt.clone()))
+            return if &accepted.command == command {
+                Ok(Some(accepted.receipt.clone()))
             } else {
                 Err(PlayerError::Conflict)
             };
@@ -154,4 +158,10 @@ impl Owned {
         }
         Ok(None)
     }
+}
+
+pub(super) struct AcceptedCommand {
+    pub command: PlayerCommand,
+    pub receipt: PlayerReceipt,
+    pub audiobook_request: Option<Uuid>,
 }

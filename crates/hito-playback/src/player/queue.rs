@@ -66,6 +66,7 @@ impl Queue {
         let current = self.current_entry();
         let restart = matches!(action, PlayerAction::Select { .. });
         match action {
+            PlayerAction::ContinueAudiobook { .. } => return Err(PlayerError::Invalid),
             PlayerAction::Shuffle {} => {
                 self.traversal.toggle_shuffle(&self.entries, current);
                 return Ok(());

@@ -12,12 +12,18 @@ pub(super) struct State {
     pub owner: Option<Owned>,
     pub native: bool,
 }
+#[derive(Default)]
+pub(super) struct AdmissionSelection {
+    pub recordings: Vec<Uuid>,
+    pub chapters: Vec<hito_core::AudiobookChapterAnchor>,
+    pub continuation: Option<hito_core::AudiobookChapterAnchor>,
+}
 impl State {
-    pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<Vec<Uuid>> {
+    pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<AdmissionSelection> {
         match action {
             Action::Submit(command) => {
                 if self.owned(actor, command.lease)?.check(command)?.is_some() {
-                    return Ok(Vec::new());
+                    return Ok(AdmissionSelection::default());
                 }
                 if matches!(
                     command.action,
@@ -35,13 +41,33 @@ impl State {
                     return Err(PlayerError::Unsupported);
                 }
                 match &command.action {
-                    super::PlayerAction::Replace { recordings, .. }
-                    | super::PlayerAction::Append { recordings } => Ok(recordings.clone()),
-                    PlayerAction::ReplaceEntries { entries, .. }
-                    | PlayerAction::AppendEntries { entries } => {
-                        Ok(entries.iter().map(|entry| entry.recording_id).collect())
+                    PlayerAction::ContinueAudiobook { token } => {
+                        let owned = self.owned(actor, command.lease)?;
+                        let prepared = owned.continuation.as_ref().ok_or(PlayerError::Conflict)?;
+                        prepared.check(owned, *token)?;
+                        Ok(AdmissionSelection {
+                            continuation: Some(prepared.info.chapter),
+                            recordings: Vec::new(),
+                            chapters: prepared
+                                .entries
+                                .iter()
+                                .filter_map(|entry| entry.chapter)
+                                .collect(),
+                        })
                     }
-                    _ => Ok(Vec::new()),
+                    super::PlayerAction::Replace { recordings, .. }
+                    | super::PlayerAction::Append { recordings } => Ok(AdmissionSelection {
+                        recordings: recordings.clone(),
+                        chapters: Vec::new(),
+                        continuation: None,
+                    }),
+                    PlayerAction::ReplaceEntries { entries, .. }
+                    | PlayerAction::AppendEntries { entries } => Ok(AdmissionSelection {
+                        recordings: entries.iter().map(|entry| entry.recording_id).collect(),
+                        chapters: entries.iter().filter_map(|entry| entry.chapter).collect(),
+                        continuation: None,
+                    }),
+                    _ => Ok(AdmissionSelection::default()),
                 }
             }
             Action::Queue {
@@ -49,18 +75,22 @@ impl State {
                 revision,
                 offset,
                 limit,
-            } => Ok(self
-                .owned(actor, *lease)?
-                .queue
-                .references(*revision, *offset, *limit)?
-                .iter()
-                .map(|entry| entry.recording_id)
-                .collect()),
-            _ => Ok(Vec::new()),
+            } => Ok(AdmissionSelection {
+                recordings: self
+                    .owned(actor, *lease)?
+                    .queue
+                    .references(*revision, *offset, *limit)?
+                    .iter()
+                    .map(|entry| entry.recording_id)
+                    .collect(),
+                chapters: Vec::new(),
+                continuation: None,
+            }),
+            _ => Ok(AdmissionSelection::default()),
         }
     }
 
-    fn owned(&self, actor: &Actor, lease: Uuid) -> Result<&Owned> {
+    pub(super) fn owned(&self, actor: &Actor, lease: Uuid) -> Result<&Owned> {
         self.owner
             .as_ref()
             .filter(|owner| owner.lease == lease && owner.actor.same_session(actor))
@@ -109,6 +139,8 @@ impl State {
                 owned.lease = lease;
                 owned.sequence = 0;
                 owned.receipts.clear();
+                owned.retired_audiobooks.clear();
+                owned.continuation = None;
                 self.owner = Some(owned);
                 tracing::info!(
                     event = "player_claim_accepted",
@@ -150,13 +182,44 @@ impl State {
                     return Err(PlayerError::Busy);
                 }
                 let owned = self.owner.as_mut().unwrap();
+                let audiobook_request =
+                    if matches!(command.action, PlayerAction::ContinueAudiobook { .. }) {
+                        owned
+                            .continuation
+                            .as_ref()
+                            .map(|prepared| prepared.request_id)
+                    } else {
+                        None
+                    };
                 let before = owned.queue.snapshot().selection;
+                let continuation = if let PlayerAction::ContinueAudiobook { token } = command.action
+                {
+                    let prepared = owned.continuation.as_ref().ok_or(PlayerError::Conflict)?;
+                    prepared.check(owned, token)?;
+                    Some((
+                        prepared.entries.clone(),
+                        prepared.start,
+                        prepared.info.position_ms,
+                        prepared.info.speed,
+                        owned
+                            .play_revision
+                            .checked_add(1)
+                            .ok_or(PlayerError::Invalid)?,
+                    ))
+                } else {
+                    None
+                };
                 let position = owned
                     .seek
                     .filter(|seek| Some(seek.id) != owned.applied_seek)
                     .map(|seek| seek.position_ms)
                     .unwrap_or(owned.position.borrow().position_ms);
-                let action = if matches!(command.action, PlayerAction::Previous {})
+                let action = if let Some((entries, start, ..)) = &continuation {
+                    PlayerAction::ReplaceEntries {
+                        entries: entries.clone(),
+                        start: *start,
+                    }
+                } else if matches!(command.action, PlayerAction::Previous {})
                     && owned.queue.snapshot().current.is_some()
                     && (position > 3000 || owned.queue.previous_entry().is_none())
                 {
@@ -210,6 +273,13 @@ impl State {
                 if before != owned.queue.snapshot().selection {
                     owned.selected(self.native);
                 }
+                if let Some((_, _, position, speed, play_revision)) = continuation {
+                    owned.saved = Some(super::loading::SavedStart::prepared(command.id, position));
+                    owned.speed = speed;
+                    owned.desired_playing = true;
+                    owned.play_revision = play_revision;
+                }
+                owned.continuation = None;
                 if owned.queue.snapshot().current.is_none() {
                     owned.desired_playing = false;
                 }
@@ -228,8 +298,17 @@ impl State {
                 if owned.receipts.len() == 64 {
                     owned.receipts.pop_front();
                 }
-                owned.receipts.push_back((command, receipt.clone()));
+                owned
+                    .receipts
+                    .push_back(super::attachment::AcceptedCommand {
+                        command,
+                        receipt: receipt.clone(),
+                        audiobook_request,
+                    });
                 Ok(Response::Receipt(receipt))
+            }
+            Action::PrepareAudiobook(_) | Action::CancelAudiobook { .. } => {
+                Err(PlayerError::Invalid)
             }
         }
     }

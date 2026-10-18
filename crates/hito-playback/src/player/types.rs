@@ -112,6 +112,27 @@ pub struct PlayerAttachment {
     pub state: PlayerSnapshot,
 }
 
+#[derive(Clone, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PlayerAudiobookRequest {
+    pub id: Uuid,
+    pub lease: Uuid,
+    pub revision: u64,
+    pub selection: u64,
+    pub audiobook_id: Uuid,
+}
+
+#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct PlayerAudiobookContinuation {
+    pub token: Uuid,
+    pub chapter: hito_core::AudiobookChapterAnchor,
+    pub position_ms: u64,
+    pub speed: u16,
+    pub count: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PlayerEntryRef {
@@ -177,6 +198,9 @@ pub struct PlayerCommand {
 pub enum PlayerAction {
     Resume {},
     ResumeSaved {},
+    ContinueAudiobook {
+        token: Uuid,
+    },
     Pause {},
     Seek {
         position_ms: u64,
@@ -222,6 +246,7 @@ impl PlayerAction {
         match self {
             Self::Resume {} => "resume",
             Self::ResumeSaved {} => "resume_saved",
+            Self::ContinueAudiobook { .. } => "continue_audiobook",
             Self::Pause {} => "pause",
             Self::Seek { .. } => "seek",
             Self::Volume { .. } => "volume",

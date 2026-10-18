@@ -33,6 +33,14 @@ pub(super) struct SavedStart {
     pub listened: bool,
 }
 impl SavedStart {
+    pub fn prepared(command_id: Uuid, position_ms: u64) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            command_id,
+            status: Status::Ready(position_ms),
+            listened: false,
+        }
+    }
     pub fn new(command_id: Uuid) -> Self {
         Self {
             id: Uuid::new_v4(),

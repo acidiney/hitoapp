@@ -1,5 +1,7 @@
 mod attachment;
 mod authority;
+mod continuation;
+mod continuation_commit;
 mod effects;
 mod loading;
 mod owner;
@@ -15,9 +17,10 @@ use tokio::{
 };
 use tracing::{Instrument, instrument::WithSubscriber};
 pub use types::{
-    PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure,
-    PlayerInspection, PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueueInput,
-    PlayerQueuePage, PlayerReceipt, PlayerRepeat, PlayerSnapshot,
+    PlayerAction, PlayerAttachment, PlayerAudiobookContinuation, PlayerAudiobookRequest,
+    PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure, PlayerInspection, PlayerPhase,
+    PlayerPosition, PlayerQueueEntry, PlayerQueueInput, PlayerQueuePage, PlayerReceipt,
+    PlayerRepeat, PlayerSnapshot,
 };
 use uuid::Uuid;
 
@@ -42,6 +45,12 @@ enum Action {
     Subscribe(Uuid),
     Position(Uuid),
     Submit(PlayerCommand),
+    PrepareAudiobook(PlayerAudiobookRequest),
+    CancelAudiobook {
+        lease: Uuid,
+        id: Uuid,
+        command: Option<PlayerCommand>,
+    },
     Queue {
         lease: Uuid,
         revision: u64,
@@ -56,6 +65,9 @@ enum Response {
     Position(watch::Receiver<PlayerPosition>),
     Receipt(PlayerReceipt),
     Queue(PlayerQueuePage),
+    AudiobookContinuation(PlayerAudiobookContinuation),
+    Cancelled,
+    AudiobookSettlement(Option<PlayerReceipt>),
 }
 struct Request {
     actor: Actor,
@@ -104,6 +116,74 @@ impl Player {
 
     pub fn native_enabled(&self) -> bool {
         self.native
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %input.id))]
+    pub async fn prepare_audiobook(
+        &self,
+        actor: &Actor,
+        input: PlayerAudiobookRequest,
+    ) -> Result<PlayerAudiobookContinuation> {
+        if input.id.is_nil() || input.lease.is_nil() || input.audiobook_id.is_nil() {
+            return Err(PlayerError::Invalid);
+        }
+        match self.request(actor, Action::PrepareAudiobook(input)).await? {
+            Response::AudiobookContinuation(value) => Ok(value),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %id))]
+    pub async fn cancel_audiobook(&self, actor: &Actor, lease: Uuid, id: Uuid) -> Result<()> {
+        if lease.is_nil() || id.is_nil() {
+            return Err(PlayerError::Invalid);
+        }
+        match self
+            .request(
+                actor,
+                Action::CancelAudiobook {
+                    lease,
+                    id,
+                    command: None,
+                },
+            )
+            .await?
+        {
+            Response::Cancelled => Ok(()),
+            _ => Err(PlayerError::Closed),
+        }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id, request_id = %id))]
+    pub async fn settle_audiobook(
+        &self,
+        actor: &Actor,
+        lease: Uuid,
+        id: Uuid,
+        command: PlayerCommand,
+    ) -> Result<Option<PlayerReceipt>> {
+        if lease.is_nil()
+            || id.is_nil()
+            || command.lease != lease
+            || command.id.is_nil()
+            || !matches!(command.action, PlayerAction::ContinueAudiobook { token } if !token.is_nil())
+        {
+            return Err(PlayerError::Invalid);
+        }
+        match self
+            .request(
+                actor,
+                Action::CancelAudiobook {
+                    lease,
+                    id,
+                    command: Some(command),
+                },
+            )
+            .await?
+        {
+            Response::AudiobookSettlement(receipt) => Ok(receipt),
+            _ => Err(PlayerError::Closed),
+        }
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(player_owner = self.id, account_id = actor.user().id))]
@@ -156,6 +236,9 @@ impl Player {
                 return Err(PlayerError::Invalid);
             }
             PlayerAction::Seek { position_ms } if *position_ms > 9_007_199_254_740_991 => {
+                return Err(PlayerError::Invalid);
+            }
+            PlayerAction::ContinueAudiobook { token } if token.is_nil() => {
                 return Err(PlayerError::Invalid);
             }
             PlayerAction::Append { recordings }

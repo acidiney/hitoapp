@@ -4,9 +4,10 @@ mod seeking;
 mod source;
 pub use cancel::SourceStop;
 pub use player::{
-    Player, PlayerAction, PlayerAttachment, PlayerCommand, PlayerEntryRef, PlayerError,
-    PlayerFailure, PlayerInspection, PlayerOwner, PlayerPhase, PlayerPosition, PlayerQueueEntry,
-    PlayerQueueInput, PlayerQueuePage, PlayerReceipt, PlayerRepeat, PlayerSnapshot,
+    Player, PlayerAction, PlayerAttachment, PlayerAudiobookContinuation, PlayerAudiobookRequest,
+    PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure, PlayerInspection, PlayerOwner,
+    PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueueInput, PlayerQueuePage,
+    PlayerReceipt, PlayerRepeat, PlayerSnapshot,
 };
 pub use source::Source;
 #[cfg(feature = "device")]
