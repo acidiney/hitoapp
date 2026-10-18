@@ -141,7 +141,13 @@ async fn public_items_pin_order_and_duplicates_while_canonical_detail_refreshes_
         );
         assert_eq!(recording.artist, "Owned fixture artist");
         assert_eq!(recording.duration_ms, Some(180_000));
-        assert!(recording.release.is_none());
+        let release = recording
+            .release
+            .as_ref()
+            .expect("Expected the owned verified album");
+        assert_eq!(release.id, "0000000000000000000001");
+        assert_eq!(release.title, "Owned fixture album");
+        assert!(release.artist.is_none());
         assert!(recording.revision.is_none());
     }
     assert!(entries[0] == entries[100]);
@@ -319,6 +325,7 @@ async fn public_items_preserve_verified_album_identity_and_recording_occurrences
         };
         assert_eq!(release.id, "0000000000000000000001");
         assert_eq!(release.title, "Owned fixture album");
+        assert!(release.artist.is_none());
     }
 }
 

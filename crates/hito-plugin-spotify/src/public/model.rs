@@ -1,5 +1,7 @@
 use crate::error::Error;
-use hito_plugin_sdk::{ProviderPlaylistEntry, ProviderPlaylistItem, ProviderRecording};
+use hito_plugin_sdk::{
+    ProviderPlaylistEntry, ProviderPlaylistItem, ProviderRecording, ProviderRelease,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -63,8 +65,15 @@ struct Track {
     name: String,
     artists: Artists,
     duration: Duration,
+    album_of_track: Option<Album>,
     disc_number: Option<u32>,
     track_number: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct Album {
+    uri: String,
+    name: String,
 }
 
 #[derive(Deserialize)]
@@ -144,12 +153,26 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
         .map(|artist| artist.profile.name)
         .collect::<Vec<_>>()
         .join(", ");
+    let release = if let Some(album) = track.album_of_track {
+        let id = album
+            .uri
+            .strip_prefix("spotify:album:")
+            .filter(|id| valid_id(id))
+            .ok_or(Error::InvalidResponse)?;
+        Some(ProviderRelease {
+            id: id.to_owned(),
+            title: album.name,
+            artist: None,
+        })
+    } else {
+        None
+    };
     let recording = ProviderRecording {
         id: id.to_owned(),
         title: track.name,
         artist,
         duration_ms: Some(track.duration.total_milliseconds),
-        release: None,
+        release,
         disc_number: track.disc_number,
         track_number: track.track_number,
         revision: None,
