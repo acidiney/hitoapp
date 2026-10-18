@@ -202,3 +202,27 @@ Two public core cases cover 10,000 chapters, batch bounds, duplicate anchors, cu
 The database-work fixture measures the actual public capability with 100,000 recordings, a 10,000-chapter book and 1,000 neighbouring books after reopening under inherited, absent and fresh statistics. Admission of 1,000 anchors uses approximately 61,000 or 72,000 SQLite VM steps, below the unchanged `5,000 + 250 × requested anchors` budget. This proves bounded admission work, not full-book browsing performance, memory use or release playback latency. Fixture setup and preservation reads are outside that measurement.
 
 These changes are qualified in source. They do not qualify observed chapter checkpointing, a Continue control, packaged playback, platform output or migration 0049 deployment. The normal server remains on migration 0046.
+
+
+## Observed browser chapter checkpoints
+
+The shared browser player now retains one immutable occurrence queue. Each chapter occurrence carries its exact book, entry and recording identity independently of the player occurrence ID. Ordinary tracks keep their existing selection format. The native TypeScript bridge also preserves optional chapter context through bounded command chunks and verifies the selected occurrence against the authorized queue page.
+
+```mermaid
+flowchart LR
+  Queue[Exact chapter occurrence] --> Heard[Current source and media observation]
+  Heard --> Frozen[Immutable progress and chapter batch]
+  Frozen --> Writer[Account-scoped ordered writer]
+  Writer --> Sync[Existing authenticated sync API]
+  Sync --> Detail[Authoritative book continuation]
+```
+
+Selecting a chapter does not save its anchor. Its first qualified ready, playing observation does, including position zero; pending seeks suppress checkpoints until the current media completes them. A completed seek may report a rounded or slightly advanced clock. Source/generation changes and account retirement fence old observations. Navigation leaves the account player alive.
+
+The writer submits recording progress and the exact chapter together in one immutable batch. It retains the device identity and both operation IDs across retries, permits one active request and bounds pending batches to 256. Each attempt has a ten-second deadline through acknowledgement parsing. Ambiguous failures retain the head for exact retry; a definitive 401, 403 or 404 reports a safe error, settles that rejected checkpoint and allows later work to proceed. A rejection is never logged as an acknowledgement.
+
+At capacity, playback pauses and retains the unadmitted heard sample. Queue/source replacement cannot discard it. Once the earlier work settles, the same sample enters the FIFO once; recovery does not automatically resume audio or switch the queue. Explicit resume remains available. Account retirement clears pending work, aborts active requests and suppresses old-account publications.
+
+All 453 frontend cases, both TypeScript configurations and the production build pass in Docker. Public player/fetch-boundary cases cover A, B, A identity, natural prepared handoff, paired acknowledgements, held requests, request/body deadlines, definitive denial recovery, completed seeks, account replacement and actual 256-batch saturation with a retained 257th sample. Independent security, correctness and performance reviews pass after the deadline, denial and seek fixes. The tests replace external HTTP and media boundaries; they do not establish packaged browser playback or speaker output.
+
+This browser source is integrated. Packaged Chromium/WebKit acceptance, physical mobile Safari, native observed checkpoint acceptance, the Continue control and migration 0049 deployment remain open.
