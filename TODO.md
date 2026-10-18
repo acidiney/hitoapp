@@ -205,6 +205,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Measure p95 local start, ready remote start, and available-source recovery against the release targets.
 - [ ] Exercise slow providers, expired links, failed seeks, interrupted transfers, server outages, and recovery.
 - [ ] Verify backups/restoration, migrations, upgrades, installation, and approval-based updates.
+  - [x] Rehearse stopped whole-volume restoration and migration-only upgrade from 0046 to 0048 on a separate clone, preserving all prior rows, schema history, keys, identity and file metadata without touching the normal volume. Runtime startup, normal publication, migration 0049 and platform upgrades remain open. See [scope and evidence](docs/database-maintenance.md#stopped-migration-0046-to-0048-rehearsal).
 - [ ] Publish server containers/binaries, Compose deployment, Linux packages, and signed macOS/Windows installers.
 - [x] Add development setup launchers with native folder selection and generated Docker read-only mounts; manual `HITO_MUSIC_FOLDER` setup is an advanced option.
 - [ ] Verify native setup dialogs, permissions, drive reconnects, project discovery/adoption, stopped backups, and rollback on macOS, Windows, and Linux; package the setup experience for distribution.
