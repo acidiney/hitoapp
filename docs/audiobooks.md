@@ -1,6 +1,6 @@
 # Audiobooks in development
 
-Audiobook grouping, private bookmarks, authenticated list/read routes and read-only shared pages are qualified in source. Grouping controls, bookmark editing and the audiobook playback workflow remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
+Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages and explicit playlist-grouping controls are qualified in source. Bookmark editing and the audiobook playback workflow remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
 
 ## Ownership and identities
 
@@ -63,6 +63,14 @@ The shared index links to each book. The chapter page preserves server order and
 
 Four real-SQLite HTTP/Inertia cases pass, covering owned reads, exact chapter/bookmark projection, account mismatch, foreign and ungrouped books, full and partial denials, parent deletion, safe anonymous login and preservation of both accounts and original WAV bytes. Strict core/server all-target Clippy and formatting pass. Actual Rust export adds only the two GET routes and four DTO/page schemas; generated TypeScript reproduces and both configurations pass. Three page cases cover list/empty state, duplicate occurrences and unavailable bookmarks with rendering side effects rejected. All 301 frontend cases and the production build pass. Fresh independent reviews pass for the adapters and read-only UI.
 
-The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. The next workflow adds explicit grouping of existing playlists, bookmark create/remove/jump, chapter resume and speed controls. Chapter/bookmark limit boundaries and access revocation need further qualification. Packaged browser and deployment acceptance also remain open.
+## Explicit playlist grouping
+
+The index offers the account's editable playlists that are not already grouped. Add audiobook prepares one immutable synchronization operation. A lost acknowledgement retains that exact operation for retry; an acknowledged operation instead retries only the authoritative book read. The workflow verifies the owned detail response before requesting navigation and waits for matching Inertia success before completing.
+
+Failed or cancelled navigation leaves a Check audiobook action. Account replacement or unmount retires the owned cancellation token and fences late reads and navigation callbacks. If an acknowledged operation returns an authoritative 404, the page explains that the book is unavailable and offers an explicit Choose another playlist action. An uncertain write cannot be abandoned that way. Rendering and recovery start no audio, provider lookup or download.
+
+Eight grouping cases verify eligible selection, exact lost-acknowledgement replay, GET-only recovery, held response bodies, account/unmount fencing, deleted-book no-ops, explicit unavailable-result release, failed/cancelled navigation and late callbacks. The navigation regressions first failed because the original workflow marked completion before a fire-and-forget visit. The final full frontend run passes all 323 cases across 116 files, both TypeScript configurations and the production build. The independent second review confirms recovery and lifecycle ownership. Workflow logs use the original operation correlation, static outcomes and timings. Packaged browser acceptance remains open.
+
+The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. The next workflow adds bookmark create/remove/jump, chapter resume and speed controls. Chapter/bookmark limit boundaries and access revocation need further qualification. Deployment acceptance also remains open.
 
 A book-wide Continue button additionally requires an explicit selected-chapter anchor and collection occurrence provenance through browser and native queues. Recording timestamps or the current recording cannot identify a duplicate chapter occurrence. Automatic advancement, navigation, account switching and consistent resume must use the existing playback owner and per-recording progress, without another position store. These remain required release work, along with packaged browser, native/platform and normal-deployment acceptance.
