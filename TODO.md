@@ -183,6 +183,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Add book-list pagination beyond the current 100-book result cap and qualify browser chapter rendering at the supported 10,000-occurrence bound.
   - [ ] Qualify audiobook limits, access revocation and removed chapters through authenticated HTTP and packaged controls without implicit audio or Download. The routes, generated contracts and shared controls are implemented above.
   - [ ] Retain an explicit selected chapter through browser/native queue occurrence context for book-wide Continue, automatic advancement and account switching. Reuse existing per-recording position/speed ownership; verify packaged browser, native/platform and deployment acceptance.
+    - [x] Add the private exact-chapter anchor, existing progress projection and idempotent sync operation in core and authenticated HTTP/Inertia. All 361 core and 160 server cases, strict workspace checks, generated contracts and web types/build pass. Queues, checkpoint writers, Continue controls and migration 0049 deployment remain open. See [foundation and limits](docs/audiobooks.md#retained-chapter-continuation-foundation).
 - [ ] Add timed-lyrics and optional backing-track contracts and rendering.
 - [ ] Run reproducible fixture tests and live checks for every official provider.
 

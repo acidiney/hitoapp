@@ -111,7 +111,7 @@ Eighteen public page cases cover duplicate occurrences, create/remove, unavailab
 
 A dedicated stalled-GET case, 10,000-chapter browser performance, playback jumping, occurrence-aware resume and deployment remain open. Packaged create/remove acceptance is recorded below. Existing per-recording progress is still the sole saved-position owner; the bookmark UI adds no book-wide resume cursor.
 
-A book-wide Continue button additionally requires an explicit selected-chapter anchor and collection occurrence provenance through browser and native queues. Recording timestamps or the current recording cannot identify a duplicate chapter occurrence. Automatic advancement, navigation, account switching and consistent resume must use the existing playback owner and per-recording progress, without another position store. These remain required release work, along with packaged browser, native/platform and normal-deployment acceptance.
+A book-wide Continue button additionally requires integrating the retained chapter anchor described below with collection occurrence provenance through browser and native queues. Recording timestamps or the current recording cannot identify a duplicate chapter occurrence. Automatic advancement, navigation, account switching and consistent resume must use the existing playback owner and per-recording progress, without another position store. These remain required release work, along with packaged browser, native/platform and normal-deployment acceptance.
 
 ## Packaged bookmark acceptance
 
@@ -139,7 +139,7 @@ No playback-position subscription is added to the page. Workflow logs contain ge
 
 Two missing-control regressions first reproduce the absent features. Twenty-four new cases cover exact duplicate selection and bookmark milliseconds, unavailable or changed anchors, later playback intentions, held bodies, account/book/props/unmount cancellation, deadline recovery, navigation and ordinary progress ownership. Native protocol coverage selects duplicate index 1002 across command chunks at 35,125 ms. Independent review found a retained-detail cancellation race; its verified-editor regression failed before the minimal raw-snapshot ownership fix. Final correctness/security reviews and the performance review pass. All 387 source and integrated frontend cases, both type configurations and the production build pass.
 
-This qualifies shared browser/native command coordination in source. Packaged browser media playback is qualified below. Audible output measurement, physical Safari, native platform output, large chapter rendering, book-wide Continue and durable chapter provenance remain unfinished. There is no book-wide resume cursor or current-chapter inference from recording progress.
+This qualifies shared browser/native command coordination in source. Packaged browser media playback is qualified below. Audible output measurement, physical Safari, native platform output, large chapter rendering, book-wide Continue and durable chapter provenance remain unfinished. This playback integration does not yet write the retained chapter anchor described below or infer the current chapter from recording progress.
 
 A preliminary isolated Chromium run of the `5adbedc` web package observes chapter playback from zero, natural advancement, an exact 35,125 ms bookmark on the second duplicate, queue removal preserving that occurrence, the same audio element through two Inertia visits and UI pause. Its five progress writes match actual observed media, and private state, originals and download absence remain preserved. This is media-state evidence, not a measurement of audible output.
 
@@ -159,3 +159,24 @@ The book-local Chromium classifier preserves raw cancellation and unreadable-bod
 The versioned generator option `--e2e --audiobook` places existing WAV tags before the PCM data. It reproduces the qualified files without changing PCM, tags or duration. No-argument and ordinary `--e2e` output remains byte-identical; duplicate/unknown arguments and standalone `--audiobook` fail before writes. Both TypeScript configurations pass. Reports retain individual 4 KiB and combined 8 KiB bounds; completed-body checks do not establish a browser-process memory limit.
 
 Preparation failures remain separately counted. The final main workflows contain no unexplained playback failure; Chromium verifies four complete 206 bodies, while WebKit verifies four complete 200 bodies with four paired delegate probes. These checks qualify the combined isolated package. Normal deployment, physical Safari, codec coverage, native platform output, latency/gapless targets and durable occurrence-aware Continue remain open.
+
+## Retained chapter continuation foundation
+
+The collection API now accepts `audiobook_chapter_set` with a typed `chapter` containing the exact `audiobook_id`, `entry_id` and `recording_id`. Migration 0049 retains that anchor per account and book. It stores no second position, speed, timestamp or queue. Existing account/recording progress remains authoritative, so a later ordinary progress update changes the projected position without selecting another duplicate chapter.
+
+```mermaid
+flowchart LR
+  Batch[Ordered collection sync batch] --> Collection[Core collection transaction]
+  Collection --> Anchor[Account and book chapter anchor]
+  Collection --> Progress[Existing recording progress]
+  Anchor --> Detail[Authorized audiobook detail]
+  Progress --> Detail
+```
+
+An owned book detail includes optional `continuation` with that exact chapter and its currently authorized recording progress. Legacy books omit the field until an explicit anchor exists; recording history never guesses it. Removing the selected occurrence retains its exact anchor so a future Continue control can explain its unavailability rather than choose another duplicate. Revoking recording access hides the progress projection. Restoring access restores that projection without changing the private book anchor.
+
+The write checks live book ownership, exact chapter membership and current recording access. Missing or foreign targets are denied. Delayed writes to an owned deleted book or removed chapter are acknowledged no-ops and preserve independent valid operations in the same batch. Exact replay returns the earlier receipt without rolling back a later anchor, recording progress or reordered chapters. A paired progress/anchor batch rolls back together on a foreign-book denial.
+
+Four new public-core cases cover duplicate selection, reopen, replay, reordering, account boundaries, revocation/restoration and deletion. A real-router HTTP/Inertia case verifies exact wire bodies, immutable replay, acknowledgements, transaction rollback, omitted legacy fields, private response headers and private-state/original-file preservation. Independent source and HTTP gate reviews pass. Complete Docker suites pass 361 distinct core and 160 distinct server cases, with one usual core fault case explicitly ignored. Formatting, strict default-feature workspace all-target Clippy, both TypeScript configurations and the production web build pass. Actual Rust OpenAPI and generated TypeScript reproduce byte for byte; six historical upgrade targets retain their original inputs and preservation assertions at the new endpoint.
+
+This qualifies the retained anchor and its existing HTTP transport. Browser/native queues do not yet carry or checkpoint it, and no Continue button is present. Playback must pair the anchor with the first qualified observed progress in the existing ordered writer, including zero, rather than save it merely when a chapter is selected. Packaged playback, native/platform checks, migration 0049 deployment and full Continue acceptance remain open.
