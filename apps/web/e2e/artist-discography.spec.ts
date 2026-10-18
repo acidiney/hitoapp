@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { artistDiscographyEvidence } from "./fixtures/artist-discography-evidence";
 import { artistReviewProvider } from "./fixtures/artist-review-provider";
 import {
@@ -169,9 +170,14 @@ test("a reviewed namesake browses catalog releases explicitly without adopting o
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(provider.token);
+    const reviewed = await reviewPluginInstallation(
+      page,
+      offered.body,
+      provider.manifest.name,
+    );
     const installed = await preferencesAction<Schema["PluginInstallation"]>(
       page,
-      page.getByRole("button", { name: "Connect service", exact: true }),
+      page.getByRole("button", { name: "Accept and connect", exact: true }),
       "POST",
       "/api/v1/plugins",
       201,
@@ -181,7 +187,11 @@ test("a reviewed namesake browses catalog releases explicitly without adopting o
     expect(
       installed.body.credential_set &&
         installed.body.service_id === offered.body.id &&
-        isDeepStrictEqual(installed.body.manifest, provider.manifest),
+        isDeepStrictEqual(installed.body.manifest, provider.manifest) &&
+        isDeepStrictEqual(installed.sent, {
+          ...reviewed.sent,
+          accept_manifest_digest: reviewed.body.digest,
+        }),
     ).toBe(true);
     const selected = {
       kind: "http_plugin",
@@ -205,6 +215,7 @@ test("a reviewed namesake browses catalog releases explicitly without adopting o
     expect(
       isDeepStrictEqual(provider.calls, [
         "manifest_public",
+        "manifest_private",
         "manifest_private",
       ]),
     ).toBe(true);
@@ -490,6 +501,7 @@ test("a reviewed namesake browses catalog releases explicitly without adopting o
     expect(
       isDeepStrictEqual(provider.calls, [
         "manifest_public",
+        "manifest_private",
         "manifest_private",
         "discovery",
         "search",

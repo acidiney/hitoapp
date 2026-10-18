@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { artistReviewEvidence } from "./fixtures/artist-review-evidence";
 import { artistReviewProvider } from "./fixtures/artist-review-provider";
 import {
@@ -146,9 +147,14 @@ test("an account reviews a namesake through its chosen metadata provider without
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);
+    const reviewed = await reviewPluginInstallation(
+      page,
+      offered.body,
+      owned.manifest.name,
+    );
     const installed = await preferencesAction<Schema["PluginInstallation"]>(
       page,
-      page.getByRole("button", { name: "Connect service", exact: true }),
+      page.getByRole("button", { name: "Accept and connect", exact: true }),
       "POST",
       "/api/v1/plugins",
       201,
@@ -158,14 +164,22 @@ test("an account reviews a namesake through its chosen metadata provider without
     expect(
       installed.body.service_id === offered.body.id &&
         installed.body.credential_set &&
-        isDeepStrictEqual(installed.body.manifest, owned.manifest),
+        isDeepStrictEqual(installed.body.manifest, owned.manifest) &&
+        isDeepStrictEqual(installed.sent, {
+          ...reviewed.sent,
+          accept_manifest_digest: reviewed.body.digest,
+        }),
     ).toBe(true);
     const selected = {
       kind: "http_plugin",
       installation_id: installed.body.id,
     } satisfies Schema["MetadataProvider"];
     expect(
-      isDeepStrictEqual(owned.calls, ["manifest_public", "manifest_private"]),
+      isDeepStrictEqual(owned.calls, [
+        "manifest_public",
+        "manifest_private",
+        "manifest_private",
+      ]),
     ).toBe(true);
 
     stage = "choose personal metadata provider instead of built-in";
@@ -233,7 +247,11 @@ test("an account reviews a namesake through its chosen metadata provider without
       .getByRole("searchbox", { name: "Search artists", exact: true })
       .fill(query);
     expect(
-      isDeepStrictEqual(owned.calls, ["manifest_public", "manifest_private"]),
+      isDeepStrictEqual(owned.calls, [
+        "manifest_public",
+        "manifest_private",
+        "manifest_private",
+      ]),
     ).toBe(true);
 
     stage = "search namesakes through negotiated discovery protocol";
@@ -321,6 +339,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     expect(
       isDeepStrictEqual(owned.calls, [
         "manifest_public",
+        "manifest_private",
         "manifest_private",
         "discovery",
         "search",
@@ -429,6 +448,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     expect(
       isDeepStrictEqual(owned.calls, [
         "manifest_public",
+        "manifest_private",
         "manifest_private",
         "discovery",
         "search",

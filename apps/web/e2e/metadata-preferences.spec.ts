@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type BrowserContext } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { metadataPreferencesProvider } from "./fixtures/metadata-preferences-provider";
 import { preferencesEvidence } from "./fixtures/metadata-preferences-evidence";
 import {
@@ -180,9 +181,14 @@ test("account metadata preferences persist ordered personal providers without to
       await page
         .getByRole("combobox", { name: "Service", exact: true })
         .selectOption(offered.body.id);
+      const reviewed = await reviewPluginInstallation(
+        page,
+        offered.body,
+        owned.name,
+      );
       const installed = await preferencesAction<Schema["PluginInstallation"]>(
         page,
-        page.getByRole("button", { name: "Connect service", exact: true }),
+        page.getByRole("button", { name: "Accept and connect", exact: true }),
         "POST",
         "/api/v1/plugins",
         201,
@@ -193,7 +199,11 @@ test("account metadata preferences persist ordered personal providers without to
         installed.body.service_id === offered.body.id &&
           installed.body.manifest.id === owned.manifests[index].id &&
           installed.body.manifest.capabilities.join(",") === "catalog" &&
-          !installed.body.credential_set,
+          !installed.body.credential_set &&
+          isDeepStrictEqual(installed.sent, {
+            ...reviewed.sent,
+            accept_manifest_digest: reviewed.body.digest,
+          }),
       ).toBe(true);
       connections.push(installed.body);
       privateValues.push(installed.body.id, offered.body.id);
@@ -203,8 +213,8 @@ test("account metadata preferences persist ordered personal providers without to
         connections[0].service_id !== connections[1].service_id,
     ).toBe(true);
     expect(
-      isDeepStrictEqual(owned.calls.manifest, [2, 2]) &&
-        owned.calls.total === 4,
+      isDeepStrictEqual(owned.calls.manifest, [3, 3]) &&
+        owned.calls.total === 6,
     ).toBe(true);
     const callsAfterApproval = structuredClone(owned.calls);
 
