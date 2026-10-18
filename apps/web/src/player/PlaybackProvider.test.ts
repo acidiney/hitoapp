@@ -2,17 +2,12 @@
 import { createElement } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { change, libraryApi } from "../api";
 import { NoticeBanner, NoticeProvider } from "../components/Notices";
+import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
 import type { Player } from "./model";
-import type { SyncReceipt } from "../types";
+import type { Source, SyncBatch } from "../types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import { nativeService } from "./native/fixtures/service";
-
-vi.mock("../api", () => ({
-  change: vi.fn(),
-  libraryApi: { sources: vi.fn() },
-}));
 
 afterEach(() => {
   cleanup();
@@ -71,24 +66,69 @@ test("native account playback creates no browser audio and disposes old account 
 });
 
 test("account playback aborts progress and replaces its account-bound resources", async () => {
-  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
-  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
-  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  vi.mocked(libraryApi.sources).mockResolvedValue([
-    {
-      id: "source",
-      recording_id: "recording",
-      provider: "local",
-      device_id: "server",
-      ready: true,
-      label: "Local audio",
-      can_prepare: false,
-    },
-  ]);
-  let failProgress!: (error: Error) => void;
-  vi.mocked(change).mockReturnValueOnce(
-    new Promise<SyncReceipt>((_, reject) => {
-      failProgress = reject;
+  const media = audiobookContinuationMedia();
+  const recording = "1f56bf95-61af-449d-95de-16e085227327";
+  const client = "dafd72fc-e5d2-4017-ad20-101a76b48259";
+  const previousClient = localStorage.getItem("hito-device");
+  localStorage.setItem("hito-device", client);
+  const source = (account: string): Source => ({
+    id:
+      account === "alice"
+        ? "2787c7c0-8aa0-4dab-a79b-9935aa7b2651"
+        : "cba61d03-ea05-4c48-ad94-4380312ce19d",
+    recording_id: recording,
+    provider: "local",
+    device_id: "9955460e-2ce4-4ef9-8e9f-f27badf640e8",
+    ready: true,
+    label: "Owned local audio",
+    can_prepare: false,
+  });
+  const requests: {
+    path: string;
+    method: string;
+    account: string;
+    signal: AbortSignal;
+  }[] = [];
+  const writes: { account: string; batch: SyncBatch; signal: AbortSignal }[] =
+    [];
+  const pending = new Set<Promise<Response>>();
+  let failProgress: ((error: Error) => void) | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const account = new Headers(options?.headers).get("x-hito-account")!;
+      const request = {
+        path: String(input),
+        method: options?.method ?? "GET",
+        account,
+        signal: options?.signal as AbortSignal,
+      };
+      requests.push(request);
+      expect(["alice", "bob"]).toContain(account);
+      expect(options?.credentials).toBe("same-origin");
+      expect(request.signal).toBeInstanceOf(AbortSignal);
+      if (
+        request.path === `/api/v1/recordings/${recording}/sources` &&
+        request.method === "GET"
+      )
+        return Response.json([source(account)]);
+      if (request.path !== "/api/v1/sync" || request.method !== "POST")
+        throw new Error("Account playback requested an unexpected operation");
+      const batch = JSON.parse(String(options?.body)) as SyncBatch;
+      writes.push({ account, batch, signal: request.signal });
+      if (account === "bob")
+        return Response.json({
+          acknowledged: batch.operations.map(({ id }) => id),
+        });
+      const response = new Promise<Response>((_, reject) => {
+        failProgress = reject;
+      });
+      pending.add(response);
+      try {
+        return await response;
+      } finally {
+        pending.delete(response);
+      }
     }),
   );
   let player!: Player;
@@ -106,40 +146,96 @@ test("account playback aborts progress and replaces its account-bound resources"
       }),
       createElement(NoticeBanner),
     );
-  const { rerender } = render(view("alice"));
+  const { rerender, unmount } = render(view("alice"));
   const track = {
-    id: "recording",
+    id: recording,
     title: "Fixture",
     artist: "Test",
     duration_ms: 20000,
     available: true,
   };
-  await act(async () => {
-    await player.playQueue([track]);
-  });
-  const audio = document.querySelector("audio");
-  if (!audio) throw new Error("Audio element was not mounted");
-  act(() => {
-    audio.currentTime = 11;
-    audio.dispatchEvent(new Event("timeupdate"));
-  });
-  expect(change).toHaveBeenCalledWith(
-    "alice",
-    expect.objectContaining({ kind: "progress_set" }),
-    expect.any(AbortSignal),
-  );
-  const signal = vi.mocked(change).mock.calls[0][2];
-  rerender(view("bob"));
-  expect(signal?.aborted).toBe(true);
-  await act(async () => {
-    failProgress(new Error("Alice private failure"));
-  });
-  expect(screen.queryByText("Alice private failure")).toBeNull();
-  await act(async () => {
-    await player.playQueue([track]);
-  });
-  const latest = vi.mocked(libraryApi.sources).mock.calls.at(-1);
-  expect(latest?.[0]).toBe("bob");
-  expect(latest?.[2]?.aborted).toBe(false);
-  expect(document.querySelectorAll("audio")).toHaveLength(1);
+  try {
+    const alice = player;
+    await act(async () => {
+      await alice.playQueue([track]);
+    });
+    const audio = media.current();
+    act(() => {
+      media.ready(audio);
+      media.observePlaying(audio);
+      audio.currentTime = 11;
+      audio.dispatchEvent(new Event("timeupdate"));
+    });
+    expect(writes).toHaveLength(1);
+    expect(writes[0].account).toBe("alice");
+    expect(writes[0].batch.device_id).toBe(client);
+    expect(writes[0].batch.operations.map(({ action }) => action)).toEqual([
+      {
+        kind: "progress_set",
+        recording_id: recording,
+        position_ms: 11000,
+        speed: 1,
+      },
+    ]);
+    const operation = writes[0].batch.operations[0].id;
+    rerender(view("bob"));
+    const bob = player;
+    expect(bob).not.toBe(alice);
+    expect(writes[0].signal.aborted).toBe(true);
+    expect(requests[0].signal.aborted).toBe(true);
+    expect(alice.snapshot().current).toBeNull();
+    expect(alice.queueSnapshot().total).toBe(0);
+    expect(audio.isConnected).toBe(false);
+    expect(audio.paused).toBe(true);
+    expect(audio.getAttribute("src")).toBeNull();
+    expect(bob.snapshot().current).toBeNull();
+    expect(bob.queueSnapshot().total).toBe(0);
+    await act(async () => {
+      await bob.playQueue([track]);
+    });
+    const latest = media.current();
+    expect(latest).not.toBe(audio);
+    expect(latest.src).toContain(`/sources/${source("bob").id}/audio`);
+    expect(requests.at(-1)?.account).toBe("bob");
+    expect(requests.at(-1)?.signal.aborted).toBe(false);
+    await act(async () => {
+      failProgress!(new Error("Alice private failure"));
+      await Promise.allSettled(pending);
+    });
+    expect(screen.queryByText("Alice private failure")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(bob.snapshot().error).toBe("");
+    expect(bob.snapshot().current?.id).toBe(recording);
+    act(() => {
+      media.ready(latest);
+      media.observePlaying(latest);
+      latest.currentTime = 11;
+      latest.dispatchEvent(new Event("timeupdate"));
+    });
+    await vi.waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1].account).toBe("bob");
+    expect(writes[1].batch.device_id).toBe(client);
+    expect(writes[1].batch.operations.map(({ action }) => action)).toEqual(
+      writes[0].batch.operations.map(({ action }) => action),
+    );
+    expect(writes[1].batch.operations[0].id).not.toBe(operation);
+    expect(writes[1].signal.aborted).toBe(false);
+    expect(requests.map(({ method, account }) => [method, account])).toEqual([
+      ["GET", "alice"],
+      ["POST", "alice"],
+      ["GET", "bob"],
+      ["POST", "bob"],
+    ]);
+    expect(document.querySelectorAll("audio")).toHaveLength(1);
+  } finally {
+    await act(async () => {
+      failProgress?.(new Error("Retired owned playback request"));
+      await Promise.allSettled(pending);
+    });
+    unmount();
+    if (previousClient === null) localStorage.removeItem("hito-device");
+    else localStorage.setItem("hito-device", previousClient);
+    expect(document.querySelectorAll("audio")).toHaveLength(0);
+    expect(media.created.every((audio) => audio.paused)).toBe(true);
+  }
 });

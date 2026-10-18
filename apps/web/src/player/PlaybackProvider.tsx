@@ -5,8 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { change, libraryApi } from "../api";
-import { errorMessage } from "../format";
+import { libraryApi } from "../api";
 import { useNotice } from "../components/Notices";
 import { Playback, type MediaPort } from "../playback";
 import type { Player } from "./model";
@@ -15,6 +14,7 @@ import { useRequestScope } from "../hooks/useRequestScope";
 import { NativePlayback } from "./native/NativePlayback";
 import { sourceResolutionApi } from "../sourceResolutionApi";
 import { useBrowserMediaSession } from "./BrowserMediaSession";
+import { BrowserProgress } from "./BrowserProgress";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -50,7 +50,17 @@ function BrowserAccountPlayback({
   const [{ audio, media, player }] = useState(() => {
     const audio = new Audio();
     const media = new Map<MediaPort, HTMLAudioElement>([[audio, audio]]);
-    const player = new Playback(
+    let player: Playback;
+    const progress = new BrowserProgress(
+      account,
+      scope.capture,
+      (message) => {
+        player.progressFailed(message);
+        notice(message);
+      },
+      () => player.retryProgress(),
+    );
+    player = new Playback(
       audio,
       async (recording, options) => {
         if (options.purpose === "resolve")
@@ -66,21 +76,8 @@ function BrowserAccountPlayback({
           ? libraryApi.recoverSources(account, recording, options.signal)
           : libraryApi.sources(account, recording, options.signal);
       },
-      (track, position, speed) => {
-        const request = scope.capture();
-        void change(
-          account,
-          {
-            kind: "progress_set",
-            recording_id: track.id,
-            position_ms: Math.floor(position * 1000),
-            speed,
-          },
-          request.signal,
-        ).catch((error) => {
-          if (request.active()) notice(errorMessage(error));
-        });
-      },
+      (recording, position, speed, chapter) =>
+        progress.admit({ recording, position, speed, chapter }),
       {
         create: () => {
           const next = new Audio();
@@ -116,7 +113,7 @@ function BrowserAccountPlayback({
     document.body.append(audio);
     return () => {
       log.info("playback.account_closed", { account_id: account });
-      player.clear();
+      player.retire();
       for (const element of media.values()) element.remove();
       media.clear();
     };

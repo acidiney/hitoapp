@@ -279,6 +279,36 @@ test("an adopted next buffer is released on account change and late media and pr
     });
     const pendingProgress = await progress.promise;
     expect(pendingProgress.signal.aborted).toBe(false);
+    const completed = requests.filter((request) => {
+      if (request.path !== "/api/v1/sync" || request.method !== "POST")
+        return false;
+      const action = (request.body as SyncBatch).operations[0].action;
+      return action.kind === "progress_set" && action.recording_id === first.id;
+    });
+    expect(completed).toHaveLength(1);
+    const completedProgress = completed[0];
+    expect(completedProgress.body).toEqual({
+      device_id: (pendingProgress.body as SyncBatch).device_id,
+      operations: [
+        {
+          id: expect.stringMatching(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+          ),
+          action: {
+            kind: "progress_set",
+            recording_id: first.id,
+            position_ms: 90000,
+            speed: 1,
+          },
+        },
+      ],
+    });
+    expect((completedProgress.body as SyncBatch).operations[0].id).not.toBe(
+      (pendingProgress.body as SyncBatch).operations[0].id,
+    );
+    expect(requests.indexOf(completedProgress)).toBeLessThan(
+      requests.indexOf(pendingProgress),
+    );
     rerender(view("bob"));
     const bob = players.get("bob")!;
     const oldMedia = [initial, buffered, following];
@@ -287,7 +317,12 @@ test("an adopted next buffer is released on account change and late media and pr
       expect(audio.paused).toBe(true);
       expect(audio.getAttribute("src")).toBeNull();
     }
-    expect(requests.every((request) => request.signal.aborted)).toBe(true);
+    expect(pendingProgress.signal.aborted).toBe(true);
+    expect(
+      requests
+        .filter((request) => request !== completedProgress)
+        .every((request) => request.signal.aborted),
+    ).toBe(true);
     await expectEmptyAccount(bob);
     const publications = vi.fn();
     const stopPlayback = bob.subscribe(publications);
