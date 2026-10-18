@@ -14,6 +14,7 @@ pub mod identity;
 pub mod jobs;
 pub mod metadata;
 pub mod player;
+pub mod playlist_artwork;
 pub mod playlist_follow;
 pub mod plugin_authorization;
 pub mod plugins;

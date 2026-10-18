@@ -94,7 +94,7 @@ pub async fn release_artwork(
     image_response(services.catalog.release_artwork(&actor, &id).await?)
 }
 
-fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<Response> {
+pub(super) fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<Response> {
     let artwork = artwork.ok_or(Error::NotFound)?;
     Ok((
         [
