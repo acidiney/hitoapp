@@ -4,6 +4,7 @@ import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
+import ArtistReview from "../components/metadata/ArtistReview";
 import SourceAvailability from "../components/SourceAvailability";
 import SourceAttachment from "../components/SourceAttachment";
 import SourceChoiceControls from "../components/SourceChoiceControls";
@@ -43,6 +44,17 @@ export default function RecordingDetailsPage({
         account={user.id}
         {...target}
         metadata={detail}
+      />
+      <ArtistReview
+        key={JSON.stringify([
+          "artist-review",
+          user.id,
+          detail.recording_id,
+          source?.id,
+          detail.artist.operation_id,
+        ])}
+        account={user.id}
+        detail={detail}
       />
       <RecordingDownload
         {...download}
