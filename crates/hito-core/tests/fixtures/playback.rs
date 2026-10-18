@@ -16,8 +16,12 @@ pub struct LocalPlayback {
 
 impl LocalPlayback {
     pub async fn start() -> Self {
+        Self::with_audio(|path| support::write_wav(path, 0)).await
+    }
+
+    pub async fn with_audio(write: impl FnOnce(&std::path::Path) -> Vec<u8>) -> Self {
         let (directory, services, admin, library, music) = support::library("playback").await;
-        let original = support::write_wav(&music.join("track.wav"), 0);
+        let original = write(&music.join("track.wav"));
         support::scan(&services, &admin, &library).await;
         let session = services
             .identity

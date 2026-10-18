@@ -16,9 +16,13 @@ pub struct Library {
 
 impl Library {
     pub async fn start() -> Self {
-        let f = fixture::LocalPlayback::start().await;
+        Self::with_audio(support::write_wav).await
+    }
+
+    pub async fn with_audio(write: impl Fn(&std::path::Path, i16) -> Vec<u8>) -> Self {
+        let f = fixture::LocalPlayback::with_audio(|path| write(path, 0)).await;
         let second_path = f.music.join("second.wav");
-        let second_original = support::write_wav(&second_path, 200);
+        let second_original = write(&second_path, 200);
         support::scan(&f.services, &f.actor, &f.library).await;
         let credentials = Credentials {
             username: "chapter-listener".into(),
