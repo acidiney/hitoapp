@@ -112,8 +112,7 @@ async fn authenticated_reset_clears_only_the_callers_credentials_even_without_th
             .0,
         StatusCode::FORBIDDEN
     );
-    for index in 0..2 {
-        let session = &sessions[index];
+    for session in sessions.iter().take(2) {
         let (status, receipt) = reset(&app, Some(&session.token), Some(&session.user.id)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
