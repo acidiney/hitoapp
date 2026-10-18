@@ -8731,6 +8731,24 @@
           {
             "type": "object",
             "required": [
+              "chapter",
+              "kind"
+            ],
+            "properties": {
+              "chapter": {
+                "$ref": "#/components/schemas/AudiobookChapterAnchor"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "audiobook_chapter_set"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
               "audiobook_id",
               "bookmark_id",
               "entry_id",
@@ -9880,6 +9898,50 @@
           }
         }
       },
+      "AudiobookChapterAnchor": {
+        "type": "object",
+        "required": [
+          "audiobook_id",
+          "entry_id",
+          "recording_id"
+        ],
+        "properties": {
+          "audiobook_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entry_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recording_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudiobookContinuation": {
+        "type": "object",
+        "required": [
+          "chapter"
+        ],
+        "properties": {
+          "chapter": {
+            "$ref": "#/components/schemas/AudiobookChapterAnchor"
+          },
+          "progress": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordingProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "AudiobookDetail": {
         "type": "object",
         "required": [
@@ -9899,6 +9961,16 @@
             "items": {
               "$ref": "#/components/schemas/PlaylistEntry"
             }
+          },
+          "continuation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudiobookContinuation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "playlist": {
             "$ref": "#/components/schemas/Playlist"

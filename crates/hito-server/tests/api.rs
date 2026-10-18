@@ -25,6 +25,8 @@ mod catalog;
 #[path = "api/browsing.rs"]
 mod browsing;
 
+#[path = "api/audiobook_continuation.rs"]
+mod audiobook_continuation;
 #[path = "api/audiobook_pages.rs"]
 mod audiobook_pages;
 #[path = "api/audiobook_pages_access.rs"]

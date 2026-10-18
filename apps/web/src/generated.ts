@@ -1386,6 +1386,10 @@ export interface components {
             /** Format: uuid */
             playlist_id: string;
         } | {
+            chapter: components["schemas"]["AudiobookChapterAnchor"];
+            /** @enum {string} */
+            kind: "audiobook_chapter_set";
+        } | {
             /** Format: uuid */
             audiobook_id: string;
             /** Format: uuid */
@@ -1666,9 +1670,22 @@ export interface components {
             position_ms: number;
             recording_id: string;
         };
+        AudiobookChapterAnchor: {
+            /** Format: uuid */
+            audiobook_id: string;
+            /** Format: uuid */
+            entry_id: string;
+            /** Format: uuid */
+            recording_id: string;
+        };
+        AudiobookContinuation: {
+            chapter: components["schemas"]["AudiobookChapterAnchor"];
+            progress?: components["schemas"]["RecordingProgress"] | null;
+        };
         AudiobookDetail: {
             bookmarks: components["schemas"]["AudiobookBookmark"][];
             chapters: components["schemas"]["PlaylistEntry"][];
+            continuation?: components["schemas"]["AudiobookContinuation"] | null;
             playlist: components["schemas"]["Playlist"];
         };
         AudiobookIndexPageProps: components["schemas"]["SharedPageProps"] & {
