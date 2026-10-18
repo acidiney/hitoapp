@@ -56,6 +56,7 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
     playlists: [],
     subscriptions: [],
   } satisfies components["schemas"]["PodcastIndexPageProps"];
+  let initialReads = 0;
   let subscriptionsRead = 0;
   let acceptedRequest: string | null = null;
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, options) => {
@@ -77,6 +78,10 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
       } satisfies components["schemas"]["PodcastSubscriptionReceipt"];
       return Response.json(receipt, { status: 202 });
     }
+    if (acceptedRequest === null) {
+      initialReads += 1;
+      return Response.json([]);
+    }
     subscriptionsRead += 1;
     return Response.json([subscriptionsRead === 1 ? pending : ready]);
   });
@@ -84,14 +89,18 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
   render(createElement(PodcastIndexPage, props), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
+  await act(async () => {});
+  expect(initialReads).toBe(1);
+  expect(subscriptionsRead).toBe(0);
+  expect(fetch.mock.calls[0][1]?.method).toBe("GET");
 
   const address = screen.getByRole("textbox", { name: "Feed address" });
   fireEvent.change(address, { target: { value: `  ${privateFeed}  ` } });
-  expect(fetch).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Subscribe" }));
   await screen.findByRole("alert");
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-  expect(fetch.mock.calls[0][1]).toMatchObject({
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  expect(fetch.mock.calls[1][1]).toMatchObject({
     method: "POST",
     credentials: "same-origin",
     headers: { "x-hito-account": "alice", "x-hito-request": "1" },
@@ -113,8 +122,8 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry subscription" }));
   });
-  expect(fetch).toHaveBeenCalledTimes(3);
-  expect(String(fetch.mock.calls[1][1]?.body)).toBe(acceptedRequest);
+  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(String(fetch.mock.calls[2][1]?.body)).toBe(acceptedRequest);
   expect(screen.getByText("Checking feed…")).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "Untitled podcast" }).getAttribute("href"),
@@ -131,7 +140,8 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
     await vi.advanceTimersByTimeAsync(60_000);
   });
   expect(subscriptionsRead).toBe(2);
-  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(initialReads).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(5);
   const logs = JSON.stringify([...info.mock.calls, ...warn.mock.calls]);
   expect(logs).not.toContain(privateFeed);
   expect(logs).not.toContain(otherFeed);
@@ -151,6 +161,7 @@ test("Podcasts permits a corrected feed with a new request after a definitive se
     subscriptions: [],
   } satisfies components["schemas"]["PodcastIndexPageProps"];
   const requests: components["schemas"]["SubscribePodcast"][] = [];
+  let initialReads = 0;
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, options) => {
     expect(String(input)).toBe("/api/v1/podcasts");
     if (options?.method === "POST") {
@@ -168,6 +179,10 @@ test("Podcasts permits a corrected feed with a new request after a definitive se
       } satisfies components["schemas"]["PodcastSubscriptionReceipt"];
       return Response.json(receipt, { status: 202 });
     }
+    if (requests.length < 2) {
+      initialReads += 1;
+      return Response.json([]);
+    }
     return Response.json([
       {
         subscription_id: subscriptionId,
@@ -183,6 +198,11 @@ test("Podcasts permits a corrected feed with a new request after a definitive se
   render(createElement(PodcastIndexPage, props), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
+  await act(async () => {});
+  expect(initialReads).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0][1]?.method).toBe("GET");
+  expect(screen.queryByRole("link", { name: "Corrected podcast" })).toBeNull();
 
   const address = screen.getByRole("textbox", { name: "Feed address" });
   fireEvent.change(address, { target: { value: rejectedFeed } });
@@ -204,6 +224,8 @@ test("Podcasts permits a corrected feed with a new request after a definitive se
   expect(requests[1].feed_url).toBe(correctedFeed);
   expect(requests[1].request_id).not.toBe(requests[0].request_id);
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(initialReads).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(4);
 });
 
 test("Podcasts preserves a new feed draft while the submitted feed awaits acknowledgement", async () => {
@@ -222,9 +244,17 @@ test("Podcasts preserves a new feed draft while the submitted feed awaits acknow
   const subscriptionResponse = new Promise<Response>((resolve) => {
     resolveSubscription = resolve;
   });
+  let acknowledged = false;
+  let initialReads = 0;
+  let subscriptionsRead = 0;
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, options) => {
     expect(String(input)).toBe("/api/v1/podcasts");
     if (options?.method === "POST") return subscriptionResponse;
+    if (!acknowledged) {
+      initialReads += 1;
+      return Response.json([]);
+    }
+    subscriptionsRead += 1;
     return Response.json([
       {
         subscription_id: subscriptionId,
@@ -240,32 +270,40 @@ test("Podcasts preserves a new feed draft while the submitted feed awaits acknow
   render(createElement(PodcastIndexPage, props), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
+  await act(async () => {});
+  expect(initialReads).toBe(1);
+  expect(subscriptionsRead).toBe(0);
+  expect(fetch.mock.calls[0][1]?.method).toBe("GET");
   const address = screen.getByRole("textbox", {
     name: "Feed address",
   }) as HTMLInputElement;
   fireEvent.change(address, { target: { value: submittedFeed } });
   fireEvent.click(screen.getByRole("button", { name: "Subscribe" }));
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-  const originalBody = String(fetch.mock.calls[0][1]?.body);
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  const originalBody = String(fetch.mock.calls[1][1]?.body);
   const request = JSON.parse(originalBody);
   expect(request.feed_url).toBe(submittedFeed);
   fireEvent.change(address, { target: { value: nextFeed } });
   expect(address.value).toBe(nextFeed);
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
   const receipt = {
     request_id: request.request_id,
     subscription_id: subscriptionId,
     job_id: "87812118-6f12-4169-adc9-17c2cb0724c3",
   } satisfies components["schemas"]["PodcastSubscriptionReceipt"];
   await act(async () => {
+    acknowledged = true;
     resolveSubscription(Response.json(receipt, { status: 202 }));
   });
   await screen.findByRole("link", { name: "Submitted podcast" });
+  expect(screen.getByRole("textbox", { name: "Feed address" })).toBe(address);
   expect(address.value).toBe(nextFeed);
   expect(
     (screen.getByRole("button", { name: "Subscribe" }) as HTMLButtonElement)
       .disabled,
   ).toBe(false);
-  expect(String(fetch.mock.calls[0][1]?.body)).toBe(originalBody);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(String(fetch.mock.calls[1][1]?.body)).toBe(originalBody);
+  expect(initialReads).toBe(1);
+  expect(subscriptionsRead).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(3);
 });
