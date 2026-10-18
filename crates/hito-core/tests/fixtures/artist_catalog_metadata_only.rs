@@ -84,6 +84,7 @@ impl Imported {
             .install(
                 actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id,
                     service_revision: service.revision,
                     bearer_token: None,

@@ -28,6 +28,7 @@ async fn personal_credentials_survive_restart_and_are_never_returned_in_settings
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: Some(token.into()),

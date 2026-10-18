@@ -29,6 +29,7 @@ async fn five_accounts_can_each_hold_playing_and_preloaded_audio_and_dropping_re
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: f.installation.service_id.clone(),
                     service_revision: 1,
                     bearer_token: None,

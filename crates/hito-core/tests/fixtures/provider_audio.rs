@@ -36,6 +36,7 @@ impl AudioLibrary {
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id,
                     service_revision: 1,
                     bearer_token: Some("private-audio-token".into()),

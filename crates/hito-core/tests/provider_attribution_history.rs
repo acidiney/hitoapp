@@ -47,6 +47,7 @@ async fn adding_provider_credits_retains_unattributed_history_and_private_state_
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

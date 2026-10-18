@@ -67,6 +67,7 @@ async fn manual_refresh_receipts_are_bounded_while_exact_replay_and_other_accoun
         .install(
             &other,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

@@ -47,6 +47,7 @@ async fn live_consent_secrets_protect_a_missing_key_until_the_attempt_expires() 
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

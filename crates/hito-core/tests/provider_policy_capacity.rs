@@ -7,7 +7,7 @@ use futures_util::FutureExt;
 use hito_core::{
     Action, Actor, AdoptProviderRecording, DownloadReceipt, DownloadRequest, DownloadState, Error,
     InstallPlugin, OfferPluginService, PlaylistDownloadEntryState, PlaylistDownloadStatus,
-    PluginInstallation, Recording, Services,
+    PluginInstallation, PreviewPluginInstallation, Recording, Services,
 };
 use serde_json::{Value, json};
 use std::{future::pending, panic::AssertUnwindSafe, time::Duration};
@@ -279,10 +279,23 @@ async fn connect(
         )
         .await
         .unwrap();
+    let preview = hito
+        .plugins
+        .preview_installation(
+            actor,
+            PreviewPluginInstallation {
+                service_id: service.id.clone(),
+                service_revision: service.revision,
+                bearer_token: None,
+            },
+        )
+        .await
+        .unwrap();
     hito.plugins
         .install(
             actor,
             InstallPlugin {
+                accept_manifest_digest: Some(preview.digest),
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

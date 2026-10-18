@@ -371,16 +371,17 @@ async fn manifest(State(state): State<Arc<Fixture>>, headers: HeaderMap) -> Resp
     if *state.offline.read().await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
-    Json(
-        state
-            .replies
-            .read()
-            .await
-            .get("v1/manifest")
-            .cloned()
-            .unwrap(),
-    )
-    .into_response()
+    let reply = state
+        .replies
+        .read()
+        .await
+        .get("v1/manifest")
+        .cloned()
+        .unwrap();
+    if !wait_gate(&state, "v1/manifest").await {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    Json(reply).into_response()
 }
 pub struct Gate {
     entered: Semaphore,

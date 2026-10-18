@@ -24,6 +24,7 @@ async fn connect(
         .install(
             actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,
@@ -199,6 +200,7 @@ async fn private_artist_edits_keep_identity_through_refresh_and_unavailable_sour
         .install(
             &bob,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: installed.service_id.clone(),
                 service_revision: 1,
                 bearer_token: None,

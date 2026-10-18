@@ -38,7 +38,7 @@ async fn provider_workflows_log_safe_outcomes_without_private_content_or_credent
         let actor = hito.identity.authenticate(&session.token).await.unwrap();
         let server = fixture::ProviderServer::start().await;
         let service = hito.plugins.offer_service(&actor, OfferPluginService { name:"Fixture".into(), base_url:server.url.clone() }).await.unwrap();
-        let installed = hito.plugins.install(&actor, InstallPlugin { service_id:service.id, service_revision:1, bearer_token:Some("provider-private-token".into()) }).await.unwrap();
+        let installed = hito.plugins.install(&actor, InstallPlugin { accept_manifest_digest:None, service_id:service.id, service_revision:1, bearer_token:Some("provider-private-token".into()) }).await.unwrap();
         let details = serde_json::json!({"id":"provider-private-remote-id","title":"provider-private-title","artist":"provider-private-artist","revision":"provider-private-revision"});
         server.reply("v1/search", serde_json::json!({"items":[details.clone()]})).await;
         server.reply("v1/recordings/detail", details).await;

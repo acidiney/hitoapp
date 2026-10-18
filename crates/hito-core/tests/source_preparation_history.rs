@@ -45,6 +45,7 @@ async fn retained_receipts_allow_continued_preparation_without_duplicate_pending
             .install(
                 actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id.clone(),
                     service_revision: service.revision,
                     bearer_token: Some(fixture::TOKEN.into()),

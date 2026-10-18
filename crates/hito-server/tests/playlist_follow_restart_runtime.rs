@@ -86,6 +86,7 @@ async fn exercise(directory: &Path, provider: &provider::ProviderServer, hosts: 
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

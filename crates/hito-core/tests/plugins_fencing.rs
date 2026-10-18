@@ -28,6 +28,7 @@ async fn withdrawing_a_service_fences_inflight_installs_and_reoffering_uses_a_ne
                 .install(
                     &actor,
                     InstallPlugin {
+                        accept_manifest_digest: None,
                         service_id,
                         service_revision,
                         bearer_token: None,
@@ -91,6 +92,7 @@ async fn a_delayed_refresh_cannot_restore_a_removed_personal_installation() {
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,
@@ -153,6 +155,7 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
     let plugins = hito.plugins.clone();
     let owner = actor.clone();
     let first_request = InstallPlugin {
+        accept_manifest_digest: None,
         service_id: service.id.clone(),
         service_revision: service.revision,
         bearer_token: None,
@@ -164,6 +167,7 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
         hito.plugins.install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

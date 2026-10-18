@@ -31,6 +31,7 @@ async fn an_admin_offers_an_address_using_the_validated_manifest_name() {
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: service.revision,
                 bearer_token: None,
@@ -219,6 +220,7 @@ async fn an_account_connects_an_offered_service_through_its_real_manifest_endpoi
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: service.revision,
                 bearer_token: None,
@@ -231,6 +233,7 @@ async fn an_account_connects_an_offered_service_through_its_real_manifest_endpoi
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id.clone(),
                     service_revision: service.revision,
                     bearer_token: None,
@@ -306,6 +309,7 @@ async fn personal_installations_are_private_even_when_accounts_share_the_same_se
         .install(
             &alice,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: service.revision,
                 bearer_token: None,
@@ -326,6 +330,7 @@ async fn personal_installations_are_private_even_when_accounts_share_the_same_se
         .install(
             &bob,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

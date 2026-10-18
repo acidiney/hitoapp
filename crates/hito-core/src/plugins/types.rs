@@ -17,6 +17,22 @@ pub struct InstallPlugin {
     pub service_revision: i64,
     #[schema(write_only)]
     pub bearer_token: Option<String>,
+    pub accept_manifest_digest: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewPluginInstallation {
+    pub service_id: String,
+    pub service_revision: i64,
+    #[schema(write_only)]
+    pub bearer_token: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PluginInstallationPreview {
+    pub manifest: Manifest,
+    pub digest: String,
 }
 
 #[derive(Serialize, ToSchema, sqlx::FromRow)]

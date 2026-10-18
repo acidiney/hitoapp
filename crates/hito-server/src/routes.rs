@@ -49,6 +49,7 @@ struct Contract;
 fn api_routes() -> OpenApiRouter<Services> {
     let mut router = OpenApiRouter::with_openapi(Contract::openapi())
         .routes(routes!(plugins::settings, plugins::install))
+        .routes(routes!(plugins::preview))
         .routes(routes!(plugins::offer))
         .routes(routes!(plugins::withdraw))
         .routes(routes!(plugins::refresh))

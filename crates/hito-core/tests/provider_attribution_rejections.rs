@@ -51,6 +51,7 @@ async fn rejected_attribution_cannot_publish_partial_state_or_cross_account_boun
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

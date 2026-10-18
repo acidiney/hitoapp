@@ -31,6 +31,7 @@ async fn raw_chunked_audio_rejects_unsupported_and_ambiguous_transfer_framing() 
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id,
                     service_revision: 1,
                     bearer_token: None,

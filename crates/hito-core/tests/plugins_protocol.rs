@@ -40,6 +40,7 @@ async fn invalid_manifests_never_create_personal_installations() {
                 .install(
                     &actor,
                     InstallPlugin {
+                        accept_manifest_digest: None,
                         service_id: service.id.clone(),
                         service_revision: service.revision,
                         bearer_token: None,
@@ -63,6 +64,7 @@ async fn invalid_manifests_never_create_personal_installations() {
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id,
                     service_revision: service.revision,
                     bearer_token: None,

@@ -137,6 +137,7 @@ async fn metadata_upgrade_preserves_real_imports_follows_private_state_and_delet
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id.clone(),
                     service_revision: service.revision,
                     bearer_token: Some(format!("owned-metadata-upgrade-credential-{index}")),

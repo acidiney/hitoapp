@@ -26,6 +26,7 @@ async fn failed_and_unreviewed_changes_do_not_replace_accepted_credentials() {
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: Some("accepted-token".into()),

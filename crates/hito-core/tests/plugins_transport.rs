@@ -50,6 +50,7 @@ async fn redirects_errors_non_json_and_oversized_bodies_leave_no_installation() 
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service.id.clone(),
                     service_revision: service.revision,
                     bearer_token: None,
@@ -104,6 +105,7 @@ async fn unavailable_plugin_requests_expire_and_release_admission_for_retry() {
         hito.plugins.install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: 1,
                 bearer_token: None,
@@ -126,6 +128,7 @@ async fn unavailable_plugin_requests_expire_and_release_admission_for_retry() {
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: None,

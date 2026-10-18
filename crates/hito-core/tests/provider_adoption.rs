@@ -23,6 +23,7 @@ async fn selected_provider_recordings_are_durable_private_and_keep_real_provenan
         .install(
             &alice,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: Some("adoption-private-token".into()),
@@ -166,6 +167,7 @@ async fn selected_provider_recordings_are_durable_private_and_keep_real_provenan
         .install(
             &bob,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: installed.service_id,
                 service_revision: 1,
                 bearer_token: Some("bob-provider-token".into()),
@@ -235,6 +237,7 @@ async fn provider_refresh_preserves_collection_and_personal_edits_and_removal_wi
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: None,

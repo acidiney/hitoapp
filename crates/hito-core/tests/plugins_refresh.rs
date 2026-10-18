@@ -24,6 +24,7 @@ async fn manifest_changes_require_review_and_cannot_replace_a_pinned_plugin_iden
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

@@ -1,6 +1,10 @@
-use super::{InstallPlugin, PluginInstallation, PluginService, PluginSettings, Plugins};
+use super::{
+    InstallPlugin, PluginInstallation, PluginService, PluginSettings, Plugins,
+    manifest::fingerprint,
+};
 use crate::{Actor, Error, Result};
 use sqlx::Row;
+use std::time::Instant;
 use uuid::Uuid;
 
 impl Plugins {
@@ -33,28 +37,19 @@ impl Plugins {
         actor: &Actor,
         request: InstallPlugin,
     ) -> Result<PluginInstallation> {
-        let service: PluginService = sqlx::query_as(
-            "SELECT id,name,base_url,revision FROM plugin_services WHERE id = ? AND active = 1",
-        )
-        .bind(&request.service_id)
-        .fetch_optional(&self.store.pool)
-        .await?
-        .ok_or(Error::NotFound)?;
-        if service.revision != request.service_revision {
-            return Err(Error::Conflict(
-                "This plugin service changed. Reload Settings.".into(),
-            ));
-        }
-        {
+        let started = Instant::now();
+        actor.check_session(&self.store).await?;
+        let service = {
             let mut connection = self.store.pool.acquire().await?;
+            let service = offered_service(
+                &mut connection,
+                &request.service_id,
+                request.service_revision,
+            )
+            .await?;
             check_capacity(&mut connection, actor.id(), &service.id).await?;
-        }
-        let id = Uuid::new_v4().to_string();
-        let credential = request
-            .bearer_token
-            .as_deref()
-            .map(|token| self.vault.seal(actor.id(), &id, &service.id, token))
-            .transpose()?;
+            service
+        };
         let manifest = self
             .remote
             .manifest(
@@ -63,12 +58,48 @@ impl Plugins {
                 request.bearer_token.as_deref(),
             )
             .await?;
+        actor.check_session(&self.store).await?;
+        let (encoded, digest) = fingerprint(&manifest)?;
+        if request
+            .accept_manifest_digest
+            .as_ref()
+            .is_some_and(|accepted| accepted != &digest)
+        {
+            tracing::info!(
+                service_id = service.id,
+                outcome = "manifest_changed",
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Plugin installation rejected"
+            );
+            return Err(Error::Conflict(
+                "The plugin changed after review. Preview the connection again.".into(),
+            ));
+        }
+        if manifest.content_policy.is_some() && request.accept_manifest_digest.is_none() {
+            tracing::info!(
+                service_id = service.id,
+                outcome = "review_required",
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Plugin installation rejected"
+            );
+            return Err(Error::Conflict(
+                "The plugin declares a persistence policy. Review its manifest before connecting."
+                    .into(),
+            ));
+        }
+        let id = Uuid::new_v4().to_string();
+        let credential = request
+            .bearer_token
+            .as_deref()
+            .map(|token| self.vault.seal(actor.id(), &id, &service.id, token))
+            .transpose()?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        actor.check_session_on(&mut tx).await?;
         check_capacity(&mut tx, actor.id(), &service.id).await?;
         let row = sqlx::query("INSERT INTO plugin_installations(id,user_id,service_id,manifest,credential)
             SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM plugin_services WHERE id = ? AND active = 1 AND revision = ?)
             RETURNING id,service_id,manifest,revision,checked_at,credential IS NOT NULL AS credential_set")
-            .bind(&id).bind(actor.id()).bind(&service.id).bind(serde_json::to_string(&manifest).map_err(|_| Error::Internal("Plugin manifest could not be stored".into()))?)
+            .bind(&id).bind(actor.id()).bind(&service.id).bind(encoded)
             .bind(credential).bind(&service.id).bind(service.revision).fetch_optional(&mut *tx).await?
             .ok_or_else(|| Error::Conflict("This plugin service was withdrawn during connection".into()))?;
         let installed = installation(row)?;
@@ -76,6 +107,8 @@ impl Plugins {
         tracing::info!(
             installation_id = id,
             service_id = service.id,
+            outcome = "connected",
+            elapsed_ms = started.elapsed().as_millis() as u64,
             "Personal plugin connected"
         );
         Ok(installed)
@@ -95,7 +128,27 @@ pub(super) fn installation(row: sqlx::sqlite::SqliteRow) -> Result<PluginInstall
     })
 }
 
-async fn check_capacity(
+pub(super) async fn offered_service(
+    connection: &mut sqlx::SqliteConnection,
+    id: &str,
+    expected_revision: i64,
+) -> Result<PluginService> {
+    let service: PluginService = sqlx::query_as(
+        "SELECT id,name,base_url,revision FROM plugin_services WHERE id = ? AND active = 1",
+    )
+    .bind(id)
+    .fetch_optional(connection)
+    .await?
+    .ok_or(Error::NotFound)?;
+    if service.revision != expected_revision {
+        return Err(Error::Conflict(
+            "This plugin service changed. Reload Settings.".into(),
+        ));
+    }
+    Ok(service)
+}
+
+pub(super) async fn check_capacity(
     connection: &mut sqlx::SqliteConnection,
     account: &str,
     service: &str,

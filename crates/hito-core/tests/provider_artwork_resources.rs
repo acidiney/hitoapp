@@ -151,6 +151,7 @@ async fn four_background_artwork_downloads_leave_provider_search_and_local_artwo
             .install(
                 &actor,
                 InstallPlugin {
+                    accept_manifest_digest: None,
                     service_id: service_id.clone(),
                     service_revision,
                     bearer_token: None,

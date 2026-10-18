@@ -23,6 +23,7 @@ async fn provider_search_uses_the_owned_connection_and_returns_validated_results
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: Some("search-private-token".into()),
@@ -86,6 +87,7 @@ async fn delayed_provider_search_cannot_return_after_its_connection_is_removed()
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: None,
@@ -167,6 +169,7 @@ async fn search_rejects_another_accounts_connection_and_unapproved_capabilities(
         .install(
             &bob,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: Some("bob-private-token".into()),

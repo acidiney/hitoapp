@@ -82,6 +82,7 @@ async fn a_playlist_copy_retains_ordered_duplicate_occurrences_without_creating_
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,
@@ -224,6 +225,7 @@ async fn unavailable_and_unknown_occurrences_retain_display_and_attribution_afte
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: None,

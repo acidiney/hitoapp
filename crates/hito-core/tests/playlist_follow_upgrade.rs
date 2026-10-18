@@ -83,6 +83,7 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: service.revision,
                 bearer_token: Some(BEARER.into()),
@@ -164,6 +165,7 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
         .install(
             &other,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: service.revision,
                 bearer_token: Some("other-owned-upgrade-credential".into()),

@@ -9,8 +9,9 @@ use axum::{
     http::StatusCode,
 };
 use hito_core::{
-    InstallPlugin, OfferPluginService, PluginInstallation, PluginRefresh, PluginService,
-    PluginSettings, RefreshPlugin, Services,
+    InstallPlugin, OfferPluginService, PluginInstallation, PluginInstallationPreview,
+    PluginRefresh, PluginService, PluginSettings, PreviewPluginInstallation, RefreshPlugin,
+    Services,
 };
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -72,6 +73,27 @@ pub async fn install(
     Ok((
         StatusCode::CREATED,
         Json(services.plugins.install(&actor, request).await?),
+    ))
+}
+
+#[utoipa::path(post, path = "/api/v1/plugins/preview", operation_id = "preview_plugin_installation", request_body = PreviewPluginInstallation, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = PluginInstallationPreview), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn preview(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<PreviewPluginInstallation>,
+) -> ApiResult<Json<PluginInstallationPreview>> {
+    Ok(Json(
+        services
+            .plugins
+            .preview_installation(&actor, request)
+            .await?,
     ))
 }
 

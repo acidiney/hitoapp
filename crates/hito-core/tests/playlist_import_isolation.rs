@@ -44,6 +44,7 @@ async fn same_request_ids_and_provider_items_remain_private_to_each_importing_ac
         .install(
             &bob,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: alice_install.service_id.clone(),
                 service_revision,
                 bearer_token: None,

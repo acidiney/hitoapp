@@ -79,6 +79,7 @@ async fn exercise(
         .install(
             actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id.clone(),
                 service_revision: service.revision,
                 bearer_token: Some(discovery::TOKEN.into()),

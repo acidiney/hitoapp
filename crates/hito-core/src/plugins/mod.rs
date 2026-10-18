@@ -1,8 +1,10 @@
 mod authorization;
 mod credentials;
 mod download;
+mod install_preview;
 mod installations;
 mod key_file;
+mod manifest;
 mod media;
 mod offers;
 mod operation;
@@ -29,8 +31,9 @@ pub(crate) use preparation::{PreparationConnection, PreparationExchange, Prepara
 pub(crate) use transport::SourceBatch;
 pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};
 pub use types::{
-    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation, PluginRefresh,
-    PluginService, PluginSettings, RefreshPlugin,
+    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation,
+    PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
+    PreviewPluginInstallation, RefreshPlugin,
 };
 
 #[derive(Clone)]

@@ -2,7 +2,8 @@ use crate::{fixture::ProviderServer, support};
 use axum::http::{HeaderMap, StatusCode};
 use hito_core::{
     Action, Actor, AdoptProviderRecording, Credentials, Error, InstallPlugin, OfferPluginService,
-    PluginCredential, PluginInstallation, PluginRefresh, RefreshPlugin, Services,
+    PluginCredential, PluginInstallation, PluginRefresh, PreviewPluginInstallation, RefreshPlugin,
+    Services,
 };
 use hito_plugin_sdk::SourcePersistence;
 use serde_json::{Value, json};
@@ -110,12 +111,32 @@ impl Library {
             )
             .await
             .unwrap();
+        let accept_manifest_digest = if persistence.is_some() {
+            Some(
+                self.hito
+                    .plugins
+                    .preview_installation(
+                        &self.actor,
+                        PreviewPluginInstallation {
+                            service_id: service.id.clone(),
+                            service_revision: service.revision,
+                            bearer_token: None,
+                        },
+                    )
+                    .await
+                    .unwrap()
+                    .digest,
+            )
+        } else {
+            None
+        };
         let installation = self
             .hito
             .plugins
             .install(
                 &self.actor,
                 InstallPlugin {
+                    accept_manifest_digest,
                     service_id: service.id,
                     service_revision: service.revision,
                     bearer_token: None,

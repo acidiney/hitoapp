@@ -61,7 +61,8 @@ pub use metadata::{
 pub use plugins::{
     InstallPlugin, OfferPluginService, PluginAuthorization, PluginAuthorizationRedirect,
     PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginInstallation,
-    PluginRefresh, PluginService, PluginSettings, Plugins, RefreshPlugin,
+    PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings, Plugins,
+    PreviewPluginInstallation, RefreshPlugin,
 };
 pub use podcasts::{
     PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,

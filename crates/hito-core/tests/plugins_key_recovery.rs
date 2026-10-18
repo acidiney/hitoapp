@@ -23,6 +23,7 @@ async fn invalid_keys_do_not_replace_encrypted_credentials_or_stop_local_service
         .install(
             &actor,
             InstallPlugin {
+                accept_manifest_digest: None,
                 service_id: service.id,
                 service_revision: 1,
                 bearer_token: Some("key-recovery-token".into()),
