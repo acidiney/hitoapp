@@ -17,6 +17,7 @@ vi.mock("./pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),
     install: vi.fn(),
+    preview: vi.fn(),
     offer: vi.fn(),
     withdraw: vi.fn(),
     refresh: vi.fn(),
@@ -51,6 +52,10 @@ const initial: Settings = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(pluginsApi.settings).mockResolvedValue(initial);
+  vi.mocked(pluginsApi.preview).mockResolvedValue({
+    manifest: plugin.manifest,
+    digest: "reviewed-installation-digest",
+  });
 });
 afterEach(cleanup);
 
@@ -59,6 +64,14 @@ function settingsPage(account: string, admin: boolean) {
     account,
     children: createElement(PluginSettings, { account, admin }),
   });
+}
+
+async function reviewAndAccept() {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Review connection" }),
+  );
+  await screen.findByRole("heading", { name: "Review connection" });
+  fireEvent.click(screen.getByRole("button", { name: "Accept and connect" }));
 }
 
 test("administrators offer an address and connect separately using its manifest name", async () => {
@@ -91,7 +104,9 @@ test("administrators offer an address and connect separately using its manifest 
     expect.any(AbortSignal),
   );
   expect(screen.getByLabelText("Service").textContent).toBe("Fixture provider");
-  expect(screen.getByRole("button", { name: "Connect service" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Review connection" }),
+  ).toBeTruthy();
   expect(pluginsApi.install).not.toHaveBeenCalled();
   expect(
     screen.getByText("No plugins connected to this account."),
@@ -128,7 +143,9 @@ test("invalid nonempty custom labels reach server validation and retain the draf
   );
   expect(screen.getByRole("alert").textContent).toContain(validationError);
   expect((label as HTMLInputElement).value).toBe(name);
-  expect(screen.queryByRole("button", { name: "Connect service" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Review connection" }),
+  ).toBeNull();
   expect(screen.queryByRole("button", { name: "Withdraw service" })).toBeNull();
   expect(pluginsApi.install).not.toHaveBeenCalled();
 });
@@ -146,11 +163,11 @@ test("ordinary accounts connect offered services and retain failed token drafts"
   ).toBeNull();
   const input = await screen.findByLabelText("Bearer token (optional)");
   fireEvent.change(input, { target: { value: "private-token" } });
-  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await reviewAndAccept();
   await screen.findByRole("alert");
   expect((input as HTMLInputElement).value).toBe("private-token");
   expect(screen.queryByText("Services for this server")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await reviewAndAccept();
   await screen.findByRole("heading", { name: "Fixture provider" });
   expect(pluginsApi.install).toHaveBeenLastCalledWith(
     "bob",
@@ -158,6 +175,7 @@ test("ordinary accounts connect offered services and retain failed token drafts"
       service_id: "service",
       service_revision: 1,
       bearer_token: "private-token",
+      accept_manifest_digest: "reviewed-installation-digest",
     },
     expect.any(AbortSignal),
   );
@@ -216,13 +234,11 @@ test("old account responses cannot add private connections after an account chan
       }),
   );
   const view = render(settingsPage("alice", true));
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Connect service" }),
-  );
+  await reviewAndAccept();
   await waitFor(() => expect(pluginsApi.install).toHaveBeenCalledTimes(1));
   const signal = vi.mocked(pluginsApi.install).mock.calls[0][2];
   view.rerender(settingsPage("bob", false));
-  await screen.findByRole("button", { name: "Connect service" });
+  await screen.findByRole("button", { name: "Review connection" });
   await act(async () => resolve(plugin));
   await waitFor(() => expect(signal.aborted).toBe(true));
   expect(
@@ -238,7 +254,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "failed-private-draft" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await reviewAndAccept();
   await screen.findByRole("alert");
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     ...initial,
@@ -258,7 +274,7 @@ test("withdrawing the selected offer clears its token before selecting another s
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "old-service-private-draft" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await reviewAndAccept();
   await screen.findByRole("alert");
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     ...initial,
@@ -277,9 +293,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
     .mockRejectedValueOnce(new Error("Unavailable"))
     .mockResolvedValue(plugin);
   render(settingsPage("bob", false));
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Connect service" }),
-  );
+  await reviewAndAccept();
   await screen.findByRole("alert");
   let finish!: (settings: Settings) => void;
   vi.mocked(pluginsApi.settings).mockImplementation(
@@ -290,7 +304,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
   );
   fireEvent.click(screen.getByRole("button", { name: "Reload connections" }));
   await waitFor(() => expect(pluginsApi.settings).toHaveBeenCalledTimes(2));
-  fireEvent.click(screen.getByRole("button", { name: "Connect service" }));
+  await reviewAndAccept();
   await screen.findByRole("heading", { name: "Fixture provider" });
   await act(async () => finish(initial));
   await waitFor(() =>
