@@ -9,6 +9,8 @@ import { useRequestScope } from "./useRequestScope";
 type Run = { controller: AbortController };
 type Owner = {
   subscriptions: PodcastSubscription[];
+  rendered: PodcastSubscription[];
+  needsValidation: boolean;
   attempt: Readonly<SubscribePodcast> | null;
   read: Run | null;
   write: Run | null;
@@ -36,6 +38,8 @@ export function usePodcastSubscriptions(
   const owner = useMemo<Owner>(
     () => ({
       subscriptions: rendered,
+      rendered,
+      needsValidation: true,
       attempt: null,
       read: null,
       write: null,
@@ -73,7 +77,8 @@ export function usePodcastSubscriptions(
       !scope.capture().active() ||
       owner.read ||
       owner.write ||
-      (!owner.awaitingSubscription &&
+      (!owner.needsValidation &&
+        !owner.awaitingSubscription &&
         !owner.subscriptions.some((item) => item.refresh_pending))
     )
       return;
@@ -105,6 +110,7 @@ export function usePodcastSubscriptions(
       const subscriptions = await podcastApi.subscriptions(account, signal);
       if (!active()) return;
       owner.subscriptions = subscriptions;
+      owner.needsValidation = false;
       if (
         subscriptions.some(
           (item) => item.subscription_id === owner.awaitingSubscription,
@@ -205,7 +211,7 @@ export function usePodcastSubscriptions(
         owner.write = null;
         if (request.active() && !signal.aborted) {
           publish();
-          if (accepted) void load();
+          if (accepted || owner.needsValidation) void load();
           else schedule();
         }
       }
@@ -217,10 +223,14 @@ export function usePodcastSubscriptions(
   useEffect(() => {
     owner.read?.controller.abort();
     owner.read = null;
-    owner.subscriptions = rendered;
-    owner.polls = 0;
+    if (owner.rendered !== rendered) {
+      owner.rendered = rendered;
+      if (!owner.needsValidation) owner.polls = 0;
+      owner.needsValidation = true;
+    }
     publish();
-    schedule();
+    if (owner.needsValidation) void load();
+    else schedule();
     return () => {
       clearTimer();
       owner.read?.controller.abort();
