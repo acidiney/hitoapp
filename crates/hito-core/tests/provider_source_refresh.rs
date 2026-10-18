@@ -84,14 +84,41 @@ async fn playback_refresh_updates_readiness_without_readopting_or_changing_metad
 #[tokio::test]
 async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observation() {
     let f = Fixture::start(json!({"items":[]})).await;
-    assert_eq!(
+    let accepted_releases = f
+        .hito
+        .catalog
+        .releases(&f.actor, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(accepted_releases.total, 1);
+    let accepted_release = &accepted_releases.items[0];
+    assert_eq!(Some(&accepted_release.id), f.recording.release_id.as_ref());
+    assert_eq!(accepted_release.title, "Accepted album");
+    assert_eq!(accepted_release.artist.as_deref(), Some("Accepted artist"));
+    assert_eq!(accepted_release.track_count, 1);
+    assert_eq!(accepted_release.duration_ms, 1000);
+    let accepted_album = f
+        .hito
+        .catalog
+        .release(&f.actor, &accepted_release.id, Default::default())
+        .await
+        .unwrap();
+    assert_eq!(accepted_album.tracks.total, 1);
+    assert_eq!(accepted_album.tracks.items.len(), 1);
+    let accepted_track = &accepted_album.tracks.items[0];
+    assert_eq!(accepted_track.recording.id, f.recording.id);
+    assert_eq!(accepted_track.recording.title, "Accepted title");
+    assert_eq!(accepted_track.recording.artist, "Accepted artist");
+    assert_eq!(accepted_track.track_number, Some(1));
+    assert!(!accepted_track.recording.available);
+    assert!(uuid::Uuid::parse_str(&accepted_track.entry_id).is_ok());
+    assert!(
         f.hito
             .catalog
-            .releases(&f.actor, Default::default())
+            .sources(&f.actor, &f.recording.id)
             .await
             .unwrap()
-            .total,
-        0
+            .is_empty()
     );
     let before = f
         .hito
@@ -99,6 +126,12 @@ async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observat
         .recording_metadata(&f.actor, &f.recording.id, Default::default())
         .await
         .unwrap();
+    f.server
+        .reply(
+            "v1/recordings/detail",
+            json!({"invalid":"must not be requested"}),
+        )
+        .await;
     f.server
         .reply(
             "v1/sources",
@@ -113,6 +146,8 @@ async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observat
         .unwrap();
     assert_eq!(sources.len(), 1);
     assert!(sources[0].ready);
+    assert_eq!(sources[0].recording_id, f.recording.id);
+    assert_eq!(sources[0].provider, "plugin");
     let releases = f
         .hito
         .catalog
@@ -122,6 +157,10 @@ async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observat
     assert_eq!(releases.total, 1);
     assert_eq!(Some(&releases.items[0].id), f.recording.release_id.as_ref());
     assert_eq!(releases.items[0].title, "Accepted album");
+    assert_eq!(
+        serde_json::to_value(&releases).unwrap(),
+        serde_json::to_value(&accepted_releases).unwrap()
+    );
     let album = f
         .hito
         .catalog
@@ -130,6 +169,16 @@ async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observat
         .unwrap();
     assert_eq!(album.tracks.items[0].recording.id, f.recording.id);
     assert_eq!(album.tracks.items[0].track_number, Some(1));
+    assert_eq!(album.tracks.total, 1);
+    assert_eq!(album.tracks.items.len(), 1);
+    assert_eq!(album.tracks.items[0].entry_id, sources[0].id);
+    let mut expected_track = serde_json::to_value(accepted_track).unwrap();
+    expected_track["entry_id"] = json!(sources[0].id);
+    expected_track["available"] = json!(true);
+    assert_eq!(
+        serde_json::to_value(&album.tracks.items[0]).unwrap(),
+        expected_track
+    );
     let after = f
         .hito
         .catalog
@@ -141,9 +190,16 @@ async fn newly_discovered_audio_keeps_the_accepted_album_appearance_and_observat
         before.observations.items.len()
     );
     assert_eq!(
-        after.selected_observation.unwrap().id,
-        before.selected_observation.unwrap().id
+        after.selected_observation.as_ref().unwrap().id,
+        before.selected_observation.as_ref().unwrap().id
     );
+    assert_eq!(
+        serde_json::to_value(&after).unwrap(),
+        serde_json::to_value(&before).unwrap()
+    );
+    assert_eq!(f.server.requests("v1/recordings/detail").await.len(), 1);
+    assert_eq!(f.server.requests("v1/sources").await.len(), 2);
+    assert!(f.server.requests("v1/audio").await.is_empty());
 }
 
 #[tokio::test]
