@@ -27,6 +27,9 @@ pub use source_choice::{
     ChooseSource, ResetSourceChoice, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
     SourceChoiceReceipt, SourceChoiceResetReceipt,
 };
+#[cfg(test)]
+#[path = "tests/release_query_work.rs"]
+mod release_query_work;
 mod sources;
 mod types;
 
