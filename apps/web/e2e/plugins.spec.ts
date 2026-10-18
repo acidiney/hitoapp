@@ -1,6 +1,30 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
+import type { components } from "../src/generated";
+import {
+  observePluginInstallations,
+  reviewPluginInstallation,
+} from "./fixtures/plugin-installation-review";
+
+type Schema = components["schemas"];
+test.use({
+  trace: "off",
+  screenshot: "off",
+  video: "off",
+  launchOptions: { args: [] },
+});
+
+async function pluginSettings(page: Page): Promise<Schema["PluginSettings"]> {
+  const response = await page.request.get("/api/v1/plugins");
+  try {
+    expect(response.status()).toBe(200);
+    return await response.json();
+  } finally {
+    await response.dispose();
+  }
+}
 
 async function signIn(page: Page, username: string, password: string) {
   await page.goto("/settings");
@@ -30,6 +54,8 @@ test("an administrator offers only an address before connecting with the plugin 
 }) => {
   const errors: string[] = [];
   const browserProviderRequests: string[] = [];
+  const { evidence: installationRequests, stop: stopInstallationRequests } =
+    observePluginInstallations(page);
   const requests: {
     authorization?: string;
     cookie?: string;
@@ -41,6 +67,7 @@ test("an administrator offers only an address before connecting with the plugin 
     name: "Automatic fixture provider",
     protocol_version: 1,
     capabilities: ["search", "sources"],
+    content_policy: { source_persistence: "playback_only" },
   };
   const service = createServer((request, response) => {
     requests.push({
@@ -68,9 +95,9 @@ test("an administrator offers only an address before connecting with the plugin 
     await page.getByText("Services for this server", { exact: true }).click();
     const serviceAddress = page.getByLabel("Service address", { exact: true });
     await expect(serviceAddress).toHaveJSProperty("required", true);
-    await expect(
-      page.getByLabel("Service name", { exact: true }),
-    ).toHaveCount(0);
+    await expect(page.getByLabel("Service name", { exact: true })).toHaveCount(
+      0,
+    );
     await expect(
       page.getByLabel("Custom label (optional)", { exact: true }),
     ).toBeHidden();
@@ -80,10 +107,18 @@ test("an administrator offers only an address before connecting with the plugin 
         request.method() === "POST" &&
         new URL(request.url()).pathname === "/api/v1/plugins/services",
     );
+    const offerResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/v1/plugins/services",
+    );
     await page
       .getByRole("button", { name: "Offer service", exact: true })
       .click();
     expect((await offered).postDataJSON()).toEqual({ base_url: address });
+    const acceptedOffer = await offerResponse;
+    expect(acceptedOffer.status()).toBe(201);
+    const offeredService: Schema["PluginService"] = await acceptedOffer.json();
     const selector = page.getByRole("combobox", {
       name: "Service",
       exact: true,
@@ -96,8 +131,25 @@ test("an administrator offers only an address before connecting with the plugin 
     expect(requests).toEqual([
       { authorization: undefined, cookie: undefined, protocol: "1" },
     ]);
+    const beforeReview = await pluginSettings(page);
+    const reviewed = await reviewPluginInstallation(
+      page,
+      offeredService,
+      manifest.name,
+    );
+    expect(installationRequests.total).toBe(0);
+    expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
+      true,
+    );
+    await expect(
+      page.getByText("No plugins connected to this account.", { exact: true }),
+    ).toBeVisible();
+    expect(requests).toEqual([
+      { authorization: undefined, cookie: undefined, protocol: "1" },
+      { authorization: undefined, cookie: undefined, protocol: "1" },
+    ]);
     await page
-      .getByRole("button", { name: "Connect service", exact: true })
+      .getByRole("button", { name: "Accept and connect", exact: true })
       .click();
     await expect(
       page.getByRole("button", { name: "Check connection", exact: true }),
@@ -105,7 +157,15 @@ test("an administrator offers only an address before connecting with the plugin 
     await expect(
       page.getByText("No plugins connected to this account.", { exact: true }),
     ).toHaveCount(0);
+    expect(installationRequests.total).toBe(1);
+    expect(
+      isDeepStrictEqual(installationRequests.samples[0], {
+        ...reviewed.sent,
+        accept_manifest_digest: reviewed.body.digest,
+      }),
+    ).toBe(true);
     expect(requests).toEqual([
+      { authorization: undefined, cookie: undefined, protocol: "1" },
       { authorization: undefined, cookie: undefined, protocol: "1" },
       { authorization: undefined, cookie: undefined, protocol: "1" },
     ]);
@@ -118,7 +178,9 @@ test("an administrator offers only an address before connecting with the plugin 
       .click();
     await expect(selector).toHaveCount(0);
     expect(errors).toEqual([]);
+    expect(installationRequests.overflow).toBe(false);
   } finally {
+    stopInstallationRequests();
     await new Promise<void>((resolve, reject) =>
       service.close((error) => (error ? reject(error) : resolve())),
     );
@@ -129,6 +191,8 @@ test("personal plugin connections review changes and remain private across accou
   page,
 }) => {
   const errors: string[] = [];
+  const { evidence: installationRequests, stop: stopInstallationRequests } =
+    observePluginInstallations(page);
   page.on("pageerror", (error) => errors.push(error.message));
   let manifest = {
     id: "org.hito.browser.fixture",
@@ -162,20 +226,28 @@ test("personal plugin connections review changes and remain private across accou
       .getByLabel("Custom label (optional)", { exact: true })
       .fill("Browser fixture service");
     await page.getByLabel("Service address", { exact: true }).fill(address);
+    const offerResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/v1/plugins/services",
+    );
     await page
       .getByRole("button", { name: "Offer service", exact: true })
       .click();
+    const acceptedOffer = await offerResponse;
+    expect(acceptedOffer.status()).toBe(201);
+    const offeredService: Schema["PluginService"] = await acceptedOffer.json();
     await expect(
       page.getByRole("combobox", { name: "Service", exact: true }),
     ).toHaveValue(/.+/);
     expect(requests).toEqual([]);
     await page.setViewportSize({ width: 390, height: 844 });
-    const connectButton = page.getByRole("button", {
-      name: "Connect service",
+    const reviewButton = page.getByRole("button", {
+      name: "Review connection",
       exact: true,
     });
-    await connectButton.scrollIntoViewIfNeeded();
-    const connectBounds = await connectButton.boundingBox();
+    await reviewButton.scrollIntoViewIfNeeded();
+    const connectBounds = await reviewButton.boundingBox();
     const dockBounds = await page
       .getByRole("contentinfo", { name: "Audio player" })
       .boundingBox();
@@ -210,12 +282,70 @@ test("personal plugin connections review changes and remain private across accou
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(expectedToken!);
+    const beforeReview = await pluginSettings(page);
+    await reviewPluginInstallation(page, offeredService, manifest.name);
+    expect(installationRequests.total).toBe(0);
+    expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
+      true,
+    );
+    expect(
+      (
+        await page.evaluate(() =>
+          JSON.stringify({
+            local: Object.entries(localStorage),
+            session: Object.entries(sessionStorage),
+          }),
+        )
+      ).includes(expectedToken!),
+    ).toBe(false);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Review connection", exact: true }),
+    ).toHaveCount(0);
+    expect(installationRequests.total).toBe(0);
+    expect(isDeepStrictEqual(await pluginSettings(page), beforeReview)).toBe(
+      true,
+    );
+    expect(
+      requests.length === 1 && requests[0] === `Bearer ${expectedToken}`,
+    ).toBe(true);
+    expect(
+      (
+        await page.evaluate(() =>
+          JSON.stringify({
+            local: Object.entries(localStorage),
+            session: Object.entries(sessionStorage),
+          }),
+        )
+      ).includes(expectedToken!),
+    ).toBe(false);
+    const reviewed = await reviewPluginInstallation(
+      page,
+      offeredService,
+      manifest.name,
+    );
+    expect(installationRequests.total).toBe(0);
+    expect(
+      requests.length === 2 &&
+        requests.every((token) => token === `Bearer ${expectedToken}`),
+    ).toBe(true);
     await page
-      .getByRole("button", { name: "Connect service", exact: true })
+      .getByRole("button", { name: "Accept and connect", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "Fixture collection", exact: true }),
     ).toBeVisible();
+    expect(installationRequests.total).toBe(1);
+    expect(
+      isDeepStrictEqual(installationRequests.samples[0], {
+        ...reviewed.sent,
+        accept_manifest_digest: reviewed.body.digest,
+      }),
+    ).toBe(true);
+    expect(
+      requests.length === 3 &&
+        requests.every((token) => token === `Bearer ${expectedToken}`),
+    ).toBe(true);
     expect(requests[0]).toBe(`Bearer ${expectedToken}`);
     manifest = {
       ...manifest,
@@ -323,8 +453,13 @@ test("personal plugin connections review changes and remain private across accou
     await expect(
       page.getByText("Services for this server", { exact: true }),
     ).toHaveCount(0);
+    const listenerReview = await reviewPluginInstallation(
+      page,
+      offeredService,
+      manifest.name,
+    );
     await page
-      .getByRole("button", { name: "Connect service", exact: true })
+      .getByRole("button", { name: "Accept and connect", exact: true })
       .click();
     await expect(
       page.getByRole("heading", {
@@ -332,6 +467,13 @@ test("personal plugin connections review changes and remain private across accou
         exact: true,
       }),
     ).toBeVisible();
+    expect(installationRequests.total).toBe(2);
+    expect(
+      isDeepStrictEqual(installationRequests.samples[1], {
+        ...listenerReview.sent,
+        accept_manifest_digest: listenerReview.body.digest,
+      }),
+    ).toBe(true);
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await page
       .getByRole("button", { name: "Remove plugin", exact: true })
@@ -370,7 +512,9 @@ test("personal plugin connections review changes and remain private across accou
       page.getByRole("heading", { name: "Your plugins", exact: true }),
     ).toBeFocused();
     expect(errors).toEqual([]);
+    expect(installationRequests.overflow).toBe(false);
   } finally {
+    stopInstallationRequests();
     await new Promise<void>((resolve, reject) =>
       service.close((error) => (error ? reject(error) : resolve())),
     );
