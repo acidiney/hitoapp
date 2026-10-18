@@ -83,7 +83,7 @@ Connection shutdown keeps its existing five-second drain and forced-abort policy
 
 Actual regressions first showed a disconnected provider read ending while its durable lease blocked the next Play, and publication ownership ending before a held writer was released. A later retry-burst regression exposed an unbounded transport wait queue in the prototype. The final implementation passes all four HTTP cases, including forced connection abort during publication. Two additional public core cases verify cancelled reservation replacement and two-account saturation/isolation. Six existing core admission, cancellation, binding-race and revocation cases also pass.
 
-The frozen source passes all 142 server tests, strict all-target core/server Clippy and formatting in Docker. Both independent specialist rounds are complete, with final security, correctness and performance reviews passing. This verifies source and owned protocol fixtures. The combined release image and normal deployment remain pending; no native, physical-device or release latency guarantee follows from these results.
+The frozen source passes all 139 distinct server tests, strict all-target core/server Clippy and formatting in Docker. Both independent specialist rounds are complete, with final security, correctness and performance reviews passing. This verifies source and owned protocol fixtures. The combined release image and normal deployment remain pending; no native, physical-device or release latency guarantee follows from these results.
 
 ## Verified evidence
 
