@@ -591,7 +591,7 @@ test("existing independent playlist copies automatically retain private provider
       artist,
       fixture.recording.title,
     ]);
-    diagnostics.assertFailures(artworkPath, baseURL);
+    diagnostics.assertFailures(artworkPath, baseURL, copies);
     await info.attach("provider-artwork-evidence", {
       body: JSON.stringify(
         {

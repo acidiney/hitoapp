@@ -226,11 +226,11 @@ export async function loadedCopies(
     await expect(rows.locator(".track-title")).toHaveText([title, title]);
     await expect(
       page.getByRole("button", { name: "Play playlist", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     for (const row of await rows.all()) {
       await expect(
         row.getByRole("button", { name: `Play ${title}`, exact: true }),
-      ).toBeDisabled();
+      ).toBeEnabled();
       const image = row.locator(".artwork img");
       await expect(image).toHaveAttribute(
         "src",

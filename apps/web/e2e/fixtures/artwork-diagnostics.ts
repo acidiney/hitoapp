@@ -16,6 +16,7 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
   const logs: Promise<string>[] = [];
   const urls: string[] = [];
   const imageURLs: string[] = [];
+  const downloadMutations: { method: string; url: string }[] = [];
   const errors: string[] = [];
   const consoleErrors: { text: string; url: string }[] = [];
   const failedResponses: {
@@ -41,6 +42,19 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
     });
     observed.on("request", (request) => {
       urls.push(request.url());
+      const url = new URL(request.url());
+      if (
+        url.origin === origin &&
+        request.method() !== "GET" &&
+        (/^\/api\/v1\/(?:recordings|playlists)\/[^/]+\/download$/.test(
+          url.pathname,
+        ) ||
+          /^\/api\/v1\/downloads(?:\/|$)/.test(url.pathname))
+      )
+        downloadMutations.push({
+          method: request.method(),
+          url: request.url(),
+        });
       if (request.resourceType() === "image") imageURLs.push(request.url());
       if (
         request.method() === "POST" &&
@@ -103,8 +117,23 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
     }
   }
 
-  function assertFailures(artworkPath: string, baseURL: string) {
+  function assertFailures(
+    artworkPath: string,
+    baseURL: string,
+    copies: readonly string[],
+  ) {
     expect(errors).toEqual([]);
+    expect(downloadMutations).toEqual([]);
+    const artworkURL = new URL(artworkPath, baseURL).href;
+    const downloadStatusURLs = new Set(
+      copies.map(
+        (copy) =>
+          new URL(
+            `/api/v1/playlists/${encodeURIComponent(copy)}/download`,
+            baseURL,
+          ).href,
+      ),
+    );
     const messages = new Map([
       [
         401,
@@ -122,9 +151,15 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
         expect(response.phase).toBe("sign-in");
       } else {
         expect(response.owner).toBe("owner");
-        expect(response.url).toBe(new URL(artworkPath, baseURL).href);
         expect(response.status).toBe(404);
-        expect(["copies", "retrieving"]).toContain(response.phase);
+        if (downloadStatusURLs.has(response.url))
+          expect(["copies", "retrieving", "ready", "disconnected"]).toContain(
+            response.phase,
+          );
+        else {
+          expect(response.url).toBe(artworkURL);
+          expect(["copies", "retrieving"]).toContain(response.phase);
+        }
       }
     }
     for (const owner of ["owner", "other"])
@@ -136,7 +171,9 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
     expect(
       failedResponses.some(
         (response) =>
-          response.phase === "retrieving" && response.status === 404,
+          response.url === artworkURL &&
+          response.phase === "retrieving" &&
+          response.status === 404,
       ),
     ).toBe(true);
     const correlated = new Set<number>();
