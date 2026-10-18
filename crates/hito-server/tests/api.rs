@@ -37,6 +37,9 @@ mod playlist_import;
 #[path = "api/playlist_metadata_refresh.rs"]
 mod playlist_metadata_refresh;
 
+#[path = "api/playlist_metadata_refresh_guards.rs"]
+mod playlist_metadata_refresh_guards;
+
 #[path = "api/playlist_follow.rs"]
 mod playlist_follow;
 
