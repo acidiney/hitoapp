@@ -26,37 +26,7 @@ impl Collection {
             }
             let mut tx = self.store.pool.begin().await?;
             actor.check_session_on(&mut tx).await?;
-            if !chapters.is_empty() {
-                let mut query = QueryBuilder::new(
-                    "WITH requested(audiobook_id,entry_id,recording_id) AS (",
-                );
-                query.push_values(chapters, |mut row, chapter| {
-                    row.push_bind(chapter.audiobook_id.to_string())
-                        .push_bind(chapter.entry_id.to_string())
-                        .push_bind(chapter.recording_id.to_string());
-                });
-                query.push(
-                    ") SELECT NOT EXISTS(SELECT 1 FROM requested WHERE NOT EXISTS(
-                        SELECT 1 FROM playlists playlist INDEXED BY sqlite_autoindex_playlists_1
-                        CROSS JOIN audiobooks book INDEXED BY sqlite_autoindex_audiobooks_1
-                            ON book.playlist_id=playlist.id AND book.user_id=playlist.user_id
-                        CROSS JOIN playlist_entries chapter INDEXED BY sqlite_autoindex_playlist_entries_1
-                            ON chapter.playlist_id=playlist.id AND chapter.id=requested.entry_id
-                        CROSS JOIN recordings recording INDEXED BY sqlite_autoindex_recordings_1
-                            ON recording.id=chapter.recording_id
-                        CROSS JOIN library_members access INDEXED BY sqlite_autoindex_library_members_1
-                            ON access.library_id=recording.library_id AND access.user_id=playlist.user_id
-                        WHERE playlist.id=requested.audiobook_id AND playlist.user_id=",
-                );
-                query.push_bind(actor.id()).push(
-                    " AND playlist.deleted=0 AND playlist.kind='local' AND chapter.deleted=0
-                        AND chapter.recording_id=requested.recording_id))",
-                );
-                let valid: bool = query.build_query_scalar().fetch_one(&mut *tx).await?;
-                if !valid {
-                    return Err(Error::NotFound);
-                }
-            }
+            check_chapters_on(&mut tx, actor, chapters).await?;
             tx.commit().await?;
             actor.check_session(&self.store).await?;
             Ok(())
@@ -75,4 +45,42 @@ impl Collection {
         );
         result
     }
+}
+
+pub(super) async fn check_chapters_on(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    chapters: &[AudiobookChapterAnchor],
+) -> Result<()> {
+    if !chapters.is_empty() {
+        let mut query =
+            QueryBuilder::new("WITH requested(audiobook_id,entry_id,recording_id) AS (");
+        query.push_values(chapters, |mut row, chapter| {
+            row.push_bind(chapter.audiobook_id.to_string())
+                .push_bind(chapter.entry_id.to_string())
+                .push_bind(chapter.recording_id.to_string());
+        });
+        query.push(
+            ") SELECT NOT EXISTS(SELECT 1 FROM requested WHERE NOT EXISTS(
+                SELECT 1 FROM playlists playlist INDEXED BY sqlite_autoindex_playlists_1
+                CROSS JOIN audiobooks book INDEXED BY sqlite_autoindex_audiobooks_1
+                    ON book.playlist_id=playlist.id AND book.user_id=playlist.user_id
+                CROSS JOIN playlist_entries chapter INDEXED BY sqlite_autoindex_playlist_entries_1
+                    ON chapter.playlist_id=playlist.id AND chapter.id=requested.entry_id
+                CROSS JOIN recordings recording INDEXED BY sqlite_autoindex_recordings_1
+                    ON recording.id=chapter.recording_id
+                CROSS JOIN library_members access INDEXED BY sqlite_autoindex_library_members_1
+                    ON access.library_id=recording.library_id AND access.user_id=playlist.user_id
+                WHERE playlist.id=requested.audiobook_id AND playlist.user_id=",
+        );
+        query.push_bind(actor.id()).push(
+            " AND playlist.deleted=0 AND playlist.kind='local' AND chapter.deleted=0
+                AND chapter.recording_id=requested.recording_id))",
+        );
+        let valid: bool = query.build_query_scalar().fetch_one(connection).await?;
+        if !valid {
+            return Err(Error::NotFound);
+        }
+    }
+    Ok(())
 }

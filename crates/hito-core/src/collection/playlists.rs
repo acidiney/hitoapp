@@ -18,7 +18,14 @@ impl Collection {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let playlist = read_owned(&mut tx, actor, id).await?;
-        let entries = playlist_entries::read(&mut tx, &self.host, actor, id).await?;
+        let entries = playlist_entries::read(
+            &mut tx,
+            &self.host,
+            actor,
+            id,
+            playlist_entries::EntryAccess::All,
+        )
+        .await?;
         let origin = if let Some(origin) = import_persist::origin(&mut tx, id).await? {
             Some(origin)
         } else {

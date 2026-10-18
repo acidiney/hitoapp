@@ -25,6 +25,7 @@ mod saved_playback_work;
 use crate::{HostDeviceId, store::Store};
 pub use audiobooks::{
     AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation, AudiobookDetail,
+    AudiobookPlayback, AudiobookPlaybackAdmission,
 };
 pub use follow::{
     FollowProviderPlaylist, PlaylistFollow, PlaylistFollowInterval, PlaylistFollowReceipt,

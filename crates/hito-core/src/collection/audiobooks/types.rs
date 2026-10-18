@@ -26,6 +26,14 @@ pub struct AudiobookContinuation {
     pub progress: Option<RecordingProgress>,
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct AudiobookPlayback {
+    pub audiobook_id: Uuid,
+    pub chapter: AudiobookChapterAnchor,
+    pub progress: RecordingProgress,
+    pub chapters: Vec<PlaylistEntry>,
+}
+
 #[derive(Serialize, ToSchema, sqlx::FromRow)]
 pub struct AudiobookBookmark {
     pub id: String,

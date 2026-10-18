@@ -2,11 +2,17 @@ use super::{ImportedPlaylistEntryKind, ImportedPlaylistEntryOrigin, PlaylistEntr
 use crate::{Actor, Error, HostDeviceId, Result, catalog::push_available, metadata};
 use sqlx::{QueryBuilder, Row, SqliteConnection, sqlite::SqliteRow};
 
+pub(super) enum EntryAccess {
+    All,
+    Authorized,
+}
+
 pub(super) async fn read(
     connection: &mut SqliteConnection,
     host: &HostDeviceId,
     actor: &Actor,
     playlist: &str,
+    access: EntryAccess,
 ) -> Result<Vec<PlaylistEntry>> {
     let mut query = QueryBuilder::new(
         "SELECT e.id AS entry_id, e.recording_id, e.position,
@@ -42,7 +48,11 @@ pub(super) async fn read(
     query
         .push(" WHERE e.playlist_id = ")
         .push_bind(playlist.to_owned())
-        .push(" AND e.deleted = 0 ORDER BY e.position, e.id LIMIT 10000");
+        .push(" AND e.deleted = 0");
+    if matches!(access, EntryAccess::Authorized) {
+        query.push(" AND m.user_id IS NOT NULL");
+    }
+    query.push(" ORDER BY e.position, e.id LIMIT 10000");
     query
         .build()
         .fetch_all(connection)

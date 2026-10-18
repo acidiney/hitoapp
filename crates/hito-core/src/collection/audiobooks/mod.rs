@@ -2,6 +2,9 @@ mod admission;
 mod bookmarks;
 mod continuation;
 mod listing;
+mod playback;
+mod playback_admission;
+pub use playback_admission::AudiobookPlaybackAdmission;
 mod types;
 
 use super::{Collection, Playlist, apply::playlists::editable, playlist_entries, playlists};
@@ -16,6 +19,7 @@ pub(super) use bookmarks::{
 pub(super) use continuation::set as set_chapter;
 pub use types::{
     AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation, AudiobookDetail,
+    AudiobookPlayback,
 };
 
 const MAX_BOOKMARKS: i64 = 256;
@@ -30,7 +34,14 @@ impl Collection {
             actor.check_session_on(&mut tx).await?;
             let playlist = owned_on(&mut tx, actor, id).await?;
             check_chapter_limit(&mut tx, id).await?;
-            let chapters = playlist_entries::read(&mut tx, &self.host, actor, id).await?;
+            let chapters = playlist_entries::read(
+                &mut tx,
+                &self.host,
+                actor,
+                id,
+                playlist_entries::EntryAccess::All,
+            )
+            .await?;
             let bookmarks = sqlx::query_as::<_, AudiobookBookmark>(
                 "SELECT bookmark.id,bookmark.audiobook_id,bookmark.entry_id,
                     bookmark.recording_id,bookmark.position_ms,bookmark.label

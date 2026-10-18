@@ -23,6 +23,7 @@ pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_me
 mod releases;
 mod search;
 mod selection;
+pub(crate) use selection::recordings_on;
 mod source_choice;
 pub(crate) use source_choice::push_source_choice;
 pub use source_choice::{
