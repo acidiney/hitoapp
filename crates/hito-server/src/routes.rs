@@ -67,6 +67,11 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::me))
         .routes(routes!(identity::users, identity::create_user))
         .routes(routes!(identity::grant_access, identity::revoke_access))
+        .routes(routes!(
+            api::community::preferences,
+            api::community::update_preferences
+        ))
+        .routes(routes!(api::community::reset_credentials))
         .routes(routes!(podcasts::subscriptions, podcasts::subscribe))
         .routes(routes!(podcasts::episodes))
         .routes(routes!(podcasts::refresh))

@@ -8,6 +8,7 @@ pub mod browsing;
 pub mod catalog;
 pub mod collection;
 pub mod collection_artwork;
+pub mod community;
 pub mod downloads;
 pub mod identity;
 pub mod jobs;
