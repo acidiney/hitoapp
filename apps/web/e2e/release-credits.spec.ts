@@ -1,5 +1,7 @@
+import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import {
   creditAction,
@@ -116,13 +118,18 @@ test("source-free imported albums preserve unknown credits through personal edit
     await page
       .getByLabel("Bearer token (optional)", { exact: true })
       .fill(owned.token);
+    const reviewed = await reviewPluginInstallation(
+      page,
+      offered.body,
+      owned.manifest.name,
+    );
     const installed = await creditPost<Schema["PluginInstallation"]>(
       page,
       "/api/v1/plugins",
       201,
       () =>
         page
-          .getByRole("button", { name: "Connect service", exact: true })
+          .getByRole("button", { name: "Accept and connect", exact: true })
           .click(),
     );
     const connection = installed.body;
@@ -130,7 +137,11 @@ test("source-free imported albums preserve unknown credits through personal edit
       connection.service_id === offered.body.id &&
         connection.credential_set &&
         connection.manifest.capabilities.length === 1 &&
-        connection.manifest.capabilities[0] === "playlists",
+        connection.manifest.capabilities[0] === "playlists" &&
+        isDeepStrictEqual(installed.sent, {
+          ...reviewed.sent,
+          accept_manifest_digest: reviewed.body.digest,
+        }),
     ).toBe(true);
     stage = "import metadata without sources";
     await navigation

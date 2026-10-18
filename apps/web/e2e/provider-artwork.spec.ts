@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
 import { artworkFixture } from "./fixtures/artwork";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./fixtures/artwork-browser-checks";
 import { artworkDiagnostics, type Phase } from "./fixtures/artwork-diagnostics";
 import type { components } from "../src/generated";
+import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 
 type Schema = components["schemas"];
 
@@ -85,28 +87,42 @@ test("existing independent playlist copies automatically retain private provider
       fixture.manifest.name,
     );
     const token = page.getByLabel("Bearer token (optional)", { exact: true });
-    const connect = page.getByRole("button", {
-      name: "Connect service",
+    const reviewButton = page.getByRole("button", {
+      name: "Review connection",
       exact: true,
     });
     const targets = await layouts(page, info, "provider-artwork-connect", [
       address,
       selector,
       token,
-      connect,
+      reviewButton,
     ]);
     await token.fill(fixture.token);
     await token.focus();
     await token.press("Tab");
-    await expect(connect).toBeFocused();
+    await expect(reviewButton).toBeFocused();
+    const installationReview = await reviewPluginInstallation(
+      page,
+      service,
+      fixture.manifest.name,
+      () => reviewButton.press("Enter"),
+    );
     const installed = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/v1/plugins" &&
         response.request().method() === "POST",
     );
-    await connect.press("Enter");
+    await page
+      .getByRole("button", { name: "Accept and connect", exact: true })
+      .click();
     const installResponse = await installed;
     expect(installResponse.status()).toBe(201);
+    expect(
+      isDeepStrictEqual(installResponse.request().postDataJSON(), {
+        ...installationReview.sent,
+        accept_manifest_digest: installationReview.body.digest,
+      }),
+    ).toBe(true);
     connection = await installResponse.json();
     if (!connection)
       throw new Error("Connecting the provider must return its installation");
