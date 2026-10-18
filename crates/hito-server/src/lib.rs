@@ -10,6 +10,7 @@ mod inertia;
 mod routes;
 mod runtime;
 mod security;
+mod source_resolution;
 mod storage_manifest;
 mod telemetry;
 

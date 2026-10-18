@@ -2,9 +2,10 @@ use crate::{
     auth::Account,
     error::{ApiResult, ErrorResponse},
     extract::JsonBody,
+    source_resolution::{self, Resolutions},
 };
 use axum::{
-    Json,
+    Extension, Json,
     extract::{Path, State},
 };
 use hito_core::{ResolveSource, Services, SourceResolution};
@@ -24,12 +25,21 @@ pub async fn resolve_source(
     State(services): State<Services>,
     Account(actor): Account,
     Path(id): Path<String>,
+    owner: Option<Extension<Resolutions>>,
     JsonBody(request): JsonBody<ResolveSource>,
 ) -> ApiResult<Json<SourceResolution>> {
     Ok(Json(
-        services
-            .catalog
-            .resolve_source_until(&actor, &id, request, std::future::pending())
-            .await?,
+        source_resolution::run(
+            owner.map(|Extension(owner)| owner),
+            move |cancelled| async move {
+                services
+                    .catalog
+                    .resolve_source_until(&actor, &id, request, async {
+                        let _ = cancelled.await;
+                    })
+                    .await
+            },
+        )
+        .await?,
     ))
 }

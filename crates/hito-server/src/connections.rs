@@ -1,4 +1,4 @@
-use crate::config::RuntimeResult;
+use crate::{config::RuntimeResult, source_resolution::Resolutions};
 use axum::{Extension, Router, extract::ConnectInfo};
 use hyper::server::conn::http1;
 use hyper_util::{rt::TokioIo, service::TowerToHyperService};
@@ -13,9 +13,12 @@ pub(crate) async fn serve(
     shutdown: impl Future<Output = ()> + Send,
 ) -> RuntimeResult<()> {
     tracing::info!(event = "server_listening", address = %listener.local_addr()?, "Hito is listening");
+    let resolutions = Resolutions::default();
+    let app = app.layer(Extension(resolutions.clone()));
     let mut connections = JoinSet::new();
     tokio::pin!(shutdown);
     loop {
+        resolutions.reap();
         tokio::select! {
             biased;
             _ = &mut shutdown => break,
@@ -67,5 +70,6 @@ pub(crate) async fn serve(
         connections.abort_all();
         while connections.join_next().await.is_some() {}
     }
+    resolutions.finish().await?;
     Ok(())
 }
