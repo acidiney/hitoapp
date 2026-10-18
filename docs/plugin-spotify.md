@@ -1,8 +1,8 @@
 # Public Spotify playlist import
 
-This separate HTTP plugin is being built to import a public Spotify shared link into an editable private Hito playlist. The public-link path needs no Spotify account, developer application, OAuth connection, or personal bearer token. It imports playlist and track metadata only. It does not provide Spotify audio, previews, or downloads. Playback needs a separately verified source.
+This separate HTTP plugin imports a public Spotify shared link into an editable private Hito playlist. The public-link path needs no Spotify account, developer application, OAuth connection, or personal bearer token. It imports playlist and track metadata only. It does not provide Spotify audio, previews, or downloads. Playback needs a separately verified source.
 
-The service is running on the local development server and can be connected through Settings. Ten owned TCP tests and strict all-target Clippy pass. A release-image Chromium case imported a complete live playlist through the Hito UI without account authorization, then checked every ordered item, account privacy, disabled playback, disconnection, and editing. See [release evidence and unfinished work](status.md). Public-release acceptance remains open.
+The service is running on the local development server and can be connected through Settings. All 23 owned TCP tests and strict all-target Clippy pass. A release-image Chromium case imported a complete live playlist through the Hito UI without account authorization, then checked every ordered item, account privacy, disabled playback, disconnection, and editing. See [release evidence and unfinished work](status.md). Public-release acceptance remains open.
 
 ## Link and import behavior
 
@@ -26,7 +26,9 @@ The accepted producer source retains the public playlist response's `albumOfTrac
 
 An absent or null album leaves the recording without a release. A supplied album must have the exact Spotify album URI format and a valid bounded title; malformed metadata fails the complete snapshot with the existing safe error. Album fields participate in snapshot hashing and cache byte accounting.
 
-All 23 owned TCP cases and strict all-target Clippy pass. They cover 101-entry order and duplicate retention, exact verified album fields, absent/null albums, twelve malformed-field cases, pinned snapshots and unchanged upstream request counts. Independent source review found no actionable issue. This slice has not yet passed a live packaged album import or been deployed to the normal service. The Hito host must support the shared unknown-album-credit contract before that deployment. Existing independent playlist copies still need backfill without changing recording identities, entries or personal data.
+All 23 owned TCP cases and strict all-target Clippy pass. They cover 101-entry order and duplicate retention, exact verified album fields, absent/null albums, twelve malformed-field cases, pinned snapshots and unchanged upstream request counts. Independent source review found no actionable issue. A fresh packaged Chromium workflow passed against the public reference playlist with 411 tracks, 250 albums and 221 recording artists. It compared every stored recording and release with a pinned complete provider snapshot, then opened album, track-metadata and artist pages. All album-artist credits remained honestly unknown. It observed no audio, external browser requests, download mutations or private console values. Two initial runs exposed immediate heading reads before Inertia navigation completed; condition-based waits fixed the test without changing application code or its exact assertions. The final workflow took 9.6 seconds, not a latency benchmark.
+
+The producer is deployed to the normal local service after that live check. The server already supports migration 0045. Existing independent playlist copies still need backfill without changing recording identities, entries or personal data; upgrading the plugin does not repair those copies by itself.
 
 ## Ownership and snapshot consistency
 
@@ -52,7 +54,7 @@ The anonymous bootstrap secret stays in memory and uses zeroizing storage. It is
 
 ## Local setup
 
-The normal service is healthy on verified image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca620e0bb3c67c8c8e798e`. The original import image passed startup, manifest, graceful SIGTERM shutdown and the isolated live browser case. The updated producer passed 20 fixture cases, strict Clippy and the live artwork checks below.
+The normal service is healthy on verified image `sha256:dac6f44955658f9569fc27e5cfc61e9c01189bdeb7476de7c03d4260c53a7b90`, built from the album producer at `3e677c4`. Its 23 fixture cases, strict Clippy and packaged live album workflow pass. Deployment preserved the complete container runtime policy, image process defaults, network aliases and byte-identical manifest. The service has no data mounts. The server, YouTube and folder container identities and configuration stayed unchanged; anonymous player access still returns 401. No listener account was authenticated or modified.
 
 Build and inspect the plugin in a separate Compose project first. The project name also gives the Dockerfile a separate Cargo build cache. Keep different source snapshots on separate caches. Run compiler-heavy checks sequentially, with debug information and incremental compilation disabled. Check host free space and combined Hito Cargo targets before and during builds; retain at least 40 GiB of host headroom and keep those targets within 10 GiB.
 
@@ -77,7 +79,7 @@ http://plugin-spotify:8092/
 
 An administrator opens Settings, Plugins, Services for this server, enters the internal address above, then selects Offer service. Hito obtains `Spotify public playlists` from the manifest automatically. Advanced settings has an optional custom label for protected services. Each listener selects the offer, leaves Bearer token empty, and selects Connect service. Once connected, that listener uses Playlists, Import, and Import a copy. The offer does not install the connection for every account.
 
-The deployed server retrieves missing recording covers for existing copies after the listener approves the artwork capability. A reload may be needed after approval. Playlist and album entity storage and artwork jobs remain in [the backlog](../TODO.md).
+The deployed server retrieves missing recording covers for existing copies after the listener approves the artwork capability. Explicit approval invalidates previous unavailable checks without a reload. Playlist and album entity storage and artwork jobs remain in [the backlog](../TODO.md).
 
 The overlay binds the host port to loopback, runs the plugin as a non-root user with a read-only root filesystem, and mounts no Hito data volume. This is a local development configuration. Public release and remote hosting need their own acceptance evidence.
 
@@ -87,7 +89,7 @@ The current deployed image also declares `artwork` and returns validated PNG/JPE
 
 Twenty fixture cases and strict all-target Clippy pass. New regressions first reproduced rejected valid mosaics and accepted normalized dot paths, then passed the fixes. Public HTTP tests verify raster bytes, independent admission and rejection before network I/O. A 22-case policy table exercises the actual URL validator with production origins. The focused URL change passed two independent review rounds.
 
-The isolated packaged image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca620e0bb3c67c8c8e798e` returned a real public playlist cover of 99,323 bytes and a recording cover of 194,151 bytes. Both were JPEG and decoded at 640 × 640. This is limited live evidence, not general image compatibility. The normal service now uses this same image. Its effective environment, process, mounts, ports, network and resource policy were preserved; no listener connection or permission was changed during deployment.
+The isolated packaged image `sha256:c909761b88a8fb4968d343615632a1b964a7e37e82ca620e0bb3c67c8c8e798e` returned a real public playlist cover of 99,323 bytes and a recording cover of 194,151 bytes. Both were JPEG and decoded at 640 × 640. This is limited live evidence, not general image compatibility. This was the previous normal image. The current album producer retains its artwork contract and runtime policy; no listener connection or permission was changed during either deployment.
 
 The host currently retains recording covers, including those already referenced by independent copies. Release and playlist entity storage/jobs remain unfinished. See [private artwork ownership, UI retrieval and remaining work](plugin-artwork.md).
 
