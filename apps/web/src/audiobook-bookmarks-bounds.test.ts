@@ -12,13 +12,18 @@ import AudiobookPage from "./pages/AudiobookPage";
 import { bookmarkPage, enterBookmark } from "./fixtures/audiobookBookmarks";
 
 const boundaries = vi.hoisted(() => ({
-  player: vi.fn(() => {
+  prepareSelection: vi.fn(() => {
     throw new Error("Rejected bookmarks must not open playback");
   }),
   visit: vi.fn(),
   reload: vi.fn(),
 }));
-vi.mock("./player/PlaybackProvider", () => ({ usePlayer: boundaries.player }));
+vi.mock("./player/PlaybackProvider", () => ({
+  usePlayer: () => ({
+    mode: "browser",
+    prepareSelection: boundaries.prepareSelection,
+  }),
+}));
 vi.mock("@inertiajs/react", () => ({
   router: { visit: boundaries.visit, reload: boundaries.reload },
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
@@ -41,7 +46,7 @@ afterEach(() => {
   cleanup();
   try {
     expect(request).not.toHaveBeenCalled();
-    expect(boundaries.player).not.toHaveBeenCalled();
+    expect(boundaries.prepareSelection).not.toHaveBeenCalled();
     expect(audio).not.toHaveBeenCalled();
     expect(boundaries.visit).not.toHaveBeenCalled();
     expect(boundaries.reload).not.toHaveBeenCalled();

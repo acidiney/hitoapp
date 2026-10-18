@@ -5,10 +5,14 @@ export default function AudiobookBookmarkList({
   detail,
   disabled,
   remove,
+  play,
+  playbackPending,
 }: {
   detail: AudiobookDetail;
   disabled: boolean;
   remove: (id: string) => Promise<void>;
+  play: (bookmark: AudiobookDetail["bookmarks"][number]) => Promise<void>;
+  playbackPending: boolean;
 }) {
   const chapters = new Map(
     detail.chapters.map(
@@ -35,6 +39,16 @@ export default function AudiobookBookmarkList({
             <span>{time(bookmark.position_ms / 1000)}</span>
             {anchored && !anchored.entry.available && (
               <p>Chapter unavailable</p>
+            )}
+            {anchored?.entry.available && (
+              <button
+                className="button"
+                type="button"
+                disabled={disabled || playbackPending}
+                onClick={() => void play(bookmark)}
+              >
+                Play bookmark
+              </button>
             )}
             <button
               className="button"

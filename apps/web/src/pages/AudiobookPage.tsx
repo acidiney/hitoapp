@@ -5,6 +5,7 @@ import AudiobookBookmarkForm from "../components/audiobooks/AudiobookBookmarkFor
 import AudiobookBookmarkList from "../components/audiobooks/AudiobookBookmarkList";
 import { time } from "../format";
 import { useAudiobookBookmarks } from "../hooks/useAudiobookBookmarks";
+import { useAudiobookPlayback } from "../hooks/useAudiobookPlayback";
 import type { AudiobookPageProps } from "../types";
 
 export default function AudiobookPage({
@@ -13,6 +14,7 @@ export default function AudiobookPage({
 }: AudiobookPageProps) {
   const bookmarks = useAudiobookBookmarks(user.id, rendered);
   const detail = bookmarks.detail;
+  const playback = useAudiobookPlayback(user.id, detail, rendered);
   const count = detail.chapters.length;
   return (
     <>
@@ -40,6 +42,7 @@ export default function AudiobookPage({
                 <th scope="col">Narrator</th>
                 <th scope="col">Duration</th>
                 <th scope="col">Availability</th>
+                <th scope="col">Playback</th>
               </tr>
             </thead>
             <tbody>
@@ -58,6 +61,18 @@ export default function AudiobookPage({
                       ? "Available"
                       : "Chapter unavailable"}
                   </td>
+                  <td>
+                    {chapter.recording_id != null && chapter.available && (
+                      <button
+                        className="button"
+                        type="button"
+                        disabled={playback.pending}
+                        onClick={() => void playback.playChapter(chapter)}
+                      >
+                        Play chapter {index + 1} from beginning
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -70,6 +85,7 @@ export default function AudiobookPage({
           libraryLink={false}
         />
       )}
+      {playback.error && <p role="alert">{playback.error}</p>}
       <section aria-label="Bookmarks">
         <h2>Bookmarks</h2>
         <AudiobookBookmarkForm chapters={detail.chapters} {...bookmarks} />
@@ -77,6 +93,8 @@ export default function AudiobookPage({
           detail={detail}
           disabled={bookmarks.pending || bookmarks.hasAttempt}
           remove={bookmarks.remove}
+          play={playback.playBookmark}
+          playbackPending={playback.pending}
         />
       </section>
     </>
