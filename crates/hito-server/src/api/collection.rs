@@ -8,8 +8,9 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    Activity, ImportProviderPlaylist, Playlist, PlaylistDetail, PlaylistImportReceipt, Services,
-    SyncBatch, SyncPage, SyncReceipt,
+    Activity, ImportProviderPlaylist, ImportedPlaylistMetadataRefresh, Playlist, PlaylistDetail,
+    PlaylistImportReceipt, RefreshImportedPlaylistMetadata, Services, SyncBatch, SyncPage,
+    SyncReceipt,
 };
 use serde::Deserialize;
 use utoipa::IntoParams;
@@ -57,6 +58,30 @@ pub async fn import_provider_playlist(
         services
             .collection
             .import_provider_playlist(&actor, &id, request)
+            .await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/v1/playlists/{id}/metadata/refresh", operation_id = "refresh_imported_playlist_metadata",
+    params(("id" = String, Path)), request_body = RefreshImportedPlaylistMetadata,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ImportedPlaylistMetadataRefresh), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn refresh_imported_playlist_metadata(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<RefreshImportedPlaylistMetadata>,
+) -> ApiResult<Json<ImportedPlaylistMetadataRefresh>> {
+    Ok(Json(
+        services
+            .collection
+            .refresh_imported_playlist_metadata(&actor, &id, request)
             .await?,
     ))
 }

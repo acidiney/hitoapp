@@ -436,6 +436,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/playlists/{id}/metadata/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refresh_imported_playlist_metadata"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plugins": {
         parameters: {
             query?: never;
@@ -1339,6 +1355,15 @@ export interface components {
             /** Format: uuid */
             publication_id: string;
             snapshot: components["schemas"]["ImportedPlaylistSnapshot"];
+        } | {
+            /** @enum {string} */
+            kind: "playlist_metadata_refreshed";
+            origin: components["schemas"]["PlaylistMetadataRefreshOrigin"];
+            /** Format: uuid */
+            playlist_id: string;
+            /** Format: uuid */
+            publication_id: string;
+            recordings: components["schemas"]["ImportedPlaylistRecording"][];
         };
         ConnectFolder: {
             directory: components["schemas"]["DirectoryRef"];
@@ -1460,6 +1485,18 @@ export interface components {
             kind: components["schemas"]["ImportedPlaylistEntryKind"];
             occurrence_id?: string | null;
             provider_recording_id?: string | null;
+        };
+        ImportedPlaylistMetadataRefresh: {
+            /** Format: uuid */
+            playlist_id: string;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int32 */
+            unavailable_recordings: number;
+            /** Format: int32 */
+            unchanged_recordings: number;
+            /** Format: int32 */
+            updated_recordings: number;
         };
         ImportedPlaylistOrigin: {
             attribution: components["schemas"]["PlaylistAttribution"];
@@ -1962,6 +1999,20 @@ export interface components {
                 [key: string]: string;
             };
         };
+        PlaylistMetadataRefreshOrigin: {
+            attribution: components["schemas"]["PlaylistAttribution"];
+            installation_id: string;
+            /** Format: int64 */
+            installation_revision: number;
+            /** Format: int64 */
+            observed_at: number;
+            provider: string;
+            provider_playlist_id: string;
+            service_id: string;
+            /** Format: int64 */
+            service_revision: number;
+            snapshot: string;
+        };
         PlaylistPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["PlaylistDetail"];
         };
@@ -2155,6 +2206,12 @@ export interface components {
             speed: number;
         };
         RefreshFollowedPlaylist: {
+            /** Format: uuid */
+            request_id: string;
+        };
+        RefreshImportedPlaylistMetadata: {
+            /** Format: int64 */
+            installation_revision: number;
             /** Format: uuid */
             request_id: string;
         };
@@ -4203,6 +4260,111 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    refresh_imported_playlist_metadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshImportedPlaylistMetadata"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedPlaylistMetadataRefresh"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

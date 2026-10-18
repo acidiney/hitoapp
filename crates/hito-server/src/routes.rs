@@ -113,6 +113,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(collection::playlists))
         .routes(routes!(collection::playlist))
         .routes(routes!(collection::import_provider_playlist))
+        .routes(routes!(collection::refresh_imported_playlist_metadata))
         .routes(routes!(playlist_follow::follow_provider_playlist))
         .routes(routes!(playlist_follow::playlist_follow))
         .routes(routes!(playlist_follow::refresh_followed_playlist))
