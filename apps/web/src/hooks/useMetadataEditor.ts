@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
 import { router } from "@inertiajs/react";
-import type { RecordingMetadata } from "../types";
 import {
   metadataAction,
   type MetadataField,
-  type MetadataTarget,
+  type MetadataEditorInput,
 } from "../metadata";
 import { usePlayer } from "../player/PlaybackProvider";
 import { log } from "../log";
@@ -13,8 +12,7 @@ import { useRequestScope } from "./useRequestScope";
 
 export function useMetadataEditor(
   account: string,
-  target: MetadataTarget,
-  metadata: Pick<RecordingMetadata, "title" | "artist">,
+  target: MetadataEditorInput,
 ) {
   const { mutate } = useMutation(account);
   const player = usePlayer();
@@ -60,7 +58,7 @@ export function useMetadataEditor(
           target.id,
           field,
           personal,
-          metadata[field].inherited,
+          target.metadata[field].inherited,
         );
       request.signal.addEventListener("abort", abortReload, { once: true });
       router.reload({

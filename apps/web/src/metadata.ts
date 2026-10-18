@@ -1,7 +1,18 @@
-import type { Action } from "./types";
+import type { Action, RecordingMetadata, ReleaseMetadata } from "./types";
 
 export type MetadataTarget = { kind: "recording" | "release"; id: string };
 export type MetadataField = "title" | "artist";
+export type MetadataEditorInput =
+  | {
+      kind: "recording";
+      id: string;
+      metadata: Pick<RecordingMetadata, "title" | "artist">;
+    }
+  | {
+      kind: "release";
+      id: string;
+      metadata: Pick<ReleaseMetadata, "title" | "artist">;
+    };
 
 export function metadataAction(
   target: MetadataTarget,

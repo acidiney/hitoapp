@@ -6,6 +6,8 @@ import AlbumPage from "./pages/AlbumPage";
 import ArtistPage from "./pages/ArtistPage";
 import Pagination from "./components/Pagination";
 import TrackToolbar from "./components/TrackToolbar";
+import AlbumGrid from "./components/AlbumGrid";
+import type { AlbumPageProps, Release } from "./types";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -100,6 +102,121 @@ test("album playback keeps repeated recording occurrences and their tagged order
     "one",
     "two",
   ]);
+});
+
+test("an album with unknown credit keeps its card and detail links without inventing a performer", () => {
+  const release: Release = {
+    id: "unknown-credit-album",
+    library_id: "personal",
+    title: "Owned source-free album",
+    artist: null,
+    artist_id: null,
+    track_count: 2,
+    duration_ms: 2000,
+    artwork_recording_id: "recording-one",
+  };
+  const tracks: AlbumPageProps["detail"]["tracks"]["items"] = [
+    {
+      id: "recording-one",
+      entry_id: "entry-one",
+      library_id: "personal",
+      release_id: release.id,
+      title: "Opening",
+      inherited_title: "Opening",
+      artist: "Required first performer",
+      inherited_artist: "Required first performer",
+      album: release.title,
+      duration_ms: 1000,
+      available: false,
+      liked: false,
+      disc_number: 1,
+      track_number: 1,
+    },
+    {
+      id: "recording-two",
+      entry_id: "entry-two",
+      library_id: "personal",
+      release_id: release.id,
+      title: "Reprise",
+      inherited_title: "Reprise",
+      artist: "Required second performer",
+      inherited_artist: "Required second performer",
+      album: release.title,
+      duration_ms: 1000,
+      available: false,
+      liked: false,
+      disc_number: 2,
+      track_number: 1,
+    },
+  ];
+  const card = render(createElement(AlbumGrid, { releases: [release] }));
+  expect(
+    screen.getByText("Album artist not provided", { exact: true }),
+  ).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: `Open ${release.title}` })
+      .getAttribute("href"),
+  ).toBe(`/albums/${release.id}`);
+  expect(
+    screen.getByRole("link", { name: release.title }).getAttribute("href"),
+  ).toBe(`/albums/${release.id}`);
+  expect(document.querySelectorAll('a[href^="/artists/"]')).toHaveLength(0);
+  expect(
+    document.querySelector(
+      '[aria-label*="by null"], [aria-label*="by undefined"]',
+    ),
+  ).toBeNull();
+  card.unmount();
+  render(
+    createElement(AlbumPage, {
+      errors: {},
+      native_playback: false,
+      user: { id: "account", username: "Listener", admin: false },
+      libraries: [],
+      playlists: [],
+      detail: {
+        release,
+        tracks: { total: 2, offset: 0, limit: 60, items: tracks },
+      },
+    }),
+  );
+  expect(screen.getByRole("heading", { name: release.title })).toBeTruthy();
+  expect(
+    screen.getByText("Album artist not provided", { exact: true }),
+  ).toBeTruthy();
+  expect(document.querySelectorAll('a[href^="/artists/"]')).toHaveLength(0);
+  expect(
+    document.querySelectorAll(
+      'a[href="/artists/null"], a[href="/artists/undefined"]',
+    ),
+  ).toHaveLength(0);
+  expect(
+    screen
+      .getByRole("link", { name: "Edit album details" })
+      .getAttribute("href"),
+  ).toBe(`/albums/${release.id}/details`);
+  expect(
+    [...document.querySelectorAll("tbody .track-title")].map(
+      (node) => node.textContent,
+    ),
+  ).toEqual(["Opening", "Reprise"]);
+  expect(
+    [...document.querySelectorAll("tbody .artist-column")].map(
+      (node) => node.textContent,
+    ),
+  ).toEqual(["Required first performer", "Required second performer"]);
+  expect(
+    [...document.querySelectorAll("tbody .row-play")].map(
+      (node) => node.textContent,
+    ),
+  ).toEqual(["1", "2.1"]);
+  expect(
+    screen.getAllByText("Unavailable on this device", { exact: true }),
+  ).toHaveLength(2);
+  expect(player.playQueue).not.toHaveBeenCalled();
+  expect(release.artist).toBeNull();
+  expect(release.artist_id).toBeNull();
 });
 
 test("browse pagination retains the active library and page size", () => {

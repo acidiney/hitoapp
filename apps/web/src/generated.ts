@@ -1597,6 +1597,12 @@ export interface components {
             /** Format: uuid */
             id: string;
         };
+        OptionalTextMetadata: {
+            inherited: string | null;
+            operation_id: string | null;
+            personal: string | null;
+            value: string | null;
+        };
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -1639,8 +1645,8 @@ export interface components {
         };
         Page_Release: {
             items: {
-                artist: string;
-                artist_id: string;
+                artist: string | null;
+                artist_id: string | null;
                 artwork_recording_id?: string | null;
                 /** Format: int64 */
                 duration_ms: number;
@@ -2099,7 +2105,7 @@ export interface components {
             track_number?: number | null;
         };
         ProviderRelease: {
-            artist: string;
+            artist?: string | null;
             id: string;
             title: string;
         };
@@ -2167,8 +2173,8 @@ export interface components {
             purpose: components["schemas"]["SourceRefreshPurpose"];
         };
         Release: {
-            artist: string;
-            artist_id: string;
+            artist: string | null;
+            artist_id: string | null;
             artwork_recording_id?: string | null;
             /** Format: int64 */
             duration_ms: number;
@@ -2183,7 +2189,7 @@ export interface components {
             tracks: components["schemas"]["Page_ReleaseTrack"];
         };
         ReleaseMetadata: {
-            artist: components["schemas"]["TextMetadata"];
+            artist: components["schemas"]["OptionalTextMetadata"];
             observations: components["schemas"]["ObservationPage"];
             release_id: string;
             title: components["schemas"]["TextMetadata"];

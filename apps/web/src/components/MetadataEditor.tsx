@@ -1,19 +1,12 @@
-import type { RecordingMetadata } from "../types";
-import type { MetadataTarget } from "../metadata";
+import type { MetadataEditorInput } from "../metadata";
 import { useMetadataEditor } from "../hooks/useMetadataEditor";
 import MetadataFieldEditor from "./MetadataFieldEditor";
 
-export default function MetadataEditor({
-  account,
-  target,
-  metadata,
-}: {
-  account: string;
-  target: MetadataTarget;
-  metadata: Pick<RecordingMetadata, "title" | "artist">;
-}) {
-  const { save, pending } = useMetadataEditor(account, target, metadata);
-  const recording = target.kind === "recording";
+export default function MetadataEditor(
+  props: { account: string } & MetadataEditorInput,
+) {
+  const { save, pending } = useMetadataEditor(props.account, props);
+  const recording = props.kind === "recording";
   return (
     <section
       className="metadata-editor"
@@ -29,10 +22,10 @@ export default function MetadataEditor({
       </p>
       {(["title", "artist"] as const).map((field) => (
         <MetadataFieldEditor
-          key={`${field}/${metadata[field].operation_id ?? "inherited"}`}
-          target={target}
+          key={`${field}/${props.metadata[field].operation_id ?? "inherited"}`}
+          target={props}
           field={field}
-          metadata={metadata[field]}
+          metadata={props.metadata[field]}
           pending={pending}
           save={(personal) => save(field, personal)}
         />

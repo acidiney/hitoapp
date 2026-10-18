@@ -41,7 +41,7 @@ export default function RecordingDetailsPage({
       <MetadataEditor
         key={`editor/${user.id}/${target.id}`}
         account={user.id}
-        target={target}
+        {...target}
         metadata={detail}
       />
       <RecordingDownload

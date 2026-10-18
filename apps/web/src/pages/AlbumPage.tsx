@@ -22,12 +22,16 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
         <div>
           <span>Album</span>
           <h1>{release.title}</h1>
-          <Link
-            className="credit-link"
-            href={`/artists/${encodeURIComponent(release.artist_id)}`}
-          >
-            {release.artist}
-          </Link>
+          {release.artist !== null && release.artist_id !== null ? (
+            <Link
+              className="credit-link"
+              href={`/artists/${encodeURIComponent(release.artist_id)}`}
+            >
+              {release.artist}
+            </Link>
+          ) : (
+            <span className="muted">Album artist not provided</span>
+          )}
           <p>
             {release.track_count}{" "}
             {release.track_count === 1 ? "track" : "tracks"} ·{" "}

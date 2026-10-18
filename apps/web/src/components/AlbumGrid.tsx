@@ -10,7 +10,11 @@ export default function AlbumGrid({ releases }: { releases: Release[] }) {
           <Link
             href={`/albums/${encodeURIComponent(release.id)}`}
             className="album-cover-link"
-            aria-label={`Open ${release.title} by ${release.artist}`}
+            aria-label={
+              release.artist !== null && release.artist_id !== null
+                ? `Open ${release.title} by ${release.artist}`
+                : `Open ${release.title}`
+            }
           >
             <Artwork release={release.id} />
           </Link>
@@ -19,12 +23,16 @@ export default function AlbumGrid({ releases }: { releases: Release[] }) {
               {release.title}
             </Link>
           </h2>
-          <Link
-            className="credit-link"
-            href={`/artists/${encodeURIComponent(release.artist_id)}`}
-          >
-            {release.artist}
-          </Link>
+          {release.artist !== null && release.artist_id !== null ? (
+            <Link
+              className="credit-link"
+              href={`/artists/${encodeURIComponent(release.artist_id)}`}
+            >
+              {release.artist}
+            </Link>
+          ) : (
+            <span className="muted">Album artist not provided</span>
+          )}
           <small>
             {release.track_count}{" "}
             {release.track_count === 1 ? "track" : "tracks"}

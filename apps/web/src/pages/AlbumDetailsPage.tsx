@@ -22,13 +22,13 @@ export default function AlbumDetailsPage({
         <div>
           <span>Album details</span>
           <h1>{detail.title.value}</h1>
-          <p>{detail.artist.value}</p>
+          <p>{detail.artist.value ?? "Album artist not provided"}</p>
         </div>
       </section>
       <MetadataEditor
         key={`${user.id}/${target.id}`}
         account={user.id}
-        target={target}
+        {...target}
         metadata={detail}
       />
       <MetadataObservations

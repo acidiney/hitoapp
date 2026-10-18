@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { TextMetadata } from "../types";
+import type { ReleaseMetadata, TextMetadata } from "../types";
 import { type MetadataTarget, type MetadataField } from "../metadata";
 import type { MutationResult } from "../hooks/useMutation";
 
@@ -12,11 +12,11 @@ export default function MetadataFieldEditor({
 }: {
   target: MetadataTarget;
   field: MetadataField;
-  metadata: TextMetadata;
+  metadata: TextMetadata | ReleaseMetadata["artist"];
   pending: boolean;
   save: (personal: string | null) => Promise<MutationResult>;
 }) {
-  const [draft, setDraft] = useState(metadata.value);
+  const [draft, setDraft] = useState(metadata.value ?? "");
   const [error, setError] = useState("");
   const label = `${target.kind === "recording" ? "Track" : "Album"} ${field}`;
   const inputId = `personal-${target.kind}-${field}`;
@@ -48,7 +48,8 @@ export default function MetadataFieldEditor({
         {metadata.personal === null
           ? "Following source metadata"
           : `Personal ${field}`}{" "}
-        · Source {field}: <strong>{metadata.inherited}</strong>
+        · Source {field}:{" "}
+        <strong>{metadata.inherited ?? "Not provided by source"}</strong>
       </span>
       {error && (
         <p className="form-error" role="alert">

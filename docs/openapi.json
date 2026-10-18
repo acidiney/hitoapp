@@ -8917,6 +8917,41 @@
         },
         "additionalProperties": false
       },
+      "OptionalTextMetadata": {
+        "type": "object",
+        "required": [
+          "value",
+          "inherited",
+          "personal",
+          "operation_id"
+        ],
+        "properties": {
+          "inherited": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "personal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Page_Artist": {
         "type": "object",
         "required": [
@@ -9084,10 +9119,16 @@
               ],
               "properties": {
                 "artist": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "artist_id": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "artwork_recording_id": {
                   "type": [
@@ -10868,12 +10909,14 @@
         "type": "object",
         "required": [
           "id",
-          "title",
-          "artist"
+          "title"
         ],
         "properties": {
           "artist": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "string"
@@ -11133,10 +11176,16 @@
         ],
         "properties": {
           "artist": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "artist_id": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "artwork_recording_id": {
             "type": [
@@ -11188,7 +11237,7 @@
         ],
         "properties": {
           "artist": {
-            "$ref": "#/components/schemas/TextMetadata"
+            "$ref": "#/components/schemas/OptionalTextMetadata"
           },
           "observations": {
             "$ref": "#/components/schemas/ObservationPage"

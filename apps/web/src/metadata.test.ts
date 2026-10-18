@@ -10,8 +10,17 @@ import MetadataObservations from "./components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "./hooks/useMetadataHistory";
 import { metadataApi } from "./metadataApi";
-import type { ObservationPage, RecordingMetadata, TextMetadata } from "./types";
-import type { MetadataField, MetadataTarget } from "./metadata";
+import type {
+  ObservationPage,
+  RecordingMetadata,
+  ReleaseMetadata,
+  TextMetadata,
+} from "./types";
+import type {
+  MetadataEditorInput,
+  MetadataField,
+  MetadataTarget,
+} from "./metadata";
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
@@ -280,6 +289,162 @@ test("history requests cannot leak between recording and album targets with the 
   expect(vi.mocked(metadataApi.history).mock.calls[0][3].aborted).toBe(true);
 });
 
+test("an unknown album artist can be personalized and reset without changing recording credits", async () => {
+  const unknown: ReleaseMetadata = {
+    release_id: "source-free-album",
+    title: {
+      value: "Owned album",
+      inherited: "Owned album",
+      personal: null,
+      operation_id: null,
+    },
+    artist: {
+      value: null,
+      inherited: null,
+      personal: null,
+      operation_id: null,
+    },
+    observations: { items: [], next_before: null },
+  };
+  const requiredRecording: Pick<RecordingMetadata, "title" | "artist"> = {
+    title: {
+      value: "Owned track",
+      inherited: "Owned track",
+      personal: null,
+      operation_id: null,
+    },
+    artist: {
+      value: "Required track artist",
+      inherited: "Required track artist",
+      personal: null,
+      operation_id: null,
+    },
+  };
+  const savedId = "00000000-0000-4000-8000-000000000001";
+  const resetId = "00000000-0000-4000-8000-000000000002";
+  vi.mocked(change)
+    .mockResolvedValueOnce({ acknowledged: [savedId] })
+    .mockResolvedValueOnce({ acknowledged: [resetId] });
+  const finishReload = (options: Parameters<typeof router.reload>[0]) => {
+    options?.onCancelToken?.({ cancel: () => {} });
+    options?.onFinish?.({} as never);
+  };
+  vi.mocked(router.reload)
+    .mockImplementationOnce(finishReload)
+    .mockImplementationOnce(finishReload);
+  const albumEditor = (metadata: ReleaseMetadata) =>
+    createElement(MetadataEditor, {
+      account: "alice",
+      kind: "release",
+      id: metadata.release_id,
+      metadata,
+    });
+  const { rerender, unmount } = render(albumEditor(unknown), { wrapper });
+  const artist = screen.getByLabelText<HTMLInputElement>("Album artist");
+  expect(artist.value).toBe("");
+  expect(artist.required).toBe(true);
+  expect(
+    screen.getByText("Not provided by source", { exact: true }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Use source artist" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Save personal artist",
+    }).disabled,
+  ).toBe(true);
+  fireEvent.change(artist, {
+    target: { value: "Owned personal album credit" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save personal artist" }));
+  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  expect(change).toHaveBeenNthCalledWith(
+    1,
+    "alice",
+    {
+      kind: "release_artist_set",
+      release_id: unknown.release_id,
+      artist: "Owned personal album credit",
+    },
+    expect.any(AbortSignal),
+  );
+  const personal: ReleaseMetadata = {
+    ...unknown,
+    artist: {
+      value: "Owned personal album credit",
+      inherited: null,
+      personal: "Owned personal album credit",
+      operation_id: savedId,
+    },
+  };
+  rerender(albumEditor(personal));
+  expect(screen.getByLabelText<HTMLInputElement>("Album artist").value).toBe(
+    "Owned personal album credit",
+  );
+  expect(
+    screen.getByText("Not provided by source", { exact: true }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Use source artist" }));
+  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(2));
+  expect(change).toHaveBeenNthCalledWith(
+    2,
+    "alice",
+    {
+      kind: "release_artist_inherit",
+      release_id: unknown.release_id,
+    },
+    expect.any(AbortSignal),
+  );
+  const reset: ReleaseMetadata = {
+    ...unknown,
+    artist: {
+      value: null,
+      inherited: null,
+      personal: null,
+      operation_id: resetId,
+    },
+  };
+  rerender(albumEditor(reset));
+  expect(screen.getByLabelText<HTMLInputElement>("Album artist").value).toBe(
+    "",
+  );
+  expect(
+    screen.getByText("Not provided by source", { exact: true }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Use source artist" }),
+  ).toBeNull();
+  expect(reset.artist).toEqual({
+    value: null,
+    inherited: null,
+    personal: null,
+    operation_id: resetId,
+  });
+  expect(unknown.artist).toEqual({
+    value: null,
+    inherited: null,
+    personal: null,
+    operation_id: null,
+  });
+  expect(player.setRecordingField).not.toHaveBeenCalled();
+  unmount();
+  render(
+    createElement(MetadataEditor, {
+      account: "alice",
+      kind: "recording",
+      id: "track",
+      metadata: requiredRecording,
+    }),
+    { wrapper },
+  );
+  const trackArtist = screen.getByLabelText<HTMLInputElement>("Track artist");
+  expect(trackArtist.value).toBe("Required track artist");
+  expect(trackArtist.required).toBe(true);
+  expect(requiredRecording.artist.inherited).toBe("Required track artist");
+  expect(change).toHaveBeenCalledTimes(2);
+});
+
 function Editor({
   account,
   target,
@@ -297,9 +462,10 @@ function Editor({
     personal: null,
     operation_id: null,
   };
-  return createElement(MetadataEditor, {
-    account,
-    target,
-    metadata: { title: inherited, artist: inherited, [field]: metadata },
-  });
+  const fields = { title: inherited, artist: inherited, [field]: metadata };
+  const input: MetadataEditorInput =
+    target.kind === "recording"
+      ? { kind: "recording", id: target.id, metadata: fields }
+      : { kind: "release", id: target.id, metadata: fields };
+  return createElement(MetadataEditor, { account, ...input });
 }

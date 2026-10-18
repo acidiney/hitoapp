@@ -58,7 +58,8 @@ test("a pending field save protects the other draft from a concurrent reload", a
   render(
     createElement(MetadataEditor, {
       account: "alice",
-      target: { kind: "recording", id: "track" },
+      kind: "recording",
+      id: "track",
       metadata: { title: inherited, artist: inherited },
     }),
     { wrapper: NoticeProvider },
@@ -90,7 +91,7 @@ test("target changes cancel a reload and its late finish cannot unlock a newer s
   });
   vi.mocked(change).mockResolvedValue({ acknowledged: [] });
   const { result, rerender, unmount } = renderHook(
-    ({ id }) => useMetadataEditor("alice", { kind: "recording", id }, metadata),
+    ({ id }) => useMetadataEditor("alice", { kind: "recording", id, metadata }),
     {
       initialProps: { id: "old" },
       wrapper: NoticeProvider,
@@ -123,7 +124,7 @@ test("an old target's delayed acceptance cannot reload the new editor", async ()
     }),
   );
   const { result, rerender } = renderHook(
-    ({ id }) => useMetadataEditor("alice", { kind: "recording", id }, metadata),
+    ({ id }) => useMetadataEditor("alice", { kind: "recording", id, metadata }),
     {
       initialProps: { id: "old" },
       wrapper: NoticeProvider,
@@ -151,11 +152,11 @@ test.each(["throw", "prevent"])(
     });
     const { result } = renderHook(
       () =>
-        useMetadataEditor(
-          "alice",
-          { kind: "recording", id: "track" },
+        useMetadataEditor("alice", {
+          kind: "recording",
+          id: "track",
           metadata,
-        ),
+        }),
       { wrapper: NoticeProvider },
     );
     await act(async () => {
