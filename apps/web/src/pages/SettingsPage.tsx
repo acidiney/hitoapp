@@ -4,25 +4,30 @@ import type { SettingsPageProps } from "../types";
 import AccountSettings from "../components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
 import PluginSettings from "../components/plugins/PluginSettings";
+import MetadataPreferences from "../components/metadata/MetadataPreferences";
 import PageHeading from "../components/PageHeading";
 import { log } from "../log";
 
 export default function SettingsPage(props: SettingsPageProps) {
   const { url } = usePage();
-  const [selected, setSelected] = useState(() =>
-    new URL(url, "http://hito.local").searchParams.get("section") === "plugins"
-      ? "plugins"
-      : "library",
-  );
+  const [selected, setSelected] = useState(() => {
+    const section = new URL(url, "http://hito.local").searchParams.get(
+      "section",
+    );
+    return section === "plugins" || section === "metadata"
+      ? section
+      : "library";
+  });
   const navigation = useRef<HTMLDivElement>(null);
   const tabs = [
     { id: "library", label: "Library" },
     { id: "privacy", label: "Privacy" },
+    { id: "metadata", label: "Metadata" },
     { id: "plugins", label: "Plugins" },
     ...(props.user.admin ? [{ id: "accounts", label: "Accounts" }] : []),
   ];
   function selectTab(mode: string) {
-    log.debug("settings.section", { mode, account_id: props.user.id });
+    log.debug("settings.section", { mode });
     setSelected(mode);
   }
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -75,6 +80,9 @@ export default function SettingsPage(props: SettingsPageProps) {
         >
           {selected === "plugins" && (
             <PluginSettings account={props.user.id} admin={props.user.admin} />
+          )}
+          {selected === "metadata" && (
+            <MetadataPreferences key={props.user.id} account={props.user.id} />
           )}
           {selected === "library" && <LibrarySettings {...props} />}
           {selected === "privacy" && (
