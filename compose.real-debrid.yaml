@@ -1,0 +1,41 @@
+services:
+  plugin-real-debrid:
+    profiles: [plugins]
+    image: hito-plugin-real-debrid:${HITO_REAL_DEBRID_IMAGE_TAG:-development}
+    build:
+      context: .
+      dockerfile: Dockerfile.plugin-real-debrid
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-real-debrid-${COMPOSE_PROJECT_NAME:-standalone}
+        HITO_REAL_DEBRID_SOURCE_ID: ${HITO_REAL_DEBRID_SOURCE_ID:-}
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:${HITO_REAL_DEBRID_PORT:-8096}:8096"
+    environment:
+      RUST_LOG: ${HITO_REAL_DEBRID_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: real-debrid-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  real-debrid-credentials:
+    external: true
+    name: ${HITO_REAL_DEBRID_CREDENTIAL_VOLUME:?Set HITO_REAL_DEBRID_CREDENTIAL_VOLUME to a provisioned private volume}
