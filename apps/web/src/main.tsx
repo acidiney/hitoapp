@@ -13,6 +13,8 @@ import HistoryPage from "./pages/HistoryPage";
 import LikesPage from "./pages/LikesPage";
 import LoginPage from "./pages/LoginPage";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
+import AudiobookIndexPage from "./pages/AudiobookIndexPage";
+import AudiobookPage from "./pages/AudiobookPage";
 import PodcastIndexPage from "./pages/PodcastIndexPage";
 import PodcastPage from "./pages/PodcastPage";
 import PlaylistPage from "./pages/PlaylistPage";
@@ -36,6 +38,8 @@ const pages = {
   RecordingDetailsPage: Object.assign(RecordingDetailsPage, { layout }),
   LikesPage: Object.assign(LikesPage, { layout }),
   PlaylistIndexPage: Object.assign(PlaylistIndexPage, { layout }),
+  AudiobookIndexPage: Object.assign(AudiobookIndexPage, { layout }),
+  AudiobookPage: Object.assign(AudiobookPage, { layout }),
   PodcastIndexPage: Object.assign(PodcastIndexPage, { layout }),
   PodcastPage: Object.assign(PodcastPage, { layout }),
   PlaylistPage: Object.assign(PlaylistPage, { layout }),
