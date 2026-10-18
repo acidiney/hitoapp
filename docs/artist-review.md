@@ -1,6 +1,6 @@
 # Artist discovery and explicit review
 
-The core can search and preview artist candidates for a current recording credit, then retain an explicit user confirmation. Same-name candidates keep their provider identifiers. Search and preview do not associate artists, rewrite metadata, merge recordings or fetch audio. HTTP routes and shared review pages remain unfinished, and this source is not deployed on the normal server.
+The core can search and preview artist candidates for a current recording credit, then retain an explicit user confirmation. Same-name candidates keep their provider identifiers. Search and preview do not associate artists, rewrite metadata, merge recordings or fetch audio. Authenticated HTTP routes and recording-detail review controls are verified in source. This feature is not deployed on the normal server.
 
 ## Ownership and request flow
 
@@ -38,4 +38,12 @@ The full core run passes 331 distinct cases, with the usual filesystem fault-inj
 
 Five new public capability cases cover metadata-only A,B,A imports, distinct same-name candidates, nonmutating preview, selection of the second provider identifier, isolated confirmation and idempotent replay. Separate search and confirmation tests reject an A-to-B-to-A stale context. A held search body retires before the provider releases it; the same account refreshes and reads another ready WAV source while search remains pending, then retries successfully. Exact private pins, duplicate playlist entries, likes, progress, metadata, sources and download absence remain preserved. Nine existing profile/association cases pass again after the retention refactor.
 
-This establishes core behavior, not HTTP cancellation or a completed public release. Recording-detail review pages, hosted disconnect tests, live MusicBrainz integration, discography and selected-edition track traversal, canonical matching, duplicate-artist correction and artist catalog artwork remain separate work.
+## HTTP and recording-detail review
+
+Six authenticated routes expose review context, search, preview, confirmation, retained associations and one exact association profile. They use the shared account extractor and generated request types. Responses are private and not cacheable. Core retains authority, provider admission and transaction ownership.
+
+The shared recording page loads provider preferences and retained associations only after the user opens artist information. Search keeps same-name candidates separate. Preview makes no association; confirmation is explicit. The workflow preserves an unsaved metadata draft and fences late results after account, recording or credited-artist changes. A fresh server context must match the artist evidence actually rendered on the page before it can be confirmed. Uncertain confirmation can be retried without replacing accepted evidence.
+
+Three public HTTP cases cover the workflow, account/origin/context boundaries and a real client disconnect while the upstream response is held. That disconnect retires the upstream request before its release, and a subsequent request succeeds. All 151 server cases, strict all-target workspace Clippy and formatting pass on the combined source. Generated OpenAPI and TypeScript reproduce. All 308 frontend cases, both TypeScript configurations and the production build pass. Independent security, correctness and performance reviews pass after correcting the rendered-credit mismatch with two regressions.
+
+These are source and hosted-HTTP checks. Packaged browser acceptance and live MusicBrainz checks remain open. Discography and selected-edition track traversal, canonical matching, duplicate-artist correction and artist artwork also remain separate work.
