@@ -86,6 +86,8 @@ mod security;
 #[path = "api/artwork.rs"]
 mod artwork;
 
+#[path = "api/artist_discography.rs"]
+mod artist_discography;
 #[path = "api/artist_review.rs"]
 mod artist_review;
 #[path = "api/artist_review_authority.rs"]
