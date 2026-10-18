@@ -1,4 +1,4 @@
-use super::{Artwork, Catalog, assets, jobs};
+use super::{Artwork, ArtworkAvailability, Catalog, assets, jobs};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
 use sqlx::SqliteConnection;
@@ -31,6 +31,29 @@ struct ApprovedPlaylistProvider {
 }
 
 impl Catalog {
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn playlist_artwork_availability(
+        &self,
+        actor: &Actor,
+        playlist: &str,
+    ) -> Result<ArtworkAvailability> {
+        let started = std::time::Instant::now();
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
+        access_on(&mut tx, actor, playlist).await?;
+        let can_fetch = approved_provider(&mut tx, actor.id(), playlist)
+            .await?
+            .is_some();
+        tx.commit().await?;
+        actor.check_session(&self.store).await?;
+        tracing::debug!(
+            can_fetch,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Playlist artwork availability read"
+        );
+        Ok(ArtworkAvailability { can_fetch })
+    }
+
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn enqueue_playlist_artwork(
         &self,
@@ -98,6 +121,33 @@ impl Catalog {
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         tracing::info!(job_id = %id, outcome = "queued", elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request accepted");
+        Ok(fetch)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn playlist_artwork_fetch(
+        &self,
+        actor: &Actor,
+        id: &str,
+    ) -> Result<PlaylistArtworkFetch> {
+        let started = std::time::Instant::now();
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
+        let mut fetch = read_on(&mut tx, actor.id(), id).await?;
+        access_on(&mut tx, actor, &fetch.playlist_id).await?;
+        (fetch.status, fetch.error) = jobs::observed_status(
+            &mut tx,
+            actor.id(),
+            id,
+            fetch.status,
+            fetch.attempts,
+            fetch.error,
+        )
+        .await?;
+        tx.commit().await?;
+        actor.check_session(&self.store).await?;
+        tracing::debug!(job_id = %fetch.id, status = ?fetch.status,
+            elapsed_ms = started.elapsed().as_millis() as u64, "Playlist artwork request read");
         Ok(fetch)
     }
 

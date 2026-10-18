@@ -46,7 +46,8 @@ pub use artist_catalog::{
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
-    Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, ReleaseArtworkFetch,
+    Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
+    ReleaseArtworkFetch,
 };
 pub use audio::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};

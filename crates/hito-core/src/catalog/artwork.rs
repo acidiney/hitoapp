@@ -16,6 +16,7 @@ mod work;
 mod worker;
 pub use availability::ArtworkAvailability;
 pub use jobs::{ArtworkFetch, ArtworkFetchStatus};
+pub use playlist::PlaylistArtworkFetch;
 pub use release::ReleaseArtworkFetch;
 
 use reader::read_artwork;
