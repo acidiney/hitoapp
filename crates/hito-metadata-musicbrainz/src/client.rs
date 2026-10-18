@@ -1,6 +1,7 @@
-use crate::{Error, discography, projection, transport::Transport};
+use crate::{Error, discography, projection, search, transport::Transport};
 use hito_plugin_sdk::{
-    ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, CatalogArtistProfile,
+    ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
+    ArtistSearchRequest, CatalogArtistProfile,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -98,6 +99,40 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(|page| page.items.len()).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz artist discography completed"
+        );
+        result
+    }
+
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_search", request_id = tracing::field::Empty))]
+    pub async fn artist_search(
+        &self,
+        request: ArtistSearchRequest,
+    ) -> Result<ArtistSearchPage, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            let offset = search::request_offset(&request)?;
+            let literal = search::literal_query(&request.query);
+            let bytes = self
+                .transport
+                .artist_search(&literal, request.limit, offset)
+                .await
+                .map_err(|error| match error {
+                    Error::InvalidResponse => Error::InvalidSearch,
+                    error => error,
+                })?;
+            search::page(&bytes, &request, offset)
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(|page| page.items.len()).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz artist search completed"
         );
         result
     }

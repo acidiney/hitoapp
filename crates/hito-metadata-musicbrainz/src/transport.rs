@@ -4,6 +4,7 @@ use tokio::{sync::Mutex, time::Instant};
 
 const MAX_PROFILE_BODY_BYTES: usize = 65_536;
 const MAX_BROWSE_BODY_BYTES: usize = 1_048_576;
+const MAX_SEARCH_BODY_BYTES: usize = 262_144;
 
 #[derive(Clone)]
 pub(super) struct Transport {
@@ -78,6 +79,25 @@ impl Transport {
             ("offset", &offset.to_string()),
         ]);
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
+    pub(super) async fn artist_search(
+        &self,
+        literal: &str,
+        limit: u16,
+        offset: u32,
+    ) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("artist")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("query", literal),
+            ("fmt", "json"),
+            ("limit", &limit.to_string()),
+            ("offset", &offset.to_string()),
+        ]);
+        self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
     async fn json(&self, endpoint: reqwest::Url, maximum: usize) -> Result<Vec<u8>, Error> {

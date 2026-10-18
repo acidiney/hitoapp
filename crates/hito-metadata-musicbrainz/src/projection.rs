@@ -36,7 +36,7 @@ pub(super) fn artist(
     Ok(profile)
 }
 
-fn artist_kind(value: &str) -> Option<CatalogArtistKind> {
+pub(super) fn artist_kind(value: &str) -> Option<CatalogArtistKind> {
     [
         ("Person", CatalogArtistKind::Person),
         ("Group", CatalogArtistKind::Group),
