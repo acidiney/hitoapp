@@ -128,6 +128,16 @@ podcast_live down
 
 The overlay publishes no ports and mounts no persistent application library or music folder. Each engine requires a new first-run server. `HITO_PODCAST_LIVE_FEED` optionally selects another canonical public HTTPS RSS feed. This live check needs external availability; the owned fixtures above remain the reproducible behavior checks.
 
+## Subscription recovery after browser history
+
+The subscription page revalidates its account-owned list whenever it mounts or receives another page snapshot. It keeps the last checked list while that read is pending. An authoritative empty response removes cards; stale history props cannot overwrite a newer successful read. Account changes and unmounts cancel reads and fence late bodies. Subscription writes retain their immutable receipts and existing retry budget.
+
+The packaged history regression reproduces loss of the reported [Simplecast feed](https://feeds.simplecast.com/ihq5xr73) on the preceding server image. After a successful subscription, Library navigation and browser Back restore an initially empty Inertia snapshot. The old package makes no fresh list request and loses the card. The corrected package performs an authenticated list read and restores the exact accepted subscription without another POST or document navigation. Chromium and WebKit pass on separate fresh temporary libraries, with no audio, persistent download, external browser requests or other writes. The frontend backport passes all 293 tests, both TypeScript configurations and its production build. Three independent source reviews pass. Scoped structured backend-log checks exclude the test credentials and feed address; this is not a complete production-log privacy audit.
+
+The local server now runs image `sha256:686837d7489401c6846e6e111e7f59a06d0f0cdd4cd3bbc76fb563934db8245a`. Its Rust executable, runtime configuration and migration 0046 are unchanged from server source `21ae17a`; only the verified UI assets from backport `a1c423b` changed. Whole-volume clone restoration, no-op migration and separate stopped runtime audits preserve all 107 tables, typed rows and row IDs, all 46 migration checksums, six FTS indexes, credentials, host identity and managed files. Published assets, health and anonymous player rejection pass through localhost, loopback and LAN. No normal listener account was authenticated for acceptance. This reproduces and fixes a concrete history workflow; it does not prove which navigation sequence originally hid the card on the user's device.
+
+Run `e2e/podcast-subscription-history.spec.ts` with `HITO_PODCAST_HISTORY_E2E=1` against a matching packaged disposable server using the isolated live-feed overlay above. `HITO_PODCAST_HISTORY_FEED` optionally selects another public HTTPS feed. Recreate the temporary server between engines; never run first-run acceptance against the persistent library.
+
 ## Scheduled and conditional updates
 
 Successful feed checks schedule the next update one hour later. The public worker admits due subscriptions inside its existing claim transaction. Automatic checks create no client request receipts and retain the existing limits of 16 pending jobs per account, 128 globally, one running per account and two globally.
