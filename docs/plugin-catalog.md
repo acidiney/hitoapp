@@ -1,6 +1,6 @@
 # Catalog extension contracts
 
-The Apache-2.0 plugin SDK defines a read-only catalog extension for artist profiles and paged discographies. This is a development contract. Hito does not yet call these operations, provide MusicBrainz through them, or render external discographies. Existing recording metadata and playlist operations remain separate.
+The Apache-2.0 plugin SDK defines a read-only catalog extension for artist profiles and paged discographies. The core host source can read reviewed artist profiles through an approved personal HTTP connection or the built-in MusicBrainz client. Server routes and catalog pages do not use that host yet. Existing recording metadata and playlist operations remain separate.
 
 ## Negotiation and ownership
 
@@ -48,4 +48,4 @@ All 45 SDK cases pass with generated-schema support, and strict all-target SDK C
 
 An allocation regression constructs a field-valid oversized page before observing public validation. Before the fix, validation requested a 16,777,216-byte allocation. The unchanged test now verifies that no single validation allocation request exceeds the 262,144-byte page budget. It calibrates its observer and does not measure RSS, total allocation volume or peak live memory. Final security, performance and correctness reviews pass after the bounded-writer fix.
 
-Core source now separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). Built-in host access, provider selection and priority, optional enrichment, approved HTTP operations, persistent associations, caching, artist UI, selected-edition tracks and optional similar artists remain unfinished. This SDK slice does not satisfy those release requirements.
+Core source separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). The [reviewed-profile host](artist-catalog-host.md) adds account settings, explicit evidence associations and authorized profile reads. Automatic provider selection, candidate discovery and preview, enrichment, caching, artist UI, discography traversal, selected-edition tracks and optional similar artists remain unfinished. These source foundations do not satisfy the complete release requirement.

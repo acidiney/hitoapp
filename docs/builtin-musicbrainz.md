@@ -1,6 +1,6 @@
 # Built-in MusicBrainz adapter
 
-The `hito-metadata-musicbrainz` crate implements artist profiles and paged release-group discographies. This is a verified client foundation in source. Core provider selection, persistent identity associations, enrichment settings and catalog pages do not call it yet. The running server makes no MusicBrainz requests through this crate.
+The `hito-metadata-musicbrainz` crate implements artist profiles and paged release-group discographies. The core host source composes one shared client and supports account settings and explicitly reviewed recording-credit associations. Server routes and catalog pages do not use that host yet. The running server makes no MusicBrainz requests through this crate.
 
 ## Ownership
 
@@ -39,4 +39,4 @@ All eight crate tests pass through Docker Compose, together with strict all-targ
 
 Independent security, correctness and performance reviews pass. These are controlled protocol checks, not live MusicBrainz availability, complete pagination-state coverage or public-release acceptance.
 
-Remaining work includes evidence-backed artist associations, a generic authorized core catalog host, built-in default and replaceable HTTP provider preferences, persistent bounded caching, account-scoped cancellation, artist/discography UI, selected-edition tracks and live integration. Verified core source now retains bounded raw MusicBrainz artist tag assertions and refreshes old inspection metadata without redecoding unchanged audio. See [tag evidence and limits](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). These assertions do not establish canonical associations. File tags remain the first metadata source; future enrichment must preserve personal overrides and work independently of playback availability.
+The [core profile host](artist-catalog-host.md) supplies evidence associations, built-in defaults, replaceable HTTP preferences and account-scoped cancellation in source. Candidate discovery and preview, automatic enrichment and provider selection, persistent bounded caching, HTTP/UI integration, discographies, selected-edition tracks and live integration remain open. Verified core source also retains bounded raw MusicBrainz artist tag assertions and refreshes old inspection metadata without redecoding unchanged audio. See [tag evidence and limits](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). These assertions do not establish canonical associations. File tags remain the first metadata source; enrichment must preserve personal overrides and work independently of playback availability.
