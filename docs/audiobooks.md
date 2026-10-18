@@ -1,6 +1,6 @@
 # Audiobooks in development
 
-Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages and explicit playlist-grouping controls are qualified in source. Bookmark editing and the audiobook playback workflow remain unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
+Audiobook grouping, private bookmarks, authenticated list/read routes, shared pages, explicit playlist grouping and bookmark create/remove controls are qualified in source. The audiobook playback workflow remains unfinished. Migration 0048 is not deployed on the normal server. The full release scope remains in [release-plan.md](release-plan.md).
 
 ## Ownership and identities
 
@@ -71,6 +71,32 @@ Failed or cancelled navigation leaves a Check audiobook action. Account replacem
 
 Eight grouping cases verify eligible selection, exact lost-acknowledgement replay, GET-only recovery, held response bodies, account/unmount fencing, deleted-book no-ops, explicit unavailable-result release, failed/cancelled navigation and late callbacks. The navigation regressions first failed because the original workflow marked completion before a fire-and-forget visit. The final full frontend run passes all 323 cases across 116 files, both TypeScript configurations and the production build. The independent second review confirms recovery and lifecycle ownership. Workflow logs use the original operation correlation, static outcomes and timings. Packaged browser acceptance remains open.
 
-The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. The next workflow adds bookmark create/remove/jump, chapter resume and speed controls. Chapter/bookmark limit boundaries and access revocation need further qualification. Deployment acceptance also remains open.
+The index currently has a 100-book result cap; book pagination is unfinished. Chapters render together up to the core limit, and browser performance at 10,000 chapters is unqualified. Bookmark jumping, chapter resume and speed controls remain unfinished. Chapter/bookmark limit boundaries and access revocation need further qualification. Deployment acceptance also remains open.
+
+## Explicit bookmark changes
+
+The detail page lets a listener select an available chapter occurrence, enter a position in seconds and save a private label. Repeated recordings remain separate chapter choices. The workflow validates nonnegative integer milliseconds and the raw 256-byte UTF-8 label bound before trimming. It creates a separate stable marker identity and never guesses the chapter from the current recording or playback time.
+
+The page also removes an exact marker, including one whose chapter is no longer available. Other markers, chapter order and saved recording progress stay unchanged. These controls do not play, seek, navigate or download media.
+
+```mermaid
+flowchart LR
+    Input[Explicit chapter and position] --> Attempt[Freeze one sync operation]
+    Attempt --> Write[Submit with a 10-second deadline]
+    Write -->|Uncertain result| Retry[Retain exact explicit retry]
+    Retry --> Write
+    Write -->|Acknowledged| Read[Read owned book with a 10-second deadline]
+    Read -->|Verified current result| Publish[Publish bookmarks and success]
+    Read -->|Failed or superseded| Check[Retain GET-only recovery]
+    Check --> Read
+```
+
+Each submission, including acknowledgement-body consumption, and each read has its own deadline. A lost acknowledgement retains the frozen action, marker ID, operation ID and device ID. Retry resubmits those exact bytes only after the listener asks. Once acknowledged, Check bookmarks performs GET only. The workflow checks the created tuple or removed identity before publishing success or clearing the draft.
+
+Account changes, another book and unmount cancel the owning scope. Changed same-book props invalidate older reads; a superseded confirmation cannot publish success or discard its acknowledged attempt. The last checked list stays visible during refresh, and an authoritative empty list replaces it. Editing an unsent draft preserves recovery from an independent failed refresh. Workflow logs contain correlation IDs, safe outcomes and timings without labels, titles, paths or session material.
+
+Eighteen public page cases cover duplicate occurrences, create/remove, unavailable markers, exact retry after a lost acknowledgement, GET-only recovery, held response bodies, account/book/unmount changes, stale props, authoritative empty replacement and input bounds. New review regressions first reproduced two invalidation races, a stalled acknowledgement and a hidden refresh-retry control. The fixes pass all 341 frontend cases across 124 files, both TypeScript configurations and the production build, including after integration. Independent final correctness, security and performance reviews pass.
+
+This is source qualification. A dedicated stalled-GET case, packaged bookmark create/remove acceptance, 10,000-chapter browser performance, playback jumping, occurrence-aware resume and deployment remain open. Existing per-recording progress is still the sole saved-position owner; the bookmark UI adds no book-wide resume cursor.
 
 A book-wide Continue button additionally requires an explicit selected-chapter anchor and collection occurrence provenance through browser and native queues. Recording timestamps or the current recording cannot identify a duplicate chapter occurrence. Automatic advancement, navigation, account switching and consistent resume must use the existing playback owner and per-recording progress, without another position store. These remain required release work, along with packaged browser, native/platform and normal-deployment acceptance.
