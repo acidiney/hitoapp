@@ -30,6 +30,10 @@ export type ArtistCandidateSearchAvailability =
 export type ArtistCandidatePreviewAvailability =
   Schema["ArtistCandidatePreviewAvailability"];
 export type ArtistProfileAvailability = Schema["ArtistProfileAvailability"];
+export type ArtistDiscographyAvailability =
+  Schema["ArtistDiscographyAvailability"];
+export type ReadArtistDiscography = Schema["ReadArtistDiscography"];
+export type CatalogReleaseGroup = Schema["CatalogReleaseGroup"];
 export type UpdateMetadataSettings = Schema["UpdateMetadataSettings"];
 export type ReleaseMetadata = Schema["ReleaseMetadata"];
 export type TextMetadata = Schema["TextMetadata"];
