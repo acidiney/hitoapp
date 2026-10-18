@@ -129,7 +129,11 @@ export async function releaseCreditsFixture() {
       } else if (
         target.pathname === "/fixture/v1/playlists/detail" &&
         request.method === "POST" &&
-        isDeepStrictEqual(body, { kind: "reference", reference })
+        (isDeepStrictEqual(body, { kind: "reference", reference }) ||
+          isDeepStrictEqual(body, {
+            kind: "canonical",
+            playlist_id: playlist.id,
+          }))
       ) {
         calls.detail++;
         reply = playlist;

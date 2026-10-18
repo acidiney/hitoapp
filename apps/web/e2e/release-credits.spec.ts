@@ -469,7 +469,7 @@ test("source-free imported albums preserve unknown credits through personal edit
         owned.calls.unsafe_headers,
     ).toBe(0);
     expect(
-      owned.calls.detail === 1 &&
+      owned.calls.detail === 2 &&
         owned.calls.items === 1 &&
         owned.calls.manifest >= 2 &&
         requests <= 400,
