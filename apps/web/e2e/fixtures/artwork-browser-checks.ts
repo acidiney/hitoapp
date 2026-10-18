@@ -18,20 +18,20 @@ type SavedState = {
   sources: Schema["Source"][];
 };
 
-export async function signIn(
-  page: Page,
-  username = "admin",
-  password = "docker browser test password",
-) {
+export async function signIn(page: Page, username?: string, password?: string) {
+  const firstRun = username === undefined && password === undefined;
+  const setupResponse = await page.request.get("/api/v1/setup");
+  expect(setupResponse.status()).toBe(200);
+  const setup: Schema["SetupStatus"] = await setupResponse.json();
+  expect(setup.needs_setup).toBe(firstRun);
   await page.goto("/playlists");
-  await page.getByLabel("Username", { exact: true }).fill(username);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  const setup = await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .count();
+  await page.getByLabel("Username", { exact: true }).fill(username ?? "admin");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(password ?? "docker browser test password");
   await page
     .getByRole("button", {
-      name: setup ? "Create administrator" : "Sign in",
+      name: firstRun ? "Create administrator" : "Sign in",
       exact: true,
     })
     .click();

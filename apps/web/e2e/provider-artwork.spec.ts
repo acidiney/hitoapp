@@ -209,6 +209,15 @@ test("existing independent playlist copies automatically retain private provider
     if (!recording) throw new Error("Both copies must share a saved recording");
     const recordingId = recording;
     const artworkPath = `/api/v1/recordings/${recordingId}/artwork`;
+    await expect(
+      page
+        .getByRole("table", { name: "Playlist entries" })
+        .locator(".artwork img"),
+    ).toHaveCount(0);
+    const documentToken = randomUUID();
+    await page.evaluate((token) => {
+      document.documentElement.dataset.artworkApprovalDocument = token;
+    }, documentToken);
     expect(copies[0]).not.toBe(copies[1]);
     expect(imports).toHaveLength(2);
     expect(imports[0].request_id).not.toBe(imports[1].request_id);
@@ -243,7 +252,15 @@ test("existing independent playlist copies automatically retain private provider
     );
     phase = "approval";
     fixture.enableArtwork();
-    await page.goto("/settings?section=plugins");
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Settings", exact: true })
+      .click();
+    await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-artwork-approval-document",
+      documentToken,
+    );
     const plugin = page.getByRole("listitem").filter({
       has: page.getByRole("heading", {
         name: fixture.manifest.name,
@@ -269,6 +286,8 @@ test("existing independent playlist copies automatically retain private provider
         exact: true,
       }),
     ).toBeVisible();
+    expect(jobs).toEqual([]);
+    expect(artworkEnqueues).toEqual([]);
     const accept = plugin.getByRole("button", {
       name: "Accept changes",
       exact: true,
@@ -311,7 +330,17 @@ test("existing independent playlist copies automatically retain private provider
         new URL(response.url()).pathname === `${artworkPath}/availability` &&
         response.request().method() === "GET",
     );
-    await page.goto(`/playlists/${copies[0]}`);
+    await page
+      .locator(".sidebar-playlists")
+      .locator(`a[href="/playlists/${copies[0]}"]`)
+      .click();
+    await expect(page).toHaveURL(
+      new URL(`/playlists/${copies[0]}`, baseURL).href,
+    );
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-artwork-approval-document",
+      documentToken,
+    );
     const eligibleResponse = await eligible;
     expect(eligibleResponse.status()).toBe(200);
     const eligibility: Schema["ArtworkAvailability"] =
