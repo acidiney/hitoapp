@@ -11,6 +11,7 @@ import type {
 import type { AudiobookChapterAnchor } from "./types";
 export type { Track } from "./player/model";
 import { log } from "./log";
+import { createUuid } from "./uuid";
 import {
   PlaybackSources,
   type Source,
@@ -24,6 +25,11 @@ import {
   type BrowserMediaOwner,
 } from "./player/BrowserPreparation";
 export type { Source } from "./playbackSources";
+import {
+  prepareAudiobookSelection,
+  type AudiobookPlayback,
+  type AudiobookSelection,
+} from "./player/AudiobookContinuation";
 
 export interface MediaPort extends EventTarget {
   src: string;
@@ -96,6 +102,7 @@ export class Playback implements Player {
   private lookaheadRevision = 0;
   private stopListening: () => void = () => {};
   private stoppingForProgress = false;
+  private continuation: AbortController | null = null;
 
   constructor(
     private media: MediaPort,
@@ -107,6 +114,10 @@ export class Playback implements Player {
       chapter?: AudiobookChapterAnchor,
     ) => boolean | void,
     private mediaOwner?: BrowserMediaOwner,
+    private prepareAudiobook?: (
+      book: string,
+      signal: AbortSignal,
+    ) => Promise<AudiobookPlayback>,
   ) {
     this.observation = new BrowserObservation((sample) => {
       const result = sample.chapter
@@ -281,6 +292,7 @@ export class Playback implements Player {
     };
   }
   async selectEntry(entry: string) {
+    this.cancelAudiobook();
     const index = this.queue.indexOf(entry);
     if (index < 0) return;
     this.traversal.reset(this.queue.identities(), entry);
@@ -288,6 +300,7 @@ export class Playback implements Player {
     await this.open(index);
   }
   removeEntry(entry: string) {
+    this.cancelAudiobook();
     const index = this.queue.indexOf(entry);
     if (index >= 0) this.remove(index);
   }
@@ -359,6 +372,7 @@ export class Playback implements Player {
     index = 0,
     start?: PlaybackStart,
   ) {
+    this.cancelAudiobook();
     if (!this.persist())
       throw new Error(
         "Listening progress is waiting to be saved. Playback paused.",
@@ -376,7 +390,100 @@ export class Playback implements Player {
     await this.open(index, position);
   }
 
+  async continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
+    this.cancelAudiobook();
+    const controller = new AbortController();
+    this.continuation = controller;
+    const combined = AbortSignal.any([signal, controller.signal]);
+    const generation = this.generation;
+    const selection = ++this.selection;
+    const queue = this.queueView;
+    const started = performance.now();
+    const requestId = createUuid();
+    let timedOut = false;
+    const deadline = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 10_000);
+    let cancel!: () => void;
+    const cancelled = new Promise<never>((_, reject) => {
+      cancel = () => reject(new DOMException("Cancelled", "AbortError"));
+      combined.addEventListener("abort", cancel, { once: true });
+    });
+    const check = () => {
+      combined.throwIfAborted();
+      if (
+        this.continuation !== controller ||
+        generation !== this.generation ||
+        selection !== this.selection ||
+        queue !== this.queueView
+      )
+        throw new DOMException("Superseded", "AbortError");
+    };
+    let committed = false;
+    log.debug("playback.audiobook_continue_started", { request_id: requestId });
+    try {
+      check();
+      if (!this.prepareAudiobook)
+        throw new Error("Audiobook continuation requires a server connection.");
+      if (!this.observation.persist())
+        throw new Error("Listening progress is waiting to be saved.");
+      const fresh = await Promise.race([
+        this.prepareAudiobook(book, combined),
+        cancelled,
+      ]);
+      check();
+      const target = prepareAudiobookSelection(fresh, book);
+      if (!this.observation.persist())
+        throw new Error("Listening progress is waiting to be saved.");
+      check();
+      clearTimeout(deadline);
+      this.continuation = null;
+      committed = true;
+      await this.open(target.index, target.position, target);
+      return true;
+    } catch (error) {
+      if (timedOut && this.continuation === controller && !signal.aborted) {
+        this.update({
+          error: "Continuing this audiobook timed out. Try again.",
+        });
+        return false;
+      }
+      if (
+        combined.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      )
+        return false;
+      this.update({
+        error:
+          "Hito could not continue this audiobook. Check its saved chapter and playback speed, then try again.",
+      });
+      return false;
+    } finally {
+      clearTimeout(deadline);
+      combined.removeEventListener("abort", cancel);
+      if (this.continuation === controller) this.continuation = null;
+      log.debug("playback.audiobook_continue_finished", {
+        request_id: requestId,
+        reason: committed
+          ? "committed"
+          : timedOut
+            ? "timeout"
+            : combined.aborted
+              ? "cancelled"
+              : "rejected",
+        duration_ms: Math.round(performance.now() - started),
+      });
+    }
+  }
+
+  private cancelAudiobook() {
+    this.continuation?.abort();
+    this.continuation = null;
+  }
+
   prepareSelection(): PreparedSelection {
+    this.cancelAudiobook();
     const selection = ++this.selection;
     log.debug("playback.selection_prepared");
     return async (target) => {
@@ -391,10 +498,22 @@ export class Playback implements Player {
     };
   }
 
-  private async open(index: number, position = 0) {
-    if (!this.persist()) return;
+  private async open(
+    index: number,
+    position = 0,
+    continuation?: AudiobookSelection,
+  ) {
+    if (!continuation) {
+      this.cancelAudiobook();
+      if (!this.persist()) return;
+    }
     this.selection++;
     this.observation.retire();
+    if (continuation) {
+      this.media.pause();
+      this.queue.replace(continuation.queue);
+      this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
+    }
     const occurrence = this.queue.at(index);
     this.openingEntry = occurrence ?? null;
     const current = occurrence?.recording;
@@ -417,12 +536,23 @@ export class Playback implements Player {
     this.sources =
       prepared?.sources ??
       (current ? new PlaybackSources(current.id, this.resolve) : null);
-    this.media.pause();
+    if (!continuation) this.media.pause();
+    if (continuation) {
+      this.media.defaultPlaybackRate = continuation.speed;
+      this.media.playbackRate = continuation.speed;
+    }
     this.activeSource = null;
     this.media.removeAttribute("src");
     this.media.load();
     this.pendingSeek = position;
     this.update({
+      ...(continuation
+        ? {
+            queue: this.queue.recordings(),
+            speed: continuation.speed,
+            error: "",
+          }
+        : {}),
       current: current ?? null,
       index,
       position,
@@ -585,10 +715,12 @@ export class Playback implements Player {
   }
 
   async toggle() {
+    this.cancelAudiobook();
     this.selection++;
     await this.setPlaying(this.media.paused);
   }
   async setPlaying(playing: boolean) {
+    this.cancelAudiobook();
     if (this.state.loading) return;
     log.info("playback.playing_set", {
       recording_id: this.state.current?.id,
@@ -611,6 +743,7 @@ export class Playback implements Player {
   }
   seek(seconds: number) {
     if (!Number.isFinite(seconds)) return;
+    this.cancelAudiobook();
     const position = Math.max(
       0,
       Math.min(seconds, this.state.duration || seconds),
@@ -637,17 +770,20 @@ export class Playback implements Player {
     });
   }
   speed(value: number) {
+    this.cancelAudiobook();
     log.info("playback.speed", { speed: value });
     this.media.defaultPlaybackRate = value;
     this.media.playbackRate = value;
     this.update({ speed: value });
   }
   volume(value: number) {
+    this.cancelAudiobook();
     log.debug("playback.volume", { volume: value });
     this.media.volume = value;
     this.update({ volume: value });
   }
   repeat() {
+    this.cancelAudiobook();
     log.info("queue.repeat", { mode: this.state.repeat });
     this.cancelLookahead();
     this.update({
@@ -661,6 +797,7 @@ export class Playback implements Player {
     this.prepareNext();
   }
   shuffle() {
+    this.cancelAudiobook();
     log.info("queue.shuffle", { enabled: !this.state.shuffle });
     this.cancelLookahead();
     this.update({
@@ -672,6 +809,7 @@ export class Playback implements Player {
     this.prepareNext();
   }
   async previous() {
+    this.cancelAudiobook();
     this.selection++;
     this.traversal.resetFailures();
     log.info("queue.previous", { index: this.state.index });
@@ -679,6 +817,7 @@ export class Playback implements Player {
     else await this.open(Math.max(0, this.state.index - 1));
   }
   async next(ended = false) {
+    this.cancelAudiobook();
     log.info("queue.next", {
       index: this.state.index,
       reason: ended ? "ended" : "requested",
@@ -692,6 +831,7 @@ export class Playback implements Player {
     await this.open(index ?? this.queue.length);
   }
   remove(index: number) {
+    this.cancelAudiobook();
     if (index === this.state.index && !this.persist()) return;
     log.info("queue.remove", { index });
     this.cancelLookahead();
@@ -727,6 +867,7 @@ export class Playback implements Player {
     this.prepareNext();
   }
   clear() {
+    this.cancelAudiobook();
     if (!this.persist()) return;
     this.observation.retire();
     this.openingEntry = null;

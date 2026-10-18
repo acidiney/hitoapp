@@ -69,6 +69,7 @@ export class NativePlayback implements Player {
     (error) => this.update({ error }),
   );
   playQueue = this.intents.playQueue;
+  continueAudiobook = this.intents.continueAudiobook;
   prepareSelection = this.intents.prepareSelection;
   selectEntry = this.intents.selectEntry;
   removeEntry = this.intents.removeEntry;

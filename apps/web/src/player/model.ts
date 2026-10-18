@@ -78,6 +78,7 @@ export interface Player {
     index?: number,
     start?: PlaybackStart,
   ): Promise<void>;
+  continueAudiobook(audiobook: string, signal: AbortSignal): Promise<boolean>;
   prepareSelection(): PreparedSelection;
   toggle(): Promise<void>;
   setPlaying(playing: boolean): Promise<void>;

@@ -151,10 +151,52 @@ export function useAudiobookPlayback(
       await play(chapter, bookmark);
   }
 
+  async function continueAudiobook(): Promise<void> {
+    if (owner.pending || !detail.continuation?.progress) return;
+    const controller = new AbortController();
+    owner.controller = controller;
+    owner.pending = true;
+    owner.error = "";
+    publish();
+    const current = () => owner.active && latest.current === owner;
+    const started = performance.now();
+    const fields = {
+      request_id: createUuid(),
+      action: "continue",
+      mode: player.mode,
+    };
+    let outcome = "retired";
+    log.info("audiobooks.playback_requested", fields);
+    try {
+      const accepted = await player.continueAudiobook(
+        detail.playlist.id,
+        controller.signal,
+      );
+      if (!current() || controller.signal.aborted) return;
+      outcome = accepted ? "committed" : "retired";
+      if (!accepted) owner.error = player.snapshot().error;
+    } catch {
+      if (current() && !controller.signal.aborted) {
+        outcome = "failed";
+        owner.error = "Hito could not continue this audiobook. Try again.";
+      }
+    } finally {
+      if (owner.controller === controller) owner.controller = null;
+      owner.pending = false;
+      if (current()) publish();
+      log.debug("audiobooks.playback_finished", {
+        ...fields,
+        reason: outcome,
+        duration_ms: Math.round(performance.now() - started),
+      });
+    }
+  }
+
   return {
     pending: owner.pending,
     error: owner.error,
     playChapter,
     playBookmark,
+    continueAudiobook,
   };
 }

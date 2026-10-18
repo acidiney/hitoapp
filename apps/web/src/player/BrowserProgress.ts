@@ -20,7 +20,6 @@ type Lane = {
     reject(error: Error): void;
   }[];
 };
-export type ProgressWatermark = Readonly<{ lane: Lane; sequence: number }>;
 
 const persistenceError = () =>
   new Error("Listening progress could not be saved. Hito will retry.");
@@ -100,20 +99,34 @@ export class BrowserProgress {
     this.retry();
     return true;
   }
-  watermark(): ProgressWatermark | null {
-    return this.lane
-      ? Object.freeze({ lane: this.lane, sequence: this.lane.issued })
-      : null;
-  }
-  settle(mark: ProgressWatermark | null): Promise<void> {
-    if (!mark) return Promise.resolve();
-    const { lane, sequence } = mark;
+  flush(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    const lane = this.lane;
+    if (!lane) return Promise.resolve();
+    const sequence = lane.issued;
     if (!lane.scope.active())
       return Promise.reject(new DOMException("Retired", "AbortError"));
     if (lane.settled >= sequence) return Promise.resolve();
     if (lane.blocked) return Promise.reject(persistenceError());
+    if (lane.waiters.length >= 256) return Promise.reject(persistenceError());
     return new Promise((resolve, reject) => {
-      lane.waiters.push({ sequence, resolve, reject });
+      const waiter = {
+        sequence,
+        resolve: () => {
+          signal.removeEventListener("abort", cancel);
+          resolve();
+        },
+        reject: (error: Error) => {
+          signal.removeEventListener("abort", cancel);
+          reject(error);
+        },
+      };
+      const cancel = () => {
+        lane.waiters = lane.waiters.filter((pending) => pending !== waiter);
+        waiter.reject(new DOMException("Retired", "AbortError"));
+      };
+      signal.addEventListener("abort", cancel, { once: true });
+      lane.waiters.push(waiter);
     });
   }
   retry() {

@@ -5,12 +5,15 @@ import {
   nativeApi,
   type Action,
   type Attachment,
+  type AudiobookContinuation,
+  type AudiobookRequest,
   type Command,
   type Position,
   type Receipt,
   type Snapshot,
 } from "./api";
 import { ObservationError } from "./observations";
+import { settleAudiobook } from "./AudiobookSettlement";
 import type { components } from "../../generated";
 
 type QueueInput = components["schemas"]["PlayerQueueInput"];
@@ -28,18 +31,26 @@ type Events = {
   failure(kind: Failure): void;
   connection?(ready: boolean): void;
 };
+type AudiobookAdmission = {
+  input: AudiobookRequest;
+  signal: AbortSignal;
+  cancelled: Promise<never>;
+  settled: boolean;
+};
 
 export class NativeSession {
   private controller = new AbortController();
   private attachment: Attachment | null = null;
   private sequence = 0;
   private revision = 0;
+  private selection = 0;
   private pending = 0;
   private retainedIds = 0;
   private lane = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private opening: Promise<void> | null = null;
   private healthy = { state: false, position: false };
+  private continuation: AbortController | null = null;
 
   constructor(
     private account: string,
@@ -65,6 +76,7 @@ export class NativeSession {
       throw new HttpError(501, "Native playback is unavailable.");
     this.attachment = attachment;
     this.revision = attachment.state.revision;
+    this.selection = attachment.state.selection;
     this.events.state(attachment.state);
     void this.observe("state");
     void this.observe("position");
@@ -72,6 +84,7 @@ export class NativeSession {
   }
 
   submit(actions: Action[]): Promise<Receipt> {
+    this.cancelAudiobook();
     const intent = structuredClone(actions);
     const weight = intent.reduce(
       (count, action) =>
@@ -92,6 +105,7 @@ export class NativeSession {
   }
 
   replace(selection: QueueSelection): Promise<Receipt> {
+    this.cancelAudiobook();
     const contextual = "entries" in selection;
     const entries: QueueInput[] = contextual
       ? structuredClone(selection.entries)
@@ -164,10 +178,137 @@ export class NativeSession {
     });
   }
 
+  async continueAudiobook(
+    audiobook: string,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const started = performance.now();
+    this.cancelAudiobook();
+    const controller = new AbortController();
+    this.continuation = controller;
+    const combined = AbortSignal.any([
+      signal,
+      controller.signal,
+      this.controller.signal,
+    ]);
+    const prefix = this.tail.catch(() => {});
+    const sequence = this.sequence;
+    const lane = this.lane;
+    const timeout = new HttpError(
+      504,
+      "Continuing this audiobook timed out. Try again.",
+    );
+    const deadline = setTimeout(() => controller.abort(timeout), 10_000);
+    let cancel!: () => void;
+    const cancelled = new Promise<never>((_, reject) => {
+      cancel = () =>
+        reject(
+          combined.reason === timeout
+            ? timeout
+            : new DOMException("Cancelled", "AbortError"),
+        );
+      combined.addEventListener("abort", cancel, { once: true });
+    });
+    let input: AudiobookRequest | undefined;
+    let committed = false;
+    let admission: AudiobookAdmission | undefined;
+    const check = (reserved = false) => {
+      combined.throwIfAborted();
+      if (this.lane !== lane || this.sequence !== sequence + Number(reserved))
+        throw new DOMException("Superseded", "AbortError");
+      if (
+        input &&
+        (this.attachment?.lease !== input.lease ||
+          this.revision !== input.revision ||
+          this.selection !== input.selection)
+      )
+        throw new DOMException("Superseded", "AbortError");
+    };
+    try {
+      check();
+      await Promise.race([prefix, cancelled]);
+      await Promise.race([this.open(), cancelled]);
+      check();
+      input = {
+        id: createUuid(),
+        lease: this.attachment!.lease,
+        revision: this.revision,
+        selection: this.selection,
+        audiobook_id: audiobook,
+      };
+      const prepared = await Promise.race([
+        nativeApi.prepareAudiobook(this.account, input, combined),
+        cancelled,
+      ]);
+      check();
+      if (!validContinuation(prepared, audiobook)) throw new ObservationError();
+      admission = { input, signal: combined, cancelled, settled: false };
+      await this.admit(
+        1,
+        0,
+        async (send) => {
+          check(true);
+          const receipt = await send({
+            kind: "continue_audiobook",
+            token: prepared.token,
+          });
+          committed = true;
+          return receipt;
+        },
+        admission,
+      );
+      return true;
+    } catch (error) {
+      if (combined.reason === timeout) throw timeout;
+      throw error;
+    } finally {
+      clearTimeout(deadline);
+      combined.removeEventListener("abort", cancel);
+      if (this.continuation === controller) this.continuation = null;
+      if (input && !committed && !admission?.settled)
+        this.retireAudiobook(input);
+      log.debug("native.audiobook_continue_finished", {
+        operation_id: input?.id,
+        reason: committed
+          ? "committed"
+          : combined.reason === timeout
+            ? "timeout"
+            : combined.aborted
+              ? "cancelled"
+              : "rejected",
+        duration_ms: Math.round(performance.now() - started),
+      });
+    }
+  }
+
+  cancelAudiobook() {
+    this.continuation?.abort();
+    this.continuation = null;
+  }
+
+  private retireAudiobook(input: AudiobookRequest) {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 10_000);
+    void nativeApi
+      .cancelAudiobook(
+        this.account,
+        {
+          lease: input.lease,
+          id: input.id,
+        },
+        controller.signal,
+      )
+      .catch(() => {
+        log.debug("native.audiobook_cancel_failed", { operation_id: input.id });
+      })
+      .finally(() => clearTimeout(deadline));
+  }
+
   private admit(
     count: number,
     weight: number,
     work: (send: (action: Action) => Promise<Receipt>) => Promise<Receipt>,
+    audiobook?: AudiobookAdmission,
   ): Promise<Receipt> {
     if (
       !count ||
@@ -196,13 +337,17 @@ export class NativeSession {
           this.controller.signal.throwIfAborted();
           if (lane !== this.lane)
             throw new DOMException("Superseded", "AbortError");
-          return this.send(action, tickets[cursor++]);
+          return this.send(action, tickets[cursor++], audiobook);
         });
       });
     this.tail = accepted;
     return accepted
       .catch((error) => {
-        if (lane === this.lane) this.lane++;
+        if (
+          lane === this.lane &&
+          !(error instanceof DOMException && error.name === "AbortError")
+        )
+          this.lane++;
         throw error;
       })
       .finally(() => {
@@ -232,8 +377,9 @@ export class NativeSession {
   private async send(
     action: Action,
     ticket: { id: string; sequence: number },
+    audiobook?: AudiobookAdmission,
   ): Promise<Receipt> {
-    const signal = this.controller.signal;
+    const signal = audiobook?.signal ?? this.controller.signal;
     const command: Command = {
       ...ticket,
       action,
@@ -243,18 +389,17 @@ export class NativeSession {
     let retry = 0;
     while (!signal.aborted) {
       try {
-        const receipt = await nativeApi.command(this.account, command, signal);
-        signal.throwIfAborted();
-        if (
-          receipt.id !== command.id ||
-          receipt.sequence !== command.sequence ||
-          !Number.isSafeInteger(receipt.revision) ||
-          receipt.revision < command.revision
-        )
-          throw new ObservationError();
-        this.revision = Math.max(this.revision, receipt.revision);
+        const request = nativeApi.command(this.account, command, signal);
+        const receipt = await (audiobook
+          ? Promise.race([request, audiobook.cancelled])
+          : request);
+        if (!audiobook) signal.throwIfAborted();
+        this.acceptReceipt(command, receipt);
         return receipt;
       } catch (error) {
+        if (audiobook && signal.aborted) {
+          return this.cancelAdmission(audiobook, command);
+        }
         signal.throwIfAborted();
         if (error instanceof ObservationError) {
           this.fail("protocol");
@@ -278,10 +423,47 @@ export class NativeSession {
           operation_id: command.id,
           count: ++retry,
         });
-        await pause(Math.min(250 * retry, 2000), signal);
+        try {
+          await pause(Math.min(250 * retry, 2000), signal);
+        } catch (error) {
+          if (audiobook && signal.aborted)
+            return this.cancelAdmission(audiobook, command);
+          throw error;
+        }
       }
     }
     throw new DOMException("Aborted", "AbortError");
+  }
+
+  private async cancelAdmission(
+    audiobook: AudiobookAdmission,
+    command: Command,
+  ): Promise<never> {
+    try {
+      const receipt = await settleAudiobook(
+        this.account,
+        audiobook.input,
+        command,
+      );
+      if (receipt) this.acceptReceipt(command, receipt);
+      audiobook.settled = true;
+    } catch (error) {
+      if (!this.controller.signal.aborted) this.fail("ownership");
+      throw error;
+    }
+    throw new DOMException("Cancelled", "AbortError");
+  }
+
+  private acceptReceipt(command: Command, receipt: Receipt) {
+    if (
+      !receipt ||
+      receipt.id !== command.id ||
+      receipt.sequence !== command.sequence ||
+      !Number.isSafeInteger(receipt.revision) ||
+      receipt.revision < command.revision
+    )
+      throw new ObservationError();
+    this.revision = Math.max(this.revision, receipt.revision);
   }
 
   private async observe(kind: "state" | "position") {
@@ -298,6 +480,7 @@ export class NativeSession {
             if (kind === "state") {
               const state = value as Snapshot;
               this.revision = Math.max(this.revision, state.revision);
+              this.selection = Math.max(this.selection, state.selection);
               this.events.state(state);
             } else this.events.position(value as Position);
             if (!this.healthy[kind]) {
@@ -342,10 +525,39 @@ export class NativeSession {
     this.events.failure(kind);
   }
   close() {
+    this.cancelAudiobook();
     this.controller.abort();
     this.attachment = null;
     log.debug("native.detached", { account_id: this.account });
   }
+}
+
+function validContinuation(
+  value: AudiobookContinuation,
+  audiobook: string,
+): boolean {
+  const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const identity = (value: unknown) =>
+    typeof value === "string" &&
+    uuid.test(value) &&
+    value !== "00000000-0000-0000-0000-000000000000";
+  return (
+    !!value &&
+    identity(value.token) &&
+    !!value.chapter &&
+    identity(value.chapter.audiobook_id) &&
+    value.chapter.audiobook_id === audiobook &&
+    identity(value.chapter.entry_id) &&
+    identity(value.chapter.recording_id) &&
+    Number.isSafeInteger(value.position_ms) &&
+    value.position_ms >= 0 &&
+    Number.isInteger(value.speed) &&
+    value.speed >= 500 &&
+    value.speed <= 3000 &&
+    Number.isInteger(value.count) &&
+    value.count >= 1 &&
+    value.count <= 10000
+  );
 }
 
 function pause(milliseconds: number, signal: AbortSignal): Promise<void> {

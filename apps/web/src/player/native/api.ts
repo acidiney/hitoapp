@@ -9,6 +9,8 @@ export type Action = Schema["PlayerAction"];
 export type Command = Schema["PlayerCommand"];
 export type Receipt = Schema["PlayerReceipt"];
 export type Attachment = Schema["PlayerAttachment"];
+export type AudiobookRequest = Schema["PlayerAudiobookRequest"];
+export type AudiobookContinuation = Schema["PlayerAudiobookContinuation"];
 
 export const nativeApi = {
   async inspect(
@@ -57,6 +59,49 @@ export const nativeApi = {
     return (
       await request("/player/queue", {
         action: "native.queue",
+        method: "POST",
+        account,
+        signal,
+        body,
+      })
+    ).json();
+  },
+  async prepareAudiobook(
+    account: string,
+    body: AudiobookRequest,
+    signal: AbortSignal,
+  ): Promise<AudiobookContinuation> {
+    return (
+      await request("/player/audiobooks/prepare", {
+        action: "native.audiobook_prepare",
+        method: "POST",
+        account,
+        signal,
+        body,
+      })
+    ).json();
+  },
+  async cancelAudiobook(
+    account: string,
+    body: Schema["PlayerAudiobookCancel"],
+    signal: AbortSignal,
+  ): Promise<void> {
+    await request("/player/audiobooks/cancel", {
+      action: "native.audiobook_cancel",
+      method: "POST",
+      account,
+      signal,
+      body,
+    });
+  },
+  async settleAudiobook(
+    account: string,
+    body: Schema["PlayerAudiobookCancel"] & { command: Command },
+    signal: AbortSignal,
+  ): Promise<Schema["PlayerAudiobookSettlement"]> {
+    return (
+      await request("/player/audiobooks/cancel", {
+        action: "native.audiobook_settle",
         method: "POST",
         account,
         signal,

@@ -1,4 +1,5 @@
 import { log } from "../../log";
+import { HttpError } from "../../http";
 import type {
   PlaybackQueueInput,
   PlaybackStart,
@@ -22,6 +23,32 @@ export class NativeCommands {
   ) => {
     this.intention++;
     await this.play(queue, index, start);
+  };
+  continueAudiobook = async (audiobook: string, signal: AbortSignal) => {
+    this.intention++;
+    const session = this.session();
+    if (!session) {
+      this.report("Connect this window to control playback.");
+      return false;
+    }
+    log.debug("native.audiobook_continue_started");
+    try {
+      return await session.continueAudiobook(audiobook, signal);
+    } catch (error) {
+      if (
+        this.session() === session &&
+        !signal.aborted &&
+        !(error instanceof DOMException && error.name === "AbortError")
+      ) {
+        this.report(
+          error instanceof HttpError && error.status === 501
+            ? "This saved playback speed cannot be restored by this player."
+            : "Hito could not continue this audiobook. Try again.",
+        );
+        log.warn("native.audiobook_continue_failed");
+      }
+      return false;
+    }
   };
   private async play(
     queue: PlaybackQueueInput[],
@@ -76,6 +103,7 @@ export class NativeCommands {
     return this.run(selection);
   }
   prepareSelection = (): PreparedSelection => {
+    this.session()?.cancelAudiobook();
     const intention = ++this.intention;
     return async (target) => {
       if (intention !== this.intention) return false;
@@ -141,6 +169,7 @@ export class NativeCommands {
     void this.run([{ kind: "shuffle" }]);
   };
   invalidate() {
+    this.session()?.cancelAudiobook();
     this.intention++;
   }
   private async run(actions: Action[] | QueueSelection) {

@@ -22,6 +22,16 @@ export default function AudiobookPage({
         title={detail.playlist.name}
         description={`${count} ${count === 1 ? "chapter" : "chapters"}`}
       >
+        {detail.continuation?.progress && (
+          <button
+            className="button primary"
+            type="button"
+            disabled={playback.pending}
+            onClick={() => void playback.continueAudiobook()}
+          >
+            Continue audiobook
+          </button>
+        )}
         <Link className="button" href="/audiobooks">
           All audiobooks
         </Link>

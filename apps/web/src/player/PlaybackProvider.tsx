@@ -15,6 +15,8 @@ import { NativePlayback } from "./native/NativePlayback";
 import { sourceResolutionApi } from "../sourceResolutionApi";
 import { useBrowserMediaSession } from "./BrowserMediaSession";
 import { BrowserProgress } from "./BrowserProgress";
+import { request } from "../http";
+import type { components } from "../generated";
 
 const PlaybackContext = createContext<Player | null>(null);
 
@@ -100,6 +102,30 @@ function BrowserAccountPlayback({
           media.get(current)?.remove();
           media.delete(current);
         },
+      },
+      async (book, signal) => {
+        const current = scope.capture();
+        const combined = AbortSignal.any([signal, current.signal]);
+        const check = () => {
+          combined.throwIfAborted();
+          if (!current.active())
+            throw new DOMException("Retired", "AbortError");
+        };
+        check();
+        await progress.flush(combined);
+        check();
+        const response = await request(
+          `/audiobooks/${encodeURIComponent(book)}/playback`,
+          {
+            action: "audiobooks.playback_read",
+            account,
+            signal: combined,
+          },
+        );
+        const playback: components["schemas"]["AudiobookPlayback"] =
+          await response.json();
+        check();
+        return playback;
       },
     );
     return { audio, media, player };
