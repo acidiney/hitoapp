@@ -11,9 +11,13 @@ import {
   type Snapshot,
 } from "./api";
 import { ObservationError } from "./observations";
+import type { components } from "../../generated";
 
-export type QueueSelection = {
-  recordings: string[];
+type QueueInput = components["schemas"]["PlayerQueueInput"];
+export type QueueSelection = (
+  | { recordings: string[] }
+  | { entries: QueueInput[] }
+) & {
   start: number;
   from: { kind: "saved" } | { kind: "position"; position_ms: number };
 };
@@ -74,7 +78,10 @@ export class NativeSession {
         count +
         (action.kind === "replace" || action.kind === "append"
           ? action.recordings.length
-          : 0),
+          : action.kind === "replace_entries" ||
+              action.kind === "append_entries"
+            ? action.entries.length
+            : 0),
       0,
     );
     return this.admit(intent.length, weight, async (send) => {
@@ -85,40 +92,69 @@ export class NativeSession {
   }
 
   replace(selection: QueueSelection): Promise<Receipt> {
-    const recordings = selection.recordings.slice();
-    const { start, from } = selection;
+    const contextual = "entries" in selection;
+    const entries: QueueInput[] = contextual
+      ? structuredClone(selection.entries)
+      : selection.recordings.map((recording_id) => ({ recording_id }));
+    const { start } = selection;
+    const from = { ...selection.from };
     const position_ms = from.kind === "position" ? from.position_ms : 0;
     if (
-      !recordings.length ||
-      recordings.length > 100000 ||
+      !entries.length ||
+      entries.length > 100000 ||
       !Number.isInteger(start) ||
       start < 0 ||
-      start >= recordings.length ||
+      start >= entries.length ||
       !Number.isSafeInteger(position_ms) ||
       position_ms < 0
     )
       return Promise.reject(new Error("The playback selection is invalid."));
     const count =
-      Math.ceil(recordings.length / 1000) +
+      Math.ceil(entries.length / 1000) +
       2 +
-      Number(recordings.length > 1000) +
+      Number(entries.length > 1000) +
       Number(position_ms > 0);
-    return this.admit(count, recordings.length, async (send) => {
+    return this.admit(count, entries.length, async (send) => {
       await send({ kind: "pause" });
-      await send({
-        kind: "replace",
-        recordings: recordings.slice(0, 1000),
-        start: start < 1000 ? start : 0,
-      });
-      for (let offset = 1000; offset < recordings.length; offset += 1000)
-        await send({
-          kind: "append",
-          recordings: recordings.slice(offset, offset + 1000),
-        });
-      if (recordings.length > 1000) {
+      const first = entries.slice(0, 1000);
+      await send(
+        contextual
+          ? {
+              kind: "replace_entries",
+              entries: first,
+              start: start < 1000 ? start : 0,
+            }
+          : {
+              kind: "replace",
+              recordings: first.map(({ recording_id }) => recording_id),
+              start: start < 1000 ? start : 0,
+            },
+      );
+      for (let offset = 1000; offset < entries.length; offset += 1000) {
+        const chunk = entries.slice(offset, offset + 1000);
+        await send(
+          contextual
+            ? { kind: "append_entries", entries: chunk }
+            : {
+                kind: "append",
+                recordings: chunk.map(({ recording_id }) => recording_id),
+              },
+        );
+      }
+      if (entries.length > 1000) {
         const page = await this.queue(this.revision, start, 1);
         const entry = page.entries[0];
-        if (!entry || entry.recording.id !== recordings[start])
+        const expected = entries[start];
+        if (
+          !entry ||
+          entry.recording.id !== expected.recording_id ||
+          (contextual &&
+            (expected.chapter
+              ? entry.chapter?.audiobook_id !== expected.chapter.audiobook_id ||
+                entry.chapter?.entry_id !== expected.chapter.entry_id ||
+                entry.chapter?.recording_id !== expected.chapter.recording_id
+              : entry.chapter != null))
+        )
           throw new ObservationError();
         await send({ kind: "select", entry: entry.id });
       }

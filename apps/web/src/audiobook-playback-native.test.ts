@@ -40,7 +40,7 @@ test("native bookmark playback selects the exact duplicate beyond a command chun
   const chapter = page.detail.chapters[0];
   page.detail.chapters = Array.from({ length: 1025 }, (_, index) => ({
     ...chapter,
-    entry_id: `chapter-${index}`,
+    entry_id: `d19d087c-061b-44fa-966c-${index.toString(16).padStart(12, "0")}`,
     position: index,
     title: `Private chapter ${index}`,
   }));
@@ -52,6 +52,16 @@ test("native bookmark playback selects the exact duplicate beyond a command chun
     },
   ];
   const service = nativeService();
+  const entries = page.detail.chapters.map((entry) => ({
+    recording_id: entry.recording_id!,
+    chapter: {
+      audiobook_id: page.detail.playlist.id,
+      entry_id: entry.entry_id,
+      recording_id: entry.recording_id!,
+    },
+  }));
+  const nativeEntry = (index: number) =>
+    `42230441-aa31-489b-ac8f-${index.toString(16).padStart(12, "0")}`;
   service.state.queue_len = 1025;
   service.queue = async (query) =>
     Response.json({
@@ -60,8 +70,9 @@ test("native bookmark playback selects the exact duplicate beyond a command chun
       offset: query.offset,
       entries: [
         {
-          id: `native-entry-${query.offset}`,
+          id: nativeEntry(query.offset),
           recording: { ...chapter, id: chapter.recording_id },
+          chapter: entries[query.offset].chapter,
         },
       ],
     });
@@ -89,15 +100,24 @@ test("native bookmark playback selects the exact duplicate beyond a command chun
     expect(service.commands.map((command) => command.action)).toEqual([
       { kind: "pause" },
       {
-        kind: "replace",
-        recordings: Array(1000).fill(chapter.recording_id),
+        kind: "replace_entries",
+        entries: entries.slice(0, 1000),
         start: 0,
       },
-      { kind: "append", recordings: Array(25).fill(chapter.recording_id) },
-      { kind: "select", entry: "native-entry-1002" },
+      { kind: "append_entries", entries: entries.slice(1000) },
+      { kind: "select", entry: nativeEntry(1002) },
       { kind: "seek", position_ms: 35_125 },
       { kind: "resume" },
     ]);
+    expect(entries[0].recording_id).toBe(entries[1002].recording_id);
+    expect(entries[0].chapter.entry_id).not.toBe(
+      entries[1002].chapter.entry_id,
+    );
+    expect(entries[1002].chapter.entry_id).not.toBe(nativeEntry(1002));
+    expect((await player.queuePage(1002, 1)).entries[0]).toMatchObject({
+      id: nativeEntry(1002),
+      chapter: entries[1002].chapter,
+    });
     expect(reads).toHaveBeenCalledTimes(1);
     expect(
       service.requests.every((path) => path.startsWith("/api/v1/player")),

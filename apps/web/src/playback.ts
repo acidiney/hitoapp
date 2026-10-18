@@ -1,5 +1,6 @@
-import { createUuid } from "./uuid";
 import type {
+  PlaybackQueueInput,
+  PlaybackOccurrence,
   PlaybackStart,
   PlaybackView,
   PreparedSelection,
@@ -7,6 +8,7 @@ import type {
   QueueView,
   Track,
 } from "./player/model";
+import type { AudiobookChapterAnchor } from "./types";
 export type { Track } from "./player/model";
 import { log } from "./log";
 import {
@@ -15,6 +17,8 @@ import {
   type SourceResolver,
 } from "./playbackSources";
 import { BrowserTraversal } from "./player/BrowserTraversal";
+import { BrowserQueue } from "./player/BrowserQueue";
+import { BrowserObservation } from "./player/BrowserObservation";
 import {
   BrowserPreparation,
   type BrowserMediaOwner,
@@ -30,6 +34,9 @@ export interface MediaPort extends EventTarget {
   volume: number;
   paused: boolean;
   ended?: boolean;
+  readyState?: number;
+  seeking?: boolean;
+  currentSrc?: string;
   play(): Promise<void>;
   pause(): void;
   load(): void;
@@ -65,8 +72,10 @@ export class Playback implements Player {
     volume: 1,
     connection: "ready",
   };
-  private entryIds: string[] = [];
+  private queue = new BrowserQueue();
   private traversal = new BrowserTraversal();
+  private observation: BrowserObservation;
+  private openingEntry: PlaybackOccurrence | null = null;
   private queueView: QueueView = {
     version: 0,
     total: 0,
@@ -80,13 +89,13 @@ export class Playback implements Player {
   private generation = 0;
   private selection = 0;
   private sourceAttempt = 0;
-  private lastSavedPosition = 0;
   private pendingSeek: number | null = null;
   private activeSource: Source | null = null;
   private lookahead: BrowserPreparation | null = null;
   private openingPreparation: BrowserPreparation | null = null;
   private lookaheadRevision = 0;
   private stopListening: () => void = () => {};
+  private stoppingForProgress = false;
 
   constructor(
     private media: MediaPort,
@@ -95,9 +104,21 @@ export class Playback implements Player {
       track: Track,
       position: number,
       speed: number,
-    ) => void,
+      chapter?: AudiobookChapterAnchor,
+    ) => boolean | void,
     private mediaOwner?: BrowserMediaOwner,
   ) {
+    this.observation = new BrowserObservation((sample) => {
+      const result = sample.chapter
+        ? this.onProgress?.(
+            sample.recording,
+            sample.position,
+            sample.speed,
+            sample.chapter,
+          )
+        : this.onProgress?.(sample.recording, sample.position, sample.speed);
+      return result !== false;
+    });
     this.listenMedia();
   }
 
@@ -116,6 +137,7 @@ export class Playback implements Player {
         media.removeEventListener(event, listener);
     };
     listen("loadedmetadata", () => {
+      this.observation.metadata();
       log.debug("playback.metadata", { recording_id: this.state.current?.id });
       this.update({
         duration: Number.isFinite(media.duration) ? media.duration : 0,
@@ -132,17 +154,23 @@ export class Playback implements Player {
         this.prepareNext();
       }
       this.update({ position: media.currentTime });
-      if (Math.abs(media.currentTime - this.lastSavedPosition) >= 10)
-        this.persist();
+      if (!this.observation.observe()) this.progressBlocked();
     });
     listen("play", () => {
       log.info("playback.started", { recording_id: this.state.current?.id });
       this.update({ playing: true, loading: false });
       this.prepareNext();
     });
+    listen("playing", () => {
+      if (!this.observation.observe()) this.progressBlocked();
+    });
+    listen("seeked", () => {
+      this.observation.seeked();
+      if (!this.observation.observe()) this.progressBlocked();
+    });
     listen("pause", () => {
       log.debug("playback.paused", { recording_id: this.state.current?.id });
-      this.persist();
+      if (!this.stoppingForProgress) this.persist();
       this.update({ playing: false });
       if (!media.ended) this.cancelLookahead();
     });
@@ -167,12 +195,13 @@ export class Playback implements Player {
   private prepareNext() {
     if (!this.mediaOwner || !this.state.playing || !this.activeSource) return;
     const index = this.traversal.completed(
-      this.entryIds,
+      this.queue.identities(),
       this.state.index,
       this.state.repeat,
     );
-    const entry = index === null ? undefined : this.entryIds[index];
-    const recording = index === null ? undefined : this.state.queue[index];
+    const occurrence = index === null ? undefined : this.queue.at(index);
+    const entry = occurrence?.id;
+    const recording = occurrence?.recording;
     if (!entry || !recording) {
       this.cancelLookahead();
       return;
@@ -204,22 +233,31 @@ export class Playback implements Player {
   }
 
   private persist() {
-    if (
-      this.state.current &&
-      this.media.currentTime > 0 &&
-      this.lastSavedPosition !== this.media.currentTime
-    ) {
-      this.lastSavedPosition = this.media.currentTime;
-      log.debug("playback.position", {
-        recording_id: this.state.current.id,
-        position_ms: Math.floor(this.media.currentTime * 1000),
-      });
-      this.onProgress?.(
-        this.state.current,
-        this.media.currentTime,
-        this.media.playbackRate,
+    if (this.observation.persist()) return true;
+    this.progressBlocked();
+    return false;
+  }
+  private progressBlocked() {
+    if (this.stoppingForProgress) return;
+    this.stoppingForProgress = true;
+    try {
+      if (!this.media.paused) this.media.pause();
+      this.progressFailed(
+        "Listening progress is waiting to be saved. Playback paused.",
       );
+    } finally {
+      this.stoppingForProgress = false;
     }
+  }
+  progressFailed(message: string) {
+    this.update({ error: message });
+  }
+  retryProgress() {
+    if (
+      this.observation.retry() &&
+      this.state.error.startsWith("Listening progress")
+    )
+      this.update({ error: "" });
   }
 
   snapshot = () => this.state;
@@ -229,7 +267,7 @@ export class Playback implements Player {
     if (
       !Number.isInteger(offset) ||
       offset < 0 ||
-      offset > this.state.queue.length ||
+      offset > this.queue.length ||
       !Number.isInteger(limit) ||
       limit < 1 ||
       limit > 1000
@@ -237,25 +275,20 @@ export class Playback implements Player {
       throw new Error("The queue page is invalid.");
     return {
       version: this.queueView.version,
-      total: this.state.queue.length,
+      total: this.queue.length,
       offset,
-      entries: this.state.queue
-        .slice(offset, offset + limit)
-        .map((recording, index) => ({
-          id: this.entryIds[offset + index],
-          recording,
-        })),
+      entries: this.queue.page(offset, limit),
     };
   }
   async selectEntry(entry: string) {
-    const index = this.entryIds.indexOf(entry);
+    const index = this.queue.indexOf(entry);
     if (index < 0) return;
-    this.traversal.reset(this.entryIds, entry);
+    this.traversal.reset(this.queue.identities(), entry);
     this.update({ error: "" });
     await this.open(index);
   }
   removeEntry(entry: string) {
-    const index = this.entryIds.indexOf(entry);
+    const index = this.queue.indexOf(entry);
     if (index >= 0) this.remove(index);
   }
   positionSnapshot = () => this.position;
@@ -278,10 +311,10 @@ export class Playback implements Player {
       (duration !== undefined && duration !== this.position.duration);
     this.state = { ...this.state, ...patch };
     if (patch.queue !== undefined || patch.index !== undefined) {
-      const current = this.entryIds[this.state.index];
+      const current = this.queue.at(this.state.index)?.id;
       this.queueView = {
         version: this.queueView.version + 1,
-        total: this.state.queue.length,
+        total: this.queue.length,
         currentIndex: current ? this.state.index : null,
         currentEntry: current ?? null,
       };
@@ -314,23 +347,32 @@ export class Playback implements Player {
       recording_id: recording,
       action: field,
     });
+    this.queue.updateRecording(update);
     this.update({
-      queue: this.state.queue.map(update),
+      queue: this.queue.recordings(),
       current: this.state.current ? update(this.state.current) : null,
     });
   }
 
-  async playQueue(queue: Track[], index = 0, start?: PlaybackStart) {
+  async playQueue(
+    queue: PlaybackQueueInput[],
+    index = 0,
+    start?: PlaybackStart,
+  ) {
+    if (!this.persist())
+      throw new Error(
+        "Listening progress is waiting to be saved. Playback paused.",
+      );
     const position = start?.position ?? 0;
     this.cancelLookahead();
-    this.entryIds = queue.map(() => createUuid());
-    this.traversal.reset(this.entryIds, this.entryIds[index]);
+    this.queue.replace(queue);
+    this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
     log.info("queue.play", {
       count: queue.length,
       index,
       position_ms: Math.floor(position * 1000),
     });
-    this.update({ queue: [...queue], index, error: "" });
+    this.update({ queue: this.queue.recordings(), index, error: "" });
     await this.open(index, position);
   }
 
@@ -350,14 +392,16 @@ export class Playback implements Player {
   }
 
   private async open(index: number, position = 0) {
+    if (!this.persist()) return;
     this.selection++;
-    this.persist();
-    this.lastSavedPosition = 0;
-    const current = this.state.queue[index];
+    this.observation.retire();
+    const occurrence = this.queue.at(index);
+    this.openingEntry = occurrence ?? null;
+    const current = occurrence?.recording;
     const candidate = this.lookahead;
     const prepared =
       candidate &&
-      candidate.target.entry === this.entryIds[index] &&
+      candidate.target.entry === occurrence?.id &&
       candidate.target.recording === current?.id &&
       candidate.target.generation === this.generation &&
       candidate.target.revision === this.lookaheadRevision
@@ -386,7 +430,7 @@ export class Playback implements Player {
       playing: false,
       duration: (current?.duration_ms ?? 0) / 1000,
     });
-    if (!current) {
+    if (!current || !occurrence) {
       this.update({ loading: false });
       return;
     }
@@ -413,6 +457,7 @@ export class Playback implements Player {
             this.media.defaultPlaybackRate = this.state.speed;
             this.media.playbackRate = this.state.speed;
             this.activeSource = { ...buffered.source };
+            this.observeSource(occurrence, buffered.source);
             this.update({
               duration: Number.isFinite(this.media.duration)
                 ? this.media.duration
@@ -444,6 +489,8 @@ export class Playback implements Player {
     const generation = this.generation;
     const attempt = ++this.sourceAttempt;
     const sources = this.sources;
+    const entry = this.openingEntry;
+    if (!entry) return;
     const source = await sources?.next();
     if (
       generation !== this.generation ||
@@ -464,7 +511,23 @@ export class Playback implements Player {
     });
     this.media.src = `/api/v1/sources/${encodeURIComponent(source.id)}/audio`;
     this.media.load();
+    this.observeSource(entry, source);
     await this.playSource(generation, attempt);
+  }
+
+  private observeSource(entry: PlaybackOccurrence, source: Source) {
+    const media = this.media;
+    const generation = this.generation;
+    const activeSource = this.activeSource;
+    this.observation.begin(
+      entry,
+      media,
+      `/api/v1/sources/${encodeURIComponent(source.id)}/audio`,
+      () =>
+        this.media === media &&
+        this.generation === generation &&
+        this.activeSource === activeSource,
+    );
   }
 
   private async playSource(generation: number, attempt: number) {
@@ -480,7 +543,7 @@ export class Playback implements Player {
   }
 
   async recover() {
-    if (!this.activeSource) return;
+    if (!this.activeSource || !this.persist()) return;
     const generation = this.generation;
     const sources = this.sources;
     this.activeSource = null;
@@ -509,7 +572,7 @@ export class Playback implements Player {
       loading: false,
     });
     const next = this.traversal.next(
-      this.entryIds,
+      this.queue.identities(),
       this.state.index,
       this.state.repeat,
       "failed",
@@ -555,8 +618,13 @@ export class Playback implements Player {
     if (this.state.loading && !this.activeSource) this.pendingSeek = position;
     else {
       try {
+        const alreadyAtPosition =
+          !this.media.seeking &&
+          Math.abs(this.media.currentTime - position) < 0.001;
+        this.observation.seeking(position);
         this.media.currentTime = position;
         this.pendingSeek = null;
+        if (alreadyAtPosition) this.observation.seeked();
       } catch {
         this.pendingSeek = position;
         void this.recover();
@@ -597,8 +665,8 @@ export class Playback implements Player {
     this.cancelLookahead();
     this.update({
       shuffle: this.traversal.toggle(
-        this.entryIds,
-        this.entryIds[this.state.index],
+        this.queue.identities(),
+        this.queue.at(this.state.index)?.id,
       ),
     });
     this.prepareNext();
@@ -616,29 +684,31 @@ export class Playback implements Player {
       reason: ended ? "ended" : "requested",
     });
     const index = this.traversal.next(
-      this.entryIds,
+      this.queue.identities(),
       this.state.index,
       this.state.repeat,
       ended ? "completed" : "requested",
     );
-    await this.open(index ?? this.state.queue.length);
+    await this.open(index ?? this.queue.length);
   }
   remove(index: number) {
+    if (index === this.state.index && !this.persist()) return;
     log.info("queue.remove", { index });
     this.cancelLookahead();
     const next =
       index === this.state.index
         ? this.traversal.next(
-            this.entryIds,
+            this.queue.identities(),
             index,
             this.state.repeat,
             "requested",
           )
         : null;
-    const queue = this.state.queue.filter((_, i) => i !== index);
-    const entry = this.entryIds[index];
-    this.entryIds.splice(index, 1);
-    this.traversal.remove(entry, this.entryIds);
+    const entry = this.queue.at(index)?.id;
+    if (!entry) return;
+    this.queue.remove(index);
+    const queue = this.queue.recordings();
+    this.traversal.remove(entry, this.queue.identities());
     if (index === this.state.index) {
       this.update({ queue });
       const successor =
@@ -657,11 +727,14 @@ export class Playback implements Player {
     this.prepareNext();
   }
   clear() {
+    if (!this.persist()) return;
+    this.observation.retire();
+    this.openingEntry = null;
     this.cancelLookahead();
     this.openingPreparation?.close();
     this.openingPreparation = null;
-    this.entryIds = [];
-    this.traversal.reset(this.entryIds);
+    this.queue.clear();
+    this.traversal.reset(this.queue.identities());
     this.selection++;
     log.info("queue.clear", { count: this.state.queue.length });
     this.generation++;
@@ -680,5 +753,9 @@ export class Playback implements Player {
       position: 0,
       duration: 0,
     });
+  }
+  retire() {
+    this.observation.retire();
+    this.clear();
   }
 }

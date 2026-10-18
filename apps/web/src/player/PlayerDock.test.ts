@@ -32,12 +32,26 @@ test("position updates move the seek control without rendering a thousand queued
   });
   player = new Playback(audio, async (id) => [{ id, ready: true }]);
   let queuedRowReads = 0;
+  const queuePage = player.queuePage.bind(player);
+  vi.spyOn(player, "queuePage").mockImplementation(async (...args) => {
+    const page = await queuePage(...args);
+    return {
+      ...page,
+      entries: page.entries.map((entry) => ({
+        ...entry,
+        recording: {
+          ...entry.recording,
+          get title() {
+            queuedRowReads++;
+            return entry.recording.title;
+          },
+        },
+      })),
+    };
+  });
   const tracks = Array.from({ length: 1000 }, (_, index) => ({
     id: `track-${index}`,
-    get title() {
-      if (index > 0) queuedRowReads++;
-      return `Track ${index}`;
-    },
+    title: `Track ${index}`,
     artist: "Fixture artist",
     duration_ms: 10000,
     available: true,
@@ -70,10 +84,15 @@ test("position updates move the seek control without rendering a thousand queued
   fireEvent.change(screen.getByRole("combobox", { name: "Playback speed" }), {
     target: { value: "1.5" },
   });
+  queuedRowReads = 0;
   await act(async () => {
     await player.next();
   });
-  expect(queue.querySelector("li.current strong")?.textContent).toBe("Track 1");
+  await waitFor(() =>
+    expect(queue.querySelector("li.current strong")?.textContent).toBe(
+      "Track 1",
+    ),
+  );
   expect(queuedRowReads).toBeGreaterThan(0);
   expect(audio.playbackRate).toBe(1.5);
   expect(

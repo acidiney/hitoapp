@@ -228,23 +228,53 @@ test("unavailable, null and mismatched rendered anchors offer no playback action
 test("navigation after handoff keeps audio and progress with the existing recording playback owner", async () => {
   const { detail: page } = audiobookPages();
   const { player, media, progress } = audiobookPlayer();
+  let readyState = 0;
+  let seeking = false;
+  Object.defineProperties(media, {
+    readyState: { get: () => readyState },
+    seeking: { get: () => seeking },
+  });
   boundaries.player = player;
   request.mockResolvedValue(Response.json(page.detail));
   const view = render(createElement(AudiobookPage, page));
   fireEvent.click(screen.getByRole("button", { name: "Play bookmark" }));
   await waitFor(() => expect(player.snapshot().playing).toBe(true));
+  expect(progress).not.toHaveBeenCalled();
+  readyState = 1;
+  seeking = true;
   media.dispatchEvent(new Event("loadedmetadata"));
+  expect(media.currentTime).toBe(35);
+  readyState = 4;
+  media.dispatchEvent(new Event("canplay"));
+  media.dispatchEvent(new Event("playing"));
   const queue = player.queueSnapshot();
   expect(progress).not.toHaveBeenCalled();
   view.unmount();
   expect(media.paused).toBe(false);
   expect(player.queueSnapshot()).toBe(queue);
+  seeking = false;
+  media.dispatchEvent(new Event("seeked"));
+  media.dispatchEvent(new Event("playing"));
+  const chapter = {
+    audiobook_id: page.detail.playlist.id,
+    entry_id: page.detail.chapters[2].entry_id,
+    recording_id: page.detail.chapters[2].recording_id!,
+  };
+  expect(progress).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ id: chapter.recording_id }),
+    35,
+    1,
+    chapter,
+  );
   media.currentTime = 50;
   media.dispatchEvent(new Event("timeupdate"));
-  expect(progress).toHaveBeenCalledExactlyOnceWith(
-    expect.objectContaining({ id: page.detail.chapters[2].recording_id }),
+  expect(progress).toHaveBeenCalledTimes(2);
+  expect(progress).toHaveBeenNthCalledWith(
+    2,
+    expect.objectContaining({ id: chapter.recording_id }),
     50,
     1,
+    chapter,
   );
   expect(request).toHaveBeenCalledTimes(1);
 });

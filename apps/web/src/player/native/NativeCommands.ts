@@ -1,5 +1,9 @@
 import { log } from "../../log";
-import type { PlaybackStart, PreparedSelection, Track } from "../model";
+import type {
+  PlaybackQueueInput,
+  PlaybackStart,
+  PreparedSelection,
+} from "../model";
 import type { Action, Snapshot } from "./api";
 import type { NativeSession, QueueSelection } from "./Session";
 
@@ -11,11 +15,19 @@ export class NativeCommands {
     private report: (message: string) => void,
   ) {}
 
-  playQueue = async (queue: Track[], index = 0, start?: PlaybackStart) => {
+  playQueue = async (
+    queue: PlaybackQueueInput[],
+    index = 0,
+    start?: PlaybackStart,
+  ) => {
     this.intention++;
     await this.play(queue, index, start);
   };
-  private async play(queue: Track[], index: number, start?: PlaybackStart) {
+  private async play(
+    queue: PlaybackQueueInput[],
+    index: number,
+    start?: PlaybackStart,
+  ) {
     const position = start?.kind === "saved" ? 0 : (start?.position ?? 0);
     if (
       !queue.length ||
@@ -30,14 +42,38 @@ export class NativeCommands {
       this.report("The playback selection is invalid or exceeds its limits.");
       return false;
     }
-    return this.run({
-      recordings: queue.map((track) => track.id),
+    const common = {
       start: index,
       from:
         start?.kind === "saved"
-          ? { kind: "saved" }
-          : { kind: "position", position_ms: Math.round(position * 1000) },
-    });
+          ? { kind: "saved" as const }
+          : {
+              kind: "position" as const,
+              position_ms: Math.round(position * 1000),
+            },
+    };
+    const contextual = queue.some(
+      (entry) => "recording" in entry && entry.chapter != null,
+    );
+    const selection: QueueSelection = contextual
+      ? {
+          ...common,
+          entries: queue.map((entry) =>
+            "recording" in entry
+              ? {
+                  recording_id: entry.recording.id,
+                  ...(entry.chapter ? { chapter: { ...entry.chapter } } : {}),
+                }
+              : { recording_id: entry.id },
+          ),
+        }
+      : {
+          ...common,
+          recordings: queue.map((entry) =>
+            "recording" in entry ? entry.recording.id : entry.id,
+          ),
+        };
+    return this.run(selection);
   }
   prepareSelection = (): PreparedSelection => {
     const intention = ++this.intention;
@@ -118,7 +154,9 @@ export class NativeCommands {
       action,
       count: Array.isArray(actions)
         ? actions.length
-        : actions.recordings.length,
+        : "entries" in actions
+          ? actions.entries.length
+          : actions.recordings.length,
     });
     try {
       if (Array.isArray(actions)) await session.submit(actions);

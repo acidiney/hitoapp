@@ -1,4 +1,4 @@
-import type { Recording } from "../types";
+import type { AudiobookChapterAnchor, Recording } from "../types";
 
 export type Track = Pick<
   Recording,
@@ -7,8 +7,16 @@ export type Track = Pick<
   Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
 
 export type PlaybackStart = { kind: "saved" | "position"; position: number };
+export type PlaybackQueueInput =
+  | Track
+  | { recording: Track; chapter?: AudiobookChapterAnchor };
+export type PlaybackOccurrence = {
+  id: string;
+  recording: Track;
+  chapter?: AudiobookChapterAnchor | null;
+};
 export type PlaybackSelection = {
-  queue: Track[];
+  queue: PlaybackQueueInput[];
   index?: number;
   start?: PlaybackStart;
 };
@@ -42,7 +50,7 @@ export type QueuePage = {
   version: number;
   total: number;
   offset: number;
-  entries: { id: string; recording: Track }[];
+  entries: PlaybackOccurrence[];
 };
 
 export interface Player {
@@ -66,7 +74,7 @@ export interface Player {
   selectEntry(entry: string): Promise<void>;
   removeEntry(entry: string): void;
   playQueue(
-    queue: Track[],
+    queue: PlaybackQueueInput[],
     index?: number,
     start?: PlaybackStart,
   ): Promise<void>;

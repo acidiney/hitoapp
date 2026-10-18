@@ -100,8 +100,12 @@ export function useAudiobookPlayback(
         return;
       }
       const queue = chapters.map((entry) => ({
-        ...entry,
-        id: entry.recording_id!,
+        recording: { ...entry, id: entry.recording_id! },
+        chapter: {
+          audiobook_id: checked.playlist.id,
+          entry_id: entry.entry_id,
+          recording_id: entry.recording_id!,
+        },
       }));
       count = queue.length;
       outcome = (await select({
