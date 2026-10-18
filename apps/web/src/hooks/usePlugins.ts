@@ -11,9 +11,11 @@ import type {
 import { useRequestScope } from "./useRequestScope";
 import { errorMessage } from "../format";
 import { log } from "../log";
+import { useRefreshArtworkAvailability } from "../ArtworkProvider";
 
 export function usePlugins(account: string) {
   const scope = useRequestScope(account);
+  const refreshArtworkAvailability = useRefreshArtworkAvailability(account);
   const owner = useMemo(() => ({ scope, generation: 0 }), [scope]);
   const busy = useRef<typeof owner | null>(null);
   const [snapshot, setSnapshot] = useState<{
@@ -147,13 +149,24 @@ export function usePlugins(account: string) {
         (signal) => pluginsApi.clearCredential(account, plugin, signal),
         replace,
       ),
-    refresh: (plugin: PluginInstallation, body: RefreshPlugin) =>
-      perform(
+    refresh: async (plugin: PluginInstallation, body: RefreshPlugin) => {
+      const request = scope.capture();
+      const result = await perform(
         "refresh",
         (signal) => pluginsApi.refresh(account, plugin, body, signal),
         (data, result) =>
           result.kind === "updated" ? replace(data, result.installation) : data,
-      ),
+      );
+      if (
+        request.active() &&
+        body.accept_manifest_digest != null &&
+        result?.kind === "updated" &&
+        !plugin.manifest.capabilities.includes("artwork") &&
+        result.installation.manifest.capabilities.includes("artwork")
+      )
+        refreshArtworkAvailability();
+      return result;
+    },
   };
 }
 export type PluginActions = ReturnType<typeof usePlugins>;

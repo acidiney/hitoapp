@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "./components/plugins/PluginSettings";
+import { ArtworkProvider } from "./ArtworkProvider";
 import { pluginsApi } from "./pluginsApi";
 import type { PluginInstallation, PluginSettings as Settings } from "./types";
 vi.mock("./pluginsApi", () => ({
@@ -53,6 +54,13 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+function settingsPage(account: string, admin: boolean) {
+  return createElement(ArtworkProvider, {
+    account,
+    children: createElement(PluginSettings, { account, admin }),
+  });
+}
+
 test("administrators offer an address and connect separately using its manifest name", async () => {
   vi.mocked(pluginsApi.settings).mockResolvedValue({
     ...initial,
@@ -62,7 +70,7 @@ test("administrators offer an address and connect separately using its manifest 
     ...service,
     name: "Fixture provider",
   });
-  render(createElement(PluginSettings, { account: "admin", admin: true }));
+  render(settingsPage("admin", true));
   fireEvent.click(await screen.findByText("Services for this server"));
 
   const address = screen.getByRole("textbox", { name: "Service address" });
@@ -85,7 +93,9 @@ test("administrators offer an address and connect separately using its manifest 
   expect(screen.getByLabelText("Service").textContent).toBe("Fixture provider");
   expect(screen.getByRole("button", { name: "Connect service" })).toBeTruthy();
   expect(pluginsApi.install).not.toHaveBeenCalled();
-  expect(screen.getByText("No plugins connected to this account.")).toBeTruthy();
+  expect(
+    screen.getByText("No plugins connected to this account."),
+  ).toBeTruthy();
   expect((address as HTMLInputElement).value).toBe("");
 });
 
@@ -98,7 +108,7 @@ test("invalid nonempty custom labels reach server validation and retain the draf
     services: [],
   });
   vi.mocked(pluginsApi.offer).mockRejectedValue(new Error(validationError));
-  render(createElement(PluginSettings, { account: "admin", admin: true }));
+  render(settingsPage("admin", true));
   fireEvent.click(await screen.findByText("Services for this server"));
   fireEvent.click(screen.getByText("Advanced settings"));
   const label = screen.getByRole("textbox", {
@@ -127,7 +137,7 @@ test("ordinary accounts connect offered services and retain failed token drafts"
   vi.mocked(pluginsApi.install)
     .mockRejectedValueOnce(new Error("Plugin unavailable"))
     .mockResolvedValue(plugin);
-  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  render(settingsPage("bob", false));
   expect(
     screen.getByRole("link", { name: "Discover" }).getAttribute("href"),
   ).toBe("/discover");
@@ -170,7 +180,7 @@ test("manifest changes are reviewed before accepting new capabilities", async ()
       kind: "updated",
       installation: { ...plugin, revision: 2, manifest },
     });
-  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  render(settingsPage("bob", false));
   fireEvent.click(
     await screen.findByRole("button", { name: "Check connection" }),
   );
@@ -205,17 +215,13 @@ test("old account responses cannot add private connections after an account chan
         resolve = done;
       }),
   );
-  const view = render(
-    createElement(PluginSettings, { account: "alice", admin: true }),
-  );
+  const view = render(settingsPage("alice", true));
   fireEvent.click(
     await screen.findByRole("button", { name: "Connect service" }),
   );
   await waitFor(() => expect(pluginsApi.install).toHaveBeenCalledTimes(1));
   const signal = vi.mocked(pluginsApi.install).mock.calls[0][2];
-  view.rerender(
-    createElement(PluginSettings, { account: "bob", admin: false }),
-  );
+  view.rerender(settingsPage("bob", false));
   await screen.findByRole("button", { name: "Connect service" });
   await act(async () => resolve(plugin));
   await waitFor(() => expect(signal.aborted).toBe(true));
@@ -228,7 +234,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
   vi.mocked(pluginsApi.install).mockRejectedValue(
     new Error("Plugin unavailable"),
   );
-  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  render(settingsPage("bob", false));
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "failed-private-draft" },
   });
@@ -248,7 +254,7 @@ test("unrelated service offers do not erase a failed token draft on reload", asy
 
 test("withdrawing the selected offer clears its token before selecting another service", async () => {
   vi.mocked(pluginsApi.install).mockRejectedValue(new Error("Offer withdrawn"));
-  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  render(settingsPage("bob", false));
   fireEvent.change(await screen.findByLabelText("Bearer token (optional)"), {
     target: { value: "old-service-private-draft" },
   });
@@ -270,7 +276,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
   vi.mocked(pluginsApi.install)
     .mockRejectedValueOnce(new Error("Unavailable"))
     .mockResolvedValue(plugin);
-  render(createElement(PluginSettings, { account: "bob", admin: false }));
+  render(settingsPage("bob", false));
   fireEvent.click(
     await screen.findByRole("button", { name: "Connect service" }),
   );

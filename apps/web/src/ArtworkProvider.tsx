@@ -30,6 +30,13 @@ export function ArtworkProvider({
   );
 }
 
+export function useRefreshArtworkAvailability(account: string) {
+  const retrieval = useContext(ArtworkContext);
+  if (!retrieval || retrieval.account !== account)
+    throw new Error("Plugin settings require their account artwork provider");
+  return useCallback(() => retrieval.refreshAvailability(), [retrieval]);
+}
+
 export function useRecordingArtwork(recording?: string) {
   const retrieval = useContext(ArtworkContext);
   const subscribe = useCallback(

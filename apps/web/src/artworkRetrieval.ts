@@ -48,7 +48,7 @@ export class ArtworkRetrieval {
   private revision = 0;
   private active = true;
 
-  constructor(private readonly account: string) {}
+  constructor(readonly account: string) {}
 
   open() {
     this.active = true;
@@ -109,6 +109,29 @@ export class ArtworkRetrieval {
     if (entry && (entry.running || this.pending.has(entry))) return;
     this.entries.delete(recording);
     this.missing(recording);
+  }
+
+  refreshAvailability() {
+    if (!this.active) return;
+    const started = performance.now();
+    let count = 0;
+    for (const entry of [...this.entries.values()]) {
+      if (
+        entry.running ||
+        this.pending.has(entry) ||
+        entry.snapshot.phase !== "unavailable"
+      )
+        continue;
+      this.entries.delete(entry.recording);
+      if (this.listeners.has(entry.recording)) this.missing(entry.recording);
+      count++;
+    }
+    log.debug("artwork.availability_refreshed", {
+      account_id: this.account,
+      reason: "capability_approved",
+      count,
+      duration_ms: Math.round(performance.now() - started),
+    });
   }
 
   private owns(entry: Entry) {
