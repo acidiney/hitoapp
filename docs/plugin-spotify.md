@@ -18,7 +18,15 @@ Import a copy creates Hito's editable, owner-only playlist. It preserves provide
 
 Null and unsupported entries retain their positions as unknown items. A malformed recognized track fails the snapshot instead of silently losing metadata. Failed or incomplete later pages cannot replace a retained complete snapshot.
 
-Follow is planned, including hourly and daily schedules. YouTube matching is also planned. Neither is implemented by this plugin.
+Hito also offers read-only Follow playlists with hourly or daily refresh and automatic audio resolution through approved source providers. Those workflows belong to Hito; the Spotify plugin supplies metadata and never audio. See [Follow playlists](playlist-follow.md) and [automatic sources](automatic-sources.md).
+
+## Verified album metadata
+
+The accepted producer source retains the public playlist response's `albumOfTrack` URI and name as the verified Spotify release ID and title. That response does not establish the album artist, so the plugin omits that field. It preserves recording performers and disc/track numbers without guessing an album credit or fetching each album separately.
+
+An absent or null album leaves the recording without a release. A supplied album must have the exact Spotify album URI format and a valid bounded title; malformed metadata fails the complete snapshot with the existing safe error. Album fields participate in snapshot hashing and cache byte accounting.
+
+All 23 owned TCP cases and strict all-target Clippy pass. They cover 101-entry order and duplicate retention, exact verified album fields, absent/null albums, twelve malformed-field cases, pinned snapshots and unchanged upstream request counts. Independent source review found no actionable issue. This slice has not yet passed a live packaged album import or been deployed to the normal service. The Hito host must support the shared unknown-album-credit contract before that deployment. Existing independent playlist copies still need backfill without changing recording identities, entries or personal data.
 
 ## Ownership and snapshot consistency
 
