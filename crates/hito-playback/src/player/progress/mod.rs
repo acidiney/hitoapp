@@ -4,7 +4,7 @@ use super::{
     effects::{Key, Update},
     ownership::State,
 };
-use hito_core::{Actor, Collection};
+use hito_core::{Actor, AudiobookChapterAnchor, Collection};
 use std::time::Duration;
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -25,8 +25,14 @@ struct Checkpoint {
     actor: Actor,
     key: Key,
     recording: Uuid,
+    chapter: Option<ChapterCheckpoint>,
     position: i64,
     speed: u16,
+}
+#[derive(Clone, Copy)]
+struct ChapterCheckpoint {
+    id: Uuid,
+    anchor: AudiobookChapterAnchor,
 }
 struct Sample {
     checkpoint: Checkpoint,
@@ -108,13 +114,34 @@ impl Progress {
         if self.current.is_none() && !update.playing && !update.ended && update.seek_id.is_none() {
             return;
         }
-        let position = update.position_ms().min(i64::MAX as u64) as i64;
-        let changed = self.current.as_ref().is_none_or(|sample| {
-            sample.checkpoint.position != position
-                || sample.seek_id != update.seek_id
-                || sample.checkpoint.speed != update.speed
+        let current = owned.queue.snapshot().current.unwrap();
+        let completed_after_start = update.ended
+            && update.position
+                > owned.seek.map_or(Duration::ZERO, |seek| {
+                    Duration::from_millis(seek.position_ms)
+                });
+        let chapter = current.chapter.filter(|_| {
+            update.playing
+                || completed_after_start
+                || self
+                    .current
+                    .as_ref()
+                    .is_some_and(|sample| sample.checkpoint.chapter.is_some())
         });
-        let terminal = update.ended
+        let first_heard_chapter = chapter.is_some()
+            && self
+                .current
+                .as_ref()
+                .is_none_or(|sample| sample.checkpoint.chapter.is_none());
+        let position = update.position_ms().min(i64::MAX as u64) as i64;
+        let changed = first_heard_chapter
+            || self.current.as_ref().is_none_or(|sample| {
+                sample.checkpoint.position != position
+                    || sample.seek_id != update.seek_id
+                    || sample.checkpoint.speed != update.speed
+            });
+        let terminal = first_heard_chapter
+            || update.ended
             || self
                 .current
                 .as_ref()
@@ -131,7 +158,11 @@ impl Progress {
                 id: Uuid::new_v4(),
                 actor: owned.actor.clone(),
                 key: update.key,
-                recording: owned.queue.snapshot().current.unwrap().recording_id,
+                recording: current.recording_id,
+                chapter: chapter.map(|anchor| ChapterCheckpoint {
+                    id: Uuid::new_v4(),
+                    anchor,
+                }),
                 position,
                 speed: update.speed,
             },

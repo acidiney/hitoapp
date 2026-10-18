@@ -74,20 +74,29 @@ impl Writer {
             self.pending = Some(Box::pin(async move {
                 let checkpoint = &queued.checkpoint;
                 let started = Instant::now();
-                tracing::debug!(event = "player_progress_write_started", operation_id = %checkpoint.id, account_id = checkpoint.actor.user().id, "Saving listening progress");
+                let mut operations = vec![Operation {
+                    id: checkpoint.id,
+                    action: Action::ProgressSet {
+                        recording_id: checkpoint.recording,
+                        position_ms: checkpoint.position,
+                        speed: f64::from(checkpoint.speed) / 1000.,
+                    },
+                }];
+                if let Some(chapter) = checkpoint.chapter {
+                    operations.push(Operation {
+                        id: chapter.id,
+                        action: Action::AudiobookChapterSet {
+                            chapter: chapter.anchor,
+                        },
+                    });
+                }
+                tracing::debug!(event = "player_progress_write_started", operation_id = %checkpoint.id, account_id = checkpoint.actor.user().id, operation_count = operations.len(), "Saving listening progress");
                 let result = collection
                     .apply(
                         &checkpoint.actor,
                         SyncBatch {
                             device_id: client,
-                            operations: vec![Operation {
-                                id: checkpoint.id,
-                                action: Action::ProgressSet {
-                                    recording_id: checkpoint.recording,
-                                    position_ms: checkpoint.position,
-                                    speed: f64::from(checkpoint.speed) / 1000.,
-                                },
-                            }],
+                            operations,
                         },
                     )
                     .await
