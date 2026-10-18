@@ -1,0 +1,23 @@
+# Retained provider credits
+
+The development SDK can attach optional recording attribution to structured provider metadata. Core retains it on the existing immutable metadata observation and projects it through recording metadata history. Attribution describes the observed provider recording. It does not establish the source currently playing, a licence, permission to download, or a canonical recording match.
+
+## Contract and ownership
+
+`RecordingAttribution` contains ordered `creators`, a `provider_label` and a `content_url`. It accepts one to sixteen creators, each at most 2,048 UTF-8 bytes, and a provider label of at most 256 bytes. Text must be nonblank and contain no control characters. Creator order and repeated names are preserved.
+
+The backlink is at most 2,048 bytes and must already be a canonical HTTPS URL. User information, queries, fragments, control characters, whitespace and backslashes are rejected. This first contract intentionally accepts no query parameters. It validates syntax; it does not resolve DNS or verify public accessibility, page ownership, licence terms or whether a path contains sensitive information. Providers must supply their public canonical content page.
+
+The complete response still has its existing transport budget. Individual field maxima do not guarantee that all maximum-size fields fit one response. Nested attribution rejects unknown fields, missing required fields and incorrect types. Absence or null means no attribution; serialization omits absence, preserving legacy recording, search, playlist and metadata response bytes and existing manifest inputs.
+
+The SDK owns this wire contract. Core owns provider validation, transactions, immutable observation identity and account access. The existing full-recording serialization and digest include supplied attribution. Identical details reuse the prior observation. Adding credits creates a new observation even if the provider revision stays unchanged, leaving older observations intact. Personal metadata overrides remain independent.
+
+History reads borrow the retained provider JSON, enforce a 256 KiB input limit, deserialize only attribution and ignore unrelated provider fields. Retained attribution is validated again, with static errors that do not echo its contents. No migration, historical rewrite, additional SQL query, upstream lookup, audio request or download is introduced. Existing workflow logs retain their safe outcomes and correlations.
+
+## Directed verification
+
+The first public core case initially failed because retained provider metadata did not expose credits. Three cases now pass using actual temporary SQLite and an owned HTTP provider. They verify adoption, personal edits, exact duplicate playlist entries, likes and progress, source choices, immutable history, idempotent refresh, restart and disconnection. Invalid initial credits publish no partial state; an invalid replacement preserves accepted credits and private data. A separately authenticated account cannot read or adopt another account's recording connection. Original WAV bytes remain unchanged, with no audio fetch or queued download.
+
+All 64 SDK cases pass with schema support, including ten attribution contract/schema cases. Strict SDK/core all-target Clippy and formatting pass. Independent security, correctness and performance reviews found no concrete blocking issue. Historical raw JSON containing unrelated future fields and malformed nested attribution through the HTTP boundary have no dedicated regression in this slice.
+
+The full source run passes 342 distinct core cases, with the usual fault case ignored, and all 156 distinct server cases. Child-process fixtures produce repeated execution lines for one core and three server cases; those repeats are not extra distinct tests. Strict all-target workspace Clippy and formatting pass. Actual Rust generation adds one schema and an optional attribution field to `ProviderRecording` and `MetadataObservation`; all other schema values and routes remain unchanged. OpenAPI and TypeScript reproduce byte for byte. All 341 frontend cases in the feature snapshot, both type configurations and the production build pass. No attribution UI or normal deployment is included. Jamendo additionally needs creator/provider credit rendering and backlinks, persistence-policy disclosure and acceptance, live provider checks and host enforcement before accounts can use it. See [Jamendo requirements](plugin-jamendo.md#verification-and-remaining-work).
