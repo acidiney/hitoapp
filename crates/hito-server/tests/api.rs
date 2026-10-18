@@ -34,6 +34,9 @@ mod collection_publication_input;
 #[path = "api/playlist_import.rs"]
 mod playlist_import;
 
+#[path = "api/playlist_metadata_refresh.rs"]
+mod playlist_metadata_refresh;
+
 #[path = "api/playlist_follow.rs"]
 mod playlist_follow;
 
