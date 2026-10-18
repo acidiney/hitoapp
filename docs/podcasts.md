@@ -202,6 +202,14 @@ The same browser workflow removes the download through the UI and verifies HTTP 
 
 Crash recovery, physical reclamation and shared-reference removal, native playback and downloads, packaged-download behavior and broader deployment acceptance remain open. These development fixtures do not complete the release gates.
 
+## Simplecast import investigation
+
+On 18 October 2026, the user reported an import failure for [this Simplecast feed](https://feeds.simplecast.com/ihq5xr73). A bounded public fetch returned HTTP 200 and 55 episodes. Both the parser and a fresh durable subscription workflow accepted all 55. A read-only check of the normal server also found 55 episodes, content revision 1 and no stored refresh error for that address.
+
+The deployed image `sha256:976ad6692811c8b14633b125c3e5ec015b1f8dd9ae06d0ef3c6906298ab2ff11` then passed the complete isolated public-feed workflow in Chromium in 11.7 seconds and WebKit in 13.3 seconds, including import, playback, navigation, seeking and no implicit download. An earlier WebKit run failed during navigation; the next run added safe failure diagnostics and retained every assertion. The application was unchanged, and that earlier failure remains unexplained.
+
+The original reported failure remains open pending its exact UI stage. These checks do not establish a fix or physical mobile Safari acceptance. Temporary Rust probes were removed. Browser failure reports now identify individual stages and capture only boolean and numeric media observations before cleanup. All three disposable hosts stopped with exit 0, no OOM kill or restart; scoped logs excluded the supplied feed hostname, episode titles, disposable password and private storage paths. No normal listener account was authenticated or changed.
+
 ## Candidate image and restored-volume rehearsal
 
 On 18 October 2026, the `linux/arm64` server image built from application source `16f009c` passed a restored-volume rehearsal. The normal server stopped for a fresh whole-volume backup and restarted on its existing image. The archive was verified and restored into a new labeled volume, preserving file bytes, permissions, ownership and timestamps before migration. The candidate migration-only command then applied exactly versions 40–44 to that restored version-39 library, without starting HTTP or application workers.
