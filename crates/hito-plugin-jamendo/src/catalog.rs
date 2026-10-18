@@ -3,7 +3,8 @@ use crate::{
     transport::{FORMAT, Selection, Track, Transport},
 };
 use hito_plugin_sdk::{
-    ProviderRecording, ProviderRelease, ProviderSource, SearchPage, SearchRequest, SourcePage,
+    ProviderRecording, ProviderRelease, ProviderSource, RecordingAttribution, SearchPage,
+    SearchRequest, SourcePage,
 };
 use std::sync::Arc;
 use url::Url;
@@ -112,7 +113,11 @@ fn recording(track: &Track) -> Result<ProviderRecording, Error> {
         release,
         disc_number: None,
         revision: None,
-        attribution: None,
+        attribution: Some(RecordingAttribution {
+            creators: vec![track.artist_name.clone()],
+            provider_label: "Jamendo".into(),
+            content_url: format!("https://www.jamendo.com/track/{owner}"),
+        }),
     };
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(recording)

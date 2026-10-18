@@ -55,6 +55,13 @@ async fn search_to_explicit_audio_uses_typed_metadata_without_prefetching_media(
     assert_eq!(found.artist, fixture::ARTIST);
     assert_eq!(found.duration_ms, Some(1_000));
     assert_eq!(found.track_number, Some(3));
+    let attribution = found
+        .attribution
+        .as_ref()
+        .expect("provider recording credits were lost");
+    assert_eq!(attribution.creators, vec![fixture::ARTIST.to_owned()]);
+    assert_eq!(attribution.provider_label, "Jamendo");
+    assert_eq!(attribution.content_url, fixture::CONTENT_URL);
     let release = found.release.as_ref().expect("provider album was lost");
     assert_eq!(release.title, fixture::ALBUM);
     assert_eq!(release.artist.as_deref(), Some(fixture::ARTIST));

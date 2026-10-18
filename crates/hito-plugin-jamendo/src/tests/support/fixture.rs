@@ -21,6 +21,7 @@ pub const QUERY: &str = "Owned música & + # ?";
 pub const TITLE: &str = "Owned signal";
 pub const ARTIST: &str = "Owned performer";
 pub const ALBUM: &str = "Owned album";
+pub const CONTENT_URL: &str = "https://www.jamendo.com/track/42";
 
 pub struct Server {
     pub base: Url,
@@ -213,7 +214,8 @@ async fn tracks(
             "audiodownload_allowed": true,
             "image": state.base.join("artwork/owned.png?private=artwork").unwrap(),
             "album_image": state.base.join("artwork/owned.png?private=artwork").unwrap(),
-            "shareurl": "https://www.jamendo.com/track/42", "shorturl": "https://jamen.do/t/42"
+            "shareurl": format!("https://share.invalid/track/99?private=share&client_id={CLIENT_ID}"),
+            "shorturl": format!("https://short.invalid/t/99?private=short&client_id={CLIENT_ID}")
         }]
     }))
     .into_response()
@@ -264,7 +266,22 @@ fn private_headers_absent(headers: &HeaderMap) -> bool {
 }
 
 pub fn assert_private_urls_absent(bytes: &[u8]) {
-    let text = std::str::from_utf8(bytes).expect("response was not JSON UTF-8");
+    let mut response: serde_json::Value =
+        serde_json::from_slice(bytes).expect("response was not JSON UTF-8");
+    for path in [
+        "/attribution/content_url",
+        "/items/0/attribution/content_url",
+    ] {
+        if let Some(content_url) = response.pointer_mut(path) {
+            assert_eq!(
+                content_url.as_str(),
+                Some(CONTENT_URL),
+                "provider backlink did not use the canonical recording page"
+            );
+            *content_url = serde_json::Value::Null;
+        }
+    }
+    let text = serde_json::to_string(&response).expect("response JSON serialization failed");
     for forbidden in [CLIENT_ID, "private-", "http://", "https://", "127.0.0.1"] {
         assert!(
             !text.contains(forbidden),
