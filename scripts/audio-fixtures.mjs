@@ -1,8 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const arguments_ = process.argv.slice(2);
-if (arguments_.length > 1 || arguments_.some(argument => argument !== '--e2e')) {
-  throw new Error('Usage: audio-fixtures.mjs [--e2e]');
+if (arguments_.length !== new Set(arguments_).size ||
+    arguments_.some(argument => !['--e2e', '--audiobook'].includes(argument)) ||
+    (arguments_.includes('--audiobook') && !arguments_.includes('--e2e'))) {
+  throw new Error('Usage: audio-fixtures.mjs [--e2e [--audiobook]]');
 }
 const folder = arguments_.includes('--e2e') ? '../fixtures/e2e-generated/' : '../fixtures/generated/';
 const output = fileURLToPath(new URL(folder, import.meta.url));
@@ -28,7 +30,9 @@ for (const frequency of [440, 660]) {
   });
   const list = Buffer.concat([Buffer.from('LIST\0\0\0\0INFO', 'binary'), ...tags]);
   list.writeUInt32LE(list.length - 8, 4);
-  const audio = Buffer.concat([buffer, list]);
+  const audio = Buffer.concat(arguments_.includes('--audiobook')
+    ? [buffer.subarray(0, 36), list, buffer.subarray(36)]
+    : [buffer, list]);
   audio.writeUInt32LE(audio.length - 8, 4);
   writeFileSync(`${destination}/Fixture ${frequency} Hz.wav`, audio);
 }
