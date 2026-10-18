@@ -1,11 +1,20 @@
 mod artwork;
 mod authorization;
+mod catalog;
 mod content;
 mod metadata;
 mod playlists;
 mod preparation;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use authorization::Authorization;
+pub use catalog::{
+    ARTIST_DISCOGRAPHY_PATH, ARTIST_PROFILE_PATH, ArtistDiscographyPage, ArtistDiscographyRequest,
+    ArtistProfileRequest, CATALOG_CAPABILITIES_PATH, CATALOG_VERSION, CatalogArtistKind,
+    CatalogArtistProfile, CatalogArtistRef, CatalogCapabilities, CatalogCreditMember,
+    CatalogOperation, CatalogReleaseGroup, CatalogReleaseGroupKind, MAX_CATALOG_CREDIT_MEMBERS,
+    MAX_CATALOG_CURSOR_BYTES, MAX_CATALOG_PAGE_BYTES, MAX_CATALOG_PAGE_ITEMS,
+    MAX_CATALOG_PROFILE_BYTES,
+};
 pub use content::{
     AUDIO_PATH, DETAIL_PATH, MAX_SOURCES_PER_RECORDING, ProviderRecording, ProviderRelease,
     ProviderSource, RecordingRequest, SEARCH_PATH, SOURCES_PATH, SearchPage, SearchRequest,
