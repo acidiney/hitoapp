@@ -49,7 +49,7 @@ The shared account-scoped UI checks missing recording covers through `GET /api/v
 
 Duplicate occurrences and different components share one retrieval for each recording. The browser admits two HTTP requests at a time, including response decoding, and at most 16 workflows. Its cache and waiting queue share a 128-entry bound. Status polling runs every second for at most two minutes. Terminal failures require the track-details Retry artwork action. Navigation and account changes cancel observers and suppress late responses; physical request slots stay occupied until their promises settle.
 
-After an explicit artwork-capability approval is acknowledged, the UI clears that account's completed unavailable checks. Visible observers retry through the existing bounded workflow; other covers wait until viewed. Reviewing changes alone does not enable artwork. Ready covers, active jobs and terminal failures retain their state. This fix is integrated in source and awaits the next normal installation upgrade; the earlier deployed UI can require a reload after approval.
+After an explicit artwork-capability approval is acknowledged, the UI clears that account's completed unavailable checks. Visible observers retry through the existing bounded workflow; other covers wait until viewed. Reviewing changes alone does not enable artwork. Ready covers, active jobs and terminal failures retain their state. This fix is deployed on the normal local server. A browser already running the earlier UI must reload once to receive the new code.
 
 More than 128 simultaneous missing covers can leave placeholders until remount or an explicit retry. Large-library visibility and paging behavior still need release-load verification.
 
