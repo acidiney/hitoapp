@@ -6,12 +6,20 @@ import {
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import type { components } from "../../src/generated";
+import { artistDiscographyData } from "./artist-discography-data";
 
 type Schema = components["schemas"];
 
-export async function artistReviewProvider(query: string) {
+export async function artistReviewProvider(
+  query: string,
+  options: { discography?: boolean } = {},
+) {
   if (process.env.HITO_ARTIST_REVIEW_E2E !== "1")
     throw new Error("The disposable artist provider requires explicit opt-in");
+  if (options.discography && process.env.HITO_ARTIST_DISCOGRAPHY_E2E !== "1")
+    throw new Error(
+      "The disposable discography provider requires explicit opt-in",
+    );
   const token = "owned-browser-private-artist-provider-token";
   const manifest = {
     id: "org.hito.browser.artist-review",
@@ -50,6 +58,9 @@ export async function artistReviewProvider(query: string) {
     snapshot: null,
     limit: 20,
   } satisfies Schema["ArtistSearchRequest"];
+  const discography = options.discography
+    ? artistDiscographyData(profile.artist)
+    : null;
   const calls: string[] = [];
   const counters = { unexpected: 0, unsafeHeaders: 0, requests: 0 };
   const active = new Set<Promise<void>>();
@@ -58,7 +69,7 @@ export async function artistReviewProvider(query: string) {
       counters.unexpected++;
       response.writeHead(400).end();
     };
-    if (++counters.requests > 16) return reject();
+    if (++counters.requests > (discography ? 20 : 16)) return reject();
     const path = request.url ?? "";
     const isManifest = path === "/catalog/v1/manifest";
     const authorization = request.headers.authorization;
@@ -99,10 +110,30 @@ export async function artistReviewProvider(query: string) {
       if (path === "/catalog/v1/catalog/capabilities")
         return reply("profile_descriptor", {
           catalog_version: 1,
-          operations: ["artist_profile"],
+          operations: discography
+            ? ["artist_profile", "artist_discography"]
+            : ["artist_profile"],
         });
     }
     if (request.method === "POST") {
+      if (discography && path === "/catalog/v1/catalog/artists/discography") {
+        for (const [kind, cursor, page, maximum] of [
+          ["discography_first", null, discography.first, 2],
+          ["discography_next", discography.cursor, discography.last, 1],
+        ] as const) {
+          if (
+            isDeepStrictEqual(body, {
+              artist_id: profile.artist.id,
+              cursor,
+              snapshot: null,
+              limit: 20,
+            }) &&
+            calls.filter((call) => call === kind).length < maximum
+          )
+            return reply(kind, page);
+        }
+        return reject();
+      }
       if (
         path === "/catalog/v1/catalog/artists/search" &&
         isDeepStrictEqual(body, search)
@@ -150,6 +181,7 @@ export async function artistReviewProvider(query: string) {
     search,
     candidates,
     profile,
+    discography,
     origin,
     address: `${origin}/catalog/`,
     calls,
