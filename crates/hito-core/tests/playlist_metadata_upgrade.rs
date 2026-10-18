@@ -343,7 +343,7 @@ async fn metadata_upgrade_preserves_real_imports_follows_private_state_and_delet
     .await
     .expect("the real production upgrade must accept populated schema-45 receipts");
     let mut database = upgrade::connect(&old_database).await;
-    upgrade::assert_preserved(&mut database, &baseline, 51).await;
+    upgrade::assert_preserved(&mut database, &baseline, 52).await;
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT seq FROM sqlite_sequence WHERE name = 'sync_events'")
             .fetch_one(&mut database)
@@ -434,7 +434,7 @@ async fn metadata_upgrade_preserves_real_imports_follows_private_state_and_delet
         server.requests("v1/playlists/items").await.len(),
         item_requests
     );
-    upgrade::assert_preserved(&mut database, &baseline, 51).await;
+    upgrade::assert_preserved(&mut database, &baseline, 52).await;
     support::synchronize(
         &upgraded,
         &accounts[0].actor,

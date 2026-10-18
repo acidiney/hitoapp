@@ -50,6 +50,18 @@ pub const ADDED: &[(&str, &str)] = &[
     ("trigger", "playlist_artwork_retain"),
     ("trigger", "playlist_artwork_replace"),
     ("trigger", "playlist_artwork_unretain"),
+    ("table", "community_reporters"),
+    ("index", "sqlite_autoindex_community_reporters_1"),
+    ("index", "community_credential_fingerprints"),
+    ("table", "community_reports"),
+    ("index", "sqlite_autoindex_community_reports_1"),
+    ("index", "community_report_queue"),
+    ("index", "community_report_account"),
+    ("index", "community_report_session"),
+    ("trigger", "community_report_identity"),
+    ("trigger", "community_reporting_disabled"),
+    ("trigger", "community_reporting_logout"),
+    ("trigger", "community_reporting_session_changed"),
 ];
 
 pub const LEGACY_JOB_COLUMNS: &[&str] = &[
@@ -79,6 +91,8 @@ pub const NEW_TABLES: &[&str] = &[
     "account_community_preferences",
     "release_artwork",
     "playlist_artwork",
+    "community_reporters",
+    "community_reports",
 ];
 pub const NEW_JOB_COLUMNS: &[&str] = &[
     "entity_kind",
@@ -108,7 +122,7 @@ pub async fn reference() -> SqliteConnection {
     .await
     .unwrap();
     let all = sqlx::migrate!("./migrations");
-    for version in [49, 51] {
+    for version in [49, 52] {
         let before = schema(&mut reference).await;
         Migrator {
             migrations: Cow::Owned(
@@ -122,7 +136,7 @@ pub async fn reference() -> SqliteConnection {
         .run(&mut reference)
         .await
         .unwrap();
-        if version == 51 {
+        if version == 52 {
             let after = schema(&mut reference).await;
             let mut replaced = Vec::new();
             for object in &before {
@@ -130,7 +144,7 @@ pub async fn reference() -> SqliteConnection {
                     .iter()
                     .find(|current| current.0 == object.0 && current.1 == object.1)
                     .expect(
-                        "the collection artwork migration must not remove prior schema objects",
+                        "the community and collection artwork migrations must not remove prior schema objects",
                     );
                 if current != object {
                     replaced.push((object.0.as_str(), object.1.as_str()));
@@ -157,7 +171,7 @@ pub async fn reference() -> SqliteConnection {
             );
             assert_eq!(
                 added, expected_added,
-                "every additive 0050/0051 schema object must be named exactly"
+                "every additive 0050/0051/0052 schema object must be named exactly"
             );
         }
     }
@@ -176,6 +190,8 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
         "account_community_preferences",
         "release_artwork",
         "playlist_artwork",
+        "community_reporters",
+        "community_reports",
     ] {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
@@ -201,7 +217,7 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
             .unwrap();
         assert_eq!(
             count, 0,
-            "historical state must not imply community consent or collection covers"
+            "historical state must not imply community consent, reporters, contributions or collection covers"
         );
     }
     let invented: i64 = sqlx::query_scalar("SELECT count(*) FROM artwork_fetches WHERE entity_kind!='recording'
@@ -218,9 +234,9 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
             .fetch_one(&mut *connection)
             .await
             .unwrap();
-    assert_eq!(version, (51, 51));
+    assert_eq!(version, (52, 52));
     let migrations = sqlx::migrate!("./migrations");
-    for version in [50, 51] {
+    for version in [50, 51, 52] {
         let migration = migrations
             .iter()
             .find(|migration| migration.version == version)
@@ -234,5 +250,26 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
         .unwrap();
         assert_eq!(checksum.as_slice(), migration.checksum.as_ref());
     }
+    let ledger: Vec<(i64, String, bool, Vec<u8>)> = sqlx::query_as(
+        "SELECT version,description,success,checksum FROM _sqlx_migrations ORDER BY version",
+    )
+    .fetch_all(&mut *connection)
+    .await
+    .unwrap();
+    let expected = migrations
+        .iter()
+        .map(|migration| {
+            (
+                migration.version,
+                migration.description.to_string(),
+                true,
+                migration.checksum.to_vec(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ledger, expected,
+        "every migration identity, success receipt and checksum must match the actual production history"
+    );
     reference.close().await.unwrap();
 }

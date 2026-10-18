@@ -59,7 +59,7 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_collection_artwork()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 51).await;
+    assert_version(&mut connection, 52).await;
     expected.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     let origins = typed_rows(&mut connection,

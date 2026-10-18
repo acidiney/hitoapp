@@ -43,7 +43,7 @@ pub async fn seed(statistics: Statistics) -> Database {
             .await
             .unwrap();
     assert_eq!(
-        latest, 51,
+        latest, 52,
         "The workload must use the full actual production migration history"
     );
     collection_artwork_schema::assert_current(&mut connection).await;

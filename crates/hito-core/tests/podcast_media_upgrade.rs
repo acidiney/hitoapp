@@ -95,7 +95,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 51).await;
+    assert_version(&mut connection, 52).await;
     latest.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
