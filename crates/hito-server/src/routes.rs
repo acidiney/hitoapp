@@ -95,6 +95,10 @@ fn api_routes() -> OpenApiRouter<Services> {
         ))
         .routes(routes!(source_refresh::refresh_sources))
         .routes(routes!(source_resolution::resolve_source))
+        .routes(routes!(
+            api::artist_catalog::settings,
+            api::artist_catalog::update_settings
+        ))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))

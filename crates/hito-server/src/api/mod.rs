@@ -1,3 +1,4 @@
+pub mod artist_catalog;
 pub mod artwork;
 pub mod browsing;
 pub mod catalog;
