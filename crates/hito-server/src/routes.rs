@@ -71,6 +71,10 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::community::preferences,
             api::community::update_preferences
         ))
+        .routes(routes!(
+            api::community::ranking_preferences,
+            api::community::update_ranking_preferences
+        ))
         .routes(routes!(api::community::reset_credentials))
         .routes(routes!(api::community::successful_playback))
         .routes(routes!(podcasts::subscriptions, podcasts::subscribe))
@@ -85,6 +89,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(browsing::artists))
         .routes(routes!(browsing::artist))
         .routes(routes!(catalog::sources))
+        .routes(routes!(catalog::playback_sources))
         .routes(routes!(downloads::create, downloads::status))
         .routes(routes!(
             downloads::create_playlist,

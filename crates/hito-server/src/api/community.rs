@@ -9,8 +9,9 @@ use axum::{
     http::StatusCode,
 };
 use hito_core::{
-    CommunityCredentialReset, CommunityPreferences, CommunityReportAdmission, Services,
-    SuccessfulPlayback, UpdateCommunityPreferences,
+    CommunityCredentialReset, CommunityPreferences, CommunityRankingPreferences,
+    CommunityReportAdmission, Services, SuccessfulPlayback, UpdateCommunityPreferences,
+    UpdateCommunityRankingPreferences,
 };
 
 #[utoipa::path(get, path = "/api/v1/community/preferences", operation_id = "community_preferences",
@@ -43,6 +44,40 @@ pub async fn update_preferences(
         services
             .community
             .update_preferences(&actor, request)
+            .await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/v1/community/ranking-preferences", operation_id = "community_ranking_preferences",
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CommunityRankingPreferences), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn ranking_preferences(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<Json<CommunityRankingPreferences>> {
+    Ok(Json(services.community.ranking_preferences(&actor).await?))
+}
+
+#[utoipa::path(put, path = "/api/v1/community/ranking-preferences", operation_id = "update_community_ranking_preferences",
+    request_body = UpdateCommunityRankingPreferences, security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = CommunityRankingPreferences), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 500, body = ErrorResponse), (status = 502, body = ErrorResponse),
+))]
+pub async fn update_ranking_preferences(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<UpdateCommunityRankingPreferences>,
+) -> ApiResult<Json<CommunityRankingPreferences>> {
+    Ok(Json(
+        services
+            .community
+            .update_ranking_preferences(&actor, request)
             .await?,
     ))
 }
