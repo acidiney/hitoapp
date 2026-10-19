@@ -29,7 +29,7 @@ The combined source passes 505 frontend cases, both TypeScript configurations an
 
 ## Optional source ordering in core
 
-Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. Authenticated HTTP access is qualified below. The independent Privacy control is qualified below. Cached browser consumption is qualified below. Server configuration, refresh/automatic-resolution ordering and native consumption remain unfinished.
+Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. Authenticated HTTP access is qualified below. The independent Privacy control is qualified below. Cached browser consumption is qualified below. Server configuration is qualified below; refresh/automatic-resolution ordering and native consumption remain unfinished.
 
 The caller reads current authorized sources before consulting the community. Ready local files and downloads bypass the lookup, as do protected manual or reviewed choices. Eligible requests contain only distinct canonical public YouTube and Jamendo references from current approved sources. They contain no account credential, provider credential, title, path, audio or stream URL.
 
@@ -56,7 +56,7 @@ The Hito application now exposes `GET` and `PUT /api/v1/community/ranking-prefer
 
 One public-router workflow first failed with `404`, then passed unchanged after the routes were implemented. It covers explicit consent, peer isolation, malformed requests, stale revisions, logout denial, an exact public-only ranking request and unchanged private state, originals and provider activity. Together with existing community and lyric routes, all 15 cases pass. Strict core/server all-target checks, formatting, an independent repeat and fresh source review pass.
 
-Actual Rust export produces 98 paths and 231 schemas. All prior 96 paths, 229 schemas and other contract metadata remain identical. TypeScript is generated from that export, and both frontend type configurations pass. These routes are source-qualified; runtime origin configuration, refresh/automatic-resolution ordering, native playback consumption, held-response HTTP cancellation and completion logs, packaged acceptance and deployment remain open. The Privacy control is separately qualified below.
+Actual Rust export produces 98 paths and 231 schemas. All prior 96 paths, 229 schemas and other contract metadata remain identical. TypeScript is generated from that export, and both frontend type configurations pass. These routes are source-qualified; refresh/automatic-resolution ordering, native playback consumption, held-response HTTP cancellation and completion logs, packaged acceptance and deployment remain open. Runtime configuration is qualified below. The Privacy control is separately qualified below.
 
 ## Independent ranking Privacy control
 
@@ -64,7 +64,15 @@ Settings now has a separate disabled-by-default source-ranking preference. Editi
 
 Four coupled DOM cases pass in an independent Docker repeat. They exercise explicit save, independent consent, stale-save reload/retry and cancellation through the actual Settings page and HTTP client. A forwarded console-error assertion first exposed duplicate React sibling keys; the unchanged workflow passes after account-scoped panel keys were corrected. Both TypeScript configurations, formatting and fresh source review pass. Held account replies and the actual deadline still need dedicated controls.
 
-This qualifies the source only. The separately qualified [packaged lyric runtime](plugin-timed-content.md#packaged-static-lyric-workflows) predates this control. Cached browser consumption is qualified below. Runtime origin configuration, refresh/automatic-resolution ordering, native ranking consumption, real browser-to-service acceptance and normal deployment remain open.
+This qualifies the source only. The separately qualified [packaged lyric runtime](plugin-timed-content.md#packaged-static-lyric-workflows) predates this control. Cached browser consumption is qualified below. Runtime configuration is qualified below. Refresh/automatic-resolution ordering, native ranking consumption, real browser-to-service acceptance and normal deployment remain open.
+
+## Ranking runtime configuration
+
+Set `HITO_COMMUNITY_RANKINGS_ORIGIN` to enable the server's optional anonymous ranking client. It accepts an HTTPS origin, or HTTP on a numeric loopback address, through the existing core validator. Credentials, URL paths, queries and fragments are rejected. An absent value disables the client; an invalid value disables it with one static warning. Neither case prevents server startup. This setting is independent of the reporting origin and administrator-token file. Loading configuration and starting the server do not provision reporters or request rankings.
+
+The public child-process test first proved that a valid ranking origin without reporting credentials was ignored. It now passes against the implemented binding, including absent and invalid origins, independent reporting configuration, exact safe warning counts and normal start/stop events. Together with existing configuration, embedded-runtime and ranking HTTP checks, all eight cases pass in an independent repeat. Strict server all-target Clippy and formatting pass. The original reporting configuration block remains unchanged.
+
+These checks qualify runtime configuration and lifecycle. Non-Unicode environment input is guarded but lacks a separate case. Actual browser audio with the separate service, request-cancellation logging, native ranking consumption and normal deployment remain open.
 
 ## Cached browser playback ordering
 
@@ -72,7 +80,7 @@ Ordinary browser Play now reads `/playback-sources` through the authenticated HT
 
 The public Provider/Play workflow first selected the baseline source and failed its exact audio-source assertion. It passes unchanged after the cached read switches to the ranking route. An independent Docker repeat passes all 61 coupled cases across 38 files, including existing source-choice, recovery, queue, progress and account-lifecycle checks. Both TypeScript configurations and formatting pass. Compatibility fixtures change only the cached GET path and retain their prior assertions and separate legacy mutation routes. Fresh source review passes.
 
-This uses an owned DOM media fixture, not browser audio decoding or a running ranking service. Runtime origin configuration, refresh/automatic-resolution ordering, native consumption, caller-drop completion logs and packaged browser-to-service acceptance remain open. The normal deployment is unchanged.
+This uses an owned DOM media fixture, not browser audio decoding or a running ranking service. Refresh/automatic-resolution ordering, native consumption, caller-drop completion logs and packaged browser-to-service acceptance remain open. The normal deployment is unchanged.
 
 ## Current HTTP contract
 
