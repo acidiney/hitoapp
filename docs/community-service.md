@@ -1,6 +1,6 @@
 # Community service
 
-`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below is being qualified in source. Corrections and public operation remain unfinished under the [release plan](release-plan.md#community-service).
+`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below is source-qualified and awaits current packaged acceptance and publication. Private correction suggestions and maintainer decisions are implemented in the development service. Application correction submission, matching consumers and public operation remain unfinished under the [release plan](release-plan.md#community-service).
 
 ## Application integration in development
 
@@ -25,7 +25,7 @@ The server integration is optional. Configure both `HITO_COMMUNITY_ORIGIN` and `
 
 The application outbox permits 64 pending reports per account and 256 globally, with one running per account and two globally. Delivery allows three attempts over seven days, two-second bounded exchanges and an eight-second operation deadline. Server shutdown joins the worker. Resetting community credentials affects only the caller's reporter credentials and unfinished reports; it preserves consent preferences, listening state, originals and other accounts.
 
-The combined source passes 495 frontend cases, both TypeScript configurations and the production build, including a shared Provider test with held community delivery, a fixed Continue progress barrier and fresh chapter qualification. The core/HTTP fixtures cover consent, provenance, replay, revocation and credential recovery. Complete combined backend qualification and the real browser-to-service workflow remain in progress. Native outcome production, ranking consumption, correction submission, moderation and normal deployment remain unfinished.
+The combined source passes 505 frontend cases, both TypeScript configurations and the production build, including a shared Provider test with held community delivery, a fixed Continue progress barrier and fresh chapter qualification. The core/HTTP fixtures cover consent, provenance, replay, revocation and credential recovery. The combined core/server regressions, strict default workspace checks and remaining default package tests pass. Current packaged browser-to-service acceptance, native outcome production, ranking consumption, application correction submission, moderation controls and normal deployment remain unfinished.
 
 ## Current HTTP contract
 
@@ -34,9 +34,12 @@ POST request bodies use JSON with a 16 KiB limit. Request objects reject unknown
 | Route | Authority | Behavior |
 | --- | --- | --- |
 | `POST /v1/admin/reporters` | Separate administrator bearer | Accepts `{}` and returns `201` with a new reporter UUID and random 256-bit bearer. The token is returned on creation; there is no token-read endpoint. |
-| `DELETE /v1/admin/reporters/{reporter_id}` | Separate administrator bearer | Atomically removes that reporter's credential and outcomes. A valid existing or unknown UUID returns an empty `204`; malformed UUIDs return `400`. Missing credentials and reporter bearers return `401`. |
+| `DELETE /v1/admin/reporters/{reporter_id}` | Separate administrator bearer | Atomically removes that reporter's credential, outcomes and correction suggestions. A valid existing or unknown UUID returns an empty `204`; malformed UUIDs return `400`. Missing credentials and reporter bearers return `401`. |
 | `POST /v1/outcomes` | Provisioned reporter bearer | Accepts a version-4 submission UUID, public source reference, and `successful_playback` outcome. A committed new receipt returns `201`; an exact retry by that reporter returns the original receipt with `200`. Reusing its UUID for another source returns `409`. After 300 new accepted submissions in the rolling 60-second window, new claims return `429` with `Retry-After: 60`. |
 | `POST /v1/rankings` | Public | Accepts 1–32 distinct candidate source references and returns only those candidates, ordered by distinct successful reporters. Equal counts preserve input order. |
+| `POST /v1/corrections` | Provisioned reporter bearer | Suggests `same_recording` for two distinct canonical public sources. A new version-4 submission UUID returns `201` and an immutable pending acknowledgement; exact or reversed-pair replay returns `200`, and changed content returns `409`. |
+| `GET /v1/admin/corrections` | Separate administrator bearer | Reads up to 32 suggestions for one status, using an `after` sequence cursor. There is no public or reporter moderation queue. |
+| `POST /v1/admin/corrections/{correction_id}/review` | Separate administrator bearer | Records approval or rejection with a version-4 request UUID and expected revision. New decisions return `201`; exact retries return their historical acknowledgement with `200`. Changed request content or a stale revision returns `409`. |
 | `GET /v1/openapi.json` | Public | Returns OpenAPI 3 generated from the registered Rust handlers and actual wire DTOs, including distinct administrator and reporter bearer schemes. |
 
 The schema records strict input objects, the candidate count and uniqueness rules, and request and response types. Field descriptions explain the conditional provider-ID rules and version-4 UUID requirement without changing accepted UUID text forms. The candidate schema uses the actual `SourceRef` component and shares its maximum count with runtime validation. There is no separately maintained JSON API model.
@@ -66,6 +69,28 @@ An administrator can revoke a reporter through the versioned DELETE route above.
 Outcome submission rechecks the reporter inside its write transaction before reading a previous receipt or inserting an outcome. Submission and revocation therefore have a transaction order. An outcome committed first can be accepted and then erased by revocation. An outcome whose body was still unread when revocation committed returns `401` after body release and cannot recreate a contribution.
 
 The development checks use the public router with private temporary SQLite and a real child serving HTTP. The race fixture requires an authenticated request to reach `100 Continue`, holds its body, acknowledges deletion, then releases the body and requires `401`. It also checks retained peer receipt replay, candidate counts, unchanged private administrator-file identity and TRACE log redaction. All ten community cases, strict all-target Clippy and formatting passed in the author-run Docker check. The generated document adds one operation while preserving all four prior operation objects and components exactly. Independent review and release acceptance remain separate.
+
+## Correction suggestions in development
+
+The service accepts only an unordered pair of exact public YouTube or Jamendo recording references and the `same_recording` relation. It accepts no title, URL, audio, local path or arbitrary metadata. The pair asserts the same recording and version; it does not imply that covers, live performances or remixes are interchangeable.
+
+A single immediate transaction checks current reporter authority, existing submission content and admission bounds before inserting a pending suggestion. The development defaults permit ten new suggestions per reporter per rolling minute, 32 pending per reporter and 1,024 pending overall. Exact retries do not consume new capacity. New over-limit submissions return `429` with `Retry-After: 60`. Further quota, concurrency and adversarial acceptance remains open.
+
+```mermaid
+flowchart LR
+    Reporter[Authorized reporter] -->|Canonical public source pair|Pending[Private pending suggestion]
+    Pending --> Queue[Administrator status queue]
+    Queue -->|Expected revision and stable request UUID|Decision[Maintainer approval or rejection]
+    Decision --> State[Current suggestion state]
+    Decision --> Receipt[Immutable historical acknowledgement]
+    State -. Future reviewed consumer .-> Matching[Application matching]
+```
+
+Only the administrator can read or review suggestions. Each accepted new review advances the revision, including a repeated decision. Runtime validation, SQLite constraints and generated OpenAPI retain exact JSON-safe revision values. A replayed review acknowledges its historical decision; the administrator queue supplies current state.
+
+Revoking a reporter cascades to that reporter's suggestions, including approved suggestions. Minimal review acknowledgements remain independently, containing decision identifiers and revisions without provider references or reporter identity. They cannot recreate an erased suggestion. Neither pending nor approved suggestions currently affect rankings or application matching, and the service performs no provider fetch. Personal application overrides therefore have no correction consumer to compete with yet.
+
+The foundation passes all 16 community cases, strict all-target Clippy and formatting in Docker, including an independent repeat and fresh source review. The actual generated contract preserves all five previous path objects and thirteen previous component objects while adding the three correction operations. The historical database fixture preserves typed rows, rowids, prior schema, receipts and migration metadata while applying the additive third migration. This is source acceptance, not acceptance of the complete correction feature. Application submission, an approved matching consumer, further correction types, held-body revocation, wider quotas, retention and public hosting remain open.
 
 ## Executable runtime
 
@@ -261,7 +286,7 @@ Accepted root-run Docker evidence includes:
 | [Malformed log filter](../crates/hito-community/tests/runtime_bootstrap.rs) | An invalid `RUST_LOG` filter falls back to INFO-level lifecycle output. Schema readiness and an authenticated rejected request exercise JSON logs that exclude the filter string, credential, private paths and query/header/cookie/body values. The child then shuts down successfully. |
 | [Failed bind and recovery](../crates/hito-community/tests/runtime_bootstrap.rs) | An actual retained local listener causes `bind_failed` without readiness or a successful-stop event. Library state-close and runtime state-close events precede the failure event. After the failed child exits and the listener is released, a new child starts on the same address with the same state and stops successfully. Credential contents and entry metadata remain unchanged. |
 
-The latest full community run passed all eight cases; the three bootstrap cases completed in 0.08 seconds. Strict all-target Clippy for community passed in 8.26 seconds. The earlier OpenAPI slice passed four community cases and three Jamendo cases together in a locked Docker run, with formatting, strict all-target Clippy for both crates and an independent OpenAPI source review.
+The earlier runtime qualification passed all eight then-current cases; the three bootstrap cases completed in 0.08 seconds. The later correction foundation passes all 16 current cases as described above. Strict all-target Clippy for community passed in 8.26 seconds. The earlier OpenAPI slice passed four community cases and three Jamendo cases together in a locked Docker run, with formatting, strict all-target Clippy for both crates and an independent OpenAPI source review.
 
 Independent runtime security and performance source reviews found no issues. The correctness review identified missing instance correlation at state close. An added public child assertion failed on the absent runtime event, then passed after the runtime emitted its acknowledgment after awaited cleanup. The accepted checks use owned Linux fixtures; source review is not load or platform evidence.
 
@@ -273,4 +298,4 @@ The startup fixture previously required the close callback's observed OS thread 
 
 The preceding foundation passed workspace and modified-driver formatting, strict all-target Clippy for community, core, server and the folder plugin, and 55 directed driver compatibility cases. Those comprise twelve selected core cases, all 38 folder-plugin cases and five server cases covering embedded lifecycle, signals and download restart. These are development checks, not full workspace, packaged-image or platform acceptance. Caller-cancellation, setup-timeout, spawn-failure, wider alias and ownership cases, and load behavior need their own controlled evidence.
 
-The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, public deployment configuration, broader public rate limits, retained-outcome quotas, broader retention and erasure, moderation, correction suggestions, provider-backed validation, live hosting, and DNS remain open. Reporter revocation and the per-reporter outcome rate limit are implemented and tested in the development slices above; revocation has no operator UI or application integration. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. The application path above still needs complete browser/native and outage acceptance. This service crate performs no outbound provider fetch.
+The service is not ready for public deployment. Further adversarial runtime bootstrap and cancellation, public deployment configuration, broader public rate limits, retained-outcome quotas, broader retention and erasure, moderation tooling, application correction submission and reviewed matching consumption, provider-backed validation, live hosting, and DNS remain open. Reporter revocation and the per-reporter outcome rate limit are implemented and tested in the development slices above; revocation has no operator UI or application integration. Correction suggestions must require provider validation or maintainer approval before affecting automatic matching. The application path above still needs complete browser/native and outage acceptance. This service crate performs no outbound provider fetch.
