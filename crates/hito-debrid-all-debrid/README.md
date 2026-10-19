@@ -1,6 +1,6 @@
 # AllDebrid protocol adapter
 
-This crate is a protocol library. It is not yet a Hito plugin service or a complete playable-source adapter. Owned TLS fixtures qualify a delayed candidate through a bounded PCM16 WAV stream and exact decoding. No live provider account, packaged provider flow, or public release is qualified by this packet.
+This crate is a protocol library. It is not yet a Hito plugin service or a complete playable-source adapter. Owned TLS fixtures qualify delayed and direct candidates through a bounded PCM16 WAV stream and exact decoding. No live provider account, packaged provider flow, or public release is qualified by this packet.
 
 ## Binding and operations
 
@@ -10,13 +10,13 @@ This crate is a protocol library. It is not yet a Hito plugin service or a compl
 
 `submit_magnet` sends one validated lowercase 40-character hash. A receipt requires one acknowledgment whose echoed input, hash, positive ID, and total size match the request. The receipt also retains the caller's selected path and size for subsequent observation. The provider's `ready` field never grants playable status.
 
-`prepare_bound_file` re-observes the current ID, total, tree, and selected leaf before requesting one unlock for that exact private leaf link. The current implementation accepts a positive delayed ID with the expected selected-file size. A direct generated-link acknowledgment is an explicit `GeneratedLinkUnsupported` result. Its link is never treated as an original-source echo, returned publicly, or fetched. The owned TLS fixture qualifies this pending-only acknowledgment path.
+`prepare_bound_file` re-observes the current ID, total, tree, and selected leaf before requesting one unlock for that exact private leaf link. It returns `PreparedFile::Delayed` for a positive delayed ID or `PreparedFile::Candidate` for an opaque HTTPS generated link. Both acknowledgments require the expected selected-file size and exactly one of those alternatives. A generated link is never treated as an original-source echo or exposed publicly. Its exact configured origin, DNS destination, TLS, and audio remain unqualified until media opening.
 
 `poll_delayed` has an owned TLS qualification for processing followed by an opaque candidate, including real five-second request spacing. One explicit call waits on the receipt's private monotonic guard and queries only its delayed ID. Trusted snapshot restoration starts a new five-second wait; completion, failure, timeout, or cancellation rearms that wait. The receipt remains non-cloneable and requires one current trusted owner. Its persisted format remains only the binding and delayed ID.
 
 Processing status retains bounded estimated time and a five-second polling interval. Completed delayed status retains an opaque HTTPS candidate with the original binding; the candidate exposes no URL, serializer, or debug representation. Polling makes no media request. Its syntax checks do not establish safe media destinations, recording identity, or playable audio.
 
-`open_bound_audio` consumes that candidate. It admits one of two shared media slots before freshly observing the exact ID, total, full tree, selected path, and size. It then uses the credential-free `hito-remote-audio` policy to validate an operator-allowed exact origin, public DNS destinations, TLS, HTTP framing, confirmed length, and canonical PCM16 WAV header. The returned typed body preserves the binding and validates length through EOF. Callers must consume and check EOF before accepting the complete file. Opening neither unlocks nor polls again.
+`open_bound_audio` consumes either candidate through the same path. It admits one of two shared media slots before freshly observing the exact ID, total, full tree, selected path, and size. It then uses the credential-free `hito-remote-audio` policy to validate an operator-allowed exact origin, public DNS destinations, TLS, HTTP framing, confirmed length, and canonical PCM16 WAV header. The returned typed body preserves the binding and validates length through EOF. Callers must consume and check EOF before accepting the complete file. Opening neither unlocks nor polls again.
 
 ```mermaid
 flowchart TD
@@ -29,11 +29,11 @@ flowchart TD
     Tree --> Complete[Provider completion metadata]
     Tree --> Unlock[Explicit preparation request unlocks selected leaf]
     Unlock --> Delayed[Owned delayed receipt]
-    Unlock --> Unsupported[Generated link unsupported]
+    Unlock --> Candidate[Opaque candidate]
     Upload --> Unknown[Unvalidated dispatched mutation is uncertain]
     Unlock --> Unknown
     Delayed --> Poll[Explicit delayed polling]
-    Poll --> Candidate[Opaque candidate]
+    Poll --> Candidate
     Candidate --> Reobserve[Fresh exact binding observation]
     Reobserve --> Media[Shared credential-free media policy]
     Media --> WAV[Bounded PCM16 WAV body through EOF]
@@ -41,7 +41,7 @@ flowchart TD
 
 ## Uncertainty and ownership
 
-A dispatched upload without a validated acknowledgment returns `SubmissionUnknown`; an unacknowledged unlock returns `UnlockUnknown`. Explicit HTTP 401/403 responses retain their rejection status. Dispatch tracking is conservative. These outcomes do not authorize automatic repetition. A validated generated-link acknowledgment remains a known unsupported result rather than an uncertain mutation.
+A dispatched upload without a validated acknowledgment returns `SubmissionUnknown`; an unacknowledged unlock returns `UnlockUnknown`. Explicit HTTP 401/403 responses retain their rejection status. Dispatch tracking is conservative. These outcomes do not authorize automatic repetition. A validated generated-link acknowledgment retains a known candidate; a later media-opening error never authorizes repeating unlock.
 
 Cancellation before dispatch records cancellation. Cancellation after attempted mutation dispatch records the matching uncertainty outcome. Core's existing durable preparation lifecycle must own operation authority and unknown-submission recovery when this library is integrated; this crate owns no SQLite, account state, or transactions.
 
@@ -53,7 +53,7 @@ Provider control requests use the fixed HTTPS API origin, a separately supplied 
 
 Media opening has a nine-second total deadline covering admission, fresh observation, DNS, TLS, response, and WAV header qualification. The separate media permit remains held until body EOF or drop. Media requests carry no provider credential, cookie, referrer, or range header. Reads are at most 64 KiB with a 15-second idle deadline. Dropping the opening or body cancels its work.
 
-Structured workflow logs contain generated correlation IDs, static operation/outcome values, counts, and timings. They must not contain credentials, bodies, hashes, paths, titles, or links. Bounded log oracles wrap the real protocol workflows and check exact completion events, UUID correlations, allowed field sets, counts, timings, and raw or escaped private canaries. The nine protocol tests pass with these oracles active, covering 34 workflow completions. The fresh media observation has its own correlation nested under the opening, and body completion retains the opening correlation after that call returns. Each provider workflow retains its owning dispatcher for completion and span retirement, including cancellation outside the dispatcher that polled the future.
+Structured workflow logs contain generated correlation IDs, static operation/outcome values, counts, and timings. They must not contain credentials, bodies, hashes, paths, titles, or links. Bounded log oracles wrap the real protocol workflows and check exact completion events, UUID correlations, allowed field sets, counts, timings, and raw or escaped private canaries. The ten protocol tests pass with these oracles active, covering 38 workflow completions. The fresh media observation has its own correlation nested under the opening, and body completion retains the opening correlation after that call returns. Each provider workflow retains its owning dispatcher for completion and span retirement, including cancellation outside the dispatcher that polled the future.
 
 ## Evidence and remaining work
 
@@ -67,6 +67,8 @@ Fresh review identified a dispatcher-ownership gap in cancellation logging. The 
 
 Tests run offline in Docker with no external network. The test-support constructor accepts only an owned loopback TLS destination and CA while preserving the fixed production Host and SNI. It is not an environment endpoint override.
 
-Remaining work includes delayed-poll invalid-response, admission, and timeout controls; acknowledgment-loss/cancellation controls for unlock; direct generated candidates; AD-specific adversarial media controls beyond the shared RD qualification; other audio formats and seeking; a provider plugin; and end-to-end preparation/source delivery. Upload, unlock, and media live compatibility remains open.
+The tenth case first failed at the real direct acknowledgment with `GeneratedLinkUnsupported`. With that same public case unchanged, the typed candidate then passed through fresh status and full-tree checks and the common media policy. It requires exactly five control requests, one credential-free media GET, 384,044 exact WAV bytes through EOF, and 192,000 decoded samples, with no delayed poll or second unlock. All ten AD cases, strict AD Clippy with all targets and test support, and package formatting pass together. The prior nine assertions remain intact; delayed callers only unpack the new typed result. Shared audio, RD, service, workspace, and lock inputs remain unchanged. Independent source review passed; an independent runtime repeat of this ten-case packet is still pending.
+
+Remaining work includes delayed-poll invalid-response, admission, and timeout controls; acknowledgment-loss/cancellation controls for unlock; malformed or conflicting direct acknowledgment controls; AD-specific adversarial media controls beyond the shared RD qualification; other audio formats and seeking; a provider plugin; and end-to-end preparation/source delivery. Upload, unlock, and media live compatibility remains open.
 
 The [official AllDebrid documentation](https://docs.alldebrid.com/) explicitly supports raw hashes for magnet upload and documents delayed polling at five seconds or more. The documentation's generated-link sample and table descriptions conflict about `link`; this adapter does not use it as an original-source echo. The files endpoint's version examples also conflict; the current fixture uses the documented endpoint index's `/v4/magnet/files`. Live compatibility has not resolved those documentation inconsistencies.
