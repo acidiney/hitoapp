@@ -6,6 +6,7 @@ import LibrarySettings from "../components/LibrarySettings";
 import PluginSettings from "../components/plugins/PluginSettings";
 import MetadataPreferences from "../components/metadata/MetadataPreferences";
 import CommunitySettings from "../components/CommunitySettings";
+import CommunityRankingSettings from "../components/CommunityRankingSettings";
 import PageHeading from "../components/PageHeading";
 import { log } from "../log";
 
@@ -89,7 +90,16 @@ export default function SettingsPage(props: SettingsPageProps) {
           )}
           {selected === "library" && <LibrarySettings {...props} />}
           {selected === "privacy" && (
-            <CommunitySettings key={props.user.id} account={props.user.id} />
+            <>
+              <CommunitySettings
+                key={`community-preferences:${props.user.id}`}
+                account={props.user.id}
+              />
+              <CommunityRankingSettings
+                key={`community-rankings:${props.user.id}`}
+                account={props.user.id}
+              />
+            </>
           )}
           {selected === "accounts" && props.user.admin && (
             <AccountSettings
