@@ -10,6 +10,18 @@ pub struct CommunityConfig {
     pub(super) service_key: String,
 }
 
+pub struct CommunityRankingConfig {
+    pub(super) endpoint: Url,
+}
+
+impl CommunityRankingConfig {
+    pub fn new(endpoint: String) -> Result<Self> {
+        let endpoint = origin(&endpoint)
+            .ok_or_else(|| Error::Invalid("Use a community ranking HTTPS origin".into()))?;
+        Ok(Self { endpoint })
+    }
+}
+
 impl CommunityConfig {
     pub fn new(endpoint: String, admin_token_file: PathBuf) -> Result<Self> {
         let invalid = || {
@@ -18,30 +30,10 @@ impl CommunityConfig {
                     .into(),
             )
         };
-        if endpoint.len() > 2048
-            || endpoint.chars().any(char::is_control)
-            || !admin_token_file.is_absolute()
-            || admin_token_file.file_name().is_none()
-        {
+        if !admin_token_file.is_absolute() || admin_token_file.file_name().is_none() {
             return Err(invalid());
         }
-        let endpoint = Url::parse(&endpoint).map_err(|_| invalid())?;
-        let loopback = match endpoint.host() {
-            Some(Host::Ipv4(address)) => address.is_loopback(),
-            Some(Host::Ipv6(address)) => address.is_loopback(),
-            _ => false,
-        };
-        if !(endpoint.scheme() == "https" || (endpoint.scheme() == "http" && loopback))
-            || endpoint.host().is_none()
-            || endpoint.port_or_known_default() == Some(0)
-            || !endpoint.username().is_empty()
-            || endpoint.password().is_some()
-            || endpoint.query().is_some()
-            || endpoint.fragment().is_some()
-            || endpoint.path() != "/"
-        {
-            return Err(invalid());
-        }
+        let endpoint = origin(&endpoint).ok_or_else(invalid)?;
         let service_key = format!("{:x}", Sha256::digest(endpoint.as_str().as_bytes()));
         Ok(Self {
             endpoint,
@@ -49,6 +41,27 @@ impl CommunityConfig {
             service_key,
         })
     }
+}
+
+fn origin(value: &str) -> Option<Url> {
+    if value.len() > 2048 || value.chars().any(char::is_control) {
+        return None;
+    }
+    let endpoint = Url::parse(value).ok()?;
+    let loopback = match endpoint.host() {
+        Some(Host::Ipv4(address)) => address.is_loopback(),
+        Some(Host::Ipv6(address)) => address.is_loopback(),
+        _ => false,
+    };
+    ((endpoint.scheme() == "https" || (endpoint.scheme() == "http" && loopback))
+        && endpoint.host().is_some()
+        && endpoint.port_or_known_default() != Some(0)
+        && endpoint.username().is_empty()
+        && endpoint.password().is_none()
+        && endpoint.query().is_none()
+        && endpoint.fragment().is_none()
+        && endpoint.path() == "/")
+        .then_some(endpoint)
 }
 
 pub(super) fn valid_token(token: &str) -> bool {

@@ -49,6 +49,7 @@ pub struct CoreConfig {
     pub media_tools: MediaTools,
     pub podcast_network: crate::PodcastNetworkConfig,
     pub community: Option<crate::CommunityConfig>,
+    pub community_rankings: Option<crate::CommunityRankingConfig>,
 }
 
 impl CoreConfig {
@@ -60,6 +61,7 @@ impl CoreConfig {
             media_tools: MediaTools::default(),
             podcast_network: Default::default(),
             community: None,
+            community_rankings: None,
         }
     }
 
@@ -75,6 +77,7 @@ impl CoreConfig {
             media_tools: MediaTools::default(),
             podcast_network: Default::default(),
             community: None,
+            community_rankings: None,
         }
     }
 }

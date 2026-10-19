@@ -148,6 +148,7 @@ impl RuntimeConfig {
                 media_tools: Default::default(),
                 podcast_network: Default::default(),
                 community: None,
+                community_rankings: None,
             },
             http: Config {
                 origin: Config::default().origin,

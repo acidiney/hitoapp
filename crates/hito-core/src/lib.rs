@@ -47,7 +47,8 @@ pub use collection::{
 };
 pub use community::{
     Community, CommunityConfig, CommunityCredentialReset, CommunityPreferences,
-    CommunityReportAdmission, SuccessfulPlayback, UpdateCommunityPreferences,
+    CommunityRankingConfig, CommunityRankingPreferences, CommunityReportAdmission,
+    SuccessfulPlayback, UpdateCommunityPreferences, UpdateCommunityRankingPreferences,
 };
 pub use context::{CoreConfig, HostDeviceId, MediaTools, SharedDirectoryConfig, StorageConfig};
 pub use downloads::{
@@ -114,9 +115,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         config.host_device.clone(),
         vault,
         config.community,
+        config.community_rankings,
     )?;
     let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
     let catalog = Catalog {
+        community: community.clone(),
         plugins: plugins.clone(),
         artist_catalog: catalog::artist_catalog::Host::new()?,
         store: store.clone(),

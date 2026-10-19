@@ -13,6 +13,7 @@ pub use playback::PlaybackSource;
 mod podcast;
 mod preferred;
 mod provider;
+pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
 pub use provider::{
     AdoptProviderRecording, AttachReviewedProviderSource, PrepareSource, ProviderCandidate,
@@ -30,6 +31,7 @@ pub use source_choice::{
     ChooseSource, ResetSourceChoice, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
     SourceChoiceReceipt, SourceChoiceResetReceipt,
 };
+mod playback_sources;
 #[cfg(test)]
 #[path = "tests/release_query_work.rs"]
 mod release_query_work;
@@ -62,6 +64,7 @@ pub use types::{Page, Recording, Search, Source};
 
 #[derive(Clone)]
 pub struct Catalog {
+    pub(crate) community: crate::Community,
     pub(crate) store: Store,
     pub(crate) plugins: crate::Plugins,
     pub(crate) artist_catalog: artist_catalog::Host,

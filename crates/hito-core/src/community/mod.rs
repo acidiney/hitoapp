@@ -1,4 +1,6 @@
 mod config;
+mod ranking_preferences;
+pub(crate) mod rankings;
 mod reports;
 mod source;
 mod transport;
@@ -6,14 +8,15 @@ mod types;
 mod worker;
 
 use crate::{Actor, Error, HostDeviceId, Result, secrets::Vault, store::Store};
-pub use config::CommunityConfig;
+pub use config::{CommunityConfig, CommunityRankingConfig};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
 pub use types::{
-    CommunityCredentialReset, CommunityPreferences, CommunityReportAdmission, SuccessfulPlayback,
-    UpdateCommunityPreferences,
+    CommunityCredentialReset, CommunityPreferences, CommunityRankingPreferences,
+    CommunityReportAdmission, SuccessfulPlayback, UpdateCommunityPreferences,
+    UpdateCommunityRankingPreferences,
 };
 use uuid::Uuid;
 
@@ -24,6 +27,8 @@ pub struct Community {
     vault: Vault,
     remote: Option<Arc<transport::Transport>>,
     changed: tokio::sync::watch::Sender<u64>,
+    rankings: Option<Arc<rankings::Transport>>,
+    ranking_changed: tokio::sync::watch::Sender<u64>,
 }
 
 impl Community {
@@ -79,6 +84,7 @@ impl Community {
         host: HostDeviceId,
         vault: Vault,
         config: Option<CommunityConfig>,
+        ranking_config: Option<CommunityRankingConfig>,
     ) -> Result<Self> {
         Ok(Self {
             store,
@@ -89,6 +95,11 @@ impl Community {
                 .transpose()?
                 .map(Arc::new),
             changed: tokio::sync::watch::channel(0).0,
+            rankings: ranking_config
+                .map(rankings::Transport::new)
+                .transpose()?
+                .map(Arc::new),
+            ranking_changed: tokio::sync::watch::channel(0).0,
         })
     }
 

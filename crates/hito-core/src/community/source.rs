@@ -52,7 +52,11 @@ pub(super) async fn resolve(
         .push(" AND ");
     push_source_access(&mut query, host, actor.id(), SourceAccess::Playable);
     let row: Option<(String, String)> = query.build_query_as().fetch_optional(connection).await?;
-    Ok(row.and_then(|(provider, id)| match provider.as_str() {
+    Ok(row.and_then(|(provider, id)| reference(&provider, id)))
+}
+
+pub(super) fn reference(provider: &str, id: String) -> Option<PublicSource> {
+    match provider {
         "org.hito.youtube"
             if id.len() == 11
                 && id
@@ -77,5 +81,5 @@ pub(super) async fn resolve(
             })
         }
         _ => None,
-    }))
+    }
 }

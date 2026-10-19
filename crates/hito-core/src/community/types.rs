@@ -16,6 +16,19 @@ pub struct UpdateCommunityPreferences {
     pub metadata_corrections: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, ToSchema, sqlx::FromRow)]
+pub struct CommunityRankingPreferences {
+    pub revision: i64,
+    pub use_source_rankings: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateCommunityRankingPreferences {
+    pub revision: i64,
+    pub use_source_rankings: bool,
+}
+
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SuccessfulPlayback {
