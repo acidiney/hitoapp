@@ -27,6 +27,27 @@ The application outbox permits 64 pending reports per account and 256 globally, 
 
 The combined source passes 505 frontend cases, both TypeScript configurations and the production build, including a shared Provider test with held community delivery, a fixed Continue progress barrier and fresh chapter qualification. The core/HTTP fixtures cover consent, provenance, replay, revocation and credential recovery. The combined core/server regressions, strict default workspace checks and remaining default package tests pass. Current packaged browser-to-service acceptance, native outcome production, ranking consumption, application correction submission, moderation controls and normal deployment remain unfinished.
 
+## Optional source ordering in core
+
+Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. This capability is not yet exposed through server configuration, HTTP, Settings or either player.
+
+The caller reads current authorized sources before consulting the community. Ready local files and downloads bypass the lookup, as do protected manual or reviewed choices. Eligible requests contain only distinct canonical public YouTube and Jamendo references from current approved sources. They contain no account credential, provider credential, title, path, audio or stream URL.
+
+```mermaid
+flowchart LR
+    Sources[Current authorized playback sources] --> Authority[Independent consent and provider authority]
+    Authority -->|Eligible remote candidates only|Lookup[Anonymous bounded ranking request]
+    Lookup --> Recheck[Recheck consent, session and source authority]
+    Recheck --> Order[Reorder eligible slots only]
+    Lookup -->|Unavailable, invalid or over budget|Fallback[Fresh ordinary source order]
+```
+
+One optional lookup has a 100 ms budget, four shared slots and at most one request per account. Responses are capped at 4 KiB and must name exactly the requested candidates with nonnegative reporter counts. Equal counts preserve input order. A failure or changed authority falls back to a fresh ordinary source read; loss of account authority remains an authorization error. No transaction remains open during HTTP. Existing source fields and ineligible positions are preserved, and the ordinary `sources` capability is unchanged.
+
+Application migration `0053` adds only the independent ranking-preference table and its primary-key index. A real closed version-52 database preserves every prior typed value, rowid, schema object and migration receipt, including owned credential bytes and personal state. Existing consent creates no ranking preference. Historical version-52 references remain separately checked.
+
+Four new core cases cover ordering, a held-body deadline with actual playback during the outage, account preference isolation/concurrent saves/reopen, and the genuine database upgrade. Independent integrated checks pass 18 directed core cases and 20 server cases, including eight historical upgrade workflows, 11 maintenance cases and nine existing lyric cases. Strict workspace all-target checks and formatting pass. Actual Rust OpenAPI export remains byte-identical at 96 paths and 229 schemas. Fresh source reviews pass. These checks qualify the core foundation; HTTP, Settings, browser/native consumption, client-drop completion logs and packaged ranking acceptance remain unfinished.
+
 ## Current HTTP contract
 
 POST request bodies use JSON with a 16 KiB limit. Request objects reject unknown fields. Authentication accepts one `Authorization: Bearer` header containing a 64-character lowercase hexadecimal token. Responses carry `Cache-Control: no-store` and a generated `X-Request-Id`.
