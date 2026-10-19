@@ -1,0 +1,79 @@
+services:
+  library-server:
+    profiles: [e2e]
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable packaged runtime image ID}
+    user: "10001:10001"
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/library.db
+      HITO_STORAGE_MANIFEST: /music/storage.json
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - type: bind
+        source: ${HITO_LIBRARY_WORKTREE:?Set the owned library worktree}/fixtures/e2e-generated
+        target: /music
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700,size=128m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    networks: [library-tools]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    labels:
+      org.hito.owned-fixture: audiobook-library-browser
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+  library-browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    environment:
+      HOME: /tmp
+      HITO_TEST_URL: http://localhost:8080
+      HITO_AUDIOBOOK_LIBRARY_E2E: "1"
+      HITO_LIBRARY_RUN_ID: ${HITO_LIBRARY_RUN_ID:?Set the unique owned library run ID}
+    network_mode: service:library-server
+    depends_on:
+      library-server:
+        condition: service_healthy
+    volumes:
+      - ${HITO_LIBRARY_WORKTREE:?Set the owned library worktree}:/workspace:ro
+      - library-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_LIBRARY_EVIDENCE:?Set the owned private evidence directory}:/evidence
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+    shm_size: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    init: true
+    labels:
+      org.hito.owned-fixture: audiobook-library-browser
+volumes:
+  library-modules:
+    external: true
+    name: hito_node-modules
+networks:
+  library-tools:
+    external: true
+    name: hito-spotify-albums-tools_default

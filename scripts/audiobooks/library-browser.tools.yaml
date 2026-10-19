@@ -1,0 +1,12 @@
+services:
+  node:
+    volumes:
+      - node-modules:/workspace/apps/web/node_modules:ro
+volumes:
+  node-modules:
+    external: true
+    name: hito_node-modules
+networks:
+  default:
+    external: true
+    name: hito-spotify-albums-tools_default
