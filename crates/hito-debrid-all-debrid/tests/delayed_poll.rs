@@ -1,7 +1,7 @@
 mod support;
 
 use hito_debrid_all_debrid::{
-    AllDebridClient, DelayedFileReceipt, DelayedPoll, Error, MagnetFileBinding,
+    AllDebridClient, DelayedFileReceipt, DelayedPoll, Error, MagnetFileBinding, PreparedFile,
 };
 use serde_json::json;
 use std::{
@@ -54,11 +54,14 @@ async fn delayed_receipt_polls_after_five_seconds_without_reunlocking_or_fetchin
         let client =
             AllDebridClient::with_test_tls(TOKEN.into(), fixture.ca_der(), fixture.address())
                 .expect("the owned TLS client must initialize");
-        let receipt = client
+        let PreparedFile::Delayed(receipt) = client
             .prepare_bound_file(&binding)
             .with_subscriber(subscriber.clone())
             .await
-            .expect("the exact file must produce one delayed acknowledgment");
+            .expect("the exact file must produce one delayed acknowledgment")
+        else {
+            panic!("the owned delayed acknowledgment must remain delayed")
+        };
         let stored = serde_json::to_vec(&receipt).unwrap();
         drop(client);
         let mut receipt: DelayedFileReceipt = serde_json::from_slice(&stored)
@@ -197,11 +200,14 @@ async fn cancelled_and_failed_polls_rearm_the_owned_receipt_without_reunlocking(
                 .expect("the owned TLS client must initialize");
         let capture = Capture::default();
         let subscriber = capture.dispatch();
-        let pending = client
+        let PreparedFile::Delayed(pending) = client
             .prepare_bound_file(&binding)
             .with_subscriber(subscriber.clone())
             .await
-            .expect("the exact file must produce one delayed ACK");
+            .expect("the exact file must produce one delayed ACK")
+        else {
+            panic!("the owned delayed acknowledgment must remain delayed")
+        };
         let stored = serde_json::to_vec(&pending).unwrap();
         let mut pending: DelayedFileReceipt = serde_json::from_slice(&stored).unwrap();
 

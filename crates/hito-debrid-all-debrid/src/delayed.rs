@@ -140,6 +140,12 @@ pub(crate) fn observation(bytes: &[u8], binding: &MagnetFileBinding) -> Result<D
 }
 
 impl GeneratedFileCandidate {
+    pub(crate) fn acknowledged(binding: MagnetFileBinding, link: String) -> Result<Self, Error> {
+        let candidate = Self { binding, link };
+        magnet::check_link(&candidate.link)?;
+        Ok(candidate)
+    }
+
     pub fn binding(&self) -> &MagnetFileBinding {
         &self.binding
     }

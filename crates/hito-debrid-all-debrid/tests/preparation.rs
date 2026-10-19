@@ -1,6 +1,8 @@
 mod support;
 
-use hito_debrid_all_debrid::{AllDebridClient, DelayedFileReceipt, MagnetFileBinding};
+use hito_debrid_all_debrid::{
+    AllDebridClient, DelayedFileReceipt, MagnetFileBinding, PreparedFile,
+};
 use serde_json::json;
 use support::{Fixture, logs::Capture};
 use tracing::instrument::WithSubscriber;
@@ -51,7 +53,11 @@ async fn delayed_unlock_reobserves_the_exact_nested_file_without_polling_or_medi
         ],
     );
 
-    let receipt = prepared.expect("a valid delayed ACK must retain the exact selected binding");
+    let PreparedFile::Delayed(receipt) =
+        prepared.expect("a valid delayed ACK must retain the exact selected binding")
+    else {
+        panic!("the owned delayed acknowledgment must remain delayed")
+    };
     assert!(receipt.binding() == &configured);
     assert_eq!(receipt.poll_after_seconds(), 5);
     let persisted = serde_json::to_vec(&receipt).unwrap();

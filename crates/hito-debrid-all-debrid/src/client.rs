@@ -1,6 +1,7 @@
 use crate::{
     DelayedFileReceipt, DelayedPoll, Error, MagnetFileBinding, MagnetFileSelection,
-    MagnetObservation, MagnetPhase, MagnetUploadReceipt, delayed, magnet, prepare, submit,
+    MagnetObservation, MagnetPhase, MagnetUploadReceipt, PreparedFile, delayed, magnet, prepare,
+    submit,
     transport::{Resource, Transport},
 };
 use hito_remote_audio::{MediaClient, network::Dns};
@@ -190,12 +191,12 @@ impl AllDebridClient {
         result
     }
 
-    /// Requests one unlock after re-observation. Only delayed receipts are supported.
-    /// Generated links remain unsupported; this operation never polls or fetches media.
+    /// Requests one unlock after re-observation and retains its typed acknowledgment.
+    /// Generated candidates stay opaque until separate media validation.
     pub async fn prepare_bound_file(
         &self,
         binding: &MagnetFileBinding,
-    ) -> Result<DelayedFileReceipt, Error> {
+    ) -> Result<PreparedFile, Error> {
         let mut preparation = OperationLog {
             started: Instant::now(),
             dispatch: tracing::dispatcher::get_default(Clone::clone),
@@ -229,12 +230,7 @@ impl AllDebridClient {
                 .await?;
             let receipt = prepare::acknowledgment(&bytes, binding)?;
             acknowledged = true;
-            match receipt {
-                prepare::Acknowledgment::Delayed(receipt) => Ok(receipt),
-                prepare::Acknowledgment::GeneratedUnsupported => {
-                    Err(Error::GeneratedLinkUnsupported)
-                }
-            }
+            Ok(receipt)
         })
         .await
         .unwrap_or(Err(Error::Deadline));
@@ -246,10 +242,11 @@ impl AllDebridClient {
         } else {
             result
         };
-        preparation.outcome = result
-            .as_ref()
-            .map(|_| "delayed")
-            .unwrap_or_else(|error| error.outcome());
+        preparation.outcome = match &result {
+            Ok(PreparedFile::Delayed(_)) => "delayed",
+            Ok(PreparedFile::Candidate(_)) => "candidate",
+            Err(error) => error.outcome(),
+        };
         preparation.count = u64::from(result.is_ok());
         result
     }

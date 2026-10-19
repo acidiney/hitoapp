@@ -13,6 +13,7 @@ pub use client::AllDebridClient;
 pub use delayed::{DelayedFileReceipt, DelayedPoll, GeneratedFileCandidate};
 pub use error::Error;
 pub use magnet::{MagnetObservation, MagnetPhase};
+pub use prepare::PreparedFile;
 pub use submit::{MagnetFileSelection, MagnetUploadReceipt};
 
 pub use hito_remote_audio::Pcm16WavFormat;
