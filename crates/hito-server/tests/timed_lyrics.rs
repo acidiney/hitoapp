@@ -1,5 +1,9 @@
+#[path = "fixtures/timed_lyrics_audit.rs"]
+mod audit;
 #[path = "timed_lyrics/authority.rs"]
 mod authority;
+#[path = "timed_lyrics/dropped.rs"]
+mod dropped;
 #[path = "fixtures/timed_lyrics.rs"]
 mod fixture;
 #[path = "timed_lyrics/lifecycle.rs"]
@@ -12,6 +16,8 @@ mod playback;
 mod protocol;
 #[path = "../../hito-core/tests/fixtures/timed_lyrics_provider.rs"]
 mod provider;
+#[path = "timed_lyrics/scoped_logging.rs"]
+mod scoped_logging;
 #[allow(dead_code)]
 #[path = "fixtures/manual_source.rs"]
 mod source_provider;
