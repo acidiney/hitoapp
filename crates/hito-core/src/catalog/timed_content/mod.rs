@@ -10,12 +10,12 @@ use std::{
     future::Future,
     time::{Duration, Instant},
 };
+use tracing::Instrument;
 use uuid::Uuid;
 
 const LOOKUP_BUDGET: Duration = Duration::from_secs(10);
 
 impl Catalog {
-    #[tracing::instrument(level = "debug", skip_all, fields(operation = "recording_lyrics", request_id = %Uuid::new_v4()))]
     pub async fn recording_lyrics_until(
         &self,
         actor: &Actor,
@@ -23,23 +23,23 @@ impl Catalog {
         request: ReadRecordingLyrics,
         cancelled: impl Future<Output = ()> + Send,
     ) -> Result<LyricsLookup> {
-        let started = Instant::now();
+        let mut completion = Completion::new();
         tokio::pin!(cancelled);
-        let result = tokio::select! {
-            biased;
-            _ = &mut cancelled => Ok(LyricsLookup::Cancelled),
-            result = tokio::time::timeout(LOOKUP_BUDGET, self.read_recording_lyrics(actor, recording, request)) => {
-                result.unwrap_or(Ok(LyricsLookup::Unavailable))
+        let result = async {
+            tokio::select! {
+                biased;
+                _ = &mut cancelled => Ok(LyricsLookup::Cancelled),
+                result = tokio::time::timeout(LOOKUP_BUDGET, self.read_recording_lyrics(actor, recording, request)) => {
+                    result.unwrap_or(Ok(LyricsLookup::Unavailable))
+                }
             }
-        };
-        tracing::debug!(
-            outcome = result
-                .as_ref()
-                .map(LyricsLookup::outcome)
-                .unwrap_or_else(|error| error.code()),
-            elapsed_ms = started.elapsed().as_millis() as u64,
-            "Recording lyric lookup completed"
-        );
+        }
+        .instrument(completion.span.clone())
+        .await;
+        completion.outcome = result
+            .as_ref()
+            .map(LyricsLookup::outcome)
+            .unwrap_or_else(|error| error.code());
         result
     }
 
@@ -120,4 +120,35 @@ impl Catalog {
 
 fn valid_id(value: &str) -> bool {
     value.len() == 36 && Uuid::parse_str(value).is_ok_and(|id| !id.is_nil())
+}
+
+struct Completion {
+    started: Instant,
+    outcome: &'static str,
+    span: tracing::Span,
+    dispatcher: tracing::Dispatch,
+}
+
+impl Completion {
+    fn new() -> Self {
+        Self {
+            started: Instant::now(),
+            outcome: "cancelled",
+            span: tracing::debug_span!("recording_lyrics_until", operation = "recording_lyrics", request_id = %Uuid::new_v4()),
+            dispatcher: tracing::dispatcher::get_default(Clone::clone),
+        }
+    }
+}
+
+impl Drop for Completion {
+    fn drop(&mut self) {
+        let _dispatcher = tracing::dispatcher::set_default(&self.dispatcher);
+        let span = std::mem::replace(&mut self.span, tracing::Span::none());
+        let _entered = span.enter();
+        tracing::debug!(
+            outcome = self.outcome,
+            elapsed_ms = self.started.elapsed().as_millis() as u64,
+            "Recording lyric lookup completed"
+        );
+    }
 }
