@@ -14,6 +14,7 @@ const API_HOST: &str = "api.alldebrid.com";
 pub(crate) enum Resource {
     Status,
     Files,
+    Delayed,
 }
 
 pub(crate) struct Transport {
@@ -88,6 +89,7 @@ impl Transport {
         let (url, field) = match resource {
             Resource::Status => ("https://api.alldebrid.com/v4.1/magnet/status", "id"),
             Resource::Files => ("https://api.alldebrid.com/v4/magnet/files", "id[]"),
+            Resource::Delayed => ("https://api.alldebrid.com/v4/link/delayed", "id"),
         };
         self.exchange(url, field, Zeroizing::new(id.to_string()), None)
             .await

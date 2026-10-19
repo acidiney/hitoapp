@@ -1,6 +1,6 @@
 use crate::{
-    DelayedFileReceipt, Error, MagnetFileBinding, MagnetFileSelection, MagnetObservation,
-    MagnetPhase, MagnetUploadReceipt, magnet, prepare, submit,
+    DelayedFileReceipt, DelayedPoll, Error, MagnetFileBinding, MagnetFileSelection,
+    MagnetObservation, MagnetPhase, MagnetUploadReceipt, delayed, magnet, prepare, submit,
     transport::{Resource, Transport},
 };
 use std::{
@@ -117,6 +117,40 @@ impl AllDebridClient {
             .map(|_| "acknowledged")
             .unwrap_or_else(|error| error.outcome());
         submission.count = u64::from(result.is_ok());
+        result
+    }
+
+    pub async fn poll_delayed(
+        &self,
+        receipt: &mut DelayedFileReceipt,
+    ) -> Result<DelayedPoll, Error> {
+        let mut polling = OperationLog {
+            started: Instant::now(),
+            span: tracing::debug_span!("all_debrid_delayed_poll", request_id = %uuid::Uuid::new_v4(), operation = "delayed_file_poll"),
+            event: "all_debrid_delayed_poll_finished",
+            outcome: "cancelled",
+            count: 0,
+            post_dispatched: false,
+            unknown_outcome: "cancelled",
+        };
+        let result = tokio::time::timeout(Duration::from_secs(12), async {
+            let _permit = self.transport.admit()?;
+            let attempt = receipt.attempt();
+            attempt.wait().await;
+            let bytes = self
+                .transport
+                .read(Resource::Delayed, attempt.delayed_id)
+                .await?;
+            delayed::observation(&bytes, attempt.binding)
+        })
+        .await
+        .unwrap_or(Err(Error::Deadline));
+        polling.outcome = match &result {
+            Ok(DelayedPoll::Processing { .. }) => "processing",
+            Ok(DelayedPoll::Candidate(_)) => "candidate",
+            Err(error) => error.outcome(),
+        };
+        polling.count = u64::from(result.is_ok());
         result
     }
 

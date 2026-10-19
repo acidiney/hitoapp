@@ -208,7 +208,7 @@ impl Tree<'_> {
     }
 }
 
-fn check_link(value: &str) -> Result<(), Error> {
+pub(crate) fn check_link(value: &str) -> Result<(), Error> {
     if value.is_empty()
         || value.len() > 8192
         || value
