@@ -29,7 +29,7 @@ The combined source passes 505 frontend cases, both TypeScript configurations an
 
 ## Optional source ordering in core
 
-Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. Authenticated HTTP access is qualified below. Server configuration, Settings and both player consumers remain unfinished.
+Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. Authenticated HTTP access is qualified below. The independent Privacy control is qualified below. Server configuration and both player consumers remain unfinished.
 
 The caller reads current authorized sources before consulting the community. Ready local files and downloads bypass the lookup, as do protected manual or reviewed choices. Eligible requests contain only distinct canonical public YouTube and Jamendo references from current approved sources. They contain no account credential, provider credential, title, path, audio or stream URL.
 
@@ -46,7 +46,7 @@ One optional lookup has a 100 ms budget, four shared slots and at most one reque
 
 Application migration `0053` adds only the independent ranking-preference table and its primary-key index. A real closed version-52 database preserves every prior typed value, rowid, schema object and migration receipt, including owned credential bytes and personal state. Existing consent creates no ranking preference. Historical version-52 references remain separately checked.
 
-Four new core cases cover ordering, a held-body deadline with actual playback during the outage, account preference isolation/concurrent saves/reopen, and the genuine database upgrade. Independent integrated checks pass 18 directed core cases and 20 server cases, including eight historical upgrade workflows, 11 maintenance cases and nine existing lyric cases. Strict workspace all-target checks and formatting pass. Actual Rust OpenAPI export remains byte-identical at 96 paths and 229 schemas. Fresh source reviews pass. These checks qualify the core foundation. The subsequent HTTP qualification is below; Settings, browser/native consumption, client-drop completion logs and packaged ranking acceptance remain unfinished.
+Four new core cases cover ordering, a held-body deadline with actual playback during the outage, account preference isolation/concurrent saves/reopen, and the genuine database upgrade. Independent integrated checks pass 18 directed core cases and 20 server cases, including eight historical upgrade workflows, 11 maintenance cases and nine existing lyric cases. Strict workspace all-target checks and formatting pass. Actual Rust OpenAPI export remains byte-identical at 96 paths and 229 schemas. Fresh source reviews pass. These checks qualify the core foundation. The subsequent HTTP and Privacy qualifications are below; browser/native consumption, client-drop completion logs and packaged ranking acceptance remain unfinished.
 
 ## Application ranking HTTP
 
@@ -56,7 +56,15 @@ The Hito application now exposes `GET` and `PUT /api/v1/community/ranking-prefer
 
 One public-router workflow first failed with `404`, then passed unchanged after the routes were implemented. It covers explicit consent, peer isolation, malformed requests, stale revisions, logout denial, an exact public-only ranking request and unchanged private state, originals and provider activity. Together with existing community and lyric routes, all 15 cases pass. Strict core/server all-target checks, formatting, an independent repeat and fresh source review pass.
 
-Actual Rust export produces 98 paths and 231 schemas. All prior 96 paths, 229 schemas and other contract metadata remain identical. TypeScript is generated from that export, and both frontend type configurations pass. These routes are source-qualified; runtime origin configuration, Privacy controls, browser/native playback consumption, held-response HTTP cancellation and completion logs, packaged acceptance and deployment remain open.
+Actual Rust export produces 98 paths and 231 schemas. All prior 96 paths, 229 schemas and other contract metadata remain identical. TypeScript is generated from that export, and both frontend type configurations pass. These routes are source-qualified; runtime origin configuration, browser/native playback consumption, held-response HTTP cancellation and completion logs, packaged acceptance and deployment remain open. The Privacy control is separately qualified below.
+
+## Independent ranking Privacy control
+
+Settings now has a separate disabled-by-default source-ranking preference. Editing the checkbox makes no request; explicit Save submits the current revision. Playback reporting and metadata-correction preferences retain their existing values and wire representation. A stale save offers an authoritative reload, and request ownership retires across account changes. The request and JSON read share a five-second deadline. Logs use static outcomes, correlation IDs and timings.
+
+Four coupled DOM cases pass in an independent Docker repeat. They exercise explicit save, independent consent, stale-save reload/retry and cancellation through the actual Settings page and HTTP client. A forwarded console-error assertion first exposed duplicate React sibling keys; the unchanged workflow passes after account-scoped panel keys were corrected. Both TypeScript configurations, formatting and fresh source review pass. Held account replies and the actual deadline still need dedicated controls.
+
+This qualifies the source only. The separately qualified [packaged lyric runtime](plugin-timed-content.md#packaged-static-lyric-workflows) predates this control. Runtime origin configuration, browser/native ranking consumption, real browser-to-service acceptance and normal deployment remain open.
 
 ## Current HTTP contract
 

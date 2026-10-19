@@ -1,6 +1,6 @@
 # Timed lyrics and backing-track contracts
 
-The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Rendering, verified audio alignment, reference providers and backing-track playback remain unfinished.
+The Apache-2.0 plugin SDK defines structured lyrics and backing-track responses. Existing manifest bytes and capability declarations remain unchanged. The host can read lyrics for a retained, authorized provider identity. Static rendering is qualified below. Verified audio alignment, reference providers and backing-track playback remain unfinished.
 
 ## Protocol and identities
 
@@ -79,7 +79,7 @@ flowchart LR
 
 Six DOM cases exercise the actual page and HTTP client against controlled fetch responses. They check explicit lookup, immutable personal edit drafts, exact request bodies, cancellation, account and observation changes, null and error states, wrong identity echoes, retries and private-log exclusion. The deadline case uses a simulated frontend clock; it does not prove real network timing or upstream body retirement. All 511 frontend cases, both TypeScript configurations and the production bundle pass in an independent Docker repeat. Fresh source review also passes.
 
-Current packaged browser/provider acceptance, an independent attached-provider picker, timeline alignment and backing-track UI remain open. These source checks do not replace those gates.
+Packaged reading and cancellation are qualified below with an owned provider fixture. An independent attached-provider picker, live provider acceptance, timeline alignment and backing-track UI remain open.
 
 ## Cancellation completion
 
@@ -87,9 +87,19 @@ A polled lyric request now owns its completion event and tracing span until the 
 
 The public regression holds an actual provider response, polls under one subscriber and drops under another. It requires peer EOF before fixture release, one correlated cancellation, exactly one core-span and parent-span close event, and an empty decoy capture. A fresh authenticated HTTP retry succeeds without changing private state or original audio. The initial completion regression missed its event; a stronger retirement control later exposed an unclosed span. Each failure passed unchanged after its corresponding ownership fix.
 
-All ten normal lyric cases pass, with two finite diagnostics explicitly ignored. Strict core/server all-target checks, formatting and fresh source review pass. An independent integrated run passes those ten cases and the community-ranking HTTP workflow; actual OpenAPI export remains byte-identical at 98 paths and 231 schemas. New packaged Chromium/WebKit acceptance is still pending.
+All ten normal lyric cases pass, with two finite diagnostics explicitly ignored. Strict core/server all-target checks, formatting and fresh source review pass. An independent integrated run passes those ten cases and the community-ranking HTTP workflow; actual OpenAPI export remains byte-identical at 98 paths and 231 schemas. The packaged Chromium/WebKit checks below also pass.
 
 Two separate intermittent observations lacked an expected event or span context. Their causes remain open despite finite passing diagnostics. The controlled dropped-future and span-retirement fixes do not establish a cause for those samples.
+
+## Packaged static lyric workflows
+
+Four isolated cases pass against the runtime built from `ee17d7336c8942a6a283d3c59d635fa0f6c2bdfb`: reading and lifecycle in both Chromium and WebKit. They drive first-run setup, plugin installation, Discover adoption and Track Details. Only explicit lookup contacts the owned provider. Exact escaped text, structured credits, a valid null answer and unsaved metadata drafts are checked. No playback, preparation, persistent download or implicit write occurs; private state and original audio remain unchanged.
+
+Each lifecycle case holds two real provider responses. Cancellation and navigation retire their bodies before fixture release, then immediate explicit retries succeed. Host outcomes are exactly `cancelled`, `ready`, `cancelled`, `ready`, with separate correlation IDs and elapsed times. Reading produces exactly `ready`, `not_found`. Both engines report no JavaScript errors, unexpected failed requests or private console values.
+
+The immutable image is `sha256:003cd13c5e575c3bfe77d084772f506fbe4edd32db6e6e16c5419775184e438c`. Its 1,970 committed inputs hash to `b3240208bc22b403f2452afb1cd5ce532d5012bc031f3df05c2672d5af871999`. The separately recorded gate overlay preserves the exact executed test code; later gate and Privacy commits are not part of this runtime. See the [reproduction guide and artifact identities](../scripts/lyrics/recording-browser.md).
+
+These are owned protocol fixtures and Linux browser engines. Account-switch and late-owner browser controls, live providers, physical platforms, timeline alignment and backing playback remain open. The two historical missing-log observations remain unexplained. The normal persistent server was not changed.
 
 ## Backing tracks
 
