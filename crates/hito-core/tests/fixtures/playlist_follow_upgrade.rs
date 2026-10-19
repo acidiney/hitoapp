@@ -1,6 +1,11 @@
 use sqlx::{Connection, Row, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::{borrow::Cow, path::Path};
 
+#[path = "collection_artwork_schema.rs"]
+mod collection_artwork_schema;
+
+const LEDGER_SNAPSHOT: &str = "before_migration_ledger";
+
 pub async fn connect(database: &Path) -> SqliteConnection {
     SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
@@ -102,6 +107,13 @@ pub async fn baseline(source: &Path, database: &Path) -> Vec<String> {
         .await
         .unwrap();
     }
+    sqlx::query(&format!(
+        "CREATE TABLE {} AS SELECT rowid AS original_rowid,* FROM _sqlx_migrations",
+        quoted(LEDGER_SNAPSHOT)
+    ))
+    .execute(&mut *tx)
+    .await
+    .unwrap();
     sqlx::query("DELETE FROM sqlite_sequence WHERE name IN (SELECT name FROM populated_source.sqlite_sequence)").execute(&mut *tx).await.unwrap();
     sqlx::query("INSERT INTO sqlite_sequence(name,seq) SELECT name,seq FROM populated_source.sqlite_sequence WHERE name IN (SELECT name FROM main.sqlite_schema WHERE type = 'table')")
         .execute(&mut *tx).await.unwrap();
@@ -186,18 +198,70 @@ pub async fn baseline(source: &Path, database: &Path) -> Vec<String> {
 }
 
 pub async fn assert_preserved(connection: &mut SqliteConnection, tables: &[String]) {
-    for table in tables {
-        let before = quoted(&format!("before_{table}"));
+    for table in tables
+        .iter()
+        .map(String::as_str)
+        .chain(std::iter::once("_sqlx_migrations"))
+    {
+        let snapshot = if table == "_sqlx_migrations" {
+            LEDGER_SNAPSHOT.to_owned()
+        } else {
+            format!("before_{table}")
+        };
+        let columns: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM pragma_table_xinfo(?) WHERE hidden=0 ORDER BY cid",
+        )
+        .bind(&snapshot)
+        .fetch_all(&mut *connection)
+        .await
+        .unwrap();
+        assert_eq!(columns.first().map(String::as_str), Some("original_rowid"));
+        let columns = &columns[1..];
+        if table == "artwork_fetches" {
+            assert_eq!(columns, collection_artwork_schema::LEGACY_JOB_COLUMNS);
+        }
+        if table == "_sqlx_migrations" {
+            assert_eq!(
+                columns,
+                [
+                    "version",
+                    "description",
+                    "installed_on",
+                    "success",
+                    "checksum",
+                    "execution_time"
+                ]
+            );
+        }
+        let before = quoted(&snapshot);
         let table_name = quoted(table);
+        let current = typed_projection("rowid", columns);
+        let previous = typed_projection("original_rowid", columns);
+        let filter = if table == "_sqlx_migrations" {
+            " WHERE version <= 27"
+        } else {
+            ""
+        };
         let differences: i64 = sqlx::query_scalar(&format!("SELECT
-            (SELECT count(*) FROM (SELECT rowid,* FROM {table_name} EXCEPT SELECT * FROM {before})) +
-            (SELECT count(*) FROM (SELECT * FROM {before} EXCEPT SELECT rowid,* FROM {table_name}))"))
+            (SELECT count(*) FROM (SELECT {current} FROM {table_name}{filter} EXCEPT SELECT {previous} FROM {before})) +
+            (SELECT count(*) FROM (SELECT {previous} FROM {before} EXCEPT SELECT {current} FROM {table_name}{filter}))"))
             .fetch_one(&mut *connection).await.unwrap();
         assert_eq!(
             differences, 0,
             "The migration changed rows or rowids in {table}"
         );
     }
+    for snapshot in tables
+        .iter()
+        .map(|table| format!("before_{table}"))
+        .chain(std::iter::once(LEDGER_SNAPSHOT.to_owned()))
+    {
+        sqlx::query(&format!("DROP TABLE {}", quoted(&snapshot)))
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+    }
+    collection_artwork_schema::assert_current(connection).await;
     assert!(
         sqlx::query("PRAGMA foreign_key_check")
             .fetch_all(&mut *connection)
@@ -227,4 +291,17 @@ pub async fn assert_preserved(connection: &mut SqliteConnection, tables: &[Strin
         .await
         .unwrap();
     }
+}
+
+fn typed_projection(rowid: &str, columns: &[String]) -> String {
+    std::iter::once(quoted(rowid))
+        .chain(columns.iter().map(|column| quoted(column)))
+        .flat_map(|column| {
+            [
+                format!("{column} COLLATE BINARY"),
+                format!("typeof({column})"),
+            ]
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
