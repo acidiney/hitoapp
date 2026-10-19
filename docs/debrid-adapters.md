@@ -69,13 +69,15 @@ All 22 existing Real-Debrid adapter cases and six service cases pass after extra
 
 An opaque `GeneratedFileCandidate` can now be consumed by `open_bound_audio`. The client first acquires shared media capacity, then repeats the provider status and complete file-tree observation. Only the exact completed binding permits opening the candidate's private address. The nine-second opening deadline covers revalidation, DNS, TLS and WAV qualification. It makes no new unlock request and creates no persistent download.
 
-The shared origin, DNS, TLS, WAV, length and EOF rules still apply. Provider credentials stay with the AllDebrid API; media receives no authorization, cookie or referer header. The candidate address has no public getter or serialization. Direct generated-link acknowledgements remain unsupported.
+The shared origin, DNS, TLS, WAV, length and EOF rules still apply. Provider credentials stay with the AllDebrid API; media receives no authorization, cookie or referer header. The candidate address has no public getter or serialization. An immediate unlock acknowledgement now yields the same opaque candidate type; it requires the exact selected-file byte count and a bounded HTTPS address. It makes no delayed poll and does not establish media readiness before opening.
 
 Two new owned TLS cases extend the prior seven protocol cases. The first performs preparation and a real delayed poll before fresh revalidation and one media GET. It reads exactly 384,044 WAV bytes and decodes 192,000 samples, while retaining a same-name, same-size file in a different directory as a rejected decoy. The second cancels a held opening under another log dispatcher. Client EOF precedes recovery; exactly two cancellation outcomes retain their original correlation, the decoy capture remains empty, and two recovered bodies remain live together before full consumption.
 
 The cancellation case initially panicked during nested span retirement. The fix retains the owning dispatcher for both completion logging and span retirement. The unchanged case then passed. All nine AllDebrid cases, 22 Real-Debrid cases and six Real-Debrid service cases pass together, with strict affected-crate checks and formatting. An independent repeat and final source review pass. All 174 qualified inputs match the integrated source; external lockfile package blocks and the shared/RD/service sources remain unchanged.
 
-These checks qualify an offline protocol library with deterministic fixtures. A connectable AllDebrid service, durable application preparation, direct generated acknowledgements, broader formats, seeking, failure controls and live-provider acceptance remain open.
+A third media case covers an immediate generated acknowledgement. It verifies exactly five API calls and one credential-free WAV GET, with fresh bound-file observation, exact bytes through EOF and decoding, and no delayed poll or second unlock. Its first run failed with `GeneratedLinkUnsupported`; the same case passed after the typed candidate branch was implemented. All ten AD cases, strict AD all-target checks with test support and formatting pass, including an independent repeat. Independent source review passes. Shared/RD/service and dependency inputs remain unchanged.
+
+These checks qualify an offline protocol library with deterministic fixtures. A connectable AllDebrid service, durable application preparation, adversarial acknowledgement controls, broader formats, seeking, failure controls and live-provider acceptance remain open.
 
 ## Curated-WAV service and executable
 
