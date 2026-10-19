@@ -27,11 +27,12 @@ pub use catalog::{
     AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog, ChooseSource, LyricsLookup,
     MetadataProvider, MetadataSettings, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
     PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
-    ReadArtistDiscography, ReadRecordingLyrics, Recording, Release, ReleaseArtworkFetch,
-    ReleaseDetail, ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
-    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
-    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
-    SourceResolutionOutcome, UpdateMetadataSettings,
+    ReadArtistDiscography, ReadRecordingLyrics, Recording, RecordingLyricsProvider,
+    RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack,
+    ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
+    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
+    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    UpdateMetadataSettings,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

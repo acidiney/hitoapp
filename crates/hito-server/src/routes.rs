@@ -121,6 +121,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_profiles::profile))
         .routes(routes!(api::artist_discography::read))
         .routes(routes!(api::lyrics::read))
+        .routes(routes!(api::lyrics::providers))
         .routes(routes!(api::metadata::recording_metadata))
         .routes(routes!(api::metadata::release_metadata))
         .routes(routes!(api::artwork::artwork))

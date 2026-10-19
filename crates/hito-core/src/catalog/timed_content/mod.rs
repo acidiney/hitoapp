@@ -1,7 +1,10 @@
 mod authority;
+mod providers;
 mod types;
 
-pub use types::{LyricsLookup, ReadRecordingLyrics};
+pub use types::{
+    LyricsLookup, ReadRecordingLyrics, RecordingLyricsProvider, RecordingLyricsProviders,
+};
 
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use authority::Target;
@@ -127,15 +130,31 @@ struct Completion {
     outcome: &'static str,
     span: tracing::Span,
     dispatcher: tracing::Dispatch,
+    message: &'static str,
 }
 
 impl Completion {
     fn new() -> Self {
+        Self::for_span(
+            tracing::debug_span!("recording_lyrics_until", operation = "recording_lyrics", request_id = %Uuid::new_v4()),
+            "Recording lyric lookup completed",
+        )
+    }
+
+    fn providers() -> Self {
+        Self::for_span(
+            tracing::debug_span!("recording_lyric_providers", operation = "recording_lyric_providers", request_id = %Uuid::new_v4()),
+            "Recording lyric provider list completed",
+        )
+    }
+
+    fn for_span(span: tracing::Span, message: &'static str) -> Self {
         Self {
             started: Instant::now(),
             outcome: "cancelled",
-            span: tracing::debug_span!("recording_lyrics_until", operation = "recording_lyrics", request_id = %Uuid::new_v4()),
+            span,
             dispatcher: tracing::dispatcher::get_default(Clone::clone),
+            message,
         }
     }
 }
@@ -148,7 +167,7 @@ impl Drop for Completion {
         tracing::debug!(
             outcome = self.outcome,
             elapsed_ms = self.started.elapsed().as_millis() as u64,
-            "Recording lyric lookup completed"
+            message = self.message,
         );
     }
 }

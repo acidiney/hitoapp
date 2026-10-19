@@ -37,7 +37,9 @@ mod playback_sources;
 mod release_query_work;
 mod sources;
 mod timed_content;
-pub use timed_content::{LyricsLookup, ReadRecordingLyrics};
+pub use timed_content::{
+    LyricsLookup, ReadRecordingLyrics, RecordingLyricsProvider, RecordingLyricsProviders,
+};
 mod types;
 
 use crate::{HostDeviceId, store::Store};

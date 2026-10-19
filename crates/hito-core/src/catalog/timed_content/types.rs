@@ -1,4 +1,4 @@
-use hito_plugin_sdk::LyricsResponse;
+use hito_plugin_sdk::{LyricsResponse, ProviderRecordingRef};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -7,6 +7,21 @@ use utoipa::ToSchema;
 pub struct ReadRecordingLyrics {
     pub observation_id: String,
     pub installation_revision: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RecordingLyricsProviders {
+    pub recording_id: String,
+    pub items: Vec<RecordingLyricsProvider>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RecordingLyricsProvider {
+    pub observation_id: String,
+    pub installation_id: String,
+    pub installation_revision: i64,
+    pub provider_recording: ProviderRecordingRef,
+    pub label: String,
 }
 
 #[derive(Serialize, ToSchema)]

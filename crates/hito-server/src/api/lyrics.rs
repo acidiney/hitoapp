@@ -7,9 +7,31 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use hito_core::{LyricsLookup, ReadRecordingLyrics, Services};
+use hito_core::{LyricsLookup, ReadRecordingLyrics, RecordingLyricsProviders, Services};
 use std::time::Instant;
 use uuid::Uuid;
+
+#[utoipa::path(get, path = "/api/v1/recordings/{id}/lyrics/providers", operation_id = "recording_lyrics_providers",
+    params(("id" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = RecordingLyricsProviders, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+pub async fn providers(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+) -> ApiResult<Json<RecordingLyricsProviders>> {
+    Ok(Json(
+        services
+            .catalog
+            .recording_lyrics_providers(&actor, &id)
+            .await?,
+    ))
+}
 
 #[utoipa::path(post, path = "/api/v1/recordings/{id}/lyrics", operation_id = "recording_lyrics",
     params(("id" = String, Path)), request_body = ReadRecordingLyrics,

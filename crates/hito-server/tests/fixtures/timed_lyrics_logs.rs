@@ -181,6 +181,37 @@ impl Logs {
             );
         }
     }
+
+    pub fn assert_provider_lists(&self, outcomes: &[&str]) {
+        let captured = self.0.lock().unwrap();
+        assert!(!captured.overflow);
+        let text = std::str::from_utf8(&captured.bytes).unwrap();
+        let events: Vec<serde_json::Value> = text
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .filter(|event: &serde_json::Value| {
+                event["fields"]["message"] == "Recording lyric provider list completed"
+            })
+            .collect();
+        assert_eq!(events.len(), outcomes.len());
+        let mut correlations = std::collections::BTreeSet::new();
+        for (event, outcome) in events.iter().zip(outcomes) {
+            let fields = event["fields"].as_object().unwrap();
+            assert_eq!(fields.len(), 3);
+            assert!(fields["outcome"] == *outcome && fields["elapsed_ms"].as_u64().is_some());
+            let owners: Vec<_> = event["spans"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|span| span["operation"] == "recording_lyric_providers")
+                .collect();
+            assert_eq!(owners.len(), 1);
+            let correlation =
+                uuid::Uuid::parse_str(owners[0]["request_id"].as_str().unwrap()).unwrap();
+            assert_eq!(correlation.get_version_num(), 4);
+            assert!(correlations.insert(correlation));
+        }
+    }
 }
 
 fn assert_events(events: &[serde_json::Value], message: &str, outcome: &str, expected: usize) {
