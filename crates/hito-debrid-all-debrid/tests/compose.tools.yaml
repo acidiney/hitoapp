@@ -1,0 +1,6 @@
+services:
+  rust:
+    build: !reset null
+    network_mode: none
+    environment:
+      CARGO_NET_OFFLINE: "true"
