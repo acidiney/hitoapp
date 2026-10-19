@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.e2e.json",
+  "include": [
+    "e2e/collection-artwork.spec.ts",
+    "playwright.collection-artwork.config.ts"
+  ]
+}
