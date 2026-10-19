@@ -29,7 +29,7 @@ The combined source passes 505 frontend cases, both TypeScript configurations an
 
 ## Optional source ordering in core
 
-Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. This capability is not yet exposed through server configuration, HTTP, Settings or either player.
+Core now has a separate, disabled-by-default account preference for receiving source rankings. Its revision and concurrent-save checks are independent of playback reporting and metadata corrections. `CommunityRankingConfig` takes an origin without an administrator credential. Authenticated HTTP access is qualified below. Server configuration, Settings and both player consumers remain unfinished.
 
 The caller reads current authorized sources before consulting the community. Ready local files and downloads bypass the lookup, as do protected manual or reviewed choices. Eligible requests contain only distinct canonical public YouTube and Jamendo references from current approved sources. They contain no account credential, provider credential, title, path, audio or stream URL.
 
@@ -46,7 +46,17 @@ One optional lookup has a 100 ms budget, four shared slots and at most one reque
 
 Application migration `0053` adds only the independent ranking-preference table and its primary-key index. A real closed version-52 database preserves every prior typed value, rowid, schema object and migration receipt, including owned credential bytes and personal state. Existing consent creates no ranking preference. Historical version-52 references remain separately checked.
 
-Four new core cases cover ordering, a held-body deadline with actual playback during the outage, account preference isolation/concurrent saves/reopen, and the genuine database upgrade. Independent integrated checks pass 18 directed core cases and 20 server cases, including eight historical upgrade workflows, 11 maintenance cases and nine existing lyric cases. Strict workspace all-target checks and formatting pass. Actual Rust OpenAPI export remains byte-identical at 96 paths and 229 schemas. Fresh source reviews pass. These checks qualify the core foundation; HTTP, Settings, browser/native consumption, client-drop completion logs and packaged ranking acceptance remain unfinished.
+Four new core cases cover ordering, a held-body deadline with actual playback during the outage, account preference isolation/concurrent saves/reopen, and the genuine database upgrade. Independent integrated checks pass 18 directed core cases and 20 server cases, including eight historical upgrade workflows, 11 maintenance cases and nine existing lyric cases. Strict workspace all-target checks and formatting pass. Actual Rust OpenAPI export remains byte-identical at 96 paths and 229 schemas. Fresh source reviews pass. These checks qualify the core foundation. The subsequent HTTP qualification is below; Settings, browser/native consumption, client-drop completion logs and packaged ranking acceptance remain unfinished.
+
+## Application ranking HTTP
+
+The Hito application now exposes `GET` and `PUT /api/v1/community/ranking-preferences`. They use the shared account authentication, origin and JSON request guards. Reads return the caller's independent disabled-by-default preference. Saves require its current revision; stale saves return `409`. Playback-reporting and metadata-correction preferences keep their existing wire representation and revisions.
+
+`GET /api/v1/recordings/{id}/playback-sources` calls the optional core ordering capability. Ordinary `/sources` reads retain their previous behavior. Neither preference reads nor saves contact the community. Source ordering makes an anonymous canonical-candidate request only when current consent and authority permit it. Replies retain complete source fields; no provider preparation, audio fetch or persistent download occurs.
+
+One public-router workflow first failed with `404`, then passed unchanged after the routes were implemented. It covers explicit consent, peer isolation, malformed requests, stale revisions, logout denial, an exact public-only ranking request and unchanged private state, originals and provider activity. Together with existing community and lyric routes, all 15 cases pass. Strict core/server all-target checks, formatting, an independent repeat and fresh source review pass.
+
+Actual Rust export produces 98 paths and 231 schemas. All prior 96 paths, 229 schemas and other contract metadata remain identical. TypeScript is generated from that export, and both frontend type configurations pass. These routes are source-qualified; runtime origin configuration, Privacy controls, browser/native playback consumption, held-response HTTP cancellation and completion logs, packaged acceptance and deployment remain open.
 
 ## Current HTTP contract
 
