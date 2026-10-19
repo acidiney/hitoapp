@@ -32,6 +32,7 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
   const recording = "1cbe6b12-a9d8-4da5-9ef0-cf518d27c69c";
   const source = "e72c1fd9-1ed1-4ef5-87f0-c64ebf8b7b82";
   const path = `/api/v1/recordings/${recording}/sources`;
+  const cachedPath = `/api/v1/recordings/${recording}/playback-sources`;
   const requests: { path: string; method: string; account: string | null }[] =
     [];
   const attempts: { body: string; signal: AbortSignal }[] = [];
@@ -50,7 +51,8 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
         account: new Headers(options?.headers).get("x-hito-account"),
       });
       expect(options?.credentials).toBe("same-origin");
-      if (url === path && options?.method === "GET") return Response.json([]);
+      if (url === cachedPath && options?.method === "GET")
+        return Response.json([]);
       if (url === `${path}/refresh` && options?.method === "POST") {
         expect(JSON.parse(String(options.body))).toEqual({
           purpose: "playback",
@@ -150,7 +152,7 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
   });
   await vi.waitFor(() => expect(player.snapshot().playing).toBe(true));
   expect(requests).toEqual([
-    { path, method: "GET", account },
+    { path: cachedPath, method: "GET", account },
     { path: `${path}/refresh`, method: "POST", account },
     { path: `${path}/resolve`, method: "POST", account },
     { path: `${path}/resolve`, method: "POST", account },

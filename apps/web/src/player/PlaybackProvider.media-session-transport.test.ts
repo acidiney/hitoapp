@@ -86,7 +86,8 @@ test("system next, previous, and stop follow the owned queue and never restart a
     expect(
       requests.every(
         (request) =>
-          request.path.endsWith("/sources") || request.path === "/api/v1/sync",
+          request.path.endsWith("/playback-sources") ||
+          request.path === "/api/v1/sync",
       ),
     ).toBe(true);
   } finally {

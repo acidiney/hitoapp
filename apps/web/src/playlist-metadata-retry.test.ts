@@ -69,7 +69,7 @@ test("a lost album lookup response retries its frozen operation while the provid
   };
   const downloadPath = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const metadataPath = `/api/v1/playlists/${props.detail.playlist.id}/metadata/refresh`;
-  const sourcePath = `/api/v1/recordings/${recordingA}/sources`;
+  const sourcePath = `/api/v1/recordings/${recordingA}/playback-sources`;
   const rawError =
     "Lost reply from https://private-provider.invalid/audio?signed=private-canary";
   let settingsReads = 0;

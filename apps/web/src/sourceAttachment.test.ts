@@ -53,6 +53,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       this.dispatchEvent(new Event("play"));
     });
   const base = `/api/v1/recordings/${savedRecording.id}/sources`;
+  const cachedSources = `/api/v1/recordings/${savedRecording.id}/playback-sources`;
   const sourceChoice = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const fetch = vi.fn(async (path: string, _options?: RequestInit) => {
     if (path === sourceChoice && _options?.method === "GET")
@@ -65,7 +66,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
       [`${base}/review`]: attachmentReview,
       [`${base}/attach`]: attachedRecording,
       [`${base}/refresh`]: attachedSources,
-      [base]: attachedSources,
+      [cachedSources]: attachedSources,
     };
     if (!(path in responses))
       throw new Error(
@@ -210,7 +211,7 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     `${base}/review`,
     `${base}/attach`,
     `${base}/refresh`,
-    base,
+    cachedSources,
   ]);
   for (const [, options] of fetch.mock.calls) {
     expect(options?.headers).toEqual(

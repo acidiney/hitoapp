@@ -87,7 +87,10 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
       return Promise.resolve(
         Response.json({ error: "Not found" }, { status: 404 }),
       );
-    if (path === `/api/v1/recordings/${recordingA}/sources` && method === "GET")
+    if (
+      path === `/api/v1/recordings/${recordingA}/playback-sources` &&
+      method === "GET"
+    )
       return Promise.resolve(
         Response.json([
           {

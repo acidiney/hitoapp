@@ -73,7 +73,7 @@ test("browser playback publishes the playing recording and handles system pause,
 
     expect(requests.filter((request) => request.method === "GET")).toEqual([
       {
-        path: `/api/v1/recordings/${recording.id}/sources`,
+        path: `/api/v1/recordings/${recording.id}/playback-sources`,
         method: "GET",
         account: "owned-system-account",
       },
@@ -81,7 +81,8 @@ test("browser playback publishes the playing recording and handles system pause,
     expect(
       requests.every(
         (request) =>
-          request.path === "/api/v1/sync" || request.path.endsWith("/sources"),
+          request.path === "/api/v1/sync" ||
+          request.path.endsWith("/playback-sources"),
       ),
     ).toBe(true);
   } finally {

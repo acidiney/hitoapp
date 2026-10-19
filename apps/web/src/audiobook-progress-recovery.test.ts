@@ -59,7 +59,8 @@ test.each(["request", "acknowledgement body"] as const)(
         expect(signal).toBeInstanceOf(AbortSignal);
         for (const source of sources)
           if (
-            input === `/api/v1/recordings/${source.recording_id}/sources` &&
+            input ===
+              `/api/v1/recordings/${source.recording_id}/playback-sources` &&
             options?.method === "GET"
           )
             return Response.json([source]);

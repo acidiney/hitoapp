@@ -49,7 +49,7 @@ export function playbackRequests(
         account: new Headers(options?.headers).get("x-hito-account"),
       });
       const track = tracks.find(
-        (track) => path === `/api/v1/recordings/${track.id}/sources`,
+        (track) => path === `/api/v1/recordings/${track.id}/playback-sources`,
       );
       if (track && method === "GET")
         return Response.json([

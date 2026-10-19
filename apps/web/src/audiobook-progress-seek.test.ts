@@ -147,7 +147,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
       )
         return Response.json(page.detail);
       if (
-        path === `/api/v1/recordings/${source.recording_id}/sources` &&
+        path === `/api/v1/recordings/${source.recording_id}/playback-sources` &&
         method === "GET"
       )
         return Response.json([source]);

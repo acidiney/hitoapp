@@ -78,7 +78,7 @@ function BrowserAccountPlayback({
           ).sources;
         return options.purpose === "refresh"
           ? libraryApi.recoverSources(account, recording, options.signal)
-          : libraryApi.sources(account, recording, options.signal);
+          : libraryApi.playbackSources(account, recording, options.signal);
       },
       (recording, position, speed, chapter) =>
         progress.admit({ recording, position, speed, chapter }),

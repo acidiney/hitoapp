@@ -173,7 +173,8 @@ async function playingBook() {
         return service.read();
       }
       const index = chapters.findIndex(
-        (entry) => path === `/api/v1/recordings/${entry.recording_id}/sources`,
+        (entry) =>
+          path === `/api/v1/recordings/${entry.recording_id}/playback-sources`,
       );
       if (index < 0) throw new Error("Unexpected owned continuation request");
       return Response.json([

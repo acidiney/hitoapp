@@ -69,7 +69,9 @@ test("newer browser Pause retires Continue while its heard prefix waits for ackn
         reads++;
         throw new Error("Retired Continue must not request its audiobook");
       }
-      expect(path).toBe(`/api/v1/recordings/${chapter.recording_id}/sources`);
+      expect(path).toBe(
+        `/api/v1/recordings/${chapter.recording_id}/playback-sources`,
+      );
       return Response.json([source]);
     }),
   );
@@ -155,7 +157,8 @@ test("newer browser Pause retires Continue while its heard prefix waits for ackn
       requests.every(
         (path) =>
           path === "/api/v1/sync" ||
-          path === `/api/v1/recordings/${chapter.recording_id}/sources`,
+          path ===
+            `/api/v1/recordings/${chapter.recording_id}/playback-sources`,
       ),
     ).toBe(true);
   } finally {

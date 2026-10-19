@@ -68,7 +68,8 @@ test("held image loads cannot publish after track replacement, account replaceme
     expect(
       requests.every(
         (request) =>
-          request.method === "GET" && request.path.endsWith("/sources"),
+          request.method === "GET" &&
+          request.path.endsWith("/playback-sources"),
       ),
     ).toBe(true);
   } finally {
@@ -166,7 +167,7 @@ test("a current cover retries only when the existing authorized artwork workflow
     expect(
       requests.map((request) => `${request.method} ${request.path}`),
     ).toEqual([
-      `GET /api/v1/recordings/${recording.id}/sources`,
+      `GET /api/v1/recordings/${recording.id}/playback-sources`,
       `GET ${path}/availability`,
       `POST ${path}/fetch`,
     ]);

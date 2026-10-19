@@ -484,8 +484,12 @@ test("Continue waits for its private progress prefix while held community delive
           );
         return Response.json("queued");
       }
-      const old = path === `/api/v1/recordings/${recording.id}/sources`;
-      if (!old && path !== `/api/v1/recordings/${chapter.recording_id}/sources`)
+      const old =
+        path === `/api/v1/recordings/${recording.id}/playback-sources`;
+      if (
+        !old &&
+        path !== `/api/v1/recordings/${chapter.recording_id}/playback-sources`
+      )
         throw new Error("Unexpected owned Continue/community request");
       return Response.json([
         {

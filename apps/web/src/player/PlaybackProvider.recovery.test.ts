@@ -29,13 +29,15 @@ test("browser audio recovery sends the playback refresh purpose and releases acc
     device_id: null,
     ready: true,
   });
-  const fetch = vi.fn(async (input: RequestInfo | URL, _options?: RequestInit) => {
-    if (input === "/api/v1/recordings/saved/sources")
-      return new Response(JSON.stringify([source("expired")]));
-    if (input === "/api/v1/recordings/saved/sources/refresh")
-      return new Response(JSON.stringify([source("replacement")]));
-    throw new Error("Unexpected owned playback request");
-  });
+  const fetch = vi.fn(
+    async (input: RequestInfo | URL, _options?: RequestInit) => {
+      if (input === "/api/v1/recordings/saved/playback-sources")
+        return new Response(JSON.stringify([source("expired")]));
+      if (input === "/api/v1/recordings/saved/sources/refresh")
+        return new Response(JSON.stringify([source("replacement")]));
+      throw new Error("Unexpected owned playback request");
+    },
+  );
   vi.stubGlobal("fetch", fetch);
   let player!: Player;
   function Capture() {
@@ -70,7 +72,9 @@ test("browser audio recovery sends the playback refresh purpose and releases acc
   expect(fetch).toHaveBeenCalledTimes(2);
   const cached = fetch.mock.calls[0][1];
   const recovery = fetch.mock.calls[1][1];
-  expect(cached).toEqual(expect.objectContaining({ method: "GET", body: undefined }));
+  expect(cached).toEqual(
+    expect.objectContaining({ method: "GET", body: undefined }),
+  );
   expect(recovery).toEqual(
     expect.objectContaining({
       method: "POST",

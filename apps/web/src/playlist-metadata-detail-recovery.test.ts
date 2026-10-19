@@ -64,7 +64,7 @@ test.each(["request", "network"] as const)(
         throw new Error(rawError);
       options?.onCancelToken?.({ cancel: vi.fn() });
     });
-    const sourcePath = `/api/v1/recordings/${recordingA}/sources`;
+    const sourcePath = `/api/v1/recordings/${recordingA}/playback-sources`;
     const fetch = vi.fn((path: string, options?: RequestInit) => {
       const method = options?.method ?? "GET";
       if (path === metadataDownloadPath && method === "GET")

@@ -80,7 +80,7 @@ test("ordinary Play resolves stale availability within its account owner and ign
         signal: options.signal,
       });
       if (
-        path === `/api/v1/recordings/${recording}/sources` &&
+        path === `/api/v1/recordings/${recording}/playback-sources` &&
         options.method === "GET"
       )
         return response([]);

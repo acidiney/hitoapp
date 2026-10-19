@@ -68,7 +68,7 @@ test("an imported copy finds missing albums only on request without changing its
     ],
   };
   const downloadPath = `/api/v1/playlists/${props.detail.playlist.id}/download`;
-  const sourcePath = `/api/v1/recordings/${recordingA}/sources`;
+  const sourcePath = `/api/v1/recordings/${recordingA}/playback-sources`;
   const metadataPath = `/api/v1/playlists/${props.detail.playlist.id}/metadata/refresh`;
   let resolveMetadata!: (response: Response) => void;
   const metadataResponse = new Promise<Response>((resolve) => {

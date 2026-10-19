@@ -108,7 +108,7 @@ test("account playback aborts progress and replaces its account-bound resources"
       expect(options?.credentials).toBe("same-origin");
       expect(request.signal).toBeInstanceOf(AbortSignal);
       if (
-        request.path === `/api/v1/recordings/${recording}/sources` &&
+        request.path === `/api/v1/recordings/${recording}/playback-sources` &&
         request.method === "GET"
       )
         return Response.json([source(account)]);

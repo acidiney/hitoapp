@@ -56,7 +56,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
         new Headers(options.headers).get("x-hito-account") === props.user.id
       )
         return Response.json({ error: "Not found" }, { status: 404 });
-      if (path === `/api/v1/recordings/${recordingA}/sources`) {
+      if (path === `/api/v1/recordings/${recordingA}/playback-sources`) {
         return new Response(
           JSON.stringify([
             {
@@ -143,7 +143,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
   ]);
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([
     downloadPath,
-    `/api/v1/recordings/${recordingA}/sources`,
+    `/api/v1/recordings/${recordingA}/playback-sources`,
     "/api/v1/sync",
   ]);
   expect(fetch.mock.calls[0]).toEqual([

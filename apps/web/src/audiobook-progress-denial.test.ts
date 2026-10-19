@@ -54,7 +54,8 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
       expect(options?.signal).toBeInstanceOf(AbortSignal);
       for (const source of sources)
         if (
-          input === `/api/v1/recordings/${source.recording_id}/sources` &&
+          input ===
+            `/api/v1/recordings/${source.recording_id}/playback-sources` &&
           options?.method === "GET"
         )
           return Response.json([source]);

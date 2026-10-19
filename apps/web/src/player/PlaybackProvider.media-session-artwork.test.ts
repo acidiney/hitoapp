@@ -57,7 +57,7 @@ test("system artwork is the authorized current recording image only after the br
     expect(images.created).toHaveLength(1);
     expect(requests).toEqual([
       {
-        path: `/api/v1/recordings/${recording.id}/sources`,
+        path: `/api/v1/recordings/${recording.id}/playback-sources`,
         method: "GET",
         account: "owned-system-account",
       },

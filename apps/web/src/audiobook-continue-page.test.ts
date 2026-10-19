@@ -198,7 +198,8 @@ test.each([
         }
         const index = chapters.findIndex(
           (entry) =>
-            path === `/api/v1/recordings/${entry.recording_id}/sources`,
+            path ===
+            `/api/v1/recordings/${entry.recording_id}/playback-sources`,
         );
         if (index < 0)
           throw new Error("Unexpected owned Continue page request");
@@ -336,7 +337,7 @@ test.each([
               path === "/api/v1/sync" ||
               path ===
                 `/api/v1/audiobooks/${page.detail.playlist.id}/playback` ||
-              /\/sources$/.test(path),
+              /\/playback-sources$/.test(path),
           ),
         ).toBe(true);
     } finally {

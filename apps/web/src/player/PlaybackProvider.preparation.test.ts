@@ -47,6 +47,8 @@ const nextSource = source(next, "563864ed-08b8-41eb-94c3-2948e17d0b0e");
 const afterSource = source(after, "2b77f558-ac64-4431-a097-9d141f80f0f9");
 const sourcesPath = (recording: Track) =>
   `/api/v1/recordings/${recording.id}/sources`;
+const cachedSourcesPath = (recording: Track) =>
+  `/api/v1/recordings/${recording.id}/playback-sources`;
 
 type Request = {
   path: string;
@@ -125,9 +127,9 @@ test("an account remount aborts next-source acquisition and ignores its late res
   const entered = deferred<Request>();
   const acknowledgement = deferred<Response>();
   const requests = httpBoundary((request) => {
-    if (request.path === sourcesPath(first) && request.method === "GET")
+    if (request.path === cachedSourcesPath(first) && request.method === "GET")
       return Response.json([firstSource]);
-    if (request.path === sourcesPath(next) && request.method === "GET")
+    if (request.path === cachedSourcesPath(next) && request.method === "GET")
       return Response.json([]);
     if (
       request.path === `${sourcesPath(next)}/refresh` &&
@@ -186,8 +188,8 @@ test("an account remount aborts next-source acquisition and ignores its late res
     expect(
       requests.map((request) => `${request.method} ${request.path}`),
     ).toEqual([
-      `GET ${sourcesPath(first)}`,
-      `GET ${sourcesPath(next)}`,
+      `GET ${cachedSourcesPath(first)}`,
+      `GET ${cachedSourcesPath(next)}`,
       `POST ${sourcesPath(next)}/refresh`,
       `POST ${sourcesPath(next)}/resolve`,
     ]);
@@ -213,9 +215,9 @@ test("an adopted next buffer is released on account change and late media and pr
   const progress = deferred<Request>();
   const acknowledgement = deferred<Response>();
   const ready = new Map([
-    [sourcesPath(first), firstSource],
-    [sourcesPath(next), nextSource],
-    [sourcesPath(after), afterSource],
+    [cachedSourcesPath(first), firstSource],
+    [cachedSourcesPath(next), nextSource],
+    [cachedSourcesPath(after), afterSource],
   ]);
   const requests = httpBoundary((request) => {
     const audio = ready.get(request.path);
@@ -349,11 +351,11 @@ test("an adopted next buffer is released on account change and late media and pr
     expect(
       requests.map((request) => `${request.method} ${request.path}`),
     ).toEqual([
-      `GET ${sourcesPath(first)}`,
-      `GET ${sourcesPath(next)}`,
+      `GET ${cachedSourcesPath(first)}`,
+      `GET ${cachedSourcesPath(next)}`,
       "POST /api/v1/sync",
-      `GET ${sourcesPath(next)}`,
-      `GET ${sourcesPath(after)}`,
+      `GET ${cachedSourcesPath(next)}`,
+      `GET ${cachedSourcesPath(after)}`,
       "POST /api/v1/sync",
     ]);
     expect(requests.every((request) => request.account === "alice")).toBe(true);

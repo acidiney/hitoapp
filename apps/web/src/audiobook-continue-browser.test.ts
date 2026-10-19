@@ -102,7 +102,7 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
       }
       const source = sources.find(
         (source) =>
-          path === `/api/v1/recordings/${source.recording_id}/sources`,
+          path === `/api/v1/recordings/${source.recording_id}/playback-sources`,
       );
       if (!source)
         throw new Error("Unexpected owned browser continuation request");
@@ -249,7 +249,8 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
           path === bookPath ||
           sources.some(
             (source) =>
-              path === `/api/v1/recordings/${source.recording_id}/sources`,
+              path ===
+              `/api/v1/recordings/${source.recording_id}/playback-sources`,
           ),
       ),
     ).toBe(true);

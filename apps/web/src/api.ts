@@ -61,6 +61,19 @@ export const libraryApi = {
       })
     ).json();
   },
+  async playbackSources(
+    account: string,
+    recording: string,
+    signal?: AbortSignal,
+  ): Promise<Source[]> {
+    return (
+      await request(`/recordings/${part(recording)}/playback-sources`, {
+        action: "sources.playback",
+        account,
+        signal,
+      })
+    ).json();
+  },
   async scan(
     account: string,
     library: string,

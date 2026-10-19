@@ -73,7 +73,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
     "b6d336ef-fdf8-49eb-b026-e771fae6b8b4",
   );
   const sourcesPath = (recording: string) =>
-    `/api/v1/recordings/${recording}/sources`;
+    `/api/v1/recordings/${recording}/playback-sources`;
   const requests: Request[] = [];
   const unexpected: Request[] = [];
   const submitted: Submitted[] = [];

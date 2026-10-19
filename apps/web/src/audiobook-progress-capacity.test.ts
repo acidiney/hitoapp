@@ -64,7 +64,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
       expect(signal).toBeInstanceOf(AbortSignal);
       requests.push(`${options?.method} ${String(input)}`);
       if (
-        input === `/api/v1/recordings/${first.recording_id}/sources` &&
+        input === `/api/v1/recordings/${first.recording_id}/playback-sources` &&
         options?.method === "GET"
       )
         return Response.json([source]);
@@ -169,7 +169,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
     expect(media.played).toEqual(played);
     expect(pause).toHaveBeenCalledTimes(1);
     expect(requests).toEqual([
-      `GET /api/v1/recordings/${first.recording_id}/sources`,
+      `GET /api/v1/recordings/${first.recording_id}/playback-sources`,
       "POST /api/v1/sync",
     ]);
 
@@ -215,7 +215,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
     expect(pause).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(requests).toEqual([
-      `GET /api/v1/recordings/${first.recording_id}/sources`,
+      `GET /api/v1/recordings/${first.recording_id}/playback-sources`,
       ...Array<string>(257).fill("POST /api/v1/sync"),
     ]);
     await act(async () => player.setPlaying(true));

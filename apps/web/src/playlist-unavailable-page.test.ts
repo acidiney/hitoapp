@@ -56,12 +56,17 @@ test("retained playlists remain editable and known recordings resolve audio only
         );
         if (path === downloadPath && options.method === "GET")
           return Response.json({ error: "Not found" }, { status: 404 });
-        const recording = recordings.find((id) =>
-          path.startsWith(`/api/v1/recordings/${id}/sources`),
+        const recording = recordings.find(
+          (id) =>
+            path === `/api/v1/recordings/${id}/playback-sources` ||
+            path.startsWith(`/api/v1/recordings/${id}/sources`),
         );
         if (recording) {
           const sourcePath = `/api/v1/recordings/${recording}/sources`;
-          if (path === sourcePath && options.method === "GET")
+          if (
+            path === `/api/v1/recordings/${recording}/playback-sources` &&
+            options.method === "GET"
+          )
             return Response.json([]);
           if (path === `${sourcePath}/refresh` && options.method === "POST") {
             expect(JSON.parse(String(options.body))).toEqual({
@@ -185,7 +190,7 @@ test("retained playlists remain editable and known recordings resolve audio only
         sourceCalls.map(([path, options]) => [path, options.method]),
       ).toEqual(
         recordings.flatMap((recording) => [
-          [`/api/v1/recordings/${recording}/sources`, "GET"],
+          [`/api/v1/recordings/${recording}/playback-sources`, "GET"],
           [`/api/v1/recordings/${recording}/sources/refresh`, "POST"],
           [`/api/v1/recordings/${recording}/sources/resolve`, "POST"],
         ]),
