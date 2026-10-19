@@ -38,9 +38,11 @@ struct Table {
     rows: Vec<Vec<Cell>>,
 }
 
+type SchemaObject = (String, String, String, Option<String>);
+
 #[derive(PartialEq, Eq)]
 pub(super) struct State {
-    schema: Vec<(String, String, String, Option<String>)>,
+    schema: Vec<SchemaObject>,
     tables: Vec<Table>,
 }
 
@@ -53,12 +55,20 @@ pub(super) async fn state(database: &Path) -> State {
     )
     .await
     .unwrap();
-    let schema =
+    let schema: Vec<SchemaObject> =
         sqlx::query_as("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name")
             .fetch_all(&mut connection)
             .await
             .unwrap();
-    assert!(schema.len() <= 512, "owned schema snapshot bound exceeded");
+    assert!(
+        schema.len() <= 524,
+        "owned schema snapshot bound exceeded: objects={} tables={} indexes={} triggers={} views={}",
+        schema.len(),
+        schema.iter().filter(|object| object.0 == "table").count(),
+        schema.iter().filter(|object| object.0 == "index").count(),
+        schema.iter().filter(|object| object.0 == "trigger").count(),
+        schema.iter().filter(|object| object.0 == "view").count(),
+    );
     let tables: Vec<(String, bool)> = sqlx::query_as("SELECT name,wr=0 FROM pragma_table_list WHERE schema='main' AND type IN ('table','shadow','virtual') AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name")
         .fetch_all(&mut connection).await.unwrap();
     assert!(tables.len() <= 128, "owned snapshot table bound exceeded");

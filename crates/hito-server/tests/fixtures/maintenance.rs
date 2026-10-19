@@ -410,14 +410,128 @@ impl Snapshot {
                     "maintenance changed legacy provider origin types, values, or rowids"
                 );
             }
+            if table.name == "artwork_fetches" {
+                let target_columns = [
+                    "entity_kind",
+                    "release_id",
+                    "provider_release_id",
+                    "playlist_id",
+                    "provider_playlist_id",
+                    "playlist_provider",
+                    "playlist_snapshot",
+                    "playlist_imported_at",
+                    "retained",
+                ]
+                .map(str::to_owned);
+                expected.extend_from_slice(&target_columns);
+                assert!(table.has_rowid, "legacy artwork jobs must retain rowids");
+                assert_eq!(table.columns.len(), 20);
+                let job_id = table.columns.iter().position(|name| name == "id").unwrap() + 1;
+                let references = self
+                    .tables
+                    .iter()
+                    .find(|table| table.name == "recording_artwork")
+                    .unwrap();
+                let fetch_id = references
+                    .columns
+                    .iter()
+                    .position(|name| name == "fetch_id")
+                    .unwrap()
+                    + usize::from(references.has_rowid);
+                let targets = rows(&mut connection, &table.name, &target_columns, true).await;
+                let expected_targets: Vec<Vec<Cell>> = table
+                    .rows
+                    .iter()
+                    .map(|row| {
+                        let retained = references
+                            .rows
+                            .iter()
+                            .any(|reference| reference[fetch_id] == row[job_id]);
+                        vec![
+                            row[0].clone(),
+                            Cell::Text("recording".into()),
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Null,
+                            Cell::Integer(i64::from(retained)),
+                        ]
+                    })
+                    .collect();
+                assert!(
+                    targets == expected_targets,
+                    "maintenance changed legacy artwork identity, derived retention, types, or rowids"
+                );
+            }
             assert!(
                 current == expected,
                 "maintenance unexpectedly changed prior columns in {}",
                 table.name
             );
         }
+        assert_current_schema(&mut connection).await;
         connection.close().await.unwrap();
     }
+}
+
+async fn assert_current_schema(connection: &mut SqliteConnection) {
+    type SchemaObject = (String, String, String, Option<String>);
+    type MigrationReceipt = (i64, String, bool, Vec<u8>);
+    let mut reference = SqliteConnection::connect_with(
+        &SqliteConnectOptions::new()
+            .in_memory(true)
+            .foreign_keys(true),
+    )
+    .await
+    .unwrap();
+    migrations().run(&mut reference).await.unwrap();
+    let schema = "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name";
+    let actual: Vec<SchemaObject> = sqlx::query_as(schema)
+        .fetch_all(&mut *connection)
+        .await
+        .unwrap();
+    let expected: Vec<SchemaObject> = sqlx::query_as(schema)
+        .fetch_all(&mut reference)
+        .await
+        .unwrap();
+    assert!(
+        actual == expected,
+        "maintenance must retain every declared table, column, foreign key, check, unique constraint, index, trigger and view"
+    );
+    let ledger =
+        "SELECT version,description,success,checksum FROM _sqlx_migrations ORDER BY version";
+    let actual: Vec<MigrationReceipt> = sqlx::query_as(ledger)
+        .fetch_all(&mut *connection)
+        .await
+        .unwrap();
+    let expected: Vec<MigrationReceipt> = sqlx::query_as(ledger)
+        .fetch_all(&mut reference)
+        .await
+        .unwrap();
+    assert!(
+        actual == expected,
+        "maintenance must retain the complete current migration identities and successful checksums"
+    );
+    for table in [
+        "account_community_preferences",
+        "release_artwork",
+        "playlist_artwork",
+        "community_reporters",
+        "community_reports",
+    ] {
+        let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
+            .fetch_one(&mut *connection)
+            .await
+            .unwrap();
+        assert_eq!(
+            count, 0,
+            "maintenance must not invent consent, community work, or collection covers"
+        );
+    }
+    reference.close().await.unwrap();
 }
 
 fn quoted(identifier: &str) -> String {
