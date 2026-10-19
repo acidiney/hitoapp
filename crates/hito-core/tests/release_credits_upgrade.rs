@@ -22,7 +22,7 @@ async fn populated_version_44_upgrade_preserves_release_state_and_rejects_broken
 
     let (hito, actor) = legacy.open().await;
     let pool = fixture::connect(&legacy, true).await;
-    assert_eq!(version(&pool).await, 52);
+    assert_eq!(version(&pool).await, 53);
     collection_artwork_schema::assert_current(&mut pool.acquire().await.unwrap()).await;
     assert_preserved(&before, &snapshot_rows(&pool).await);
     assert_integrity(&pool).await;

@@ -64,6 +64,15 @@ pub const ADDED: &[(&str, &str)] = &[
     ("trigger", "community_reporting_session_changed"),
 ];
 
+pub const RANKING_ADDED: &[(&str, &str)] = &[
+    ("table", "account_community_ranking_preferences"),
+    (
+        "index",
+        "sqlite_autoindex_account_community_ranking_preferences_1",
+    ),
+];
+pub const RANKING_TABLE: &str = "account_community_ranking_preferences";
+
 pub const LEGACY_JOB_COLUMNS: &[&str] = &[
     "id",
     "user_id",
@@ -113,7 +122,7 @@ pub async fn schema(connection: &mut SqliteConnection) -> Vec<SchemaObject> {
         .unwrap()
 }
 
-pub async fn reference() -> SqliteConnection {
+pub async fn reference_52() -> SqliteConnection {
     let mut reference = SqliteConnection::connect_with(
         &SqliteConnectOptions::new()
             .in_memory(true)
@@ -178,8 +187,49 @@ pub async fn reference() -> SqliteConnection {
     reference
 }
 
+pub async fn reference() -> SqliteConnection {
+    let mut reference = reference_52().await;
+    let before = schema(&mut reference).await;
+    sqlx::migrate!("./migrations")
+        .run(&mut reference)
+        .await
+        .unwrap();
+    let after = schema(&mut reference).await;
+    for object in &before {
+        assert!(
+            after.contains(object),
+            "0053 must retain every exact 0052 schema object without replacements"
+        );
+    }
+    let mut added = after
+        .iter()
+        .filter(|object| {
+            !before
+                .iter()
+                .any(|old| old.0 == object.0 && old.1 == object.1)
+        })
+        .map(|object| (object.0.as_str(), object.1.as_str()))
+        .collect::<Vec<_>>();
+    let mut expected = RANKING_ADDED.to_vec();
+    added.sort_unstable();
+    expected.sort_unstable();
+    assert_eq!(
+        added, expected,
+        "every additive 0053 schema object must be named exactly"
+    );
+    reference
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
-    let mut reference = reference().await;
+    assert_version(connection, 53).await;
+}
+
+pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
+    let mut reference = match version {
+        52 => reference_52().await,
+        53 => reference().await,
+        _ => panic!("The schema fixture requires an exact supported migration endpoint"),
+    };
     assert!(
         schema(connection).await == schema(&mut reference).await,
         "the migrated schema must match every declared table, constraint, index, trigger and view exactly"
@@ -192,7 +242,10 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
         "playlist_artwork",
         "community_reporters",
         "community_reports",
-    ] {
+    ]
+    .into_iter()
+    .chain((version == 53).then_some(RANKING_TABLE))
+    {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
         let expected: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
@@ -210,7 +263,11 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
             "{table} must retain its exact declared foreign keys"
         );
     }
-    for table in NEW_TABLES {
+    for table in NEW_TABLES
+        .iter()
+        .copied()
+        .chain((version == 53).then_some(RANKING_TABLE))
+    {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
             .fetch_one(&mut *connection)
             .await
@@ -229,14 +286,17 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
         invented, 0,
         "legacy receipts must retain recording identity and exact derived retention"
     );
-    let version: (i64, i64) =
+    let receipt: (i64, i64) =
         sqlx::query_as("SELECT max(version),count(*) FROM _sqlx_migrations WHERE success=1")
             .fetch_one(&mut *connection)
             .await
             .unwrap();
-    assert_eq!(version, (52, 52));
+    assert_eq!(receipt, (version, version));
     let migrations = sqlx::migrate!("./migrations");
-    for version in [50, 51, 52] {
+    for version in [50, 51, 52, 53]
+        .into_iter()
+        .filter(|candidate| *candidate <= version)
+    {
         let migration = migrations
             .iter()
             .find(|migration| migration.version == version)
@@ -258,6 +318,7 @@ pub async fn assert_current(connection: &mut SqliteConnection) {
     .unwrap();
     let expected = migrations
         .iter()
+        .filter(|migration| migration.version <= version)
         .map(|migration| {
             (
                 migration.version,

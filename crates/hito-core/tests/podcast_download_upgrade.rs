@@ -59,7 +59,7 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_collection_artwork()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 52).await;
+    assert_version(&mut connection, 53).await;
     expected.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     let origins = typed_rows(&mut connection,
@@ -486,7 +486,10 @@ impl RetainedState {
                     .insert(key.clone(), declared_indexes.remove(&key).unwrap());
             }
         }
-        for &(kind, name) in collection_artwork_schema::ADDED {
+        for &(kind, name) in collection_artwork_schema::ADDED
+            .iter()
+            .chain(collection_artwork_schema::RANKING_ADDED)
+        {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
                 !self.schema.contains_key(&key),
@@ -502,7 +505,11 @@ impl RetainedState {
                     .insert(key.clone(), declared_indexes.remove(&key).unwrap());
             }
         }
-        for &name in collection_artwork_schema::NEW_TABLES {
+        for name in collection_artwork_schema::NEW_TABLES
+            .iter()
+            .copied()
+            .chain(std::iter::once(collection_artwork_schema::RANKING_TABLE))
+        {
             self.projections.push(Projection {
                 name: name.into(),
                 statement: format!("SELECT rowid,* FROM {} ORDER BY rowid", quoted(name)),
