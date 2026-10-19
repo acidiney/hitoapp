@@ -8,6 +8,8 @@ pub(super) fn initialize() -> Result<(), ()> {
             let target = metadata.target();
             target == "hito_plugin_real_debrid"
                 || target.starts_with("hito_plugin_real_debrid::")
+                || target == "hito_remote_audio"
+                || target.starts_with("hito_remote_audio::")
                 || target == "hito_debrid_real_debrid"
                 || target.starts_with("hito_debrid_real_debrid::")
         }))

@@ -122,9 +122,9 @@ async fn public_dual_stack_dns_answers_open_and_decode_the_exact_bound_audio_wit
         })
         .collect();
     for event in [
-        "real_debrid_media_dns_finished",
+        "remote_audio_media_dns_finished",
         "real_debrid_audio_opening_finished",
-        "real_debrid_audio_body_finished",
+        "remote_audio_body_finished",
     ] {
         assert_eq!(
             events
@@ -136,9 +136,10 @@ async fn public_dual_stack_dns_answers_open_and_decode_the_exact_bound_audio_wit
             "successful resolution, opening and EOF must each have one safe completion event"
         );
     }
-    assert!(events.iter().any(|entry| entry["fields"]["event"]
-        == "real_debrid_audio_body_finished"
-        && entry["fields"]["bytes"].as_u64() == Some(WAV_BYTES as u64)));
+    assert!(events.iter().any(
+        |entry| entry["fields"]["event"] == "remote_audio_body_finished"
+            && entry["fields"]["bytes"].as_u64() == Some(WAV_BYTES as u64)
+    ));
     for field in ["request_id", "operation", "outcome", "elapsed_ms"] {
         assert!(logs.contains(field));
     }

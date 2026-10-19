@@ -29,7 +29,7 @@ impl Capture {
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()
-                .with_env_filter("off,hito_debrid_real_debrid=trace")
+                .with_env_filter("off,hito_debrid_real_debrid=trace,hito_remote_audio=trace")
                 .with_ansi(false)
                 .without_time()
                 .json()

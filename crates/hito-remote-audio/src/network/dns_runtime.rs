@@ -216,7 +216,7 @@ impl Drop for DnsScope {
                 outcome = self.outcome,
                 count = self.queue.spawned.load(Ordering::Acquire) as u64,
                 elapsed_ms = self.started.elapsed().as_millis() as u64,
-                "Real-Debrid DNS scope finished"
+                "Remote audio DNS scope finished"
             );
         });
     }

@@ -1,12 +1,12 @@
 use crate::{
     Error, MediaAllowlist, OpenedBoundAudio, TorrentFileBinding, TorrentObservation,
     UnrestrictionReceipt,
-    audio::Media,
     network::Dns,
     torrent,
     transport::{self, Transport},
     unrestriction,
 };
+use hito_remote_audio::MediaClient;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -14,6 +14,7 @@ use std::{
 use tracing::Instrument;
 use uuid::Uuid;
 
+const MEDIA_AGENT: &str = concat!("HitoRealDebrid/", env!("CARGO_PKG_VERSION"));
 const API_ROOT: &str = "https://api.real-debrid.com/rest/1.0/";
 const OBSERVATION_DEADLINE: Duration = Duration::from_secs(12);
 const UNRESTRICTION_DEADLINE: Duration = Duration::from_secs(12);
@@ -22,7 +23,7 @@ const AUDIO_OPENING_DEADLINE: Duration = Duration::from_secs(9);
 #[derive(Clone)]
 pub struct RealDebridClient {
     transport: Arc<Transport>,
-    media: Arc<Media>,
+    media: Arc<MediaClient>,
 }
 
 impl RealDebridClient {
@@ -32,7 +33,7 @@ impl RealDebridClient {
         let dns = Arc::new(Dns::system().map_err(|_| Error::Configuration)?);
         Ok(Self {
             transport: Arc::new(Transport::new(authorization, endpoint, dns.clone())?),
-            media: Arc::new(Media::new(dns)),
+            media: Arc::new(MediaClient::new(dns, MEDIA_AGENT)),
         })
     }
 
@@ -60,7 +61,7 @@ impl RealDebridClient {
                 provider_access_token,
                 endpoint,
             )?),
-            media: Arc::new(Media::for_api_fixture()),
+            media: Arc::new(MediaClient::for_api_fixture(MEDIA_AGENT)),
         })
     }
 
@@ -79,7 +80,12 @@ impl RealDebridClient {
                 ca_der,
                 api_address,
             )?),
-            media: Arc::new(Media::with_test_tls(ca_der, media.0, media.1)?),
+            media: Arc::new(MediaClient::with_test_tls(
+                ca_der,
+                media.0,
+                media.1,
+                MEDIA_AGENT,
+            )?),
         })
     }
 
@@ -99,11 +105,12 @@ impl RealDebridClient {
                 ca_der,
                 api_address,
             )?),
-            media: Arc::new(Media::with_test_tls_dns(
+            media: Arc::new(MediaClient::with_test_tls_dns(
                 ca_der,
                 media.0,
                 media.1,
                 dns_address,
+                MEDIA_AGENT,
             )?),
         })
     }
@@ -124,7 +131,7 @@ impl RealDebridClient {
                 api_address,
                 dns_address,
             )?),
-            media: Arc::new(Media::for_api_fixture()),
+            media: Arc::new(MediaClient::for_api_fixture(MEDIA_AGENT)),
         })
     }
 
@@ -217,12 +224,20 @@ impl RealDebridClient {
             let mut acknowledged = false;
             let result = tokio::time::timeout(AUDIO_OPENING_DEADLINE, async {
                 binding.validate()?;
-                let permit = self.media.admit()?;
+                let opening = self.media.admit()?;
                 let candidate = self
                     .resolve_candidate(binding, &mut post_dispatched)
                     .await?;
                 acknowledged = true;
-                self.media.open(candidate, allowlist, permit).await
+                opening
+                    .open(
+                        &candidate.download,
+                        candidate.confirmed_bytes,
+                        candidate.binding,
+                        allowlist,
+                    )
+                    .await
+                    .map_err(Error::from)
             })
             .await
             .unwrap_or(Err(Error::Deadline));

@@ -1,12 +1,14 @@
-mod audio;
 mod client;
 mod error;
-mod network;
 mod torrent;
 mod transport;
 mod unrestriction;
 
-pub use audio::{MediaAllowlist, OpenedBoundAudio, Pcm16WavFormat};
+pub use hito_remote_audio::Pcm16WavFormat;
+use hito_remote_audio::network;
+
+pub type MediaAllowlist = hito_remote_audio::MediaAllowlist<Error>;
+pub type OpenedBoundAudio = hito_remote_audio::OpenedBoundAudio<TorrentFileBinding, Error>;
 pub use client::RealDebridClient;
 pub use error::Error;
 pub use torrent::{TorrentFileBinding, TorrentObservation, TorrentPhase};

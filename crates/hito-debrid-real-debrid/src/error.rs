@@ -62,3 +62,18 @@ impl Error {
         }
     }
 }
+
+impl From<hito_remote_audio::Error> for Error {
+    fn from(error: hito_remote_audio::Error) -> Self {
+        match error {
+            hito_remote_audio::Error::Configuration => Self::Configuration,
+            hito_remote_audio::Error::Busy => Self::Busy,
+            hito_remote_audio::Error::MediaDestination => Self::MediaDestination,
+            hito_remote_audio::Error::MediaTransport => Self::MediaTransport,
+            hito_remote_audio::Error::MediaResponse => Self::MediaResponse,
+            hito_remote_audio::Error::MediaIdle => Self::MediaIdle,
+            hito_remote_audio::Error::UnsupportedAudio => Self::UnsupportedAudio,
+            hito_remote_audio::Error::MediaLength => Self::MediaLength,
+        }
+    }
+}

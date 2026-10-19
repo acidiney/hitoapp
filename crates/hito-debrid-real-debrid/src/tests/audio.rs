@@ -222,7 +222,7 @@ async fn opens_and_decodes_the_exact_bound_pcm16_wav_through_owned_tls_without_e
                 .expect("the owned audio log must be JSON")
         })
         .filter(|event| {
-            event["fields"]["event"] == "real_debrid_audio_body_finished"
+            event["fields"]["event"] == "remote_audio_body_finished"
                 && event["fields"]["outcome"] == "complete"
                 && event["fields"]["bytes"].as_u64() == Some(WAV_BYTES as u64)
         })

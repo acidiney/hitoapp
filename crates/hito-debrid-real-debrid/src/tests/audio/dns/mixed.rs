@@ -121,9 +121,9 @@ async fn mixed_public_and_private_dns_answers_reject_before_media_and_restore_bo
             "each mixed-answer operation must log one controlled destination rejection"
         );
         for (event, expected) in [
-            ("real_debrid_media_dns_finished", 3),
+            ("remote_audio_media_dns_finished", 3),
             ("real_debrid_audio_opening_finished", 2),
-            ("real_debrid_audio_body_finished", 2),
+            ("remote_audio_body_finished", 2),
         ] {
             assert_eq!(
                 events

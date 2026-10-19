@@ -1,0 +1,20 @@
+[package]
+name = "hito-remote-audio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+test-support = []
+
+[dependencies]
+bytes.workspace = true
+futures-util.workspace = true
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["tokio", "system-config"] }
+reqwest.workspace = true
+rustls.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true

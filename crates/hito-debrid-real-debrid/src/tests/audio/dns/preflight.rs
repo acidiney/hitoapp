@@ -162,7 +162,7 @@ async fn public_api_dns_opens_bound_tls_and_a_stalled_post_preflight_is_definite
     for (event, outcome, count) in [
         ("real_debrid_observation_finished", "success", 2),
         ("real_debrid_unrestriction_finished", "deadline", 1),
-        ("real_debrid_api_dns_finished", "complete", 3),
+        ("remote_audio_api_dns_finished", "complete", 3),
     ] {
         assert_eq!(
             events
@@ -176,7 +176,7 @@ async fn public_api_dns_opens_bound_tls_and_a_stalled_post_preflight_is_definite
     assert_eq!(
         events
             .iter()
-            .filter(|event| event["fields"]["event"] == "real_debrid_api_dns_finished")
+            .filter(|event| event["fields"]["event"] == "remote_audio_api_dns_finished")
             .count(),
         4
     );

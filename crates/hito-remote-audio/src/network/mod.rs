@@ -1,13 +1,13 @@
 mod dns;
 mod dns_runtime;
 
-pub(crate) use dns::Dns;
+pub use dns::Dns;
 
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use std::net::{IpAddr, SocketAddr};
 
 #[derive(Clone, Copy)]
-pub(crate) enum NetworkError {
+pub enum NetworkError {
     Configuration,
     Transport,
     Destination,
@@ -24,7 +24,7 @@ impl NetworkError {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum DnsPurpose {
+pub enum DnsPurpose {
     Api,
     Media,
 }
@@ -32,19 +32,19 @@ pub(crate) enum DnsPurpose {
 impl DnsPurpose {
     fn event(self) -> &'static str {
         match self {
-            Self::Api => "real_debrid_api_dns_finished",
-            Self::Media => "real_debrid_media_dns_finished",
+            Self::Api => "remote_audio_api_dns_finished",
+            Self::Media => "remote_audio_media_dns_finished",
         }
     }
 }
 
-pub(crate) struct PinnedResolver {
+pub struct PinnedResolver {
     host: String,
     addresses: Vec<SocketAddr>,
 }
 
 impl PinnedResolver {
-    pub(crate) fn new(host: String, addresses: Vec<SocketAddr>) -> Self {
+    pub fn new(host: String, addresses: Vec<SocketAddr>) -> Self {
         Self { host, addresses }
     }
 }
@@ -62,7 +62,7 @@ impl Resolve for PinnedResolver {
     }
 }
 
-pub(crate) fn public_addresses(resolved: Vec<SocketAddr>) -> Result<Vec<SocketAddr>, NetworkError> {
+pub fn public_addresses(resolved: Vec<SocketAddr>) -> Result<Vec<SocketAddr>, NetworkError> {
     let mut addresses = Vec::new();
     for address in resolved {
         if addresses.len() == 32 || !public_address(address.ip()) {

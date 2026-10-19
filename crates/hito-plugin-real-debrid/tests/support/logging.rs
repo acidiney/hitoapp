@@ -75,7 +75,7 @@ impl Capture {
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()
-                .with_env_filter("off,hito_plugin_real_debrid=trace,hito_debrid_real_debrid=trace")
+                .with_env_filter("off,hito_plugin_real_debrid=trace,hito_debrid_real_debrid=trace,hito_remote_audio=trace")
                 .with_ansi(false)
                 .without_time()
                 .json()
@@ -125,7 +125,7 @@ impl Capture {
             events
                 .iter()
                 .filter(|event| {
-                    event["fields"]["event"] == "real_debrid_audio_body_finished"
+                    event["fields"]["event"] == "remote_audio_body_finished"
                         && event["fields"]["outcome"] == "complete"
                         && event["fields"]["bytes"].as_u64() == Some(length)
                 })

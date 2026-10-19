@@ -1,28 +1,22 @@
 use crate::Error;
 use reqwest::Url;
 
-pub struct MediaAllowlist {
+pub struct MediaAllowlist<E = Error> {
     origins: Vec<String>,
+    error: std::marker::PhantomData<fn() -> E>,
 }
 
-impl MediaAllowlist {
-    pub fn new(origins: Vec<String>) -> Result<Self, Error> {
-        if origins.is_empty() || origins.len() > 32 {
-            return Err(Error::Configuration);
-        }
-        let mut accepted = Vec::with_capacity(origins.len());
-        for origin in origins {
-            let target = parse(&origin).map_err(|_| Error::Configuration)?;
-            if target.path() != "/" || target.query().is_some() {
-                return Err(Error::Configuration);
-            }
-            accepted.push(target.origin().ascii_serialization());
-        }
-        accepted.sort();
-        accepted.dedup();
-        Ok(Self { origins: accepted })
+impl<E: From<Error>> MediaAllowlist<E> {
+    pub fn new(origins: Vec<String>) -> Result<Self, E> {
+        let origins = accepted(origins).map_err(E::from)?;
+        Ok(Self {
+            origins,
+            error: std::marker::PhantomData,
+        })
     }
+}
 
+impl<E> MediaAllowlist<E> {
     pub(super) fn target(&self, value: &str) -> Result<Url, Error> {
         let target = parse(value)?;
         if !self
@@ -33,6 +27,23 @@ impl MediaAllowlist {
         }
         Ok(target)
     }
+}
+
+fn accepted(origins: Vec<String>) -> Result<Vec<String>, Error> {
+    if origins.is_empty() || origins.len() > 32 {
+        return Err(Error::Configuration);
+    }
+    let mut accepted = Vec::with_capacity(origins.len());
+    for origin in origins {
+        let target = parse(&origin).map_err(|_| Error::Configuration)?;
+        if target.path() != "/" || target.query().is_some() {
+            return Err(Error::Configuration);
+        }
+        accepted.push(target.origin().ascii_serialization());
+    }
+    accepted.sort();
+    accepted.dedup();
+    Ok(accepted)
 }
 
 fn parse(value: &str) -> Result<Url, Error> {

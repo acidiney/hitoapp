@@ -158,7 +158,7 @@ async fn api_mixed_dns_and_invalid_certificates_reject_before_authenticated_http
             events
                 .iter()
                 .filter(
-                    |event| event["fields"]["event"] == "real_debrid_api_dns_finished"
+                    |event| event["fields"]["event"] == "remote_audio_api_dns_finished"
                         && event["fields"]["outcome"] == "complete"
                 )
                 .count(),

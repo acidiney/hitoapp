@@ -158,7 +158,7 @@ async fn api_dns_stall_cancellation_and_connect_deadline_retire_queries_before_f
     assert_eq!(
         events
             .iter()
-            .filter(|event| event["fields"]["event"] == "real_debrid_api_dns_finished")
+            .filter(|event| event["fields"]["event"] == "remote_audio_api_dns_finished")
             .count(),
         4,
         "every cancelled or expired API DNS scope must log retirement under its active operation"

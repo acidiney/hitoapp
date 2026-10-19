@@ -194,10 +194,7 @@ async fn known_acknowledgements_keep_destination_and_media_failures_distinct_fro
                 event["fields"]["outcome"] == expected_outcome
                     && matches!(
                         event["fields"]["event"].as_str(),
-                        Some(
-                            "real_debrid_audio_opening_finished"
-                                | "real_debrid_audio_body_finished"
-                        )
+                        Some("real_debrid_audio_opening_finished" | "remote_audio_body_finished")
                     )
             }),
             "the known media rejection must log its controlled typed outcome"

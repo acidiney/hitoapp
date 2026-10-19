@@ -1,5 +1,4 @@
-use super::{Pcm16WavFormat, wav};
-use crate::{Error, TorrentFileBinding};
+use crate::{Error, Pcm16WavFormat, wav};
 use bytes::Bytes;
 use std::{
     collections::VecDeque,
@@ -10,8 +9,8 @@ use tokio::sync::OwnedSemaphorePermit;
 const MAX_CHUNK_BYTES: usize = 65_536;
 const BODY_IDLE: Duration = Duration::from_secs(15);
 
-pub struct OpenedBoundAudio {
-    pub binding: TorrentFileBinding,
+pub struct OpenedBoundAudio<B, E = Error> {
+    pub binding: B,
     pub length: u64,
     pub format: Pcm16WavFormat,
     response: Option<reqwest::Response>,
@@ -24,12 +23,13 @@ pub struct OpenedBoundAudio {
     span: tracing::Span,
     dispatch: tracing::Dispatch,
     finished: bool,
+    error: std::marker::PhantomData<fn() -> E>,
 }
 
-impl OpenedBoundAudio {
+impl<B, E: From<Error>> OpenedBoundAudio<B, E> {
     pub(crate) async fn qualify(
         mut response: reqwest::Response,
-        binding: TorrentFileBinding,
+        binding: B,
         length: u64,
         permit: OwnedSemaphorePermit,
     ) -> Result<Self, Error> {
@@ -65,10 +65,11 @@ impl OpenedBoundAudio {
             span: tracing::Span::current(),
             dispatch: tracing::dispatcher::get_default(Clone::clone),
             finished: false,
+            error: std::marker::PhantomData,
         })
     }
 
-    pub async fn next_chunk(&mut self) -> Result<Option<Bytes>, Error> {
+    pub async fn next_chunk(&mut self) -> Result<Option<Bytes>, E> {
         if self.finished {
             return Ok(None);
         }
@@ -89,7 +90,7 @@ impl OpenedBoundAudio {
                 let received = self.received.checked_add(chunk.len() as u64);
                 if received.is_none_or(|received| received > self.expected_length) {
                     self.finish("media_length");
-                    return Err(Error::MediaLength);
+                    return Err(Error::MediaLength.into());
                 }
                 self.received = received.ok_or(Error::MediaLength)?;
                 let output = chunk.split_to(chunk.len().min(MAX_CHUNK_BYTES));
@@ -105,15 +106,17 @@ impl OpenedBoundAudio {
             }
             Ok(None) => {
                 self.finish("media_length");
-                Err(Error::MediaLength)
+                Err(Error::MediaLength.into())
             }
             Err(error) => {
                 self.finish(error.outcome());
-                Err(error)
+                Err(error.into())
             }
         }
     }
+}
 
+impl<B, E> OpenedBoundAudio<B, E> {
     fn finish(&mut self, outcome: &'static str) {
         if self.finished {
             return;
@@ -125,17 +128,17 @@ impl OpenedBoundAudio {
         tracing::dispatcher::with_default(&self.dispatch, || {
             let _entered = self.span.enter();
             tracing::debug!(
-                event = "real_debrid_audio_body_finished",
+                event = "remote_audio_body_finished",
                 outcome,
                 bytes = self.delivered,
                 elapsed_ms = self.started.elapsed().as_millis() as u64,
-                "Real-Debrid bound audio body finished"
+                "Remote audio body finished"
             );
         });
     }
 }
 
-impl Drop for OpenedBoundAudio {
+impl<B, E> Drop for OpenedBoundAudio<B, E> {
     fn drop(&mut self) {
         self.finish("cancelled");
     }

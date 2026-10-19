@@ -7,12 +7,12 @@ use std::{net::SocketAddr, time::Duration};
 
 const MAX_NAMESERVERS: usize = 3;
 
-pub(crate) struct Dns {
+pub struct Dns {
     config: ResolverConfig,
 }
 
 impl Dns {
-    pub(crate) fn system() -> Result<Self, NetworkError> {
+    pub fn system() -> Result<Self, NetworkError> {
         Self::configured(system_config()?)
     }
 
@@ -42,8 +42,8 @@ impl Dns {
         })
     }
 
-    #[cfg(test)]
-    pub(crate) fn with_test_tcp(address: SocketAddr) -> Result<Self, NetworkError> {
+    #[cfg(feature = "test-support")]
+    pub fn with_test_tcp(address: SocketAddr) -> Result<Self, NetworkError> {
         if !address.ip().is_loopback() || address.port() == 0 {
             return Err(NetworkError::Configuration);
         }
@@ -54,7 +54,7 @@ impl Dns {
         ]))
     }
 
-    pub(crate) async fn addresses(
+    pub async fn addresses(
         &self,
         host: &str,
         purpose: DnsPurpose,

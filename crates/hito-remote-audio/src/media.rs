@@ -1,63 +1,72 @@
-use super::{MediaAllowlist, OpenedBoundAudio};
 use crate::{
-    Error,
+    Error, MediaAllowlist, OpenedBoundAudio,
     network::{self, Dns, DnsPurpose, NetworkError, PinnedResolver},
-    unrestriction::ValidatedCandidate,
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-pub(crate) struct Media {
+pub struct MediaClient {
     slots: Arc<Semaphore>,
+    user_agent: &'static str,
     dns: Option<Arc<Dns>>,
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(feature = "test-support")]
     tls: Option<TestTls>,
 }
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(feature = "test-support")]
 struct TestTls {
     certificate: reqwest::Certificate,
     address: std::net::SocketAddr,
     host: &'static str,
 }
 
-impl Media {
-    pub(crate) fn new(dns: Arc<Dns>) -> Self {
+impl MediaClient {
+    pub fn new(dns: Arc<Dns>, user_agent: &'static str) -> Self {
         Self {
             slots: Arc::new(Semaphore::new(2)),
+            user_agent,
             dns: Some(dns),
-            #[cfg(any(test, feature = "test-support"))]
+            #[cfg(feature = "test-support")]
             tls: None,
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn for_api_fixture() -> Self {
+    #[cfg(feature = "test-support")]
+    pub fn for_api_fixture(user_agent: &'static str) -> Self {
         Self {
             slots: Arc::new(Semaphore::new(2)),
+            user_agent,
             dns: None,
             tls: None,
         }
     }
 
-    #[cfg(any(test, feature = "test-support"))]
-    pub(crate) fn with_test_tls(
+    #[cfg(feature = "test-support")]
+    pub fn with_test_tls(
         ca_der: &[u8],
         host: &str,
         address: std::net::SocketAddr,
+        user_agent: &'static str,
     ) -> Result<Self, Error> {
         if host != "media.hito-fixture.invalid" {
             return Err(Error::Configuration);
         }
-        Self::test_tls(ca_der, "media.hito-fixture.invalid", address, None)
+        Self::test_tls(
+            ca_der,
+            "media.hito-fixture.invalid",
+            address,
+            None,
+            user_agent,
+        )
     }
 
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(feature = "test-support")]
     fn test_tls(
         ca_der: &[u8],
         host: &'static str,
         address: std::net::SocketAddr,
         dns: Option<Arc<Dns>>,
+        user_agent: &'static str,
     ) -> Result<Self, Error> {
         if !address.ip().is_loopback() || address.port() == 0 || ca_der.len() > 16_384 {
             return Err(Error::Configuration);
@@ -66,6 +75,7 @@ impl Media {
             reqwest::Certificate::from_der(ca_der).map_err(|_| Error::Configuration)?;
         Ok(Self {
             slots: Arc::new(Semaphore::new(2)),
+            user_agent,
             dns,
             tls: Some(TestTls {
                 certificate,
@@ -75,12 +85,13 @@ impl Media {
         })
     }
 
-    #[cfg(test)]
-    pub(crate) fn with_test_tls_dns(
+    #[cfg(feature = "test-support")]
+    pub fn with_test_tls_dns(
         ca_der: &[u8],
         host: &str,
         address: std::net::SocketAddr,
         dns_address: std::net::SocketAddr,
+        user_agent: &'static str,
     ) -> Result<Self, Error> {
         if host != "media.hito-fixture.test" {
             return Err(Error::Configuration);
@@ -92,25 +103,62 @@ impl Media {
             Some(Arc::new(
                 Dns::with_test_tcp(dns_address).map_err(network_error)?,
             )),
+            user_agent,
         )
     }
 
-    pub(crate) fn admit(&self) -> Result<OwnedSemaphorePermit, Error> {
-        self.slots
+    pub fn admit(&self) -> Result<Opening<'_>, Error> {
+        let permit = self
+            .slots
             .clone()
             .try_acquire_owned()
-            .map_err(|_| Error::Busy)
+            .map_err(|_| Error::Busy)?;
+        Ok(Opening {
+            media: self,
+            permit,
+        })
     }
 
-    pub(crate) async fn open(
-        &self,
-        candidate: ValidatedCandidate,
-        allowlist: &MediaAllowlist,
-        permit: OwnedSemaphorePermit,
-    ) -> Result<OpenedBoundAudio, Error> {
-        let target = allowlist.target(&candidate.download)?;
+    async fn addresses(&self, host: &str) -> Result<Vec<std::net::SocketAddr>, Error> {
+        #[cfg(feature = "test-support")]
+        if let Some(tls) = &self.tls {
+            if host != tls.host {
+                return Err(Error::MediaDestination);
+            }
+            if self.dns.is_none() {
+                return Ok(vec![tls.address]);
+            }
+        }
+        let dns = self.dns.as_ref().ok_or(Error::Configuration)?;
+        let resolved = dns
+            .addresses(host, DnsPurpose::Media)
+            .await
+            .map_err(network_error)?;
+        let addresses = network::public_addresses(resolved).map_err(network_error)?;
+        #[cfg(feature = "test-support")]
+        if let Some(tls) = &self.tls {
+            return Ok(vec![tls.address]);
+        }
+        Ok(addresses)
+    }
+}
+
+pub struct Opening<'a> {
+    media: &'a MediaClient,
+    permit: OwnedSemaphorePermit,
+}
+
+impl Opening<'_> {
+    pub async fn open<B, E: From<Error>>(
+        self,
+        private_target: &str,
+        confirmed_bytes: u64,
+        binding: B,
+        allowlist: &MediaAllowlist<E>,
+    ) -> Result<OpenedBoundAudio<B, E>, Error> {
+        let target = allowlist.target(private_target)?;
         let host = target.host_str().ok_or(Error::MediaDestination)?;
-        let addresses = self.addresses(host).await?;
+        let addresses = self.media.addresses(host).await?;
         let builder = reqwest::Client::builder()
             .https_only(true)
             .no_proxy()
@@ -125,13 +173,13 @@ impl Media {
             .http1_max_headers(32)
             .pool_max_idle_per_host(0)
             .connect_timeout(Duration::from_secs(2))
-            .user_agent(concat!("HitoRealDebrid/", env!("CARGO_PKG_VERSION")))
+            .user_agent(self.media.user_agent)
             .dns_resolver(Arc::new(PinnedResolver::new(
                 host.to_owned(),
                 addresses.clone(),
             )));
-        #[cfg(any(test, feature = "test-support"))]
-        let builder = match &self.tls {
+        #[cfg(feature = "test-support")]
+        let builder = match &self.media.tls {
             Some(tls) => builder.tls_certs_only([tls.certificate.clone()]),
             None => builder,
         };
@@ -150,37 +198,8 @@ impl Media {
         {
             return Err(Error::MediaDestination);
         }
-        validate_response(&response, candidate.confirmed_bytes)?;
-        OpenedBoundAudio::qualify(
-            response,
-            candidate.binding,
-            candidate.confirmed_bytes,
-            permit,
-        )
-        .await
-    }
-
-    async fn addresses(&self, host: &str) -> Result<Vec<std::net::SocketAddr>, Error> {
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(tls) = &self.tls {
-            if host != tls.host {
-                return Err(Error::MediaDestination);
-            }
-            if self.dns.is_none() {
-                return Ok(vec![tls.address]);
-            }
-        }
-        let dns = self.dns.as_ref().ok_or(Error::Configuration)?;
-        let resolved = dns
-            .addresses(host, DnsPurpose::Media)
-            .await
-            .map_err(network_error)?;
-        let addresses = network::public_addresses(resolved).map_err(network_error)?;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(tls) = &self.tls {
-            return Ok(vec![tls.address]);
-        }
-        Ok(addresses)
+        validate_response(&response, confirmed_bytes)?;
+        OpenedBoundAudio::qualify(response, binding, confirmed_bytes, self.permit).await
     }
 }
 
