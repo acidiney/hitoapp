@@ -1,6 +1,6 @@
 # AllDebrid protocol adapter
 
-This crate is a protocol library. It is not yet a Hito plugin service or a complete playable-source adapter. No live provider account, signed-media transfer, packaged provider flow, or public release is qualified by this packet.
+This crate is a protocol library. It is not yet a Hito plugin service or a complete playable-source adapter. Owned TLS fixtures qualify a delayed candidate through a bounded PCM16 WAV stream and exact decoding. No live provider account, packaged provider flow, or public release is qualified by this packet.
 
 ## Binding and operations
 
@@ -14,7 +14,9 @@ This crate is a protocol library. It is not yet a Hito plugin service or a compl
 
 `poll_delayed` has an owned TLS qualification for processing followed by an opaque candidate, including real five-second request spacing. One explicit call waits on the receipt's private monotonic guard and queries only its delayed ID. Trusted snapshot restoration starts a new five-second wait; completion, failure, timeout, or cancellation rearms that wait. The receipt remains non-cloneable and requires one current trusted owner. Its persisted format remains only the binding and delayed ID.
 
-Processing status retains bounded estimated time and a five-second polling interval. Completed delayed status retains an opaque HTTPS candidate with the original binding; the candidate exposes no URL, serializer, or debug representation. Syntax checks do not establish safe media destinations, recording identity, or playable audio. No media request is made.
+Processing status retains bounded estimated time and a five-second polling interval. Completed delayed status retains an opaque HTTPS candidate with the original binding; the candidate exposes no URL, serializer, or debug representation. Polling makes no media request. Its syntax checks do not establish safe media destinations, recording identity, or playable audio.
+
+`open_bound_audio` consumes that candidate. It admits one of two shared media slots before freshly observing the exact ID, total, full tree, selected path, and size. It then uses the credential-free `hito-remote-audio` policy to validate an operator-allowed exact origin, public DNS destinations, TLS, HTTP framing, confirmed length, and canonical PCM16 WAV header. The returned typed body preserves the binding and validates length through EOF. Callers must consume and check EOF before accepting the complete file. Opening neither unlocks nor polls again.
 
 ```mermaid
 flowchart TD
@@ -32,7 +34,9 @@ flowchart TD
     Unlock --> Unknown
     Delayed --> Poll[Explicit delayed polling]
     Poll --> Candidate[Opaque candidate]
-    Candidate -. Later feature .-> Media[Separate media validation]
+    Candidate --> Reobserve[Fresh exact binding observation]
+    Reobserve --> Media[Shared credential-free media policy]
+    Media --> WAV[Bounded PCM16 WAV body through EOF]
 ```
 
 ## Uncertainty and ownership
@@ -45,18 +49,24 @@ Receipt deserialization accepts only trusted owned snapshots and validates their
 
 ## Transport and logs
 
-Provider control requests use the fixed HTTPS API origin, a separately supplied Bearer credential, and form bodies. Redirects, proxies, automatic retries, query credentials, polling loops, and media fetches are disabled or absent. Client clones share two operation slots and a 250 ms request-start gap. Each operation has a 12-second total deadline; response bodies are capped at 64 KiB. File trees allow at most 512 nodes and depth 16.
+Provider control requests use the fixed HTTPS API origin, a separately supplied Bearer credential, and form bodies. Redirects, proxies, automatic retries, query credentials, and polling loops are disabled or absent. Client clones share two control-operation slots and a 250 ms request-start gap. Each control operation has a 12-second total deadline; response bodies are capped at 64 KiB. File trees allow at most 512 nodes and depth 16.
 
-Structured workflow logs contain generated correlation IDs, static operation/outcome values, counts, and timings. They must not contain credentials, bodies, hashes, paths, titles, or links. A bounded log oracle wraps the existing real protocol workflows and checks exact completion events, unique UUID correlations, allowed field sets, counts, timings, and raw or escaped private canaries. The seven protocol tests pass with this oracle active, covering 18 workflow completions.
+Media opening has a nine-second total deadline covering admission, fresh observation, DNS, TLS, response, and WAV header qualification. The separate media permit remains held until body EOF or drop. Media requests carry no provider credential, cookie, referrer, or range header. Reads are at most 64 KiB with a 15-second idle deadline. Dropping the opening or body cancels its work.
+
+Structured workflow logs contain generated correlation IDs, static operation/outcome values, counts, and timings. They must not contain credentials, bodies, hashes, paths, titles, or links. Bounded log oracles wrap the real protocol workflows and check exact completion events, UUID correlations, allowed field sets, counts, timings, and raw or escaped private canaries. The nine protocol tests pass with these oracles active, covering 34 workflow completions. The fresh media observation has its own correlation nested under the opening, and body completion retains the opening correlation after that call returns. Each provider workflow retains its owning dispatcher for completion and span retirement, including cancellation outside the dispatcher that polled the future.
 
 ## Evidence and remaining work
 
 The accepted pre-poll packet has five passing owned TLS protocol tests: processing/completion with changed-file rejection; duplicate-path rejection and recovery; upload acknowledgment with owned receipt reopening; a received upload whose acknowledgment is lost, followed by one explicitly requested independent read; and fresh selected-file re-observation followed by one delayed unlock acknowledgment without polling or media. Strict package Clippy and formatting pass for that five-test packet. Upload and preparation each had an actual behavioral RED at `UnsupportedState` before implementation. Root independently repeated and reviewed that packet before committing it.
 
-The delayed-poll test had an actual behavioral RED at `UnsupportedState`, then passed with both provider-observed request gaps at least five seconds and exactly one unlock plus two explicit polls. All six cases, strict package Clippy, and formatting passed at that stage. The seventh case cancels an actual in-flight TLS request and requires client EOF before the fixture continues. The same owned receipt then survives a failed read and a successful processing read, with fresh five-second waits after cancellation and failure, exactly one unlock, and no media requests. It passed on its first run with the existing guard; all seven cases and 18 workflow log oracles pass together. Strict package Clippy and formatting pass. The complete seven-test packet also passes an independent repeat and fresh source review.
+The delayed-poll test had an actual behavioral RED at `UnsupportedState`, then passed with both provider-observed request gaps at least five seconds and exactly one unlock plus two explicit polls. All six cases, strict package Clippy, and formatting passed at that stage. The seventh case cancels an actual in-flight TLS request and requires client EOF before the fixture continues. The same owned receipt then survives a failed read and a successful processing read, with fresh five-second waits after cancellation and failure, exactly one unlock, and no media requests. It passed on its first run with the existing guard; all seven cases and 18 workflow log oracles passed together. Root independently repeated that packet with strict Clippy and formatting, and fresh source review passed before it was committed.
+
+The eighth case reached an actual behavioral RED at `UnsupportedState` after preparation and the real five-second delayed poll. It then passed with fresh status and full-tree observation, exactly one credential-free media GET, exact 384,044-byte WAV data through EOF, and 192,000 decoded samples. The same-name, same-size leaf in another directory remains a decoy. All eight AD cases, 22 RD cases, six RD plugin service cases, strict shared/AD/RD/service Clippy, and formatting passed together. The shared/RD/service sources and prior seven AD test bodies remained unchanged in this slice.
+
+Fresh review identified a dispatcher-ownership gap in cancellation logging. The ninth case drops an actual held opening under a separate dispatcher. Its first RED panicked while retiring the nested observation span in `tracing-subscriber`; an unchanged-source backtrace confirmed that drop path. Retaining the owner's dispatcher for completion and span retirement fixed it. The unchanged case then passed with exactly two correlated cancellations in the original capture, zero decoy events, actual peer EOF before recovery, three explicitly requested polls spaced at least five seconds apart, and two recovered media bodies alive together before either is consumed through EOF. All nine AD cases, 22 RD cases, six service cases, strict shared/AD/RD/service Clippy, and formatting pass. The prior eight case bodies and shared/RD/service sources remain unchanged. Root independently repeated all 37 cases, strict checks, and formatting against the exact frozen inputs. Final independent review passed and confirmed the cancellation finding resolved with no new findings. This qualification covers owned protocol fixtures, not a live provider or complete plugin flow.
 
 Tests run offline in Docker with no external network. The test-support constructor accepts only an owned loopback TLS destination and CA while preserving the fixed production Host and SNI. It is not an environment endpoint override.
 
-Remaining work includes delayed-poll invalid-response, admission, and timeout controls; acknowledgment-loss/cancellation controls for unlock; direct generated candidates; media destination and stream validation; a provider plugin; and end-to-end preparation/source delivery. Upload and unlock live compatibility remains open.
+Remaining work includes delayed-poll invalid-response, admission, and timeout controls; acknowledgment-loss/cancellation controls for unlock; direct generated candidates; AD-specific adversarial media controls beyond the shared RD qualification; other audio formats and seeking; a provider plugin; and end-to-end preparation/source delivery. Upload, unlock, and media live compatibility remains open.
 
 The [official AllDebrid documentation](https://docs.alldebrid.com/) explicitly supports raw hashes for magnet upload and documents delayed polling at five seconds or more. The documentation's generated-link sample and table descriptions conflict about `link`; this adapter does not use it as an original-source echo. The files endpoint's version examples also conflict; the current fixture uses the documented endpoint index's `/v4/magnet/files`. Live compatibility has not resolved those documentation inconsistencies.
