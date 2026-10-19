@@ -1,6 +1,6 @@
 mod origins;
 
-use hito_core::{CommunityConfig, CoreConfig, HostDeviceId, StorageConfig};
+use hito_core::{CommunityConfig, CommunityRankingConfig, CoreConfig, HostDeviceId, StorageConfig};
 use origins::{parse_additional_origins, validate_combined_origins};
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
@@ -32,6 +32,7 @@ pub struct RuntimeConfig {
     pub listen: SocketAddr,
     pub json_logs: bool,
     pub(crate) community_config_invalid: bool,
+    pub(crate) community_ranking_config_invalid: bool,
 }
 
 impl RuntimeConfig {
@@ -76,6 +77,15 @@ impl RuntimeConfig {
         };
         config.community_config_invalid = community.is_err();
         config.core.community = community.ok().flatten();
+        let rankings = match std::env::var("HITO_COMMUNITY_RANKINGS_ORIGIN") {
+            Err(std::env::VarError::NotPresent) => Ok(None),
+            Ok(origin) => CommunityRankingConfig::new(origin).map(Some),
+            Err(std::env::VarError::NotUnicode(_)) => Err(hito_core::Error::Invalid(
+                "Community ranking host configuration is invalid".into(),
+            )),
+        };
+        config.community_ranking_config_invalid = rankings.is_err();
+        config.core.community_rankings = rankings.ok().flatten();
         if let Some(tool) = std::env::var_os("HITO_FFMPEG") {
             config.core.media_tools.ffmpeg = tool.into();
         }
@@ -159,6 +169,7 @@ impl RuntimeConfig {
             listen: SocketAddr::from(([0, 0, 0, 0], 8080)),
             json_logs: false,
             community_config_invalid: false,
+            community_ranking_config_invalid: false,
         })
     }
 }

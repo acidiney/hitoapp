@@ -45,6 +45,13 @@ pub async fn run(
             "Community sharing is disabled because the trusted host configuration is invalid"
         );
     }
+    if config.community_ranking_config_invalid {
+        tracing::warn!(
+            event = "community_ranking_configuration_disabled",
+            reason = "invalid_host_configuration",
+            "Community source rankings are disabled because the trusted host configuration is invalid"
+        );
+    }
     tracing::info!(event = "server_starting", "Starting Hito");
     let services = hito_core::open(config.core).await?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
