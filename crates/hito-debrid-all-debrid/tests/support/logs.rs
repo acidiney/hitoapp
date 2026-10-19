@@ -22,7 +22,7 @@ impl Capture {
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()
-                .with_env_filter("off,hito_debrid_all_debrid=trace")
+                .with_env_filter("off,hito_debrid_all_debrid=trace,hito_remote_audio=trace")
                 .without_time()
                 .with_ansi(false)
                 .json()
@@ -33,7 +33,7 @@ impl Capture {
         )
     }
 
-    pub fn assert_workflows(&self, expected: &[(&str, &str, u64)], private: &[&str]) {
+    pub fn text(&self) -> String {
         assert!(
             !self.overflowed.load(Ordering::SeqCst),
             "Workflow log capture overflowed"
@@ -41,6 +41,11 @@ impl Capture {
         let bytes = self.bytes.lock().unwrap();
         assert!(!bytes.is_empty() && bytes.len() <= MAX_CAPTURE);
         let text = std::str::from_utf8(&bytes).expect("Workflow logs must be UTF-8");
+        text.to_owned()
+    }
+
+    pub fn assert_workflows(&self, expected: &[(&str, &str, u64)], private: &[&str]) {
+        let text = self.text();
         for forbidden in private
             .iter()
             .copied()

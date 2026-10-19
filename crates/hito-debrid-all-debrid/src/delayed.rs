@@ -143,4 +143,8 @@ impl GeneratedFileCandidate {
     pub fn binding(&self) -> &MagnetFileBinding {
         &self.binding
     }
+
+    pub(crate) fn private_link(&self) -> &str {
+        &self.link
+    }
 }

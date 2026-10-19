@@ -3,20 +3,28 @@ use crate::{
     MagnetObservation, MagnetPhase, MagnetUploadReceipt, delayed, magnet, prepare, submit,
     transport::{Resource, Transport},
 };
+use hito_remote_audio::{MediaClient, network::Dns};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
 
+const MEDIA_AGENT: &str = concat!("HitoAllDebrid/", env!("CARGO_PKG_VERSION"));
+
 #[derive(Clone)]
 pub struct AllDebridClient {
     transport: Arc<Transport>,
+    pub(crate) media: Arc<MediaClient>,
 }
 
 impl AllDebridClient {
     pub fn new(provider_api_key: String) -> Result<Self, Error> {
         Ok(Self {
             transport: Arc::new(Transport::new(provider_api_key)?),
+            media: Arc::new(MediaClient::new(
+                Arc::new(Dns::system().map_err(|_| Error::Configuration)?),
+                MEDIA_AGENT,
+            )),
         })
     }
 
@@ -32,6 +40,31 @@ impl AllDebridClient {
                 provider_api_key,
                 certificate_der,
                 api_address,
+            )?),
+            media: Arc::new(MediaClient::for_api_fixture(MEDIA_AGENT)),
+        })
+    }
+
+    #[cfg(feature = "test-support")]
+    #[doc(hidden)]
+    pub fn with_test_tls_media(
+        provider_api_key: String,
+        api_certificate_der: &[u8],
+        api_address: std::net::SocketAddr,
+        media_certificate_der: &[u8],
+        media_address: std::net::SocketAddr,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            transport: Arc::new(Transport::with_test_tls(
+                provider_api_key,
+                api_certificate_der,
+                api_address,
+            )?),
+            media: Arc::new(MediaClient::with_test_tls(
+                media_certificate_der,
+                "media.hito-fixture.invalid",
+                media_address,
+                MEDIA_AGENT,
             )?),
         })
     }
@@ -218,14 +251,14 @@ impl AllDebridClient {
     }
 }
 
-struct OperationLog {
-    started: Instant,
-    span: tracing::Span,
-    event: &'static str,
-    outcome: &'static str,
-    count: u64,
-    post_dispatched: bool,
-    unknown_outcome: &'static str,
+pub(crate) struct OperationLog {
+    pub started: Instant,
+    pub span: tracing::Span,
+    pub event: &'static str,
+    pub outcome: &'static str,
+    pub count: u64,
+    pub post_dispatched: bool,
+    pub unknown_outcome: &'static str,
 }
 
 impl Drop for OperationLog {
