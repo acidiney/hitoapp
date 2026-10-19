@@ -61,6 +61,26 @@ Lookup does not modify the library or collection, adopt a recording, resolve sou
 
 An independent lyrics provider can serve a current attached provider identity. A lyrics-only service without a retained identity or review path cannot yet be selected for a local recording. That identity-review workflow remains unfinished. This lookup does not establish timeline alignment or enable synchronized highlighting.
 
+## Shared static lyric view
+
+Track Details now offers **Show lyrics** for a selected primary provider observation. Clicking it reads the current approved installation revision and starts the retained-identity lookup above. Opening the page does not request lyrics. Hito renders plain lines and structured credits; the plugin supplies no executable interface. A valid null answer, unsupported capability and temporary failure have separate states with explicit retry.
+
+The workflow belongs to the account, recording and selected observation. Cancel, navigation or a context change retires the request and fences late replies. The client also bounds the complete settings/read/JSON lifetime to fifteen seconds. A ready result must echo the current Hito recording, observation and provider reference before it appears. This static view does not subscribe to playback position or claim rendition alignment.
+
+```mermaid
+flowchart LR
+    Details[Track Details] -->|Explicit Show lyrics|Owner[Account and observation request owner]
+    Owner --> Settings[Current approved plugin revision]
+    Settings --> Lookup[Authenticated retained-identity lookup]
+    Lookup --> Lines[Static lines and structured credits]
+    Changed[Cancel or context change] --> Retire[Abort and reject late results]
+    Retire --> Owner
+```
+
+Six DOM cases exercise the actual page and HTTP client against controlled fetch responses. They check explicit lookup, immutable personal edit drafts, exact request bodies, cancellation, account and observation changes, null and error states, wrong identity echoes, retries and private-log exclusion. The deadline case uses a simulated frontend clock; it does not prove real network timing or upstream body retirement. All 511 frontend cases, both TypeScript configurations and the production bundle pass in an independent Docker repeat. Fresh source review also passes.
+
+Current packaged browser/provider acceptance, an independent attached-provider picker, timeline alignment and backing-track UI remain open. These source checks do not replace those gates.
+
 ## Backing tracks
 
 `BackingTracksResponse` contains `recording` and `items`, with zero to sixteen existing `ProviderRecording` objects. Normal recording, release and attribution validation applies. Candidates preserve their own identities and unknown metadata.
@@ -75,7 +95,7 @@ Highlighting requires a host-owned association between the validated document di
 
 A changed source, metadata observation, playback generation or document digest must retire the old alignment. Hito owns rendering and navigation. Only the timed-text component should subscribe to position observations; catalog pages must not rerender on playback ticks. Independent lyric providers must work with local audio and metadata/audio supplied by different services.
 
-Independent-provider identity review, alignment, rendering, backing-recording adoption and end-to-end playback remain unfinished. Microphone mixing, vocal removal, scoring and performance recording remain outside this release.
+Independent-provider identity review, alignment, backing-recording adoption and end-to-end playback remain unfinished. Microphone mixing, vocal removal, scoring and performance recording remain outside this release.
 
 ## Verification
 
