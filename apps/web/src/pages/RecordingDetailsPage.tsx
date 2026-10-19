@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 import type { RecordingDetailsPageProps } from "../types";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
@@ -12,6 +12,8 @@ import SourceChoiceControls from "../components/SourceChoiceControls";
 import RecordingDownload from "../components/downloads/RecordingDownload";
 import { useRecordingDownload } from "../hooks/useRecordingDownload";
 import { useSourceChoice } from "../hooks/useSourceChoice";
+import RecordingLyrics from "../components/lyrics/RecordingLyrics";
+import { useRecordingLyrics } from "../hooks/useRecordingLyrics";
 
 export default function RecordingDetailsPage({
   user,
@@ -19,6 +21,7 @@ export default function RecordingDetailsPage({
   native_playback,
 }: RecordingDetailsPageProps) {
   const download = useRecordingDownload(user.id, detail.recording_id);
+  const lyrics = useRecordingLyrics(user.id, detail);
   const choice = useSourceChoice(
     user.id,
     detail.recording_id,
@@ -62,6 +65,16 @@ export default function RecordingDetailsPage({
         ])}
         account={user.id}
         detail={detail}
+      />
+      <RecordingLyrics
+        available={lyrics.available}
+        pending={lyrics.pending}
+        result={lyrics.result}
+        error={lyrics.error}
+        refresh={lyrics.refresh}
+        onLoad={() => void lyrics.load()}
+        onCancel={lyrics.cancel}
+        onRefreshDetails={() => router.reload()}
       />
       <RecordingDownload
         {...download}
