@@ -81,6 +81,16 @@ Six DOM cases exercise the actual page and HTTP client against controlled fetch 
 
 Current packaged browser/provider acceptance, an independent attached-provider picker, timeline alignment and backing-track UI remain open. These source checks do not replace those gates.
 
+## Cancellation completion
+
+A polled lyric request now owns its completion event and tracing span until the future is dropped. Cancellation restores the original log dispatcher, emits one static outcome with elapsed time and retires the core span before releasing that dispatcher. A future dropped before its first poll emits no event. Authority checks, upstream body ownership and lookup outcomes are unchanged.
+
+The public regression holds an actual provider response, polls under one subscriber and drops under another. It requires peer EOF before fixture release, one correlated cancellation, exactly one core-span and parent-span close event, and an empty decoy capture. A fresh authenticated HTTP retry succeeds without changing private state or original audio. The initial completion regression missed its event; a stronger retirement control later exposed an unclosed span. Each failure passed unchanged after its corresponding ownership fix.
+
+All ten normal lyric cases pass, with two finite diagnostics explicitly ignored. Strict core/server all-target checks, formatting and fresh source review pass. An independent integrated run passes those ten cases and the community-ranking HTTP workflow; actual OpenAPI export remains byte-identical at 98 paths and 231 schemas. New packaged Chromium/WebKit acceptance is still pending.
+
+Two separate intermittent observations lacked an expected event or span context. Their causes remain open despite finite passing diagnostics. The controlled dropped-future and span-retirement fixes do not establish a cause for those samples.
+
 ## Backing tracks
 
 `BackingTracksResponse` contains `recording` and `items`, with zero to sixteen existing `ProviderRecording` objects. Normal recording, release and attribution validation applies. Candidates preserve their own identities and unknown metadata.
