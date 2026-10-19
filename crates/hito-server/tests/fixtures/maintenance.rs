@@ -487,8 +487,25 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
     )
     .await
     .unwrap();
-    migrations().run(&mut reference).await.unwrap();
     let schema = "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name";
+    let all = migrations();
+    Migrator {
+        migrations: Cow::Owned(
+            all.iter()
+                .filter(|migration| migration.version <= 52)
+                .cloned()
+                .collect(),
+        ),
+        ..Migrator::DEFAULT
+    }
+    .run(&mut reference)
+    .await
+    .unwrap();
+    let prior: Vec<SchemaObject> = sqlx::query_as(schema)
+        .fetch_all(&mut reference)
+        .await
+        .unwrap();
+    all.run(&mut reference).await.unwrap();
     let actual: Vec<SchemaObject> = sqlx::query_as(schema)
         .fetch_all(&mut *connection)
         .await
@@ -497,6 +514,32 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         .fetch_all(&mut reference)
         .await
         .unwrap();
+    for object in &prior {
+        assert!(
+            expected.contains(object),
+            "ranking preferences must retain every exact historical 0052 schema object"
+        );
+    }
+    let added = expected
+        .iter()
+        .filter(|object| {
+            !prior
+                .iter()
+                .any(|old| old.0 == object.0 && old.1 == object.1)
+        })
+        .map(|object| (object.0.as_str(), object.1.as_str()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        added,
+        [
+            (
+                "index",
+                "sqlite_autoindex_account_community_ranking_preferences_1"
+            ),
+            ("table", "account_community_ranking_preferences"),
+        ],
+        "only the exact ranking preference table and primary-key index may extend 0052"
+    );
     assert!(
         actual == expected,
         "maintenance must retain every declared table, column, foreign key, check, unique constraint, index, trigger and view"
@@ -521,6 +564,7 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         "playlist_artwork",
         "community_reporters",
         "community_reports",
+        "account_community_ranking_preferences",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&mut *connection)
