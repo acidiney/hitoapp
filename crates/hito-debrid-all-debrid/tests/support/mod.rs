@@ -45,6 +45,11 @@ pub enum Reply {
     DisconnectAfterRequest,
     #[allow(dead_code)]
     HoldUntilDisconnect(Arc<Notify>),
+    #[allow(dead_code)]
+    HoldUntilDisconnectObserved {
+        received: Arc<Notify>,
+        retired: Arc<Notify>,
+    },
 }
 
 impl From<Vec<u8>> for Reply {
@@ -60,7 +65,9 @@ impl Fixture {
             replies.len() <= 8
                 && replies.iter().all(|reply| match reply {
                     Reply::Json(body) => body.len() <= 65_536,
-                    Reply::DisconnectAfterRequest | Reply::HoldUntilDisconnect(_) => true,
+                    Reply::DisconnectAfterRequest
+                    | Reply::HoldUntilDisconnect(_)
+                    | Reply::HoldUntilDisconnectObserved { .. } => true,
                 })
         );
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -176,13 +183,12 @@ async fn exchange(mut socket: TlsStream<TcpStream>, reply: Reply) -> Request {
     let request = protocol::read_request(&mut socket, "POST").await;
     match reply {
         Reply::HoldUntilDisconnect(received) => {
-            received.notify_one();
-            let mut byte = [0_u8; 1];
-            match socket.read(&mut byte).await {
-                Ok(0) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {}
-                _ => panic!("the cancelled owned TLS request must end with client EOF"),
-            }
+            hold_until_peer_eof(&mut socket, received).await;
+            return request;
+        }
+        Reply::HoldUntilDisconnectObserved { received, retired } => {
+            hold_until_peer_eof(&mut socket, received).await;
+            retired.notify_one();
             return request;
         }
         Reply::Json(body) => {
@@ -206,4 +212,14 @@ async fn exchange(mut socket: TlsStream<TcpStream>, reply: Reply) -> Request {
         .await
         .expect("the owned TLS socket must close");
     request
+}
+
+async fn hold_until_peer_eof(socket: &mut TlsStream<TcpStream>, received: Arc<Notify>) {
+    received.notify_one();
+    let mut byte = [0_u8; 1];
+    match socket.read(&mut byte).await {
+        Ok(0) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {}
+        _ => panic!("the cancelled owned TLS request must end with client EOF"),
+    }
 }

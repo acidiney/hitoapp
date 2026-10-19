@@ -13,6 +13,7 @@ impl AllDebridClient {
     ) -> Result<OpenedBoundAudio, Error> {
         let mut opening_log = OperationLog {
             started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
             span: tracing::debug_span!("all_debrid_audio", request_id = %uuid::Uuid::new_v4(), operation = "bound_audio_opening"),
             event: "all_debrid_audio_opening_finished",
             outcome: "cancelled",

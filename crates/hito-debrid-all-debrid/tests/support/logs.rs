@@ -33,13 +33,19 @@ impl Capture {
         )
     }
 
-    pub fn text(&self) -> String {
+    pub fn is_empty(&self) -> bool {
         assert!(
             !self.overflowed.load(Ordering::SeqCst),
             "Workflow log capture overflowed"
         );
         let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= MAX_CAPTURE);
+        assert!(bytes.len() <= MAX_CAPTURE);
+        bytes.is_empty()
+    }
+
+    pub fn text(&self) -> String {
+        assert!(!self.is_empty(), "Workflow logs must not be empty");
+        let bytes = self.bytes.lock().unwrap();
         let text = std::str::from_utf8(&bytes).expect("Workflow logs must be UTF-8");
         text.to_owned()
     }

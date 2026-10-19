@@ -72,6 +72,7 @@ impl AllDebridClient {
     pub async fn observe(&self, binding: &MagnetFileBinding) -> Result<MagnetObservation, Error> {
         let mut observation = OperationLog {
             started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
             span: tracing::debug_span!("all_debrid_observation", request_id = %uuid::Uuid::new_v4(), operation = "magnet_observation"),
             event: "all_debrid_observation_finished",
             outcome: "cancelled",
@@ -119,6 +120,7 @@ impl AllDebridClient {
     ) -> Result<MagnetUploadReceipt, Error> {
         let mut submission = OperationLog {
             started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
             span: tracing::debug_span!("all_debrid_submission", request_id = %uuid::Uuid::new_v4(), operation = "magnet_submission"),
             event: "all_debrid_submission_finished",
             outcome: "cancelled",
@@ -159,6 +161,7 @@ impl AllDebridClient {
     ) -> Result<DelayedPoll, Error> {
         let mut polling = OperationLog {
             started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
             span: tracing::debug_span!("all_debrid_delayed_poll", request_id = %uuid::Uuid::new_v4(), operation = "delayed_file_poll"),
             event: "all_debrid_delayed_poll_finished",
             outcome: "cancelled",
@@ -195,6 +198,7 @@ impl AllDebridClient {
     ) -> Result<DelayedFileReceipt, Error> {
         let mut preparation = OperationLog {
             started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
             span: tracing::debug_span!("all_debrid_preparation", request_id = %uuid::Uuid::new_v4(), operation = "bound_file_preparation"),
             event: "all_debrid_preparation_finished",
             outcome: "cancelled",
@@ -253,6 +257,7 @@ impl AllDebridClient {
 
 pub(crate) struct OperationLog {
     pub started: Instant,
+    pub dispatch: tracing::Dispatch,
     pub span: tracing::Span,
     pub event: &'static str,
     pub outcome: &'static str,
@@ -263,7 +268,9 @@ pub(crate) struct OperationLog {
 
 impl Drop for OperationLog {
     fn drop(&mut self) {
-        let _entered = self.span.enter();
+        let _dispatch = tracing::dispatcher::set_default(&self.dispatch);
+        let span = std::mem::replace(&mut self.span, tracing::Span::none());
+        let _entered = span.enter();
         let outcome = if self.outcome == "cancelled" && self.post_dispatched {
             self.unknown_outcome
         } else {

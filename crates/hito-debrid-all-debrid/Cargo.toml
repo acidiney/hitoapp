@@ -46,3 +46,7 @@ required-features = ["test-support"]
 [[test]]
 name = "audio"
 required-features = ["test-support"]
+
+[[test]]
+name = "audio_cancellation"
+required-features = ["test-support"]
