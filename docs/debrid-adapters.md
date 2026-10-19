@@ -1,6 +1,6 @@
 # Debrid adapter development
 
-The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock and delayed polling. Its media delivery remains unfinished. Premiumize and TorBox remain planned.
+The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its connectable plugin remains unfinished. Premiumize and TorBox remain planned.
 
 ## Observation and ownership
 
@@ -50,7 +50,7 @@ The current qualifier accepts a canonical 44-byte-header PCM16 WAV representatio
 
 ## Shared media ownership
 
-`hito-remote-audio` now owns the credential-free HTTPS, DNS and WAV-body policy used by Real-Debrid. Provider clients still own credentials, current file authority and provider-specific acknowledgements. The shared body retains the caller's typed binding and maps failures to that provider's public error type.
+`hito-remote-audio` now owns the credential-free HTTPS, DNS and WAV-body policy used by Real-Debrid and AllDebrid. Provider clients still own credentials, current file authority and provider-specific acknowledgements. The shared body retains the caller's typed binding and maps failures to that provider's public error type.
 
 ```mermaid
 flowchart LR
@@ -63,7 +63,19 @@ flowchart LR
 
 The caller acquires the media permit before provider revalidation. It supplies the private target only after that revalidation succeeds. The shared body retains the permit through EOF, failure or drop. Provider API capacity remains separate.
 
-All 22 existing Real-Debrid adapter cases and six service cases pass after extraction, including an independent repeat. Strict all-target checks and formatting pass. A fresh source review confirms the moved destination, DNS, TLS, framing, length, cancellation and log rules; all 663 external lockfile package blocks remain byte-identical. The extraction preserves the current narrow WAV support. AllDebrid does not yet use this opener, and no new provider or normal-server deployment is claimed. See [the crate's contract](../crates/hito-remote-audio/README.md).
+All 22 existing Real-Debrid adapter cases and six service cases pass after extraction, including an independent repeat. Strict all-target checks and formatting pass. A fresh source review confirms the moved destination, DNS, TLS, framing, length, cancellation and log rules; all 663 external lockfile package blocks remain byte-identical. The extraction preserves the current narrow WAV support. The later AllDebrid packet below uses this opener. Neither a connectable AllDebrid service nor normal-server deployment is claimed. See [the crate's contract](../crates/hito-remote-audio/README.md).
+
+## AllDebrid candidate audio
+
+An opaque `GeneratedFileCandidate` can now be consumed by `open_bound_audio`. The client first acquires shared media capacity, then repeats the provider status and complete file-tree observation. Only the exact completed binding permits opening the candidate's private address. The nine-second opening deadline covers revalidation, DNS, TLS and WAV qualification. It makes no new unlock request and creates no persistent download.
+
+The shared origin, DNS, TLS, WAV, length and EOF rules still apply. Provider credentials stay with the AllDebrid API; media receives no authorization, cookie or referer header. The candidate address has no public getter or serialization. Direct generated-link acknowledgements remain unsupported.
+
+Two new owned TLS cases extend the prior seven protocol cases. The first performs preparation and a real delayed poll before fresh revalidation and one media GET. It reads exactly 384,044 WAV bytes and decodes 192,000 samples, while retaining a same-name, same-size file in a different directory as a rejected decoy. The second cancels a held opening under another log dispatcher. Client EOF precedes recovery; exactly two cancellation outcomes retain their original correlation, the decoy capture remains empty, and two recovered bodies remain live together before full consumption.
+
+The cancellation case initially panicked during nested span retirement. The fix retains the owning dispatcher for both completion logging and span retirement. The unchanged case then passed. All nine AllDebrid cases, 22 Real-Debrid cases and six Real-Debrid service cases pass together, with strict affected-crate checks and formatting. An independent repeat and final source review pass. All 174 qualified inputs match the integrated source; external lockfile package blocks and the shared/RD/service sources remain unchanged.
+
+These checks qualify an offline protocol library with deterministic fixtures. A connectable AllDebrid service, durable application preparation, direct generated acknowledgements, broader formats, seeking, failure controls and live-provider acceptance remain open.
 
 ## Curated-WAV service and executable
 
