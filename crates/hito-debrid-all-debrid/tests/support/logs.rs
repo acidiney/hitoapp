@@ -77,6 +77,10 @@ impl Capture {
                 "bound_file_preparation" => {
                     ("all_debrid_preparation", "all_debrid_preparation_finished")
                 }
+                "delayed_file_poll" => (
+                    "all_debrid_delayed_poll",
+                    "all_debrid_delayed_poll_finished",
+                ),
                 _ => panic!("The fixture must name a known workflow"),
             };
             assert_eq!(event["fields"]["event"], completed);

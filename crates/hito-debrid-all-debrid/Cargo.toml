@@ -36,3 +36,7 @@ required-features = ["test-support"]
 [[test]]
 name = "preparation"
 required-features = ["test-support"]
+
+[[test]]
+name = "delayed_poll"
+required-features = ["test-support"]

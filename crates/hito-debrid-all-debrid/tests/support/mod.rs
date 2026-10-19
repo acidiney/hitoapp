@@ -1,9 +1,14 @@
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
-use std::{collections::VecDeque, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    collections::VecDeque,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::oneshot,
+    sync::{Notify, oneshot},
     task::JoinHandle,
 };
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
@@ -11,6 +16,7 @@ use tokio_rustls::{TlsAcceptor, server::TlsStream};
 pub mod logs;
 
 pub struct Request {
+    pub received_at: Instant,
     pub server_name: String,
     pub method: String,
     pub target: String,
@@ -36,6 +42,8 @@ pub struct Fixture {
 pub enum Reply {
     Json(Vec<u8>),
     DisconnectAfterRequest,
+    #[allow(dead_code)]
+    HoldUntilDisconnect(Arc<Notify>),
 }
 
 impl From<Vec<u8>> for Reply {
@@ -51,7 +59,7 @@ impl Fixture {
             replies.len() <= 8
                 && replies.iter().all(|reply| match reply {
                     Reply::Json(body) => body.len() <= 65_536,
-                    Reply::DisconnectAfterRequest => true,
+                    Reply::DisconnectAfterRequest | Reply::HoldUntilDisconnect(_) => true,
                 })
         );
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -135,14 +143,20 @@ impl Fixture {
             let _ = stop.send(());
         }
         let mut server = self.server.take().expect("the owned TLS task must exist");
-        match tokio::time::timeout(Duration::from_secs(2), &mut server).await {
+        let requests = match tokio::time::timeout(Duration::from_secs(2), &mut server).await {
             Ok(result) => result.expect("the owned TLS task must join"),
             Err(_) => {
                 server.abort();
                 let _ = server.await;
                 panic!("the owned TLS task did not join within its deadline");
             }
-        }
+        };
+        assert!(
+            requests
+                .windows(2)
+                .all(|pair| pair[0].received_at <= pair[1].received_at)
+        );
+        requests
     }
 }
 
@@ -220,29 +234,45 @@ async fn exchange(mut socket: TlsStream<TcpStream>, reply: Reply) -> Request {
         .read_exact(&mut body)
         .await
         .expect("the owned request body must complete");
-    if let Reply::Json(body) = reply {
-        let head = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        socket
-            .write_all(head.as_bytes())
-            .await
-            .expect("the owned response headers must be sent");
-        socket
-            .write_all(&body)
-            .await
-            .expect("the owned response body must be sent");
-    }
-    socket
-        .shutdown()
-        .await
-        .expect("the owned TLS socket must close");
-    Request {
+    let received_at = Instant::now();
+    let request = Request {
+        received_at,
         server_name,
         method,
         target,
         body,
         headers,
+    };
+    match reply {
+        Reply::HoldUntilDisconnect(received) => {
+            received.notify_one();
+            let mut byte = [0_u8; 1];
+            match socket.read(&mut byte).await {
+                Ok(0) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {}
+                _ => panic!("the cancelled owned TLS request must end with client EOF"),
+            }
+            return request;
+        }
+        Reply::Json(body) => {
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            socket
+                .write_all(head.as_bytes())
+                .await
+                .expect("the owned response headers must be sent");
+            socket
+                .write_all(&body)
+                .await
+                .expect("the owned response body must be sent");
+        }
+        Reply::DisconnectAfterRequest => {}
     }
+    socket
+        .shutdown()
+        .await
+        .expect("the owned TLS socket must close");
+    request
 }
