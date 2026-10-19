@@ -76,10 +76,25 @@ impl Host {
         token: Option<&str>,
         payload: &str,
     ) -> io::Result<(u16, Vec<u8>)> {
+        self.request_exact(
+            method,
+            &format!("{path}?private-community-query=private-query-value"),
+            token,
+            payload,
+        )
+    }
+
+    pub fn request_exact(
+        &self,
+        method: &str,
+        path: &str,
+        token: Option<&str>,
+        payload: &str,
+    ) -> io::Result<(u16, Vec<u8>)> {
         let mut stream = connection(self.address)?;
         write!(
             stream,
-            "{method} {path}?private-community-query=private-query-value HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/json\r\nCookie: private-community-cookie\r\nX-Private-Request: private-community-header\r\n"
+            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/json\r\nCookie: private-community-cookie\r\nX-Private-Request: private-community-header\r\n"
         )?;
         if let Some(token) = token {
             write!(stream, "Authorization: Bearer {token}\r\n")?;
