@@ -1,6 +1,8 @@
 mod admission;
 mod config;
 mod contract;
+mod correction_http;
+mod corrections;
 mod error;
 mod http;
 mod outcomes;
@@ -20,6 +22,7 @@ pub struct Service {
     pub(crate) admission: admission::Admission,
     pub(crate) outcomes: outcomes::Outcomes,
     pub(crate) rankings: rankings::Rankings,
+    pub(crate) corrections: corrections::Corrections,
     storage: Arc<storage::Storage>,
 }
 
@@ -31,6 +34,7 @@ impl Service {
             admission: admission::Admission::new(storage.clone(), admin_hash),
             outcomes: outcomes::Outcomes::new(storage.clone()),
             rankings: rankings::Rankings::new(storage.clone()),
+            corrections: corrections::Corrections::new(storage.clone()),
             storage,
         })
     }

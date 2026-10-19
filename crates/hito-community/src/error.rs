@@ -21,6 +21,10 @@ pub enum Error {
     InvalidInput,
     #[error("Submission identifier already has different content")]
     SubmissionConflict,
+    #[error("Correction revision has changed")]
+    RevisionConflict,
+    #[error("Community resource is absent")]
+    NotFound,
     #[error("Community outcome rate limit reached")]
     RateLimited,
     #[error("Request input was rejected")]
@@ -40,6 +44,8 @@ impl IntoResponse for Error {
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             Self::InvalidInput => (StatusCode::BAD_REQUEST, "invalid_input"),
             Self::SubmissionConflict => (StatusCode::CONFLICT, "submission_conflict"),
+            Self::RevisionConflict => (StatusCode::CONFLICT, "revision_conflict"),
+            Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
             Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
             Self::Input(status) => (status, "invalid_input"),
             _ => (StatusCode::SERVICE_UNAVAILABLE, "unavailable"),

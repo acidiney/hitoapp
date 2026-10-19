@@ -1,5 +1,8 @@
 #![cfg(target_os = "linux")]
 
+#[path = "support/correction_schema.rs"]
+mod correction_schema;
+
 use std::{borrow::Cow, fs::Permissions, os::unix::fs::PermissionsExt};
 
 use axum::{
@@ -34,6 +37,22 @@ async fn reporter_time_index_upgrade_preserves_every_legacy_row_rowid_receipt_an
         .disable_statement_logging();
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
     let all = sqlx::migrate!("./migrations");
+    for (contents, expected) in [
+        (
+            include_bytes!("../migrations/0001_community.sql").as_slice(),
+            "fe71091f624f4447bfee87addfead488de6f9fe126cf612a9ead6b5f377a2f83",
+        ),
+        (
+            include_bytes!("../migrations/0002_outcome_reporter_time.sql").as_slice(),
+            "9429ddfac6953a991de7c268bb6433ee6c8c3bde3cf4d1b86acf85c7a63df19c",
+        ),
+        (
+            include_bytes!("../migrations/0003_correction_suggestions.sql").as_slice(),
+            "24627748a2866d782718053d95f395ee61e2442e23964d60dbcf215e1f76dc15",
+        ),
+    ] {
+        assert_eq!(format!("{:x}", Sha256::digest(contents)), expected);
+    }
     let legacy = Migrator {
         migrations: Cow::Owned(
             all.iter()
@@ -116,8 +135,10 @@ async fn reporter_time_index_upgrade_preserves_every_legacy_row_rowid_receipt_an
         "outcomes".into(),
         Some("CREATE INDEX outcomes_reporter_created ON outcomes (reporter_id, created_at)".into()),
     ));
+    expected.extend(correction_schema::objects());
     expected.sort();
     assert_eq!(schema(&mut connection).await, expected);
+    correction_schema::assert_empty_structure(&mut connection).await;
     assert_eq!(keys(&mut connection).await, keys_before);
     let index: Vec<(i64, i64, String)> =
         sqlx::query_as("PRAGMA index_info(outcomes_reporter_created)")
@@ -129,13 +150,13 @@ async fn reporter_time_index_upgrade_preserves_every_legacy_row_rowid_receipt_an
         [(0, 0, "reporter_id".into()), (1, 5, "created_at".into())]
     );
     let after = ledger(&mut connection).await;
-    assert_eq!(after.len(), 2);
+    assert_eq!(after.iter().map(|row| row.1).collect::<Vec<_>>(), [1, 2, 3]);
     assert!(after[..1] == ledger_before);
     for (actual, migration) in after.iter().zip(all.iter()) {
-        assert_eq!(actual.0, migration.version);
-        assert_eq!(actual.1.as_str(), migration.description.as_ref());
-        assert!(actual.3);
-        assert!(actual.4.as_slice() == migration.checksum.as_ref());
+        assert_eq!(actual.1, migration.version);
+        assert_eq!(actual.2.as_str(), migration.description.as_ref());
+        assert!(actual.4);
+        assert!(actual.5.as_slice() == migration.checksum.as_ref());
     }
     let foreign_key_errors = sqlx::query("PRAGMA foreign_key_check")
         .fetch_all(&mut connection)
@@ -187,7 +208,7 @@ async fn reporter_time_index_upgrade_preserves_every_legacy_row_rowid_receipt_an
 
 type Reporters = Vec<(i64, String, Vec<u8>, i64)>;
 type Outcomes = Vec<(i64, String, String, String, String, String, i64)>;
-type Ledger = Vec<(i64, String, String, bool, Vec<u8>, i64)>;
+type Ledger = Vec<(i64, i64, String, String, bool, Vec<u8>, i64)>;
 type Schema = Vec<(String, String, String, Option<String>)>;
 type Keys = Vec<(i64, i64, String, String, String, String, String, String)>;
 
@@ -205,7 +226,7 @@ async fn schema(connection: &mut SqliteConnection) -> Schema {
 }
 
 async fn ledger(connection: &mut SqliteConnection) -> Ledger {
-    sqlx::query_as("SELECT version,description,installed_on,success,checksum,execution_time FROM _sqlx_migrations ORDER BY version").fetch_all(connection).await.unwrap()
+    sqlx::query_as("SELECT rowid,version,description,installed_on,success,checksum,execution_time FROM _sqlx_migrations ORDER BY version").fetch_all(connection).await.unwrap()
 }
 
 async fn keys(connection: &mut SqliteConnection) -> Keys {

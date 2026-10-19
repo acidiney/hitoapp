@@ -27,6 +27,9 @@ pub fn router(service: Service) -> Router {
         .routes(routes!(revoke))
         .routes(routes!(submit))
         .routes(routes!(rank))
+        .routes(routes!(crate::correction_http::submit))
+        .routes(routes!(crate::correction_http::list))
+        .routes(routes!(crate::correction_http::review))
         .routes(routes!(crate::contract::serve))
         .split_for_parts();
     router
@@ -157,7 +160,7 @@ fn bearer(parts: &Parts) -> Result<&str, Error> {
     Ok(token)
 }
 
-struct SafeJson<T>(T);
+pub(crate) struct SafeJson<T>(pub(crate) T);
 
 impl<T> FromRequest<Service> for SafeJson<T>
 where

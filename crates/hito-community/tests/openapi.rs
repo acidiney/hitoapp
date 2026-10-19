@@ -58,7 +58,31 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
     assert!(!document["info"]["title"].as_str().unwrap().is_empty());
     assert!(!document["info"]["version"].as_str().unwrap().is_empty());
     let paths = document["paths"].as_object().unwrap();
-    assert_eq!(paths.len(), 5);
+    let mut operation_ids = BTreeSet::new();
+    for item in paths.values() {
+        for method in [
+            "get", "post", "put", "patch", "delete", "head", "options", "trace",
+        ] {
+            if let Some(operation) = item.get(method) {
+                let id = operation["operationId"].as_str().unwrap();
+                assert!(operation_ids.insert(id), "Duplicate operation ID: {id}");
+            }
+        }
+    }
+    assert_eq!(paths.len(), 8);
+    assert_eq!(
+        paths.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "/v1/admin/corrections",
+            "/v1/admin/corrections/{correction_id}/review",
+            "/v1/admin/reporters",
+            "/v1/admin/reporters/{reporter_id}",
+            "/v1/corrections",
+            "/v1/openapi.json",
+            "/v1/outcomes",
+            "/v1/rankings",
+        ])
+    );
     assert_public(&document, &paths["/v1/openapi.json"]["get"]);
     assert!(paths["/v1/openapi.json"]["get"]["responses"]["200"].is_object());
     let revoke = &paths["/v1/admin/reporters/{reporter_id}"]["delete"];
@@ -104,6 +128,27 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
             request_fields: &["candidates"],
             success_status: "200",
             response_fields: &["ranked"],
+        },
+        OperationContract {
+            path: "/v1/corrections",
+            authority: Some("reporterBearer"),
+            request_fields: &["submission_id", "left", "right", "relation"],
+            success_status: "201",
+            response_fields: &["correction_id", "submission_id", "status"],
+        },
+        OperationContract {
+            path: "/v1/admin/corrections/{correction_id}/review",
+            authority: Some("administratorBearer"),
+            request_fields: &["request_id", "expected_revision", "decision"],
+            success_status: "201",
+            response_fields: &[
+                "request_id",
+                "correction_id",
+                "revision",
+                "decision",
+                "status",
+                "validation_method",
+            ],
         },
     ];
     for contract in operations {
@@ -221,6 +266,152 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
     assert_eq!(candidates["maxItems"], 32);
     assert_eq!(candidates["uniqueItems"], true);
     assert_eq!(resolve(&document, &candidates["items"]), source);
+
+    let correction = &paths["/v1/corrections"]["post"];
+    assert_eq!(correction["operationId"], "submit_correction");
+    let suggestion = component(
+        &document,
+        &correction["requestBody"]["content"]["application/json"]["schema"],
+    );
+    for side in ["left", "right"] {
+        assert_eq!(resolve(&document, &suggestion["properties"][side]), source);
+    }
+    assert_eq!(
+        resolve(&document, &suggestion["properties"]["relation"])["enum"],
+        serde_json::json!(["same_recording"])
+    );
+    assert_eq!(suggestion["properties"]["submission_id"]["format"], "uuid");
+    assert!(description(&suggestion["properties"]["submission_id"]).contains("Version-4"));
+    let retry = &correction["responses"]["429"]["headers"]["Retry-After"];
+    assert_eq!(retry["schema"]["type"], "string");
+    for bound in ["60", "10", "32", "1024"] {
+        assert!(description(retry).contains(bound));
+    }
+    let review = &paths["/v1/admin/corrections/{correction_id}/review"]["post"];
+    assert_eq!(review["operationId"], "review_correction");
+    assert_eq!(review["parameters"][0]["name"], "correction_id");
+    assert_eq!(review["parameters"][0]["in"], "path");
+    assert_eq!(review["parameters"][0]["required"], true);
+    assert_eq!(review["parameters"][0]["schema"]["format"], "uuid");
+    let decision = component(
+        &document,
+        &review["requestBody"]["content"]["application/json"]["schema"],
+    );
+    assert_eq!(decision["properties"]["request_id"]["format"], "uuid");
+    assert!(description(&decision["properties"]["request_id"]).contains("Version-4"));
+    assert_eq!(decision["properties"]["expected_revision"]["minimum"], 1);
+    assert_eq!(
+        decision["properties"]["expected_revision"]["maximum"],
+        9_007_199_254_740_990_i64
+    );
+    assert_eq!(
+        resolve(&document, &decision["properties"]["decision"])["enum"],
+        serde_json::json!(["approve", "reject"])
+    );
+    for operation in [correction, review] {
+        for status in [
+            "200", "201", "400", "401", "409", "413", "415", "422", "503",
+        ] {
+            component(
+                &document,
+                &operation["responses"][status]["content"]["application/json"]["schema"],
+            );
+        }
+    }
+    component(
+        &document,
+        &review["responses"]["404"]["content"]["application/json"]["schema"],
+    );
+    let acknowledgement = component(
+        &document,
+        &review["responses"]["200"]["content"]["application/json"]["schema"],
+    );
+    assert_eq!(
+        acknowledgement["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "request_id",
+            "correction_id",
+            "revision",
+            "decision",
+            "status",
+            "validation_method"
+        ])
+    );
+    assert!(
+        description(&acknowledgement["properties"]["status"])
+            .contains("Historical acknowledgement")
+    );
+    assert_eq!(
+        acknowledgement["properties"]["revision"]["maximum"],
+        9_007_199_254_740_991_i64
+    );
+
+    let list = &paths["/v1/admin/corrections"]["get"];
+    assert_eq!(list["operationId"], "list_corrections");
+    assert_eq!(
+        effective_security(&document, list),
+        Some(&serde_json::json!([{"administratorBearer": []}]))
+    );
+    assert!(list.get("requestBody").is_none());
+    let parameters = list["parameters"].as_array().unwrap();
+    assert_eq!(
+        parameters
+            .iter()
+            .map(|parameter| parameter["name"].as_str().unwrap())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["status", "after"])
+    );
+    for parameter in parameters {
+        assert_eq!(parameter["in"], "query");
+        assert_eq!(parameter["required"], false);
+        if parameter["name"] == "status" {
+            assert_eq!(
+                resolve(&document, &parameter["schema"])["enum"],
+                serde_json::json!(["pending", "approved", "rejected"])
+            );
+        } else {
+            assert_eq!(parameter["schema"]["minimum"], 0);
+            assert_eq!(parameter["schema"]["format"], "int64");
+        }
+    }
+    let page = component(
+        &document,
+        &list["responses"]["200"]["content"]["application/json"]["schema"],
+    );
+    assert_eq!(page["properties"]["suggestions"]["maxItems"], 32);
+    assert!(page["properties"]["next_after"].is_object());
+    let summary = component(&document, &page["properties"]["suggestions"]["items"]);
+    assert_eq!(
+        summary["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "correction_id",
+            "left",
+            "right",
+            "relation",
+            "status",
+            "revision",
+            "created_at"
+        ])
+    );
+    for side in ["left", "right"] {
+        assert_eq!(resolve(&document, &summary["properties"][side]), source);
+    }
+    for status in ["400", "401", "503"] {
+        component(
+            &document,
+            &list["responses"][status]["content"]["application/json"]["schema"],
+        );
+    }
     let serialized = document.to_string();
     for private in [
         ADMIN_TOKEN,
