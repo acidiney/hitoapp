@@ -209,6 +209,25 @@ fn revocation_fences_an_already_authenticated_unread_outcome_without_erasing_pee
         "outcome": "successful_playback"
     })
     .to_string();
+    for _ in 1..300 {
+        let mut submission: Value = serde_json::from_str(&accepted).unwrap();
+        submission["submission_id"] = json!(uuid::Uuid::new_v4());
+        assert_eq!(
+            request_json(
+                &host,
+                "POST",
+                "/v1/outcomes",
+                Some(token),
+                &submission.to_string()
+            )
+            .0,
+            201
+        );
+    }
+    assert_eq!(
+        request_json(&host, "POST", "/v1/outcomes", Some(token), &held),
+        (429, json!({"error": "rate_limited"}))
+    );
     let mut pending = PendingRequest::start(host.address, "/v1/outcomes", token, &held);
     let path = format!("/v1/admin/reporters/{reporter_id}");
     let (status, body) = request_json(&host, "DELETE", &path, Some(ADMIN_TOKEN), "");
@@ -270,6 +289,11 @@ fn revocation_fences_an_already_authenticated_unread_outcome_without_erasing_pee
         )
     );
     let events = captured_events(&host, fixture.path(), token);
+    assert!(events.iter().any(
+        |event| event["fields"]["event"] == "community_request_rejected"
+            && event["fields"]["outcome"] == "rate_limited"
+            && event["fields"]["status"] == 429
+    ));
     let logs = host.logs();
     for forbidden in [
         peer_token,

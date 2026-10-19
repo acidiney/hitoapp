@@ -202,6 +202,11 @@ async fn the_public_contract_describes_actual_routes_authority_and_strict_bounde
             || ids.contains("64 bit")
     );
     assert!(paths["/v1/outcomes"]["post"]["responses"]["409"].is_object());
+    let limited = &paths["/v1/outcomes"]["post"]["responses"]["429"];
+    component(&document, &limited["content"]["application/json"]["schema"]);
+    let retry = &limited["headers"]["Retry-After"];
+    assert_eq!(retry["schema"]["type"], "string");
+    assert!(description(retry).contains("60") && description(retry).contains("300"));
     component(
         &document,
         &paths["/v1/outcomes"]["post"]["responses"]["200"]["content"]["application/json"]["schema"],

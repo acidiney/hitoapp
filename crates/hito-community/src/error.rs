@@ -21,6 +21,8 @@ pub enum Error {
     InvalidInput,
     #[error("Submission identifier already has different content")]
     SubmissionConflict,
+    #[error("Community outcome rate limit reached")]
+    RateLimited,
     #[error("Request input was rejected")]
     Input(StatusCode),
 }
@@ -33,10 +35,12 @@ impl From<sqlx::Error> for Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
+        let rate_limited = matches!(self, Self::RateLimited);
         let (status, error) = match self {
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             Self::InvalidInput => (StatusCode::BAD_REQUEST, "invalid_input"),
             Self::SubmissionConflict => (StatusCode::CONFLICT, "submission_conflict"),
+            Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
             Self::Input(status) => (status, "invalid_input"),
             _ => (StatusCode::SERVICE_UNAVAILABLE, "unavailable"),
         };
@@ -45,6 +49,12 @@ impl IntoResponse for Error {
             status = status.as_u16(),
             outcome = error
         );
-        (status, Json(Rejection { error })).into_response()
+        let mut response = (status, Json(Rejection { error })).into_response();
+        if rate_limited {
+            response
+                .headers_mut()
+                .insert("retry-after", "60".parse().unwrap());
+        }
+        response
     }
 }

@@ -10,6 +10,8 @@ use crate::{
     wire::{OutcomeKind, OutcomeReceipt, SubmitOutcome},
 };
 
+const MAX_RECENT_OUTCOMES: i64 = 300;
+
 #[derive(Clone)]
 pub(crate) struct Outcomes {
     storage: Arc<Storage>,
@@ -58,6 +60,16 @@ impl Outcomes {
                 Uuid::parse_str(&receipt).map_err(|_| Error::StorageUnavailable)?,
             )
         } else {
+            let recent: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM (SELECT 1 FROM outcomes INDEXED BY outcomes_reporter_created WHERE reporter_id = ? AND created_at > unixepoch() - 60 LIMIT ?)",
+            )
+            .bind(reporter.0.to_string())
+            .bind(MAX_RECENT_OUTCOMES)
+            .fetch_one(&mut *transaction)
+            .await?;
+            if recent >= MAX_RECENT_OUTCOMES {
+                return Err(Error::RateLimited);
+            }
             let receipt_id = Uuid::new_v4();
             sqlx::query(
                 "INSERT INTO outcomes (reporter_id, submission_id, receipt_id, provider, recording_id) VALUES (?, ?, ?, ?, ?)",

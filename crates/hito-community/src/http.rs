@@ -83,6 +83,7 @@ async fn revoke(
         (status = 201, body = OutcomeReceipt), (status = 200, body = OutcomeReceipt),
         (status = 400, body = Rejection), (status = 401, body = Rejection),
         (status = 409, body = Rejection), (status = 413, body = Rejection),
+        (status = 429, body = Rejection, headers(("Retry-After" = String, description = "60 seconds; at most 300 new accepted outcomes per reporter in a rolling 60-second window."))),
         (status = 415, body = Rejection), (status = 422, body = Rejection),
         (status = 503, body = Rejection),
     ),
