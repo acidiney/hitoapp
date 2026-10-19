@@ -1,0 +1,90 @@
+services:
+  collection-artwork-server:
+    profiles: [e2e]
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable packaged runtime image ID}
+    user: "10001:10001"
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/artwork.db
+      HITO_MUSIC_ROOT: /music
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - type: bind
+        source: ${HITO_ARTWORK_MUSIC:?Set the owned synthetic music directory}
+        target: /music
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700,size=64m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    networks: [artwork-tools]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    labels:
+      org.hito.owned-fixture: collection-artwork-browser
+      org.opencontainers.image.revision: ${HITO_PACKAGED_SOURCE:?Set the exact packaged source commit}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+  collection-artwork-browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+      HITO_ARTWORK_BROWSER: ${HITO_ARTWORK_BROWSER:-chromium}
+      HITO_ARTWORK_JS_SHA256: ${HITO_ARTWORK_JS_SHA256:-}
+      HITO_ARTWORK_CSS_SHA256: ${HITO_ARTWORK_CSS_SHA256:-}
+    network_mode: service:collection-artwork-server
+    depends_on:
+      collection-artwork-server:
+        condition: service_healthy
+    volumes:
+      - ../..:/workspace:ro
+      - collection-artwork-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_ARTWORK_MUSIC:?Set the owned synthetic music directory}:/owned-music:ro
+      - ${HITO_ARTWORK_EVIDENCE:?Set the owned evidence directory}:/evidence
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+    shm_size: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    init: true
+    command:
+      [
+        node,
+        node_modules/@playwright/test/cli.js,
+        test,
+        --config,
+        playwright.collection-artwork.config.ts,
+      ]
+    labels:
+      org.hito.owned-fixture: collection-artwork-browser
+      org.opencontainers.image.revision: ${HITO_PACKAGED_SOURCE:?Set the exact packaged source commit}
+volumes:
+  collection-artwork-modules:
+    external: true
+    name: hito_node-modules
+networks:
+  artwork-tools:
+    external: true
+    name: hito-spotify-albums-tools_default

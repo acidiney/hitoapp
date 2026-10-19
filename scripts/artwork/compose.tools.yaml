@@ -1,0 +1,20 @@
+services:
+  node:
+    profiles: [tools]
+    image: node:22-bookworm-slim
+    working_dir: /workspace/apps/web
+    network_mode: none
+    read_only: true
+    volumes:
+      - ../..:/workspace
+      - artwork-modules:/workspace/apps/web/node_modules:ro
+    tmpfs:
+      - /tmp:size=64m,nosuid,nodev
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+volumes:
+  artwork-modules:
+    external: true
+    name: hito_node-modules

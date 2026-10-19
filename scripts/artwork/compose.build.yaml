@@ -1,0 +1,13 @@
+services:
+  packaged-artifact:
+    profiles: [tools]
+    image: ${HITO_PACKAGED_TAG:?Set the unique final-source runtime image tag}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        HITO_SERVER_CACHE_ID: ${HITO_PACKAGED_CACHE_ID:?Set the unique final-source server cache}
+      labels:
+        org.opencontainers.image.revision: ${HITO_PACKAGED_SOURCE:?Set the full committed product source}
+        org.hito.product-input-sha256: ${HITO_PACKAGED_INPUTS:?Set the committed product input fingerprint}
