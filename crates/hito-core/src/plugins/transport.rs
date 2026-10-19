@@ -9,6 +9,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod catalog;
+mod lyrics;
 mod preparation;
 mod source_batch;
 pub(crate) use source_batch::SourceBatch;
@@ -23,6 +24,8 @@ pub(super) struct ControlClient {
     client: reqwest::Client,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    lyrics_slots: Arc<Semaphore>,
+    lyrics_accounts: Accounts,
     artwork_slots: Arc<Semaphore>,
     artwork_accounts: Accounts,
     follow_slots: Arc<Semaphore>,
@@ -51,6 +54,8 @@ impl ControlClient {
             client,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Default::default(),
+            lyrics_slots: Arc::new(Semaphore::new(4)),
+            lyrics_accounts: Default::default(),
             artwork_slots: Arc::new(Semaphore::new(4)),
             artwork_accounts: Default::default(),
             follow_slots: Arc::new(Semaphore::new(4)),

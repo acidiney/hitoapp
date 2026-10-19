@@ -34,6 +34,8 @@ pub use source_choice::{
 #[path = "tests/release_query_work.rs"]
 mod release_query_work;
 mod sources;
+mod timed_content;
+pub use timed_content::{LyricsLookup, ReadRecordingLyrics};
 mod types;
 
 use crate::{HostDeviceId, store::Store};
