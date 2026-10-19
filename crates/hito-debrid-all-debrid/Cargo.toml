@@ -1,0 +1,38 @@
+[package]
+name = "hito-debrid-all-debrid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+test-support = []
+
+[dependencies]
+reqwest = { workspace = true, features = ["form"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+tokio-rustls = { version = "=0.26.6", default-features = false }
+tracing-subscriber.workspace = true
+
+[[test]]
+name = "observation"
+required-features = ["test-support"]
+
+[[test]]
+name = "submission"
+required-features = ["test-support"]
+
+[[test]]
+name = "preparation"
+required-features = ["test-support"]

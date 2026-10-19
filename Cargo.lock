@@ -1988,6 +1988,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-debrid-all-debrid"
+version = "0.1.0-dev"
+dependencies = [
+ "rcgen",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "hito-debrid-real-debrid"
 version = "0.1.0-dev"
 dependencies = [
