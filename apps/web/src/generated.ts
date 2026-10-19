@@ -1140,6 +1140,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/lyrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recording_lyrics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/metadata": {
         parameters: {
             query?: never;
@@ -2247,6 +2263,26 @@ export interface components {
             };
             needs_setup: boolean;
         };
+        LyricsLookup: {
+            document: components["schemas"]["LyricsResponse"];
+            observation_id: string;
+            recording_id: string;
+            /** @enum {string} */
+            status: "ready";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
+        LyricsResponse: {
+            lyrics?: components["schemas"]["TimedLyrics"] | null;
+            recording: components["schemas"]["ProviderRecordingRef"];
+        };
         Manifest: {
             authorization?: components["schemas"]["Authorization"] | null;
             capabilities: components["schemas"]["Capability"][];
@@ -2935,6 +2971,10 @@ export interface components {
             /** Format: int32 */
             track_number?: number | null;
         };
+        ProviderRecordingRef: {
+            id: string;
+            revision?: string | null;
+        };
         ProviderRelease: {
             artist?: string | null;
             id: string;
@@ -2956,6 +2996,11 @@ export interface components {
             continuation?: string | null;
             /** Format: int32 */
             limit: number;
+        };
+        ReadRecordingLyrics: {
+            /** Format: int64 */
+            installation_revision: number;
+            observation_id: string;
         };
         Recording: {
             album?: string | null;
@@ -3224,6 +3269,24 @@ export interface components {
             operation_id: string | null;
             personal: string | null;
             value: string;
+        };
+        TimedLyricLine: {
+            /** Format: int64 */
+            end_ms: number;
+            /** Format: int64 */
+            start_ms: number;
+            text: string;
+        };
+        TimedLyrics: {
+            attribution?: components["schemas"]["RecordingAttribution"] | null;
+            /** Format: int64 */
+            duration_ms?: number | null;
+            id: string;
+            language?: string | null;
+            lines: components["schemas"]["TimedLyricLine"][];
+            rendition_id: string;
+            rendition_label?: string | null;
+            revision?: string | null;
         };
         UnsubscribePodcast: {
             /** Format: uuid */
@@ -8771,6 +8834,113 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_lyrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadRecordingLyrics"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LyricsLookup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

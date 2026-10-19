@@ -12,6 +12,7 @@ pub mod community;
 pub mod downloads;
 pub mod identity;
 pub mod jobs;
+pub mod lyrics;
 pub mod metadata;
 pub mod player;
 pub mod playlist_artwork;
