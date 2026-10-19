@@ -61,6 +61,14 @@ Lookup does not modify the library or collection, adopt a recording, resolve sou
 
 An independent lyrics provider can serve a current attached provider identity. A lyrics-only service without a retained identity or review path cannot yet be selected for a local recording. That identity-review workflow remains unfinished. This lookup does not establish timeline alignment or enable synchronized highlighting.
 
+## Current lyric providers
+
+`GET /api/v1/recordings/{id}/lyrics/providers` returns the caller's currently retained lyric-capable identities. Each item contains its observation, installation and current installation revision, exact provider recording reference and display label. Selected primary identity comes first, followed by current attached source-provider identities in stable order. Historical observations, inactive installations/services and unapproved lyric capabilities are excluded. A lyrics-only provider without a retained identity still needs the separate discovery/review workflow.
+
+This is a local authorized read with a one-second lifetime and at most nine current identities, derived from the existing binding limit. It never contacts providers, reads audio, prepares a source or creates persistent state. Malformed recording IDs use the existing `422` validation response. Lookup still uses the original POST authority checks; listing choices does not authorize an old observation or installation revision.
+
+Three public cases qualify primary identity, attached current-versus-historical observations, and account/current-approval boundaries. They preserve private owner and peer state and original audio, verify no provider work on listing, and require separate safe completion logs. All 13 normal lyric cases pass, with two existing diagnostics ignored, alongside strict core/server checks and an independent 13-case repeat. Actual Rust export adds only this path and two DTO schemas, preserving all prior 98 paths, 231 schemas and other contract metadata. Actual generated TypeScript and both type configurations pass. The provider picker and its packaged acceptance remain unfinished.
+
 ## Shared static lyric view
 
 Track Details now offers **Show lyrics** for a selected primary provider observation. Clicking it reads the current approved installation revision and starts the retained-identity lookup above. Opening the page does not request lyrics. Hito renders plain lines and structured credits; the plugin supplies no executable interface. A valid null answer, unsupported capability and temporary failure have separate states with explicit retry.
