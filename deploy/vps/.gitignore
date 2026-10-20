@@ -1,0 +1,4 @@
+.env
+storage.json
+*.tar
+*.tar.gz

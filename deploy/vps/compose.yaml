@@ -1,0 +1,110 @@
+name: hito-vps
+
+x-runtime: &runtime
+  platform: linux/amd64
+  pull_policy: never
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  stop_grace_period: 15s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    org.hito.deployment: hito-vps
+    org.opencontainers.image.revision: ${HITO_VPS_REVISION:?Set the full source commit recorded on the loaded images}
+
+services:
+  server:
+    <<: *runtime
+    image: ${HITO_SERVER_IMAGE:?Set the loaded immutable amd64 server image ID}
+    ports:
+      - "127.0.0.1:18080:8080"
+    environment:
+      HITO_PUBLIC_ORIGIN: https://hito.example.com
+      HITO_LISTEN: 0.0.0.0:8080
+      HITO_DATABASE: /data/hito.db
+      HITO_STORAGE_MANIFEST: /run/hito/storage.json
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info
+    volumes:
+      - hito-data:/data
+      - type: bind
+        source: ${HITO_VPS_MUSIC_DIR:?Set the existing host music directory}
+        target: /hito/music/main
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${HITO_VPS_STORAGE_MANIFEST:?Set the existing storage manifest file}
+        target: /run/hito/storage.json
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=1g,uid=10001,gid=10001,mode=0700
+    init: true
+    pids_limit: 256
+    mem_limit: 3g
+    healthcheck:
+      test:
+        [
+          CMD,
+          curl,
+          -fsS,
+          --max-time,
+          "2",
+          --output,
+          /dev/null,
+          http://127.0.0.1:8080/health,
+        ]
+      interval: 15s
+      timeout: 3s
+      start_period: 60s
+      retries: 4
+
+  plugin-folder:
+    <<: *runtime
+    image: ${HITO_FOLDER_IMAGE:?Set the loaded immutable amd64 folder-plugin image ID}
+    command: [--music, /demo, --state, /state, --listen, "0.0.0.0:8090"]
+    environment:
+      RUST_LOG: info
+    volumes:
+      - folder-state:/state
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0700
+    pids_limit: 64
+    mem_limit: 256m
+
+  plugin-spotify:
+    <<: *runtime
+    image: ${HITO_SPOTIFY_IMAGE:?Set the loaded immutable amd64 Spotify-plugin image ID}
+    environment:
+      RUST_LOG: info
+    pids_limit: 64
+    mem_limit: 256m
+
+  plugin-youtube:
+    <<: *runtime
+    image: ${HITO_YOUTUBE_IMAGE:?Set the loaded immutable amd64 YouTube-plugin image ID}
+    environment:
+      RUST_LOG: info
+    init: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0700
+    pids_limit: 128
+    mem_limit: 512m
+
+volumes:
+  hito-data:
+    name: hito-vps-data
+  folder-state:
+    name: hito-vps-folder-state
+
+networks:
+  default:
+    name: hito-vps

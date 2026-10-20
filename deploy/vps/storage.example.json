@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "directories": [
+    {
+      "id": "vps-music",
+      "name": "Music",
+      "root": "/hito/music/main"
+    }
+  ]
+}
