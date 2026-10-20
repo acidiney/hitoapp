@@ -12049,6 +12049,24 @@
       "ArtistIdentityGroupPage": {
         "$ref": "#/components/schemas/Page_ArtistIdentityGroup"
       },
+      "ArtistIdentityGroupPageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "detail"
+            ],
+            "properties": {
+              "detail": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupDetail"
+              }
+            }
+          }
+        ]
+      },
       "ArtistIdentitySelection": {
         "type": "object",
         "required": [
@@ -12073,11 +12091,15 @@
             "type": "object",
             "required": [
               "query",
-              "artists"
+              "artists",
+              "identity_groups"
             ],
             "properties": {
               "artists": {
                 "$ref": "#/components/schemas/ArtistPage"
+              },
+              "identity_groups": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage"
               },
               "query": {
                 "type": "string"

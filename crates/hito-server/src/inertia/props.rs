@@ -1,10 +1,13 @@
+use crate::api::artist_identity_groups::ArtistIdentityGroupPage;
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
 use hito_core::{
     Activity, AudiobookDetail, AudiobookPagination, Library, Playlist, PlaylistDetail,
     PodcastEpisodePage, PodcastSubscription, RecordingProgress, User,
 };
-use hito_core::{ArtistDetail, RecordingMetadata, ReleaseDetail, ReleaseMetadata};
+use hito_core::{
+    ArtistDetail, ArtistIdentityGroupDetail, RecordingMetadata, ReleaseDetail, ReleaseMetadata,
+};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use utoipa::ToSchema;
@@ -68,6 +71,18 @@ pub struct ArtistIndexPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub artists: Option<ArtistPage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub identity_groups: Option<ArtistIdentityGroupPage>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArtistIdentityGroupPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub detail: Option<ArtistIdentityGroupDetail>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -210,6 +225,7 @@ pub enum PageProps {
     AlbumIndex(AlbumIndexPageProps),
     Album(AlbumPageProps),
     ArtistIndex(ArtistIndexPageProps),
+    ArtistIdentityGroup(ArtistIdentityGroupPageProps),
     Artist(ArtistPageProps),
     RecordingDetails(Box<RecordingDetailsPageProps>),
     AlbumDetails(AlbumDetailsPageProps),
@@ -233,6 +249,7 @@ impl PageProps {
             Self::AlbumIndex(_) => "AlbumIndexPage",
             Self::Album(_) => "AlbumPage",
             Self::ArtistIndex(_) => "ArtistIndexPage",
+            Self::ArtistIdentityGroup(_) => "ArtistIdentityGroupPage",
             Self::Artist(_) => "ArtistPage",
             Self::RecordingDetails(_) => "RecordingDetailsPage",
             Self::AlbumDetails(_) => "AlbumDetailsPage",

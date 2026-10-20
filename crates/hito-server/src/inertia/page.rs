@@ -1,8 +1,10 @@
 use super::{props::*, protocol::Protocol};
+use crate::api::artist_identity_groups::ArtistIdentityGroupPage;
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::{api::catalog::RecordingPage, error::ApiResult};
 use hito_core::{
-    Actor, AudiobookLibraryQuery, Browse, Error, PodcastEpisodeQuery, Search, Services,
+    Actor, ArtistIdentityGroupBrowse, ArtistIdentityGroupQuery, AudiobookLibraryQuery, Browse,
+    Error, PodcastEpisodeQuery, Search, Services,
 };
 use uuid::Uuid;
 
@@ -12,6 +14,7 @@ pub enum Screen<'a> {
     Album(&'a str),
     AlbumDetails(&'a str),
     ArtistIndex,
+    ArtistIdentityGroup(&'a str),
     Artist(&'a str),
     RecordingDetails(&'a str),
     Likes,
@@ -39,6 +42,9 @@ impl<'a> Screen<'a> {
             "/podcasts" => Self::PodcastIndex,
             "/albums" => Self::AlbumIndex,
             "/artists" => Self::ArtistIndex,
+            _ if path.starts_with("/artist-groups/") => {
+                Self::ArtistIdentityGroup(path.trim_start_matches("/artist-groups/"))
+            }
             _ if path.starts_with("/albums/") && path.ends_with("/details") => Self::AlbumDetails(
                 path.trim_start_matches("/albums/")
                     .trim_end_matches("/details"),
@@ -67,6 +73,7 @@ impl<'a> Screen<'a> {
             Self::Album(_) => "AlbumPage",
             Self::AlbumDetails(_) => "AlbumDetailsPage",
             Self::ArtistIndex => "ArtistIndexPage",
+            Self::ArtistIdentityGroup(_) => "ArtistIdentityGroupPage",
             Self::Artist(_) => "ArtistPage",
             Self::RecordingDetails(_) => "RecordingDetailsPage",
             Self::Likes => "LikesPage",
@@ -205,6 +212,24 @@ impl<'a> Screen<'a> {
                 let query = fields
                     .requested("query")
                     .then(|| search.q.clone().unwrap_or_default());
+                let identity_groups = if fields.requested("identity_groups") {
+                    Some(ArtistIdentityGroupPage(
+                        services
+                            .catalog
+                            .artist_identity_groups(
+                                actor,
+                                ArtistIdentityGroupQuery {
+                                    q: search.q.clone(),
+                                    library: search.library.clone(),
+                                    offset: pagination.group_offset,
+                                    limit: search.limit,
+                                },
+                            )
+                            .await?,
+                    ))
+                } else {
+                    None
+                };
                 let artists = if fields.requested("artists") {
                     Some(ArtistPage(
                         services.catalog.artists(actor, browse(search)).await?,
@@ -216,7 +241,33 @@ impl<'a> Screen<'a> {
                     shared,
                     query,
                     artists,
+                    identity_groups,
                 }))
+            }
+            Self::ArtistIdentityGroup(id) => {
+                let detail = if fields.requested("detail") {
+                    Some(
+                        services
+                            .catalog
+                            .artist_identity_group(
+                                actor,
+                                id,
+                                ArtistIdentityGroupBrowse {
+                                    library: search.library,
+                                    library_offset: pagination.library_offset,
+                                    recording_offset: pagination.recording_offset,
+                                    release_offset: pagination.release_offset,
+                                    limit: search.limit,
+                                },
+                            )
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                Ok(PageProps::ArtistIdentityGroup(
+                    ArtistIdentityGroupPageProps { shared, detail },
+                ))
             }
             Self::Album(id) => {
                 let detail = if fields.requested("detail") {

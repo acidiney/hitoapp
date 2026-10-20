@@ -1949,12 +1949,16 @@ export interface components {
             value: string;
         };
         ArtistIdentityGroupPage: components["schemas"]["Page_ArtistIdentityGroup"];
+        ArtistIdentityGroupPageProps: components["schemas"]["SharedPageProps"] & {
+            detail: components["schemas"]["ArtistIdentityGroupDetail"];
+        };
         ArtistIdentitySelection: {
             association_id: string;
             group_id: string;
         };
         ArtistIndexPageProps: components["schemas"]["SharedPageProps"] & {
             artists: components["schemas"]["ArtistPage"];
+            identity_groups: components["schemas"]["ArtistIdentityGroupPage"];
             query: string;
         };
         ArtistPage: components["schemas"]["Page_Artist"];

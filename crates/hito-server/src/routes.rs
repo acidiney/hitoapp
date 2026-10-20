@@ -31,6 +31,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         AlbumPageProps,
         AlbumDetailsPageProps,
         ArtistIndexPageProps,
+        ArtistIdentityGroupPageProps,
         ArtistPageProps,
         RecordingDetailsPageProps,
         PlaylistIndexPageProps,
@@ -223,6 +224,7 @@ fn application(
         .route("/albums/{id}/details", get(inertia::page))
         .route("/artists", get(inertia::page))
         .route("/artists/{id}", get(inertia::page))
+        .route("/artist-groups/{id}", get(inertia::page))
         .route("/recordings/{id}", get(inertia::page))
         .route("/likes", get(inertia::page))
         .route("/history", get(inertia::page))
