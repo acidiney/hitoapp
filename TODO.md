@@ -243,7 +243,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 ## Release verification and distribution
 
 - [ ] Benchmark 100,000 tracks, 10 accounts, and 5 simultaneous listeners on documented hardware/network conditions.
-  - [ ] Diagnose and fix the 100,000-provider-binding upgrade exceeding its unchanged 15-second development deadline. Isolated candidate reopen took 17.84 seconds; clean baseline repeats took 17.74 and 17.88 seconds. Preserve upgrade state assertions and distinguish this startup issue from playback latency benchmarks.
+  - [ ] Diagnose and fix the 100,000-provider-binding upgrade exceeding its unchanged 15-second development deadline. Isolated candidate reopen took 17.84 seconds; clean baseline repeats took 17.74 and 17.88 seconds. A later unchanged-deadline diagnostic reopened in 17.72 seconds, with migrations 0026 and 0036 accounting for about 78%; statement-level causes and a compatible fix remain open. Preserve upgrade state assertions and historical checksums, and distinguish this startup issue from playback latency benchmarks.
 - [ ] Measure p95 local start, ready remote start, and available-source recovery against the release targets.
 - [ ] Exercise slow providers, expired links, failed seeks, interrupted transfers, server outages, and recovery.
 - [ ] Investigate the two intermittent lyric-log observations with missing events or span context. Preserve strict correlation/privacy assertions and establish the cause; later finite passing diagnostics do not resolve those observations. The separately reproduced dropped-future/span-retirement defect is fixed.
