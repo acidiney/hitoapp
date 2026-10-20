@@ -92,6 +92,22 @@ mod artwork;
 
 #[path = "api/artist_discography.rs"]
 mod artist_discography;
+#[path = "api/artist_identity.rs"]
+mod artist_identity;
+#[path = "api/artist_identity_access.rs"]
+mod artist_identity_access;
+#[path = "fixtures/artist_identity.rs"]
+mod artist_identity_fixture;
+#[path = "api/artist_identity_input.rs"]
+mod artist_identity_input;
+#[path = "api/artist_identity_logs.rs"]
+mod artist_identity_logs;
+#[path = "fixtures/artist_identity_logs.rs"]
+mod artist_identity_logs_fixture;
+#[path = "api/artist_identity_offline.rs"]
+mod artist_identity_offline;
+#[path = "api/artist_identity_receipts.rs"]
+mod artist_identity_receipts;
 #[path = "api/artist_review.rs"]
 mod artist_review;
 #[path = "api/artist_review_authority.rs"]
