@@ -1,4 +1,5 @@
 import type { RecordingArtistIdentityChoice } from "../../types";
+import { Link } from "@inertiajs/react";
 
 export default function ArtistIdentityChoice({
   choice,
@@ -41,6 +42,17 @@ export default function ArtistIdentityChoice({
         <p>This artist choice needs review.</p>
       )}
       {name !== null && <p>Saved credit for this group: {name}</p>}
+      {choice?.state.status === "selected" &&
+        name !== null &&
+        pending === null &&
+        !retrying && (
+          <Link
+            className="text-link"
+            href={`/artist-groups/${encodeURIComponent(choice.state.group_id)}`}
+          >
+            Open chosen artist
+          </Link>
+        )}
       {error && <p role="alert">{error}</p>}
       {retrying && (
         <button
