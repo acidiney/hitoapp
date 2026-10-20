@@ -1,9 +1,10 @@
 # AllDebrid standalone package
 
-This packages the accepted metadata service as a separate process. The packaging
-and audit below are drafts until an actual image build and offline audit pass.
-They do not qualify live AllDebrid, audio formats, active-media shutdown, or a
-Hito account connection.
+This packages the accepted metadata service as a separate process. Its frozen
+image passes the offline metadata, authentication, input-preservation, TRACE and
+idle-SIGTERM audit. See [the qualified image and limits](../../../docs/debrid-adapters.md#alldebrid-restricted-package).
+Live AllDebrid, audio formats, active-media shutdown and a Hito account
+connection remain unqualified.
 
 The runtime image contains the selected release binary and licenses. Its default
 user is `10001:10001`; Compose gives it a read-only root and private input volume,

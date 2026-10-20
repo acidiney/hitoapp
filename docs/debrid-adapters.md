@@ -1,6 +1,6 @@
 # Debrid adapter development
 
-The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its connectable plugin remains unfinished. Premiumize and TorBox remain planned.
+The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. Premiumize and TorBox remain planned.
 
 ## Observation and ownership
 
@@ -118,6 +118,52 @@ One real-child case first failed because bootstrap was absent, then passed uncha
 The lifecycle and all 30 rejection controls pass in independent Docker repeats. All five prior public service cases also pass, with strict all-target package Clippy and formatting. Fresh source review found no unresolved P1/P2 in the bootstrap. All 208 qualified inputs match after integration, and all 663 external dependency blocks remain unchanged. The implementation keeps argument parsing, typed configuration, private files, logging and lifecycle in separate cohesive owners.
 
 These Linux process fixtures do not qualify all semantic CLI/catalog inputs, a restricted image, application preparation, live accounts or shutdown with an active audio body. Seeking and broader codecs also remain open. The normal persistent server was not changed.
+
+## AllDebrid restricted package
+
+`Dockerfile.plugin-all-debrid` and `compose.all-debrid.yaml` package the selected
+executable separately from Hito. The service runs as UID/GID 10001 with a
+read-only root and private input volume, no Linux capabilities, no privilege
+escalation and bounded CPU, memory, PIDs and logs. Normal publication defaults to
+loopback port 8097. Its public manifest supplies health; credentials never appear
+in arguments or environment variables.
+
+The build helper verifies a frozen file/mode inventory, derives the build
+environment from that manifest and checks the resolved Compose context,
+Dockerfile, image tag and source/cache identities before compiling. Review found
+that inherited shell variables could override the original environment file and
+compile a different tree under the expected labels. The actual configuration
+control failed before the correction and passed afterward, including an
+independent repeat. The final source review found no unresolved P1/P2.
+
+The independently built image is
+`sha256:0973019ed75592054fe5003c2af30506cf3beb45cf94b23932784762982e0a3a`.
+Its frozen context contains 1,490 file/mode records over base revision
+`31ebbd03b0d7ca170f53cd6a6e82c92b9d632794` and the packaging additions, with input
+digest `bdb39850323e51f84b0bf3e79bb39e30ce47bc404747680cbd70a4130dfb8c42`.
+Cargo built only the selected executable, locked and offline, with two jobs and
+debug information and incremental compilation disabled. This qualifies that
+standalone image, not a current-main Hito application image. All 208 accepted
+service inputs and the packaging implementation match after integration;
+qualification prose was updated afterward.
+
+One actual isolated audit passed in 8.142 seconds. All four containers used
+network mode `none` without published ports. A root helper provisioned one
+uniquely owned synthetic volume; the service used its unprivileged identity and
+read-only mount. Real manifest health, three credential rejections, authenticated
+search and exact detail all passed without provider or audio requests. Four
+private files retained their bytes, inode, owner, link count, modes, size, mtime
+and ctime. Complete bounded TRACE contained ten allowed events with generated
+correlations and safe outcomes. Idle SIGTERM joined with exit 0. Checked cleanup
+removed all four containers and the volume; an independent inventory confirmed
+zero survivors. Frozen inputs stayed exact before and after the run.
+
+Use the [build and audit instructions](../scripts/debrid/all-debrid/README.md)
+for a new frozen snapshot. Its revision and digest will describe that snapshot;
+later qualification documentation is not part of the historical image above.
+Application provisioning/preparation, live credentials, seeking, broader audio
+formats and shutdown with active audio remain open. The normal Hito deployment
+was not changed.
 
 ## Curated-WAV service and executable
 
