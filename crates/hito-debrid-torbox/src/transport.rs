@@ -90,12 +90,49 @@ impl Transport {
             .header("accept-encoding", "identity")
             .build()
             .map_err(|_| Error::Configuration)?;
+        self.exchange(request, None).await
+    }
+
+    pub(crate) async fn mint_file(
+        &self,
+        torrent_id: u64,
+        file_id: u64,
+        dispatched: &mut bool,
+    ) -> Result<Zeroizing<Vec<u8>>, Error> {
+        let mut target = reqwest::Url::parse("https://api.torbox.app/v1/api/torrents/requestdl")
+            .map_err(|_| Error::Configuration)?;
+        target
+            .query_pairs_mut()
+            .append_pair("token", self.credential.as_str())
+            .append_pair("torrent_id", &torrent_id.to_string())
+            .append_pair("file_id", &file_id.to_string())
+            .append_pair("zip_link", "false")
+            .append_pair("redirect", "false")
+            .append_pair("append_name", "false");
+        let request = self
+            .client
+            .get(target)
+            .header("accept", "application/json")
+            .header("accept-encoding", "identity")
+            .build()
+            .map_err(|_| Error::Configuration)?;
+        self.exchange(request, Some(dispatched)).await
+    }
+
+    async fn exchange(
+        &self,
+        request: reqwest::Request,
+        dispatched: Option<&mut bool>,
+    ) -> Result<Zeroizing<Vec<u8>>, Error> {
         {
             let mut start = self.next_start.lock().await;
             if let Some(next) = *start {
                 tokio::time::sleep_until(next).await;
             }
             *start = Some(Instant::now() + Duration::from_millis(250));
+        }
+        if let Some(dispatched) = dispatched {
+            *dispatched = true;
         }
         let mut response = self.client.execute(request).await.map_err(request_error)?;
         if response.status() != reqwest::StatusCode::OK {

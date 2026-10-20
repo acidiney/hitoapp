@@ -1,4 +1,5 @@
 use crate::{Error, TorrentFileBinding, observation, transport::Transport};
+use hito_remote_audio::{MediaClient, network::Dns};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -17,13 +18,18 @@ pub struct TorrentObservation {
 
 #[derive(Clone)]
 pub struct TorBoxClient {
-    transport: Arc<Transport>,
+    pub(crate) transport: Arc<Transport>,
+    pub(crate) media: Arc<MediaClient>,
 }
 
 impl TorBoxClient {
     pub fn new(provider_api_token: String) -> Result<Self, Error> {
         Ok(Self {
             transport: Arc::new(Transport::new(provider_api_token)?),
+            media: Arc::new(MediaClient::new(
+                Arc::new(Dns::system().map_err(|_| Error::Configuration)?),
+                concat!("HitoTorBox/", env!("CARGO_PKG_VERSION")),
+            )),
         })
     }
 
@@ -39,6 +45,34 @@ impl TorBoxClient {
                 provider_api_token,
                 certificate_der,
                 api_address,
+            )?),
+            media: Arc::new(MediaClient::for_api_fixture(concat!(
+                "HitoTorBox/",
+                env!("CARGO_PKG_VERSION")
+            ))),
+        })
+    }
+
+    #[cfg(feature = "test-support")]
+    #[doc(hidden)]
+    pub fn with_test_tls_media(
+        provider_api_token: String,
+        api_certificate_der: &[u8],
+        api_address: std::net::SocketAddr,
+        media_certificate_der: &[u8],
+        media_address: std::net::SocketAddr,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            transport: Arc::new(Transport::with_test_tls(
+                provider_api_token,
+                api_certificate_der,
+                api_address,
+            )?),
+            media: Arc::new(MediaClient::with_test_tls(
+                media_certificate_der,
+                "media.hito-fixture.invalid",
+                media_address,
+                concat!("HitoTorBox/", env!("CARGO_PKG_VERSION")),
             )?),
         })
     }

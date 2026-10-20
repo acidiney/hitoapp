@@ -1,0 +1,103 @@
+use crate::{Error, TorBoxClient, TorrentFileBinding, TorrentPhase, workflow::WorkflowLog};
+use serde::Deserialize;
+use std::time::{Duration, Instant};
+use tracing::Instrument;
+use zeroize::{Zeroize, Zeroizing};
+
+pub struct GeneratedFileCandidate {
+    binding: TorrentFileBinding,
+    private_link: Zeroizing<String>,
+}
+
+impl GeneratedFileCandidate {
+    pub fn binding(&self) -> &TorrentFileBinding {
+        &self.binding
+    }
+    pub(crate) fn private_link(&self) -> &str {
+        &self.private_link
+    }
+}
+
+#[derive(Deserialize)]
+struct Acknowledgment {
+    success: bool,
+    error: Option<serde::de::IgnoredAny>,
+    data: Option<String>,
+}
+
+impl Drop for Acknowledgment {
+    fn drop(&mut self) {
+        if let Some(link) = &mut self.data {
+            link.zeroize();
+        }
+    }
+}
+
+impl TorBoxClient {
+    pub async fn prepare_bound_file(
+        &self,
+        binding: &TorrentFileBinding,
+    ) -> Result<GeneratedFileCandidate, Error> {
+        let mut log = WorkflowLog {
+            started: Instant::now(),
+            dispatch: tracing::dispatcher::get_default(Clone::clone),
+            span: tracing::debug_span!("torbox_preparation", request_id = %uuid::Uuid::new_v4(), operation = "bound_file_preparation"),
+            event: "torbox_preparation_finished",
+            outcome: "cancelled",
+            count: 0,
+            mint_dispatched: false,
+        };
+        let result = tokio::time::timeout(
+            Duration::from_secs(12),
+            async {
+                let current = self.observe(binding).await?;
+                if current.phase != TorrentPhase::ProviderCompleted {
+                    return Err(Error::SourceIncomplete);
+                }
+                let _permit = self.transport.admit()?;
+                let bytes = self
+                    .transport
+                    .mint_file(
+                        binding.torrent_id,
+                        binding.file_id,
+                        &mut log.mint_dispatched,
+                    )
+                    .await?;
+                candidate(&bytes, binding)
+            }
+            .instrument(log.span.clone()),
+        )
+        .await
+        .unwrap_or(Err(Error::Deadline));
+        let result = if log.mint_dispatched {
+            result.map_err(|error| match error {
+                Error::Status(401 | 403) | Error::ProviderRejected => error,
+                _ => Error::LinkUnknown,
+            })
+        } else {
+            result
+        };
+        log.outcome = result
+            .as_ref()
+            .map(|_| "candidate")
+            .unwrap_or_else(|error| error.outcome());
+        log.count = u64::from(result.is_ok());
+        result
+    }
+}
+
+fn candidate(bytes: &[u8], binding: &TorrentFileBinding) -> Result<GeneratedFileCandidate, Error> {
+    let mut ack: Acknowledgment =
+        serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
+    if !ack.success || ack.error.is_some() {
+        return Err(Error::ProviderRejected);
+    }
+    let link = ack.data.as_deref().ok_or(Error::InvalidResponse)?;
+    if link.is_empty() || link.len() > 8192 {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(GeneratedFileCandidate {
+        binding: binding.clone(),
+        private_link: Zeroizing::new(ack.data.take().ok_or(Error::InvalidResponse)?),
+    })
+}

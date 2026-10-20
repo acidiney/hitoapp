@@ -7,9 +7,10 @@ license.workspace = true
 
 [features]
 default = []
-test-support = []
+test-support = ["hito-remote-audio/test-support"]
 
 [dependencies]
+hito-remote-audio = { path = "../hito-remote-audio" }
 reqwest.workspace = true
 rustls.workspace = true
 serde.workspace = true
@@ -21,10 +22,15 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+hito-audio = { path = "../hito-audio" }
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
 tokio-rustls = { version = "=0.26.6", default-features = false }
 tracing-subscriber.workspace = true
 
 [[test]]
 name = "observation"
+required-features = ["test-support"]
+
+[[test]]
+name = "audio"
 required-features = ["test-support"]

@@ -2049,6 +2049,8 @@ dependencies = [
 name = "hito-debrid-torbox"
 version = "0.1.0-dev"
 dependencies = [
+ "hito-audio",
+ "hito-remote-audio",
  "rcgen",
  "reqwest",
  "rustls",
