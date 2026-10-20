@@ -76,7 +76,7 @@ async fn exercise() {
     database.close().await.unwrap();
 
     let mut database = SqliteConnection::connect_with(&options).await.unwrap();
-    all.run(&mut database).await.unwrap();
+    through(&all, 53).run(&mut database).await.unwrap();
     for projection in &before {
         assert!(
             typed_rows(&mut database, &projection.statement).await == projection.rows,
@@ -131,7 +131,7 @@ async fn exercise() {
     )
     .await
     .unwrap();
-    all.run(&mut current_reference).await.unwrap();
+    through(&all, 53).run(&mut current_reference).await.unwrap();
     assert!(after_schema == historical_schema::schema(&mut current_reference).await);
     current_reference.close().await.unwrap();
     let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
@@ -184,6 +184,7 @@ async fn exercise() {
     .unwrap();
     let expected = all
         .iter()
+        .filter(|migration| migration.version <= 53)
         .map(|migration| {
             (
                 migration.version,

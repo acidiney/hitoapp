@@ -95,7 +95,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 53).await;
+    assert_version(&mut connection, 54).await;
     latest.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
@@ -515,6 +515,7 @@ impl RetainedState {
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()
             .chain(collection_artwork_schema::RANKING_ADDED)
+            .chain(collection_artwork_schema::identity_schema::ADDED)
         {
             if let Some(definition) = declared.get(name) {
                 assert!(

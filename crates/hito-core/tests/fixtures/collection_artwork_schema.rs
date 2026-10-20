@@ -3,6 +3,9 @@
 use sqlx::{Connection, SqliteConnection, migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::borrow::Cow;
 
+#[path = "artist_identity_selection_schema.rs"]
+pub mod identity_schema;
+
 pub type SchemaObject = (String, String, String, Option<String>);
 type Column = (i64, String, String, i64, Option<String>, i64, i64);
 type ForeignKey = (i64, i64, String, String, String, String, String, String);
@@ -187,13 +190,22 @@ pub async fn reference_52() -> SqliteConnection {
     reference
 }
 
-pub async fn reference() -> SqliteConnection {
+pub async fn reference_53() -> SqliteConnection {
     let mut reference = reference_52().await;
     let before = schema(&mut reference).await;
-    sqlx::migrate!("./migrations")
-        .run(&mut reference)
-        .await
-        .unwrap();
+    let all = sqlx::migrate!("./migrations");
+    Migrator {
+        migrations: Cow::Owned(
+            all.iter()
+                .filter(|migration| migration.version <= 53)
+                .cloned()
+                .collect(),
+        ),
+        ..Migrator::DEFAULT
+    }
+    .run(&mut reference)
+    .await
+    .unwrap();
     let after = schema(&mut reference).await;
     for object in &before {
         assert!(
@@ -220,14 +232,19 @@ pub async fn reference() -> SqliteConnection {
     reference
 }
 
+pub async fn reference() -> SqliteConnection {
+    identity_schema::reference(reference_53().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
-    assert_version(connection, 53).await;
+    assert_version(connection, 54).await;
 }
 
 pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
     let mut reference = match version {
         52 => reference_52().await,
-        53 => reference().await,
+        53 => reference_53().await,
+        54 => reference().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -244,8 +261,13 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         "community_reports",
     ]
     .into_iter()
-    .chain((version == 53).then_some(RANKING_TABLE))
-    {
+    .chain(matches!(version, 53 | 54).then_some(RANKING_TABLE))
+    .chain(
+        identity_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version == 54),
+    ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
         let expected: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
@@ -266,7 +288,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
     for table in NEW_TABLES
         .iter()
         .copied()
-        .chain((version == 53).then_some(RANKING_TABLE))
+        .chain(matches!(version, 53 | 54).then_some(RANKING_TABLE))
     {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
             .fetch_one(&mut *connection)
@@ -276,6 +298,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             count, 0,
             "historical state must not imply community consent, reporters, contributions or collection covers"
         );
+    }
+    if version == 54 {
+        identity_schema::assert_empty(connection).await;
     }
     let invented: i64 = sqlx::query_scalar("SELECT count(*) FROM artwork_fetches WHERE entity_kind!='recording'
         OR release_id IS NOT NULL OR provider_release_id IS NOT NULL OR playlist_id IS NOT NULL
@@ -293,7 +318,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .unwrap();
     assert_eq!(receipt, (version, version));
     let migrations = sqlx::migrate!("./migrations");
-    for version in [50, 51, 52, 53]
+    for version in [50, 51, 52, 53, 54]
         .into_iter()
         .filter(|candidate| *candidate <= version)
     {

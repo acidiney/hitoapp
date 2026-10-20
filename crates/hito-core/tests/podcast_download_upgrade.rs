@@ -59,7 +59,7 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_collection_artwork()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 53).await;
+    assert_version(&mut connection, 54).await;
     expected.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     let origins = typed_rows(&mut connection,
@@ -489,6 +489,7 @@ impl RetainedState {
         for &(kind, name) in collection_artwork_schema::ADDED
             .iter()
             .chain(collection_artwork_schema::RANKING_ADDED)
+            .chain(collection_artwork_schema::identity_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
