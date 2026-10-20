@@ -1,6 +1,8 @@
 import type { FormEvent } from "react";
 import { useArtistReview } from "../../hooks/useArtistReview";
 import ArtistDiscography from "./ArtistDiscography";
+import ArtistIdentityChoice from "./ArtistIdentityChoice";
+import { useArtistIdentityChoice } from "../../hooks/useArtistIdentityChoice";
 import type {
   ArtistSearchCandidate,
   CatalogArtistProfile,
@@ -29,6 +31,12 @@ export default function ArtistReview({
   const association = reviewed
     ? workflow.associations.find((item) => item.id === reviewed.association_id)
     : undefined;
+  const identity = useArtistIdentityChoice(
+    account,
+    detail,
+    workflow.loaded,
+    association,
+  );
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
   function search(event: FormEvent) {
@@ -58,6 +66,15 @@ export default function ArtistReview({
         </button>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
+      {workflow.loaded && (
+        <ArtistIdentityChoice
+          {...identity}
+          onChoose={() => void identity.choose()}
+          onReset={() => void identity.reset()}
+          onRetry={() => void identity.retry()}
+          onRefresh={() => void identity.refresh()}
+        />
+      )}
       {workflow.loaded && !workflow.enabled && (
         <p>
           Metadata providers are disabled.{" "}
