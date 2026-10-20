@@ -202,7 +202,19 @@ The separate `hito-debrid-torbox` client observes one caller-configured torrent 
 
 Twelve public protocol cases, strict crate checks, formatting, independent source review and an independent repeat pass. They verify owned HTTPS requests, persisted binding preservation, changed or ambiguous identity, malformed responses, declared and streamed bounds, clone-shared admission and pacing, cancellation and deadline recovery. The strengthened cancellation case witnesses peer closure before fixture shutdown while another client remains alive. A targeted second review and the independent repeat include that stronger control; production code was unchanged by it.
 
-The client uses a fixed provider origin and sensitive bearer authorization with no redirects, proxy discovery or automatic retries. Logs contain static outcomes, private correlation IDs and timing. Submission, download-link generation, media qualification, durable application preparation, plugin delivery and live-provider acceptance remain unfinished. See [the exact contract and reproducible checks](../crates/hito-debrid-torbox/README.md).
+The observation client uses a fixed provider origin and sensitive bearer authorization with no redirects, proxy discovery or automatic retries. Logs contain static outcomes, private correlation IDs and timing. Candidate audio has separate qualification below. Submission, durable application preparation, plugin delivery and live-provider acceptance remain unfinished. See [the exact contract and reproducible checks](../crates/hito-debrid-torbox/README.md).
+
+## TorBox candidate audio
+
+TorBox can prepare an opaque file-link candidate after freshly rechecking the configured completed file. Its fixed-origin request uses the documented query token and explicit file ID, including zero, with archive, redirect and name-appending flags disabled. Observation still uses bearer authorization. See the [official request contract](https://api.torbox.app/openapi.json).
+
+A candidate acknowledges only a bounded nonempty link string. It establishes no destination, recording identity or playable audio. Opening consumes it, rechecks the exact torrent and file binding, then uses the unchanged shared media owner for allowed HTTPS origins, public DNS pinning, TLS, framing and canonical PCM16 WAV validation. Media requests copy no provider authorization, cookie or referrer headers. Provider-returned query contents are private and are not assumed to exclude credentials.
+
+Dispatched requests with missing or invalid acknowledgements remain uncertain, without automatic retry. Explicit authentication and provider rejections stay typed. The link is private and zeroizing, with no public URL accessor, debug representation or serialization. No link lifetime is inferred.
+
+All ten audio cases and the twelve original observation cases pass, together with default and test-support strict Clippy and formatting. Independent security, correctness and performance reviews and a separate 22-case repeat pass. Tests consume exact owned WAV bytes through EOF and decode every sample. They verify changed-file rejection, acknowledgement loss, timeout, cancellation, media failures and shared body admission. Peer-closure witnesses precede fixture shutdown while another client remains alive.
+
+An early test incorrectly expected a misleading MIME header to override valid WAV bytes. The corrected positive consumes the entire valid payload; actual HTML, non-WAV, framing, redirect and origin negatives remain rejected. Production did not change for that test correction. A connectable TorBox service, application delivery, broader codecs, seeking and live-provider acceptance remain open. The normal server is unchanged.
 
 ## Premiumize observation
 
