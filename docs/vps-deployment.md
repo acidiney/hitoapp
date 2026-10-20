@@ -23,7 +23,9 @@ An isolated Chromium workflow completed against the public HTTPS origin in 5.06 
 
 A separate live Spotify read returned 411 playlist entries and retained verified album information in the sampled entries. YouTube search returned candidates, but source extraction failed before audio became available. Current provider failures are also incorrectly settled by core as `no_suitable_source`; a new public-capability regression reproduces that classification error while preserving private state and exact receipt replay. Its correction is not deployed.
 
-Native probes with the installed extractor returned the YouTube sign-in/bot challenge on the existing VPS connection. The `web_embedded` and `tv_downgraded` clients returned the same failure. IPv6 did not produce playable metadata. No cookies, personal browser session, proxy or Mac-hosted service were introduced. A newer official extractor is an isolated investigation, not a verified fix.
+Native probes with the installed extractor returned the YouTube sign-in/bot challenge on the existing VPS connection. The `web_embedded` and `tv_downgraded` clients returned the same failure. IPv6 did not produce playable metadata. No cookies, personal browser session, proxy or Mac-hosted service were introduced.
+
+An isolated candidate then replaced only the complete extractor bundle with official nightly `2026.10.10.233141`, using its published archive checksum. The Rust plugin and Deno binaries remained byte-identical. One explicit `tv_samsung` metadata probe on the same Docker bridge and IPv4 connection failed in 2.89 seconds, with no formats and exactly the same error-output hash as the earlier challenges. No audio was requested. Temporary containers and staging files were removed; the candidate image was retained for inspection and was not deployed. This version upgrade did not resolve playback.
 
 ## Backups and remaining acceptance
 
