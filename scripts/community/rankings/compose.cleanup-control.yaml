@@ -1,0 +1,18 @@
+x-control: &control
+  image: ${HITO_CLEANUP_CONTROL_IMAGE:?Set the existing immutable Node image ID}
+  user: "10001:10001"
+  network_mode: none
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 16
+  mem_limit: 64m
+  init: true
+  command: [node, -e, "setInterval(() => {}, 1000)"]
+  labels:
+    org.hito.owned-fixture: community-ranking-browser
+services:
+  community-ranking-server: *control
+  community-ranking-service: *control
+  community-ranking-browser: *control
+  node: *control
