@@ -117,6 +117,13 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_review::search))
         .routes(routes!(api::artist_review::preview))
         .routes(routes!(api::artist_review::confirm))
+        .routes(routes!(
+            api::artist_identity::read,
+            api::artist_identity::choose
+        ))
+        .routes(routes!(api::artist_identity::reset))
+        .routes(routes!(api::artist_identity_groups::list))
+        .routes(routes!(api::artist_identity_groups::read))
         .routes(routes!(api::artist_profiles::associations))
         .routes(routes!(api::artist_profiles::profile))
         .routes(routes!(api::artist_discography::read))

@@ -1,5 +1,7 @@
 pub mod artist_catalog;
 pub mod artist_discography;
+pub mod artist_identity;
+pub mod artist_identity_groups;
 pub mod artist_profiles;
 pub mod artist_review;
 pub mod artwork;

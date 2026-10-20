@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-identity-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_identity_groups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-identity-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_identity_group"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artists": {
         parameters: {
             query?: never;
@@ -1028,6 +1060,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/recordings/{id}/artist-identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recording_artist_identity_choice"];
+        put: operations["choose_recording_artist_identity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recordings/{id}/artist-identity/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reset_recording_artist_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recordings/{id}/artist-review/confirm": {
         parameters: {
             query?: never;
@@ -1852,6 +1916,43 @@ export interface components {
             /** Format: int32 */
             total_count?: number | null;
         };
+        ArtistIdentityChoiceReceipt: {
+            recording_id: string;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int64 */
+            revision: number;
+            selection?: components["schemas"]["ArtistIdentitySelection"] | null;
+        };
+        ArtistIdentityGroup: {
+            id: string;
+            /** Format: int64 */
+            library_count: number;
+            name: components["schemas"]["ArtistIdentityGroupName"];
+            provider: components["schemas"]["MetadataProvider"];
+            provider_artist_id: string;
+            /** Format: int64 */
+            recording_count: number;
+            /** Format: int64 */
+            release_count: number;
+        };
+        ArtistIdentityGroupDetail: {
+            group: components["schemas"]["ArtistIdentityGroup"];
+            libraries: components["schemas"]["Page_ArtistIdentityGroupLibrary"];
+            recordings: components["schemas"]["Page_ArtistIdentityGroupMember"];
+            releases: components["schemas"]["Page_Release"];
+        };
+        ArtistIdentityGroupName: {
+            artist_id: string;
+            association_id: string;
+            recording_id: string;
+            value: string;
+        };
+        ArtistIdentityGroupPage: components["schemas"]["Page_ArtistIdentityGroup"];
+        ArtistIdentitySelection: {
+            association_id: string;
+            group_id: string;
+        };
         ArtistIndexPageProps: components["schemas"]["SharedPageProps"] & {
             artists: components["schemas"]["ArtistPage"];
             query: string;
@@ -2055,6 +2156,15 @@ export interface components {
         };
         /** @enum {string} */
         CatalogReleaseGroupKind: "album" | "ep" | "single" | "broadcast" | "other";
+        ChooseRecordingArtistIdentity: {
+            /** Format: uuid */
+            association_id: string;
+            context: components["schemas"]["ArtistReviewContext"];
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+        };
         ChooseSource: {
             /** Format: uuid */
             request_id: string;
@@ -2443,6 +2553,56 @@ export interface components {
                 recording_count: number;
                 /** Format: int64 */
                 release_count: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_ArtistIdentityGroup: {
+            items: {
+                id: string;
+                /** Format: int64 */
+                library_count: number;
+                name: components["schemas"]["ArtistIdentityGroupName"];
+                provider: components["schemas"]["MetadataProvider"];
+                provider_artist_id: string;
+                /** Format: int64 */
+                recording_count: number;
+                /** Format: int64 */
+                release_count: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_ArtistIdentityGroupLibrary: {
+            items: {
+                library_id: string;
+                /** Format: int64 */
+                recording_count: number;
+                /** Format: int64 */
+                release_count: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Page_ArtistIdentityGroupMember: {
+            items: {
+                artist_id: string;
+                association_id: string;
+                /** Format: int64 */
+                choice_revision: number;
+                recording: components["schemas"]["Recording"];
             }[];
             /** Format: int64 */
             limit: number;
@@ -3069,6 +3229,22 @@ export interface components {
             release_id?: string | null;
             title: string;
         };
+        RecordingArtistIdentityChoice: {
+            recording_id: string;
+            /** Format: int64 */
+            revision: number;
+            state: components["schemas"]["RecordingArtistIdentityState"];
+        };
+        RecordingArtistIdentityState: {
+            /** @enum {string} */
+            status: "unselected";
+        } | (components["schemas"]["ArtistIdentitySelection"] & {
+            /** @enum {string} */
+            status: "selected";
+        }) | (components["schemas"]["ArtistIdentitySelection"] & {
+            /** @enum {string} */
+            status: "needs_review";
+        });
         RecordingAttribution: {
             content_url: string;
             creators: string[];
@@ -3164,6 +3340,12 @@ export interface components {
             title: components["schemas"]["TextMetadata"];
         };
         ReleasePage: components["schemas"]["Page_Release"];
+        ResetRecordingArtistIdentity: {
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+        };
         ResetSourceChoice: {
             /** Format: int64 */
             expected_revision: number;
@@ -3414,6 +3596,145 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_identity_groups: {
+        parameters: {
+            query?: {
+                q?: string;
+                library?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityGroupPage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_identity_group: {
+        parameters: {
+            query?: {
+                library?: string;
+                library_offset?: number;
+                recording_offset?: number;
+                release_offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityGroupDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8299,6 +8620,261 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recording_artist_identity_choice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingArtistIdentityChoice"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    choose_recording_artist_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChooseRecordingArtistIdentity"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityChoiceReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_recording_artist_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetRecordingArtistIdentity"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityChoiceReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
