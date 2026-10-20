@@ -36,7 +36,9 @@ impl IntoResponse for ApiError {
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::Forbidden => StatusCode::FORBIDDEN,
             Error::NotFound => StatusCode::NOT_FOUND,
-            Error::Conflict(_) | Error::OperationRejected(_) => StatusCode::CONFLICT,
+            Error::Conflict(_) | Error::ProviderBusy(_) | Error::OperationRejected(_) => {
+                StatusCode::CONFLICT
+            }
             Error::Upstream(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };

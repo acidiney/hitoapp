@@ -238,12 +238,17 @@ impl ControlClient {
     }
 
     pub(super) fn admit(&self, account: &str) -> Result<Admission> {
-        let account = self.accounts.enter(account)?;
+        let account = self
+            .accounts
+            .try_enter(account)?
+            .ok_or(Error::ProviderBusy(
+                "Provider requests for this account are busy. Try again.",
+            ))?;
         let global = self
             .slots
             .clone()
             .try_acquire_owned()
-            .map_err(|_| Error::Conflict("Plugin connections are busy. Try again.".into()))?;
+            .map_err(|_| Error::ProviderBusy("Plugin connections are busy. Try again."))?;
         Ok(Admission {
             _account: account,
             _global: global,

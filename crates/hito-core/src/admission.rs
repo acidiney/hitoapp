@@ -25,6 +25,12 @@ impl Accounts {
         }
     }
     pub(crate) fn enter(&self, account: &str) -> Result<OwnedSemaphorePermit> {
+        self.try_enter(account)?.ok_or_else(|| {
+            Error::Conflict("Provider requests for this account are busy. Try again.".into())
+        })
+    }
+
+    pub(crate) fn try_enter(&self, account: &str) -> Result<Option<OwnedSemaphorePermit>> {
         let mut accounts = self
             .slots
             .lock()
@@ -38,8 +44,6 @@ impl Accounts {
                 accounts.insert(account.to_owned(), Arc::downgrade(&slot));
                 slot
             });
-        slot.try_acquire_owned().map_err(|_| {
-            Error::Conflict("Provider requests for this account are busy. Try again.".into())
-        })
+        Ok(slot.try_acquire_owned().ok())
     }
 }

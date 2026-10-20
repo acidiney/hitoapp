@@ -11,6 +11,8 @@ pub enum Error {
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
+    ProviderBusy(&'static str),
+    #[error("{0}")]
     OperationRejected(String),
     #[error("{0}")]
     Upstream(&'static str),
@@ -32,6 +34,7 @@ impl Error {
             Self::Forbidden => "forbidden",
             Self::NotFound => "not_found",
             Self::Conflict(_) => "conflict",
+            Self::ProviderBusy(_) => "provider_busy",
             Self::OperationRejected(_) => "operation_rejected",
             Self::Upstream(_) => "upstream",
             Self::Database(_) => "database",

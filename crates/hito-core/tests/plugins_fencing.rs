@@ -176,7 +176,7 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
     )
     .await;
     gate.add_permits(2);
-    assert!(matches!(result, Ok(Err(Error::Conflict(_)))));
+    assert!(matches!(result, Ok(Err(Error::ProviderBusy(_)))));
     assert!(task.await.unwrap().is_ok());
     assert_eq!(server.hits(), 1);
 }
