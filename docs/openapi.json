@@ -18183,6 +18183,7 @@
         "enum": [
           "ready",
           "no_suitable_source",
+          "provider_unavailable",
           "protected_choice",
           "cancelled"
         ]

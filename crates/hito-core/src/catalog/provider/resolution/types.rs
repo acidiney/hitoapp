@@ -14,6 +14,7 @@ pub struct ResolveSource {
 pub enum SourceResolutionOutcome {
     Ready,
     NoSuitableSource,
+    ProviderUnavailable,
     ProtectedChoice,
     Cancelled,
 }
@@ -23,6 +24,7 @@ impl SourceResolutionOutcome {
         match self {
             Self::Ready => "ready",
             Self::NoSuitableSource => "no_suitable_source",
+            Self::ProviderUnavailable => "provider_unavailable",
             Self::ProtectedChoice => "protected_choice",
             Self::Cancelled => "cancelled",
         }
@@ -32,6 +34,7 @@ impl SourceResolutionOutcome {
         match value {
             "ready" => Ok(Self::Ready),
             "no_suitable_source" => Ok(Self::NoSuitableSource),
+            "provider_unavailable" => Ok(Self::ProviderUnavailable),
             "protected_choice" => Ok(Self::ProtectedChoice),
             "cancelled" => Ok(Self::Cancelled),
             _ => Err(Error::Internal(

@@ -106,6 +106,7 @@ impl Candidate {
 }
 
 pub(super) struct Page {
+    pub(super) provider_unavailable: bool,
     installation: String,
     revision: i64,
     operation: Arc<Operation>,
@@ -158,6 +159,7 @@ impl Catalog {
             "Source resolution search candidates filtered"
         );
         Ok(Page {
+            provider_unavailable: false,
             installation,
             revision,
             operation: Arc::new(operation),
@@ -204,6 +206,7 @@ impl Page {
                 Ok(candidate) => candidate,
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
                 Err(error) => {
+                    self.provider_unavailable |= matches!(&error, Error::Upstream(_));
                     tracing::debug!(
                         event = "source_resolution_candidate_failed",
                         error_kind = error.code(),

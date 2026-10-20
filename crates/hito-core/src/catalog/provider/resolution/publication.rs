@@ -22,6 +22,7 @@ impl Catalog {
         recording: &str,
         attempt: &Attempt,
         candidate: Option<Candidate>,
+        provider_unavailable: bool,
     ) -> Result<Publication> {
         tracing::debug!(
             event = "source_resolution_write_started",
@@ -116,6 +117,8 @@ impl Catalog {
             sqlx::query("INSERT INTO automatic_source_decisions(resolution_id,binding_id,policy_version,target_digest,candidate_digest,installation_revision,service_revision,musical_metadata) VALUES (?,?,?,?,?,?,?,?)")
                 .bind(&attempt.id).bind(&binding.id).bind(candidate.policy()).bind(&attempt.target_digest).bind(candidate_digest).bind(candidate.installation_revision).bind(candidate.operation.service_revision).bind(musical_metadata).execute(&mut *tx).await?;
             SourceResolutionOutcome::Ready
+        } else if provider_unavailable {
+            SourceResolutionOutcome::ProviderUnavailable
         } else {
             SourceResolutionOutcome::NoSuitableSource
         };

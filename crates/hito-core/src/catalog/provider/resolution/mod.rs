@@ -242,7 +242,13 @@ impl Catalog {
                 _ = std::future::ready(()) => {},
             }
             match self
-                .complete_resolution(actor, recording, attempt, candidate)
+                .complete_resolution(
+                    actor,
+                    recording,
+                    attempt,
+                    candidate,
+                    candidates.provider_unavailable,
+                )
                 .await?
             {
                 Publication::Settled(outcome) => return Ok(Some(outcome)),

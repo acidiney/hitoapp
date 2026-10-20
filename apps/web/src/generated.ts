@@ -3474,7 +3474,7 @@ export interface components {
             sources: components["schemas"]["Source"][];
         };
         /** @enum {string} */
-        SourceResolutionOutcome: "ready" | "no_suitable_source" | "protected_choice" | "cancelled";
+        SourceResolutionOutcome: "ready" | "no_suitable_source" | "provider_unavailable" | "protected_choice" | "cancelled";
         SubscribePodcast: {
             feed_url: string;
             /** Format: uuid */

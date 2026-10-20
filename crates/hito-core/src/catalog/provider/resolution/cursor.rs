@@ -13,6 +13,7 @@ struct Connection {
 
 #[derive(Default)]
 pub(super) struct Candidates {
+    pub(super) provider_unavailable: bool,
     query: String,
     connections: IntoIter<Connection>,
     page: Option<Page>,
@@ -31,6 +32,7 @@ impl Candidates {
             ORDER BY installation.id LIMIT 4")
             .bind(actor.id()).fetch_all(&catalog.store.pool).await?;
         Ok(Self {
+            provider_unavailable: false,
             query,
             connections: connections.into_iter(),
             page: None,
@@ -51,14 +53,18 @@ impl Candidates {
             }
             if let Some(page) = self.page.as_mut() {
                 let candidate = page.next(catalog, actor, recording, target).await;
+                self.provider_unavailable |= page.provider_unavailable;
                 match candidate {
                     Ok(Some(candidate)) => return Ok(Some(candidate)),
                     Err(Error::Unauthorized) => return Err(Error::Unauthorized),
-                    Err(error) => tracing::debug!(
-                        event = "source_resolution_provider_failed",
-                        error_kind = error.code(),
-                        "Source resolution provider exchange failed"
-                    ),
+                    Err(error) => {
+                        self.provider_unavailable |= matches!(&error, Error::Upstream(_));
+                        tracing::debug!(
+                            event = "source_resolution_provider_failed",
+                            error_kind = error.code(),
+                            "Source resolution provider exchange failed"
+                        );
+                    }
                     Ok(None) => {}
                 }
                 self.page = None;
@@ -79,11 +85,14 @@ impl Candidates {
             {
                 Ok(page) => self.page = Some(page),
                 Err(Error::Unauthorized) => return Err(Error::Unauthorized),
-                Err(error) => tracing::debug!(
-                    event = "source_resolution_provider_failed",
-                    error_kind = error.code(),
-                    "Source resolution provider exchange failed"
-                ),
+                Err(error) => {
+                    self.provider_unavailable |= matches!(&error, Error::Upstream(_));
+                    tracing::debug!(
+                        event = "source_resolution_provider_failed",
+                        error_kind = error.code(),
+                        "Source resolution provider exchange failed"
+                    );
+                }
             }
         }
     }
