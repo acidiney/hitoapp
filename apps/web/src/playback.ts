@@ -100,6 +100,7 @@ export class Playback implements Player {
   private sourceAttempt = 0;
   private pendingSeek: number | null = null;
   private activeSource: Source | null = null;
+  private durationChanged: (() => void) | null = null;
   private lookahead: BrowserPreparation | null = null;
   private openingPreparation: BrowserPreparation | null = null;
   private lookaheadRevision = 0;
@@ -166,6 +167,7 @@ export class Playback implements Player {
         this.seek(position);
       }
     });
+    listen("durationchange", () => this.durationChanged?.());
     listen("timeupdate", () => {
       this.community?.observe();
       if (this.activeSource && !media.paused && media.currentTime > 0) {
@@ -672,15 +674,25 @@ export class Playback implements Player {
       this.media === media &&
       this.generation === generation &&
       this.activeSource === activeSource;
+    const sourceCurrent = () =>
+      current() &&
+      new URL(media.currentSrc || media.src, "http://hito.invalid").pathname ===
+        path;
+    this.durationChanged = () => {
+      const started = performance.now();
+      if (!sourceCurrent()) return;
+      const known = Number.isFinite(media.duration) && media.duration >= 0;
+      const duration = known ? media.duration : 0;
+      if (duration === this.state.duration) return;
+      this.update({ duration });
+      log.debug("playback.duration_changed", {
+        recording_id: entry.recording.id,
+        reason: known ? "finite" : "unknown",
+        duration_ms: Math.round(performance.now() - started),
+      });
+    };
     this.observation.begin(entry, media, path, current);
-    this.community?.begin(
-      media,
-      source.id,
-      () =>
-        current() &&
-        new URL(media.currentSrc || media.src, "http://hito.invalid")
-          .pathname === path,
-    );
+    this.community?.begin(media, source.id, sourceCurrent);
   }
 
   private async playSource(generation: number, attempt: number) {
@@ -899,6 +911,7 @@ export class Playback implements Player {
     this.observation.retire();
     this.community?.retire();
     this.openingEntry = null;
+    this.durationChanged = null;
     this.cancelLookahead();
     this.openingPreparation?.close();
     this.openingPreparation = null;
