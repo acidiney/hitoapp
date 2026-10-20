@@ -67,6 +67,7 @@ export default function RecordingDetailsPage({
         detail={detail}
       />
       <RecordingLyrics
+        providers={lyrics.providers}
         available={lyrics.available}
         pending={lyrics.pending}
         result={lyrics.result}
@@ -74,7 +75,11 @@ export default function RecordingDetailsPage({
         refresh={lyrics.refresh}
         onLoad={() => void lyrics.load()}
         onCancel={lyrics.cancel}
-        onRefreshDetails={() => router.reload()}
+        onRefreshDetails={
+          lyrics.providers.engaged
+            ? lyrics.refreshProviders
+            : () => router.reload()
+        }
       />
       <RecordingDownload
         {...download}

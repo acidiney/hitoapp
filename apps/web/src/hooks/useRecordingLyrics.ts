@@ -1,11 +1,21 @@
 import { useMemo, useState } from "react";
 import { HttpError } from "../http";
 import { log } from "../log";
-import { lyricsApi, type LyricsLookup } from "../lyricsApi";
+import {
+  lyricsApi,
+  type LyricsLookup,
+  type RecordingLyricsProvider,
+} from "../lyricsApi";
 import { pluginsApi } from "../pluginsApi";
 import type { RecordingMetadata } from "../types";
 import { createUuid } from "../uuid";
 import { useRequestScope } from "./useRequestScope";
+import { useLyricProviderChoices } from "./useLyricProviderChoices";
+
+type Target = Pick<
+  RecordingLyricsProvider,
+  "observation_id" | "installation_id" | "provider_recording"
+> & { installation_revision: number | null };
 
 type Owner = {
   generation: number;
@@ -25,6 +35,7 @@ function empty(owner: Owner): State {
 }
 
 export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
+  const providers = useLyricProviderChoices(account, detail);
   const selected = detail.selected_observation;
   const observation =
     selected?.origin === "provider_response" &&
@@ -32,15 +43,29 @@ export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
     selected.source_id === null
       ? selected
       : null;
+  const target: Target | null = providers.engaged
+    ? providers.selected
+    : observation
+      ? {
+          observation_id: observation.id,
+          installation_id: observation.plugin_installation_id!,
+          installation_revision: null,
+          provider_recording: {
+            id: observation.provider_recording_id!,
+            revision: observation.provider_revision,
+          },
+        }
+      : null;
   const recording = detail.recording_id;
   const scope = useRequestScope(
     JSON.stringify([
       account,
       recording,
-      observation?.id,
-      observation?.plugin_installation_id,
-      observation?.provider_recording_id,
-      observation?.provider_revision,
+      target?.observation_id,
+      target?.installation_id,
+      target?.installation_revision,
+      target?.provider_recording.id,
+      target?.provider_recording.revision,
     ]),
   );
   const owner = useMemo<Owner>(
@@ -59,9 +84,14 @@ export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
     setSnapshot(empty(owner));
   }
 
+  function refreshProviders() {
+    cancel();
+    void providers.load();
+  }
+
   async function load() {
     const request = scope.capture();
-    if (!request.active() || owner.pending || !observation) return;
+    if (!request.active() || owner.pending || !target) return;
     const generation = ++owner.generation;
     const controller = new AbortController();
     owner.controller = controller;
@@ -86,25 +116,29 @@ export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
     setSnapshot({ ...empty(owner), pending: true });
     log.debug("lyrics.started", { action: "read", request_id: requestId });
     try {
-      const settings = await pluginsApi.settings(account, signal);
-      if (!active()) return;
-      const connection = settings.installations.find(
-        (item) =>
-          item.id === observation.plugin_installation_id &&
-          item.manifest.capabilities.includes("lyrics") &&
-          settings.services.some((service) => service.id === item.service_id),
-      );
-      if (!connection) {
-        outcome = "unsupported";
-        setSnapshot({ ...empty(owner), result: { status: "unsupported" } });
-        return;
+      let revision = target.installation_revision;
+      if (revision === null) {
+        const settings = await pluginsApi.settings(account, signal);
+        if (!active()) return;
+        const connection = settings.installations.find(
+          (item) =>
+            item.id === target.installation_id &&
+            item.manifest.capabilities.includes("lyrics") &&
+            settings.services.some((service) => service.id === item.service_id),
+        );
+        if (!connection) {
+          outcome = "unsupported";
+          setSnapshot({ ...empty(owner), result: { status: "unsupported" } });
+          return;
+        }
+        revision = connection.revision;
       }
       const result = await lyricsApi.read(
         account,
         recording,
         {
-          observation_id: observation.id,
-          installation_revision: connection.revision,
+          observation_id: target.observation_id,
+          installation_revision: revision,
         },
         signal,
       );
@@ -112,10 +146,10 @@ export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
       if (
         result.status === "ready" &&
         (result.recording_id !== recording ||
-          result.observation_id !== observation.id ||
-          result.document.recording.id !== observation.provider_recording_id ||
+          result.observation_id !== target.observation_id ||
+          result.document.recording.id !== target.provider_recording.id ||
           (result.document.recording.revision ?? null) !==
-            observation.provider_revision)
+            (target.provider_recording.revision ?? null))
       ) {
         outcome = "changed";
         setSnapshot({
@@ -163,11 +197,13 @@ export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
   }
 
   return {
-    available: observation !== null,
+    providers,
+    available: target !== null,
     pending: current.pending,
     result: current.result,
     error: current.error,
     refresh: current.refresh,
+    refreshProviders,
     load,
     cancel,
   };

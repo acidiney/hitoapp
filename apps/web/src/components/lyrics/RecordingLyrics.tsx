@@ -1,7 +1,17 @@
-import type { LyricsLookup } from "../../lyricsApi";
+import type { LyricsLookup, RecordingLyricsProvider } from "../../lyricsApi";
 import RecordingCredits from "../metadata/RecordingCredits";
 
 type Props = {
+  providers: {
+    pending: boolean;
+    items: RecordingLyricsProvider[] | null;
+    selected: RecordingLyricsProvider | null;
+    error: string;
+    refresh: boolean;
+    load: () => void;
+    select: (observation: string) => void;
+    cancel: () => void;
+  };
   available: boolean;
   pending: boolean;
   result: LyricsLookup | null;
@@ -13,6 +23,7 @@ type Props = {
 };
 
 export default function RecordingLyrics({
+  providers,
   available,
   pending,
   result,
@@ -24,9 +35,51 @@ export default function RecordingLyrics({
 }: Props) {
   const lyrics = result?.status === "ready" ? result.document.lyrics : null;
   return (
-    <section aria-label="Lyrics" aria-busy={pending}>
+    <section aria-label="Lyrics" aria-busy={pending || providers.pending}>
       <h2>Lyrics</h2>
-      {!available && <p>Lyrics are not available for this track yet.</p>}
+      {providers.pending ? (
+        <>
+          <p role="status">Loading lyric providers…</p>
+          <button type="button" className="button" onClick={providers.cancel}>
+            Cancel provider request
+          </button>
+        </>
+      ) : (
+        <button type="button" className="button" onClick={providers.load}>
+          Choose lyric provider
+        </button>
+      )}
+      {providers.items && providers.items.length > 0 && (
+        <label>
+          Lyric provider
+          <select
+            value={providers.selected?.observation_id ?? ""}
+            onChange={(event) => providers.select(event.target.value)}
+          >
+            {providers.items.map((provider) => (
+              <option
+                key={provider.observation_id}
+                value={provider.observation_id}
+              >
+                {provider.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {providers.error && <p role="alert">{providers.error}</p>}
+      {providers.refresh && (
+        <button type="button" className="button" onClick={onRefreshDetails}>
+          Refresh track details
+        </button>
+      )}
+      {providers.items?.length === 0 && (
+        <p>No connected lyric providers are available for this track.</p>
+      )}
+      {!available &&
+        !providers.pending &&
+        !providers.items &&
+        !providers.error && <p>Lyrics are not available for this track yet.</p>}
       {available && (
         <>
           {pending ? (
