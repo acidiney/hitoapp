@@ -67,7 +67,7 @@ An independent lyrics provider can serve a current attached provider identity. A
 
 This is a local authorized read with a one-second lifetime and at most nine current identities, derived from the existing binding limit. It never contacts providers, reads audio, prepares a source or creates persistent state. Malformed recording IDs use the existing `422` validation response. Lookup still uses the original POST authority checks; listing choices does not authorize an old observation or installation revision.
 
-Three public cases qualify primary identity, attached current-versus-historical observations, and account/current-approval boundaries. They preserve private owner and peer state and original audio, verify no provider work on listing, and require separate safe completion logs. All 13 normal lyric cases pass, with two existing diagnostics ignored, alongside strict core/server checks and an independent 13-case repeat. Actual Rust export adds only this path and two DTO schemas, preserving all prior 98 paths, 231 schemas and other contract metadata. Actual generated TypeScript and both type configurations pass. The shared chooser is qualified below; packaged provider selection remains unfinished.
+Three public cases qualify primary identity, attached current-versus-historical observations, and account/current-approval boundaries. They preserve private owner and peer state and original audio, verify no provider work on listing, and require separate safe completion logs. All 13 normal lyric cases pass, with two existing diagnostics ignored, alongside strict core/server checks and an independent 13-case repeat. Actual Rust export adds only this path and two DTO schemas, preserving all prior 98 paths, 231 schemas and other contract metadata. Actual generated TypeScript and both type configurations pass. The shared chooser and its packaged checkpoint are qualified below.
 
 ## Choosing a retained lyric provider
 
@@ -89,7 +89,7 @@ The list and lookup have separate account/context request owners. Cancel, accoun
 
 Nine new DOM cases plus the six existing lyric cases pass together, including an independent Docker repeat and another repeat after integration. The stale-revision case first reproduced the failed refresh, then passed without changing its assertions. Other cases qualify local-primary selection, cancellation, account/context changes, provider reselection, complete-body deadlines, exact commands, private logs and edit retention. Both TypeScript configurations and the integrated production bundle pass. The read-only tools environment initially rejected Vite's configuration-cache write; the bundle passed with Vite's runner configuration loader and unchanged application inputs.
 
-These controlled-fetch DOM checks and source reviews do not qualify a packaged provider chooser, live provider discovery, reviewed identity adoption or rendition alignment. Those remain release work.
+These controlled-fetch DOM checks and source reviews qualify the shared source. The separate packaged checkpoint below exercises the retained-provider chooser. Live provider discovery, reviewed identity adoption and rendition alignment remain release work.
 
 ## Shared static lyric view
 
@@ -109,7 +109,7 @@ flowchart LR
 
 Six DOM cases exercise the actual page and HTTP client against controlled fetch responses. They check explicit lookup, immutable personal edit drafts, exact request bodies, cancellation, account and observation changes, null and error states, wrong identity echoes, retries and private-log exclusion. The deadline case uses a simulated frontend clock; it does not prove real network timing or upstream body retirement. All 511 frontend cases, both TypeScript configurations and the production bundle pass in an independent Docker repeat. Fresh source review also passes.
 
-Packaged reading and cancellation are qualified below with an owned provider fixture. Packaged provider selection, live provider acceptance, timeline alignment and backing-track UI remain open.
+Packaged reading, cancellation and retained-provider selection are qualified below with owned provider fixtures. Live provider acceptance, timeline alignment and backing-track UI remain open.
 
 ## Cancellation completion
 
@@ -130,6 +130,20 @@ Each lifecycle case holds two real provider responses. Cancellation and navigati
 The immutable image is `sha256:003cd13c5e575c3bfe77d084772f506fbe4edd32db6e6e16c5419775184e438c`. Its 1,970 committed inputs hash to `b3240208bc22b403f2452afb1cd5ce532d5012bc031f3df05c2672d5af871999`. The separately recorded gate overlay preserves the exact executed test code; later gate and Privacy commits are not part of this runtime. See the [reproduction guide and artifact identities](../scripts/lyrics/recording-browser.md).
 
 These are owned protocol fixtures and Linux browser engines. Account-switch and late-owner browser controls, live providers, physical platforms, timeline alignment and backing playback remain open. The two historical missing-log observations remain unexplained. The normal persistent server was not changed.
+
+## Packaged retained-provider selection
+
+One complete chooser workflow passes in Chromium and WebKit, including an independent repeated run of both engines. It reviews and connects two owned HTTP providers, adopts A through Discover and attaches B through the public generic resolver. It verifies the current retained observations before opening Track Details. No database fixture invents those identities.
+
+Choose lists A and B without contacting either provider. Selecting B makes no lyric request. A separate Show sends B's exact observation and installation revision, returns its opaque provider reference and renders its escaped lines and structured credits. A receives no lookup; B receives exactly one. The selected primary metadata, unsaved editor node and draft, owner/peer state and original WAV bytes/metadata remain unchanged. The chooser makes no audio, preparation, download or implicit-write request.
+
+Both engines pass the host outcome and privacy verifier, source/module pins and exact owned-container cleanup. Local listing and ready lookup each have a distinct completion correlation. Only exact optional missing-resource responses have matched native console diagnostics; unexpected failures remain rejected. The independent two-engine run passes in 24.44 seconds. This elapsed time includes fixture orchestration and is not a release-latency benchmark.
+
+The immutable image is `sha256:d1622a90f01be763b6391f241df935e2f98bac124400ce1ea0331509c854e024`, built from `6cc3a0a42fcbde7bb590bcd0de644a5aa8cefa23`. Its 1,994 product inputs hash to `bff5049f4248acd9a3a495d43adf752cc0f7c08377933b2543ad2ec04c68342b`. Executable gate inputs remain byte-identical after integration; the reproduction README received only its qualification and checkpoint instructions. See the [isolated runner and reproduction guide](../scripts/lyrics/provider-choice/README.md).
+
+A real tool timeout first exposed an unremoved one-off container. Exact project/name/run ownership checks and a `finally` cleanup now pass six failure/success controls, an independent timeout repeat and fresh review. The first browser run passed its UI assertions but rejected equivalent macOS `/var` and `/private/var` bind paths. Canonical path comparison passes that saved inspection while rejecting all 19 altered mount/runtime controls. Both original failures remain recorded; no application behavior changed to resolve them.
+
+This checkpoint covers retained-provider selection with owned protocol fixtures. It does not qualify an arbitrary lyrics-only provider's identity discovery, live providers, physical platforms, stale-authority browser races, timeline alignment or backing playback. The normal persistent server was not changed.
 
 ## Backing tracks
 
