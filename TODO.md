@@ -6,6 +6,8 @@ Multiple music folders are implemented in administrator Settings, with independe
 
 Automatic audio resolution for imported playlists is deployed locally. Controlled browser workflows and one real Spotify-to-YouTube WebKit target pass without per-track URLs or manual matching. Existing YouTube connections must explicitly approve the added metadata capability. Manual source selection corrects a result; broader synchronization, matching, native and release acceptance remain open. See [current implementation, evidence and gaps](docs/automatic-sources.md). Visual polish remains after release functionality.
 
+- [ ] Restore real external playback on the development VPS. HTTPS and generated folder audio pass, but YouTube source extraction returns a sign-in/bot challenge. Qualify an autonomous server-side solution and actual audio playback; distinguish provider failure from a completed search with no suitable source. See [deployment evidence](docs/vps-deployment.md).
+
 ## Library and metadata
 
 - [x] Separate recording identity from tagged-file checksums so verified tag-only edits preserve playlists, likes, and progress. Preserve uncertain legacy references without guessing from paths.
