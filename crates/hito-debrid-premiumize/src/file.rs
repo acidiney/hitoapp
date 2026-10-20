@@ -1,4 +1,4 @@
-use crate::{Error, TransferFileBinding, TransferPhase, observation};
+use crate::{Error, TransferFileBinding, TransferPhase, TransferProgress, observation};
 use serde::{Deserialize, Deserializer};
 use zeroize::Zeroizing;
 
@@ -14,8 +14,11 @@ struct FileReference {
     folder_id: Option<String>,
 }
 
-pub(crate) fn validate_transfer(bytes: &[u8], binding: &TransferFileBinding) -> Result<(), Error> {
-    let (phase, _) = observation::transfer(bytes, &binding.transfer)?;
+pub(crate) fn validate_transfer(
+    bytes: &[u8],
+    binding: &TransferFileBinding,
+) -> Result<(TransferPhase, TransferProgress), Error> {
+    let (phase, progress) = observation::transfer(bytes, &binding.transfer)?;
     if !matches!(
         phase,
         TransferPhase::ProviderCompleted | TransferPhase::ProviderSeeding
@@ -38,7 +41,7 @@ pub(crate) fn validate_transfer(bytes: &[u8], binding: &TransferFileBinding) -> 
     if item_id != &binding.item_id || folder_id != &binding.folder_id {
         return Err(Error::FileChanged);
     }
-    Ok(())
+    Ok((phase, progress))
 }
 
 #[derive(Deserialize)]
