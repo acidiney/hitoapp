@@ -1,0 +1,113 @@
+services:
+  artist-groups-server:
+    profiles: [e2e]
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable packaged runtime image ID}
+    user: "10001:10001"
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/artist-groups.db
+      HITO_STORAGE_MANIFEST: /music/storage.json
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - type: bind
+        source: ${HITO_ARTIST_GROUPS_MUSIC:?Set the fresh owned music directory}
+        target: /music
+        read_only: true
+        bind: { create_host_path: false }
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700,size=64m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: "1.0"
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    labels:
+      org.hito.owned-fixture: artist-identity-groups-browser
+      org.opencontainers.image.revision: ${HITO_PACKAGED_SOURCE:?Set the exact packaged source commit}
+    logging: { driver: json-file, options: { max-size: 5m, max-file: "2" } }
+  artist-groups-browser:
+    profiles: [e2e]
+    image: ${HITO_ARTIST_GROUPS_BROWSER_IMAGE:?Set the immutable Playwright 1.56.1 image ID}
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    network_mode: service:artist-groups-server
+    depends_on:
+      artist-groups-server: { condition: service_healthy }
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+      HITO_ARTIST_IDENTITY_GROUPS_E2E: "1"
+      HITO_ARTIST_IDENTITY_EVIDENCE: "1"
+      PLAYWRIGHT_JSON_OUTPUT_NAME: /evidence/result.json
+      PLAYWRIGHT_NO_COPY_PROMPT: "1"
+    volumes:
+      - ${HITO_ARTIST_GROUPS_WORKTREE:?Set the exact gate source worktree}:/workspace:ro
+      - artist-groups-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_ARTIST_GROUPS_MUSIC:?Set the fresh owned music directory}:/workspace/fixtures/e2e-generated:ro
+      - ${HITO_ARTIST_GROUPS_EVIDENCE:?Set the fresh owned evidence directory}:/evidence
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+      - /var/tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    shm_size: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: "2.0"
+    init: true
+    command:
+      - node
+      - node_modules/@playwright/test/cli.js
+      - test
+      - --config
+      - playwright.config.ts
+      - --browser
+      - ${HITO_ARTIST_GROUPS_BROWSER:-chromium}
+      - --workers
+      - "1"
+      - --retries
+      - "0"
+      - --reporter
+      - list,json
+      - --output
+      - /evidence/playwright
+      - artist-identity-groups.spec.ts
+    labels:
+      org.hito.owned-fixture: artist-identity-groups-browser
+  artist-groups-node:
+    profiles: [tools]
+    image: ${HITO_ARTIST_GROUPS_NODE_IMAGE:?Set the immutable existing Node 22 image ID}
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    network_mode: none
+    read_only: true
+    volumes:
+      - ${HITO_ARTIST_GROUPS_WORKTREE:?Set the exact gate source worktree}:/workspace:ro
+      - artist-groups-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_ARTIST_GROUPS_MUSIC:?Set the fresh owned music directory}:/workspace/fixtures/e2e-generated
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=64m,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+    command: [node, /workspace/scripts/audio-fixtures.mjs, --e2e]
+    labels:
+      org.hito.owned-fixture: artist-identity-groups-browser
+volumes:
+  artist-groups-modules:
+    external: true
+    name: hito_node-modules
