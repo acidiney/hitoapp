@@ -1,6 +1,6 @@
 # Community service
 
-`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below is source-qualified and awaits current packaged acceptance and publication. Private correction suggestions and maintainer decisions are implemented in the development service. Application correction submission, matching consumers and public operation remain unfinished under the [release plan](release-plan.md#community-service).
+`hito-community` owns an independent SQLite store and Axum router for reporter admission, successful-playback receipts, and candidate rankings. It has no dependency on the application core or its database. The application integration below has a frozen packaged browser ranking check; reporting delivery and publication remain open. Private correction suggestions and maintainer decisions are implemented in the development service. Application correction submission, matching consumers and public operation remain unfinished under the [release plan](release-plan.md#community-service).
 
 ## Application integration in development
 
@@ -80,7 +80,35 @@ Ordinary browser Play now reads `/playback-sources` through the authenticated HT
 
 The public Provider/Play workflow first selected the baseline source and failed its exact audio-source assertion. It passes unchanged after the cached read switches to the ranking route. An independent Docker repeat passes all 61 coupled cases across 38 files, including existing source-choice, recovery, queue, progress and account-lifecycle checks. Both TypeScript configurations and formatting pass. Compatibility fixtures change only the cached GET path and retain their prior assertions and separate legacy mutation routes. Fresh source review passes.
 
-This uses an owned DOM media fixture, not browser audio decoding or a running ranking service. Refresh/automatic-resolution ordering, native consumption, caller-drop completion logs and packaged browser-to-service acceptance remain open. The normal deployment is unchanged.
+This uses an owned DOM media fixture, not browser audio decoding or a running ranking service. The frozen cached browser-to-service ranking workflow is qualified below. Refresh/automatic-resolution ordering, native consumption, caller-drop completion logs and normal deployment remain open.
+
+## Packaged browser ranking
+
+The frozen application from `396de9d` now passes the complete ranking journey against the separately packaged community service in Chromium and WebKit. An independent repeat passes both engines. Each run creates its own private SQLite state, synthetic credentials and owned audio, shares only container loopback, publishes no ports, and removes all owned containers after joined shutdown. The normal server and its data are never mounted.
+
+```mermaid
+flowchart LR
+    Privacy[Explicit saved ranking preference] --> Play[Ordinary browser Play]
+    Play --> Hito[Authenticated playback-source read]
+    Hito --> Ranking[Anonymous bounded candidate ranking]
+    Ranking --> Hito
+    Hito --> Audio[Selected approved audio source]
+    Audio --> Progress[Heard-prefix progress receipt]
+```
+
+The workflow proves that the disabled default and an unsaved checkbox produce no ranking requests. Saving the independent ranking preference changes ordinary cached Play selection. Each engine then verifies one canonical ranking request, actual selected-source playback, owned PCM samples and three acknowledged progress writes bounded by media actually heard. Playback-reporting and metadata-correction flags remain disabled. Private titles, playlist entries, provider bindings, peer state, original-file identity and explicit-download absence remain unchanged. Ranking lookup has no reporter credential.
+
+| Artifact | Qualified identity |
+| --- | --- |
+| Application | `sha256:d7c7869dd2ee3d4a4ab9bdaf9b243bf8a21830d5c3f7a43ab00dc4b49943fe9c`, source `396de9d734100131b894f8f35f82bedecee8741a`, 1,985 product inputs |
+| Community service | `sha256:19a3e426cb69baec453a64616f923d9957420d36440dd9c2b1f63e21defa861f`, source `ee17d7336c8942a6a283d3c59d635fa0f6c2bdfb`, 113 inputs |
+| Browser | `sha256:cb5973ffd9cc7a3b0b5389b12904b24e0ed43751169ca47b4ebdc4e8d9fb1be9`, Playwright 1.56.1 |
+
+The independent whole-run durations were 22.407 seconds for Chromium and 17.505 seconds for WebKit, including setup, verification and cleanup. The browser tests themselves took 11.131 and 6.594 seconds. Each passed one ranking request, one PCM check and three progress acknowledgements, with zero unexpected external requests, forbidden writes, private log disclosures or owned-container survivors. Chromium returned six canonical artwork negatives; its single post-logout session response remained explicitly unobserved under the documented pending-body policy. WebKit returned all ten negative bodies canonically, including nine artwork responses and logout.
+
+Three incorrect fixture assumptions were corrected from retained failures. WebKit's native media buffer required a bounded writable `/var/tmp` despite a read-only container root; an exact standalone WAV reproduced the failure, native diagnostics identified the read-only error, and changing only that tmpfs restored playback. This matches the pinned [WebKit download-buffer implementation](https://github.com/WebKit/WebKit/blob/db897909f7c31d9b38793374c66427b6a4cb3dd3/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp#L2456). The ready check now matches the application's current-data policy while still requiring advancing selected audio. The artwork ceiling is derived from the fixed journey's mounted image slots, with exact ownership, canonical bodies, headers and console correlation retained. None of these changes alter product playback or excuse unexpected replies.
+
+The [runner and reproduction guide](../scripts/community/rankings/README.md) retain the exact source/image checks, negative-response policy, bounded media storage and checked cleanup. This evidence qualifies anonymous ranking reception during cached browser Play. It does not qualify reporting delivery, refresh/automatic-resolution ordering, native playback, community outages, public hosting or later application changes.
 
 ## Current HTTP contract
 

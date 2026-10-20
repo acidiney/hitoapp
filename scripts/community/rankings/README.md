@@ -65,3 +65,50 @@ artifacts read a clone of that same response to EOF: 31 canonical bytes, with on
 server GET and matching request UUID. The original Playwright completion also
 finished under that instrumentation. That diagnostic is retained separately and
 does not qualify an uninstrumented gate.
+
+## Frozen qualification and reproduction
+
+Chromium and WebKit pass the complete workflow, including an independent repeat.
+The independent browser tests took 11.131 and 6.594 seconds; whole runners took
+22.407 and 17.505 seconds. Each verifies one ranking request, one PCM check and
+three heard-progress acknowledgements with zero unexpected external requests,
+forbidden writes, private log disclosures or owned-container survivors.
+
+This qualifies application source `396de9d`, not a newly built application from
+current main. The six environment pins below identify local qualification
+artifacts; they are not published release images. The browser image actually
+used was `sha256:cb5973ffd9cc7a3b0b5389b12904b24e0ed43751169ca47b4ebdc4e8d9fb1be9`.
+The existing `hito_node-modules` volume supplies Playwright 1.56.1.
+
+Create a fresh detached product checkout, then extract only the accepted gate as
+untracked files. Do not stage them: the source checker requires the exact product
+commit and rejects tracked product changes. Run these commands from the repository
+that contains gate commit `ab79442`:
+
+```sh
+git worktree add --detach ../hito-community-ranking-qualified 396de9d734100131b894f8f35f82bedecee8741a
+git archive ab79442 \
+  apps/web/e2e/community-ranking.spec.ts \
+  apps/web/e2e/fixtures/community-ranking-journey.ts \
+  apps/web/e2e/fixtures/community-ranking-providers.ts \
+  apps/web/e2e/fixtures/community-ranking-service.ts \
+  apps/web/e2e/fixtures/community-ranking-progress.ts \
+  apps/web/e2e/fixtures/community-ranking-negative-evidence.ts \
+  apps/web/playwright.community-ranking.config.ts \
+  scripts/community/rankings |
+  tar -x -C ../hito-community-ranking-qualified
+cd ../hito-community-ranking-qualified
+export HITO_PACKAGED_IMAGE=sha256:d7c7869dd2ee3d4a4ab9bdaf9b243bf8a21830d5c3f7a43ab00dc4b49943fe9c
+export HITO_PACKAGED_SOURCE=396de9d734100131b894f8f35f82bedecee8741a
+export HITO_PACKAGED_INPUTS=38860b246fa7db401ce702eab10f52ee3657118fcecfae80443360b136e528a8
+export HITO_RANKING_SERVICE_IMAGE=sha256:19a3e426cb69baec453a64616f923d9957420d36440dd9c2b1f63e21defa861f
+export HITO_RANKING_SERVICE_SOURCE=ee17d7336c8942a6a283d3c59d635fa0f6c2bdfb
+export HITO_RANKING_SERVICE_INPUTS=20a6f6a23ec80daca5ebe1cd0ea9223f2d54f8652a15b7afd764eb0d5b879a71
+sh scripts/community/rankings/run-packaged.sh chromium
+sh scripts/community/rankings/run-packaged.sh webkit
+```
+
+The runner preserves evidence under its printed fresh directory. It uses checked
+project-owned cleanup and leaves normal Hito containers, volumes and data alone.
+Native ranking, refresh/automatic-resolution ordering, reporting delivery and
+public operation remain unfinished.
