@@ -98,6 +98,18 @@ mod artist_identity;
 mod artist_identity_access;
 #[path = "fixtures/artist_identity.rs"]
 mod artist_identity_fixture;
+#[path = "api/artist_identity_inertia.rs"]
+mod artist_identity_inertia;
+#[path = "api/artist_identity_inertia_access.rs"]
+mod artist_identity_inertia_access;
+#[path = "fixtures/artist_identity_inertia.rs"]
+mod artist_identity_inertia_fixture;
+#[path = "api/artist_identity_inertia_lifecycle.rs"]
+mod artist_identity_inertia_lifecycle;
+#[path = "api/artist_identity_inertia_logs.rs"]
+mod artist_identity_inertia_logs;
+#[path = "api/artist_identity_inertia_query.rs"]
+mod artist_identity_inertia_query;
 #[path = "api/artist_identity_input.rs"]
 mod artist_identity_input;
 #[path = "api/artist_identity_logs.rs"]
