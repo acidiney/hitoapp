@@ -103,7 +103,21 @@ Five public HTTP/TLS cases pass in Docker, with strict all-target package Clippy
 
 The final independent run passes all five cases in 33.02 seconds. All 193 qualified source inputs match after cherry-picking into the current application branch, and all 663 external lockfile package blocks remain unchanged. The test organization moved three test bodies and four helpers without changing their bytes. These are deterministic fixture checks, not live-provider compatibility or release-latency measurements.
 
-The executable, private-input bootstrap, restricted image, Hito account connection, packaged application preparation, active-media shutdown, seeking, broader codecs and live acceptance remain open. The normal deployment has not changed.
+The executable and private-input bootstrap are qualified separately below. The restricted image, Hito account connection, packaged application preparation, active-media shutdown, seeking, broader codecs and live acceptance remain open. The normal deployment has not changed.
+
+## AllDebrid executable bootstrap
+
+The `hito-plugin-all-debrid` executable defaults to `127.0.0.1:8097`. It requires `--provider-token-file`, `--service-token-file`, `--receipt-key-file` and `--catalog-file`; `--listen` is optional. The provider and service credentials must differ. The receipt key is exactly 32 binary bytes and must not be all zero. Retain that private key with the unchanged catalog to restore acknowledged delayed handles after restart.
+
+Every input must be an absolute regular file, with one hard link, owned by the running user and mode `0400` or `0600`. The opened descriptor rejects a final symlink, checks size/type/ownership/permissions before reading and rechecks metadata afterward. Token files accept at most 4,098 bytes with one optional terminal newline; tokens remain bounded to 4,096 printable nonspace ASCII bytes. The catalog accepts at most 1 MiB and uses strict typed parsing before the existing catalog validation. Input errors use static reasons. The executable reads configuration before binding.
+
+The lifecycle owns a generated service correlation, safe readiness/failure/shutdown outcomes and elapsed times. Requested TRACE output remains limited to owned service, adapter and shared-media namespaces. Startup and authenticated catalog metadata do not contact the provider. SIGINT or SIGTERM stops accepting work and joins the HTTP server's graceful shutdown.
+
+One real-child case first failed because bootstrap was absent, then passed unchanged after implementation. It verifies the public manifest, rejection of missing/wrong/provider credentials at the service boundary, exact search/detail responses, unchanged private input bytes/metadata and nine safe lifecycle/request events through joined SIGTERM. A separate child workflow rejects 30 cases covering short/oversized/zero receipt keys and symlinks, hard links, public permissions, FIFOs, directories, oversized files and wrong owners across all four inputs. These controls passed immediately as new coverage; no production fix or RED is claimed for them.
+
+The lifecycle and all 30 rejection controls pass in independent Docker repeats. All five prior public service cases also pass, with strict all-target package Clippy and formatting. Fresh source review found no unresolved P1/P2 in the bootstrap. All 208 qualified inputs match after integration, and all 663 external dependency blocks remain unchanged. The implementation keeps argument parsing, typed configuration, private files, logging and lifecycle in separate cohesive owners.
+
+These Linux process fixtures do not qualify all semantic CLI/catalog inputs, a restricted image, application preparation, live accounts or shutdown with an active audio body. Seeking and broader codecs also remain open. The normal persistent server was not changed.
 
 ## Curated-WAV service and executable
 
