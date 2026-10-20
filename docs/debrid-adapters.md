@@ -79,6 +79,32 @@ A third media case covers an immediate generated acknowledgement. It verifies ex
 
 These checks qualify an offline protocol library with deterministic fixtures. A connectable AllDebrid service, durable application preparation, adversarial acknowledgement controls, broader formats, seeking, failure controls and live-provider acceptance remain open.
 
+## AllDebrid curated-WAV service library
+
+`hito-plugin-all-debrid` exposes authenticated search, recording detail, sources, preparation, preparation status and WAV relay routes. One operator-curated catalog contains at most 128 exact file bindings. The service credential is separate from the provider credential. Metadata-only search and detail make no provider request. The manifest advertises preparation and a playback-only persistence ceiling.
+
+Preparation claims an operation before provider work. An accepted acknowledgement becomes an opaque authenticated handle bound to that operation and the exact catalog entry. Replaying a current operation cannot retarget it to another recording. A retained delayed handle can restore read-only polling after service restart when the private receipt key and catalog are unchanged. The core application remains responsible for durable requests and uncertain submissions; the service does not promise an unlimited operation history across restarts.
+
+```mermaid
+flowchart TD
+    Request[Authenticated preparation request] --> Claim[Claim operation and exact catalog binding]
+    Claim --> Prepare[Observe file and request one unlock]
+    Prepare --> Receipt[Opaque acknowledged handle]
+    Receipt --> Poll[Read-only delayed polling]
+    Poll --> Candidate[Retain candidate and delayed receipt]
+    Candidate --> Verify[Fresh bound-file verification]
+    Verify --> Relay[Qualified WAV relay]
+    Relay --> Recover[Return delayed receipt for later polling]
+```
+
+Readiness repeats the provider observation before publishing a completed candidate. A busy or cancelled media opening retains the delayed receipt, so a later status request can recover without another unlock. A definite failure before unlock dispatch can retry the same operation after a five-second guard. An uncertain mutation remains uncertain and cannot enter that retry path. Direct candidates have no delayed receipt to restore after opening.
+
+Five public HTTP/TLS cases pass in Docker, with strict all-target package Clippy, formatting, independent source review and independent repeated runs. They verify exact authenticated responses, sealed receipt isolation, restart restoration, operation retarget rejection, changed provider readiness, real held-body connection release, bounded media capacity, exact WAV decoding and guarded retry. The recovery case observes 27 provider requests, three unlocks and three media requests; the pre-unlock retry case observes four provider requests and one unlock. Correlated outcome logs exclude credentials, private catalog data and signed addresses.
+
+The final independent run passes all five cases in 33.02 seconds. All 193 qualified source inputs match after cherry-picking into the current application branch, and all 663 external lockfile package blocks remain unchanged. The test organization moved three test bodies and four helpers without changing their bytes. These are deterministic fixture checks, not live-provider compatibility or release-latency measurements.
+
+The executable, private-input bootstrap, restricted image, Hito account connection, packaged application preparation, active-media shutdown, seeking, broader codecs and live acceptance remain open. The normal deployment has not changed.
+
 ## Curated-WAV service and executable
 
 `hito-plugin-real-debrid` owns HTTP authentication and rendering-neutral SDK responses. It serves one operator-reviewed catalog of at most 128 canonical PCM16 WAV recordings through one shared provider client. The public manifest advertises Search and Sources with a `playback_only` persistence ceiling. Search and detail make no provider call. Sources and HEAD observe the bound file; explicit GET alone revalidates, unrestricts once and relays qualified audio. The relay strips caller credentials and upstream private headers, returns a full non-seekable WAV representation and validates final EOF before releasing the last declared bytes. It creates no persistent download and advertises no preparation capability.
