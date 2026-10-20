@@ -12,6 +12,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
+import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -61,6 +62,12 @@ test("a saved artist review browses paged catalog groups without adopting albums
   let discographyReads = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (
+      method === "GET" &&
+      path ===
+        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`
+    )
+      return reply(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
       return reply(artistReviewSettings);
     if (method === "GET" && path === "/api/v1/plugins")
@@ -96,7 +103,12 @@ test("a saved artist review browses paged catalog groups without adopting albums
       name: "View saved artist review 1",
     });
     expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
-      ["/api/v1/metadata/settings", "/api/v1/plugins", associations].sort(),
+      [
+        "/api/v1/metadata/settings",
+        "/api/v1/plugins",
+        associations,
+        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
+      ].sort(),
     );
     expect(posts()).toHaveLength(0);
     fireEvent.click(saved);
@@ -111,7 +123,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
     await act(async () => {
       await Promise.resolve();
     });
-    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch).toHaveBeenCalledTimes(5);
     expect(posts()).toHaveLength(0);
     fireEvent.click(
       within(profile).getByRole("button", { name: "Browse discography" }),
@@ -195,6 +207,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
       "/api/v1/metadata/settings",
       "/api/v1/plugins",
       associations,
+      `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
       profilePath,
       discographyPath,
       discographyPath,

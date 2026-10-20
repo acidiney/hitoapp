@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import {
   artistAssociation,
@@ -51,6 +52,8 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
   let confirmations = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-identity`)
+      return reply(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
       return reply(artistReviewSettings);
     if (method === "GET" && path === "/api/v1/plugins")
@@ -121,7 +124,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     });
     expect(committed).toBe(true);
     expect(confirmations).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(7);
+    expect(fetch).toHaveBeenCalledTimes(8);
     expect(
       screen.queryByText("Artist review saved.", { exact: true }),
     ).toBeNull();
@@ -141,7 +144,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     expect(retired.every(([, options]) => options?.signal?.aborted)).toBe(true);
 
     returned = render(component());
-    expect(fetch).toHaveBeenCalledTimes(7);
+    expect(fetch).toHaveBeenCalledTimes(8);
     expect(
       screen.getByRole("button", { name: "Find artist information" }),
     ).toBeTruthy();
@@ -160,7 +163,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     });
     expect(within(saved).getAllByRole("listitem")).toHaveLength(1);
     expect(confirmations).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(10);
+    expect(fetch).toHaveBeenCalledTimes(12);
     expect(fetch.mock.calls.some(([path]) => path === profilePath)).toBe(false);
     expect(
       screen.queryByRole("region", { name: "Reviewed artist profile" }),
@@ -192,6 +195,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
       "/api/v1/metadata/settings",
       "/api/v1/plugins",
       associations,
+      `${base}/artist-identity`,
       `${review}/context`,
       `${review}/search`,
       `${review}/preview`,
@@ -199,12 +203,13 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
       "/api/v1/metadata/settings",
       "/api/v1/plugins",
       associations,
+      `${base}/artist-identity`,
       profilePath,
     ]);
     expect(
       fetch.mock.calls.filter(([, options]) => options?.method === "POST"),
     ).toHaveLength(4);
-    expect(responses).toHaveLength(10);
+    expect(responses).toHaveLength(12);
     expect(responses.every((response) => response.bodyUsed)).toBe(true);
     for (const [, options] of fetch.mock.calls) {
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(

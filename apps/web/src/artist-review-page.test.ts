@@ -10,6 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import { ArtworkProvider } from "./ArtworkProvider";
 import { NoticeProvider } from "./components/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
@@ -64,6 +65,8 @@ test("track details offers lazy artist review without replacing unsaved personal
   };
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-identity`)
+      return reply(unselectedArtistIdentity);
     if (method === "GET" && path === `${base}/download`)
       return reply({ error: "Not found" }, 404);
     if (method === "GET" && path === `${base}/source-choice`)
@@ -140,7 +143,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       target: { value: secondCatalog.installation.id },
     });
     fireEvent.change(query, { target: { value: artistQuery } });
-    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).toHaveBeenCalledTimes(6);
     expect(screen.getByRole("region", { name: "Your track details" })).toBe(
       editor,
     );
@@ -206,6 +209,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       "/api/v1/metadata/settings",
       "/api/v1/plugins",
       associations,
+      `${base}/artist-identity`,
       `${review}/context`,
       `${review}/search`,
       `${review}/preview`,

@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -70,6 +71,8 @@ test("an expired artist confirmation is discarded until an explicit fresh review
   let persisted = false;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-identity`)
+      return reply(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
       return reply(artistReviewSettings);
     if (method === "GET" && path === "/api/v1/plugins")
@@ -209,7 +212,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     expect(contextReads).toBe(1);
     expect(confirmations).toBe(1);
     expect(persisted).toBe(false);
-    expect(fetch).toHaveBeenCalledTimes(7);
+    expect(fetch).toHaveBeenCalledTimes(8);
     expect(JSON.parse(writes()[3][1]?.body as string)).toEqual(artistSelection);
     expect(responses.every((response) => response.bodyUsed)).toBe(true);
 
@@ -224,7 +227,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     expect(contextReads).toBe(2);
     expect(confirmations).toBe(1);
     expect(persisted).toBe(false);
-    expect(fetch).toHaveBeenCalledTimes(10);
+    expect(fetch).toHaveBeenCalledTimes(11);
     expect(JSON.parse(writes()[4][1]?.body as string)).toEqual({
       provider: freshContext.provider,
     });
@@ -249,6 +252,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
       "/api/v1/metadata/settings",
       "/api/v1/plugins",
       associations,
+      `${base}/artist-identity`,
       `${review}/context`,
       `${review}/search`,
       `${review}/preview`,

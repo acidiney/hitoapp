@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -47,6 +48,8 @@ test("artist information is searched and previewed before its exact selected ide
   let persisted = false;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-identity`)
+      return Response.json(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
       return Response.json(artistReviewSettings);
     if (method === "GET" && path === "/api/v1/plugins")
@@ -105,7 +108,12 @@ test("artist information is searched and previewed before its exact selected ide
     secondCatalog.service.name,
   ]);
   expect(fetch.mock.calls.map(([path]) => path).sort()).toEqual(
-    ["/api/v1/metadata/settings", "/api/v1/plugins", associations].sort(),
+    [
+      "/api/v1/metadata/settings",
+      "/api/v1/plugins",
+      associations,
+      `${base}/artist-identity`,
+    ].sort(),
   );
   fireEvent.change(provider, {
     target: { value: secondCatalog.installation.id },
@@ -115,7 +123,7 @@ test("artist information is searched and previewed before its exact selected ide
   }) as HTMLInputElement;
   expect(query.value).toBe(artistReviewDetail.artist.value);
   fireEvent.change(query, { target: { value: artistQuery } });
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch).toHaveBeenCalledTimes(4);
   expect(persisted).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Search artists" }));
   const results = await screen.findByRole("list", {
@@ -211,7 +219,7 @@ test("artist information is searched and previewed before its exact selected ide
     `${review}/confirm`,
   ]);
   expect(JSON.parse(writes()[3][1]?.body as string)).toEqual(artistSelection);
-  expect(fetch.mock.calls.map(([path]) => path)).toHaveLength(8);
+  expect(fetch.mock.calls.map(([path]) => path)).toHaveLength(9);
   expect(fetch.mock.calls.at(-1)?.[0]).toBe(
     `${associations}/${artistAssociation.id}/profile`,
   );
