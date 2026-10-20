@@ -21,19 +21,7 @@ pub(crate) fn transfer(
     binding: &TransferBinding,
 ) -> Result<(TransferPhase, TransferProgress), Error> {
     let envelope: Envelope = serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
-    if envelope.status == "error" {
-        let reason = match envelope.code.as_deref() {
-            Some("authentication_failed") => ProviderRejection::AuthenticationFailed,
-            Some("permission_denied") => ProviderRejection::PermissionDenied,
-            Some("rate_limit_reached") => ProviderRejection::RateLimited,
-            Some("not_found") => ProviderRejection::NotFound,
-            _ => ProviderRejection::Rejected,
-        };
-        return Err(Error::ProviderRejected(reason));
-    }
-    if envelope.status != "success" || envelope.code.is_some() {
-        return Err(Error::InvalidResponse);
-    }
+    provider_result(&envelope.status, envelope.code.as_deref())?;
     let transfers = envelope.transfers.ok_or(Error::InvalidResponse)?;
     let mut matches = transfers
         .iter()
@@ -53,4 +41,21 @@ pub(crate) fn transfer(
         _ => return Err(Error::UnsupportedState),
     };
     Ok((phase, progress))
+}
+
+pub(crate) fn provider_result(status: &str, code: Option<&str>) -> Result<(), Error> {
+    if status == "error" {
+        let reason = match code {
+            Some("authentication_failed") => ProviderRejection::AuthenticationFailed,
+            Some("permission_denied") => ProviderRejection::PermissionDenied,
+            Some("rate_limit_reached") => ProviderRejection::RateLimited,
+            Some("not_found") => ProviderRejection::NotFound,
+            _ => ProviderRejection::Rejected,
+        };
+        return Err(Error::ProviderRejected(reason));
+    }
+    if status != "success" || code.is_some() {
+        return Err(Error::InvalidResponse);
+    }
+    Ok(())
 }

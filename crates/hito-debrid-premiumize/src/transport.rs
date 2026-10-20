@@ -76,13 +76,26 @@ impl Transport {
     }
 
     pub(crate) async fn observe(&self) -> Result<Zeroizing<Vec<u8>>, Error> {
+        self.read(
+            self.client
+                .get("https://www.premiumize.me/api/transfer/list"),
+        )
+        .await
+    }
+
+    pub(crate) async fn item_details(&self, item_id: &str) -> Result<Zeroizing<Vec<u8>>, Error> {
+        let mut target = reqwest::Url::parse("https://www.premiumize.me/api/item/details")
+            .map_err(|_| Error::Configuration)?;
+        target.query_pairs_mut().append_pair("id", item_id);
+        self.read(self.client.get(target)).await
+    }
+
+    async fn read(&self, request: reqwest::RequestBuilder) -> Result<Zeroizing<Vec<u8>>, Error> {
         let bearer = Zeroizing::new(format!("Bearer {}", self.credential.as_str()));
         let mut authorization =
             HeaderValue::from_str(&bearer).map_err(|_| Error::InvalidCredential)?;
         authorization.set_sensitive(true);
-        let request = self
-            .client
-            .get("https://www.premiumize.me/api/transfer/list")
+        let request = request
             .header(AUTHORIZATION, authorization)
             .header("accept", "application/json")
             .header("accept-encoding", "identity")
