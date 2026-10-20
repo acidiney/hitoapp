@@ -9,6 +9,11 @@ use std::{
 };
 use uuid::Uuid;
 
+pub enum Expected {
+    Opening(&'static str),
+    Body(&'static str, u64),
+}
+
 #[derive(Clone, Default)]
 pub struct Capture {
     bytes: Arc<Mutex<Vec<u8>>>,
@@ -32,6 +37,24 @@ impl Capture {
     }
 
     pub fn assert_complete(&self, bytes_delivered: u64, private: &[&str]) {
+        self.assert_events(
+            &[
+                Expected::Opening("complete"),
+                Expected::Body("complete", bytes_delivered),
+            ],
+            private,
+        );
+    }
+
+    pub fn assert_empty(&self) {
+        assert!(!self.overflowed.load(Ordering::SeqCst));
+        assert!(
+            self.bytes.lock().unwrap().is_empty(),
+            "the unrelated dispatcher received workflow logs"
+        );
+    }
+
+    pub fn assert_events(&self, expected: &[Expected], private: &[&str]) {
         assert!(
             !self.overflowed.load(Ordering::SeqCst),
             "workflow log capture exceeded its bound"
@@ -54,34 +77,14 @@ impl Capture {
             .lines()
             .map(|line| serde_json::from_str(line).expect("workflow logs must be structured JSON"))
             .collect();
-        assert_eq!(events.len(), 2);
-        let mut correlation = None;
-        for (index, event) in events.iter().enumerate() {
+        assert_eq!(events.len(), expected.len());
+        let mut openings = BTreeSet::new();
+        let mut complete_openings = BTreeSet::new();
+        let mut bodies = BTreeSet::new();
+        for (event, expected) in events.iter().zip(expected) {
             assert_keys(event, &["level", "fields", "target", "span", "spans"]);
             assert_eq!(event["level"], "DEBUG");
-            assert_eq!(event["fields"]["outcome"], "complete");
             assert!(event["fields"]["elapsed_ms"].as_u64().is_some());
-            if index == 0 {
-                assert_eq!(event["target"], "hito_debrid_premiumize::audio");
-                assert_keys(
-                    &event["fields"],
-                    &["event", "outcome", "count", "elapsed_ms"],
-                );
-                assert_eq!(
-                    event["fields"]["event"],
-                    "premiumize_audio_opening_finished"
-                );
-                assert_eq!(event["fields"]["count"], 1);
-            } else {
-                assert_eq!(event["target"], "hito_remote_audio::body");
-                assert_keys(
-                    &event["fields"],
-                    &["message", "event", "outcome", "bytes", "elapsed_ms"],
-                );
-                assert_eq!(event["fields"]["event"], "remote_audio_body_finished");
-                assert_eq!(event["fields"]["bytes"].as_u64(), Some(bytes_delivered));
-                assert_eq!(event["fields"]["message"], "Remote audio body finished");
-            }
             let spans = event["spans"]
                 .as_array()
                 .expect("workflow spans must exist");
@@ -92,9 +95,43 @@ impl Capture {
             assert_eq!(spans[0]["operation"], "bound_audio_opening");
             let id = Uuid::parse_str(spans[0]["request_id"].as_str().unwrap()).unwrap();
             assert_eq!(id.get_version_num(), 4);
-            match correlation {
-                Some(expected) => assert_eq!(id, expected),
-                None => correlation = Some(id),
+            match expected {
+                Expected::Opening(outcome) => {
+                    assert_eq!(event["target"], "hito_debrid_premiumize::audio");
+                    assert_keys(
+                        &event["fields"],
+                        &["event", "outcome", "count", "elapsed_ms"],
+                    );
+                    assert_eq!(
+                        event["fields"]["event"],
+                        "premiumize_audio_opening_finished"
+                    );
+                    assert_eq!(event["fields"]["outcome"], *outcome);
+                    assert_eq!(
+                        event["fields"]["count"].as_u64(),
+                        Some(u64::from(*outcome == "complete"))
+                    );
+                    assert!(openings.insert(id), "an opening completed more than once");
+                    if *outcome == "complete" {
+                        complete_openings.insert(id);
+                    }
+                }
+                Expected::Body(outcome, delivered) => {
+                    assert_eq!(event["target"], "hito_remote_audio::body");
+                    assert_keys(
+                        &event["fields"],
+                        &["message", "event", "outcome", "bytes", "elapsed_ms"],
+                    );
+                    assert_eq!(event["fields"]["event"], "remote_audio_body_finished");
+                    assert_eq!(event["fields"]["outcome"], *outcome);
+                    assert_eq!(event["fields"]["bytes"].as_u64(), Some(*delivered));
+                    assert_eq!(event["fields"]["message"], "Remote audio body finished");
+                    assert!(
+                        complete_openings.contains(&id),
+                        "a body lost its opening correlation"
+                    );
+                    assert!(bodies.insert(id), "a body completed more than once");
+                }
             }
         }
     }

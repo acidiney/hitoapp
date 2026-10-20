@@ -236,3 +236,6 @@ fn owned_wave() -> Vec<u8> {
     }
     wave
 }
+
+#[path = "audio_cases/mod.rs"]
+mod cases;
