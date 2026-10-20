@@ -160,3 +160,6 @@ fn item_details() -> Vec<u8> {
     }))
     .unwrap()
 }
+
+#[path = "file_observation_cases/mod.rs"]
+mod cases;

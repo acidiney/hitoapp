@@ -32,6 +32,18 @@ impl Capture {
     }
 
     pub fn assert_available(&self, private: &[&str]) {
+        self.assert_outcomes(&["provider_completed", "provider_seeding"], private);
+    }
+
+    pub fn assert_empty(&self) {
+        assert!(!self.overflowed.load(Ordering::SeqCst));
+        assert!(
+            self.bytes.lock().unwrap().is_empty(),
+            "the unrelated dispatcher received workflow logs"
+        );
+    }
+
+    pub fn assert_outcomes(&self, expected: &[&str], private: &[&str]) {
         assert!(
             !self.overflowed.load(Ordering::SeqCst),
             "workflow log capture exceeded its bound"
@@ -54,12 +66,9 @@ impl Capture {
             .lines()
             .map(|line| serde_json::from_str(line).expect("workflow logs must be structured JSON"))
             .collect();
-        assert_eq!(events.len(), 2);
+        assert_eq!(events.len(), expected.len());
         let mut correlations = BTreeSet::new();
-        for (event, outcome) in events
-            .iter()
-            .zip(["provider_completed", "provider_seeding"])
-        {
+        for (event, outcome) in events.iter().zip(expected) {
             assert_keys(event, &["level", "fields", "target", "span", "spans"]);
             assert_eq!(event["level"], "DEBUG");
             assert_eq!(event["target"], "hito_debrid_premiumize::file_observation");
@@ -71,8 +80,14 @@ impl Capture {
                 event["fields"]["event"],
                 "premiumize_file_observation_finished"
             );
-            assert_eq!(event["fields"]["outcome"], outcome);
-            assert_eq!(event["fields"]["count"].as_u64(), Some(1));
+            assert_eq!(event["fields"]["outcome"], *outcome);
+            assert_eq!(
+                event["fields"]["count"].as_u64(),
+                Some(u64::from(matches!(
+                    *outcome,
+                    "provider_completed" | "provider_seeding"
+                )))
+            );
             assert!(event["fields"]["elapsed_ms"].as_u64().is_some());
             let spans = event["spans"].as_array().unwrap();
             assert_eq!(spans.len(), 1);
