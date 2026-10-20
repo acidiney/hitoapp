@@ -51,3 +51,6 @@ utoipa-axum = "0.3"
 [profile.release]
 lto = "thin"
 strip = true
+
+[profile.test.package.libsqlite3-sys]
+opt-level = 2
