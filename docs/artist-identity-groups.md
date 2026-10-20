@@ -2,7 +2,7 @@
 
 Hito can retain an explicit performer identity choice for each recording and account. Choices group local and imported recordings only when the user has reviewed the same exact artist identity through the same provider installation. Equal artist names do not establish identity.
 
-Core, authenticated HTTP routes and the shared recording-detail controls are implemented. The existing artist cards, artist pages and recording/source identities are unchanged. Group-page navigation, automatic matching, packaged browser acceptance and deployment remain unfinished.
+Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index retains every existing library-credit card alongside the chosen groups. Recording and source identities remain unchanged. Replacing duplicate legacy cards, automatic matching, packaged browser acceptance and deployment remain unfinished.
 
 ## Ownership
 
@@ -15,6 +15,7 @@ flowchart LR
     Tx --> Receipt[Immutable acceptance receipt]
     Tx --> Choice[Current account recording choice]
     Choice --> Groups[Authorized artist group reads]
+    Groups --> Browse[Chosen artist pages and library filters]
     Grants[Current library access] --> Groups
     Credits[Current credit and metadata observation] --> Groups
     Credits --> Retire[Retire changed choices]
@@ -42,6 +43,12 @@ The display name comes from the earliest accepted currently eligible member's ac
 
 Search uses the existing catalog Unicode and prefix policy. It matches only the group's current display credit. A hidden member, an inaccessible library and a different member label cannot introduce a search match.
 
+The Artists index shows **Chosen artists** separately from **Library credits**. Opening a chosen group uses `/artist-groups/{id}`. Its library filters and independently paged recordings and releases use the same authorized core projection as the JSON API. Changing the library resets the group's page offsets; changing one page preserves the other offsets. Group links retain the selected library and page size, without carrying unrelated index search or offsets.
+
+Recording Details links a current choice to its group only after reading that group's authorized saved credit. Pending requests, failed reads, Reset and changed recording ownership remove the link. Group pages reuse the existing album and track components, retain original recording identifiers and unavailable markers, and start playback only through explicit controls. Existing artwork retrieval remains available. Browsing does not add provider catalog, discography, source preparation or download workflows.
+
+The Inertia adapter adds typed group summaries to `ArtistIndexPage` and serves `ArtistIdentityGroupPage`. Full pages, HTML bootstrap and matching partial requests share access filtering and private, no-store responses. Partial requests evaluate group reads only when their requested props require them.
+
 ## HTTP and recording details
 
 The authenticated routes are generated into OpenAPI and the shared TypeScript contract from the actual Rust router.
@@ -67,6 +74,10 @@ Directed owned workflows cover local files and actual protocol imports, namesake
 The HTTP slice passes six new real-router workflows and six related artist cases, formatting and strict all-target server Clippy. The new cases cover access and grant changes, immutable receipts, provider removal, query and body validation, the shared 262,144-byte body limit, browser origin protection and correlated private-safe logs. Actual OpenAPI and TypeScript regeneration reproduces byte for byte while preserving all 99 prior paths, 114 operations and 233 schemas. Independent specialist reviews and a separate repeat of all six new workflows pass.
 
 The shared UI passes 43 DOM cases across 13 files, both TypeScript configurations and formatting. Independent correctness, security and performance reviews and a separate 43-case repeat pass. Tests cover explicit selection, lost acknowledgements, Reset, conflicts, invalid receipts, current-state rereads and owner retirement. The deadline case verifies held headers and a late unread body; it does not prove termination of an already active body reader. These are DOM protocol fixtures and separate HTTP tests, not packaged browser acceptance or a normal-server deployment.
+
+Group-page adapters pass five new real-router cases and sixteen related HTTP cases, including full and partial access checks, grant and identity changes, pagination, HTML escaping and safe correlated logs. Strict all-target server Clippy, formatting and actual contract regeneration pass. Regeneration preserves the preceding 103 paths and 119 operations, adds the group-page props and extends the artist-index props. Independent reviews and an independent repeat of all five new cases pass.
+
+The combined browsing UI passes 65 DOM cases across sixteen files, including sixteen new group navigation cases, both TypeScript configurations and its production build. Independent correctness, security and performance reviews pass. A separate 65-case repeat and the integrated 65-case run pass; the integrated production assets match the reviewed UI build byte for byte. These checks qualify source integration. Packaged browser workflows and normal deployment remain open.
 
 A deterministic SQLite work check exercises a public artist edit with 32 and 100,000 unrelated retained choices under inherited, absent and fresh statistics. It preserves unrelated rows and foreign-key integrity. This is a query-work regression, not the release latency or simultaneous-listener benchmark.
 
