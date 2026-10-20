@@ -1,0 +1,121 @@
+services:
+  community-ranking-server:
+    profiles: [e2e]
+    image: ${HITO_PACKAGED_IMAGE:?Set the exact new packaged Hito image ID}
+    user: "10001:10001"
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/ranking.db
+      HITO_MUSIC_ROOT: /music
+      HITO_LOG_FORMAT: json
+      HITO_COMMUNITY_RANKINGS_ORIGIN: http://127.0.0.1:8096
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - type: bind
+        source: ${HITO_RANKING_MUSIC:?Set the fresh owned music directory}
+        target: /music
+        read_only: true
+        bind: { create_host_path: false }
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700,size=64m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: "1.0"
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    labels:
+      org.hito.owned-fixture: community-ranking-browser
+    logging: { driver: json-file, options: { max-size: 5m, max-file: "2" } }
+  community-ranking-service:
+    profiles: [e2e]
+    image: ${HITO_RANKING_SERVICE_IMAGE:?Set the exact current community image ID}
+    user: "10001:10001"
+    network_mode: service:community-ranking-server
+    depends_on:
+      community-ranking-server: { condition: service_healthy }
+    command:
+      [
+        --listen,
+        "127.0.0.1:8095",
+        --state-directory,
+        /var/lib/hito-community,
+        --admin-token-file,
+        /run/owned-secrets/community-admin,
+      ]
+    environment:
+      RUST_LOG: info,hito_community=debug
+    volumes:
+      - type: bind
+        source: ${HITO_RANKING_SECRETS:?Set the fresh owned fixture credentials directory}
+        target: /run/owned-secrets
+        read_only: true
+        bind: { create_host_path: false }
+    tmpfs:
+      - /var/lib/hito-community:uid=10001,gid=10001,mode=0700,size=32m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=8m,noexec,nosuid,nodev
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    labels:
+      org.hito.owned-fixture: community-ranking-browser
+    logging: { driver: json-file, options: { max-size: 5m, max-file: "2" } }
+  community-ranking-browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    network_mode: service:community-ranking-server
+    depends_on:
+      community-ranking-service: { condition: service_healthy }
+    environment:
+      HITO_COMMUNITY_RANKING_E2E: "1"
+      HITO_RANKING_BROWSER: ${HITO_RANKING_BROWSER:-chromium}
+      PLAYWRIGHT_NO_COPY_PROMPT: "1"
+    volumes:
+      - ${HITO_RANKING_WORKTREE:?Set the exact source worktree}:/workspace:ro
+      - ranking-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_RANKING_MUSIC:?Set the fresh owned music directory}:/owned-music:ro
+      - ${HITO_RANKING_EVIDENCE:?Set the fresh owned evidence directory}:/evidence
+      - ${HITO_RANKING_SECRETS:?Set the fresh owned fixture credentials directory}:/run/owned-secrets:ro
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+      - /var/tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    shm_size: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: "2.0"
+    init: true
+    command:
+      [
+        node,
+        node_modules/@playwright/test/cli.js,
+        test,
+        --config,
+        playwright.community-ranking.config.ts,
+      ]
+    labels:
+      org.hito.owned-fixture: community-ranking-browser
+volumes:
+  ranking-modules:
+    external: true
+    name: hito_node-modules
