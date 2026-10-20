@@ -1,0 +1,78 @@
+services:
+  app:
+    profiles: [e2e]
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable new packaged chooser image}
+    user: "10001:10001"
+    network_mode: none
+    environment:
+      HITO_PUBLIC_ORIGIN: http://localhost:8080
+      HITO_DATABASE: /data/provider-choice.db
+      HITO_STORAGE_MANIFEST: /music/storage.json
+      HITO_LOG_FORMAT: json
+      RUST_LOG: info,hito_core=debug,hito_server=debug
+    volumes:
+      - type: bind
+        source: ${HITO_LYRIC_CHOICE_WORKTREE:?Set the owned worktree}/fixtures/e2e-generated
+        target: /music
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700,size=128m,noexec,nosuid,nodev
+      - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    init: true
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/health]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+    labels:
+      org.hito.owned-fixture: lyric-provider-choice
+      org.hito.fixture-run: ${HITO_LYRIC_CHOICE_RUN_ID:?Set the unique run identity}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+  browser:
+    profiles: [e2e]
+    image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:f1e7e01021efd65dd1a2c56064be399f3e4de00fd021ac561325f2bfbb2b837a
+    user: "10001:10001"
+    working_dir: /workspace/apps/web
+    network_mode: service:app
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      HOME: /tmp
+      HITO_TEST_URL: http://localhost:8080
+      HITO_LYRIC_PROVIDER_CHOICE_E2E: "1"
+      HITO_LYRIC_CHOICE_RUN_ID: ${HITO_LYRIC_CHOICE_RUN_ID:?Set the unique run identity}
+      PLAYWRIGHT_NO_COPY_PROMPT: "1"
+    volumes:
+      - ${HITO_LYRIC_CHOICE_WORKTREE:?Set the owned worktree}:/workspace:ro
+      - modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_LYRIC_CHOICE_EVIDENCE:?Set the owned private evidence directory}:/evidence
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+    shm_size: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    init: true
+    labels:
+      org.hito.owned-fixture: lyric-provider-choice
+      org.hito.fixture-run: ${HITO_LYRIC_CHOICE_RUN_ID:?Set the unique run identity}
+volumes:
+  modules:
+    external: true
+    name: hito_node-modules

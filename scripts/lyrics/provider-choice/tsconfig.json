@@ -1,0 +1,11 @@
+{
+  "extends": "../../../apps/web/tsconfig.e2e.json",
+  "compilerOptions": {
+    "typeRoots": ["../../../apps/web/node_modules/@types"]
+  },
+  "include": [
+    "../../../apps/web/e2e/recording-lyric-provider-choice.spec.ts",
+    "../../../apps/web/e2e/fixtures/recording-lyric-provider-choice-*.ts",
+    "../../../apps/web/playwright.lyric-provider-choice.config.ts"
+  ]
+}
