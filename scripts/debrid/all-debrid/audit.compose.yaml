@@ -1,0 +1,73 @@
+x-audit: &audit
+  image: ${HITO_ALL_DEBRID_AUDIT_IMAGE:?Set an immutable image ID}
+  pull_policy: never
+  network_mode: none
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 64
+  mem_limit: 256m
+  cpus: "1.0"
+  stop_signal: SIGTERM
+  stop_grace_period: 30s
+  restart: "no"
+  labels:
+    org.hito.all-debrid-audit: ${HITO_ALL_DEBRID_AUDIT_OWNER:?Set the unique audit owner}
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  plugin:
+    <<: *audit
+    container_name: ${HITO_ALL_DEBRID_AUDIT_OWNER}-plugin
+    init: true
+    environment:
+      RUST_LOG: trace
+    volumes:
+      - type: volume
+        source: audit-inputs
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+  provision:
+    <<: *audit
+    user: "0:0"
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    healthcheck:
+      disable: true
+    entrypoint: [tar]
+    command: [--extract, --file, "-", --directory, /run/secrets, --same-owner, --same-permissions, --delay-directory-restore]
+    volumes:
+      - type: volume
+        source: audit-inputs
+        target: /run/secrets
+        volume:
+          nocopy: true
+  inspect-inputs:
+    <<: *audit
+    healthcheck:
+      disable: true
+    entrypoint: [sh, -ec]
+    command:
+      - >-
+        cd /run/secrets;
+        find . -mindepth 1 -maxdepth 1 -printf '%f\n';
+        stat --printf='%n|%F|%a|%u|%g|%h|%s|%d|%i|%y|%z\n' . all-debrid-provider-token all-debrid-service-token all-debrid-receipt-key all-debrid-catalog.json;
+        sha256sum all-debrid-provider-token all-debrid-service-token all-debrid-receipt-key all-debrid-catalog.json
+    volumes:
+      - type: volume
+        source: audit-inputs
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+
+volumes:
+  audit-inputs:
+    external: true
+    name: ${HITO_ALL_DEBRID_AUDIT_VOLUME:?Set the unique owned volume}
