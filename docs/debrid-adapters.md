@@ -1,6 +1,6 @@
 # Debrid adapter development
 
-The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. Premiumize and TorBox remain planned.
+The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate read-only observation foundations below.
 
 ## Observation and ownership
 
@@ -193,4 +193,25 @@ The audio cases open owned HTTPS media, deliver an exact 384,044-byte stereo 48 
 
 Independent correctness, security and performance source reviews pass, including fresh reviews of the owned DNS and destination matrix. Broader hostile-response, mixed-operation capacity, deadline-phase and rate-limit qualification remains open. These checks do not establish live-provider compatibility, SDK source readiness or release latency targets.
 
-The complete integration still needs provider-account provisioning, durable preparation orchestration, supported state transitions, application delivery of the authenticated service, ranges and seeks, broader codec support, application recovery, shared-client lifecycle and live test accounts. The other three adapters need their own provider protocols and acceptance evidence.
+The complete integration still needs provider-account provisioning, durable preparation orchestration, supported state transitions, application delivery of the authenticated service, ranges and seeks, broader codec support, application recovery, shared-client lifecycle and live test accounts. The other provider foundations retain their own scope and verification limits below.
+
+
+## TorBox observation
+
+The separate `hito-debrid-torbox` client observes one caller-configured torrent file. It rechecks the exact torrent ID, info hash, total bytes, selected file ID, exact provider name and selected bytes. Both completion and presence flags are required for provider-completed metadata; a state label alone cannot qualify it. This result does not establish recording identity or playable audio.
+
+Twelve public protocol cases, strict crate checks, formatting, independent source review and an independent repeat pass. They verify owned HTTPS requests, persisted binding preservation, changed or ambiguous identity, malformed responses, declared and streamed bounds, clone-shared admission and pacing, cancellation and deadline recovery. The strengthened cancellation case witnesses peer closure before fixture shutdown while another client remains alive. A targeted second review and the independent repeat include that stronger control; production code was unchanged by it.
+
+The client uses a fixed provider origin and sensitive bearer authorization with no redirects, proxy discovery or automatic retries. Logs contain static outcomes, private correlation IDs and timing. Submission, download-link generation, media qualification, durable application preparation, plugin delivery and live-provider acceptance remain unfinished. See [the exact contract and reproducible checks](../crates/hito-debrid-torbox/README.md).
+
+## Premiumize observation
+
+The separate `hito-debrid-premiumize` client observes one configured transfer by exact ID and creation timestamp. It reports queued, running, provider failure, seeding or completion, with finite unit-fraction progress. Matching display names cannot replace the configured transfer. Cloud transfer completion does not establish selected-file, content or recording identity and produces no playable source.
+
+Thirteen public owned-HTTPS cases, strict default and test-support checks, formatting, fresh source review and an independent repeat pass. They cover typed errors, duplicate or changed transfers, documented phase/progress consistency, bounds, clone-shared admission/pacing, cancellation with actual peer closure and deadline recovery. The original tracer remains byte-identical. A provisional assumption that seeding progress must be one was removed after checking the provider contract; a seeding fraction of 0.5 is explicitly accepted. All existing dependency blocks are preserved.
+
+Bearer authentication supports the provider's documented API-key and access-token forms. Credential enrollment, transfer creation, file/media qualification, plugin delivery, application preparation and live-provider acceptance remain open. See [the exact contract and verification limits](../crates/hito-debrid-premiumize/README.md).
+
+## Protocol fixtures in workspace verification
+
+Workspace tests and strict Clippy now explicitly enable the four debrid `test-support` features. This includes the TorBox and Premiumize observation targets that default builds omit. Shell syntax and the composed locked/offline Linux feature graph are verified; this change does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
