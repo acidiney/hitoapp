@@ -27,6 +27,14 @@ export type CommunityReportAdmission = Schema["CommunityReportAdmission"];
 export type UpdateCommunityPreferences = Schema["UpdateCommunityPreferences"];
 export type MetadataProvider = Schema["MetadataProvider"];
 export type ArtistAssociation = Schema["ArtistAssociation"];
+export type RecordingArtistIdentityChoice =
+  Schema["RecordingArtistIdentityChoice"];
+export type ChooseRecordingArtistIdentity =
+  Schema["ChooseRecordingArtistIdentity"];
+export type ArtistIdentityChoiceReceipt = Schema["ArtistIdentityChoiceReceipt"];
+export type ResetRecordingArtistIdentity =
+  Schema["ResetRecordingArtistIdentity"];
+export type ArtistIdentityGroupDetail = Schema["ArtistIdentityGroupDetail"];
 export type ArtistReviewContext = Schema["ArtistReviewContext"];
 export type ArtistSearchCandidate = Schema["ArtistSearchCandidate"];
 export type CatalogArtistProfile = Schema["CatalogArtistProfile"];
