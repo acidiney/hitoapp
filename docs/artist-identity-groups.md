@@ -2,7 +2,7 @@
 
 Hito can retain an explicit performer identity choice for each recording and account. Choices group local and imported recordings only when the user has reviewed the same exact artist identity through the same provider installation. Equal artist names do not establish identity.
 
-Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index retains every existing library-credit card alongside the chosen groups. Recording and source identities remain unchanged. Replacing duplicate legacy cards, automatic matching, packaged browser acceptance and deployment remain unfinished.
+Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index retains every existing library-credit card alongside the chosen groups. Recording and source identities remain unchanged. Packaged Chromium acceptance passes; WebKit, replacing duplicate legacy cards, automatic matching and deployment remain unfinished.
 
 ## Ownership
 
@@ -77,7 +77,9 @@ The shared UI passes 43 DOM cases across 13 files, both TypeScript configuration
 
 Group-page adapters pass five new real-router cases and sixteen related HTTP cases, including full and partial access checks, grant and identity changes, pagination, HTML escaping and safe correlated logs. Strict all-target server Clippy, formatting and actual contract regeneration pass. Regeneration preserves the preceding 103 paths and 119 operations, adds the group-page props and extends the artist-index props. Independent reviews and an independent repeat of all five new cases pass.
 
-The combined browsing UI passes 65 DOM cases across sixteen files, including sixteen new group navigation cases, both TypeScript configurations and its production build. Independent correctness, security and performance reviews pass. A separate 65-case repeat and the integrated 65-case run pass; the integrated production assets match the reviewed UI build byte for byte. These checks qualify source integration. Packaged browser workflows and normal deployment remain open.
+The combined browsing UI passes 65 DOM cases across sixteen files, including sixteen new group navigation cases, both TypeScript configurations and its production build. Independent correctness, security and performance reviews pass. A separate 65-case repeat and the integrated 65-case run pass; the integrated production assets match the reviewed UI build byte for byte. These checks qualify source integration.
+
+The packaged Chromium workflow and an independent final repeat now pass. They exercise actual UI review, namesake separation, identical request bytes and UUID after a lost acknowledgement, current-state rereads, pagination, library filters and Reset. Public snapshots preserve recordings, sources, metadata, playlists, likes, progress, activity, provider preferences and original files without playback or downloads. Eleven actual HTTP observer cases and four targeted rejection controls verify the gate's assertions. Final correctness, security and performance reviews pass. WebKit remains unqualified after a renderer crash; a 2 GiB diagnostic also failed and did not establish memory pressure as the cause. The maintained browser limit remains 1 GiB. See [the frozen runtime, exact evidence and remaining limits](../scripts/artist-identity-groups/README.md).
 
 A deterministic SQLite work check exercises a public artist edit with 32 and 100,000 unrelated retained choices under inherited, absent and fresh statistics. It preserves unrelated rows and foreign-key integrity. This is a query-work regression, not the release latency or simultaneous-listener benchmark.
 
