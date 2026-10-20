@@ -1,9 +1,23 @@
+#[path = "audio/admission_controls.rs"]
+mod admission_controls;
 #[path = "audio/fixtures.rs"]
 mod fixtures;
 #[path = "audio/logs.rs"]
 mod logs;
+#[path = "audio/media_controls.rs"]
+mod media_controls;
 #[path = "audio/media_fixture.rs"]
 mod media_fixture;
+#[path = "audio/mint_controls.rs"]
+mod mint_controls;
+#[path = "audio/opening_controls.rs"]
+mod opening_controls;
+#[path = "audio/owned_tls.rs"]
+mod owned_tls;
+#[path = "audio/provider_fixture.rs"]
+mod provider_fixture;
+#[path = "audio/scripted_media.rs"]
+mod scripted_media;
 #[path = "support/mod.rs"]
 pub mod support;
 

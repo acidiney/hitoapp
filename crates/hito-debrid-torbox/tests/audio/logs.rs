@@ -31,6 +31,65 @@ impl Capture {
         )
     }
 
+    pub fn assert_operations(&self, expected: &[(&str, &str)], private: &[&str]) {
+        assert!(!self.overflowed.load(Ordering::SeqCst));
+        let captured = self.bytes.lock().unwrap();
+        let text = std::str::from_utf8(&captured).unwrap();
+        for forbidden in private.iter().copied().chain([
+            "https://",
+            "http://",
+            "https%3A",
+            "Bearer ",
+            "token=",
+            "owned-torbox-key%2F%2B%3F%3D%26-kept-private",
+            "owned-private-media-signature",
+            "owned-private-non-audio-response",
+            "owned-private-media-cookie",
+            "owned-private-provider-name.wav",
+        ]) {
+            let escaped = serde_json::to_string(forbidden).unwrap();
+            assert!(
+                !text.contains(forbidden) && !text.contains(&escaped[1..escaped.len() - 1]),
+                "private control data reached workflow logs"
+            );
+        }
+        let events: Vec<Value> = text
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(events.len(), expected.len());
+        for (event, (operation, outcome)) in events.iter().zip(expected) {
+            assert_keys(event, &["level", "fields", "target", "span", "spans"]);
+            let body = event["target"] == "hito_remote_audio::body";
+            assert_keys(
+                &event["fields"],
+                if body {
+                    &["event", "message", "outcome", "bytes", "elapsed_ms"]
+                } else {
+                    &["event", "outcome", "count", "elapsed_ms"]
+                },
+            );
+            assert!(
+                event["fields"][if body { "bytes" } else { "count" }]
+                    .as_u64()
+                    .is_some()
+            );
+            for span in event["spans"].as_array().unwrap() {
+                assert_keys(span, &["name", "request_id", "operation"]);
+            }
+            assert_eq!(event["level"], "DEBUG");
+            assert_eq!(event["span"]["operation"], *operation);
+            assert_eq!(event["fields"]["outcome"], *outcome);
+            assert!(event["fields"]["elapsed_ms"].as_u64().is_some());
+            assert_eq!(
+                Uuid::parse_str(event["span"]["request_id"].as_str().unwrap())
+                    .unwrap()
+                    .get_version_num(),
+                4
+            );
+        }
+    }
+
     pub fn assert_flows(&self, private: &[&str], bytes: u64) {
         assert!(!self.overflowed.load(Ordering::SeqCst));
         let captured = self.bytes.lock().unwrap();

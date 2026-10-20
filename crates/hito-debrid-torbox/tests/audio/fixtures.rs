@@ -65,3 +65,21 @@ pub fn wave() -> Vec<u8> {
     }
     bytes
 }
+
+pub fn acknowledgment() -> Vec<u8> {
+    serde_json::to_vec(&json!({ "success": true, "error": null,
+        "data": format!("https://{MEDIA_HOST}{MEDIA_TARGET}") }))
+    .unwrap()
+}
+
+pub fn assert_pcm(bytes: Vec<u8>) {
+    let mut decoder = hito_audio::Decoder::open(std::io::Cursor::new(bytes)).unwrap();
+    let mut count = 0;
+    while let Some(block) = decoder.read().unwrap() {
+        for value in block.samples {
+            assert!((*value - f32::from(sample(count)) / 32768.0).abs() < 0.000_001);
+            count += 1;
+        }
+    }
+    assert_eq!(count as u64, FRAMES * u64::from(CHANNELS));
+}
