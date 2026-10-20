@@ -46,9 +46,13 @@ use crate::{HostDeviceId, store::Store};
 pub use artist_catalog::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
+    ArtistIdentityChoiceReceipt, ArtistIdentityGroup, ArtistIdentityGroupBrowse,
+    ArtistIdentityGroupDetail, ArtistIdentityGroupLibrary, ArtistIdentityGroupMember,
+    ArtistIdentityGroupName, ArtistIdentityGroupQuery, ArtistIdentitySelection,
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, AssociateRecordingArtist, MetadataProvider, MetadataSettings,
-    ReadArtistDiscography, UpdateMetadataSettings,
+    ArtistReviewMetadataBinding, AssociateRecordingArtist, ChooseRecordingArtistIdentity,
+    MetadataProvider, MetadataSettings, ReadArtistDiscography, RecordingArtistIdentityChoice,
+    RecordingArtistIdentityState, ResetRecordingArtistIdentity, UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{

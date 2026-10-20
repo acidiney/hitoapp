@@ -4,12 +4,14 @@ mod confirmation;
 mod continuation;
 mod discography;
 mod discovery;
+pub(crate) mod identity;
 mod policy;
 mod preview;
 mod profile;
 mod provider;
 mod review;
 mod types;
+pub use identity::*;
 
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,

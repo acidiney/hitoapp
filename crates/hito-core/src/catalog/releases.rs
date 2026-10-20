@@ -146,6 +146,39 @@ fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {
     }
 }
 
+pub(super) async fn releases_by_ids_on(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    ids: &[String],
+) -> Result<Vec<Release>> {
+    if ids.len() > 200 {
+        return Err(Error::Invalid(
+            "Select at most 200 releases per lookup".into(),
+        ));
+    }
+    let requested = serde_json::to_string(ids)
+        .map_err(|_| Error::Internal("Release selection could not be encoded".into()))?;
+    let mut query = QueryBuilder::new("WITH selected AS (SELECT a.* FROM account_releases a");
+    Browse::default().filter(
+        &mut query,
+        actor,
+        "a",
+        "account_releases_fts",
+        "{title artist}",
+    )?;
+    query
+        .push(" AND a.id IN (SELECT value FROM json_each(")
+        .push_bind(requested)
+        .push("))");
+    query.push(HAS_ENTRIES).push(ENTRIES).push(SUMMARY);
+    query.push(" GROUP BY a.id ORDER BY a.title COLLATE NOCASE,a.id");
+    let releases: Vec<Release> = query.build_query_as().fetch_all(connection).await?;
+    if releases.len() != ids.len() {
+        return Err(Error::NotFound);
+    }
+    Ok(releases)
+}
+
 fn selected(
     actor: &Actor,
     browse: &Browse,
