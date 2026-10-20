@@ -2,14 +2,16 @@
 
 Hito can retain an explicit performer identity choice for each recording and account. Choices group local and imported recordings only when the user has reviewed the same exact artist identity through the same provider installation. Equal artist names do not establish identity.
 
-This is a core capability. The existing artist cards, artist pages and recording/source identities are unchanged. HTTP routes, shared UI, automatic matching, deployment and complete discography navigation remain unfinished.
+Core, authenticated HTTP routes and the shared recording-detail controls are implemented. The existing artist cards, artist pages and recording/source identities are unchanged. Group-page navigation, automatic matching, packaged browser acceptance and deployment remain unfinished.
 
 ## Ownership
 
 ```mermaid
 flowchart LR
-    Review[Current recording-credit review] --> Choose[Explicit revisioned choice]
-    Choose --> Tx[Core SQLite transaction]
+    UI[Shared recording details] --> Review[Current recording-credit review]
+    Review -->|User chooses| Choose[Explicit revisioned choice]
+    Choose --> HTTP[Authenticated typed HTTP adapter]
+    HTTP --> Tx[Core SQLite transaction]
     Tx --> Receipt[Immutable acceptance receipt]
     Tx --> Choice[Current account recording choice]
     Choice --> Groups[Authorized artist group reads]
@@ -18,7 +20,7 @@ flowchart LR
     Credits --> Retire[Retire changed choices]
 ```
 
-Core owns the transaction, identity keys, receipts, authorization and pagination. Providers supply structured artist identities through the existing review contract. Group reads, accepted-request replay and reset do not contact a provider.
+Core owns the transaction, identity keys, receipts, authorization and pagination. HTTP authenticates and maps typed requests and results. Providers supply structured artist identities through the existing review contract. Group reads, accepted-request replay and reset do not contact a provider.
 
 A group key contains the account, provider kind, HTTP installation identity when applicable, and exact provider artist identifier. Two installations returning the same identifier remain separate. An explicitly chosen group does not merge recordings, playable sources, releases, playlists or album-artist credits.
 
@@ -40,9 +42,31 @@ The display name comes from the earliest accepted currently eligible member's ac
 
 Search uses the existing catalog Unicode and prefix policy. It matches only the group's current display credit. A hidden member, an inaccessible library and a different member label cannot introduce a search match.
 
+## HTTP and recording details
+
+The authenticated routes are generated into OpenAPI and the shared TypeScript contract from the actual Rust router.
+
+| Method | Path | Operation |
+| --- | --- | --- |
+| GET | `/api/v1/recordings/{id}/artist-identity` | Read the current choice |
+| PUT | `/api/v1/recordings/{id}/artist-identity` | Choose an exact reviewed association |
+| POST | `/api/v1/recordings/{id}/artist-identity/reset` | Reset the choice |
+| GET | `/api/v1/artist-identity-groups` | Browse authorized groups |
+| GET | `/api/v1/artist-identity-groups/{id}` | Read independently paged members |
+
+Opening Artist information in Recording Details reads the local choice. Saving an artist review does not choose an identity. After viewing the saved review, the user can select **Choose this reviewed artist**. The control obtains a fresh review context and submits one revisioned request.
+
+An uncertain result retains the exact request identifier and body for an explicit Retry. After a valid acknowledgement, the UI rereads the current choice instead of displaying a historical receipt as current state. A revision conflict requires a fresh read before another choice. Reset remains available for selected and retired choices when metadata providers are disabled or removed.
+
+The group label uses the authorized saved credit from a group-detail read limited to one entry. It does not substitute the provider's profile name. Account, recording, artist-operation and metadata-observation changes retire pending work. The workflow has a total 15-second deadline and does not subscribe to playback position updates.
+
 ## Verification and limits
 
 Directed owned workflows cover local files and actual protocol imports, namesakes, separate installations, unchanged private state and originals, concurrent writes, replay, offline provider removal, grant restoration, artist/title edits, independent pagination and Unicode search.
+
+The HTTP slice passes six new real-router workflows and six related artist cases, formatting and strict all-target server Clippy. The new cases cover access and grant changes, immutable receipts, provider removal, query and body validation, the shared 262,144-byte body limit, browser origin protection and correlated private-safe logs. Actual OpenAPI and TypeScript regeneration reproduces byte for byte while preserving all 99 prior paths, 114 operations and 233 schemas. Independent specialist reviews and a separate repeat of all six new workflows pass.
+
+The shared UI passes 43 DOM cases across 13 files, both TypeScript configurations and formatting. Independent correctness, security and performance reviews and a separate 43-case repeat pass. Tests cover explicit selection, lost acknowledgements, Reset, conflicts, invalid receipts, current-state rereads and owner retirement. The deadline case verifies held headers and a late unread body; it does not prove termination of an already active body reader. These are DOM protocol fixtures and separate HTTP tests, not packaged browser acceptance or a normal-server deployment.
 
 A deterministic SQLite work check exercises a public artist edit with 32 and 100,000 unrelated retained choices under inherited, absent and fresh statistics. It preserves unrelated rows and foreign-key integrity. This is a query-work regression, not the release latency or simultaneous-listener benchmark.
 
