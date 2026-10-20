@@ -86,6 +86,7 @@ export default function Sidebar({
               const selected =
                 path === href ||
                 path.startsWith(`${href}/`) ||
+                (href === "/artists" && path.startsWith("/artist-groups/")) ||
                 ((path === "/" || path.startsWith("/recordings/")) &&
                   href === "/library");
               return (

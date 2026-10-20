@@ -11,7 +11,12 @@ export default function Pagination({
   page: { total: number; offset: number; limit: number };
   query: string;
   path: string;
-  parameter?: "offset" | "recording_offset";
+  parameter?:
+    | "offset"
+    | "recording_offset"
+    | "group_offset"
+    | "library_offset"
+    | "release_offset";
   label?: string;
 }) {
   if (page.total <= page.limit && page.offset === 0) return null;
