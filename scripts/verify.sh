@@ -2,9 +2,9 @@
 set -eu
 
 docker compose --profile tools run --rm rust cargo fmt --all --check
-docker compose --profile tools run --rm rust cargo test --workspace --locked
+docker compose --profile tools run --rm rust cargo test --workspace --locked --features hito-debrid-real-debrid/test-support,hito-debrid-all-debrid/test-support,hito-debrid-torbox/test-support,hito-debrid-premiumize/test-support
 docker compose --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
-docker compose --profile tools run --rm rust cargo clippy --workspace --all-targets --locked -- -D warnings
+docker compose --profile tools run --rm rust cargo clippy --workspace --all-targets --locked --features hito-debrid-real-debrid/test-support,hito-debrid-all-debrid/test-support,hito-debrid-torbox/test-support,hito-debrid-premiumize/test-support -- -D warnings
 docker compose --profile tools run --rm node npm ci
 ./scripts/check-contracts.sh
 docker compose --profile tools run --rm node npm test
