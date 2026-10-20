@@ -1,0 +1,42 @@
+services:
+  plugin-all-debrid:
+    profiles: [plugins]
+    image: hito-plugin-all-debrid:${HITO_ALL_DEBRID_IMAGE_TAG:-development}
+    build:
+      context: ${HITO_ALL_DEBRID_BUILD_CONTEXT:-.}
+      dockerfile: Dockerfile.plugin-all-debrid
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-all-debrid-${COMPOSE_PROJECT_NAME:-standalone}
+        HITO_ALL_DEBRID_SOURCE_ID: ${HITO_ALL_DEBRID_SOURCE_ID:?Set the frozen source revision}
+        HITO_ALL_DEBRID_INPUT_SHA256: ${HITO_ALL_DEBRID_INPUT_SHA256:?Set the frozen input digest}
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:${HITO_ALL_DEBRID_PORT:-8097}:8097"
+    environment:
+      RUST_LOG: ${HITO_ALL_DEBRID_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: all-debrid-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  all-debrid-credentials:
+    external: true
+    name: ${HITO_ALL_DEBRID_CREDENTIAL_VOLUME:?Set a provisioned private volume}
