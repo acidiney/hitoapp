@@ -67,7 +67,29 @@ An independent lyrics provider can serve a current attached provider identity. A
 
 This is a local authorized read with a one-second lifetime and at most nine current identities, derived from the existing binding limit. It never contacts providers, reads audio, prepares a source or creates persistent state. Malformed recording IDs use the existing `422` validation response. Lookup still uses the original POST authority checks; listing choices does not authorize an old observation or installation revision.
 
-Three public cases qualify primary identity, attached current-versus-historical observations, and account/current-approval boundaries. They preserve private owner and peer state and original audio, verify no provider work on listing, and require separate safe completion logs. All 13 normal lyric cases pass, with two existing diagnostics ignored, alongside strict core/server checks and an independent 13-case repeat. Actual Rust export adds only this path and two DTO schemas, preserving all prior 98 paths, 231 schemas and other contract metadata. Actual generated TypeScript and both type configurations pass. The provider picker and its packaged acceptance remain unfinished.
+Three public cases qualify primary identity, attached current-versus-historical observations, and account/current-approval boundaries. They preserve private owner and peer state and original audio, verify no provider work on listing, and require separate safe completion logs. All 13 normal lyric cases pass, with two existing diagnostics ignored, alongside strict core/server checks and an independent 13-case repeat. Actual Rust export adds only this path and two DTO schemas, preserving all prior 98 paths, 231 schemas and other contract metadata. Actual generated TypeScript and both type configurations pass. The shared chooser is qualified below; packaged provider selection remains unfinished.
+
+## Choosing a retained lyric provider
+
+Track Details offers **Choose lyric provider** without requesting choices or lyrics when the page opens. The action reads the current local identities above. Selecting a row makes no lyric request. **Show lyrics** then sends that row's exact observation and installation revision; the host derives and revalidates its provider identity. A local recording can use a current attached provider even when its primary metadata came from a local file.
+
+If the connection changes and lookup rejects the old revision, refreshing the chooser reads current authority again. It preserves the selected observation when still eligible and keeps the unsaved metadata editor intact. It requires another explicit Show before contacting the provider. Historical observations do not supply replacement choices.
+
+```mermaid
+flowchart LR
+    Choose[Choose lyric provider] --> Current[Local current-identity read]
+    Current --> Selection[Explicit provider selection]
+    Selection -->|Show lyrics|Lookup[Authorized retained-identity lookup]
+    Lookup --> Lines[Static lines and credits]
+    Lookup -->|Stale authority|Refresh[Refresh current choices]
+    Refresh --> Current
+```
+
+The list and lookup have separate account/context request owners. Cancel, account changes, primary-observation changes and selected-provider changes retire the relevant work and reject late bodies. List reads include JSON decoding in a five-second deadline; lyric lookup retains its fifteen-second client deadline. Neither workflow subscribes the page to playback position updates.
+
+Nine new DOM cases plus the six existing lyric cases pass together, including an independent Docker repeat and another repeat after integration. The stale-revision case first reproduced the failed refresh, then passed without changing its assertions. Other cases qualify local-primary selection, cancellation, account/context changes, provider reselection, complete-body deadlines, exact commands, private logs and edit retention. Both TypeScript configurations and the integrated production bundle pass. The read-only tools environment initially rejected Vite's configuration-cache write; the bundle passed with Vite's runner configuration loader and unchanged application inputs.
+
+These controlled-fetch DOM checks and source reviews do not qualify a packaged provider chooser, live provider discovery, reviewed identity adoption or rendition alignment. Those remain release work.
 
 ## Shared static lyric view
 
@@ -87,7 +109,7 @@ flowchart LR
 
 Six DOM cases exercise the actual page and HTTP client against controlled fetch responses. They check explicit lookup, immutable personal edit drafts, exact request bodies, cancellation, account and observation changes, null and error states, wrong identity echoes, retries and private-log exclusion. The deadline case uses a simulated frontend clock; it does not prove real network timing or upstream body retirement. All 511 frontend cases, both TypeScript configurations and the production bundle pass in an independent Docker repeat. Fresh source review also passes.
 
-Packaged reading and cancellation are qualified below with an owned provider fixture. An independent attached-provider picker, live provider acceptance, timeline alignment and backing-track UI remain open.
+Packaged reading and cancellation are qualified below with an owned provider fixture. Packaged provider selection, live provider acceptance, timeline alignment and backing-track UI remain open.
 
 ## Cancellation completion
 
