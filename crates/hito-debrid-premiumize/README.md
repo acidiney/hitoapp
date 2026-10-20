@@ -26,6 +26,21 @@ deadline including admission pacing. Excess work returns `Busy` without queuing.
 Workflow events contain a generated correlation ID, safe outcome, result count
 and elapsed time. Cancellation retains the originating log dispatcher.
 
+## Bound cloud-file metadata
+
+`observe_bound_file` freshly validates an exact `TransferFileBinding` against the
+transfer list and item details. It returns the unchanged binding, completed or
+seeding phase, and current progress. It discards the private link without media
+admission or a media request. Availability is metadata, not verified playable
+bytes or recording identity. Queued, running and failed transfers remain outside
+this ready-only result; `observe` reports their transfer progress separately.
+
+The operation shares the client's two API slots and pacing. One nine-second
+deadline covers both requests and validation. Cancellation closes owned I/O,
+releases admission and emits one completion under its original log dispatcher.
+Metadata observation remains available while two audio bodies retain their
+separate media leases.
+
 ## Bound cloud-file audio
 
 `open_bound_audio` accepts a separately curated `TransferFileBinding`: the
@@ -71,6 +86,13 @@ Additional controls cover authority changes, error and response bounds, seeding,
 media bytes and framing, actual aggregate deadlines, retained-body admission,
 peer-observed cancellation and explicit recovery. They use separate owned TLS API
 and media peers. The original transfer-observation tests remain unchanged.
+
+Nine file-observation cases and the original fourteen audio and thirteen transfer
+cases pass together. Default and test-support all-target Clippy, formatting,
+independent security, correctness and performance reviews pass. An independent
+sequential repeat passes all 36 cases, with source and executable hashes unchanged.
+Controls verify exact authority, API errors and bounds, cancellation peer closure,
+aggregate deadlines, media isolation, complete WAV bodies and every PCM sample.
 
 Run the isolated suite with the existing pinned tools image:
 

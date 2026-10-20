@@ -236,6 +236,28 @@ The first public audio case failed with unsupported audio and passed after imple
 
 This qualifies a client for canonical PCM16 WAV from a completed or seeding curated cloud file. A connectable plugin service, application preparation, credential enrollment, transfer creation, seeking, broader codecs and live Premiumize/CDN acceptance remain open. These fixtures do not establish release playback latency. The normal server is unchanged.
 
+## Premiumize bound cloud-file metadata
+
+`observe_bound_file` reuses the existing exact transfer and item validators to
+return ready-only metadata. It retains the configured binding and current
+completed or seeding phase/progress, discards the private zeroizing link and
+performs no media admission or GET. The existing transfer observer separately
+reports queued, running and failed states. Neither result verifies playable bytes
+or recording identity.
+
+One nine-second deadline covers both paced API requests and validation. Clones
+share two API slots; held audio bodies use separate media capacity. Nine new
+public TLS cases and all 27 original cases pass, with strict default/test-support
+checks, formatting and independent security, correctness and performance review.
+An independent sequential repeat passes all 36 in 94.10 seconds. Source and
+executable hashes remain exact. Controls include changed authority, malformed
+responses, real cancellation peer closure, manual recovery, aggregate deadlines
+and metadata availability while two verified WAV bodies retain media leases.
+
+This is a provider-client prerequisite for the separate service. Service delivery,
+application preparation, enrollment, transfer creation, seeking, broader formats
+and live acceptance remain open. The normal deployment is unchanged.
+
 ## Protocol fixtures in workspace verification
 
 Workspace tests and strict Clippy now explicitly enable the four debrid `test-support` features. This includes the TorBox and Premiumize observation targets that default builds omit. Shell syntax and the composed locked/offline Linux feature graph are verified; this change does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
