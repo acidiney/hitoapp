@@ -1,4 +1,8 @@
-use crate::{Error, TorBoxClient, TorrentFileBinding, TorrentPhase, workflow::WorkflowLog};
+use crate::{
+    Error, TorBoxClient, TorrentFileBinding, TorrentPhase,
+    transport::{CandidateOrigin, Transport},
+    workflow::WorkflowLog,
+};
 use serde::Deserialize;
 use std::time::{Duration, Instant};
 use tokio::sync::OwnedSemaphorePermit;
@@ -8,6 +12,7 @@ use zeroize::{Zeroize, Zeroizing};
 pub struct GeneratedFileCandidate {
     binding: TorrentFileBinding,
     private_link: Zeroizing<String>,
+    origin: CandidateOrigin,
 }
 
 pub struct VerifiedFilePreparation<'a> {
@@ -19,11 +24,30 @@ pub struct VerifiedFilePreparation<'a> {
 }
 
 impl GeneratedFileCandidate {
+    pub(crate) fn new(
+        binding: &TorrentFileBinding,
+        private_link: Zeroizing<String>,
+        origin: CandidateOrigin,
+    ) -> Result<Self, Error> {
+        if private_link.is_empty() || private_link.len() > 8192 {
+            return Err(Error::InvalidResponse);
+        }
+        Ok(Self {
+            binding: binding.clone(),
+            private_link,
+            origin,
+        })
+    }
+
     pub fn binding(&self) -> &TorrentFileBinding {
         &self.binding
     }
     pub(crate) fn private_link(&self) -> &str {
         &self.private_link
+    }
+
+    pub(crate) fn belongs_to(&self, transport: &Transport) -> bool {
+        transport.owns_candidate(&self.origin)
     }
 }
 
@@ -117,7 +141,7 @@ impl VerifiedFilePreparation<'_> {
                             &mut log.mint_dispatched,
                         )
                         .await?;
-                    candidate(&bytes, &binding)
+                    candidate(&bytes, &binding, client.transport.candidate_origin())
                 }
                 .instrument(log.span.clone()),
             )
@@ -141,18 +165,19 @@ impl VerifiedFilePreparation<'_> {
     }
 }
 
-fn candidate(bytes: &[u8], binding: &TorrentFileBinding) -> Result<GeneratedFileCandidate, Error> {
+fn candidate(
+    bytes: &[u8],
+    binding: &TorrentFileBinding,
+    origin: CandidateOrigin,
+) -> Result<GeneratedFileCandidate, Error> {
     let mut ack: Acknowledgment =
         serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
     if !ack.success || ack.error.is_some() {
         return Err(Error::ProviderRejected);
     }
-    let link = ack.data.as_deref().ok_or(Error::InvalidResponse)?;
-    if link.is_empty() || link.len() > 8192 {
-        return Err(Error::InvalidResponse);
-    }
-    Ok(GeneratedFileCandidate {
-        binding: binding.clone(),
-        private_link: Zeroizing::new(ack.data.take().ok_or(Error::InvalidResponse)?),
-    })
+    GeneratedFileCandidate::new(
+        binding,
+        Zeroizing::new(ack.data.take().ok_or(Error::InvalidResponse)?),
+        origin,
+    )
 }

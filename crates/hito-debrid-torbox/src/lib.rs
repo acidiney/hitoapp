@@ -3,6 +3,7 @@ mod client;
 mod error;
 mod media;
 mod observation;
+mod persistence;
 mod prepare;
 mod transport;
 mod workflow;
@@ -11,6 +12,9 @@ pub use binding::TorrentFileBinding;
 pub use client::{TorBoxClient, TorrentObservation, TorrentPhase};
 pub use error::Error;
 pub use media::BoundAudioOpening;
+pub use persistence::{
+    CandidateAuthority, CandidateContext, CandidateKey, PersistenceError, SealedCandidate,
+};
 pub use prepare::{GeneratedFileCandidate, VerifiedFilePreparation};
 
 pub use hito_remote_audio::Pcm16WavFormat;

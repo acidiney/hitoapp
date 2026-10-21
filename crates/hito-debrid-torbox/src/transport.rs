@@ -1,5 +1,7 @@
-use crate::Error;
+use crate::{Error, PersistenceError};
+use hmac::{Hmac, Mac};
 use reqwest::header::{AUTHORIZATION, HeaderValue};
+use sha2::Sha256;
 use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::{Mutex, OwnedSemaphorePermit, Semaphore},
@@ -8,6 +10,7 @@ use tokio::{
 use zeroize::Zeroizing;
 
 const MAX_BODY: usize = 65_536;
+pub(crate) const PROVIDER_ORIGIN: &str = "https://api.torbox.app";
 #[cfg(feature = "test-support")]
 const API_HOST: &str = "api.torbox.app";
 
@@ -16,7 +19,10 @@ pub(crate) struct Transport {
     credential: Zeroizing<String>,
     slots: Arc<Semaphore>,
     next_start: Mutex<Option<Instant>>,
+    origin: Arc<()>,
 }
+
+pub(crate) struct CandidateOrigin(Arc<()>);
 
 impl Transport {
     pub(crate) fn new(credential: String) -> Result<Self, Error> {
@@ -65,7 +71,27 @@ impl Transport {
             credential,
             slots: Arc::new(Semaphore::new(2)),
             next_start: Mutex::new(None),
+            origin: Arc::new(()),
         })
+    }
+
+    pub(crate) fn candidate_origin(&self) -> CandidateOrigin {
+        CandidateOrigin(self.origin.clone())
+    }
+
+    pub(crate) fn owns_candidate(&self, origin: &CandidateOrigin) -> bool {
+        Arc::ptr_eq(&self.origin, &origin.0)
+    }
+
+    pub(crate) fn candidate_authority(&self, key: &[u8; 32]) -> Result<[u8; 32], PersistenceError> {
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(key).map_err(|_| PersistenceError::Unavailable)?;
+        mac.update(b"hito.torbox.candidate.authority.v1");
+        mac.update(&(PROVIDER_ORIGIN.len() as u64).to_be_bytes());
+        mac.update(PROVIDER_ORIGIN.as_bytes());
+        mac.update(&(self.credential.len() as u64).to_be_bytes());
+        mac.update(self.credential.as_bytes());
+        Ok(mac.finalize().into_bytes().into())
     }
 
     pub(crate) fn admit(&self) -> Result<OwnedSemaphorePermit, Error> {
@@ -83,7 +109,7 @@ impl Transport {
         let request = self
             .client
             .get(format!(
-                "https://api.torbox.app/v1/api/torrents/mylist?id={id}&bypass_cache=true"
+                "{PROVIDER_ORIGIN}/v1/api/torrents/mylist?id={id}&bypass_cache=true"
             ))
             .header(AUTHORIZATION, authorization)
             .header("accept", "application/json")
@@ -100,8 +126,9 @@ impl Transport {
         deadline: Instant,
         dispatched: &mut bool,
     ) -> Result<Zeroizing<Vec<u8>>, Error> {
-        let mut target = reqwest::Url::parse("https://api.torbox.app/v1/api/torrents/requestdl")
-            .map_err(|_| Error::Configuration)?;
+        let mut target =
+            reqwest::Url::parse(&format!("{PROVIDER_ORIGIN}/v1/api/torrents/requestdl"))
+                .map_err(|_| Error::Configuration)?;
         target
             .query_pairs_mut()
             .append_pair("token", self.credential.as_str())
