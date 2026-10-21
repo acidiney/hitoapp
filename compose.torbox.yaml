@@ -1,0 +1,66 @@
+services:
+  plugin-torbox:
+    profiles: [plugins]
+    image: hito-plugin-torbox:${HITO_TORBOX_IMAGE_TAG:-development}
+    build:
+      context: ${HITO_TORBOX_BUILD_CONTEXT:-.}
+      dockerfile: Dockerfile.plugin-torbox
+      args:
+        HITO_PLUGIN_CACHE_ID: hito-plugin-torbox-package-${COMPOSE_PROJECT_NAME:-standalone}
+        HITO_TORBOX_SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}
+        HITO_TORBOX_INPUT_SHA256: ${HITO_TORBOX_INPUT_SHA256:?Set the frozen input digest}
+    user: "10001:10001"
+    command:
+      - --listen
+      - 0.0.0.0:8100
+      - --provider-token-file
+      - /run/secrets/torbox-provider-token
+      - --service-token-file
+      - /run/secrets/torbox-service-token
+      - --catalog-file
+      - /run/secrets/torbox-catalog.json
+      - --state-key-file
+      - /run/secrets/torbox-state-key
+      - --state-directory
+      - /var/lib/hito-torbox/journal
+      - --state-mode
+      - ${HITO_TORBOX_STATE_MODE:?Set create-new or open-existing explicitly}
+    ports:
+      - "127.0.0.1:${HITO_TORBOX_PORT:-8100}:8100"
+    environment:
+      RUST_LOG: ${HITO_TORBOX_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: torbox-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+      - type: volume
+        source: torbox-state
+        target: /var/lib/hito-torbox
+        read_only: false
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  torbox-credentials:
+    external: true
+    name: ${HITO_TORBOX_CREDENTIAL_VOLUME:?Set a provisioned private credential volume}
+  torbox-state:
+    external: true
+    name: ${HITO_TORBOX_STATE_VOLUME:?Set a separate provisioned private state volume}
