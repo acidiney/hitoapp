@@ -56,7 +56,9 @@ The shared opener qualifies the original bytes against the declaration. MP3 curr
 
 Five authenticated HTTP cases pass, including an independent repeat. They cover native PCM and original bytes through EOF, declaration mismatches, malformed and incomplete prefixes, exact tag-size bounds and held partial headers. Fifty named client/executable regressions and the existing WAV service boundary cases pass. Legacy JSON startup, unsupported-kind rejection before binding, input preservation and safe logs are checked through the real executable. Scoped strict checks and three independent source reviews pass; dependencies are unchanged.
 
-The tested MP3 fixture is 48 kHz stereo at 128 kbit/s with ID3v2.4. Tagless, ID3v2.3, footer, mono, VBR and other accepted header profiles still need compatibility fixtures. A rebuilt restricted image, ordinary Hito account playback, browser/native behavior, seeking and live-provider acceptance remain open. This change does not resolve the VPS YouTube failure.
+Compatibility fixtures now also cover tagless stereo, genuine ID3v2.3 stereo, a valid ID3v2.4 footer over unchanged MPEG bytes, and genuine ID3v2.4 mono. All use 48 kHz at 128 kbit/s. Each fixture first decodes natively through EOF, then passes the authenticated HTTP workflow with metadata-only HEAD, exact original bytes, private headers/logs and matching decoded PCM. The new profile case passes independently, followed by all six MP3 HTTP cases and scoped test Clippy. These tests change no production code.
+
+VBR, other rates/bitrates and broader codec profiles still need compatibility fixtures. A rebuilt restricted image, ordinary Hito account playback, browser/native behavior, seeking and live-provider acceptance remain open. This change does not resolve the VPS YouTube failure.
 
 ## Shared media ownership
 
