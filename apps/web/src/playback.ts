@@ -728,12 +728,17 @@ export class Playback implements Player {
   }
 
   private async skipFailed() {
+    const providerUnavailable =
+      this.sources?.outcome === "provider_unavailable";
     log.warn("playback.unavailable", {
       recording_id: this.state.current?.id,
       index: this.state.index,
+      reason: providerUnavailable ? "provider_unavailable" : "exhausted",
     });
     this.update({
-      error: `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
+      error: providerUnavailable
+        ? "An audio service is unavailable. Select the track again to retry."
+        : `Audio is unavailable for ${this.state.current?.title ?? "this track"}.`,
       loading: false,
     });
     const next = this.traversal.next(

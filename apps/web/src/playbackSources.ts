@@ -1,5 +1,9 @@
 import { createUuid } from "./uuid";
-import type { ResolveSource, Source as ApiSource } from "./types";
+import type {
+  ResolveSource,
+  Source as ApiSource,
+  SourceResolution,
+} from "./types";
 import { HttpError } from "./http";
 import { log } from "./log";
 
@@ -10,7 +14,7 @@ type SourceRequest =
 export type SourceResolver = (
   recording: string,
   options: SourceRequest & { signal: AbortSignal },
-) => Promise<Source[]>;
+) => Promise<Source[] | SourceResolution>;
 
 export class PlaybackSources {
   private controller = new AbortController();
@@ -19,6 +23,7 @@ export class PlaybackSources {
   private refreshed = false;
   private resolved = false;
   private attempted = new Set<string>();
+  private resolutionOutcome: SourceResolution["outcome"] | null = null;
 
   constructor(
     private recording: string,
@@ -29,6 +34,10 @@ export class PlaybackSources {
       this.loaded = true;
       this.candidates = [{ ...seed }];
     }
+  }
+
+  get outcome(): SourceResolution["outcome"] | null {
+    return this.resolutionOutcome;
   }
 
   async next(): Promise<Source | undefined> {
@@ -115,11 +124,13 @@ export class PlaybackSources {
   }
 
   private async load(request: SourceRequest) {
-    const sources = await this.resolve(this.recording, {
+    const result = await this.resolve(this.recording, {
       ...request,
       signal: this.controller.signal,
     });
     if (this.controller.signal.aborted) return;
+    const sources = Array.isArray(result) ? result : result.sources;
+    if (!Array.isArray(result)) this.resolutionOutcome = result.outcome;
     const seen = new Set<string>();
     this.candidates = sources.filter((source) => {
       if (

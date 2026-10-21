@@ -68,14 +68,12 @@ function BrowserAccountPlayback({
       audio,
       async (recording, options) => {
         if (options.purpose === "resolve")
-          return (
-            await sourceResolutionApi.resolve(
-              account,
-              recording,
-              options.body,
-              options.signal,
-            )
-          ).sources;
+          return sourceResolutionApi.resolve(
+            account,
+            recording,
+            options.body,
+            options.signal,
+          );
         return options.purpose === "refresh"
           ? libraryApi.recoverSources(account, recording, options.signal)
           : libraryApi.playbackSources(account, recording, options.signal);

@@ -10,6 +10,7 @@ const identity = (value: unknown): value is string =>
 const outcomes = new Set<SourceResolution["outcome"]>([
   "ready",
   "no_suitable_source",
+  "provider_unavailable",
   "protected_choice",
   "cancelled",
 ]);
