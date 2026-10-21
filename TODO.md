@@ -1,12 +1,14 @@
 # Hito TODO
 
-Updated 2026-10-20. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
+Updated 2026-10-21. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
 Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track and album details now support private title and artist edits with local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
 Automatic audio resolution for imported playlists is deployed locally. Controlled browser workflows and one real Spotify-to-YouTube WebKit target pass without per-track URLs or manual matching. Existing YouTube connections must explicitly approve the added metadata capability. Manual source selection corrects a result; broader synchronization, matching, native and release acceptance remain open. See [current implementation, evidence and gaps](docs/automatic-sources.md). Visual polish remains after release functionality.
 
-- [ ] Restore real external playback on the development VPS. HTTPS and generated folder audio pass, but YouTube source extraction returns a sign-in/bot challenge. Qualify an autonomous server-side solution and actual audio playback; distinguish provider failure from a completed search with no suitable source. See [deployment evidence](docs/vps-deployment.md).
+- [ ] Restore real external playback on the development VPS. HTTPS and generated folder audio pass, but YouTube source extraction returns a sign-in/bot challenge. Qualify an autonomous server-side solution and actual audio playback. See [deployment evidence](docs/vps-deployment.md).
+  - [x] Distinguish provider failure and exhausted control capacity from successful searches with no suitable source. Preserve valid alternatives, immutable receipts, private state and browser queue/account boundaries without duplicate accepted requests. Seventeen core/HTTP cases, 24 frontend cases, independent repeats, affected strict checks, actual generated contracts and frontend types/build pass. See [source evidence](docs/automatic-sources.md#provider-failure-outcomes).
+  - [ ] Qualify the combined packaged browser workflow and migration 0055 deployment. The source correction is integrated but not installed on the VPS or normal Mac server; the upstream YouTube block remains unresolved.
 
 ## Library and metadata
 

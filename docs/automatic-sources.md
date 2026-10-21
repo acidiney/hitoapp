@@ -147,3 +147,31 @@ The separate host musical-metadata implementation completed both independent rev
 At `45e0008`, workspace formatting and the complete core/server all-target suite pass. After the canonical-title fix, all nine directed core cases for musical evidence, video versions and populated evidence upgrade pass, alongside HTTP resolution and strict default-workspace all-target Clippy. The complete suite predates that last fix; these directed results remain separate from full-suite, final-image and live-provider acceptance.
 
 The stopped whole-volume 0035-to-0039 clone rehearsal and subsequent normal upgrade pass migration preservation and separate runtime checkpoints with no row or managed-file changes. Other required work includes retained automatic-decision revalidation after metadata changes, remaining authority and concurrency boundaries, failed-ready-source recovery, broader live matching, native integration and platform, codec and performance gates. The automatic-source item in [TODO.md](../TODO.md) remains open.
+
+## Provider failure outcomes
+
+Verified source distinguishes operational failure from successful search exhaustion. If a search, detail, metadata or source request fails upstream, or the shared control admission is full, resolution remembers that failure while considering the remaining candidates. A verified playable alternative still produces `ready`. Exhaustion after a provider failure produces `provider_unavailable`; successful empty searches and rejected musical matches retain `no_suitable_source`. Protected choices, authority conflicts and cancellation retain their existing behavior.
+
+Core stores the terminal outcome in the immutable request receipt. Replaying that request returns the same result without repeating provider work. Migration 0055 expands the permitted outcomes while preserving existing rows, rowids, receipts, decisions, pending leases, foreign keys and guards. Historical migrations are unchanged. OpenAPI and TypeScript were regenerated from the actual Rust types and routes.
+
+```mermaid
+flowchart TD
+    Play[Play] --> Cached{Ready cached source?}
+    Cached -->|Yes| Audio[Open verified audio]
+    Cached -->|No| Resolve[Core source resolution]
+    Resolve --> Providers[Search and verify approved providers]
+    Providers -->|Valid alternative| Audio
+    Providers -->|Exhausted after operational failure| Outage[Store provider_unavailable receipt]
+    Providers -->|Successful exhaustion| Empty[Store no_suitable_source receipt]
+    Outage --> Browser[Browser explains failure and continues queue]
+    Empty --> Browser
+    Browser -->|User selects Play again| Play
+```
+
+The browser retains the accepted outcome through preparation and cached-source revalidation. It displays a fixed provider-outage message and continues the queue without interrupting the track already playing. An accepted outage does not trigger a second resolution request. A lost acknowledgement still retries the exact original request, body and cancellation signal. A new explicit Play checks cached sources first; if resolution is needed, it uses a new request identity. Late results from a previous account cannot change the active account's playback. Logs retain safe outcome enums and Hito correlation identities.
+
+Seventeen directed core and HTTP cases pass, including successful empty search versus HTTP 503, failure of one candidate followed by exact owned-WAV playback from another, held control capacity, receipt replay and populated upgrade/reopen preservation. Strict checks for affected Rust targets, formatting and independent source reviews pass. An independent repeat of all seventeen cases against the qualified binaries passes in 18.24 seconds without compilation.
+
+Twenty-four affected frontend cases pass, including outage handling, exact lost-acknowledgement recovery, fresh Play, preparation, queue continuation, cached alternatives and account cancellation. Both TypeScript configurations and the production build pass. An independent 24-case repeat passes in 7.50 seconds. The full frontend run had 558 passes and one LAN endpoint-fixture failure, reproduced with unchanged product source. Only that fixture was corrected, with its assertions retained, and the affected repeat passes. The complete frontend suite has not been rerun after that test-only correction. These durations measure test workflows, not playback latency.
+
+These changes are integrated source. Combined packaged browser decoding, migration 0055 deployment and normal-server upgrade verification remain open. The VPS still runs the earlier revision. Classifying its YouTube failure correctly does not resolve the upstream sign-in/bot challenge or establish real external playback.
