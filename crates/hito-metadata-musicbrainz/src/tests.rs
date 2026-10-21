@@ -16,6 +16,9 @@ use tokio::{
 mod discography;
 mod discography_context;
 mod discography_transport;
+mod edition;
+mod edition_listing;
+mod edition_validation;
 mod http;
 mod limiter;
 mod protocol;

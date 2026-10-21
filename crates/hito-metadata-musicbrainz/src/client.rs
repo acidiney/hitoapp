@@ -1,7 +1,10 @@
-use crate::{Error, discography, projection, search, transport::Transport};
+use crate::{
+    Error, discography, edition, edition_listing, projection, search, transport::Transport,
+};
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
-    ArtistSearchRequest, CatalogArtistProfile,
+    ArtistSearchRequest, CatalogArtistProfile, CatalogEditionTrackList, EditionTrackListRequest,
+    ReleaseGroupEditionsPage, ReleaseGroupEditionsRequest,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -99,6 +102,83 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(|page| page.items.len()).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz artist discography completed"
+        );
+        result
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "release_group_editions", request_id = tracing::field::Empty))]
+    pub async fn release_group_editions(
+        &self,
+        request: ReleaseGroupEditionsRequest,
+    ) -> Result<ReleaseGroupEditionsPage, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            let offset = edition_listing::request_offset(&request)?;
+            let bytes = self
+                .transport
+                .editions(&request.release_group_id, request.limit, offset)
+                .await
+                .map_err(|error| match error {
+                    Error::InvalidResponse => Error::InvalidEdition,
+                    error => error,
+                })?;
+            edition_listing::page(&bytes, &request, offset)
+        }
+        .await;
+        tracing::debug!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(|page| page.items.len()).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz release-group editions completed"
+        );
+        result
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "edition_track_list", request_id = tracing::field::Empty))]
+    pub async fn edition_track_list(
+        &self,
+        request: EditionTrackListRequest,
+    ) -> Result<CatalogEditionTrackList, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            edition::validate_request(&request)?;
+            let bytes = self
+                .transport
+                .edition(&request.edition_id)
+                .await
+                .map_err(|error| match error {
+                    Error::InvalidResponse => Error::InvalidEdition,
+                    error => error,
+                })?;
+            edition::track_list(&bytes, &request)
+        }
+        .await;
+        tracing::debug!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            medium_count = result
+                .as_ref()
+                .map(|edition| edition.media.len())
+                .unwrap_or(0),
+            track_count = result
+                .as_ref()
+                .map(|edition| edition
+                    .media
+                    .iter()
+                    .map(|medium| medium.tracks.len())
+                    .sum::<usize>())
+                .unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz edition track list completed"
         );
         result
     }

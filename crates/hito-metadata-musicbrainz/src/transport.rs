@@ -81,6 +81,38 @@ impl Transport {
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
     }
 
+    pub(super) async fn editions(
+        &self,
+        release_group_id: &str,
+        limit: u16,
+        offset: u32,
+    ) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("release")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("release-group", release_group_id),
+            ("fmt", "json"),
+            ("inc", "artist-credits release-groups"),
+            ("limit", &limit.to_string()),
+            ("offset", &offset.to_string()),
+        ]);
+        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
+    pub(super) async fn edition(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("release/{id}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("fmt", "json"),
+            ("inc", "recordings artist-credits release-groups"),
+        ]);
+        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
     pub(super) async fn artist_search(
         &self,
         literal: &str,

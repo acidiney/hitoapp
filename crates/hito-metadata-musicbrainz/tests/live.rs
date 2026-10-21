@@ -181,11 +181,13 @@ fn error_code(error: Error) -> &'static str {
         Error::InvalidRequest => "invalid_request",
         Error::InvalidDiscographyRequest => "invalid_discography_request",
         Error::InvalidSearchRequest => "invalid_search_request",
+        Error::InvalidEditionRequest => "invalid_edition_request",
         Error::Transport => "transport_error",
         Error::Status(_) => "status_error",
         Error::InvalidResponse => "invalid_response",
         Error::InvalidDiscography => "invalid_discography",
         Error::InvalidSearch => "invalid_search",
+        Error::InvalidEdition => "invalid_edition",
         Error::ResponseTooLarge => "response_too_large",
     }
 }

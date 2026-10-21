@@ -1,5 +1,7 @@
 mod client;
 mod discography;
+mod edition;
+mod edition_listing;
 mod error;
 mod projection;
 mod search;
