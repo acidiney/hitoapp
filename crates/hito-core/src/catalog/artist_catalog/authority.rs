@@ -1,8 +1,94 @@
 use super::{
-    ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider, policy,
+    ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider,
+    associations, continuation, policy, provider::Connection,
 };
-use crate::{Actor, Error, Result};
+use crate::{Actor, Catalog, Error, Result, identity::recording_access};
 use sqlx::SqliteConnection;
+use tokio::sync::OwnedSemaphorePermit;
+
+pub(super) struct ReviewedRead<'a> {
+    catalog: &'a Catalog,
+    actor: &'a Actor,
+    pub association: ArtistAssociation,
+    pub connection: Connection,
+    credit: Credit,
+    policy_revision: i64,
+    _admission: (OwnedSemaphorePermit, OwnedSemaphorePermit),
+}
+
+pub(super) enum ReviewedReadState<'a> {
+    Available(Box<ReviewedRead<'a>>),
+    Disabled,
+    Unavailable,
+}
+
+impl<'a> ReviewedRead<'a> {
+    pub(super) async fn capture(
+        catalog: &'a Catalog,
+        actor: &'a Actor,
+        recording: &str,
+        association: &str,
+    ) -> Result<ReviewedReadState<'a>> {
+        let admission = catalog.artist_catalog.admit(actor.id())?;
+        let (association, credit, policy_revision) = {
+            let mut tx = catalog.store.pool.begin().await?;
+            actor.check_session_on(&mut tx).await?;
+            recording_access(&mut tx, actor, recording).await?;
+            let association = associations::load(&mut tx, actor, recording, association).await?;
+            let settings = policy::read(&mut tx, actor).await?;
+            if !settings.enabled {
+                return Ok(ReviewedReadState::Disabled);
+            }
+            if !policy::selected(&settings, &association.provider) {
+                return Ok(ReviewedReadState::Unavailable);
+            }
+            let credit = match Credit::capture(&mut tx, actor, recording).await {
+                Err(Error::NotFound) => return Ok(ReviewedReadState::Unavailable),
+                result => result?,
+            };
+            if !credit.matches(&association) {
+                return Ok(ReviewedReadState::Unavailable);
+            }
+            tx.commit().await?;
+            (association, credit, settings.revision)
+        };
+        let connection = match Connection::open(catalog, actor, &association.provider).await {
+            Err(Error::NotFound) => return Ok(ReviewedReadState::Unavailable),
+            result => result?,
+        };
+        let read = Self {
+            catalog,
+            actor,
+            association,
+            connection,
+            credit,
+            policy_revision,
+            _admission: admission,
+        };
+        read.recheck().await?;
+        Ok(ReviewedReadState::Available(Box::new(read)))
+    }
+
+    pub(super) async fn recheck(&self) -> Result<()> {
+        let mut tx = self.catalog.store.pool.begin().await?;
+        self.credit
+            .recheck(&mut tx, self.actor, &self.association, self.policy_revision)
+            .await?;
+        self.connection.recheck(&mut tx).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(super) fn continuation_binding(&self) -> Result<[u8; 32]> {
+        continuation::binding(
+            self.actor,
+            &self.association,
+            &self.credit,
+            self.policy_revision,
+            &self.connection,
+        )
+    }
+}
 
 #[derive(PartialEq, Eq, serde::Serialize, sqlx::FromRow)]
 pub(super) struct Credit {

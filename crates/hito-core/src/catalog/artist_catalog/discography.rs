@@ -1,8 +1,9 @@
 use super::{
-    ArtistAssociation, ArtistDiscographyAvailability, REQUEST_BUDGET, ReadArtistDiscography,
-    associations, authority::Credit, continuation, policy, provider::Connection,
+    ArtistDiscographyAvailability, REQUEST_BUDGET, ReadArtistDiscography,
+    authority::{ReviewedRead, ReviewedReadState},
+    continuation,
 };
-use crate::{Actor, Catalog, Error, Result, identity::recording_access};
+use crate::{Actor, Catalog, Error, Result};
 use hito_plugin_sdk::{ArtistDiscographyRequest, MAX_CATALOG_PAGE_ITEMS};
 use std::{future::Future, time::Instant};
 use uuid::Uuid;
@@ -58,37 +59,14 @@ impl Catalog {
                 "Use a valid catalog page limit and continuation".into(),
             ));
         }
-        let _admission = self.artist_catalog.admit(actor.id())?;
-        let (association, credit, policy_revision) = {
-            let mut tx = self.store.pool.begin().await?;
-            actor.check_session_on(&mut tx).await?;
-            recording_access(&mut tx, actor, recording).await?;
-            let association = associations::load(&mut tx, actor, recording, association).await?;
-            let settings = policy::read(&mut tx, actor).await?;
-            if !settings.enabled {
-                return Ok(ArtistDiscographyAvailability::Disabled);
-            }
-            if !policy::selected(&settings, &association.provider) {
+        let read = match ReviewedRead::capture(self, actor, recording, association).await? {
+            ReviewedReadState::Available(read) => read,
+            ReviewedReadState::Disabled => return Ok(ArtistDiscographyAvailability::Disabled),
+            ReviewedReadState::Unavailable => {
                 return Ok(ArtistDiscographyAvailability::Unavailable);
             }
-            let credit = match Credit::capture(&mut tx, actor, recording).await {
-                Err(Error::NotFound) => return Ok(ArtistDiscographyAvailability::Unavailable),
-                result => result?,
-            };
-            if !credit.matches(&association) {
-                return Ok(ArtistDiscographyAvailability::Unavailable);
-            }
-            tx.commit().await?;
-            (association, credit, settings.revision)
         };
-        let connection = match Connection::open(self, actor, &association.provider).await {
-            Err(Error::NotFound) => return Ok(ArtistDiscographyAvailability::Unavailable),
-            result => result?,
-        };
-        self.recheck_artist_discography(actor, &association, &credit, policy_revision, &connection)
-            .await?;
-        let binding =
-            continuation::binding(actor, &association, &credit, policy_revision, &connection)?;
+        let binding = read.continuation_binding()?;
         let provider_request = match request.continuation {
             Some(token) => {
                 self.artist_catalog
@@ -96,20 +74,19 @@ impl Catalog {
                     .open(&token, binding, request.limit)?
             }
             None => ArtistDiscographyRequest {
-                artist_id: association.provider_artist_id.clone(),
+                artist_id: read.association.provider_artist_id.clone(),
                 cursor: None,
                 snapshot: None,
                 limit: request.limit,
             },
         };
-        if provider_request.artist_id != association.provider_artist_id {
+        if provider_request.artist_id != read.association.provider_artist_id {
             return Err(Error::Invalid(
                 "Use a valid catalog continuation or start again".into(),
             ));
         }
-        let supported = connection.discography_supported().await;
-        self.recheck_artist_discography(actor, &association, &credit, policy_revision, &connection)
-            .await?;
+        let supported = read.connection.discography_supported().await;
+        read.recheck().await?;
         match supported {
             Ok(false) => return Ok(ArtistDiscographyAvailability::Unsupported),
             Err(Error::Upstream(_)) => return Ok(ArtistDiscographyAvailability::Unavailable),
@@ -117,9 +94,8 @@ impl Catalog {
                 result?;
             }
         }
-        let result = connection.discography(&provider_request).await;
-        self.recheck_artist_discography(actor, &association, &credit, policy_revision, &connection)
-            .await?;
+        let result = read.connection.discography(&provider_request).await;
+        read.recheck().await?;
         let page = match result {
             Err(Error::Upstream(_)) => return Ok(ArtistDiscographyAvailability::Unavailable),
             result => result?,
@@ -133,7 +109,7 @@ impl Catalog {
                 self.artist_catalog.continuations.seal(
                     binding,
                     ArtistDiscographyRequest {
-                        artist_id: association.provider_artist_id.clone(),
+                        artist_id: read.association.provider_artist_id.clone(),
                         cursor: Some(cursor.clone()),
                         snapshot: page.snapshot.clone(),
                         limit: provider_request.limit,
@@ -142,26 +118,9 @@ impl Catalog {
             })
             .transpose()?;
         Ok(ArtistDiscographyAvailability::Available {
-            association_id: association.id,
+            association_id: read.association.id,
             page,
             continuation,
         })
-    }
-
-    async fn recheck_artist_discography(
-        &self,
-        actor: &Actor,
-        association: &ArtistAssociation,
-        credit: &Credit,
-        policy_revision: i64,
-        provider: &Connection,
-    ) -> Result<()> {
-        let mut tx = self.store.pool.begin().await?;
-        credit
-            .recheck(&mut tx, actor, association, policy_revision)
-            .await?;
-        provider.recheck(&mut tx).await?;
-        tx.commit().await?;
-        Ok(())
     }
 }
