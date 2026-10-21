@@ -307,7 +307,25 @@ Startup permits up to 16 connections and 128 recordings per catalog, with a 49,1
 
 Seven public HTTP/TLS cases and all 36 unchanged client cases pass. Strict default/test-support checks, scoped formatting and final independent source review pass. An independent repeat runs all 43 cases across eight pinned executables in 99.478 seconds, checking exact WAV bytes, all PCM samples, receipt isolation and reconstruction, cancellation and recovery, safe log schemas and workflow correlations. Source and executable hashes remain identical and no owned containers remain.
 
-This is a router library, not an installable provider service. An executable, private configuration and enrollment, packaging, application connection and preparation, broader codecs, seeking, capacity stress and live Premiumize/CDN acceptance remain open. The normal Mac and VPS deployments are unchanged. See [the library contract and reproduction commands](../crates/hito-plugin-premiumize/README.md).
+The router library now has a separately qualified executable below. Packaging, enrollment, application connection and preparation, broader codecs, seeking, capacity stress and live Premiumize/CDN acceptance remain open. The normal Mac and VPS deployments are unchanged. See [the service contract and reproduction commands](../crates/hito-plugin-premiumize/README.md).
+
+## Premiumize private executable
+
+The `hito-plugin-premiumize` executable loads one connection through required `--provider-token-file`, `--service-token-file`, `--receipt-key-file` and `--catalog-file` arguments. It defaults to `127.0.0.1:8099`. Configuration is validated before listening and has no inline credential or environment fallback. The router library still supports multiple separately authenticated connections; the executable currently configures one.
+
+```mermaid
+flowchart LR
+    Files["Private tokens, receipt key and catalog"] --> Startup["Validate configuration before bind"]
+    Startup --> HTTP["Existing authenticated plugin router"]
+    HTTP --> Client["Premiumize client owns provider and media access"]
+    HTTP --> Logs["Safe JSON outcomes and correlation IDs"]
+```
+
+Unix descriptor reads require absolute paths, a regular file with one link, effective-user ownership and mode `0400` or `0600`. Reads reject final-component symlinks, oversized content and changed descriptor metadata. The binary receipt key is exactly 32 bytes and must not be all zero; normalized provider and service credentials must differ. Catalog JSON is bounded and typed before the existing per-entry and aggregate limits apply. Startup does not alter these files. JSON logs retain fixed safe failure reasons and Hito correlation IDs, while excluding dependency traces even at trace verbosity.
+
+The first process test failed against the unimplemented executable, then passed with native file arguments, actual metadata HTTP requests and idle SIGTERM shutdown. Four further bootstrap tests exercise 46 invalid configurations, including a real foreign file owner, FIFO, symlink, hard link, modes, malformed data and bounds. Every case preserves operator inputs and joins its child processes. All 12 service and 36 unchanged client tests pass, alongside scoped formatting, both strict service modes and fresh independent source review. A separate replay of 10 pinned test executables passes all 48 cases in 99.793 seconds, with 24 binary hash checks, all 2,440 source-file pins unchanged and no remaining owned containers.
+
+This qualifies the executable's metadata/bootstrap behavior and the existing HTTP/TLS fixtures. It does not qualify active-audio shutdown, deployment packaging, application enrollment, live Premiumize/CDN playback, general codecs or seeking. Reproduction commands and exact file formats are in [the crate README](../crates/hito-plugin-premiumize/README.md).
 
 ## Protocol fixtures in workspace verification
 
