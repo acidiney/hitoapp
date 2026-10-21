@@ -14,17 +14,20 @@ export default function ArtistDiscography({
   recording,
   association,
   profile,
+  browseOnMount = false,
 }: {
   account: string;
   recording: string;
   association: ArtistAssociation;
   profile: CatalogArtistProfile;
+  browseOnMount?: boolean;
 }) {
   const workflow = useArtistDiscography(
     account,
     recording,
     association,
     profile,
+    browseOnMount,
   );
   if (!workflow.opened)
     return (

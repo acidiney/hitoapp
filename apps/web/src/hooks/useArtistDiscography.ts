@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { artistDiscographyApi } from "../artistDiscographyApi";
 import { errorMessage } from "../format";
 import { HttpError } from "../http";
@@ -63,6 +63,7 @@ export function useArtistDiscography(
   recording: string,
   association: ArtistAssociation,
   profile: CatalogArtistProfile,
+  browseOnMount = false,
 ) {
   const scope = useRequestScope(
     JSON.stringify([account, recording, association, profile]),
@@ -210,6 +211,17 @@ export function useArtistDiscography(
       });
     }
   }
+
+  useEffect(() => {
+    if (!browseOnMount) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void load(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [browseOnMount, owner, scope]);
 
   return {
     ...current,

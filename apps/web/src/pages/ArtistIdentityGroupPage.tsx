@@ -7,6 +7,7 @@ import EmptyState from "../components/EmptyState";
 import Pagination from "../components/Pagination";
 import TrackTable, { type TrackTableRow } from "../components/TrackTable";
 import TrackToolbar from "../components/TrackToolbar";
+import ArtistGroupDiscography from "../components/metadata/ArtistGroupDiscography";
 
 export default function ArtistIdentityGroupPage({
   user,
@@ -50,6 +51,7 @@ export default function ArtistIdentityGroupPage({
           <p>Tracks grouped by your reviewed artist choices.</p>
         </div>
       </section>
+      <ArtistGroupDiscography account={user.id} group={group} />
       <section aria-labelledby="group-libraries-title">
         <h2 className="discography-heading" id="group-libraries-title">
           Libraries
