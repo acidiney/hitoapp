@@ -1,6 +1,6 @@
 # TorBox curated HTTP service
 
-The TorBox service exposes an operator-curated collection of exact TorBox torrent-file bindings through Hito's HTTP plugin protocol. A private executable is qualified for explicit state modes, authenticated metadata HTTP and joined shutdown/reopen. Container packaging, application installation and live-account acceptance remain unfinished. Only the client's canonical PCM16 WAV profile is qualified.
+The TorBox service exposes an operator-curated collection of exact TorBox torrent-file bindings through Hito's HTTP plugin protocol. Its executable and Linux container are qualified for explicit state modes, authenticated metadata HTTP and joined shutdown/reopen. Application installation, Ready/audio recovery across process restart and live-account acceptance remain unfinished. Only the client's canonical PCM16 WAV profile is qualified.
 
 The service owns authentication, structured metadata and a private SQLite preparation journal. The TorBox client owns provider credentials, file verification, generated links and shared audio transport. Hito owns accounts, library records and rendering. Plugins supply no UI or core database access.
 
@@ -69,4 +69,16 @@ docker compose --profile tools run --rm --no-deps -T \
 
 Use a separate target directory for each checkout. Other directed cases are in the package's `tests/` directory. The physical-capacity cases each take several minutes.
 
-The service does not submit torrents or magnets, discover a provider library, infer recording identity from provider completion, or promise arbitrary codecs or seeking. Ready/audio recovery across executable restart, container packaging and restart, broader lifecycle faults, long-term receipt retention, application provisioning, broader media support and live TorBox acceptance remain release work. See [adapter evidence and limits](../../docs/debrid-adapters.md#torbox-curated-wav-service-library).
+The service does not submit torrents or magnets, discover a provider library, infer recording identity from provider completion, or promise arbitrary codecs or seeking. Ready/audio recovery across executable or container restart, broader lifecycle faults, long-term receipt retention, application provisioning, broader media support and live TorBox acceptance remain release work. See [adapter evidence and limits](../../docs/debrid-adapters.md#torbox-curated-wav-service-library).
+
+## Container package
+
+[Dockerfile.plugin-torbox](../../Dockerfile.plugin-torbox) builds the locked release executable from pinned Rust and Debian bases. [compose.torbox.yaml](../../compose.torbox.yaml) runs it as UID/GID `10001`, with a read-only root, dropped capabilities, bounded resources and logs, a manifest health check and a loopback-only port. It does not provision private inputs or automatically restart a failed process.
+
+Set `HITO_TORBOX_SOURCE_ID` and `HITO_TORBOX_INPUT_SHA256` to the frozen build's commit and input digest. `HITO_TORBOX_IMAGE_TAG` selects the image tag. These labels identify the build inputs; they do not authenticate an image. Use separate, operator-provisioned external volumes selected by `HITO_TORBOX_CREDENTIAL_VOLUME` and `HITO_TORBOX_STATE_VOLUME`. Both roots must be owned by `10001:10001` with mode `0700`. Compose's `nocopy` mounts do not create or repair that ownership.
+
+The credential volume contains `torbox-provider-token`, `torbox-service-token`, `torbox-catalog.json` and `torbox-state-key`, with the private-file rules above. It is mounted read-only. The state volume is writable and contains the service-owned `journal` directory. Select `HITO_TORBOX_STATE_MODE=create-new` for initial creation, then stop and join the service before selecting `open-existing` with the same volumes and key. A missing mode fails Compose interpolation; missing private inputs fail startup without creating replacement state. Network configuration for connecting a Hito account remains separate work.
+
+The qualified Linux/arm64 image is `sha256:c539c63368180f3c5fb67032d9aaef3e396294213140154853b273eee872c4e3`, built from `6c331735545f4d3f91bd51fa41021ecdf0fc633d`. Its 1,742 input files and modes have digest `df6f55de53f3b4ba3c6ebb6eee523c837dc507a6bbbd7352fa344561d43e21ee`. At acceptance, the integration checkout preserved all those files and modes. The subsequent service README update records this qualification; executable and build inputs remain unchanged.
+
+An isolated, network-disabled audit and an independent repeat pass default rejection, creation, health/metadata HTTP, six authorization denials and joined reopening of the same database. Each run checks three principal children, twelve HTTP responses, four unchanged private input files, distinct process correlations and bounded TRACE diagnostics. The independent run takes 15.347 seconds and leaves no owned containers, volumes or networks. An archive-permission setup failure and a snapshot-helper name collision were corrected in the private orchestration; both original failures remain recorded. This does not qualify provider audio, crash recovery, application enrollment, other architectures or live TorBox accounts.
