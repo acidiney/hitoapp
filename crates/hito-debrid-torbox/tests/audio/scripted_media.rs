@@ -51,7 +51,7 @@ impl ScriptedMedia {
     pub async fn start(replies: Vec<Reply>) -> Self {
         assert!(
             !replies.is_empty()
-                && replies.len() <= 3
+                && replies.len() <= 4
                 && replies.iter().all(|r| r.body.len() <= 1_048_576)
         );
         let (listener, tls, ca) = owned_tls::listener(MEDIA_HOST).await;
