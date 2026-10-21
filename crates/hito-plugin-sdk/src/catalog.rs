@@ -1,5 +1,7 @@
 mod discography;
 mod discovery;
+mod edition;
+mod edition_listing;
 
 pub use discography::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogCreditMember, CatalogReleaseGroup,
@@ -11,6 +13,16 @@ pub use discovery::{
     CATALOG_DISCOVERY_CAPABILITIES_PATH, CATALOG_DISCOVERY_VERSION, CatalogDiscoveryCapabilities,
     CatalogDiscoveryOperation, MAX_ARTIST_SEARCH_PAGE_BYTES, MAX_ARTIST_SEARCH_PAGE_ITEMS,
     MAX_ARTIST_SEARCH_QUERY_BYTES,
+};
+pub use edition::{
+    CATALOG_EDITION_CAPABILITIES_PATH, CATALOG_EDITION_VERSION, CatalogEditionCapabilities,
+    CatalogEditionMedium, CatalogEditionOperation, CatalogEditionTrackList, CatalogTrackKind,
+    CatalogTrackOccurrence, EDITION_TRACK_LIST_PATH, EditionTrackListRequest,
+    MAX_CATALOG_EDITION_BYTES, MAX_CATALOG_EDITION_MEDIA, MAX_CATALOG_EDITION_TRACKS,
+};
+pub use edition_listing::{
+    CatalogEditionSummary, RELEASE_GROUP_EDITIONS_PATH, ReleaseGroupEditionsPage,
+    ReleaseGroupEditionsRequest,
 };
 
 use crate::content::{optional, text};

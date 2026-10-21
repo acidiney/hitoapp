@@ -194,7 +194,7 @@ impl io::Write for EncodedPageBudget {
     }
 }
 
-fn valid_partial_date(date: &str) -> bool {
+pub(super) fn valid_partial_date(date: &str) -> bool {
     let bytes = date.as_bytes();
     if !matches!(bytes.len(), 4 | 7 | 10)
         || bytes.iter().enumerate().any(|(index, byte)| {
