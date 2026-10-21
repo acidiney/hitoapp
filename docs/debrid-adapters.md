@@ -276,10 +276,22 @@ executable hashes remain exact. Controls include changed authority, malformed
 responses, real cancellation peer closure, manual recovery, aggregate deadlines
 and metadata availability while two verified WAV bodies retain media leases.
 
-This is a provider-client prerequisite for the separate service. Service delivery,
+The separate HTTP router library is qualified below. Executable delivery,
 application preparation, enrollment, transfer creation, seeking, broader formats
 and live acceptance remain open. The normal deployment is unchanged.
 
+## Premiumize curated-WAV service library
+
+The separate `hito-plugin-premiumize` library exposes the shared plugin protocol for operator-curated recordings and existing exact cloud-file bindings. Each service bearer selects its own catalog, provider client, media origins and receipt key. Search and details use configured metadata without provider requests. Source availability and each audio GET freshly verify transfer and item authority. Preparation monitors existing transfers; it never creates or submits them.
+
+Preparation receipts are stateless HMAC-SHA256 tags over the operation UUID, service authority, full sorted catalog and selected recording/source/file binding. Rebuilding clients and routers or reordering configuration preserves them when those inputs stay identical. Changed catalog, service bearer or receipt key invalidates them before provider I/O. Replacing the provider account requires a new receipt key. The opaque client does not expose a provider-credential fingerprint to this service.
+
+Startup permits up to 16 connections and 128 recordings per catalog, with a 49,152-byte canonical catalog budget and a 32,768-byte detail-response limit. An actual HTTP boundary regression first exposed startup accepting one extra detail byte, then passed after the individual bound was added. Whole canonical PCM16 WAV is the only qualified audio representation. The response body retains the upstream stream and media admission lease; cancelling it closes the owned TLS peer even while another client clone survives.
+
+Seven public HTTP/TLS cases and all 36 unchanged client cases pass. Strict default/test-support checks, scoped formatting and final independent source review pass. An independent repeat runs all 43 cases across eight pinned executables in 99.478 seconds, checking exact WAV bytes, all PCM samples, receipt isolation and reconstruction, cancellation and recovery, safe log schemas and workflow correlations. Source and executable hashes remain identical and no owned containers remain.
+
+This is a router library, not an installable provider service. An executable, private configuration and enrollment, packaging, application connection and preparation, broader codecs, seeking, capacity stress and live Premiumize/CDN acceptance remain open. The normal Mac and VPS deployments are unchanged. See [the library contract and reproduction commands](../crates/hito-plugin-premiumize/README.md).
+
 ## Protocol fixtures in workspace verification
 
-Workspace tests and strict Clippy explicitly enable the four debrid-client `test-support` features and the TorBox service's separate `test-support` feature. Enabling only the client feature would skip the service contract target and collect no admission case. The composed locked/offline Linux feature graph selects both service targets and their required features without compilation or dependency changes. This does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
+Workspace tests and strict Clippy explicitly enable the four debrid-client `test-support` features and both the TorBox and Premiumize services' separate `test-support` features. Enabling only a client feature does not enable its service's protocol fixtures. The composed locked/offline Linux feature graph retains the prior five feature selections and adds Premiumize's service feature, selecting all five of its integration targets without compilation or dependency changes. Script syntax also passes. This does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
