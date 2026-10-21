@@ -3,17 +3,21 @@
 mod boundary;
 #[path = "support/mp3_boundaries.rs"]
 mod mp3_boundaries;
+#[path = "support/mp3_fixture.rs"]
+mod mp3_fixture;
+#[path = "support/mp3_profiles.rs"]
+mod mp3_profiles;
 #[allow(dead_code)]
 mod support;
 
 use futures_util::{FutureExt, future};
-use hito_audio::Decoder;
 use hito_debrid_real_debrid::{MediaAllowlist, test_support::owned_protocol_client};
 use hito_plugin_real_debrid::{Config, CuratedAudioRecording, router};
 use hito_plugin_sdk::SourcePage;
+use mp3_fixture::{decode, fixture};
 use reqwest::{Method, StatusCode};
 use serde_json::json;
-use std::{io::Cursor, panic::AssertUnwindSafe, time::Duration};
+use std::{panic::AssertUnwindSafe, time::Duration};
 use support::{
     API_HOST, ARTIST, COOKIE, EXPECTED_FORM, HASH, HOSTER_LINK, MEDIA_HOST, MEDIA_TARGET,
     PROVIDER_TOKEN, RECORDING, SERVICE_TOKEN, SOURCE, TITLE, TORRENT, WRONG_TOKEN, http,
@@ -261,77 +265,4 @@ async fn authenticated_mp3_audio_retains_original_bytes_and_decodes_through_eof(
         ],
         encoded.len() as u64,
     );
-}
-
-async fn fixture() -> Vec<u8> {
-    let root = tempfile::tempdir().expect("owned fixture directory");
-    let path = root.path().join("owned.mp3");
-    let encoded = tokio::time::timeout(
-        Duration::from_secs(5),
-        tokio::process::Command::new("ffmpeg")
-            .args([
-                "-nostdin",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-f",
-                "lavfi",
-                "-i",
-                "sine=frequency=440:sample_rate=48000",
-                "-t",
-                "2",
-                "-ac",
-                "2",
-                "-c:a",
-                "libmp3lame",
-                "-b:a",
-                "128k",
-                "-threads",
-                "1",
-                "-map_metadata",
-                "-1",
-                "-y",
-            ])
-            .arg(&path)
-            .kill_on_drop(true)
-            .output(),
-    )
-    .await
-    .expect("owned encoding deadline")
-    .expect("owned FFmpeg process");
-    assert!(encoded.status.success(), "owned MP3 encoding must succeed");
-    let bytes = std::fs::read(path).expect("owned MP3 bytes");
-    assert!(
-        (1000..=65_536).contains(&bytes.len()),
-        "owned encoded size bound"
-    );
-    bytes
-}
-
-fn decode(bytes: &[u8]) -> Vec<f32> {
-    let mut decoder = Decoder::open(Cursor::new(bytes.to_vec())).expect("owned MP3 must decode");
-    assert_eq!(decoder.format().sample_rate, 48_000);
-    assert_eq!(decoder.format().channels, 2);
-    let mut samples = Vec::new();
-    while let Some(block) = decoder.read().expect("owned MP3 must decode through EOF") {
-        assert!(
-            block.samples.len() <= 200_000_usize.saturating_sub(samples.len()),
-            "owned PCM bound"
-        );
-        assert!(block.samples.iter().all(|sample| sample.is_finite()));
-        samples.extend_from_slice(block.samples);
-    }
-    assert!(
-        (190_000..=200_000).contains(&samples.len()),
-        "owned MP3 duration bound"
-    );
-    let energy = samples
-        .iter()
-        .map(|sample| f64::from(*sample).powi(2))
-        .sum::<f64>();
-    assert!(
-        (0.001..0.02).contains(&(energy / samples.len() as f64)),
-        "owned sine signal must remain audible"
-    );
-    samples
 }
