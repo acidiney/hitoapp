@@ -238,6 +238,23 @@ The TorBox client now separates exact file verification from the consuming gener
 
 This is a prerequisite for a service-owned durable intent journal. It does not persist receipts or candidates. Six new TLS cases and all 32 unchanged client/service cases, strict affected checks, formatting, three independent specialist reviews and an independent 38-case repeat pass. Source and binary hashes remain unchanged during the repeat, with zero containers left behind. Verification, caller delay and active-mint deadlines are measured; a dedicated held-pacing expiry case remains open. See [the client contract](../crates/hito-debrid-torbox/README.md#verified-preparation-before-minting).
 
+### Authenticated candidate persistence
+
+The TorBox client can seal a generated candidate as versioned authenticated ciphertext of at most 16,384 bytes. The private key, provider credential and fixed API origin authenticate the state, operation and handle UUIDs, recording/source IDs and every exact file-binding field. Only the originating client or its clones can seal a minted candidate. A recreated client can restore it with the same authority and context. The caller owns key and ciphertext storage; this client performs no filesystem or database work.
+
+```mermaid
+flowchart LR
+    Candidate[Minted candidate and exact context] --> Seal[Originating client encrypts candidate]
+    Seal --> Envelope[Opaque authenticated ciphertext]
+    Envelope --> Restore[Recreated client authenticates context]
+    Restore --> Verify[Fresh provider file verification]
+    Verify --> Audio[Shared qualified audio opening]
+```
+
+Three new public TLS workflows cover destroyed and recreated client owners, two complete WAV/PCM openings with one total mint, foreign-client and wrong-authority rejection, every context field, malformed envelopes and private structured completion logs. All 38 unchanged client/service cases also pass. Four affected strict-check modes, scoped formatting and independent source review pass. A separate 41-case repeat took 86.594 seconds with source and binaries read-only, 20 binary hash checks and no remaining containers. The integrated inputs match; only the existing TorBox client dependency block changes, preserving all 684 other lockfile blocks.
+
+This is a prerequisite for the service journal. It does not implement durable service intent, uncertainty history, restart recovery, an executable, live-provider compatibility or broader codecs. See [the client contract](../crates/hito-debrid-torbox/README.md#authenticated-candidate-persistence).
+
 ## Premiumize observation
 
 The separate `hito-debrid-premiumize` client observes one configured transfer by exact ID and creation timestamp. It reports queued, running, provider failure, seeding or completion, with finite unit-fraction progress. Matching display names cannot replace the configured transfer. Cloud transfer completion does not establish selected-file, content or recording identity and produces no playable source.
