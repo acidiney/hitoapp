@@ -4,6 +4,7 @@ mod confirmation;
 mod continuation;
 mod discography;
 mod discovery;
+mod editions;
 pub(crate) mod identity;
 mod policy;
 mod preview;
@@ -17,8 +18,9 @@ pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, AssociateRecordingArtist, MetadataProvider, MetadataSettings,
-    ReadArtistDiscography, UpdateMetadataSettings,
+    ArtistReviewMetadataBinding, AssociateRecordingArtist, EditionTrackListAvailability,
+    MetadataProvider, MetadataSettings, ReadArtistDiscography, ReadEditionTrackList,
+    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, UpdateMetadataSettings,
 };
 
 use crate::{Error, Result, admission::Accounts};

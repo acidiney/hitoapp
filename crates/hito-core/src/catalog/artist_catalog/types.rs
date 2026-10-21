@@ -1,4 +1,7 @@
-use hito_plugin_sdk::{ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile};
+use hito_plugin_sdk::{
+    ArtistDiscographyPage, ArtistSearchPage, CatalogArtistProfile, CatalogEditionTrackList,
+    ReleaseGroupEditionsPage,
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -202,6 +205,72 @@ pub enum ArtistDiscographyAvailability {
 }
 
 impl ArtistDiscographyAvailability {
+    pub(super) fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadReleaseGroupEditions {
+    pub release_group_id: String,
+    pub limit: u16,
+    pub continuation: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ReleaseGroupEditionsAvailability {
+    Available {
+        association_id: String,
+        page: ReleaseGroupEditionsPage,
+        continuation: Option<String>,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl ReleaseGroupEditionsAvailability {
+    pub(super) fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadEditionTrackList {
+    pub release_group_id: String,
+    pub edition_id: String,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum EditionTrackListAvailability {
+    Available {
+        association_id: String,
+        edition: CatalogEditionTrackList,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl EditionTrackListAvailability {
     pub(super) fn outcome(&self) -> &'static str {
         match self {
             Self::Available { .. } => "available",

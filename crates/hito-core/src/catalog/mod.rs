@@ -51,8 +51,10 @@ pub use artist_catalog::{
     ArtistIdentityGroupName, ArtistIdentityGroupQuery, ArtistIdentitySelection,
     ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
     ArtistReviewMetadataBinding, AssociateRecordingArtist, ChooseRecordingArtistIdentity,
-    MetadataProvider, MetadataSettings, ReadArtistDiscography, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, ResetRecordingArtistIdentity, UpdateMetadataSettings,
+    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadArtistDiscography,
+    ReadEditionTrackList, ReadReleaseGroupEditions, RecordingArtistIdentityChoice,
+    RecordingArtistIdentityState, ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity,
+    UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{

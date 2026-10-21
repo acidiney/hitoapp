@@ -9,6 +9,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 mod catalog;
+mod catalog_editions;
 mod lyrics;
 mod preparation;
 mod source_batch;

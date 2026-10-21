@@ -8,6 +8,7 @@ use sqlx::Row;
 use std::collections::BTreeSet;
 use zeroize::Zeroizing;
 
+mod catalog_editions;
 mod timed_content;
 
 pub(crate) struct Operation {

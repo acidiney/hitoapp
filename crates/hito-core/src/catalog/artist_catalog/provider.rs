@@ -3,7 +3,9 @@ use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_metadata_musicbrainz::MusicBrainzClient;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
-    ArtistSearchRequest, Capability, CatalogArtistProfile,
+    ArtistSearchRequest, Capability, CatalogArtistProfile, CatalogEditionOperation,
+    CatalogEditionTrackList, EditionTrackListRequest, ReleaseGroupEditionsPage,
+    ReleaseGroupEditionsRequest,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -67,6 +69,58 @@ impl Connection {
         match self {
             Self::Builtin(_) => Ok(true),
             Self::Http(operation) => operation.catalog_discography_supported().await,
+        }
+    }
+
+    pub(super) async fn edition_supported(
+        &self,
+        operation: CatalogEditionOperation,
+    ) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(true),
+            Self::Http(connection) => connection.catalog_edition_supported(operation).await,
+        }
+    }
+
+    pub(super) async fn editions(
+        &self,
+        request: &ReleaseGroupEditionsRequest,
+    ) -> Result<ReleaseGroupEditionsPage> {
+        match self {
+            Self::Builtin(client) => client
+                .release_group_editions(ReleaseGroupEditionsRequest {
+                    release_group_id: request.release_group_id.clone(),
+                    cursor: request.cursor.clone(),
+                    snapshot: request.snapshot.clone(),
+                    limit: request.limit,
+                })
+                .await
+                .map_err(|_| {
+                    Error::Upstream(
+                        "The metadata provider could not return valid release-group editions",
+                    )
+                }),
+            Self::Http(operation) => operation.catalog_release_group_editions(request).await,
+        }
+    }
+
+    pub(super) async fn edition_tracks(
+        &self,
+        request: &EditionTrackListRequest,
+    ) -> Result<CatalogEditionTrackList> {
+        match self {
+            Self::Builtin(client) => client
+                .edition_track_list(EditionTrackListRequest {
+                    edition_id: request.edition_id.clone(),
+                    release_group_id: request.release_group_id.clone(),
+                })
+                .await
+                .map_err(|_| {
+                    Error::Upstream(
+                        "The metadata provider could not return a valid edition track list",
+                    )
+                }),
+            Self::Http(operation) => operation.catalog_edition_track_list(request).await,
         }
     }
 
