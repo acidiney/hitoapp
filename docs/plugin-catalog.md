@@ -1,12 +1,12 @@
 # Catalog extension contracts
 
-The Apache-2.0 plugin SDK defines read-only artist search, artist profiles and paged discographies. The core host source can read reviewed artist profiles through an approved personal HTTP connection or the built-in MusicBrainz client. Artist search is an SDK contract only; its provider, core and UI integrations remain unfinished. Existing recording metadata and playlist operations remain separate.
+The Apache-2.0 plugin SDK defines read-only artist search, artist profiles, paged discographies, edition listings and complete edition track lists. Artist host and browser integration have separate evidence in the [catalog host](artist-catalog-host.md) and [discography](artist-discography.md) documentation. Edition integration is described below. Existing recording metadata and playlist operations remain separate.
 
 ## Negotiation and ownership
 
 A provider declares the existing `catalog` manifest capability. The separate `GET v1/catalog/capabilities` descriptor contains `catalog_version: 1` and a nonempty, unique `operations` list containing `artist_profile`, `artist_discography`, or both. The manifest shape, its serialization and its fingerprints remain unchanged.
 
-The future host integration must treat an absent descriptor as an unsupported extension. Unsupported catalog versions and operations must fail closed for this extension while leaving previously supported plugin functions available. Host authorization, bounded HTTP reads and revision checks are not implemented by the SDK types.
+Hosts must treat an absent descriptor as an unsupported extension. Unsupported catalog versions and operations must fail closed for this extension while leaving previously supported plugin functions available. Host authorization, bounded HTTP reads and revision checks are not implemented by the SDK types.
 
 ```mermaid
 flowchart LR
@@ -56,13 +56,36 @@ IDs and revisions are limited to 256 UTF-8 bytes. Names, sort names and disambig
 
 `ArtistDiscographyPage` returns the requested artist ID, snapshot, release-group items, nullable total count and nullable next cursor. Short pages are valid. Total count may remain unknown; an opaque cursor does not reveal a numeric offset. A non-null next cursor requires at least one item and must differ from the request cursor. IDs must be unique within a page. The host must separately detect repeated cursors across a traversal and bind continuation state to its authorized connection and query.
 
-Release groups represent album concepts. Their IDs are distinct from release editions, track occurrences and recordings. The contract preserves separate same-title groups. Selected-edition track lists need additional contracts and remain unfinished.
+Release groups represent album concepts. Their IDs are distinct from release editions, track occurrences and recordings. The contract preserves separate same-title groups. Selected-edition contracts are described below; their core, HTTP and browser integration remains unfinished.
 
 Each group contains an ID, title, nullable ordered artist credit, nullable primary kind, secondary type labels, nullable first-release date and nullable revision. Primary kinds are `album`, `ep`, `single`, `broadcast` and `other`. Partial dates retain their precision as `YYYY`, `YYYY-MM` or `YYYY-MM-DD` and must be calendar-valid.
 
 A present credit has 1 to 32 members. Each member retains a nullable identified artist, the credited display name and a join phrase. Repeated identified artists are permitted because a credit is an ordered performance credit, not a set. Unknown artists are not inferred from the credited name. Join phrases may be empty or contain spaces, are limited to 128 bytes and cannot contain control characters. A group has at most 16 distinct secondary labels of at most 128 bytes each.
 
 Cursors are limited to 2,048 bytes. Complete encoded discography pages are limited to 262,144 bytes. Validation counts serialized bytes through a bounded writer and stops on overflow without constructing another full response buffer. All object shapes reject unknown fields. Validation errors are static messages and do not echo provider content.
+
+## Editions and complete track lists
+
+The SDK defines a separate `v1/catalog/editions/capabilities` descriptor with `edition_version: 1`. Its unique, nonempty `operations` array may contain `release_group_editions`, `edition_track_list`, or both. Existing catalog and discovery descriptor bytes remain unchanged. The host must negotiate each operation independently; edition negotiation is not yet connected to core.
+
+`ReleaseGroupEditionsRequest` carries the exact provider release-group ID, nullable cursor and snapshot, and a limit from 1 to 50. The defined path is `v1/catalog/release-groups/editions`. Its page preserves the group, nullable snapshot, distinct edition identities, optional total and next cursor. Same-title editions remain separate. Continuation validation requires the exact snapshot, including null, a nonempty advancing page and bounded encoded output.
+
+`EditionTrackListRequest` carries both edition and release-group IDs. The defined path is `v1/catalog/editions/track-list`. Its result retains the exact identities, title, optional credits/revision and ordered media. Each medium has ordered track occurrences with its own identity, display number, kind, optional duration and optional provider recording reference. Repeated recording references are valid; repeated occurrence identities are not. Only pregaps use position zero. Data tracks remain distinct from audio.
+
+```mermaid
+flowchart LR
+    Group[Release group] --> Edition[Selected edition]
+    Edition --> Media[Ordered media]
+    Media --> Occurrences[Track occurrences]
+    Occurrences -. optional reference .-> Recording[Provider recording identity]
+    Recording -. resolved separately .-> Sources[Playable sources]
+```
+
+Generic provider IDs remain opaque strings of at most 256 UTF-8 bytes. Track lists allow at most 256 media, 4,096 occurrences and 262,144 encoded bytes. Positions must increase; the generic contract permits sparse numbering. Unknown credits, dates, durations, revisions and recording identities remain unknown. Listing metadata never establishes playable availability or adopts recordings.
+
+The built-in MusicBrainz adapter now implements these reads through its existing paced, bounded, fixed-origin transport. It validates canonical MusicBrainz IDs and exact returned group/edition identities, advances short browse pages by their actual returned count, and exposes no invented snapshot or revision. Complete track lists validate normal counts separately from pregap/data occurrences. Leading data tracks follow the upstream [medium serializer](https://github.com/metabrainz/musicbrainz-server/blob/master/lib/MusicBrainz/Server/WebService/Serializer/JSON/2/Medium.pm), preserving their original positions.
+
+Five edition HTTP fixtures and five named SDK contract/compatibility cases pass, including independent repeats. Strict default/schema checks and final source reviews pass. The tests cover explicit edition selection, short pages, repeated recordings, pregaps/data tracks, incomplete lists, mismatched identities, unchanged older wire bytes and safe logs. No dependency selections change. Core authority and continuation, HTTP plugin negotiation, authenticated application routes, generated contracts, browser navigation and live MusicBrainz acceptance remain open.
 
 ## Verification and remaining work
 
@@ -72,4 +95,4 @@ An allocation regression constructs a field-valid oversized page before observin
 
 The search allocation case separately calibrates its thread-local observer and rejects an encoded page larger than 128 KiB without a single validation allocation request exceeding 65,536 bytes. Independent search correctness and security reviews pass. The performance review found text trimming before length rejection; the length-first fix passes its second review and all 54 unchanged cases. These SDK checks do not establish provider transport, browser or release performance acceptance.
 
-Core source separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). The [reviewed-profile host](artist-catalog-host.md) adds account settings, explicit evidence associations and authorized profile reads. Candidate search transport and orchestration, preview and confirmation UI, automatic enrichment, caching, discography traversal, selected-edition tracks and optional similar artists remain unfinished. These source foundations do not satisfy the complete release requirement.
+Core source separately retains [raw artist tag assertions](metadata.md#musicbrainz-artist-tag-evidence-in-verified-source). The [reviewed-profile host](artist-catalog-host.md) adds account settings, explicit evidence associations and authorized profile reads. Subsequent [discography work](artist-discography.md) records artist-page browsing. Edition host/browser integration, automatic enrichment, caching and optional similar artists remain unfinished. These source foundations do not satisfy the complete release requirement.
