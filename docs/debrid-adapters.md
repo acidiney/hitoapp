@@ -1,6 +1,6 @@
 # Debrid adapter development
 
-The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open a narrowly qualified WAV stream. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated-WAV plugin service and executable now use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate observation and narrowly qualified audio clients below.
+The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open narrowly qualified WAV or explicitly declared MPEG-1 Layer III audio. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated plugin service and executable use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate observation and narrowly qualified audio clients below.
 
 ## Observation and ownership
 
@@ -16,8 +16,8 @@ flowchart LR
     Completed --> Unrestrict[POST only its private hoster link]
     Unrestrict --> Receipt[Validated acknowledgement or uncertain outcome]
     Receipt --> Destination[Approved origin and pinned public DNS]
-    Destination --> Audio[Qualified bounded WAV body]
-    Audio --> Service[Authenticated curated-WAV plugin service]
+    Destination --> Audio[Qualified original audio body]
+    Audio --> Service[Authenticated curated audio plugin service]
 ```
 
 The supported states are downloading and completed with exactly one selected file. Progress retains the provider's integer percentage as basis points. Provider completion does not mean that Hito has a playable source. Completion links are validated privately and discarded. The observer neither fetches audio nor creates files, transfers or downloads. Other provider states currently fail closed.
@@ -46,17 +46,27 @@ Each observation or unrestriction has one 12-second overall budget, including ad
 
 Opening has one nine-second budget across provider validation, unrestriction, DNS, TLS and the qualification prefix. Media TCP/TLS connection establishment has a two-second timeout within that budget. API and media use the same startup DNS configuration. Resolver work belongs to the calling future, with at most 16 background futures per lookup; the bounded DNS transport may retransmit packets and does not establish a zero-packet-retry guarantee.
 
-The current qualifier accepts a canonical 44-byte-header PCM16 WAV representation, with one to eight channels and sample rates from 8,000 to 384,000 Hz. Header lengths, alignment and the bound file size must agree. The returned body retains the exact file binding, length and format; it emits chunks no larger than 64 KiB, detects premature or excess bytes, and has a 15-second idle-read deadline. Two media permits remain owned through EOF, error or caller drop. Qualification does not prove the recording's musical identity, and MP3, AAC, other WAV layouts, conversion and seeking remain unfinished. No file or persistent download is created.
+The current qualifier accepts a canonical 44-byte-header PCM16 WAV representation, with one to eight channels and sample rates from 8,000 to 384,000 Hz. Header lengths, alignment and the bound file size must agree. The returned body retains the exact file binding, length and format; it emits chunks no larger than 64 KiB, detects premature or excess bytes, and has a 15-second idle-read deadline. Two media permits remain owned through EOF, error or caller drop. Qualification does not prove the recording's musical identity. Real-Debrid MP3 support is described below; AAC, other WAV layouts, conversion and seeking remain unfinished. No file or persistent download is created.
+
+## Real-Debrid MP3 relay
+
+Curated Real-Debrid recording entries can set `"audio_kind": "mp3"`. Omitting the field keeps the existing `pcm16_wav` default. Unsupported values fail before the executable binds its listener. The other three debrid adapters still select WAV explicitly.
+
+The shared opener qualifies the original bytes against the declaration. MP3 currently requires MPEG-1 Layer III, two complete consecutive frames with matching sample rate and channel count, and at most one leading ID3v2.3 or ID3v2.4 tag. The tag payload is limited to 61,440 bytes and the complete qualification prefix to 65,536 bytes. This check does not decode or validate the entire file, infer duration, or convert audio. GET emits `audio/mpeg` and retains original bytes through EOF. HEAD only observes the current binding, with no unrestriction or media request.
+
+Five authenticated HTTP cases pass, including an independent repeat. They cover native PCM and original bytes through EOF, declaration mismatches, malformed and incomplete prefixes, exact tag-size bounds and held partial headers. Fifty named client/executable regressions and the existing WAV service boundary cases pass. Legacy JSON startup, unsupported-kind rejection before binding, input preservation and safe logs are checked through the real executable. Scoped strict checks and three independent source reviews pass; dependencies are unchanged.
+
+The tested MP3 fixture is 48 kHz stereo at 128 kbit/s with ID3v2.4. Tagless, ID3v2.3, footer, mono, VBR and other accepted header profiles still need compatibility fixtures. A rebuilt restricted image, ordinary Hito account playback, browser/native behavior, seeking and live-provider acceptance remain open. This change does not resolve the VPS YouTube failure.
 
 ## Shared media ownership
 
-`hito-remote-audio` now owns the credential-free HTTPS, DNS and WAV-body policy used by Real-Debrid and AllDebrid. Provider clients still own credentials, current file authority and provider-specific acknowledgements. The shared body retains the caller's typed binding and maps failures to that provider's public error type.
+`hito-remote-audio` now owns the credential-free HTTPS, DNS and original-body policy used by the four debrid adapters. Provider clients still own credentials, current file authority and provider-specific acknowledgements. The shared body retains the caller's typed binding and maps failures to that provider's public error type.
 
 ```mermaid
 flowchart LR
     Opening[Shared media admission] --> Provider[Provider client revalidates its bound file]
     Provider --> Destination[Exact HTTPS origin and pinned public DNS]
-    Destination --> Body[Verified TLS and bounded WAV body]
+    Destination --> Body[Verified TLS and qualified original audio body]
     Body --> End[Validated EOF, failure or cancellation]
     End --> Release[Release the media permit]
 ```

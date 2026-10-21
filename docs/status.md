@@ -1,5 +1,7 @@
 # Implementation status
 
+Real-Debrid now relays explicitly declared MPEG-1 Layer III audio through the shared original-byte owner. Five MP3 HTTP cases, 50 named client/executable regressions, scoped strict checks, three source reviews and an independent MP3 repeat pass. Legacy JSON defaults to WAV; AllDebrid, Premiumize and TorBox retain WAV policy. Broader MP3 profiles, packaging, account playback and live acceptance remain open. The VPS YouTube failure is unresolved. See [support and limits](debrid-adapters.md#real-debrid-mp3-relay).
+
 The Premiumize executable now loads one curated connection from explicit private files and serves the existing plugin protocol. Twelve service cases and all 36 client cases pass, with both strict service modes and independent source review. A separate 48-case replay took 99.793 seconds with unchanged source and executable hashes. Packaging, application enrollment, active-audio shutdown and live-provider acceptance remain open. See [the executable boundary](debrid-adapters.md#premiumize-private-executable).
 
 TorBox candidates can now be encrypted and restored by recreated clients with the same private key, credential and exact context. Three new public workflows and all 38 legacy cases pass, including an independent 41-case repeat in 86.594 seconds. Restored candidates still require fresh provider verification before each audio opening. The service journal and restart recovery remain open. See [the client boundary](debrid-adapters.md#authenticated-candidate-persistence).
