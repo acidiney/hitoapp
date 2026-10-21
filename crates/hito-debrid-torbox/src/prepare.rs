@@ -1,12 +1,21 @@
 use crate::{Error, TorBoxClient, TorrentFileBinding, TorrentPhase, workflow::WorkflowLog};
 use serde::Deserialize;
 use std::time::{Duration, Instant};
+use tokio::sync::OwnedSemaphorePermit;
 use tracing::Instrument;
 use zeroize::{Zeroize, Zeroizing};
 
 pub struct GeneratedFileCandidate {
     binding: TorrentFileBinding,
     private_link: Zeroizing<String>,
+}
+
+pub struct VerifiedFilePreparation<'a> {
+    client: &'a TorBoxClient,
+    binding: TorrentFileBinding,
+    permit: OwnedSemaphorePermit,
+    deadline: tokio::time::Instant,
+    log: WorkflowLog,
 }
 
 impl GeneratedFileCandidate {
@@ -38,6 +47,14 @@ impl TorBoxClient {
         &self,
         binding: &TorrentFileBinding,
     ) -> Result<GeneratedFileCandidate, Error> {
+        self.verify_bound_file(binding).await?.mint().await
+    }
+
+    pub async fn verify_bound_file(
+        &self,
+        binding: &TorrentFileBinding,
+    ) -> Result<VerifiedFilePreparation<'_>, Error> {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(12);
         let mut log = WorkflowLog {
             started: Instant::now(),
             dispatch: tracing::dispatcher::get_default(Clone::clone),
@@ -47,28 +64,66 @@ impl TorBoxClient {
             count: 0,
             mint_dispatched: false,
         };
-        let result = tokio::time::timeout(
-            Duration::from_secs(12),
+        let result = tokio::time::timeout_at(
+            deadline,
             async {
                 let current = self.observe(binding).await?;
                 if current.phase != TorrentPhase::ProviderCompleted {
                     return Err(Error::SourceIncomplete);
                 }
-                let _permit = self.transport.admit()?;
-                let bytes = self
-                    .transport
-                    .mint_file(
-                        binding.torrent_id,
-                        binding.file_id,
-                        &mut log.mint_dispatched,
-                    )
-                    .await?;
-                candidate(&bytes, binding)
+                self.transport.admit()
             }
             .instrument(log.span.clone()),
         )
         .await
         .unwrap_or(Err(Error::Deadline));
+        match result {
+            Ok(permit) => Ok(VerifiedFilePreparation {
+                client: self,
+                binding: binding.clone(),
+                permit,
+                deadline,
+                log,
+            }),
+            Err(error) => {
+                log.outcome = error.outcome();
+                Err(error)
+            }
+        }
+    }
+}
+
+impl VerifiedFilePreparation<'_> {
+    pub async fn mint(self) -> Result<GeneratedFileCandidate, Error> {
+        let Self {
+            client,
+            binding,
+            permit: _permit,
+            deadline,
+            mut log,
+        } = self;
+        let result = if tokio::time::Instant::now() >= deadline {
+            Err(Error::Deadline)
+        } else {
+            tokio::time::timeout_at(
+                deadline,
+                async {
+                    let bytes = client
+                        .transport
+                        .mint_file(
+                            binding.torrent_id,
+                            binding.file_id,
+                            deadline,
+                            &mut log.mint_dispatched,
+                        )
+                        .await?;
+                    candidate(&bytes, &binding)
+                }
+                .instrument(log.span.clone()),
+            )
+            .await
+            .unwrap_or(Err(Error::Deadline))
+        };
         let result = if log.mint_dispatched {
             result.map_err(|error| match error {
                 Error::Status(401 | 403) | Error::ProviderRejected => error,

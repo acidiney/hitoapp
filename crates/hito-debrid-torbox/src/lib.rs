@@ -11,7 +11,7 @@ pub use binding::TorrentFileBinding;
 pub use client::{TorBoxClient, TorrentObservation, TorrentPhase};
 pub use error::Error;
 pub use media::BoundAudioOpening;
-pub use prepare::GeneratedFileCandidate;
+pub use prepare::{GeneratedFileCandidate, VerifiedFilePreparation};
 
 pub use hito_remote_audio::Pcm16WavFormat;
 pub type MediaAllowlist = hito_remote_audio::MediaAllowlist<Error>;

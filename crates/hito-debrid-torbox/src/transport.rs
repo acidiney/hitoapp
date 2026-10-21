@@ -97,6 +97,7 @@ impl Transport {
         &self,
         torrent_id: u64,
         file_id: u64,
+        deadline: Instant,
         dispatched: &mut bool,
     ) -> Result<Zeroizing<Vec<u8>>, Error> {
         let mut target = reqwest::Url::parse("https://api.torbox.app/v1/api/torrents/requestdl")
@@ -116,13 +117,13 @@ impl Transport {
             .header("accept-encoding", "identity")
             .build()
             .map_err(|_| Error::Configuration)?;
-        self.exchange(request, Some(dispatched)).await
+        self.exchange(request, Some((dispatched, deadline))).await
     }
 
     async fn exchange(
         &self,
         request: reqwest::Request,
-        dispatched: Option<&mut bool>,
+        dispatched: Option<(&mut bool, Instant)>,
     ) -> Result<Zeroizing<Vec<u8>>, Error> {
         {
             let mut start = self.next_start.lock().await;
@@ -131,7 +132,10 @@ impl Transport {
             }
             *start = Some(Instant::now() + Duration::from_millis(250));
         }
-        if let Some(dispatched) = dispatched {
+        if let Some((dispatched, deadline)) = dispatched {
+            if Instant::now() >= deadline {
+                return Err(Error::Deadline);
+            }
             *dispatched = true;
         }
         let mut response = self.client.execute(request).await.map_err(request_error)?;
