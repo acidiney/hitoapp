@@ -1,4 +1,4 @@
-use crate::{http::HttpState, policy::Error, preparation};
+use crate::{http::HttpState, journal::Target, policy::Error, preparation};
 use axum::{
     body::Body,
     extract::{Query, State, rejection::QueryRejection},
@@ -40,7 +40,8 @@ pub(crate) async fn response(
             .client
             .admit_bound_audio()
             .map_err(|_| Error::Unavailable)?;
-        let snapshot = state.operations.snapshot(index)?;
+        let target = Target::from(state.catalog.entry(index));
+        let snapshot = state.journal.snapshot(target.clone()).await?;
         let audio = match opening
             .open_retained(&snapshot.value, &state.media_origins)
             .await
@@ -57,13 +58,14 @@ pub(crate) async fn response(
                         PreparationReason::SourceUnavailable
                     };
                     state
-                        .operations
-                        .invalidate(index, snapshot.operation, reason)?;
+                        .journal
+                        .invalidate(target.clone(), snapshot.operation, reason)
+                        .await?;
                 }
                 return Err(Error::Unavailable);
             }
         };
-        if state.operations.candidate(index)? != Some(snapshot.operation) {
+        if state.journal.candidate(target).await? != Some(snapshot.operation) {
             return Err(Error::Unavailable);
         }
         let length = audio.length;

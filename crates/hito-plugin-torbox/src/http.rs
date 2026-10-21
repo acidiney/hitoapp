@@ -1,13 +1,16 @@
 use crate::{
-    Config, InitError, audio,
+    audio,
     catalog::Catalog,
+    journal::{Handle, Target},
     policy::{Error, Policy},
-    preparation::{self, Operations},
+    preparation,
 };
 use axum::{
     Json, Router,
+    extract::Request,
     extract::{DefaultBodyLimit, State, rejection::JsonRejection},
-    middleware::from_fn_with_state,
+    middleware::{Next, from_fn_with_state},
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
@@ -17,26 +20,34 @@ use hito_plugin_sdk::{
     ProviderRecording, ProviderSource, RecordingRequest, SearchPage, SearchRequest, SourcePage,
     SourcePersistence,
 };
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 pub(crate) struct HttpState {
     pub(crate) catalog: Catalog,
     pub(crate) client: TorBoxClient,
     pub(crate) media_origins: MediaAllowlist,
-    pub(crate) operations: Arc<Operations>,
+    pub(crate) journal: Handle,
 }
 
-pub(crate) fn router(config: Config) -> Result<Router, InitError> {
-    let policy = Arc::new(Policy::new(config.service_bearer)?);
-    let catalog = Catalog::new(config.recordings)?;
-    let operations = Operations::new(catalog.len());
+pub(crate) fn router(
+    policy: Policy,
+    catalog: Catalog,
+    client: TorBoxClient,
+    media_origins: MediaAllowlist,
+    gate: Arc<AtomicBool>,
+    journal: Handle,
+) -> Router {
+    let policy = Arc::new(policy);
     let state = Arc::new(HttpState {
         catalog,
-        client: config.client,
-        media_origins: config.media_origins,
-        operations,
+        client,
+        media_origins,
+        journal,
     });
-    Ok(Router::new()
+    Router::new()
         .route("/v1/manifest", get(manifest))
         .route("/v1/search", post(search))
         .route("/v1/recordings/detail", post(detail))
@@ -45,8 +56,16 @@ pub(crate) fn router(config: Config) -> Result<Router, InitError> {
         .route("/v1/sources/preparation/status", post(status))
         .route("/v1/audio", get(audio::response))
         .layer(DefaultBodyLimit::max(4096))
+        .layer(from_fn_with_state(gate, admitted))
         .layer(from_fn_with_state(policy, crate::policy::observe))
-        .with_state(state))
+        .with_state(state)
+}
+
+async fn admitted(State(gate): State<Arc<AtomicBool>>, request: Request, next: Next) -> Response {
+    if !gate.load(Ordering::Acquire) {
+        return Error::Unavailable.into_response();
+    }
+    next.run(request).await
 }
 
 async fn manifest() -> Json<Manifest> {
@@ -112,7 +131,13 @@ async fn prepare(
     let index = state
         .catalog
         .target(&request.recording_id, &request.source_id)?;
-    let step = state.operations.submit(request.operation_id, index)?;
+    let step = state
+        .journal
+        .submit(
+            request.operation_id,
+            Target::from(state.catalog.entry(index)),
+        )
+        .await?;
     let (handle, status) = preparation::settle(&state, index, step).await?;
     Ok(Json(PreparationSubmitResponse {
         operation_id: request.operation_id,
@@ -132,8 +157,13 @@ async fn status(
         .catalog
         .target(&request.recording_id, &request.source_id)?;
     let step = state
-        .operations
-        .poll(request.operation_id, index, &request.handle)?;
+        .journal
+        .poll(
+            request.operation_id,
+            Target::from(state.catalog.entry(index)),
+            &request.handle,
+        )
+        .await?;
     let (handle, status) = preparation::settle(&state, index, step).await?;
     Ok(Json(PreparationStatusResponse {
         operation_id: request.operation_id,

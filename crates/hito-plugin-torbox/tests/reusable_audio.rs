@@ -12,6 +12,8 @@ pub mod owned_tls;
 pub mod provider;
 #[path = "../../hito-debrid-torbox/tests/audio/scripted_media.rs"]
 pub mod scripted_media;
+#[path = "support/state_inputs.rs"]
+mod state_inputs;
 #[path = "support/reusable_workflow.rs"]
 pub mod workflow;
 
@@ -45,11 +47,15 @@ async fn two_complete_gets_revalidate_one_ready_candidate_without_another_mint()
         assert_eq!(media, 2);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),
@@ -95,10 +101,14 @@ async fn transient_provider_failure_keeps_the_candidate_and_receipt_for_get_retr
         assert_eq!(media, 1);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "http_rejected"),
                 ("bound_audio_opening", "http_rejected"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),
@@ -165,14 +175,19 @@ async fn one_candidate_holds_two_media_slots_and_recovers_after_a_cancelled_body
         assert_eq!(media, 3);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "busy"),
                 ("bound_audio_opening", "cancelled"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),
@@ -238,8 +253,11 @@ async fn changed_file_retires_readiness_with_its_original_receipt_and_no_media()
         assert_eq!(media, 0);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "source_changed"),
                 ("bound_audio_opening", "source_changed"),
                 ("bound_audio_opening", "cancelled"),

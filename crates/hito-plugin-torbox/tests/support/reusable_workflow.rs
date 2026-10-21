@@ -1,10 +1,10 @@
-use super::{fixtures, http, logs, provider, scripted_media};
+use super::{fixtures, http, logs, provider, scripted_media, state_inputs};
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
 use hito_plugin_sdk::{
     PreparationRequest, PreparationStatus, PreparationStatusRequest, PreparationStatusResponse,
     PreparationSubmission, PreparationSubmitResponse, ProviderRecording, SourcePage,
 };
-use hito_plugin_torbox::{Config, CuratedWavRecording, router};
+use hito_plugin_torbox::{Config, CuratedWavRecording};
 use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -22,7 +22,7 @@ pub struct Saved {
 
 pub struct Workflow {
     pub client: reqwest::Client,
-    pub service: http::Server,
+    pub service: state_inputs::Server,
     pub provider: provider::Fixture,
     pub media: scripted_media::ScriptedMedia,
     pub capture: logs::Capture,
@@ -36,8 +36,10 @@ impl Workflow {
         let media = scripted_media::ScriptedMedia::start(audio).await;
         let provider = provider::Fixture::responses(replies).await;
         let capture = logs::Capture::default();
-        let service = http::Server::start(
-            router(Config {
+        let inputs = state_inputs::Inputs::new();
+        let service = state_inputs::Server::start(
+            Config {
+                state: inputs.next(),
                 service_bearer: SERVICE_TOKEN.into(),
                 client: TorBoxClient::with_test_tls_media(
                     fixtures::TOKEN.into(),
@@ -70,9 +72,9 @@ impl Workflow {
                     label: "Curated canonical PCM16 WAV".into(),
                     binding: fixtures::binding(),
                 }],
-            })
-            .unwrap(),
+            },
             capture.dispatch(),
+            Some(inputs),
         )
         .await;
         let client = reqwest::Client::builder()

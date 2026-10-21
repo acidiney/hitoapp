@@ -78,6 +78,11 @@ impl Capture {
         let mut preparations = Vec::new();
         let mut opening = None;
         let mut body = None;
+        let mut persistence = Vec::new();
+        let mut lifecycle = Vec::new();
+        let mut completed_commands = 0;
+        let mut rejected_commands = 0;
+        let mut transitions = Vec::new();
         for event in &events {
             assert_eq!(event["level"], "DEBUG");
             let fields = &event["fields"];
@@ -94,6 +99,30 @@ impl Capture {
                     4
                 );
             }
+            let state_event = |target: &str, name: &str| {
+                assert_eq!(event["target"], target);
+                assert_eq!(event["span"]["name"], name);
+                let root = event.as_object().unwrap();
+                assert_eq!(root.len(), 5);
+                assert!(root.keys().all(|key| matches!(
+                    key.as_str(),
+                    "level" | "fields" | "target" | "span" | "spans"
+                )));
+                let fields = fields.as_object().unwrap();
+                assert_eq!(fields.len(), 4);
+                assert!(fields.keys().all(|key| matches!(
+                    key.as_str(),
+                    "event" | "outcome" | "count" | "elapsed_ms"
+                )));
+                for span in spans {
+                    let span = span.as_object().unwrap();
+                    assert_eq!(span.len(), 3);
+                    assert!(
+                        span.keys()
+                            .all(|key| matches!(key.as_str(), "name" | "request_id" | "operation"))
+                    );
+                }
+            };
             let id = event["span"]["request_id"].as_str().unwrap();
             match fields["event"].as_str().unwrap() {
                 "torbox_plugin_request_finished" => {
@@ -124,6 +153,76 @@ impl Capture {
                     assert_eq!(fields["outcome"], "complete");
                     assert_eq!(fields["bytes"], fixtures::WAV_BYTES);
                 }
+                name @ ("torbox_candidate_authority_finished"
+                | "torbox_candidate_sealing_finished"
+                | "torbox_candidate_restoration_finished") => {
+                    state_event(
+                        "hito_debrid_torbox::workflow",
+                        "torbox_candidate_persistence",
+                    );
+                    let (operation, outcome) = match name {
+                        "torbox_candidate_authority_finished" => {
+                            ("candidate_authority", "complete")
+                        }
+                        "torbox_candidate_sealing_finished" => ("candidate_sealing", "sealed"),
+                        "torbox_candidate_restoration_finished" => {
+                            ("candidate_restoration", "restored")
+                        }
+                        _ => unreachable!(),
+                    };
+                    assert_eq!(event["span"]["operation"], operation);
+                    assert_eq!(fields["outcome"], outcome);
+                    assert_eq!(fields["count"], 1);
+                    persistence.push(operation);
+                }
+                name @ ("torbox_journal_open_finished" | "torbox_journal_close_finished") => {
+                    state_event("hito_plugin_torbox::journal", "torbox_journal");
+                    let (operation, outcome) = if name == "torbox_journal_open_finished" {
+                        ("journal_open", "ready")
+                    } else {
+                        ("journal_close", "joined")
+                    };
+                    assert_eq!(event["span"]["operation"], operation);
+                    assert_eq!(fields["outcome"], outcome);
+                    assert_eq!(fields["count"], 0);
+                    lifecycle.push(operation);
+                }
+                "torbox_journal_command_finished" => {
+                    state_event("hito_plugin_torbox::journal", "torbox_journal");
+                    let operation = event["span"]["operation"].as_str().unwrap();
+                    assert!(matches!(
+                        operation,
+                        "receipt_admission"
+                            | "receipt_status"
+                            | "candidate_current"
+                            | "candidate_snapshot"
+                            | "mint_intent"
+                            | "receipt_completion"
+                    ));
+                    match fields["outcome"].as_str().unwrap() {
+                        "complete" => {
+                            assert_eq!(fields["count"], 1);
+                            completed_commands += 1;
+                        }
+                        "rejected" => {
+                            assert_eq!(operation, "receipt_status");
+                            assert_eq!(fields["count"], 0);
+                            rejected_commands += 1;
+                        }
+                        _ => panic!("an unqualified journal command outcome was captured"),
+                    }
+                }
+                "torbox_journal_transition_committed" => {
+                    state_event(
+                        "hito_plugin_torbox::journal::transactions",
+                        "torbox_journal",
+                    );
+                    assert_eq!(fields["count"], 1);
+                    transitions.push((
+                        event["span"]["operation"].as_str().unwrap(),
+                        fields["outcome"].as_str().unwrap(),
+                    ));
+                }
                 _ => panic!("an unqualified event reached workflow logs"),
             }
         }
@@ -141,6 +240,27 @@ impl Capture {
         );
         assert_eq!(preparations, ["incomplete", "candidate"]);
         assert!(opening.is_some() && opening == body);
+        assert_eq!(
+            persistence,
+            [
+                "candidate_authority",
+                "candidate_sealing",
+                "candidate_restoration"
+            ]
+        );
+        assert_eq!(lifecycle, ["journal_open", "journal_close"]);
+        assert_eq!((completed_commands, rejected_commands), (17, 1));
+        assert_eq!(
+            transitions,
+            [
+                ("receipt_admission", "checking"),
+                ("receipt_completion", "preparing"),
+                ("receipt_status", "checking"),
+                ("mint_intent", "mint_intent"),
+                ("receipt_completion", "ready"),
+            ]
+        );
+        assert_eq!(events.len(), 54);
     }
 }
 

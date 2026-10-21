@@ -11,12 +11,17 @@ test-support = ["hito-debrid-torbox/test-support"]
 
 [dependencies]
 axum.workspace = true
+cap-fs-ext.workspace = true
+cap-std.workspace = true
 futures-util.workspace = true
+hmac = "=0.12.1"
 hito-debrid-torbox = { path = "../hito-debrid-torbox" }
 hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+libc = "=0.2.190"
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+sqlx.workspace = true
 subtle = "=2.6.1"
 thiserror.workspace = true
 tokio.workspace = true
@@ -29,6 +34,7 @@ hito-audio = { path = "../hito-audio" }
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
 reqwest.workspace = true
 rustls.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
 tokio-rustls = { version = "=0.26.6", default-features = false }
 tracing-subscriber.workspace = true

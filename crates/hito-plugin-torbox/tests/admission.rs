@@ -17,8 +17,11 @@ pub mod scripted_media;
 
 use admission_provider::{Provider, Step};
 use admission_workflow::{audio, head, prepare, ready, replay, selection};
+#[path = "support/state_inputs.rs"]
+mod state_inputs;
+
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
-use hito_plugin_torbox::{Config, router};
+use hito_plugin_torbox::Config;
 use reqwest::StatusCode;
 use std::time::Duration;
 
@@ -51,8 +54,10 @@ async fn busy_audio_admission_keeps_the_ready_receipt_and_candidate_for_retry_wi
         ])
         .await;
         let capture = logs::Capture::default();
-        let plugin = http::Server::start(
-            router(Config {
+        let inputs = state_inputs::Inputs::new();
+        let plugin = state_inputs::Server::start(
+            Config {
+                state: inputs.next(),
                 service_bearer: SERVICE_TOKEN.into(),
                 client: TorBoxClient::with_test_tls_media(
                     fixtures::TOKEN.into(),
@@ -68,9 +73,9 @@ async fn busy_audio_admission_keeps_the_ready_receipt_and_candidate_for_retry_wi
                 )])
                 .unwrap(),
                 recordings: (0..3).map(selection).collect(),
-            })
-            .unwrap(),
+            },
             capture.dispatch(),
+            Some(inputs),
         )
         .await;
         let client = reqwest::Client::builder()
@@ -138,20 +143,27 @@ async fn busy_audio_admission_keeps_the_ready_receipt_and_candidate_for_retry_wi
         assert_eq!(media.close().await, 3);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "busy"),
                 ("torrent_observation", "provider_completed"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "cancelled"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),

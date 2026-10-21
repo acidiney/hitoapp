@@ -20,12 +20,15 @@ pub mod scripted_media;
 pub mod workflow;
 
 use concurrent_provider::{ConcurrentProvider, Exchange, completed};
+#[path = "support/state_inputs.rs"]
+mod state_inputs;
+
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
 use hito_plugin_sdk::{
     PreparationRequest, PreparationStatus, PreparationStatusRequest, PreparationStatusResponse,
     PreparationSubmission, PreparationSubmitResponse, ProviderRecording, SourcePage,
 };
-use hito_plugin_torbox::{Config, CuratedWavRecording, router};
+use hito_plugin_torbox::{Config, CuratedWavRecording};
 use provider::reply::Reply;
 use reqwest::{Method, StatusCode};
 use std::time::Duration;
@@ -111,12 +114,16 @@ async fn held_control_observations_do_not_consume_the_ready_audio_candidate() {
         assert_eq!(media.close().await, 1);
         capture.assert_operations(
             &[
+                ("candidate_authority", "complete"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_file_preparation", "candidate"),
+                ("candidate_sealing", "sealed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "busy"),
                 ("bound_audio_opening", "busy"),
                 ("torrent_observation", "provider_completed"),
                 ("torrent_observation", "provider_completed"),
+                ("candidate_restoration", "restored"),
                 ("torrent_observation", "provider_completed"),
                 ("bound_audio_opening", "complete"),
                 ("bound_audio_opening", "complete"),
@@ -162,8 +169,12 @@ async fn a_provider_rate_limit_keeps_the_ready_candidate_for_an_explicit_retry()
         assert_eq!(provider.close().await, (4, 1));
         assert_eq!(media.close().await, 1);
         capture.assert_operations(&[
+            ("candidate_authority", "complete"),
             ("torrent_observation", "provider_completed"), ("bound_file_preparation", "candidate"),
+            ("candidate_sealing", "sealed"),
+            ("candidate_restoration", "restored"),
             ("torrent_observation", "http_rejected"), ("bound_audio_opening", "http_rejected"),
+            ("candidate_restoration", "restored"),
             ("torrent_observation", "provider_completed"), ("bound_audio_opening", "complete"), ("bound_audio_opening", "complete"),
         ], &[fixtures::TOKEN, SERVICE_TOKEN, COOKIE, "album/owned.wav", &receipt.handle]);
     }).await.expect("the owned TorBox provider rate-limit control exceeded its deadline");
@@ -173,9 +184,11 @@ async fn start(
     provider: &ConcurrentProvider,
     media: &scripted_media::ScriptedMedia,
     dispatch: tracing::Dispatch,
-) -> (http::Server, reqwest::Client) {
-    let service = http::Server::start(
-        router(Config {
+) -> (state_inputs::Server, reqwest::Client) {
+    let inputs = state_inputs::Inputs::new();
+    let service = state_inputs::Server::start(
+        Config {
+            state: inputs.next(),
             service_bearer: SERVICE_TOKEN.into(),
             client: TorBoxClient::with_test_tls_media(
                 fixtures::TOKEN.into(),
@@ -203,9 +216,9 @@ async fn start(
                 label: "Curated canonical PCM16 WAV".into(),
                 binding: fixtures::binding(),
             }],
-        })
-        .unwrap(),
+        },
         dispatch,
+        Some(inputs),
     )
     .await;
     let client = reqwest::Client::builder()

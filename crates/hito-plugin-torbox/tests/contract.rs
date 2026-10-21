@@ -13,9 +13,12 @@ mod requests;
 #[path = "support/workflow.rs"]
 mod workflow;
 
+#[path = "support/state_inputs.rs"]
+mod state_inputs;
+
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
 use hito_plugin_sdk::ProviderRecording;
-use hito_plugin_torbox::{Config, CuratedWavRecording, router};
+use hito_plugin_torbox::{Config, CuratedWavRecording};
 use reqwest::StatusCode;
 use std::time::{Duration, Instant};
 
@@ -47,8 +50,10 @@ async fn authenticated_preparation_waits_then_revalidates_only_its_bound_wav_thr
         let original = serde_json::to_vec(&binding).unwrap();
         binding.validate().unwrap();
         let capture = logs::Capture::default();
-        let plugin = http::Server::start(
-            router(Config {
+        let inputs = state_inputs::Inputs::new();
+        let plugin = state_inputs::Server::start(
+            Config {
+                state: inputs.next(),
                 service_bearer: SERVICE_TOKEN.into(),
                 client: TorBoxClient::with_test_tls_media(
                     fixtures::TOKEN.into(),
@@ -69,9 +74,9 @@ async fn authenticated_preparation_waits_then_revalidates_only_its_bound_wav_thr
                     label: "Curated canonical PCM16 WAV".into(),
                     binding: binding.clone(),
                 }],
-            })
-            .unwrap(),
+            },
             capture.dispatch(),
+            Some(inputs),
         )
         .await;
         let client = reqwest::Client::builder()

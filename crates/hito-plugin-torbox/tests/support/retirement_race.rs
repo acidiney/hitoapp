@@ -51,7 +51,11 @@ async fn later_source_change_upgrades_same_operation_retired_by_an_overlapping_g
         assert_eq!(provider.close().await, (4, 1));
         assert_eq!(media.close().await, 0);
         capture.assert_operations(&[
+            ("candidate_authority", "complete"),
             ("torrent_observation", "provider_completed"), ("bound_file_preparation", "candidate"),
+            ("candidate_sealing", "sealed"),
+            ("candidate_restoration", "restored"),
+            ("candidate_restoration", "restored"),
             ("torrent_observation", "incomplete"), ("bound_audio_opening", "incomplete"),
             ("torrent_observation", "source_changed"), ("bound_audio_opening", "source_changed"),
         ], &[fixtures::TOKEN, SERVICE_TOKEN, COOKIE, "album/owned.wav", "album/changed.wav", &receipt.handle]);
@@ -110,10 +114,16 @@ async fn an_older_source_change_cannot_retire_a_newer_ready_operation() {
         assert_eq!(provider.close().await, (7, 2));
         assert_eq!(media.close().await, 1);
         capture.assert_operations(&[
+            ("candidate_authority", "complete"),
             ("torrent_observation", "provider_completed"), ("bound_file_preparation", "candidate"),
+            ("candidate_sealing", "sealed"),
+            ("candidate_restoration", "restored"),
+            ("candidate_restoration", "restored"),
             ("torrent_observation", "incomplete"), ("bound_audio_opening", "incomplete"),
             ("torrent_observation", "provider_completed"), ("bound_file_preparation", "candidate"),
+            ("candidate_sealing", "sealed"),
             ("torrent_observation", "source_changed"), ("bound_audio_opening", "source_changed"),
+            ("candidate_restoration", "restored"),
             ("torrent_observation", "provider_completed"), ("bound_audio_opening", "complete"), ("bound_audio_opening", "complete"),
         ], &[fixtures::TOKEN, SERVICE_TOKEN, COOKIE, "album/owned.wav", "album/changed.wav", &old_receipt.handle, &new_receipt.handle]);
     }).await.expect("the owned TorBox newer-operation isolation exceeded its deadline");
