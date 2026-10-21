@@ -88,7 +88,10 @@ test("HTTP LAN navigation fetches fresh private pages through history while pres
   const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
     const path = String(input);
     if (path === "/api/v1/me") return Response.json(account);
-    if (path.includes("/sources"))
+    if (
+      path === `/api/v1/recordings/${recording.id}/playback-sources` ||
+      path.includes("/sources")
+    )
       return Response.json([{ id: "owned-source", ready: true }]);
     return new Response(null, { status: 404 });
   });
