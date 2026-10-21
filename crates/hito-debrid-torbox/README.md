@@ -1,6 +1,6 @@
 # TorBox observation foundation
 
-This crate observes one already configured TorBox torrent file through the provider's HTTPS API. It is a source implementation with deterministic protocol tests. It is not yet connected to a Hito plugin service or application playback.
+This crate observes one already configured TorBox torrent file through the provider's HTTPS API. It has deterministic protocol tests and supports the separate curated HTTP service library. That service is not deployable yet, and application playback integration remains open.
 
 ## Observation contract
 
@@ -35,7 +35,7 @@ The inspected primary documentation does not define torrent progress scale, cano
 
 ## Generated links and bounded audio
 
-This crate prepares one opaque generated-link candidate after freshly observing its exact completed file binding. Opening consumes that candidate and observes the binding again before the shared `hito-remote-audio` opener validates an explicitly approved media origin, public DNS pinning, TLS, response framing and canonical PCM16 WAV. Candidates own zeroizing private URLs without URL getters, Debug or serialization. The result does not prove recording identity or content integrity.
+This crate prepares one opaque generated-link candidate after freshly observing its exact completed file binding. The original opening API consumes that candidate; `BoundAudioOpening::open_retained` can instead borrow one retained by its service owner. Both observe the binding again before the shared `hito-remote-audio` opener validates an explicitly approved media origin, public DNS pinning, TLS, response framing and canonical PCM16 WAV. Candidates own zeroizing private URLs without URL getters, Debug or serialization. The result does not prove recording identity or content integrity.
 
 The [official generated-link route](https://api.torbox.app/openapi.json) requires the API token in the `token` query parameter, rather than a bearer header. Hito sends the caller's exact torrent/file IDs, including file ID zero, and explicit `zip_link=false`, `redirect=false`, `append_name=false`. It omits `user_ip`. A valid acknowledgment supplies one JSON string candidate. The [official SDK contract](https://github.com/TorBox-App/torbox-sdk-js/blob/main/documentation/services/TorrentsService.md#requestdownloadlink) describes a metered expiring link and contains inconsistent start-window wording, so Hito assigns no durable lifetime. A dispatched minting GET without a usable acknowledgment is uncertain and receives no automatic retry. Explicit authentication denials and well-formed provider rejections retain typed errors. A cancelled dispatched mint logs uncertainty.
 
@@ -43,7 +43,7 @@ The shared opener copies no provider Authorization, Cookie or Referer headers in
 
 Ten audio protocol cases and the original twelve observation cases pass in isolated Docker Compose tools. The first audio tracer failed against the unsupported scaffold, then passed unchanged after implementation. Remaining audio controls passed on first observation, except one incorrect test oracle that initially expected misleading MIME to override valid WAV bytes. The shared byte-validation policy remained unchanged: the positive now consumes exact bytes through EOF and decodes every PCM sample; actual HTML/non-WAV, malformed WAV, framing, redirect and origin negatives still fail.
 
-The audio cases cover exact signed-query requests, fresh incomplete/changed-file denial before media, file ID zero, lost/malformed/oversized/cancelled/timed-out acknowledgments, no automatic retry, private correlated logs, shared active-body admission, body drop and cancellation during media qualification. Peer-closure witnesses complete before forced fixture shutdown while another client remains alive. Default and test-support configurations pass strict all-target Clippy and formatting. Independent review/repeat and live-provider acceptance remain separate gates; this source has no TorBox plugin service or application playback connection.
+The audio cases cover exact signed-query requests, fresh incomplete/changed-file denial before media, file ID zero, lost/malformed/oversized/cancelled/timed-out acknowledgments, no automatic retry, private correlated logs, shared active-body admission, body drop and cancellation during media qualification. Peer-closure witnesses complete before forced fixture shutdown while another client remains alive. Default and test-support configurations pass strict all-target Clippy and formatting. The separate service's reusable-audio qualification is recorded in [its README](../hito-plugin-torbox/README.md). Live-provider acceptance and application playback remain open.
 
 ```sh
 docker compose -p hito-torbox-audio-checks \
