@@ -1,6 +1,6 @@
 # Reviewed artist discography
 
-Core, an authenticated HTTP route and shared recording-detail and chosen-artist controls can read release-group pages for an explicitly confirmed recording-credit association. The provider and provider artist identity come from that retained association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Selected-edition traversal, playable availability and normal-server publication remain unfinished.
+Core, authenticated HTTP routes and shared recording-detail and chosen-artist controls can read release groups, list their editions and show a selected edition's complete track list. The provider and provider artist identity come from an explicitly confirmed recording-credit association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Packaged edition acceptance, playable availability and normal-server publication remain unfinished.
 
 ## Ownership
 
@@ -58,7 +58,7 @@ This qualifies the shared recording-detail workflow in source. The 50-page bound
 
 An explicitly chosen artist page offers Browse full discography. The workflow reads the anchor recording's saved association, checks its account, recording, artist and exact provider identity, then reads that reviewed profile. A matching response opens the existing catalog controls and requests the first page of 20 release groups. Library track and catalog pagination remain independent. Later pages and retries require an explicit action.
 
-The shared Recording Details control retains its original explicit-browse default. Both contexts use the same bounded, read-only catalog route and rendering. Same-title groups keep distinct identities. Neither workflow imports metadata, resolves sources, opens audio or creates downloads. Selected editions, their complete track lists and local/playable availability remain unfinished.
+The shared Recording Details control retains its original explicit-browse default. Both contexts use the same bounded, read-only catalog route and rendering. Same-title groups keep distinct identities. Neither workflow imports metadata, resolves sources, opens audio or creates downloads. Shared edition controls are qualified below; local/playable availability remains unfinished.
 
 The chosen-page loader has a 20-second deadline across association and profile headers and bodies. Account, group, anchor or provider changes and unmount abort the request and fence late results. Disabled, unsupported, unavailable and cancelled outcomes remain visible and retryable. Logs record generated correlation IDs, safe outcomes and elapsed times. The page retains the identity snapshot it received; a choice reset elsewhere requires a reload, rather than an unimplemented cross-tab update guarantee.
 
@@ -105,4 +105,14 @@ Two authenticated POST routes under `/api/v1/recordings/{id}/artist-associations
 
 The new public Router workflow and existing discography regression pass, with strict all-target server checks. The new workflow also passes an independent Docker repeat. It reviews a real imported recording, pages two edition results, selects one exact version and verifies ordered repeated track occurrences. Anonymous requests fail before provider work, and private library/collection/download state remains unchanged.
 
-Actual Rust export and offline TypeScript generation add two paths and ten reachable schemas while preserving the previous 103 paths and 247 schemas. An independent run of the qualified export reproduces the final OpenAPI bytes. Shared UI controls and packaged/live acceptance remain open. Neither the normal server nor VPS was updated.
+Actual Rust export and offline TypeScript generation add two paths and ten reachable schemas while preserving the previous 103 paths and 247 schemas. An independent run of the qualified export reproduces the final OpenAPI bytes. Shared controls are qualified below; packaged/live acceptance remains open. Neither the normal server nor VPS was updated.
+
+## Shared edition controls
+
+Each release group offers Browse editions. Closed controls hold no request workflows; the first explicit action mounts the listing and detail owners and requests 20 summaries. Load more editions submits only the Hito continuation. Same-title editions retain separate identities. Choosing one requests its complete ordered media and track occurrences, including pregaps, data tracks and repeated recordings. Unknown metadata stays explicit, and the UI states that audio availability has not been checked. These controls do not adopt metadata, change library records, play audio or create downloads.
+
+Listing stops after 50 requested pages, at most 1,000 summaries. Detail responses are bounded to 256 media and 4,096 occurrences. Each request has a 20-second deadline through headers and success/error bodies. Account, recording, reviewed association, provider/profile, release-group and selected-edition changes abort retired requests and fence late results. A replacement context requires a fresh explicit action. Failed later pages retain known rows and offer an explicit restart with a null continuation; a complete 409 requires that restart. Track-list failures have an explicit retry and no pagination token.
+
+Sixteen DOM cases pass for selection, order, cancellation, late replies, deadlines, invalid statuses, retries, continuation recovery, StrictMode and the page limit. An invalid-status regression first exposed unsafe completion logging and missing recovery; the API adapter now validates the closed status set before either workflow consumes it. A resource regression first measured four controllers for one closed group and 42 for twenty. Deferring workflow ownership changes both counts to two. This measures controller allocation, not heap size or catalog-cap rendering latency.
+
+Both TypeScript configurations, the production build and all 607 frontend tests across 191 files pass. The two-round source review resolves the eager-allocation finding. An independent combined-source Docker run passes 33 edition, existing discography and chosen-artist cases across eight files in 4.681 seconds, with all 16 checked source/contract inputs unchanged and no test containers remaining. Packaged edition browsing, full catalog rendering performance, playable matching, live providers and deployment remain separate gates. The normal server and VPS are unchanged.
