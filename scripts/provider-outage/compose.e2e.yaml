@@ -1,0 +1,147 @@
+x-owned: &owned
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  restart: "no"
+  labels:
+    org.hito.owned-fixture: provider-outage
+    org.hito.fixture-run: ${HITO_OUTAGE_RUN_ID:?Set the unique owned run identity}
+  logging: { driver: json-file, options: { max-size: 5m, max-file: "1" } }
+x-server: &server
+  <<: *owned
+  profiles: [e2e]
+  network_mode: service:outage-keeper
+  depends_on:
+    outage-keeper: { condition: service_started }
+  environment:
+    HITO_PUBLIC_ORIGIN: http://localhost:8080
+    HITO_DATABASE: /data/outage.db
+    HITO_STORAGE_MANIFEST: /music/storage.json
+    HITO_LOG_FORMAT: json
+    RUST_LOG: info,hito_core=debug,hito_server=debug
+  volumes:
+    - outage-data:/data
+    - ${HITO_OUTAGE_MUSIC:?Set the owned music directory}:/music:ro
+  tmpfs:
+    - /tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+  mem_limit: 512m
+  pids_limit: 128
+  cpus: "1.0"
+  stop_grace_period: 15s
+  healthcheck:
+    test: [CMD, curl, -fsS, http://localhost:8080/health]
+    interval: 1s
+    timeout: 2s
+    retries: 30
+services:
+  outage-keeper:
+    <<: *owned
+    profiles: [e2e]
+    image: ${HITO_OUTAGE_NODE_IMAGE:?Set the immutable existing Node image}
+    network_mode: none
+    volumes: ["outage-data:/data:ro", "outage-control:/control:ro"]
+    command: [node, -e, "setInterval(() => {}, 60000)"]
+    mem_limit: 64m
+    pids_limit: 32
+  outage-legacy:
+    <<: *server
+    image: ${HITO_OUTAGE_LEGACY_IMAGE:?Set the immutable version54 runtime}
+  outage-current:
+    <<: *server
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable version55 runtime}
+  outage-migrate:
+    <<: *owned
+    profiles: [tools]
+    image: ${HITO_PACKAGED_IMAGE:?Set the immutable version55 runtime}
+    network_mode: none
+    volumes: ["outage-data:/data"]
+    tmpfs: ["/tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev"]
+    command: [migrate, --database, /data/outage.db, --expect-version, "54"]
+    mem_limit: 512m
+    pids_limit: 128
+  outage-browser:
+    <<: *owned
+    profiles: [e2e]
+    image: ${HITO_OUTAGE_BROWSER_IMAGE:?Set the immutable existing Playwright image}
+    working_dir: /workspace/apps/web
+    network_mode: service:outage-keeper
+    depends_on:
+      outage-keeper: { condition: service_started }
+    environment:
+      HITO_TEST_URL: http://localhost:8080
+      HITO_PROVIDER_OUTAGE_E2E: "1"
+      HITO_OUTAGE_RUN_ID: ${HITO_OUTAGE_RUN_ID}
+      PLAYWRIGHT_NO_COPY_PROMPT: "1"
+      PLAYWRIGHT_JSON_OUTPUT_NAME: /evidence/result.json
+    volumes:
+      - ${HITO_OUTAGE_WORKTREE:?Set the exact gate checkout}:/workspace:ro
+      - outage-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_OUTAGE_MUSIC}:/workspace/fixtures/e2e-generated:ro
+      - ${HITO_OUTAGE_EVIDENCE:?Set the owned redacted evidence directory}:/evidence
+      - outage-control:/control
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=0700,size=256m,nosuid,nodev
+      - /var/tmp:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+    shm_size: 256m
+    mem_limit: 1g
+    pids_limit: 256
+    cpus: "2.0"
+    command:
+      [
+        node,
+        node_modules/@playwright/test/cli.js,
+        test,
+        --config,
+        playwright.config.ts,
+        --browser,
+        chromium,
+        --workers,
+        "1",
+        --retries,
+        "0",
+        --reporter,
+        "list,json",
+        --output,
+        /evidence/playwright,
+        providerOutage.spec.ts,
+      ]
+  outage-prepare:
+    <<: *owned
+    profiles: [tools]
+    image: ${HITO_OUTAGE_NODE_IMAGE}
+    working_dir: /workspace/apps/web
+    network_mode: none
+    volumes:
+      - ${HITO_OUTAGE_WORKTREE}:/workspace:ro
+      - outage-modules:/workspace/apps/web/node_modules:ro
+      - ${HITO_OUTAGE_MUSIC}:/workspace/fixtures/e2e-generated
+    tmpfs: ["/tmp:uid=10001,gid=10001,mode=0700,size=64m,nosuid,nodev"]
+    mem_limit: 512m
+    pids_limit: 128
+    command: [node, /workspace/scripts/audio-fixtures.mjs, --e2e]
+volumes:
+  outage-data:
+    name: ${HITO_OUTAGE_PROJECT:?Set the unique owned Compose project}-data
+    driver: local
+    driver_opts:
+      {
+        type: tmpfs,
+        device: tmpfs,
+        o: "size=96m,uid=10001,gid=10001,mode=0700",
+      }
+    labels:
+      org.hito.owned-fixture: provider-outage
+      org.hito.fixture-run: ${HITO_OUTAGE_RUN_ID}
+  outage-control:
+    name: ${HITO_OUTAGE_PROJECT}-control
+    driver: local
+    driver_opts:
+      { type: tmpfs, device: tmpfs, o: "size=1m,uid=10001,gid=10001,mode=0700" }
+    labels:
+      org.hito.owned-fixture: provider-outage
+      org.hito.fixture-run: ${HITO_OUTAGE_RUN_ID}
+  outage-modules:
+    external: true
+    name: hito_node-modules
