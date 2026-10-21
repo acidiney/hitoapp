@@ -2323,6 +2323,8 @@ dependencies = [
  "hito-debrid-torbox",
  "hito-plugin-sdk",
  "hmac",
+ "hyper",
+ "hyper-util",
  "libc",
  "rcgen",
  "reqwest",
