@@ -41,6 +41,14 @@ This boundary lets a future service commit its durable intent before minting. Dr
 
 Six new public TLS cases and all 32 prior client/service cases pass, with strict affected default/test-support checks and formatting. Independent correctness, security and performance reviews and a separate 38-case repeat pass. The repeat took 85.242 seconds with source and binaries read-only, unchanged hashes and no remaining containers. The cases cover the explicit mint boundary, verification plus caller-delay expiry, drops, shared admission and active-mint timeout/cancellation with actual peer closure. Dedicated expiry while waiting specifically in request pacing remains unqualified.
 
+## Authenticated candidate persistence
+
+`TorBoxClient::seal_candidate` returns versioned authenticated ciphertext bounded by `SealedCandidate::MAX_BYTES` (16,384 bytes). `CandidateContext` binds it to the state, operation and handle UUIDs, stable recording/source IDs and complete file binding. Authentication also covers the fixed provider origin and a keyed provider-credential authority. Private URLs remain inaccessible through the public API.
+
+Only the originating client or its clones can seal a minted candidate. `restore_candidate` accepts a fresh client with the same credential, key and authenticated context. Both operations are local and perform no provider, media or filesystem I/O. Opening a restored candidate still freshly verifies its bound file before media access. The caller owns private key persistence and ciphertext storage; the service has no durable journal or restart recovery yet.
+
+Three public TLS workflows pass: restoration across destroyed client owners followed by two exact WAV/PCM opens with one total mint; foreign-client, wrong-key, changed-credential and tamper rejection; and all context fields, malformed envelopes and safe correlated completion logs. All 38 legacy cases also pass, including a separate 41-case repeat. These fixtures do not establish live-provider compatibility.
+
 ## Generated links and bounded audio
 
 This crate prepares one opaque generated-link candidate after freshly observing its exact completed file binding. The original opening API consumes that candidate; `BoundAudioOpening::open_retained` can instead borrow one retained by its service owner. Both observe the binding again before the shared `hito-remote-audio` opener validates an explicitly approved media origin, public DNS pinning, TLS, response framing and canonical PCM16 WAV. Candidates own zeroizing private URLs without URL getters, Debug or serialization. The result does not prove recording identity or content integrity.
