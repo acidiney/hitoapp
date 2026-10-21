@@ -1,5 +1,6 @@
 use super::inputs::Inputs;
 use std::{
+    ffi::OsString,
     io::Read,
     net::{SocketAddr, TcpListener, TcpStream},
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
@@ -34,21 +35,18 @@ impl Host {
             .local_addr()
             .unwrap_or_else(|_| panic!("the owned listen address must identify"));
         drop(reservation);
+        Self::start_with_arguments(directory, &inputs.arguments(mode), address)
+    }
+
+    pub fn start_with_arguments(
+        directory: &Path,
+        arguments: &[OsString],
+        address: SocketAddr,
+    ) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_hito-plugin-torbox"))
             .arg("--listen")
             .arg(address.to_string())
-            .arg("--provider-token-file")
-            .arg(&inputs.provider)
-            .arg("--service-token-file")
-            .arg(&inputs.service)
-            .arg("--state-key-file")
-            .arg(&inputs.key)
-            .arg("--state-directory")
-            .arg(&inputs.state)
-            .arg("--state-mode")
-            .arg(mode)
-            .arg("--catalog-file")
-            .arg(&inputs.catalog)
+            .args(arguments)
             .current_dir(directory)
             .env_clear()
             .env("RUST_LOG", "trace")

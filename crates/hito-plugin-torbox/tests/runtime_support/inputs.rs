@@ -29,6 +29,23 @@ pub struct Inputs {
 }
 
 impl Inputs {
+    pub fn arguments(&self, mode: &str) -> Vec<OsString> {
+        vec![
+            "--provider-token-file".into(),
+            self.provider.as_os_str().into(),
+            "--service-token-file".into(),
+            self.service.as_os_str().into(),
+            "--state-key-file".into(),
+            self.key.as_os_str().into(),
+            "--state-directory".into(),
+            self.state.as_os_str().into(),
+            "--state-mode".into(),
+            mode.into(),
+            "--catalog-file".into(),
+            self.catalog.as_os_str().into(),
+        ]
+    }
+
     pub fn create(directory: &Path) -> Self {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
             .expect("the owned input directory must be private");

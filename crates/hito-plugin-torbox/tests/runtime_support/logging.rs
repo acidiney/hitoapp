@@ -209,7 +209,7 @@ pub fn assert_lifecycle(output: &str, directory: &Path, receipts: &[Receipt], he
         .expect("each child must have one runtime service correlation")
 }
 
-fn events(output: &str, directory: &Path) -> Vec<Value> {
+pub(super) fn events(output: &str, directory: &Path) -> Vec<Value> {
     let directory = directory.to_string_lossy();
     for private in [
         PROVIDER_TOKEN,
@@ -260,7 +260,7 @@ fn events(output: &str, directory: &Path) -> Vec<Value> {
         .collect()
 }
 
-fn workflow(event: &Value, target: &str, operation: &str, outcome: &str, count: u64) {
+pub(super) fn workflow(event: &Value, target: &str, operation: &str, outcome: &str, count: u64) {
     assert!(event["level"] == "DEBUG" && event["target"] == target);
     keys(
         &event["fields"],
@@ -274,13 +274,13 @@ fn workflow(event: &Value, target: &str, operation: &str, outcome: &str, count: 
     workflow_span(&spans[0], "torbox_journal", operation);
 }
 
-fn workflow_span(span: &Value, name: &str, operation: &str) {
+pub(super) fn workflow_span(span: &Value, name: &str, operation: &str) {
     keys(span, &["name", "request_id", "operation"]);
     assert!(span["name"] == name && span["operation"] == operation);
     uuid(&span["request_id"]);
 }
 
-fn service_id(span: &Value) -> Uuid {
+pub(super) fn service_id(span: &Value) -> Uuid {
     keys(span, &["name", "service_id"]);
     assert!(span["name"] == "torbox_service");
     uuid(&span["service_id"])
@@ -295,7 +295,7 @@ fn uuid(value: &Value) -> Uuid {
     id
 }
 
-fn keys(value: &Value, expected: &[&str]) {
+pub(super) fn keys(value: &Value, expected: &[&str]) {
     let object = value
         .as_object()
         .expect("log fields must be structured objects");
