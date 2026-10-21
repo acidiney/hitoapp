@@ -65,6 +65,7 @@ impl PremiumizeClient {
                         binding.file_bytes,
                         binding.clone(),
                         allowlist,
+                        hito_remote_audio::AudioKind::Pcm16Wav,
                     )
                     .await
                     .map_err(Error::from)

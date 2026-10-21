@@ -39,11 +39,14 @@ async fn public_dual_stack_dns_answers_open_and_decode_the_exact_bound_audio_wit
         ).map_err(|_| "the fixed-host owned answer client must initialize")?;
         let allowlist = MediaAllowlist::new(vec![format!("https://{MEDIA_HOST}")])
             .map_err(|_| "the exact owned DNS media allowlist must initialize")?;
-        let mut audio = client.open_bound_audio(&binding, &allowlist).await
+        let mut audio = client.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav).await
             .map_err(|_| "valid public dual-stack answers must permit canonical bound audio opening")?;
         let returned_binding = audio.binding.clone();
         let length = audio.length;
-        let format = (audio.format.sample_rate, audio.format.channels, audio.format.frames);
+        let crate::AudioFormat::Pcm16Wav(wav_format) = audio.format else {
+            panic!("the unchanged WAV policy must return a WAV descriptor");
+        };
+        let format = (wav_format.sample_rate, wav_format.channels, wav_format.frames);
         let mut bytes = Vec::new();
         loop {
             let chunk = audio.next_chunk().await.map_err(|_| "the DNS-qualified owned WAV must remain readable through EOF")?;

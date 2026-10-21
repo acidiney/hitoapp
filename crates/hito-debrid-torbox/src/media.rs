@@ -75,6 +75,7 @@ impl BoundAudioOpening<'_> {
                         current.binding.file_bytes,
                         current.binding,
                         allowlist,
+                        hito_remote_audio::AudioKind::Pcm16Wav,
                     )
                     .await
                     .map_err(Error::from)

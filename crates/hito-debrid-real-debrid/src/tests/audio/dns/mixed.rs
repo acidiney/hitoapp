@@ -42,17 +42,17 @@ async fn mixed_public_and_private_dns_answers_reject_before_media_and_restore_bo
             ).map_err(|_| "the fixed-host mixed-answer client must initialize")?;
             let allowlist = MediaAllowlist::new(vec![format!("https://{MEDIA_HOST}")])
                 .map_err(|_| "the exact mixed-answer media allowlist must initialize")?;
-            let rejection = client.open_bound_audio(&binding, &allowlist).await.err();
+            let rejection = client.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav).await.err();
             if rejection != Some(Error::MediaDestination) { return Ok((rejection, None)); }
             let rejected_questions = dns.questions(2).await;
             let rejected_connections = address_round(&rejected_questions[..2])?;
             tokio::time::timeout(Duration::from_secs(1), dns.peer_closed(&rejected_connections)).await
                 .map_err(|_| "rejected mixed answers must retire every DNS connection before reuse")?;
             dns.set_answers(public_v4, public_v6);
-            let mut first = client.open_bound_audio(&binding, &allowlist).await
+            let mut first = client.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav).await
                 .map_err(|_| "the same client must recover its first media slot after rejection")?;
             let clone = client.clone();
-            let mut second = clone.open_bound_audio(&binding, &allowlist).await
+            let mut second = clone.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav).await
                 .map_err(|_| "a clone must recover the other media slot while the first body stays owned")?;
             let first_binding = first.binding.clone();
             let second_binding = second.binding.clone();

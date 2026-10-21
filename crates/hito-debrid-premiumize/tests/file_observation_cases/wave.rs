@@ -40,9 +40,12 @@ pub(super) async fn collect(mut opened: OpenedBoundAudio) {
         serde_json::to_vec(&binding()).unwrap()
     );
     assert_eq!(opened.length, BYTES);
-    assert_eq!(opened.format.sample_rate, SAMPLE_RATE);
-    assert_eq!(opened.format.channels, CHANNELS);
-    assert_eq!(opened.format.frames, u64::from(FRAMES));
+    let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = opened.format else {
+        panic!("the unchanged WAV policy must return a WAV descriptor");
+    };
+    assert_eq!(wav_format.sample_rate, SAMPLE_RATE);
+    assert_eq!(wav_format.channels, CHANNELS);
+    assert_eq!(wav_format.frames, u64::from(FRAMES));
     let mut received = Vec::new();
     while let Some(chunk) = opened
         .next_chunk()

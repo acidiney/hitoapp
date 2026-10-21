@@ -32,7 +32,7 @@ pub enum Error {
     MediaResponse,
     #[error("The bound audio body exceeded its idle deadline")]
     MediaIdle,
-    #[error("The bound audio is not a supported canonical PCM16 WAV")]
+    #[error("The bound audio does not match its declared supported format")]
     UnsupportedAudio,
     #[error("The bound audio body does not match its confirmed length")]
     MediaLength,

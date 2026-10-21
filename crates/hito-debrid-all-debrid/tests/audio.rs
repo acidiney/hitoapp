@@ -118,11 +118,14 @@ async fn delayed_candidate_opens_the_reobserved_bound_wav_without_exposing_or_re
             .expect("the current exact binding must open its owned WAV");
         assert!(opened.binding == binding);
         assert_eq!(opened.length, WAV_BYTES);
+        let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = opened.format else {
+            panic!("the unchanged WAV policy must return a WAV descriptor");
+        };
         assert_eq!(
             (
-                opened.format.sample_rate,
-                opened.format.channels,
-                opened.format.frames
+                wav_format.sample_rate,
+                wav_format.channels,
+                wav_format.frames
             ),
             (SAMPLE_RATE, CHANNELS, FRAMES)
         );
@@ -294,11 +297,14 @@ async fn direct_ack_candidate_opens_only_the_freshly_bound_wav_without_polling_o
             .expect("the direct candidate must use the common fresh-binding media policy");
         assert!(opened.binding == binding);
         assert_eq!(opened.length, WAV_BYTES);
+        let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = opened.format else {
+            panic!("the unchanged WAV policy must return a WAV descriptor");
+        };
         assert_eq!(
             (
-                opened.format.sample_rate,
-                opened.format.channels,
-                opened.format.frames
+                wav_format.sample_rate,
+                wav_format.channels,
+                wav_format.frames
             ),
             (SAMPLE_RATE, CHANNELS, FRAMES)
         );

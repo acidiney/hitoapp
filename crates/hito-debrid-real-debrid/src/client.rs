@@ -1,5 +1,5 @@
 use crate::{
-    Error, MediaAllowlist, OpenedBoundAudio, TorrentFileBinding, TorrentObservation,
+    AudioKind, Error, MediaAllowlist, OpenedBoundAudio, TorrentFileBinding, TorrentObservation,
     UnrestrictionReceipt,
     network::Dns,
     torrent,
@@ -213,6 +213,7 @@ impl RealDebridClient {
         &self,
         binding: &TorrentFileBinding,
         allowlist: &MediaAllowlist,
+        kind: AudioKind,
     ) -> Result<OpenedBoundAudio, Error> {
         let started = Instant::now();
         let request_id = Uuid::new_v4();
@@ -235,6 +236,7 @@ impl RealDebridClient {
                         candidate.confirmed_bytes,
                         candidate.binding,
                         allowlist,
+                        kind,
                     )
                     .await
                     .map_err(Error::from)

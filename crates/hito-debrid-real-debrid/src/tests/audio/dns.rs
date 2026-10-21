@@ -54,7 +54,7 @@ async fn media_dns_stall_cancellation_and_deadline_retire_queries_before_full_ad
         if !first_connections.is_disjoint(&second_connections) {
             return Err("separate opening operations must own separate stalled DNS connections");
         }
-        let busy = tokio::time::timeout(Duration::from_secs(1), client.open_bound_audio(&binding, &allowlist))
+        let busy = tokio::time::timeout(Duration::from_secs(1), client.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav))
             .await.map_err(|_| "capacity rejection must remain prompt while both DNS operations are held")?;
         let busy_error = busy.err();
         first.abort();
@@ -229,7 +229,7 @@ fn start(
         async move {
             let allowlist = MediaAllowlist::new(vec![format!("https://{MEDIA_HOST}")])?;
             client
-                .open_bound_audio(&binding, &allowlist)
+                .open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav)
                 .await
                 .map(drop)
         }

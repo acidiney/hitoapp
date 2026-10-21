@@ -1,5 +1,5 @@
-use hito_debrid_real_debrid::{MediaAllowlist, RealDebridClient, TorrentFileBinding};
-use hito_plugin_real_debrid::{Config, CuratedWavRecording, InitError};
+use hito_debrid_real_debrid::{AudioKind, MediaAllowlist, RealDebridClient, TorrentFileBinding};
+use hito_plugin_real_debrid::{Config, CuratedAudioRecording, InitError};
 use hito_plugin_sdk::ProviderRecording;
 use serde::Deserialize;
 use std::{
@@ -77,13 +77,14 @@ impl Settings {
             serde_json::from_slice(&catalog).map_err(|_| "catalog_file_invalid")?;
         let media_origins =
             MediaAllowlist::new(catalog.media_origins).map_err(|_| "media_origins_invalid")?;
-        let recordings: Vec<CuratedWavRecording> = catalog
+        let recordings: Vec<CuratedAudioRecording> = catalog
             .recordings
             .into_iter()
-            .map(|entry| CuratedWavRecording {
+            .map(|entry| CuratedAudioRecording {
                 recording: entry.recording,
                 source_id: entry.source_id,
                 label: entry.label,
+                audio_kind: entry.audio_kind,
                 binding: TorrentFileBinding {
                     torrent_id: entry.binding.torrent_id,
                     info_hash: entry.binding.info_hash,
@@ -123,6 +124,16 @@ struct Recording {
     source_id: String,
     label: String,
     binding: Binding,
+    #[serde(default, deserialize_with = "read_audio_kind")]
+    audio_kind: AudioKind,
+}
+
+fn read_audio_kind<'de, D: serde::Deserializer<'de>>(input: D) -> Result<AudioKind, D::Error> {
+    match String::deserialize(input)?.as_str() {
+        "pcm16_wav" => Ok(AudioKind::Pcm16Wav),
+        "mp3" => Ok(AudioKind::Mp3),
+        _ => Err(serde::de::Error::custom("unsupported audio kind")),
+    }
 }
 
 #[derive(Deserialize)]

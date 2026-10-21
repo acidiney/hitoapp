@@ -5,7 +5,7 @@ use crate::support::{
     provider::{Exchange, Provider},
 };
 use hito_debrid_real_debrid::{MediaAllowlist, test_support::owned_protocol_client};
-use hito_plugin_real_debrid::{Config, CuratedWavRecording, router};
+use hito_plugin_real_debrid::{Config, CuratedAudioRecording, router};
 use reqwest::{Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::time::Duration;
@@ -20,8 +20,12 @@ pub struct Fixture {
 }
 
 impl Fixture {
-    pub async fn start(recordings: Vec<CuratedWavRecording>) -> Self {
+    pub async fn start(recordings: Vec<CuratedAudioRecording>) -> Self {
         let provider = Provider::start(audio::wav()).await;
+        Self::with_provider(recordings, provider).await
+    }
+
+    pub async fn with_provider(recordings: Vec<CuratedAudioRecording>, provider: Provider) -> Self {
         let capture = Capture::default();
         let client = owned_protocol_client(
             PROVIDER_TOKEN.into(),

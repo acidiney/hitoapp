@@ -1,4 +1,7 @@
-use super::{API_HOST, FILE, HASH, HOSTER_LINK, MEDIA_HOST, MEDIA_TARGET, TORRENT, audio, http};
+use super::{
+    API_HOST, FILE, HASH, HOSTER_LINK, MEDIA_HOST, MEDIA_TARGET, TORRENT, audio, http,
+    media::MediaGate,
+};
 use axum::{
     Extension, Json, Router,
     extract::{Request, State},
@@ -49,7 +52,9 @@ pub struct Counts {
 struct Handler {
     origin: Origin,
     exchanges: Arc<Mutex<Vec<Exchange>>>,
-    wav: Arc<Vec<u8>>,
+    audio: Arc<Vec<u8>>,
+    media_gate: Option<Arc<MediaGate>>,
+    content_type: &'static str,
     file_path: Arc<Mutex<String>>,
 }
 
@@ -66,6 +71,18 @@ pub struct Provider {
 impl Provider {
     pub async fn start(wav: Vec<u8>) -> Self {
         assert_eq!(wav.len(), audio::WAV_BYTES);
+        Self::start_audio(wav, "audio/wav", FILE, None).await
+    }
+
+    pub async fn start_audio(
+        audio: Vec<u8>,
+        content_type: &'static str,
+        path: &str,
+        media_gate: Option<Arc<MediaGate>>,
+    ) -> Self {
+        assert!(!audio.is_empty() && audio.len() <= 1_048_576);
+        assert!(["audio/wav", "audio/mpeg"].contains(&content_type));
+        assert!(path.starts_with('/') && path.len() <= 4096);
         let _ = rustls::crypto::ring::default_provider().install_default();
         let key = KeyPair::generate().expect("owned CA key");
         let mut ca = CertificateParams::new(Vec::<String>::new()).expect("owned CA parameters");
@@ -85,11 +102,13 @@ impl Provider {
         let api_address = api.local_addr().expect("owned API address");
         let media_address = media.local_addr().expect("owned media address");
         let exchanges = Arc::new(Mutex::new(Vec::new()));
-        let file_path = Arc::new(Mutex::new(FILE.to_owned()));
+        let file_path = Arc::new(Mutex::new(path.to_owned()));
         let state = Handler {
             origin: Origin::Api,
             exchanges: exchanges.clone(),
-            wav: Arc::new(wav),
+            audio: Arc::new(audio),
+            media_gate,
+            content_type,
             file_path: file_path.clone(),
         };
         let (stop, mut stopped) = oneshot::channel();
@@ -276,21 +295,21 @@ async fn exchange(
                 .expect("owned provider file path must lock")
                 .clone();
             Json(json!({
-                "id": TORRENT, "hash": HASH, "bytes": audio::WAV_BYTES,
+                "id": TORRENT, "hash": HASH, "bytes": state.audio.len(),
                 "progress": 100, "status": "downloaded",
-                "files": [{"id": 7, "path": file_path, "bytes": audio::WAV_BYTES, "selected": 1}],
+                "files": [{"id": 7, "path": file_path, "bytes": state.audio.len(), "selected": 1}],
                 "links": [HOSTER_LINK]
             }))
             .into_response()
         }
         (Origin::Api, "POST", "/rest/1.0/unrestrict/link") => Json(json!({
-            "filesize": audio::WAV_BYTES, "link": HOSTER_LINK,
+            "filesize": state.audio.len(), "link": HOSTER_LINK,
             "download": format!("https://{MEDIA_HOST}{MEDIA_TARGET}")
         }))
         .into_response(),
-        (Origin::Media, "GET", MEDIA_TARGET) => (
-            [
-                ("content-type", "audio/wav"),
+        (Origin::Media, "GET", MEDIA_TARGET) => {
+            let headers = [
+                ("content-type", state.content_type),
                 ("set-cookie", "private-media-cookie-canary"),
                 (
                     "content-disposition",
@@ -298,10 +317,12 @@ async fn exchange(
                 ),
                 ("accept-ranges", "bytes"),
                 ("etag", "private-media-validator-canary"),
-            ],
-            state.wav.as_ref().clone(),
-        )
-            .into_response(),
+            ];
+            match &state.media_gate {
+                Some(gate) => (headers, gate.body(state.audio.clone())).into_response(),
+                None => (headers, state.audio.as_ref().clone()).into_response(),
+            }
+        }
         _ => StatusCode::NOT_FOUND.into_response(),
     };
     response

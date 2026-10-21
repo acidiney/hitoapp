@@ -1,24 +1,24 @@
-use crate::{CuratedWavRecording, error::Error};
+use crate::{CuratedAudioRecording, error::Error};
 use hito_plugin_sdk::{ProviderRecording, SearchPage, SearchRequest};
 
 pub(crate) struct Catalog {
-    entries: Vec<CuratedWavRecording>,
+    entries: Vec<CuratedAudioRecording>,
 }
 
 impl Catalog {
-    pub(crate) fn new(mut entries: Vec<CuratedWavRecording>) -> Self {
+    pub(crate) fn new(mut entries: Vec<CuratedAudioRecording>) -> Self {
         entries.sort_by(|left, right| left.recording.id.cmp(&right.recording.id));
         Self { entries }
     }
 
-    pub(crate) fn recording(&self, id: &str) -> Result<&CuratedWavRecording, Error> {
+    pub(crate) fn recording(&self, id: &str) -> Result<&CuratedAudioRecording, Error> {
         self.entries
             .iter()
             .find(|entry| entry.recording.id == id)
             .ok_or(Error::NotFound)
     }
 
-    pub(crate) fn source(&self, id: &str) -> Result<&CuratedWavRecording, Error> {
+    pub(crate) fn source(&self, id: &str) -> Result<&CuratedAudioRecording, Error> {
         self.entries
             .iter()
             .find(|entry| entry.source_id == id)

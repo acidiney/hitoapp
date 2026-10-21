@@ -59,7 +59,10 @@ async fn completed_file_is_revalidated_before_opaque_link_audio_reaches_exact_pc
             .expect("fresh exact binding must qualify the owned PCM16 WAV");
         assert!(opened.binding == configured);
         assert_eq!(opened.length, WAV_BYTES);
-        assert_eq!((opened.format.sample_rate, opened.format.channels, opened.format.frames),
+        let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = opened.format else {
+            panic!("the unchanged WAV policy must return a WAV descriptor");
+        };
+        assert_eq!((wav_format.sample_rate, wav_format.channels, wav_format.frames),
             (SAMPLE_RATE, CHANNELS, FRAMES));
         let mut bytes = Vec::new();
         while let Some(chunk) = opened.next_chunk().await.expect("the bound WAV must reach validated EOF") {

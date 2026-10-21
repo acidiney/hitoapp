@@ -1,6 +1,8 @@
 pub mod audio;
 pub mod http;
 pub mod logging;
+#[allow(dead_code)]
+pub mod media;
 pub mod provider;
 
 use hito_debrid_real_debrid::TorrentFileBinding;

@@ -65,7 +65,10 @@ async fn known_acknowledgements_keep_destination_and_media_failures_distinct_fro
             .map_err(|_| "the owned rejection client must initialize")?;
             let allowlist = MediaAllowlist::new(vec![format!("https://{MEDIA_HOST}")])
                 .map_err(|_| "the exact owned media allowlist must initialize")?;
-            let mut audio = match client.open_bound_audio(&binding, &allowlist).await {
+            let mut audio = match client
+                .open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav)
+                .await
+            {
                 Ok(audio) => audio,
                 Err(error) => {
                     return Ok(Observed {

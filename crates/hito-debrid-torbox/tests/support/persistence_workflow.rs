@@ -62,11 +62,14 @@ pub async fn complete(
         .expect("the restored candidate must freshly qualify its exact owned WAV");
     assert!(audio.binding == *candidate.binding());
     assert_eq!(audio.length, fixtures::WAV_BYTES);
+    let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = audio.format else {
+        panic!("the unchanged WAV policy must return a WAV descriptor");
+    };
     assert_eq!(
         (
-            audio.format.sample_rate,
-            audio.format.channels,
-            audio.format.frames
+            wav_format.sample_rate,
+            wav_format.channels,
+            wav_format.frames
         ),
         (fixtures::SAMPLE_RATE, fixtures::CHANNELS, fixtures::FRAMES)
     );

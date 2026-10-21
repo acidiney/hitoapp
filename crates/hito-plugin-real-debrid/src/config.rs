@@ -1,5 +1,5 @@
 use crate::{auth::Authentication, catalog::Catalog};
-use hito_debrid_real_debrid::{MediaAllowlist, RealDebridClient, TorrentFileBinding};
+use hito_debrid_real_debrid::{AudioKind, MediaAllowlist, RealDebridClient, TorrentFileBinding};
 use hito_plugin_sdk::{ProviderRecording, ProviderSource, SourcePage};
 use std::collections::HashSet;
 
@@ -13,12 +13,13 @@ pub struct Config {
     pub(crate) catalog: Catalog,
 }
 
-/// One operator-reviewed recording and its exact canonical PCM16 WAV file.
-pub struct CuratedWavRecording {
+/// One operator-reviewed recording and its declared encoded file.
+pub struct CuratedAudioRecording {
     pub recording: ProviderRecording,
     pub source_id: String,
     pub label: String,
     pub binding: TorrentFileBinding,
+    pub audio_kind: AudioKind,
 }
 
 impl Config {
@@ -26,7 +27,7 @@ impl Config {
         service_bearer: String,
         client: RealDebridClient,
         media_origins: MediaAllowlist,
-        recordings: Vec<CuratedWavRecording>,
+        recordings: Vec<CuratedAudioRecording>,
     ) -> Result<Self, InitError> {
         let authentication = Authentication::new(service_bearer)?;
         if recordings.is_empty() || recordings.len() > MAX_RECORDINGS {
@@ -78,6 +79,6 @@ impl Config {
 pub enum InitError {
     #[error("The plugin-service credential is invalid")]
     InvalidServiceCredential,
-    #[error("The curated canonical-WAV catalog is invalid")]
+    #[error("The curated audio catalog is invalid")]
     InvalidCatalog,
 }

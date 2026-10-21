@@ -35,6 +35,7 @@ impl AllDebridClient {
                         observation.binding.file_bytes,
                         observation.binding,
                         allowlist,
+                        hito_remote_audio::AudioKind::Pcm16Wav,
                     )
                     .await
                     .map_err(Error::from)

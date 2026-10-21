@@ -49,7 +49,7 @@ pub fn router(config: Config) -> Result<Router, InitError> {
 async fn manifest() -> Json<Manifest> {
     Json(Manifest {
         id: "org.hito.real-debrid".into(),
-        name: "Real-Debrid curated WAV".into(),
+        name: "Real-Debrid curated audio".into(),
         protocol_version: PROTOCOL_VERSION,
         capabilities: [Capability::Search, Capability::Sources].into(),
         authorization: None,

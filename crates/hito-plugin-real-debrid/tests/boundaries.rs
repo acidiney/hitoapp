@@ -5,7 +5,7 @@ mod support;
 
 use boundary::{CHANGED_FILE, Fixture, private_log_canaries, rejected, response};
 use futures_util::FutureExt;
-use hito_plugin_real_debrid::CuratedWavRecording;
+use hito_plugin_real_debrid::CuratedAudioRecording;
 use hito_plugin_sdk::{ProviderRecording, SearchPage, SourcePage};
 use reqwest::{Method, StatusCode};
 use serde_json::json;
@@ -140,12 +140,13 @@ async fn rejected_control_requests_and_catalog_pagination_do_not_contact_the_pro
     );
 }
 
-fn curated(recording: ProviderRecording, source_id: &str) -> CuratedWavRecording {
-    CuratedWavRecording {
+fn curated(recording: ProviderRecording, source_id: &str) -> CuratedAudioRecording {
+    CuratedAudioRecording {
         recording,
         source_id: source_id.into(),
         label: LABEL.into(),
         binding: support::binding(),
+        audio_kind: hito_debrid_real_debrid::AudioKind::Pcm16Wav,
     }
 }
 

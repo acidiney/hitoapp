@@ -126,6 +126,17 @@ fn strict_private_catalog_and_separate_credentials_are_required_before_binding()
     assert_rejected(&fixture, &snapshot, "credentials_must_differ");
 }
 
+#[test]
+fn unknown_audio_kind_fails_before_binding_and_preserves_private_operator_inputs() {
+    let fixture = Fixture::new();
+    let mut catalog = valid_catalog();
+    catalog["recordings"][0]["audio_kind"] =
+        "private-bootstrap-unsupported-audio-kind-canary".into();
+    std::fs::write(&fixture.catalog, serde_json::to_vec(&catalog).unwrap()).unwrap();
+    let snapshot = Snapshot::capture(&fixture.paths());
+    assert_rejected(&fixture, &snapshot, "catalog_file_invalid");
+}
+
 fn assert_rejected(fixture: &Fixture, snapshot: &Snapshot, reason: &str) {
     let occupied = TcpListener::bind("127.0.0.1:0").expect("bootstrap listener setup failed");
     runtime::rejected(

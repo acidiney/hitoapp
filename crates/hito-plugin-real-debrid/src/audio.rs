@@ -29,7 +29,7 @@ pub(crate) async fn response(
         return Err(Error::InvalidRequest);
     }
     let entry = state.catalog.source(&request.source_id)?;
-    let (length, body) = if method == Method::HEAD {
+    let (kind, length, body) = if method == Method::HEAD {
         let observed = state
             .client
             .observe(&entry.binding)
@@ -38,18 +38,22 @@ pub(crate) async fn response(
         if observed.phase != TorrentPhase::ProviderCompleted {
             return Err(Error::SourceUnavailable);
         }
-        (entry.binding.file_bytes, Body::empty())
+        (entry.audio_kind, entry.binding.file_bytes, Body::empty())
     } else {
         let opened = state
             .client
-            .open_bound_audio(&entry.binding, &state.media_origins)
+            .open_bound_audio(&entry.binding, &state.media_origins, entry.audio_kind)
             .await
             .map_err(Error::from)?;
         let length = opened.length;
-        (length, Body::from_stream(stream(opened)))
+        (
+            opened.format.kind(),
+            length,
+            Body::from_stream(stream(opened)),
+        )
     };
     Response::builder()
-        .header("content-type", "audio/wav")
+        .header("content-type", kind.content_type())
         .header("content-length", length)
         .body(body)
         .map_err(|_| Error::ProviderUnavailable)

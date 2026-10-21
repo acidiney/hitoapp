@@ -1,5 +1,5 @@
 use crate::{
-    Error, MediaAllowlist, OpenedBoundAudio,
+    AudioKind, Error, MediaAllowlist, OpenedBoundAudio,
     network::{self, Dns, DnsPurpose, NetworkError, PinnedResolver},
 };
 use std::{sync::Arc, time::Duration};
@@ -155,6 +155,7 @@ impl Opening<'_> {
         confirmed_bytes: u64,
         binding: B,
         allowlist: &MediaAllowlist<E>,
+        kind: AudioKind,
     ) -> Result<OpenedBoundAudio<B, E>, Error> {
         let target = allowlist.target(private_target)?;
         let host = target.host_str().ok_or(Error::MediaDestination)?;
@@ -186,7 +187,7 @@ impl Opening<'_> {
         let client = builder.build().map_err(|_| Error::Configuration)?;
         let response = client
             .get(target)
-            .header("accept", "audio/wav")
+            .header("accept", kind.content_type())
             .header("accept-encoding", "identity")
             .header("connection", "close")
             .send()
@@ -199,7 +200,7 @@ impl Opening<'_> {
             return Err(Error::MediaDestination);
         }
         validate_response(&response, confirmed_bytes)?;
-        OpenedBoundAudio::qualify(response, binding, confirmed_bytes, self.permit).await
+        OpenedBoundAudio::qualify(response, binding, confirmed_bytes, kind, self.permit).await
     }
 }
 

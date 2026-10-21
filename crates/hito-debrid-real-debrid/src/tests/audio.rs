@@ -65,17 +65,20 @@ async fn opens_and_decodes_the_exact_bound_pcm16_wav_through_owned_tls_without_e
         .map_err(|_| "the fixed-origin owned TLS client must initialize")?;
         let mut audio = tokio::time::timeout(
             Duration::from_secs(10),
-            client.open_bound_audio(&binding, &allowlist),
+            client.open_bound_audio(&binding, &allowlist, crate::AudioKind::Pcm16Wav),
         )
         .await
         .map_err(|_| "the owned audio opening must finish within its guard")?
         .map_err(|_| "the exact bound audio must open")?;
         let returned_binding = audio.binding.clone();
         let length = audio.length;
+        let crate::AudioFormat::Pcm16Wav(wav_format) = audio.format else {
+            panic!("the unchanged WAV policy must return a WAV descriptor");
+        };
         let format = (
-            audio.format.sample_rate,
-            audio.format.channels,
-            audio.format.frames,
+            wav_format.sample_rate,
+            wav_format.channels,
+            wav_format.frames,
         );
         let mut bytes = Vec::new();
         loop {

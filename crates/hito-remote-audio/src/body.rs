@@ -1,4 +1,4 @@
-use crate::{Error, Pcm16WavFormat, wav};
+use crate::{AudioFormat, AudioKind, Error, format};
 use bytes::Bytes;
 use std::{
     collections::VecDeque,
@@ -12,7 +12,7 @@ const BODY_IDLE: Duration = Duration::from_secs(15);
 pub struct OpenedBoundAudio<B, E = Error> {
     pub binding: B,
     pub length: u64,
-    pub format: Pcm16WavFormat,
+    pub format: AudioFormat,
     response: Option<reqwest::Response>,
     pending: VecDeque<Bytes>,
     permit: Option<OwnedSemaphorePermit>,
@@ -31,13 +31,20 @@ impl<B, E: From<Error>> OpenedBoundAudio<B, E> {
         mut response: reqwest::Response,
         binding: B,
         length: u64,
+        kind: AudioKind,
         permit: OwnedSemaphorePermit,
     ) -> Result<Self, Error> {
-        let mut prefix = [0_u8; 44];
-        let mut filled = 0;
+        let mut prefix = Vec::new();
+        let prefix_limit = kind.prefix_limit();
         let mut pending = VecDeque::new();
         let mut received = 0_u64;
-        while filled < prefix.len() {
+        let format = loop {
+            if let Some(format) = format::qualify(kind, &prefix, length)? {
+                break format;
+            }
+            if prefix.len() == prefix_limit {
+                return Err(Error::UnsupportedAudio);
+            }
             let chunk = read_chunk(&mut response).await?.ok_or(Error::MediaLength)?;
             received = received
                 .checked_add(chunk.len() as u64)
@@ -45,12 +52,10 @@ impl<B, E: From<Error>> OpenedBoundAudio<B, E> {
             if received > length {
                 return Err(Error::MediaLength);
             }
-            let needed = (prefix.len() - filled).min(chunk.len());
-            prefix[filled..filled + needed].copy_from_slice(&chunk[..needed]);
-            filled += needed;
+            let needed = (prefix_limit - prefix.len()).min(chunk.len());
+            prefix.extend_from_slice(&chunk[..needed]);
             pending.push_back(chunk);
-        }
-        let format = wav::qualify(&prefix, length)?;
+        };
         Ok(Self {
             binding,
             length,

@@ -2,7 +2,7 @@ mod support;
 
 use futures_util::{FutureExt, future};
 use hito_debrid_real_debrid::{MediaAllowlist, test_support::owned_protocol_client};
-use hito_plugin_real_debrid::{Config, CuratedWavRecording, router};
+use hito_plugin_real_debrid::{Config, CuratedAudioRecording, router};
 use hito_plugin_sdk::{
     Capability, Manifest, ProviderRecording, SearchPage, SourcePage, SourcePersistence,
 };
@@ -34,11 +34,12 @@ async fn authenticated_catalog_to_explicit_audio_decodes_the_exact_owned_wav() {
             SERVICE_TOKEN.into(),
             provider_client,
             MediaAllowlist::new(vec![format!("https://{MEDIA_HOST}")]).expect("owned media origin"),
-            vec![CuratedWavRecording {
+            vec![CuratedAudioRecording {
                 recording: support::recording(),
                 source_id: SOURCE.into(),
                 label: LABEL.into(),
                 binding: support::binding(),
+                audio_kind: hito_debrid_real_debrid::AudioKind::Pcm16Wav,
             }],
         )
         .expect("the one-account curated canonical-WAV configuration must validate");

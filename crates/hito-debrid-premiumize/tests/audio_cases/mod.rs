@@ -130,9 +130,12 @@ fn rejected(result: Result<OpenedBoundAudio, Error>, expected: Error) {
 async fn collect(mut body: OpenedBoundAudio, expected: &TransferFileBinding) -> Vec<u8> {
     assert!(body.binding == *expected);
     assert_eq!(body.length, expected.file_bytes);
-    assert_eq!(body.format.sample_rate, SAMPLE_RATE);
-    assert_eq!(body.format.channels, CHANNELS);
-    assert_eq!(body.format.frames, u64::from(FRAMES));
+    let hito_remote_audio::AudioFormat::Pcm16Wav(wav_format) = body.format else {
+        panic!("the unchanged WAV policy must return a WAV descriptor");
+    };
+    assert_eq!(wav_format.sample_rate, SAMPLE_RATE);
+    assert_eq!(wav_format.channels, CHANNELS);
+    assert_eq!(wav_format.frames, u64::from(FRAMES));
     let mut bytes = Vec::new();
     while let Some(chunk) = body.next_chunk().await.unwrap() {
         assert!(!chunk.is_empty() && chunk.len() <= 65_536);
