@@ -31,7 +31,11 @@ Those earlier receipts summarize stderr. Their zero format counts are fallback v
 
 A subsequent bounded diagnostic captured the actual player responses for the same verified recording, in the existing deployed container with its original extraction arguments and environment. Only intermediate-response and verbose diagnostics were added. Both the webpage response and the `visionos` player response returned `LOGIN_REQUIRED`, with a bot-confirmation reason and no `streamingData` or advertised formats. Deno was detected; no challenge-solver loading or execution was observed. Extraction exited unsuccessfully in 2.63 seconds. Raw responses remained in memory, no audio or account credentials were requested, and the container identity and start time stayed unchanged.
 
-This establishes a rejection before format selection for that request. It does not prove an IP-wide ban or a missing solver. Automatic VPS playback remains unresolved. Automatic Player-context token generation is an untested hypothesis; the [token provider's own limitations](https://github.com/Brainicism/bgutil-ytdlp-pot-provider#verification) explicitly exclude any guarantee of bypassing login restrictions.
+This establishes a rejection before format selection for that request. It does not prove an IP-wide ban or a missing solver.
+
+An isolated comparison then tested automatic anonymous Player-token generation with the official Bgutil 2.0.2 provider and matching verified plugin. Both attempts used the same recording, VPS connection, deployed extractor image, `mweb` client and optional-token setting. The baseline supplied no Player token and returned `LOGIN_REQUIRED` in 2.81 seconds. The candidate requested and retrieved a token, then supplied it in the actual outgoing Player request; it still returned `LOGIN_REQUIRED` in 3.73 seconds. Neither produced metadata or eligible AAC formats, and neither requested audio. Both stayed within the existing eight-second extraction deadline. The two test containers were removed, and independent checks confirmed no remaining test resources or change to the deployed container's identity and start time.
+
+That mechanism was insufficient for this sample. It does not establish that every anonymous approach fails or that the IP is globally blocked. Automatic VPS playback remains unresolved, consistent with the [provider's documented limits](https://github.com/Brainicism/bgutil-ytdlp-pot-provider#verification).
 
 ## Backups and remaining acceptance
 
