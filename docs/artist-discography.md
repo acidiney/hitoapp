@@ -77,3 +77,23 @@ The final workflow takes 6.0 seconds in Chromium and 7.9 seconds in WebKit. Exac
 Independent review found unbounded shared preparation reads. The acknowledgement and progress helpers now cap bodies before JSON parsing and dispose responses. An owned API regression first reproduces the oversized progress false pass, then verifies rejection and an unchanged valid response. The focused second review, both frontend type configurations and fresh browser reruns pass. Default behavior of the shared provider fixture remains unchanged unless discography is explicitly enabled.
 
 This qualifies the shared reviewed-profile workflow. It does not qualify live MusicBrainz, full artist navigation, selected editions, local/playable availability, browser rendering at the catalog cap or release performance targets. The isolated server is stopped and the normal server is unchanged.
+
+
+## Edition reads in core
+
+The core catalog can list editions for an explicitly selected provider release group and read the complete track list of an explicitly selected edition. Both operations retain the recording's confirmed artist association. The built-in MusicBrainz adapter and approved HTTP catalog plugins use the same SDK types; a plugin independently declares each edition operation. Missing support returns Unsupported without guessing an album or importing metadata.
+
+```mermaid
+flowchart LR
+    Association[Confirmed recording artist association] --> Authority[Capture session, credit, provider and policy]
+    Authority --> List[Read one requested edition page]
+    List --> Choice[Explicit edition identity]
+    Choice --> Tracks[Read complete ordered media and track occurrences]
+    Tracks --> Recheck[Recheck current authority before returning]
+```
+
+The shared reviewed-read owner retains separate metadata admission, finishes its SQLite transaction before provider I/O and rechecks authority after each external read. Edition continuations are encrypted and bound to the exact association, session, credit, policy, provider connection, release group and page limit. Discography continuations retain their existing format. Each workflow has a total 15-second deadline and explicit cancellation. Response limits are 4 KiB for operation negotiation and 256 KiB for catalog data.
+
+The two new public core workflows pass, together with both existing discography cases and strict all-target core checks. An independent Docker repeat passes both new workflows on unchanged source. Fixtures verify two-page edition listing, explicit selection, multiple discs, repeated recording occurrences, stale policy rejection and cancellation followed by a successful retry before the held provider work finishes. State, original associations and explicit-download absence are preserved. Structured completion logs and their span-close events retain correlations while excluding the tested private values.
+
+This qualifies the core read capability. Authenticated edition HTTP routes, generated application contracts, shared browsing controls, local playable matching and packaged/live acceptance remain unfinished. No new edition UI is deployed.
