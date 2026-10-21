@@ -7,7 +7,7 @@ pub fn exact_authorities(
     prepared: Instant,
     opened: Instant,
 ) {
-    assert_eq!(requests.len(), 6);
+    assert_eq!(requests.len(), 7);
     assert_eq!(media.len(), 1);
     assert!(requests[0].received_at.into_std() >= prepared);
     assert!(

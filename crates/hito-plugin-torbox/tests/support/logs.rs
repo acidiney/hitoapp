@@ -135,6 +135,7 @@ impl Capture {
                 "provider_completed",
                 "provider_completed",
                 "provider_completed",
+                "provider_completed",
                 "provider_completed"
             ]
         );

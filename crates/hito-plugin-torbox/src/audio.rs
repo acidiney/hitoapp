@@ -6,7 +6,8 @@ use axum::{
     response::Response,
 };
 use futures_util::stream::try_unfold;
-use hito_debrid_torbox::OpenedBoundAudio;
+use hito_debrid_torbox::{Error as ProviderError, OpenedBoundAudio};
+use hito_plugin_sdk::PreparationReason;
 use serde::Deserialize;
 use std::{io, sync::Arc};
 
@@ -39,11 +40,32 @@ pub(crate) async fn response(
             .client
             .admit_bound_audio()
             .map_err(|_| Error::Unavailable)?;
-        let candidate = state.operations.take(index)?;
-        let audio = opening
-            .open(candidate, &state.media_origins)
+        let snapshot = state.operations.snapshot(index)?;
+        let audio = match opening
+            .open_retained(&snapshot.value, &state.media_origins)
             .await
-            .map_err(|_| Error::Unavailable)?;
+        {
+            Ok(audio) => audio,
+            Err(error) => {
+                if !matches!(
+                    error,
+                    ProviderError::Busy | ProviderError::Status(429 | 500..=599)
+                ) {
+                    let reason = if error == ProviderError::SourceChanged {
+                        PreparationReason::SourceChanged
+                    } else {
+                        PreparationReason::SourceUnavailable
+                    };
+                    state
+                        .operations
+                        .invalidate(index, snapshot.operation, reason)?;
+                }
+                return Err(Error::Unavailable);
+            }
+        };
+        if state.operations.candidate(index)? != Some(snapshot.operation) {
+            return Err(Error::Unavailable);
+        }
         let length = audio.length;
         let stream = try_unfold(
             Relay {

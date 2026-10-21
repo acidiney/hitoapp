@@ -24,10 +24,14 @@ enum Phase {
     Running,
     Preparing(Instant),
     Blocked(PreparationReason, Instant),
-    Ready(GeneratedFileCandidate),
+    Ready(Arc<GeneratedFileCandidate>),
     Unknown,
-    Consumed,
     Failed(PreparationReason),
+}
+
+pub(crate) struct CandidateSnapshot {
+    pub(crate) operation: Uuid,
+    pub(crate) value: Arc<GeneratedFileCandidate>,
 }
 
 pub(crate) struct Step {
@@ -65,7 +69,7 @@ impl Operations {
         }
         if let Some(id) = ledger.current[index] {
             let record = ledger.records.get(&id).ok_or(Error::Unavailable)?;
-            if !matches!(record.phase, Phase::Consumed | Phase::Failed(_)) {
+            if !matches!(record.phase, Phase::Failed(_)) {
                 return Err(Error::Conflict);
             }
         }
@@ -134,22 +138,28 @@ impl Operations {
                 .records
                 .get_mut(&operation)
                 .ok_or(Error::Unavailable)?;
-            if matches!(record.phase, Phase::Ready(_)) {
+            if matches!(record.phase, Phase::Ready(_))
+                || (reason == PreparationReason::SourceChanged
+                    && matches!(
+                        record.phase,
+                        Phase::Failed(PreparationReason::SourceUnavailable)
+                    ))
+            {
                 record.phase = Phase::Failed(reason);
             }
         }
         Ok(())
     }
 
-    pub(crate) fn take(&self, index: usize) -> Result<GeneratedFileCandidate, Error> {
-        let mut ledger = self.inner.lock().map_err(|_| Error::Unavailable)?;
+    pub(crate) fn snapshot(&self, index: usize) -> Result<CandidateSnapshot, Error> {
+        let ledger = self.inner.lock().map_err(|_| Error::Unavailable)?;
         let id = ledger.current[index].ok_or(Error::Unavailable)?;
-        let record = ledger.records.get_mut(&id).ok_or(Error::Unavailable)?;
-        if !matches!(record.phase, Phase::Ready(_)) {
-            return Err(Error::Unavailable);
-        }
-        match std::mem::replace(&mut record.phase, Phase::Consumed) {
-            Phase::Ready(candidate) => Ok(candidate),
+        let record = ledger.records.get(&id).ok_or(Error::Unavailable)?;
+        match &record.phase {
+            Phase::Ready(candidate) => Ok(CandidateSnapshot {
+                operation: id,
+                value: candidate.clone(),
+            }),
             _ => Err(Error::Unavailable),
         }
     }
@@ -179,9 +189,6 @@ impl Phase {
                 retry_after_seconds: Some(5),
             },
             Self::Ready(_) => PreparationStatus::Ready {},
-            Self::Consumed => PreparationStatus::Failed {
-                reason: PreparationReason::SourceUnavailable,
-            },
             Self::Failed(reason) => PreparationStatus::Failed { reason: *reason },
         }
     }
@@ -189,7 +196,7 @@ impl Phase {
     fn from_result(result: Result<GeneratedFileCandidate, ProviderError>) -> Self {
         let retry = Instant::now() + Duration::from_secs(5);
         match result {
-            Ok(candidate) => Self::Ready(candidate),
+            Ok(candidate) => Self::Ready(Arc::new(candidate)),
             Err(ProviderError::SourceIncomplete) => Self::Preparing(retry),
             Err(ProviderError::LinkUnknown) => Self::Unknown,
             Err(ProviderError::Status(401 | 403) | ProviderError::InvalidCredential) => {

@@ -40,6 +40,7 @@ async fn authenticated_preparation_waits_then_revalidates_only_its_bound_wav_thr
             fixtures::observed(true, true, "album/owned.wav"),
             fixtures::observed(true, true, "album/owned.wav"),
             fixtures::observed(true, true, "album/owned.wav"),
+            fixtures::observed(true, true, "album/owned.wav"),
         ])
         .await;
         let binding = fixtures::binding();
@@ -136,7 +137,7 @@ async fn authenticated_preparation_waits_then_revalidates_only_its_bound_wav_thr
         }
         assert!(received == wave);
         fixtures::assert_pcm(received);
-        assert!(!workflow::sources(&client, &plugin, &mut statuses).await);
+        assert!(workflow::sources(&client, &plugin, &mut statuses).await);
         plugin.close().await.unwrap();
         let requests = provider.close().await;
         let media_requests = media.close().await;
