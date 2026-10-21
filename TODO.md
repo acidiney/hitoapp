@@ -120,6 +120,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Verify later concurrent choice revisions and Follow updates preserve the correction and recover current eligibility.
   - [x] Verify the complete image in disposable Chromium with automatic playback, manual correction and distinct saved audio during a provider outage. Live-provider and other platform gates remain separate.
   - [x] Verify one real Spotify-to-YouTube target through ordinary Play, actual AAC playback, seeking and navigation, preserving private state without downloads.
+  - [x] Distinguish provider outages from successful empty searches, retain exact resolution receipts and qualify the combined packaged Chromium workflow across migration 0055. Verify lost acknowledgements, fresh Play, decoded audio, uninterrupted navigation, queue continuation and private-state preservation, including an independent repeat. Normal deployment, live YouTube recovery and other platforms remain open. See [outage evidence](docs/automatic-sources.md#provider-failure-outcomes).
   - [ ] Complete broader live matching, remaining codec paths and native integration.
   - [x] Preserve provider relevance within the three-candidate detail limit and add private structured rejection diagnostics; verify public capability, audio and redaction regressions.
   - [x] Accept and deploy YouTube Music catalog search against the release images, retaining independent metadata hydration and existing matching safeguards. Verify controlled Chromium and real Spotify-to-YouTube WebKit playback.
