@@ -232,6 +232,12 @@ An independent repeat passes all 32 cases across six qualified binaries in 58.60
 
 This library is not ready to deploy. Restart loses its process-local receipt ledger, including uncertain mint history. Durable recovery, remaining cancellation/readiness/resource controls, an executable with private configuration, a container, application installation, seeking, broader codecs and live TorBox acceptance remain open. See [the service contract and reproduction commands](../crates/hito-plugin-torbox/README.md).
 
+### Verified preparation before minting
+
+The TorBox client now separates exact file verification from the consuming generated-link request. `verify_bound_file` returns a move-only capability retaining the originating client, copied binding, actual control permit and original absolute deadline. Caller work does not reset that deadline. Expiry before dispatch sends no mutation; uncertain dispatched acknowledgements retain their existing classification without automatic retries. The existing eager API delegates through the same stages.
+
+This is a prerequisite for a service-owned durable intent journal. It does not persist receipts or candidates. Six new TLS cases and all 32 unchanged client/service cases, strict affected checks, formatting, three independent specialist reviews and an independent 38-case repeat pass. Source and binary hashes remain unchanged during the repeat, with zero containers left behind. Verification, caller delay and active-mint deadlines are measured; a dedicated held-pacing expiry case remains open. See [the client contract](../crates/hito-debrid-torbox/README.md#verified-preparation-before-minting).
+
 ## Premiumize observation
 
 The separate `hito-debrid-premiumize` client observes one configured transfer by exact ID and creation timestamp. It reports queued, running, provider failure, seeding or completion, with finite unit-fraction progress. Matching display names cannot replace the configured transfer. Cloud transfer completion does not establish selected-file, content or recording identity and produces no playable source.

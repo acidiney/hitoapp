@@ -33,6 +33,14 @@ The [official OpenAPI document](https://api.torbox.app/openapi.json) identifies 
 
 The inspected primary documentation does not define torrent progress scale, canonical path semantics for file names, file hash algorithms, all ID bounds or every error-state wire string. This observer does not invent those contracts. Submission/control, generated download links, media validation/relay, persistent preparation jobs, plugin deployment and application delivery remain unfinished. Live-provider acceptance still requires an authorized test account and owned content.
 
+## Verified preparation before minting
+
+`TorBoxClient::verify_bound_file` returns a move-only `VerifiedFilePreparation` before sending the generated-link request. It retains the originating client, exact copied binding, actual shared control permit and original 12-second deadline. Consuming `mint()` sends one request. Time spent verifying or waiting in caller code remains part of that budget, and expiry is checked again after request pacing before dispatch. The existing `prepare_bound_file` delegates through these same stages.
+
+This boundary lets a future service commit its durable intent before minting. Dropping the capability or its unpolled mint future sends no mutation and releases admission. Cancellation after dispatch retains the original uncertain outcome and safe completion log. This change adds no durable journal, candidate storage or restart recovery.
+
+Six new public TLS cases and all 32 prior client/service cases pass, with strict affected default/test-support checks and formatting. Independent correctness, security and performance reviews and a separate 38-case repeat pass. The repeat took 85.242 seconds with source and binaries read-only, unchanged hashes and no remaining containers. The cases cover the explicit mint boundary, verification plus caller-delay expiry, drops, shared admission and active-mint timeout/cancellation with actual peer closure. Dedicated expiry while waiting specifically in request pacing remains unqualified.
+
 ## Generated links and bounded audio
 
 This crate prepares one opaque generated-link candidate after freshly observing its exact completed file binding. The original opening API consumes that candidate; `BoundAudioOpening::open_retained` can instead borrow one retained by its service owner. Both observe the binding again before the shared `hito-remote-audio` opener validates an explicitly approved media origin, public DNS pinning, TLS, response framing and canonical PCM16 WAV. Candidates own zeroizing private URLs without URL getters, Debug or serialization. The result does not prove recording identity or content integrity.
