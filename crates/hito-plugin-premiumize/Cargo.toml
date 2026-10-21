@@ -23,18 +23,28 @@ subtle = "=2.6.1"
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 hito-audio = { path = "../hito-audio" }
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
 reqwest.workspace = true
 rustls.workspace = true
+tempfile.workspace = true
 tokio-rustls = { version = "=0.26.6", default-features = false }
-tracing-subscriber.workspace = true
 url.workspace = true
 
 [[test]]
 name = "contract"
 required-features = ["test-support"]
+
+[[bin]]
+name = "hito-plugin-premiumize"
+path = "src/main.rs"
+test = false
+bench = false
