@@ -1,36 +1,43 @@
 # TorBox curated HTTP service
 
-This library passes its first owned public HTTP/TLS preparation and WAV playback tracer. It has no executable, container, Hito installation or live-account acceptance yet. The isolated workspace registers this crate; all earlier external lock selections remain unchanged.
+This library serves an operator-curated collection of exact TorBox torrent-file bindings through Hito's HTTP plugin protocol. It has no executable, container, application installation or live-account acceptance yet. Only the client's canonical PCM16 WAV profile is qualified.
 
-The collection contains only operator-curated recordings bound to existing exact TorBox torrent files in the accepted client's canonical PCM16 WAV profile. The service owns its bearer credential, opaque public recording/source IDs, process-local preparation handles and private generated-link candidates. Hito owns account connections, the library and rendering. No core database or plugin UI is involved.
+The service owns authentication, structured metadata and a private SQLite preparation journal. The TorBox client owns provider credentials, file verification, generated links and shared audio transport. Hito owns accounts, library records and rendering. Plugins supply no UI or core database access.
 
-The first tracer covers a public manifest and authenticated search/detail/sources and preparation through the generic SDK. Incomplete metadata reports unknown progress with a five-second polling interval. After that interval, the accepted client freshly verifies both completion flags and the exact selected file before minting once. Replayed operations retain their handle. Duplicate prepare and status replay the stored phase without minting or a fresh provider read. Source readiness and HEAD recheck the exact current binding. HEAD opens no media. GET reserves the client's shared media permit before capturing its candidate and operation ID. It borrows the private candidate, revalidates the file through the existing client and rechecks the current operation before returning headers. The tracer verifies all 65,580 WAV bytes, exact EOF and all 32,768 decoded PCM samples.
+`Service::open` requires an explicit state directory, separate private 32-byte key file and `CreateNew` or `OpenExisting` mode. A single cooperative owner holds the private directory claim until `Service::close` joins its bounded journal worker. Stop and join the HTTP listener before closing the service. Reopening authenticates the journal and restores receipts against their exact provider authority and file bindings.
 
-Startup bounds the catalog to 128 recordings and 49,152 encoded metadata bytes. HTTP policy bounds bodies to 4,096 bytes, query strings to 4,096 bytes, headers to 32 fields and 8,192 bytes, concurrent request work to 16 and response opening to 14 seconds. The shared client retains its two media permits through body completion. This service does not copy its DNS, TLS, framing or decoding policy.
-
-The process-local ledger retains at most 128 operation receipts. A full ledger rejects new operations. A cancelled preparation or uncertain mint blocks automatic retries and new preparation for that source. These paths have not yet received service-level negative qualification. Restart loses the ledger, including its uncertainty history; durable recovery and safe restart behavior must be resolved before service deployment. Further cancellation, readiness and resource-exhaustion controls are also pending.
-
-The admission regression prepares three distinct ready bindings and holds two real HTTP/TLS audio bodies. Rejecting the third GET leaves its original operation, handle and candidate ready without a provider request, media request or fresh mint. Sources and HEAD remain available. After dropping one held body and witnessing its upstream connection close, the same third candidate plays through exact EOF and PCM verification. The complete case observes eleven provider requests, including exactly three mints, and three media GETs. It checks bounded redacted workflow logs and peer closure for both cancelled bodies. Its actual RED failed on the lost Ready receipt; the corrected case passed in 2.60 seconds. This qualifies shared media admission rejection, not every possible opening failure.
-
-Prepared candidates now survive completed playback and can serve another explicit GET. Busy control admission, provider 429 and 5xx responses retain the exact ready receipt for a later explicit retry. Every opening still verifies the full binding and shared media policy. Definitive binding changes retire the candidate with SourceChanged. Concurrent late failures can refine SourceUnavailable to SourceChanged for the same current operation; they cannot revive a candidate or change a newer operation. No automatic retry, renewal or link lifetime is introduced.
-
-Eight new service cases and the two previous service cases pass with all 22 prior client cases, strict default/test-support checks, formatting and final independent source review. An independent read-only Docker repeat passes the 32 cases across six pinned binaries in 58.607 seconds, with unchanged source and binary hashes and zero remaining containers. This is source qualification, not a deployable service or a playback benchmark.
-
-The accepted TorBox client owns fixed HTTPS provider requests, exact selection parsing, query-token link minting, uncertainty after dispatch, and shared media origin/DNS/TLS/framing/audio ownership. The service reuses those boundaries. A provider-completed file does not prove recording identity or audio compatibility. No link lifetime is invented. A signed media URL remains private and can contain its own credentials; the opener does not copy Authorization, Cookie or Referer headers to it.
-
-The requestdl contract is documented in [the provider OpenAPI](https://api.torbox.app/openapi.json). The service will not submit torrents or magnets, discover a provider library, silently retry uncertain metered link requests, or claim arbitrary codec/seek support. Durable preparation recovery after service restart, executable private configuration, packaging, live-account acceptance and generic Hito browser installation remain later work. Further negative protocol and lifecycle cases follow the first actual RED/GREEN loop.
-
-Repeat the owned tracer through Docker Compose, with the compiler and disk-space checks required by the repository:
-
-```sh
-docker compose -p hito-torbox-service-tools -f compose.yaml -f crates/hito-plugin-torbox/tests/compose.tools.yaml \
-  --profile tools run --rm --no-deps -T --pull never rust \
-  cargo test --offline --locked -p hito-plugin-torbox --features test-support \
-  --test contract -- --exact authenticated_preparation_waits_then_revalidates_only_its_bound_wav_through_eof --nocapture
+```mermaid
+flowchart LR
+    Checking[Commit checking receipt] --> Verify[Verify selected file]
+    Verify --> Intent[Commit mint intent]
+    Intent --> Mint[Request generated link once]
+    Mint --> Ready[Commit encrypted ready candidate]
+    Mint --> Unknown[Retain uncertain result]
+    Ready --> Reopen[Join owner and reopen private state]
+    Unknown --> Reopen
+    Reopen --> Replay[Replay original operation and handle]
 ```
 
-The initial dedicated target was `/build/torbox-service-9279340`; the reusable-audio snapshot uses its separate `/build/torbox-reusable-9a7fd9d` target. Choose another isolated target for a different checkout. The first collected RED compiled successfully, then failed on the scaffold's public manifest response, 501 instead of 200. The complete tracer subsequently passed. With retained readiness after EOF it now observes seven exact provider requests and one media request, with zero media requests during HEAD, and checks redacted correlated completion logs. This is functional fixture evidence, not a latency benchmark or full provider release gate. No private accounts or live provider calls are authorized by this fixture.
+An uncertain dispatched mint is never retried automatically. Repeated preparation and status reads retain the original receipt. Catalog changes retire incompatible bindings without erasing their operation claims. Every explicit audio GET freshly verifies the selected file and current operation. Ready candidates survive completed playback, media/control admission rejection and temporary provider failures. Definitive changed bindings retire them. HEAD opens no media; signed addresses and credentials stay private.
 
-Run the admission regression with the same Compose prefix and `cargo test --offline --locked -p hito-plugin-torbox --features test-support --test admission`. The original service tracer and all twenty-two existing TorBox client audio/observation cases also pass after the admission change. Strict Clippy passes for the service's default and test-support targets.
+The catalog admits at most 128 recordings and 49,152 encoded metadata bytes. HTTP bodies and queries are limited to 4,096 bytes, headers to 32 fields and 8,192 bytes, concurrent work to 16 and response opening to 14 seconds. The existing client's two media permits remain owned through body completion.
 
-The reusable-audio cases use `--test reusable_audio --test control_admission` with the same package and feature. Override `CARGO_TARGET_DIR` through Compose for the exact isolated checkout; do not reuse another source tree's compiler output.
+The journal retains at most 1,024 lifetime receipts and reserves bounded candidate storage before minting. Database, WAL and SHM limits are 16 MiB, 17 MiB and 64 KiB, with a combined 40 MiB logical and allocated-file ceiling. Capacity rejection precedes provider work and preserves existing ready or uncertain receipts. There is no receipt eviction policy yet. Authentication covers stored rows and their complete receipt set; startup rejects selective receipt deletion. Concurrent external database writers are unsupported. These checks do not establish freshness after restoring an entire valid backup or general protection against live external tampering.
+
+Twenty-one directed service cases pass, including joined owner replacement, lost acknowledgements, catalog changes, private state ownership, authenticated receipt deletion, escaped maximum-length filenames and physical SQLite exhaustion. Both physical-capacity cases preserve their existing receipt across joined replacement; the uncertain operation is not reminted. Scoped strict checks and independent source reviews pass within the single-owner contract. The earlier 32-case client/service checkpoint separately qualifies original-byte WAV delivery, native decoding through EOF and admission recovery. This is fixture evidence, not executable restart, power-loss durability, live-provider compatibility or a playback benchmark.
+
+An independent combined-source Docker run also passes the three restart/filename cases below, with all 170 checked source inputs unchanged and no test containers left behind.
+
+Run a focused restart check through Docker Compose, with the repository's compiler and storage guards:
+
+```sh
+docker compose --profile tools run --rm --no-deps -T \
+  -e CARGO_TARGET_DIR=/build/torbox-service-check rust \
+  cargo test --locked --offline -j2 -p hito-plugin-torbox --features test-support \
+  --test restart_durability --test restart_uncertain --test binding_filename \
+  -- --test-threads=1
+```
+
+Use a separate target directory for each checkout. Other directed cases are in the package's `tests/` directory. The physical-capacity cases each take several minutes.
+
+The service does not submit torrents or magnets, discover a provider library, infer recording identity from provider completion, or promise arbitrary codecs or seeking. Executable private configuration, process/container restart, active-request shutdown, long-term receipt retention, application provisioning, broader media support and live TorBox acceptance remain release work. See [adapter evidence and limits](../../docs/debrid-adapters.md#torbox-curated-wav-service-library).

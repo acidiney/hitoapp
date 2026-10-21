@@ -230,7 +230,7 @@ An early test incorrectly expected a misleading MIME header to override valid WA
 
 ## TorBox curated-WAV service library
 
-The separate `hito-plugin-torbox` library exposes an authenticated HTTP plugin for operator-curated exact torrent-file bindings. Its public manifest declares shared SDK capabilities; search, recording details, source reads and preparation use structured data. The service owns its bearer credential, opaque identifiers and process-local preparation receipts. The existing TorBox client owns provider authorization, exact file verification, private links and shared audio transport. No plugin-supplied UI or core database access is introduced.
+The separate `hito-plugin-torbox` library exposes an authenticated HTTP plugin for operator-curated exact torrent-file bindings. Its public manifest declares shared SDK capabilities; search, recording details, source reads and preparation use structured data. The service owns its bearer credential, opaque identifiers and private durable preparation receipts. The existing TorBox client owns provider authorization, exact file verification, private links and shared audio transport. No plugin-supplied UI or core database access is introduced.
 
 The first public HTTP/TLS tracer waits for incomplete metadata, retains one preparation handle, freshly verifies completion and the selected file, and mints one private candidate. Receipt replay does not mint again. Source reads and HEAD recheck readiness without opening audio. Explicit GET verifies and relays all 65,580 owned WAV bytes through EOF, with every one of the 32,768 PCM samples checked.
 
@@ -242,7 +242,13 @@ Ten public HTTP/TLS service cases and all 22 prior client cases pass, with stric
 
 An independent repeat passes all 32 cases across six qualified binaries in 58.607 seconds, with source and build outputs read-only, external networking disabled, all 2,388 source hashes and binary hashes unchanged, and no remaining owned containers. This is a functional fixture duration, not a playback benchmark. All 11 changed inputs match after integration; manifests, lock selections and wire models remain unchanged.
 
-This library is not ready to deploy. Restart loses its process-local receipt ledger, including uncertain mint history. Durable recovery, remaining cancellation/readiness/resource controls, an executable with private configuration, a container, application installation, seeking, broader codecs and live TorBox acceptance remain open. See [the service contract and reproduction commands](../crates/hito-plugin-torbox/README.md).
+The private service journal now preserves ready and uncertain receipts across joined service-owner replacement. It commits checking and mint intent before consuming provider work, encrypts ready candidates and authenticates the complete receipt set. Exact operation/handle replay and catalog reconciliation retain old uncertainty claims. One bounded joined worker owns SQLite; no database transaction spans provider I/O.
+
+Twenty-one directed service cases pass, including ready and lost-acknowledgement replacement, catalog evolution, ownership/key validation, selective receipt deletion, escaped maximum-length filenames and physical SQLite capacity. Both full-database cases reject a new operation before provider I/O while preserving the prior receipt through joined replacement. The uncertain operation is never reminted. Scoped default/test-support strict checks and source reviews pass within the private single-owner contract. A conditional review concern involving a concurrent external SQLite writer is outside that contract; general live-tamper protection is not claimed.
+
+An independent Docker check on the combined source passes ready replacement, lost-acknowledgement replacement and the escaped-filename workflow. All 170 checked source inputs remain unchanged, with external networking disabled and zero remaining test containers. The three cases take 12.99 seconds after compilation; the complete invocation takes 64.587 seconds. The two longer physical-capacity cases were qualified separately on the feature snapshot.
+
+The journal has 1,024 lifetime receipts, a 16 MiB database limit, 17 MiB WAL limit, 64 KiB SHM limit and combined 40 MiB logical/allocated ceiling. It has no long-term receipt eviction policy. Restoring a complete valid backup does not establish freshness. This library is not ready to deploy: executable configuration, process/container restart and active-request shutdown, application installation, broader codecs, seeking and live TorBox acceptance remain open. See [ownership, bounds and reproduction commands](../crates/hito-plugin-torbox/README.md).
 
 ### Verified preparation before minting
 
