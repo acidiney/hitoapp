@@ -53,6 +53,10 @@ One new owned process workflow passes: explicit missing-state rejection, creatio
 
 An independent combined-source Docker run also passes that executable workflow in 0.13 seconds after compilation. All 182 checked source inputs remain unchanged and no test containers remain. Its complete invocation takes 8.148 seconds; this is fixture timing, not a playback benchmark.
 
+Two additional process cases qualify 16 bootstrap rejections: missing/invalid/duplicate state modes, inline or relative credentials, unsafe token links/modes/content, equal normalized tokens, a FIFO or invalid catalog, short/symlinked keys, a symlinked state directory and creation against an existing joined journal. Rejection preserves exact operator entries, file bytes, links, ownership, modes and timestamps without opening FIFOs or following symlinks in the observer. A reserved listener and exact failure reasons distinguish validation rejection from a later bind failure. Private values and unknown diagnostic fields remain forbidden.
+
+Both new cases and the unchanged executable workflow pass with both strict Clippy modes. An independent combined-source Docker run repeats all three in 4.094 seconds including compilation, with 184 checked inputs unchanged and no test containers remaining. This is a selected Linux bootstrap cohort, not exhaustive unsafe-input, active-audio or container acceptance.
+
 Run a focused restart check through Docker Compose, with the repository's compiler and storage guards:
 
 ```sh
