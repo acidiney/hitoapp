@@ -21,7 +21,7 @@ import {
 
 type Schema = components["schemas"];
 const editionsEnabled = process.env.HITO_ARTIST_EDITIONS_E2E === "1";
-const expectedProviderRequests = editionsEnabled ? 22 : 16;
+const expectedProviderRequests = editionsEnabled ? 23 : 17;
 test.use({
   trace: "off",
   screenshot: "off",
