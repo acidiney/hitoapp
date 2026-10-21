@@ -1,0 +1,30 @@
+name: hito-premiumize-service
+services:
+  rust:
+    profiles: [tools]
+    image: sha256:cd1d52726fea5452897774da5c1eddec3b9b445e3254374bf2582c677f66402b
+    pull_policy: never
+    network_mode: none
+    working_dir: /workspace
+    environment:
+      CARGO_NET_OFFLINE: "true"
+      CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+      CARGO_TARGET_DIR: /build/premiumize-service-3bcedac7
+    volumes:
+      - ../../..:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - rust-target:/build
+volumes:
+  cargo-registry:
+    external: true
+    name: hito_cargo-registry
+  cargo-git:
+    external: true
+    name: hito_cargo-git
+  rust-target:
+    external: true
+    name: hito_rust-target
