@@ -1,6 +1,6 @@
 # Reviewed artist discography
 
-Core, an authenticated HTTP route and shared recording-detail controls can read release-group pages for an explicitly confirmed recording-credit association. The provider and provider artist identity come from that retained association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Full artist-page traversal and normal-server publication remain unfinished.
+Core, an authenticated HTTP route and shared recording-detail and chosen-artist controls can read release-group pages for an explicitly confirmed recording-credit association. The provider and provider artist identity come from that retained association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Selected-edition traversal, playable availability and normal-server publication remain unfinished.
 
 ## Ownership
 
@@ -52,7 +52,19 @@ Each browser request has a 20-second deadline through headers and success or err
 
 Twenty-two React boundary cases cover explicit two-page browsing, exact identity and unknowns, retained rows, stale-continuation restart, stalled success/error bodies, scope changes, unmount, late headers/JSON, authority errors and unavailable outcomes. The first browse, restart and deadline cases each failed before their implementation. All 345 frontend cases in the feature snapshot pass with both type configurations and the production build. After integration with bookmark controls, all 363 cases across 128 files, types and build pass. Fresh independent correctness, security and performance reviews pass.
 
-This qualifies the shared recording-detail workflow in source. The 50-page boundary, 1,000-row rendering performance, full artist-page navigation and deployment remain separate work. Packaged browsing is qualified below.
+This qualifies the shared recording-detail workflow in source. The 50-page boundary, 1,000-row rendering performance, full artist-page navigation and deployment remain separate work. Packaged recording-detail browsing is qualified below; the later chosen-page source qualification is separate.
+
+## Chosen-artist pages
+
+An explicitly chosen artist page offers Browse full discography. The workflow reads the anchor recording's saved association, checks its account, recording, artist and exact provider identity, then reads that reviewed profile. A matching response opens the existing catalog controls and requests the first page of 20 release groups. Library track and catalog pagination remain independent. Later pages and retries require an explicit action.
+
+The shared Recording Details control retains its original explicit-browse default. Both contexts use the same bounded, read-only catalog route and rendering. Same-title groups keep distinct identities. Neither workflow imports metadata, resolves sources, opens audio or creates downloads. Selected editions, their complete track lists and local/playable availability remain unfinished.
+
+The chosen-page loader has a 20-second deadline across association and profile headers and bodies. Account, group, anchor or provider changes and unmount abort the request and fence late results. Disabled, unsupported, unavailable and cancelled outcomes remain visible and retryable. Logs record generated correlation IDs, safe outcomes and elapsed times. The page retains the identity snapshot it received; a choice reset elsewhere requires a reload, rather than an unimplemented cross-tab update guarantee.
+
+Thirty-two new DOM cases cover initial browsing, namesakes, mismatched identities, provider outcomes, explicit retries, Strict Mode, held headers and JSON, deadlines and retired requests. All 91 related cases across 17 files pass, with both TypeScript configurations, formatting and the production build. Independent source review passes. An independent Docker repeat passes all 91 cases in 15.019 seconds, with all 2,388 source input hashes unchanged and no remaining owned containers.
+
+One full frontend run was stopped at its 120-second watchdog after 157 passing file results, with no failed results observed. It is not a full-suite pass. The chosen-page source is integrated; its packaged browser acceptance and deployment remain open. Earlier packaged Recording Details evidence below does not qualify this new page.
 
 ## Packaged browsing acceptance
 
