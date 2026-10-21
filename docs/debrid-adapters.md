@@ -48,6 +48,14 @@ Opening has one nine-second budget across provider validation, unrestriction, DN
 
 The current qualifier accepts a canonical 44-byte-header PCM16 WAV representation, with one to eight channels and sample rates from 8,000 to 384,000 Hz. Header lengths, alignment and the bound file size must agree. The returned body retains the exact file binding, length and format; it emits chunks no larger than 64 KiB, detects premature or excess bytes, and has a 15-second idle-read deadline. Two media permits remain owned through EOF, error or caller drop. Qualification does not prove the recording's musical identity. Real-Debrid MP3 support is described below; AAC, other WAV layouts, conversion and seeking remain unfinished. No file or persistent download is created.
 
+## Curated recording detail budgets
+
+Core accepts at most 32,768 serialized bytes from a recording-detail response. An aggregate catalog limit does not establish this smaller per-recording limit.
+
+Real-Debrid now rejects oversized recording metadata during configuration, before a router or listener can serve it. Exactly 32,768 bytes remain valid; the existing 49,152-byte aggregate limit still applies. The public HTTP regression uses SDK-valid attribution metadata at the exact limit and one byte above it. It verifies unchanged structured metadata, private headers, zero provider/media requests, joined cleanup and safe completion logs before checking rejection.
+
+The regression and six selected catalog, authentication, audio and bootstrap cases pass, along with scoped strict checks and independent source review. An independent Docker execution of the retained regression binary also passes against 220 matching integrated dependency inputs. It runs no compiler. This qualifies Real-Debrid admission, not a new packaged image or live-provider playback. AllDebrid and TorBox equivalent admission checks remain open; Premiumize already enforces its individual limit.
+
 ## Real-Debrid MP3 relay
 
 Curated Real-Debrid recording entries can set `"audio_kind": "mp3"`. Omitting the field keeps the existing `pcm16_wav` default. Unsupported values fail before the executable binds its listener. The other three debrid adapters still select WAV explicitly.
