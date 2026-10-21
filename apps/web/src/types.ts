@@ -52,6 +52,14 @@ export type ArtistDiscographyAvailability =
   Schema["ArtistDiscographyAvailability"];
 export type ReadArtistDiscography = Schema["ReadArtistDiscography"];
 export type CatalogReleaseGroup = Schema["CatalogReleaseGroup"];
+export type CatalogEditionSummary = Schema["CatalogEditionSummary"];
+export type CatalogEditionTrackList = Schema["CatalogEditionTrackList"];
+export type ReleaseGroupEditionsAvailability =
+  Schema["ReleaseGroupEditionsAvailability"];
+export type EditionTrackListAvailability =
+  Schema["EditionTrackListAvailability"];
+export type ReadReleaseGroupEditions = Schema["ReadReleaseGroupEditions"];
+export type ReadEditionTrackList = Schema["ReadEditionTrackList"];
 export type UpdateMetadataSettings = Schema["UpdateMetadataSettings"];
 export type ReleaseMetadata = Schema["ReleaseMetadata"];
 export type TextMetadata = Schema["TextMetadata"];

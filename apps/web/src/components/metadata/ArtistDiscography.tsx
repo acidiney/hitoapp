@@ -1,5 +1,6 @@
 import { useArtistDiscography } from "../../hooks/useArtistDiscography";
 import type { ArtistAssociation, CatalogArtistProfile } from "../../types";
+import ArtistEditions from "./ArtistEditions";
 
 const kinds = {
   album: "Album",
@@ -66,6 +67,13 @@ export default function ArtistDiscography({
                 : "Artist credit not provided"}
             </p>
             <p>{group.first_release_date ?? "Release date not provided"}</p>
+            <ArtistEditions
+              account={account}
+              recording={recording}
+              association={association}
+              profile={profile}
+              group={group}
+            />
           </li>
         ))}
       </ul>
