@@ -92,6 +92,8 @@ mod artwork;
 
 #[path = "api/artist_discography.rs"]
 mod artist_discography;
+#[path = "api/artist_editions.rs"]
+mod artist_editions;
 #[path = "api/artist_identity.rs"]
 mod artist_identity;
 #[path = "api/artist_identity_access.rs"]

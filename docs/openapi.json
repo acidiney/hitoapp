@@ -6532,6 +6532,156 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/artist-associations/{association}/edition-track-list": {
+      "post": {
+        "operationId": "recording_artist_edition_track_list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "association",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadEditionTrackList"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditionTrackListAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/artist-associations/{association}/profile": {
       "get": {
         "operationId": "recording_artist_profile",
@@ -6591,6 +6741,156 @@
             }
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/recordings/{id}/artist-associations/{association}/release-group-editions": {
+      "post": {
+        "operationId": "recording_artist_release_group_editions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "association",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadReleaseGroupEditions"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseGroupEditionsAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
@@ -12932,6 +13232,130 @@
         },
         "additionalProperties": false
       },
+      "CatalogEditionMedium": {
+        "type": "object",
+        "required": [
+          "position",
+          "tracks"
+        ],
+        "properties": {
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogTrackOccurrence"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogEditionSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "artist_credit": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CatalogCreditMember"
+            }
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disambiguation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "release_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogEditionTrackList": {
+        "type": "object",
+        "required": [
+          "id",
+          "release_group_id",
+          "title",
+          "media"
+        ],
+        "properties": {
+          "artist_credit": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CatalogCreditMember"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogEditionMedium"
+            }
+          },
+          "release_group_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CatalogPageProps": {
         "allOf": [
           {
@@ -13017,6 +13441,69 @@
           "broadcast",
           "other"
         ]
+      },
+      "CatalogTrackKind": {
+        "type": "string",
+        "enum": [
+          "audio",
+          "pregap",
+          "data"
+        ]
+      },
+      "CatalogTrackOccurrence": {
+        "type": "object",
+        "required": [
+          "id",
+          "position",
+          "kind",
+          "title"
+        ],
+        "properties": {
+          "artist_credit": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CatalogCreditMember"
+            }
+          },
+          "duration_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CatalogTrackKind"
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "recording_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "ChooseRecordingArtistIdentity": {
         "type": "object",
@@ -13479,6 +13966,88 @@
             "minimum": 0
           }
         }
+      },
+      "EditionTrackListAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "association_id",
+              "edition",
+              "status"
+            ],
+            "properties": {
+              "association_id": {
+                "type": "string"
+              },
+              "edition": {
+                "$ref": "#/components/schemas/CatalogEditionTrackList"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
       },
       "ErrorCode": {
         "type": "string",
@@ -17186,6 +17755,22 @@
         },
         "additionalProperties": false
       },
+      "ReadEditionTrackList": {
+        "type": "object",
+        "required": [
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "edition_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "ReadRecordingLyrics": {
         "type": "object",
         "required": [
@@ -17198,6 +17783,30 @@
             "format": "int64"
           },
           "observation_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReadReleaseGroupEditions": {
+        "type": "object",
+        "required": [
+          "release_group_id",
+          "limit"
+        ],
+        "properties": {
+          "continuation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "release_group_id": {
             "type": "string"
           }
         },
@@ -17666,6 +18275,133 @@
             "$ref": "#/components/schemas/Page_ReleaseTrack"
           }
         }
+      },
+      "ReleaseGroupEditionsAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "association_id",
+              "page",
+              "status"
+            ],
+            "properties": {
+              "association_id": {
+                "type": "string"
+              },
+              "continuation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "page": {
+                "$ref": "#/components/schemas/ReleaseGroupEditionsPage"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ReleaseGroupEditionsPage": {
+        "type": "object",
+        "required": [
+          "release_group_id",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogEditionSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_group_id": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "ReleaseMetadata": {
         "type": "object",
