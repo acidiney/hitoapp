@@ -1,0 +1,39 @@
+[package]
+name = "hito-plugin-torbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+test-support = ["hito-debrid-torbox/test-support"]
+
+[dependencies]
+axum.workspace = true
+futures-util.workspace = true
+hito-debrid-torbox = { path = "../hito-debrid-torbox" }
+hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+subtle = "=2.6.1"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+hito-audio = { path = "../hito-audio" }
+rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+reqwest.workspace = true
+rustls.workspace = true
+tokio.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false }
+tracing-subscriber.workspace = true
+url.workspace = true
+
+[[test]]
+name = "contract"
+required-features = ["test-support"]

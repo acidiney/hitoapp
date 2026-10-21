@@ -2278,6 +2278,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-plugin-torbox"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "futures-util",
+ "hito-audio",
+ "hito-debrid-torbox",
+ "hito-plugin-sdk",
+ "rcgen",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "hito-plugin-youtube"
 version = "0.1.0-dev"
 dependencies = [

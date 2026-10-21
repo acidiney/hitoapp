@@ -1,0 +1,22 @@
+services:
+  rust:
+    build: !reset null
+    image: sha256:cd1d52726fea5452897774da5c1eddec3b9b445e3254374bf2582c677f66402b
+    network_mode: none
+    environment:
+      CARGO_NET_OFFLINE: "true"
+      CARGO_TARGET_DIR: /build/torbox-service-9279340
+      CARGO_BUILD_JOBS: "2"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+volumes:
+  cargo-registry:
+    external: true
+    name: hito_cargo-registry
+  cargo-git:
+    external: true
+    name: hito_cargo-git
+  rust-target:
+    external: true
+    name: hito_rust-target
