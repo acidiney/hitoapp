@@ -29,6 +29,12 @@ An isolated candidate then replaced only the complete extractor bundle with offi
 
 ## Backups and remaining acceptance
 
-Both complete persistent volumes were archived while their owning services were stopped. The services restarted healthy, with a measured stop/backup/start interval of 7.54 seconds. Archive hashes and contents were checked again after copying them off the VPS, together with private configuration. The backup retains SQLite state, host identity and the credential key. Restoration of this deployment has not been verified.
+Both complete persistent volumes were archived while their owning services were stopped. The services restarted healthy, with a measured stop/backup/start interval of 7.54 seconds. Archive hashes and contents were checked again after copying them off the VPS, together with private configuration. The backup retains SQLite state, host identity and the credential key.
 
-Real external playback, recovery, backup restoration, upgrades, account/load acceptance and platform release gates remain open. The normal Mac installation was kept separate and unchanged. Installation and recovery instructions are in [the VPS runbook](../deploy/vps/README.md); the full scope remains in [the release plan](release-plan.md).
+On 2026-10-21, those off-host archives passed restoration into disposable local volumes. Extraction verified the exact entries, file bytes and metadata before SQLite opened either copy, retaining WAL and SHM files. The audit compared schemas, typed values, row identifiers and all 54 migration checksums, and verified database integrity, foreign keys, the credential key, host identity and private configuration. The matching deployed CLI completed a 54-to-54 migration check with no migrations applied. All logical comparisons passed again afterward; the original backups were unchanged and disposable resources were removed. No encrypted credential rows were present, so this does not test credential decryption.
+
+Before this rehearsal, 14 parser cases, 13 Docker cleanup/interruption controls and six real-process controls passed, followed by an independent 33-case repeat. Review findings about process ownership and interruption at cleanup entry were reproduced and corrected. The real preservation rehearsal completed in 4.85 seconds. These timings describe verification runs, not recovery-time targets.
+
+The restored server and folder workers were not started. Login, authenticated library access, restored provider connections and upgrades remain unverified.
+
+Real external playback, recovery, restored runtime acceptance, upgrades, account/load acceptance and platform release gates remain open. The normal Mac installation was kept separate and unchanged. Installation and recovery instructions are in [the VPS runbook](../deploy/vps/README.md); the full scope remains in [the release plan](release-plan.md).
