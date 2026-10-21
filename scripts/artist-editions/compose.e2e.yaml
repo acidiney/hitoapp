@@ -1,0 +1,37 @@
+# Merge after scripts/artist-identity-groups/compose.e2e.yaml.
+services:
+  artist-groups-server:
+    environment:
+      HITO_DATABASE: /data/artist-editions.db
+    labels:
+      org.hito.owned-fixture: artist-editions-browser
+  artist-groups-browser:
+    environment:
+      HITO_ARTIST_IDENTITY_GROUPS_E2E: "0"
+      HITO_ARTIST_IDENTITY_EVIDENCE: "0"
+      HITO_ARTIST_REVIEW_E2E: "1"
+      HITO_ARTIST_DISCOGRAPHY_E2E: "1"
+      HITO_ARTIST_EDITIONS_E2E: "1"
+    command:
+      - node
+      - node_modules/@playwright/test/cli.js
+      - test
+      - --config
+      - playwright.config.ts
+      - --browser
+      - ${HITO_ARTIST_GROUPS_BROWSER:-chromium}
+      - --workers
+      - "1"
+      - --retries
+      - "0"
+      - --reporter
+      - list,json
+      - --output
+      - /evidence/playwright
+      - artist-discography.spec.ts
+    labels:
+      org.hito.owned-fixture: artist-editions-browser
+      org.hito.gate-source: ${HITO_ARTIST_EDITIONS_GATE_SOURCE:?Set the exact committed gate source}
+  artist-groups-node:
+    labels:
+      org.hito.owned-fixture: artist-editions-browser

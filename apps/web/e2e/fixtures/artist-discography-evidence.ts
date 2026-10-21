@@ -1,29 +1,26 @@
 import type { BrowserContext, Request } from "@playwright/test";
+import type { components } from "../../src/generated";
+import { artistDiscographyLogs } from "./artist-discography-logs";
 import { captureConsolePrivacy } from "./console-privacy";
 
+type Schema = components["schemas"];
+type CatalogRead = "discography" | "editions" | "tracks";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
 export async function artistDiscographyEvidence(
   context: BrowserContext,
   origin: string,
   privateValues: string[],
+  editions = false,
 ) {
   const pending = new Set<Promise<void>>();
   const texts = new Set<string>();
   const statusRequests = new WeakSet<Request>();
-  const catalogRequests = new WeakSet<Request>();
+  const catalogRequests = new WeakMap<Request, CatalogRead>();
   let target: { account: string; recording: string } | null = null;
-  let catalogPath: string | null = null;
-  const started = new Map<string, { family: string; action: string }>();
-  const finished = new Set<string>();
-  const acceptedReview = {
-    load: 0,
-    search: 0,
-    preview: 0,
-    confirm: 0,
-    profile: 0,
-  };
-  const acceptedCatalog = { browse: 0, more: 0 };
+  let associationPath: string | null = null;
+  let selection: Schema["ReadEditionTrackList"] | undefined;
+  const logs = artistDiscographyLogs(editions);
   const counts = {
     requests: 0,
     armedRequests: 0,
@@ -42,11 +39,26 @@ export async function artistDiscographyEvidence(
     malformedLogs: 0,
     discographyRequests: 0,
     discographyReplies: 0,
+    editionRequests: 0,
+    editionReplies: 0,
+    trackListRequests: 0,
+    trackListReplies: 0,
     invalidCatalog: 0,
     catalogBytes: 0,
     bounds: 0,
     drainTimeout: 0,
   };
+  const privateText = (text: string) =>
+    privateValues.some((value) => {
+      if (!value.length) return false;
+      const escaped = JSON.stringify(value).slice(1, -1);
+      const ascii = escaped.replace(
+        /[\u007f-\uffff]/g,
+        (character) =>
+          `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+      );
+      return [value, escaped, ascii].some((variant) => text.includes(variant));
+    });
   const observeError = () => {
     counts.pageErrors++;
   };
@@ -68,6 +80,7 @@ export async function artistDiscographyEvidence(
         target &&
         url.origin === origin &&
         !url.search &&
+        !url.hash &&
         method === "GET" &&
         url.pathname === `/api/v1/recordings/${target.recording}/download` &&
         request.postData() === null &&
@@ -84,45 +97,73 @@ export async function artistDiscographyEvidence(
       /\/(?:sources|source-choice|preparations)(?:\/|$)/.test(url.pathname)
     )
       counts.sourceWrites++;
-    if (!catalogPath) {
+    if (!associationPath) {
       if (writing) counts.preparatoryWrites++;
       return;
     }
     counts.armedRequests++;
     if (!writing) return;
+    const kind: CatalogRead | null =
+      url.pathname === `${associationPath}/discography`
+        ? "discography"
+        : editions &&
+            url.pathname === `${associationPath}/release-group-editions`
+          ? "editions"
+          : editions && url.pathname === `${associationPath}/edition-track-list`
+            ? "tracks"
+            : null;
     if (
       url.origin !== origin ||
-      url.pathname !== catalogPath ||
+      !kind ||
       url.search ||
+      url.hash ||
       method !== "POST"
     ) {
       counts.unexpectedWrites++;
       return;
     }
-    counts.discographyRequests++;
-    catalogRequests.add(request);
+    if (kind === "discography") counts.discographyRequests++;
+    else if (kind === "editions") counts.editionRequests++;
+    else counts.trackListRequests++;
+    catalogRequests.set(request, kind);
     try {
       const raw = request.postData();
-      if (!raw || Buffer.byteLength(raw) > 8_256)
+      const maximum =
+        kind === "tracks" ? 2048 : kind === "editions" ? 8_768 : 8_256;
+      if (!raw || Buffer.byteLength(raw) > maximum)
         throw new Error("Invalid owned catalog envelope");
       const value: unknown = JSON.parse(raw);
+      const keys =
+        kind === "discography"
+          ? "continuation,limit"
+          : kind === "editions"
+            ? "continuation,limit,release_group_id"
+            : "edition_id,release_group_id";
       if (
         value === null ||
         typeof value !== "object" ||
-        Object.keys(value).sort().join(",") !== "continuation,limit" ||
-        !("limit" in value) ||
-        value.limit !== 20 ||
-        !("continuation" in value) ||
-        !(
-          value.continuation === null ||
-          (typeof value.continuation === "string" &&
-            value.continuation.length > 0 &&
-            value.continuation.length <= 8192 &&
-            /^[\x20-\x7e]+$/.test(value.continuation))
-        ) ||
+        Object.keys(value).sort().join(",") !== keys ||
         request.headers()["x-hito-account"] !== target?.account ||
         request.headers()["x-hito-request"] !== "1" ||
-        !request.headers()["content-type"]?.startsWith("application/json")
+        !request.headers()["content-type"]?.startsWith("application/json") ||
+        (kind !== "discography" &&
+          (!selection ||
+            !("release_group_id" in value) ||
+            value.release_group_id !== selection.release_group_id)) ||
+        (kind === "tracks" &&
+          (!("edition_id" in value) ||
+            value.edition_id !== selection?.edition_id)) ||
+        (kind !== "tracks" &&
+          (!("limit" in value) ||
+            value.limit !== 20 ||
+            !("continuation" in value) ||
+            !(
+              value.continuation === null ||
+              (typeof value.continuation === "string" &&
+                value.continuation.length > 0 &&
+                value.continuation.length <= 8192 &&
+                /^[\x20-\x7e]+$/.test(value.continuation))
+            )))
       )
         counts.invalidCatalog++;
     } catch {
@@ -131,7 +172,7 @@ export async function artistDiscographyEvidence(
   });
   context.on("response", (response) => {
     const status = statusRequests.has(response.request());
-    const catalog = catalogRequests.has(response.request());
+    const catalog = catalogRequests.get(response.request());
     if (!status && !catalog) return;
     if (pending.size >= 32) {
       counts.bounds++;
@@ -163,12 +204,16 @@ export async function artistDiscographyEvidence(
           else counts.invalidDownloadStatus++;
         } else {
           counts.catalogBytes += bytes.length;
+          if (counts.catalogBytes > (editions ? 6 : 3) * 294_912)
+            counts.bounds++;
           if (
-            response.status() === 200 &&
-            response.headers()["cache-control"] === "private, no-store"
+            response.status() !== 200 ||
+            response.headers()["cache-control"] !== "private, no-store"
           )
-            counts.discographyReplies++;
-          else counts.invalidCatalog++;
+            counts.invalidCatalog++;
+          else if (catalog === "discography") counts.discographyReplies++;
+          else if (catalog === "editions") counts.editionReplies++;
+          else counts.trackListReplies++;
         }
       } catch {
         if (status) counts.invalidDownloadStatus++;
@@ -183,86 +228,8 @@ export async function artistDiscographyEvidence(
       counts.consoleBytes += Buffer.byteLength(text);
       if (counts.consoleBytes <= 524_288) texts.add(text);
       else counts.bounds++;
-      if (
-        privateValues.some((value) => value.length > 0 && text.includes(value))
-      )
-        counts.privateConsole++;
-      if (capture !== "snapshot") return;
-      try {
-        const values: unknown = JSON.parse(text);
-        if (!Array.isArray(values) || values[0] !== "[hito]") return;
-        const event = values[1] as Record<string, unknown> | null;
-        if (
-          !event ||
-          typeof event !== "object" ||
-          typeof event.event !== "string"
-        )
-          return;
-        const match =
-          /^(artist_review|artist_discography)\.(started|finished)$/.exec(
-            event.event,
-          );
-        if (!match) return;
-        const family = match[1];
-        const allowed =
-          family === "artist_review"
-            ? ["event", "action", "request_id", "reason", "duration_ms"]
-            : match[2] === "started"
-              ? ["event", "action", "request_id"]
-              : ["event", "request_id", "reason", "duration_ms", "count"];
-        if (
-          Object.keys(event).some((key) => !allowed.includes(key)) ||
-          typeof event.request_id !== "string" ||
-          !uuid.test(event.request_id)
-        ) {
-          counts.malformedLogs++;
-          return;
-        }
-        if (match[2] === "started") {
-          const actions =
-            family === "artist_review"
-              ? Object.keys(acceptedReview)
-              : Object.keys(acceptedCatalog);
-          if (
-            !actions.includes(String(event.action)) ||
-            started.has(event.request_id) ||
-            started.size >= 32
-          ) {
-            counts.malformedLogs++;
-            return;
-          }
-          started.set(event.request_id, {
-            family,
-            action: String(event.action),
-          });
-        } else {
-          const first = started.get(event.request_id);
-          if (
-            !first ||
-            first.family !== family ||
-            finished.has(event.request_id) ||
-            event.reason !== "accepted" ||
-            typeof event.duration_ms !== "number" ||
-            !Number.isFinite(event.duration_ms) ||
-            event.duration_ms < 0 ||
-            (family === "artist_review" && event.action !== first.action) ||
-            (family === "artist_discography" &&
-              (typeof event.count !== "number" ||
-                !Number.isInteger(event.count) ||
-                event.count < 0 ||
-                event.count > 20))
-          ) {
-            counts.malformedLogs++;
-            return;
-          }
-          if (family === "artist_review")
-            acceptedReview[first.action as keyof typeof acceptedReview]++;
-          else acceptedCatalog[first.action as keyof typeof acceptedCatalog]++;
-          finished.add(event.request_id);
-        }
-      } catch {
-        counts.malformedLogs++;
-      }
+      if (privateText(text)) counts.privateConsole++;
+      if (capture === "snapshot" && !logs.observe(text)) counts.malformedLogs++;
     },
     () => {
       counts.malformedLogs++;
@@ -275,28 +242,25 @@ export async function artistDiscographyEvidence(
   }, origin);
   return {
     counts,
-    acceptedReview,
-    acceptedCatalog,
+    acceptedReview: logs.acceptedReview,
+    acceptedCatalog: logs.acceptedCatalog,
     watchDownloadStatus(account: string, recording: string) {
       if (target || !uuid.test(account) || !uuid.test(recording))
         throw new Error("Invalid owned observer target");
       target = { account, recording };
     },
-    arm(association: string) {
-      if (!target || catalogPath || !uuid.test(association))
+    arm(association: string, selected?: Schema["ReadEditionTrackList"]) {
+      if (
+        !target ||
+        associationPath ||
+        !uuid.test(association) ||
+        editions !== Boolean(selected)
+      )
         throw new Error("Invalid owned catalog observation phase");
-      catalogPath = `/api/v1/recordings/${target.recording}/artist-associations/${association}/discography`;
+      associationPath = `/api/v1/recordings/${target.recording}/artist-associations/${association}`;
+      selection = selected;
     },
-    complete: () =>
-      started.size === 10 &&
-      finished.size === 10 &&
-      acceptedReview.load === 2 &&
-      acceptedReview.search === 1 &&
-      acceptedReview.preview === 1 &&
-      acceptedReview.confirm === 1 &&
-      acceptedReview.profile === 2 &&
-      acceptedCatalog.browse === 2 &&
-      acceptedCatalog.more === 1,
+    complete: logs.complete,
     async finish(releasePrivate = false) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -314,13 +278,7 @@ export async function artistDiscographyEvidence(
       } finally {
         clearTimeout(timer);
       }
-      for (const text of texts)
-        if (
-          privateValues.some(
-            (value) => value.length > 0 && text.includes(value),
-          )
-        )
-          counts.privateConsole++;
+      for (const text of texts) if (privateText(text)) counts.privateConsole++;
       if (releasePrivate) texts.clear();
     },
   };
