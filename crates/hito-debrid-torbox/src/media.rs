@@ -49,6 +49,14 @@ impl BoundAudioOpening<'_> {
         candidate: GeneratedFileCandidate,
         allowlist: &MediaAllowlist,
     ) -> Result<OpenedBoundAudio, Error> {
+        self.open_retained(&candidate, allowlist).await
+    }
+
+    pub async fn open_retained(
+        self,
+        candidate: &GeneratedFileCandidate,
+        allowlist: &MediaAllowlist,
+    ) -> Result<OpenedBoundAudio, Error> {
         let Self {
             client,
             opening,
