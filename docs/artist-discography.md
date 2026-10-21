@@ -96,4 +96,13 @@ The shared reviewed-read owner retains separate metadata admission, finishes its
 
 The two new public core workflows pass, together with both existing discography cases and strict all-target core checks. An independent Docker repeat passes both new workflows on unchanged source. Fixtures verify two-page edition listing, explicit selection, multiple discs, repeated recording occurrences, stale policy rejection and cancellation followed by a successful retry before the held provider work finishes. State, original associations and explicit-download absence are preserved. Structured completion logs and their span-close events retain correlations while excluding the tested private values.
 
-This qualifies the core read capability. Authenticated edition HTTP routes, generated application contracts, shared browsing controls, local playable matching and packaged/live acceptance remain unfinished. No new edition UI is deployed.
+This qualifies the core read capability. Shared browsing controls, local playable matching and packaged/live acceptance remain unfinished. No new edition UI is deployed.
+
+
+## Edition HTTP API
+
+Two authenticated POST routes under `/api/v1/recordings/{id}/artist-associations/{association}` expose `/release-group-editions` and `/edition-track-list`. Opaque provider identities stay in typed JSON bodies. The shared account extractor and core reviewed-read owner enforce access; responses use `private, no-store`. The HTTP layer introduces no SQL, provider-specific behavior, imports, playback or downloads.
+
+The new public Router workflow and existing discography regression pass, with strict all-target server checks. The new workflow also passes an independent Docker repeat. It reviews a real imported recording, pages two edition results, selects one exact version and verifies ordered repeated track occurrences. Anonymous requests fail before provider work, and private library/collection/download state remains unchanged.
+
+Actual Rust export and offline TypeScript generation add two paths and ten reachable schemas while preserving the previous 103 paths and 247 schemas. An independent run of the qualified export reproduces the final OpenAPI bytes. Shared UI controls and packaged/live acceptance remain open. Neither the normal server nor VPS was updated.
