@@ -9,6 +9,7 @@ pub use types::{
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use authority::Target;
 use hito_plugin_sdk::{Capability, LyricsRequest};
+use sha2::{Digest, Sha256};
 use std::{
     future::Future,
     time::{Duration, Instant},
@@ -95,11 +96,16 @@ impl Catalog {
         self.recheck_recording_lyrics(actor, recording, &target, &operation)
             .await?;
         match result {
-            Ok(Some(document)) => Ok(LyricsLookup::Ready {
-                recording_id: recording.into(),
-                observation_id: request.observation_id,
-                document: Box::new(document),
-            }),
+            Ok(Some(document)) => {
+                let encoded = serde_json::to_vec(&document)
+                    .map_err(|_| Error::Internal("Validated lyrics could not be encoded".into()))?;
+                Ok(LyricsLookup::Ready {
+                    recording_id: recording.into(),
+                    observation_id: request.observation_id,
+                    document_digest: format!("{:x}", Sha256::digest(encoded)),
+                    document: Box::new(document),
+                })
+            }
             Ok(None) => Ok(LyricsLookup::Unsupported),
             Err(Error::Upstream(_)) => Ok(LyricsLookup::Unavailable),
             Err(error) => Err(error),

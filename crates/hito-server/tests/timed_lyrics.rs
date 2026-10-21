@@ -2,6 +2,8 @@
 mod audit;
 #[path = "timed_lyrics/authority.rs"]
 mod authority;
+#[path = "timed_lyrics/digest.rs"]
+mod digest;
 #[path = "timed_lyrics/dropped.rs"]
 mod dropped;
 #[path = "fixtures/timed_lyrics.rs"]
@@ -82,11 +84,17 @@ async fn exercise(provider: &provider::Provider) {
                 .unwrap()
                 .contains("no-store")
         );
+        let expected_document = provider::response(present);
+        let expected_digest = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&expected_document).unwrap())
+        );
         assert!(
             result
                 == json!({
                     "status": "ready", "recording_id": library.recording,
-                    "observation_id": library.observation, "document": provider::response(present),
+                    "observation_id": library.observation, "document_digest": expected_digest,
+                    "document": expected_document,
                 }),
             "The host must return only the exact retained recording's validated lyric result"
         );

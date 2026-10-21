@@ -30,6 +30,7 @@ pub enum LyricsLookup {
     Ready {
         recording_id: String,
         observation_id: String,
+        document_digest: String,
         document: Box<LyricsResponse>,
     },
     Unsupported,

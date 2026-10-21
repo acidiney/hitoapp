@@ -2,7 +2,9 @@ use super::{
     AssertUnwindSafe, Duration, FutureExt, Library, StatusCode, assert_private_logs, fixture, json,
     logs, provider, resume_unwind,
 };
+use hito_plugin_sdk::LyricsResponse;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use tracing::instrument::WithSubscriber;
 
 #[path = "../fixtures/timed_lyrics_attached.rs"]
@@ -211,10 +213,19 @@ async fn list_attached(provider: &provider::Provider, attached: &attached::Provi
             .with_subscriber(subscriber.clone()).await;
         assert_eq!(status, expected);
         if status == StatusCode::OK {
+            let expected_document = LyricsResponse {
+                recording: attached.reference(),
+                lyrics: None,
+            };
+            let expected_digest = format!(
+                "{:x}",
+                Sha256::digest(serde_json::to_vec(&expected_document).unwrap())
+            );
             assert!(
                 result
                     == json!({"status": "ready", "recording_id": library.recording,
-                "observation_id": current["id"], "document": {"recording": attached.reference(), "lyrics": null}})
+                "observation_id": current["id"], "document_digest": expected_digest,
+                "document": expected_document})
             );
         } else {
             assert!(result.get("document").is_none());
