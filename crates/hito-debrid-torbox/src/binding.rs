@@ -13,7 +13,7 @@ pub struct TorrentFileBinding {
 }
 
 impl TorrentFileBinding {
-    pub(crate) fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), Error> {
         if self.torrent_id == 0
             || self.info_hash.len() != 40
             || !self
