@@ -5,12 +5,22 @@ use crate::{
 use std::time::{Duration, Instant};
 use tracing::Instrument;
 
+pub struct BoundAudioOpening<'a> {
+    client: &'a TorBoxClient,
+    opening: hito_remote_audio::Opening<'a>,
+    log: WorkflowLog,
+}
+
 impl TorBoxClient {
     pub async fn open_bound_audio(
         &self,
         candidate: GeneratedFileCandidate,
         allowlist: &MediaAllowlist,
     ) -> Result<OpenedBoundAudio, Error> {
+        self.admit_bound_audio()?.open(candidate, allowlist).await
+    }
+
+    pub fn admit_bound_audio(&self) -> Result<BoundAudioOpening<'_>, Error> {
         let mut log = WorkflowLog {
             started: Instant::now(),
             dispatch: tracing::dispatcher::get_default(Clone::clone),
@@ -20,11 +30,34 @@ impl TorBoxClient {
             count: 0,
             mint_dispatched: false,
         };
+        let opening = self.media.admit().map_err(|error| {
+            let error = Error::from(error);
+            log.outcome = error.outcome();
+            error
+        })?;
+        Ok(BoundAudioOpening {
+            client: self,
+            opening,
+            log,
+        })
+    }
+}
+
+impl BoundAudioOpening<'_> {
+    pub async fn open(
+        self,
+        candidate: GeneratedFileCandidate,
+        allowlist: &MediaAllowlist,
+    ) -> Result<OpenedBoundAudio, Error> {
+        let Self {
+            client,
+            opening,
+            mut log,
+        } = self;
         let result = tokio::time::timeout(
             Duration::from_secs(9),
             async {
-                let opening = self.media.admit()?;
-                let current = self.observe(candidate.binding()).await?;
+                let current = client.observe(candidate.binding()).await?;
                 if current.phase != TorrentPhase::ProviderCompleted {
                     return Err(Error::SourceIncomplete);
                 }
