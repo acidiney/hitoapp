@@ -214,7 +214,19 @@ Dispatched requests with missing or invalid acknowledgements remain uncertain, w
 
 All ten audio cases and the twelve original observation cases pass, together with default and test-support strict Clippy and formatting. Independent security, correctness and performance reviews and a separate 22-case repeat pass. Tests consume exact owned WAV bytes through EOF and decode every sample. They verify changed-file rejection, acknowledgement loss, timeout, cancellation, media failures and shared body admission. Peer-closure witnesses precede fixture shutdown while another client remains alive.
 
-An early test incorrectly expected a misleading MIME header to override valid WAV bytes. The corrected positive consumes the entire valid payload; actual HTML, non-WAV, framing, redirect and origin negatives remain rejected. Production did not change for that test correction. A connectable TorBox service, application delivery, broader codecs, seeking and live-provider acceptance remain open. The normal server is unchanged.
+An early test incorrectly expected a misleading MIME header to override valid WAV bytes. The corrected positive consumes the entire valid payload; actual HTML, non-WAV, framing, redirect and origin negatives remain rejected. Production did not change for that test correction. The service-library foundation is qualified below; executable delivery, application installation, broader codecs, seeking and live-provider acceptance remain open. The normal server is unchanged.
+
+## TorBox curated-WAV service library
+
+The separate `hito-plugin-torbox` library exposes an authenticated HTTP plugin for operator-curated exact torrent-file bindings. Its public manifest declares shared SDK capabilities; search, recording details, source reads and preparation use structured data. The service owns its bearer credential, opaque identifiers and process-local preparation receipts. The existing TorBox client owns provider authorization, exact file verification, private links and shared audio transport. No plugin-supplied UI or core database access is introduced.
+
+The first public HTTP/TLS tracer waits for incomplete metadata, retains one preparation handle, freshly verifies completion and the selected file, and mints one private candidate. Receipt replay does not mint again. Source reads and HEAD recheck readiness without opening audio. Explicit GET verifies and relays all 65,580 owned WAV bytes through EOF, with every one of the 32,768 PCM samples checked.
+
+The service reserves the client's actual shared media permit before consuming a ready candidate. A regression prepares three distinct files, holds two real streaming bodies, then rejects the third GET without a provider request, media request or new mint. Its exact receipt remains ready, and metadata and HEAD still work. Dropping a held body closes its upstream peer; retrying the original third candidate plays the exact WAV without reminting. This qualifies shared media admission rejection. Later provider-observation or opening failures can still consume a candidate and remain unfinished recovery work.
+
+Both service cases and all 22 prior client cases pass, with strict default/test-support service checks, formatting and independent specialist source reviews. An independent repeat passes all 24 cases against the qualified binaries in 50.46 seconds, with source and build outputs read-only, external networking disabled and exact hashes before and after. This is a functional fixture duration, not a playback benchmark. All 22 qualified owned inputs match after integration, and every prior lockfile package block is unchanged.
+
+This library is not ready to deploy. Restart loses its process-local receipt ledger, including uncertain mint history. Durable recovery, remaining cancellation/readiness/resource controls, an executable with private configuration, a container, application installation, seeking, broader codecs and live TorBox acceptance remain open. See [the service contract and reproduction commands](../crates/hito-plugin-torbox/README.md).
 
 ## Premiumize observation
 
@@ -260,4 +272,4 @@ and live acceptance remain open. The normal deployment is unchanged.
 
 ## Protocol fixtures in workspace verification
 
-Workspace tests and strict Clippy now explicitly enable the four debrid `test-support` features. This includes the TorBox and Premiumize observation targets that default builds omit. Shell syntax and the composed locked/offline Linux feature graph are verified; this change does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
+Workspace tests and strict Clippy explicitly enable the four debrid-client `test-support` features and the TorBox service's separate `test-support` feature. Enabling only the client feature would skip the service contract target and collect no admission case. The composed locked/offline Linux feature graph selects both service targets and their required features without compilation or dependency changes. This does not establish that the complete CI workflow passes. Production feature defaults are unchanged.
