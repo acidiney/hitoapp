@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../shared/ui/Notices";
 import TrackToolbar from "../shared/ui/TrackToolbar";
-import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
+import { audiobookContinuationMedia } from "../features/audiobooks/fixtures/audiobookContinuationMedia";
 import type { components } from "../generated";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import type { Player } from "./model";

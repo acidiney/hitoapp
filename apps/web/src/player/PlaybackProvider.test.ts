@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
-import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
+import { audiobookContinuationMedia } from "../features/audiobooks/fixtures/audiobookContinuationMedia";
 import type { Player } from "./model";
 import type { Source, SyncBatch } from "../shared/types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";

@@ -1,7 +1,7 @@
 import { act } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
-import { audiobookPages } from "../fixtures/audiobooks";
+import { audiobookContinuationMedia } from "../features/audiobooks/fixtures/audiobookContinuationMedia";
+import { audiobookPages } from "../features/audiobooks/fixtures/audiobooks";
 import type { components } from "../generated";
 import {
   playbackRequests,

@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { audiobookPages } from "../../fixtures/audiobooks";
+import { audiobookPages } from "../../features/audiobooks/fixtures/audiobooks";
 import { NativePlayback } from "./NativePlayback";
 import { nativeService } from "./fixtures/service";
 import type { Command } from "./api";
