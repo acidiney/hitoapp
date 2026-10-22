@@ -513,12 +513,21 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         .await
         .unwrap();
     for object in &prior {
+        let mut declared = object.clone();
+        if declared.0 == "table" && declared.1 == "source_resolutions" {
+            declared.3 = declared.3.map(|ddl| {
+                ddl.replace(
+                    "'no_suitable_source'",
+                    "'no_suitable_source','provider_unavailable'",
+                )
+            });
+        }
         assert!(
-            expected.contains(object),
-            "ranking preferences must retain every exact historical 0052 schema object"
+            expected.contains(&declared),
+            "later migrations must retain every exact historical 0052 schema object except the declared source resolution outcome set"
         );
     }
-    let added = expected
+    let mut added = expected
         .iter()
         .filter(|object| {
             !prior
@@ -527,16 +536,36 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         })
         .map(|object| (object.0.as_str(), object.1.as_str()))
         .collect::<Vec<_>>();
+    let mut declared_additions = vec![
+        ("table", "account_community_ranking_preferences"),
+        (
+            "index",
+            "sqlite_autoindex_account_community_ranking_preferences_1",
+        ),
+        ("table", "account_artist_identity_groups"),
+        ("index", "sqlite_autoindex_account_artist_identity_groups_1"),
+        ("index", "sqlite_autoindex_account_artist_identity_groups_2"),
+        ("index", "sqlite_autoindex_account_artist_identity_groups_3"),
+        ("table", "recording_artist_identity_choices"),
+        (
+            "index",
+            "sqlite_autoindex_recording_artist_identity_choices_1",
+        ),
+        ("index", "recording_artist_identity_group"),
+        ("index", "recording_artist_identity_recording"),
+        ("table", "artist_identity_choice_receipts"),
+        (
+            "index",
+            "sqlite_autoindex_artist_identity_choice_receipts_1",
+        ),
+        ("trigger", "artist_identity_receipt_immutable"),
+        ("trigger", "artist_identity_receipt_retained"),
+    ];
+    added.sort_unstable();
+    declared_additions.sort_unstable();
     assert_eq!(
-        added,
-        [
-            (
-                "index",
-                "sqlite_autoindex_account_community_ranking_preferences_1"
-            ),
-            ("table", "account_community_ranking_preferences"),
-        ],
-        "only the exact ranking preference table and primary-key index may extend 0052"
+        added, declared_additions,
+        "only the exact ranking preference and artist identity objects may extend 0052"
     );
     assert!(
         actual == expected,
@@ -563,6 +592,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         "community_reporters",
         "community_reports",
         "account_community_ranking_preferences",
+        "account_artist_identity_groups",
+        "recording_artist_identity_choices",
+        "artist_identity_choice_receipts",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&mut *connection)
