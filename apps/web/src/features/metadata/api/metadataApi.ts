@@ -1,6 +1,6 @@
-import { request } from "./shared/http";
-import type { RecordingMetadata, ReleaseMetadata } from "./shared/types";
-import type { MetadataTarget } from "./metadata";
+import { request } from "../../../shared/http";
+import type { RecordingMetadata, ReleaseMetadata } from "../../../shared/types";
+import type { MetadataTarget } from "../metadata";
 
 export const metadataApi = {
   async history(

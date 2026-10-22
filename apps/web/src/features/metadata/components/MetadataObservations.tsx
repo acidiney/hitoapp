@@ -1,7 +1,7 @@
-import type { MetadataObservation, ObservationPage } from "../shared/types";
+import type { MetadataObservation, ObservationPage } from "../../../shared/types";
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
 import type { MetadataTarget } from "../metadata";
-import RecordingCredits from "./metadata/RecordingCredits";
+import RecordingCredits from "./RecordingCredits";
 
 const tagLabels = {
   title: "Title",

@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import MetadataObservations from "./components/MetadataObservations";
+import MetadataObservations from "./features/metadata/components/MetadataObservations";
 import {
   attributedRecordingPage,
   selectedRecordingAttribution,

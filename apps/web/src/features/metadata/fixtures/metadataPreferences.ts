@@ -1,12 +1,12 @@
 import { createElement } from "react";
-import MetadataPreferences from "../components/metadata/MetadataPreferences";
+import MetadataPreferences from "../components/MetadataPreferences";
 import type {
   MetadataProvider,
   MetadataSettings,
   PluginInstallation,
   PluginService,
   PluginSettings,
-} from "../shared/types";
+} from "../../../shared/types";
 
 export const builtin: MetadataProvider = { kind: "builtin_musicbrainz" };
 

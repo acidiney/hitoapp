@@ -17,7 +17,7 @@ import {
   firstCatalog,
   secondCatalog,
 } from "../fixtures/artistReview";
-import { reference } from "../../../fixtures/metadataPreferences";
+import { reference } from "../../metadata/fixtures/metadataPreferences";
 
 type Schema = components["schemas"];
 const base = (recording = artistReviewDetail.recording_id) =>

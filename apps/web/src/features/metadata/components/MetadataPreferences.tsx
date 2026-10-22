@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useMetadataPreferences } from "../../hooks/useMetadataPreferences";
+import { useMetadataPreferences } from "../hooks/useMetadataPreferences";
 import MetadataProviderList from "./MetadataProviderList";
 
 export default function MetadataPreferences({ account }: { account: string }) {

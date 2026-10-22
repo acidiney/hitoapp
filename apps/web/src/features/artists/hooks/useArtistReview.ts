@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import { metadataPreferencesApi } from "../../../metadataPreferencesApi";
+import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
 import { pluginsApi } from "../../../pluginsApi";
 import type {
   ArtistAssociation,

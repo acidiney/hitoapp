@@ -17,8 +17,8 @@ vi.mock("./features/downloads/components/RecordingDownload", () => ({
 }));
 vi.mock("./features/artwork/components/Artwork", () => ({ default: () => null }));
 vi.mock("./features/artwork/components/ArtworkStatus", () => ({ default: () => null }));
-vi.mock("./components/MetadataEditor", () => ({ default: () => null }));
-vi.mock("./components/MetadataObservations", () => ({ default: () => null }));
+vi.mock("./features/metadata/components/MetadataEditor", () => ({ default: () => null }));
+vi.mock("./features/metadata/components/MetadataObservations", () => ({ default: () => null }));
 vi.mock("./components/SourceAttachment", () => ({
   default: () => createElement("p", null, "Provider attachment controls"),
 }));

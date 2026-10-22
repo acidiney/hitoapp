@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
-import type { ReleaseMetadata, TextMetadata } from "../shared/types";
+import type { ReleaseMetadata, TextMetadata } from "../../../shared/types";
 import { type MetadataTarget, type MetadataField } from "../metadata";
-import type { MutationResult } from "../shared/hooks/useMutation";
+import type { MutationResult } from "../../../shared/hooks/useMutation";
 
 export default function MetadataFieldEditor({
   target,

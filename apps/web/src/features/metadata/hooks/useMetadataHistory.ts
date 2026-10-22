@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { metadataApi } from "../metadataApi";
-import { errorMessage } from "../shared/format";
-import type { ObservationPage } from "../shared/types";
+import { metadataApi } from "../api/metadataApi";
+import { errorMessage } from "../../../shared/format";
+import type { ObservationPage } from "../../../shared/types";
 import type { MetadataTarget } from "../metadata";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useMetadataHistory(
   account: string,

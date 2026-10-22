@@ -1,9 +1,9 @@
 import { createElement, StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { metadataPreferencesApi } from "./metadataPreferencesApi";
-import { pluginsApi } from "./pluginsApi";
-import { HttpError } from "./shared/http";
+import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
+import { pluginsApi } from "../../../pluginsApi";
+import { HttpError } from "../../../shared/http";
 import {
   builtin,
   catalog,
@@ -12,13 +12,13 @@ import {
   preferences,
   reference,
   settings,
-} from "./fixtures/metadataPreferences";
+} from "../fixtures/metadataPreferences";
 
-vi.mock("./metadataPreferencesApi", () => ({
+vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
 }));
-vi.mock("./pluginsApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./pluginsApi")>();
+vi.mock("../../../pluginsApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../pluginsApi")>();
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 const alice = catalog(1, "Alice private catalog");

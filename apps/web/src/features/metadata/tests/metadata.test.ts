@@ -2,29 +2,29 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import { change } from "./shared/sync";
-import { NoticeProvider } from "./shared/ui/Notices";
-import MetadataEditor from "./components/MetadataEditor";
-import MetadataObservations from "./components/MetadataObservations";
+import { change } from "../../../shared/sync";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import MetadataEditor from "../components/MetadataEditor";
+import MetadataObservations from "../components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useMetadataHistory } from "./hooks/useMetadataHistory";
-import { metadataApi } from "./metadataApi";
+import { useMetadataHistory } from "../hooks/useMetadataHistory";
+import { metadataApi } from "../api/metadataApi";
 import type {
   ObservationPage,
   RecordingMetadata,
   ReleaseMetadata,
   TextMetadata,
-} from "./shared/types";
+} from "../../../shared/types";
 import type {
   MetadataEditorInput,
   MetadataField,
   MetadataTarget,
-} from "./metadata";
+} from "../metadata";
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
-vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./shared/sync", () => ({ change: vi.fn() }));
-vi.mock("./metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
+vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../../shared/sync", () => ({ change: vi.fn() }));
+vi.mock("../api/metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
 test("provider observations show provider provenance without claiming file inspection", () => {
   render(

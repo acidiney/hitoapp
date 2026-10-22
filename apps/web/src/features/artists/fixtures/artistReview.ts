@@ -5,7 +5,7 @@ import {
   connections,
   reference,
   settings,
-} from "../../../fixtures/metadataPreferences";
+} from "../../metadata/fixtures/metadataPreferences";
 import { savedRecording, sourceAttachmentPage } from "../../../fixtures/sourceAttachment";
 
 type Schema = components["schemas"];

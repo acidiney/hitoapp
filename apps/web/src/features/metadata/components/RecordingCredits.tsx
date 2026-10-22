@@ -1,4 +1,4 @@
-import type { RecordingAttribution } from "../../shared/types";
+import type { RecordingAttribution } from "../../../shared/types";
 
 function canonicalContentUrl(value: string): string | null {
   if (value.length > 2048 || /[\s\u0000-\u001f\u007f-\u009f\\?#]/u.test(value))

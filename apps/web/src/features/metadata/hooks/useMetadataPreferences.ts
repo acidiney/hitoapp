@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { errorMessage } from "../shared/format";
-import { log } from "../shared/log";
-import { metadataPreferencesApi } from "../metadataPreferencesApi";
-import { pluginsApi } from "../pluginsApi";
+import { errorMessage } from "../../../shared/format";
+import { log } from "../../../shared/log";
+import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
+import { pluginsApi } from "../../../pluginsApi";
 import type {
   MetadataProvider,
   MetadataSettings,
   PluginSettings,
   UpdateMetadataSettings,
-} from "../shared/types";
-import { createUuid } from "../shared/uuid";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+} from "../../../shared/types";
+import { createUuid } from "../../../shared/uuid";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 const MAX_PROVIDERS = 8;
 type Phase = "load" | "save" | null;

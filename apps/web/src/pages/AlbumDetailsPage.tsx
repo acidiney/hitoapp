@@ -2,8 +2,8 @@ import { Link } from "@inertiajs/react";
 import type { AlbumDetailsPageProps } from "../shared/types";
 import Artwork from "../features/artwork/components/Artwork";
 import ArtworkStatus from "../features/artwork/components/ArtworkStatus";
-import MetadataEditor from "../components/MetadataEditor";
-import MetadataObservations from "../components/MetadataObservations";
+import MetadataEditor from "../features/metadata/components/MetadataEditor";
+import MetadataObservations from "../features/metadata/components/MetadataObservations";
 
 export default function AlbumDetailsPage({
   user,
