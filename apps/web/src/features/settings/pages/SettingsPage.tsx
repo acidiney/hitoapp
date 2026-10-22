@@ -1,14 +1,14 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { usePage } from "@inertiajs/react";
-import type { SettingsPageProps } from "../shared/types";
-import AccountSettings from "../features/accounts/components/AccountSettings";
-import LibrarySettings from "../features/library/components/LibrarySettings";
-import PluginSettings from "../features/plugins/components/PluginSettings";
-import MetadataPreferences from "../features/metadata/components/MetadataPreferences";
-import CommunitySettings from "../features/community/components/CommunitySettings";
-import CommunityRankingSettings from "../features/community/components/CommunityRankingSettings";
-import PageHeading from "../shared/ui/PageHeading";
-import { log } from "../shared/log";
+import type { SettingsPageProps } from "../../../shared/types";
+import AccountSettings from "../../accounts/components/AccountSettings";
+import LibrarySettings from "../../library/components/LibrarySettings";
+import PluginSettings from "../../plugins/components/PluginSettings";
+import MetadataPreferences from "../../metadata/components/MetadataPreferences";
+import CommunitySettings from "../../community/components/CommunitySettings";
+import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
+import PageHeading from "../../../shared/ui/PageHeading";
+import { log } from "../../../shared/log";
 
 export default function SettingsPage(props: SettingsPageProps) {
   const { url } = usePage();

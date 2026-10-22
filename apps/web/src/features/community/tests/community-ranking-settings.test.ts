@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import SettingsPage from "../../../pages/SettingsPage";
+import SettingsPage from "../../settings/pages/SettingsPage";
 import type { components } from "../../../generated";
 
 type Schema = components["schemas"];

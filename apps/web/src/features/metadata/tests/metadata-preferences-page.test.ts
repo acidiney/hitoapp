@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import SettingsPage from "../../../pages/SettingsPage";
+import SettingsPage from "../../settings/pages/SettingsPage";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { connections, settings } from "../fixtures/metadataPreferences";

@@ -19,7 +19,7 @@ import AudiobookPage from "./features/audiobooks/pages/AudiobookPage";
 import PodcastIndexPage from "./features/podcasts/pages/PodcastIndexPage";
 import PodcastPage from "./features/podcasts/pages/PodcastPage";
 import PlaylistPage from "./features/playlists/pages/PlaylistPage";
-import SettingsPage from "./pages/SettingsPage";
+import SettingsPage from "./features/settings/pages/SettingsPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
 import Shell from "./Shell";
 import { installSessionBoundary } from "./features/session/session";
