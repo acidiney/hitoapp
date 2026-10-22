@@ -29,10 +29,7 @@ pub const ADDED: &[(&str, &str)] = &[
 
 pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {
     let before = super::schema(&mut connection).await;
-    sqlx::migrate!("./migrations")
-        .run(&mut connection)
-        .await
-        .unwrap();
+    super::through(54).run(&mut connection).await.unwrap();
     let after = super::schema(&mut connection).await;
     for object in &before {
         assert!(

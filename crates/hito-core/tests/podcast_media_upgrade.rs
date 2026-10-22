@@ -95,7 +95,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
     }
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
-    assert_version(&mut connection, 54).await;
+    assert_version(&mut connection, collection_artwork_schema::latest_version()).await;
     latest.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     assert_conditional_additions(&mut connection).await;
@@ -527,6 +527,17 @@ impl RetainedState {
                 assert!(kind == "index" && name.starts_with("sqlite_autoindex_"));
             }
         }
+        reference.close().await.unwrap();
+        let mut reference = collection_artwork_schema::reference_55().await;
+        let declared = schema(&mut reference).await;
+        assert!(
+            self.schema.contains_key("source_resolutions"),
+            "the baseline must contain source_resolutions"
+        );
+        self.schema.insert(
+            "source_resolutions".into(),
+            declared.get("source_resolutions").unwrap().clone(),
+        );
         reference.close().await.unwrap();
         self
     }

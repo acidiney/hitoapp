@@ -57,9 +57,11 @@ async fn latest_migrator_preserves_closed_version_43_download_state() {
         .expecting_audiobooks()
         .await
         .expecting_collection_artwork()
+        .await
+        .expecting_unavailable_outcome()
         .await;
     all.run(&mut connection).await.unwrap();
-    assert_version(&mut connection, 54).await;
+    assert_version(&mut connection, collection_artwork_schema::latest_version()).await;
     expected.assert_preserved(&mut connection).await;
     collection_artwork_schema::assert_current(&mut connection).await;
     let origins = typed_rows(&mut connection,
@@ -462,6 +464,20 @@ impl RetainedState {
                 rows: Vec::new(),
             });
         }
+        reference.close().await.unwrap();
+        self
+    }
+
+    async fn expecting_unavailable_outcome(mut self) -> Self {
+        let mut reference = collection_artwork_schema::reference_55().await;
+        let declared = schema(&mut reference).await;
+        let key = ("table".to_owned(), "source_resolutions".to_owned());
+        assert!(
+            self.schema.contains_key(&key),
+            "the baseline must contain source_resolutions"
+        );
+        self.schema
+            .insert(key.clone(), declared.get(&key).unwrap().clone());
         reference.close().await.unwrap();
         self
     }

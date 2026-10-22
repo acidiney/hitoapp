@@ -163,6 +163,14 @@ pub async fn assert_schema_preserved(connection: &mut SqliteConnection, before: 
         .filter(|object| !changed.contains(&object.1.as_str()))
     {
         let mut expected = object.clone();
+        if expected.0 == "table" && expected.1 == "source_resolutions" {
+            expected.3 = expected.3.map(|ddl| {
+                ddl.replace(
+                    "'no_suitable_source'",
+                    "'no_suitable_source','provider_unavailable'",
+                )
+            });
+        }
         if expected.1 == "recording_artwork" {
             expected.3 = expected.3.map(|ddl| {
                 ddl.replacen(

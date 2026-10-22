@@ -152,7 +152,7 @@ async fn automatic_source_upgrade_preserves_populated_binding_history_and_depend
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert_eq!(version, 54);
+    assert_eq!(version, collection_artwork_schema::latest_version());
     collection_artwork_schema::assert_current(&mut pool.acquire().await.unwrap()).await;
     for table in [
         "recording_source_choices",
