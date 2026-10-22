@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
-import { HttpError } from "../shared/http";
-import { log } from "../shared/log";
+import { HttpError } from "../../../shared/http";
+import { log } from "../../../shared/log";
 import {
   lyricsApi,
   type LyricsLookup,
   type RecordingLyricsProvider,
-} from "../lyricsApi";
-import { pluginsApi } from "../pluginsApi";
-import type { RecordingMetadata } from "../shared/types";
-import { createUuid } from "../shared/uuid";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+} from "../api/lyricsApi";
+import { pluginsApi } from "../../../pluginsApi";
+import type { RecordingMetadata } from "../../../shared/types";
+import { createUuid } from "../../../shared/uuid";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { useLyricProviderChoices } from "./useLyricProviderChoices";
 
 type Target = Pick<

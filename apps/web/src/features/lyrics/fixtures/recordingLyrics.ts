@@ -1,6 +1,6 @@
-import type { components } from "../generated";
-import type { PluginSettings, RecordingDetailsPageProps } from "../shared/types";
-import { sourceAttachmentPage } from "./sourceAttachment";
+import type { components } from "../../../generated";
+import type { PluginSettings, RecordingDetailsPageProps } from "../../../shared/types";
+import { sourceAttachmentPage } from "../../../fixtures/sourceAttachment";
 
 type Schema = components["schemas"];
 

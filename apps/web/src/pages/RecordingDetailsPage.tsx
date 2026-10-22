@@ -12,8 +12,8 @@ import SourceChoiceControls from "../components/SourceChoiceControls";
 import RecordingDownload from "../features/downloads/components/RecordingDownload";
 import { useRecordingDownload } from "../features/downloads/hooks/useRecordingDownload";
 import { useSourceChoice } from "../hooks/useSourceChoice";
-import RecordingLyrics from "../components/lyrics/RecordingLyrics";
-import { useRecordingLyrics } from "../hooks/useRecordingLyrics";
+import RecordingLyrics from "../features/lyrics/components/RecordingLyrics";
+import { useRecordingLyrics } from "../features/lyrics/hooks/useRecordingLyrics";
 
 export default function RecordingDetailsPage({
   user,

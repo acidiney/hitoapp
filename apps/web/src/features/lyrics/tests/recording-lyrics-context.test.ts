@@ -2,17 +2,18 @@ import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
-import { NoticeProvider } from "./shared/ui/Notices";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
+import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
+  lyricObservation,
   lyricRecordingPage,
   lyricSettings,
   readyLyrics,
-} from "./fixtures/recordingLyrics";
-import { automaticChoice } from "./fixtures/sourceChoice";
-import RecordingDetailsPage from "./pages/RecordingDetailsPage";
-import { PlaybackProvider } from "./player/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "./shared/types";
+} from "../fixtures/recordingLyrics";
+import { automaticChoice } from "../../../fixtures/sourceChoice";
+import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import type { RecordingDetailsPageProps } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -34,54 +35,56 @@ function page(props: RecordingDetailsPageProps) {
   );
 }
 
-test("an account switch and return retire the original held lyric response before showing a fresh document", async () => {
+test("replacing the selected provider observation retires held lyrics and rejects a wrong response identity before retry", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});
   const errors = vi.spyOn(console, "error").mockImplementation(() => {});
   const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const before = structuredClone(lyricRecordingPage);
-  const owner = lyricRecordingPage.user.id;
-  const peer: RecordingDetailsPageProps = {
+  const original = structuredClone(lyricRecordingPage);
+  const nextObservation = {
+    ...lyricObservation,
+    id: "08319703-387d-4380-b5de-ae5ca59d6537",
+    provider_revision: 'current-provider:"3"',
+  };
+  const next: RecordingDetailsPageProps = {
     ...lyricRecordingPage,
-    user: {
-      id: "b5a301e8-c8bd-480c-b5d5-ef4a33015e97",
-      username: "Owned lyric peer",
-      admin: false,
+    detail: {
+      ...lyricRecordingPage.detail,
+      selected_observation: nextObservation,
+      observations: {
+        items: [nextObservation, lyricObservation],
+        next_before: null,
+      },
     },
   };
-  const peerSettings = {
-    ...lyricSettings,
-    installations: [lyricSettings.installations[0]],
-  };
+  const current = structuredClone(readyLyrics);
+  current.observation_id = nextObservation.id;
+  current.document.recording.revision = nextObservation.provider_revision;
+  current.document.lyrics.lines[0].text = "Owned current observation line";
+  const wrong = { ...current, observation_id: lyricObservation.id };
   let release!: (value: Response) => void;
   const held = new Promise<Response>((resolve) => {
     release = resolve;
   });
-  const old = structuredClone(readyLyrics);
-  old.document.lyrics.lines[0].text = "Owned retired account document";
-  const oldResponse = Response.json(old);
-  const current = structuredClone(readyLyrics);
-  current.document.lyrics.revision = "current-owned-document";
-  current.document.lyrics.lines[0].text = "Owned current account document";
+  const oldResponse = Response.json(readyLyrics);
   const base = `/api/v1/recordings/${lyricRecordingPage.detail.recording_id}`;
   let reads = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
-    const account = new Headers(options?.headers).get("x-hito-account");
     if (method === "GET" && path === `${base}/download`)
       return Response.json({ error: "Not found" }, { status: 404 });
     if (method === "GET" && path === `${base}/source-choice`)
       return Response.json(automaticChoice);
     if (method === "GET" && path === "/api/v1/plugins")
-      return Response.json(account === owner ? lyricSettings : peerSettings);
+      return Response.json(lyricSettings);
     if (method === "POST" && path === `${base}/lyrics`) {
-      expect(account).toBe(owner);
-      return ++reads === 1 ? held : Response.json(current);
+      reads++;
+      return reads === 1 ? held : Response.json(reads === 2 ? wrong : current);
     }
     throw new Error(
-      "Unexpected HTTP request outside owned lyric account fencing",
+      "Unexpected HTTP request outside owned lyric observation fencing",
     );
   });
   vi.stubGlobal("fetch", fetch);
@@ -96,56 +99,51 @@ test("an account switch and return retire the original held lyric response befor
     );
     await waitFor(() => expect(reads).toBe(1));
     const oldSignal = fetch.mock.calls.find(
-      ([path, options]) =>
-        path === `${base}/lyrics` && options?.method === "POST",
+      ([path]) => path === `${base}/lyrics`,
     )![1]!.signal!;
-    view.rerender(page(peer));
+    view.rerender(page(next));
     expect(oldSignal.aborted).toBe(true);
-    const peerLyrics = within(screen.getByRole("region", { name: "Lyrics" }));
-    expect(peerLyrics.queryByRole("status")).toBeNull();
-    expect(peerLyrics.queryByRole("list", { name: "Lyric lines" })).toBeNull();
-    fireEvent.click(peerLyrics.getByRole("button", { name: "Show lyrics" }));
-    await peerLyrics.findByText(
-      "This provider does not offer lyrics for this track.",
-    );
-    expect(reads).toBe(1);
-    view.rerender(page(lyricRecordingPage));
     const lyrics = within(screen.getByRole("region", { name: "Lyrics" }));
+    expect(lyrics.queryByRole("status")).toBeNull();
+    expect(lyrics.queryByRole("list", { name: "Lyric lines" })).toBeNull();
     fireEvent.click(lyrics.getByRole("button", { name: "Show lyrics" }));
-    await lyrics.findByText("Owned current account document");
+    await lyrics.findByRole("alert");
+    expect(lyrics.queryByText("Owned current observation line")).toBeNull();
+    expect(lyrics.queryByRole("list", { name: "Lyric lines" })).toBeNull();
+    expect(router.reload).not.toHaveBeenCalled();
+    fireEvent.click(
+      lyrics.getByRole("button", { name: "Refresh track details" }),
+    );
+    expect(router.reload).toHaveBeenCalledTimes(1);
+    fireEvent.click(lyrics.getByRole("button", { name: "Retry lyrics" }));
+    await lyrics.findByText("Owned current observation line");
     await act(async () => {
       release(oldResponse);
       await held;
     });
-    expect(lyrics.queryByText("Owned retired account document")).toBeNull();
-    expect(lyrics.getByText("Owned current account document")).toBeTruthy();
-    expect(reads).toBe(2);
-    expect(oldResponse.bodyUsed).toBe(true);
+    expect(lyrics.getByText("Owned current observation line")).toBeTruthy();
+    expect(
+      lyrics.queryByText(readyLyrics.document.lyrics.lines[0].text),
+    ).toBeNull();
+    expect(lyrics.queryByRole("alert")).toBeNull();
     const commands = fetch.mock.calls.filter(
       ([, options]) => options?.method === "POST",
     );
-    expect(commands.map(([path]) => path)).toEqual([
-      `${base}/lyrics`,
-      `${base}/lyrics`,
-    ]);
+    expect(commands.map(([path]) => path)).toEqual(
+      Array(3).fill(`${base}/lyrics`),
+    );
     expect(
-      commands.every(
-        ([, options]) =>
-          new Headers(options?.headers).get("x-hito-account") === owner,
+      commands.map(([, options]) => JSON.parse(options!.body as string)),
+    ).toEqual(
+      [lyricObservation.id, nextObservation.id, nextObservation.id].map(
+        (observation_id) => ({ observation_id, installation_revision: 9 }),
       ),
-    ).toBe(true);
-    expect(
-      fetch.mock.calls
-        .filter(([path]) => path === "/api/v1/plugins")
-        .map(([, options]) =>
-          new Headers(options?.headers).get("x-hito-account"),
-        ),
-    ).toEqual([owner, peer.user.id, owner]);
-    expect(fetch).toHaveBeenCalledTimes(11);
-    expect(lyricRecordingPage).toEqual(before);
+    );
+    expect(fetch).toHaveBeenCalledTimes(8);
+    expect(oldResponse.bodyUsed).toBe(true);
+    expect(lyricRecordingPage).toEqual(original);
     expect(play).not.toHaveBeenCalled();
     expect(document.querySelector("audio")?.getAttribute("src")).toBeNull();
-    expect(router.reload).not.toHaveBeenCalled();
     expect(router.visit).not.toHaveBeenCalled();
     expect(localStorage.length + sessionStorage.length).toBe(0);
     view.unmount();

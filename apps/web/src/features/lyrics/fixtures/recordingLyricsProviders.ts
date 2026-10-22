@@ -1,10 +1,10 @@
 import { createElement } from "react";
-import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
-import { NoticeProvider } from "../shared/ui/Notices";
-import type { components } from "../generated";
-import RecordingDetailsPage from "../pages/RecordingDetailsPage";
-import { PlaybackProvider } from "../player/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "../shared/types";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import type { components } from "../../../generated";
+import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import type { RecordingDetailsPageProps } from "../../../shared/types";
 import { lyricObservation, readyLyrics } from "./recordingLyrics";
 
 type Schema = components["schemas"];

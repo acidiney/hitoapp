@@ -2,14 +2,14 @@ import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
-import { NoticeProvider } from "./shared/ui/Notices";
-import type { components } from "./generated";
-import { lyricRecordingPage, readyLyrics } from "./fixtures/recordingLyrics";
-import { automaticChoice } from "./fixtures/sourceChoice";
-import RecordingDetailsPage from "./pages/RecordingDetailsPage";
-import { PlaybackProvider } from "./player/PlaybackProvider";
-import { log } from "./shared/log";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import type { components } from "../../../generated";
+import { lyricRecordingPage, readyLyrics } from "../fixtures/recordingLyrics";
+import { automaticChoice } from "../../../fixtures/sourceChoice";
+import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { log } from "../../../shared/log";
 
 type Schema = components["schemas"];
 

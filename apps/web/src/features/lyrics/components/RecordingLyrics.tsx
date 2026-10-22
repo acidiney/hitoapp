@@ -1,5 +1,5 @@
-import type { LyricsLookup, RecordingLyricsProvider } from "../../lyricsApi";
-import RecordingCredits from "../metadata/RecordingCredits";
+import type { LyricsLookup, RecordingLyricsProvider } from "../api/lyricsApi";
+import RecordingCredits from "../../../components/metadata/RecordingCredits";
 
 type Props = {
   providers: {

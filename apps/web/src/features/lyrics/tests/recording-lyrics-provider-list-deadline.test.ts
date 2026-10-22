@@ -1,15 +1,15 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { lyricRecordingPage } from "./fixtures/recordingLyrics";
+import { lyricRecordingPage } from "../fixtures/recordingLyrics";
 import {
   attachedLyricProvider,
   heldLyricJson,
   lyricProviderPage,
   primaryLyricProvider,
-} from "./fixtures/recordingLyricsProviders";
-import { automaticChoice } from "./fixtures/sourceChoice";
-import { log } from "./shared/log";
+} from "../fixtures/recordingLyricsProviders";
+import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { log } from "../../../shared/log";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
