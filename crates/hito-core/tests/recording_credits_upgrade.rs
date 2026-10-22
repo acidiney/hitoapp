@@ -1,6 +1,6 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::Browse;
 use sqlx::{migrate::Migrator, sqlite::SqliteConnectOptions};

@@ -1,4 +1,4 @@
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::Browse;
 use lofty::{
@@ -12,8 +12,8 @@ use support::{library, scan, write_wav};
 async fn album_artwork_uses_its_own_release_when_audio_identity_is_shared() {
     let (_dir, hito, actor, library, music) = library("cover-host").await;
     let covers: [(&str, &[u8]); 2] = [
-        ("Album A", include_bytes!("fixtures/cover-a.png")),
-        ("Album B", include_bytes!("fixtures/cover-b.png")),
+        ("Album A", hito_core::test_support::covers::COVER_A),
+        ("Album B", hito_core::test_support::covers::COVER_B),
     ];
     for (title, cover) in covers {
         let directory = music.join(title);

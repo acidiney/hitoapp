@@ -1,12 +1,10 @@
-#[path = "fixtures/artist_catalog_profiles_service.rs"]
-#[allow(dead_code)]
-mod catalog_provider;
+use hito_core::test_support::artist_catalog_profiles_service as catalog_provider;
 #[path = "fixtures/artist_catalog_profiles_library.rs"]
 #[allow(dead_code)]
 mod library;
 #[path = "fixtures/artist_catalog_playback_provider.rs"]
 mod playback_provider;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

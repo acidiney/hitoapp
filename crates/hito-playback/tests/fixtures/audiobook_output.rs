@@ -9,21 +9,8 @@ use tracing_subscriber::{Layer, layer::Context, registry::LookupSpan};
 
 pub fn write_audio(path: &Path, offset: i16) -> Vec<u8> {
     let rate = 48_000_u32;
-    let frames = rate * 8;
-    let mut bytes = Vec::with_capacity(44 + frames as usize * 2);
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&(36 + frames * 2).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16_u32.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&rate.to_le_bytes());
-    bytes.extend_from_slice(&(rate * 2).to_le_bytes());
-    bytes.extend_from_slice(&2_u16.to_le_bytes());
-    bytes.extend_from_slice(&16_u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(frames * 2).to_le_bytes());
-    for frame in 0..frames {
+    let bytes = hito_testkit::audio::pcm16_wav(rate, 1, u64::from(rate) * 8, |index| {
+        let frame = index as u32;
         let frequency = if offset != 0 {
             220.
         } else if frame < rate * 4 {
@@ -34,8 +21,8 @@ pub fn write_audio(path: &Path, offset: i16) -> Vec<u8> {
             1320.
         };
         let phase = f64::from(frame) * frequency * std::f64::consts::TAU / f64::from(rate);
-        bytes.extend_from_slice(&((phase.sin() * 8_000.) as i16).to_le_bytes());
-    }
+        (phase.sin() * 8_000.) as i16
+    });
     std::fs::write(path, &bytes).unwrap();
     bytes
 }

@@ -1,9 +1,7 @@
 #[path = "fixtures/artist_catalog_metadata_only.rs"]
 mod imported;
-#[allow(dead_code)]
-#[path = "fixtures/artist_catalog_profiles_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::artist_catalog_profiles_service as provider;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

@@ -1,8 +1,7 @@
-#[path = "fixtures/content_service.rs"]
-mod fixture;
+use hito_core::test_support::content_service as fixture;
 #[path = "fixtures/plugin_installation.rs"]
 mod installation;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{CoreConfig, Error, HostDeviceId, OfferPluginService, PreviewPluginInstallation};

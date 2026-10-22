@@ -1,8 +1,5 @@
-#[path = "fixtures/audiobook_continue_library.rs"]
-mod fixture;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::audiobook_continue_library as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Action, AudiobookChapterAnchor, Error};
 use serde_json::json;

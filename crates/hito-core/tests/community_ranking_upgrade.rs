@@ -1,6 +1,6 @@
 #[path = "fixtures/collection_artwork_schema.rs"]
 mod historical_schema;
-mod support;
+use hito_core::test_support::support;
 
 use sqlx::{
     Connection, Row, SqliteConnection, TypeInfo, ValueRef, migrate::Migrator,

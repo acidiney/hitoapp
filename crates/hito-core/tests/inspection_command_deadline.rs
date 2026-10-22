@@ -2,7 +2,7 @@
 
 #[path = "fixtures/inspection_command_tools.rs"]
 mod command_tools;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

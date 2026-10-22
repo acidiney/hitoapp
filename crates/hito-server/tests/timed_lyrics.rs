@@ -16,7 +16,7 @@ mod logs;
 mod playback;
 #[path = "timed_lyrics/protocol.rs"]
 mod protocol;
-#[path = "../../hito-core/tests/fixtures/timed_lyrics_provider.rs"]
+#[path = "fixtures/timed_lyrics_provider.rs"]
 mod provider;
 #[path = "timed_lyrics/provider_authority.rs"]
 mod provider_authority;

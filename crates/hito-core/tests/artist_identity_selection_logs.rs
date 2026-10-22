@@ -1,10 +1,8 @@
-#[path = "fixtures/artist_identity_selection_catalog.rs"]
-mod catalog;
+use hito_core::test_support::artist_identity_selection_catalog as catalog;
 #[path = "fixtures/artist_identity_selection_library.rs"]
 mod library;
-#[path = "fixtures/metadata_tag_logs.rs"]
-mod logs;
-mod support;
+use hito_core::test_support::metadata_tag_logs as logs;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

@@ -1,6 +1,4 @@
-#[path = "../../hito-core/tests/fixtures/podcast_audio_service.rs"]
-#[allow(dead_code)]
-mod fixture;
+use hito_core::test_support::podcast_audio_service as fixture;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
 #[path = "api/support.rs"]

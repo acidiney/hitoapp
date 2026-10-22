@@ -4,7 +4,7 @@ mod library;
 mod markers;
 #[path = "fixtures/audiobooks_peer.rs"]
 mod peer;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Error};
 use markers::{

@@ -1,8 +1,7 @@
 #[path = "fixtures/playlist_read_barrier.rs"]
 mod barrier;
-#[path = "fixtures/playlist_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::playlist_service as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{
     Credentials, Error, FollowProviderPlaylist, PlaylistFollowInterval, PlaylistFollowStatus,

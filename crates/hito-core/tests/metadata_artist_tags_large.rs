@@ -3,9 +3,8 @@
 mod fixture;
 #[path = "fixtures/musicbrainz_large_tag.rs"]
 mod large;
-#[path = "fixtures/metadata_tag_logs.rs"]
-mod logs;
-mod support;
+use hito_core::test_support::metadata_tag_logs as logs;
+use hito_core::test_support::support;
 
 use hito_core::{Action, MetadataHistoryQuery, Search};
 use serde_json::Value;

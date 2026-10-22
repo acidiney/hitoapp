@@ -1,7 +1,5 @@
-#![allow(dead_code)]
-
-use crate::{community, provider, support};
-use hito_core::{
+use super::{community_service as community, content_service as provider, support};
+use crate::{
     Action, Actor, AdoptProviderRecording, CommunityConfig, CoreConfig, Credentials, HostDeviceId,
     InstallPlugin, OfferPluginService, PluginInstallation, PreviewPluginInstallation, Services,
     Source,
@@ -57,7 +55,7 @@ impl Library {
             .unwrap();
         token.write_all(community::ADMIN_TOKEN.as_bytes()).unwrap();
         drop(token);
-        let hito = hito_core::open(configuration(&directory, &music, remote, &token_path))
+        let hito = crate::open(configuration(&directory, &music, remote, &token_path))
             .await
             .unwrap();
         let session = hito
@@ -114,7 +112,7 @@ impl Library {
     }
 
     pub async fn open(&self, remote: &community::CommunityServer) -> Services {
-        hito_core::open(configuration(
+        crate::open(configuration(
             &self.directory,
             &self.music,
             remote,

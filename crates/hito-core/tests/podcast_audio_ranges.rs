@@ -1,6 +1,6 @@
 #[path = "fixtures/podcast_range_service.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use fixture::PodcastRangeServer;
 use futures_util::FutureExt;

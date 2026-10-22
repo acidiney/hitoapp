@@ -1,6 +1,6 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::Search;
 use lofty::{
@@ -94,8 +94,7 @@ async fn a_changed_legacy_file_without_an_audio_witness_stays_separate() {
 }
 
 #[cfg(unix)]
-#[path = "fixtures/media_tool.rs"]
-mod media_tool;
+use hito_core::test_support::media_tool;
 
 #[cfg(unix)]
 #[tokio::test]

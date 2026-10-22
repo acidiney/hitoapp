@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use axum::{
     Json, Router,
     body::{Body, Bytes},

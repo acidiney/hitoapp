@@ -1,8 +1,7 @@
-#[path = "fixtures/content_service.rs"]
-mod fixture;
+use hito_core::test_support::content_service as fixture;
 #[path = "fixtures/provider_download_policy_refresh.rs"]
 mod policy_fixture;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{DownloadRequest, DownloadState, Error};

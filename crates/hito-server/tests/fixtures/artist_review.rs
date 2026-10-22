@@ -1,9 +1,7 @@
 #[path = "artist_review_account.rs"]
 mod account;
-#[allow(dead_code)]
-#[path = "../../../hito-core/tests/fixtures/artist_catalog_discovery_service.rs"]
-pub(super) mod catalog;
 pub(super) use account::{Account, exchange};
+pub(super) use hito_core::test_support::artist_catalog_discovery_service as catalog;
 
 use crate::provider_fixture::ProviderServer;
 use axum::{Router, http::StatusCode};

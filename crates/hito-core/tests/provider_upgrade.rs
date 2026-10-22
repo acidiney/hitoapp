@@ -1,6 +1,6 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-mod support;
+use hito_core::test_support::support;
 use sqlx::{migrate::Migrator, sqlite::SqliteConnectOptions};
 use std::borrow::Cow;
 

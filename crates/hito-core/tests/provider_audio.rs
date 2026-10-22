@@ -1,10 +1,6 @@
-#[path = "fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
 use audio_fixture::AudioLibrary;
 use axum::http::{HeaderMap, StatusCode};
+use hito_core::test_support::provider_audio as audio_fixture;
 use hito_core::{AudioRequest, ByteRange, OpenedAudio};
 
 #[tokio::test]

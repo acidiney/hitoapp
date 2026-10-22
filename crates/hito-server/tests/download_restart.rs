@@ -1,13 +1,10 @@
-#[path = "../../hito-core/tests/fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
+use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::provider_audio as audio_fixture;
 #[path = "fixtures/download_host.rs"]
 mod host;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::support;
 
 use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;

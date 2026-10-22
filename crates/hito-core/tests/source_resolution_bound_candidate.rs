@@ -1,6 +1,6 @@
 #[path = "fixtures/resolution_revocation.rs"]
 mod provider;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

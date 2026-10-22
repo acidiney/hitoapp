@@ -1,6 +1,6 @@
 #[path = "fixtures/provider_metadata_backfill.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Activity, Error, PlaylistDetail, RefreshImportedPlaylistMetadata};
 use serde_json::{Value, json};

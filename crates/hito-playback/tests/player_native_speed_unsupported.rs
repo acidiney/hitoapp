@@ -1,11 +1,8 @@
 #![cfg(feature = "device")]
-#[path = "../../hito-audio/tests/support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
+use hito_audio::test_support::capture;
 #[path = "fixtures/recovery.rs"]
 mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::support;
 use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerError, PlayerPhase};
 use std::time::Duration;
 use uuid::Uuid;

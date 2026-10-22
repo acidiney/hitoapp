@@ -1,5 +1,4 @@
-#[path = "playlist_service.rs"]
-mod playlists;
+use hito_core::test_support::playlist_service as playlists;
 pub use playlists::{ProviderServer, playlist};
 
 use hito_core::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};

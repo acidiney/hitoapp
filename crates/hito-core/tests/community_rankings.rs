@@ -1,10 +1,6 @@
-#[path = "fixtures/community_ranking_library.rs"]
-mod library;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-#[path = "fixtures/community_rankings.rs"]
-mod remote;
-mod support;
+use hito_core::test_support::community_ranking_library as library;
+use hito_core::test_support::community_rankings as remote;
+use hito_core::test_support::content_service as provider;
 
 use futures_util::FutureExt;
 use hito_core::{

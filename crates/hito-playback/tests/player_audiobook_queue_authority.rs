@@ -1,9 +1,7 @@
 #[path = "fixtures/audiobook_queue.rs"]
 mod audiobook;
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::playback as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Error};
 use hito_playback::{Player, PlayerCommand, PlayerError};

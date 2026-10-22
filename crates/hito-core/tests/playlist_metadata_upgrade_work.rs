@@ -1,6 +1,5 @@
-#[path = "fixtures/playlist_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::playlist_service as provider;
+use hito_core::test_support::support;
 #[path = "fixtures/playlist_metadata_upgrade.rs"]
 mod upgrade;
 #[path = "fixtures/playlist_metadata_upgrade_work.rs"]

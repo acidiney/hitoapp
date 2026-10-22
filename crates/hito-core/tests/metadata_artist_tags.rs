@@ -1,8 +1,7 @@
 #[path = "fixtures/musicbrainz_tags.rs"]
 mod fixture;
-#[path = "fixtures/metadata_tag_logs.rs"]
-mod logs;
-mod support;
+use hito_core::test_support::metadata_tag_logs as logs;
+use hito_core::test_support::support;
 #[path = "metadata_artist_tags/upgrade.rs"]
 mod upgrade;
 

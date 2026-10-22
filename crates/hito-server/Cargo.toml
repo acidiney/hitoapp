@@ -28,6 +28,8 @@ hyper.workspace = true
 hyper-util.workspace = true
 
 [dev-dependencies]
+hito-testkit = { path = "../hito-testkit" }
+hito-core = { path = "../hito-core", features = ["test-support"] }
 sqlx.workspace = true
 lofty.workspace = true
 tokio-stream = "0.1"

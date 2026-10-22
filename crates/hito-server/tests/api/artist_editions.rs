@@ -1,5 +1,4 @@
-#[path = "../../../hito-core/tests/fixtures/artist_catalog_editions_service.rs"]
-mod catalog;
+use hito_core::test_support::artist_catalog_editions_service as catalog;
 
 use crate::{
     artist_review_fixture::{self as fixture, Account, Imported},

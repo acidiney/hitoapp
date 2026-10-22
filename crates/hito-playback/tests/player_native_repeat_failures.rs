@@ -1,10 +1,5 @@
 #![cfg(feature = "device")]
-#[path = "../../hito-core/tests/fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::provider_audio as audio_fixture;
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use uuid::Uuid;

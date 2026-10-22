@@ -1,3 +1,5 @@
+pub mod capture;
+
 use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},

@@ -1,6 +1,6 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-mod support;
+use hito_core::test_support::support;
 use hito_core::{CoreConfig, HostDeviceId, Search};
 use lofty::{
     prelude::{Accessor, TagExt},

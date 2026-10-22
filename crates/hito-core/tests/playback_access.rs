@@ -1,7 +1,6 @@
-#[path = "fixtures/playback.rs"]
-mod fixture;
-mod support;
 use fixture::LocalPlayback;
+use hito_core::test_support::playback as fixture;
+use hito_core::test_support::support;
 
 #[tokio::test]
 async fn logout_revokes_an_opened_playback_grant_and_a_retained_actor_cannot_reopen_it() {

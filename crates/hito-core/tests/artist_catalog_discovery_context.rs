@@ -1,9 +1,7 @@
-#[path = "fixtures/artist_catalog_discovery_service.rs"]
-#[allow(dead_code)]
-mod discovery;
+use hito_core::test_support::artist_catalog_discovery_service as discovery;
 #[path = "fixtures/artist_catalog_metadata_only.rs"]
 mod imported;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{

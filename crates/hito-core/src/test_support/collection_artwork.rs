@@ -1,3 +1,4 @@
+use crate::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};
 use axum::{
     Json, Router,
     extract::State,
@@ -5,7 +6,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use hito_core::{Actor, InstallPlugin, OfferPluginService, PluginInstallation, Services};
 use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest, PlaylistDetailRequest, PlaylistItemsRequest};
 use serde_json::{Value, json};
 use std::sync::{
@@ -16,10 +16,9 @@ use tokio::sync::Mutex;
 
 pub const RECORDING_ID: &str = "recording/owned-artwork";
 pub const RELEASE_ID: &str = "release/verified-artwork";
-pub const RECORDING_COVER: &[u8] = include_bytes!("cover-a.png");
-pub const RELEASE_COVER: &[u8] = include_bytes!("cover-b.png");
-pub const PLAYLIST_COVER: &[u8] =
-    include_bytes!("../../../hito-plugin-spotify/src/tests/fixtures/artwork.png");
+pub const RECORDING_COVER: &[u8] = super::covers::COVER_A;
+pub const RELEASE_COVER: &[u8] = super::covers::COVER_B;
+pub const PLAYLIST_COVER: &[u8] = super::covers::PLAYLIST_COVER;
 pub const PLAYLIST_ID: &str = "playlist/owned-artwork";
 const SNAPSHOT: &str = "owned-artwork-snapshot";
 
@@ -35,7 +34,6 @@ impl ArtworkServer {
         Self::configured(true).await
     }
 
-    #[allow(dead_code)]
     pub async fn start_without_artwork() -> Self {
         Self::configured(false).await
     }
@@ -64,7 +62,6 @@ impl ArtworkServer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn enable_artwork(&self) {
         self.artwork_enabled.store(true, Ordering::SeqCst);
     }

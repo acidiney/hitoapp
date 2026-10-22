@@ -2,7 +2,7 @@
 mod fixture;
 #[path = "fixtures/provider_metadata_refresh_snapshot.rs"]
 mod snapshot;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Error, RefreshImportedPlaylistMetadata};
 use uuid::Uuid;

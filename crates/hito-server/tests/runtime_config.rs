@@ -10,21 +10,7 @@ fn web_assets(directory: &Path) -> std::path::PathBuf {
 }
 
 fn audio_fixture(path: &Path) -> Vec<u8> {
-    let samples = 32_u32;
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&(36 + samples * 2).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16_u32.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&8000_u32.to_le_bytes());
-    bytes.extend_from_slice(&16000_u32.to_le_bytes());
-    bytes.extend_from_slice(&2_u16.to_le_bytes());
-    bytes.extend_from_slice(&16_u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(samples * 2).to_le_bytes());
-    bytes.extend_from_slice(&[0; 64]);
+    let bytes = hito_testkit::audio::pcm16_wav(8000, 1, 32, |_| 0);
     std::fs::write(path, &bytes).unwrap();
     bytes
 }

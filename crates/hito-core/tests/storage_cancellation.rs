@@ -2,9 +2,8 @@
 #[path = "fixtures/legacy_library.rs"]
 #[allow(dead_code)]
 mod legacy;
-#[path = "fixtures/media_tool.rs"]
-mod media_tool;
-mod support;
+use hito_core::test_support::media_tool;
+use hito_core::test_support::support;
 
 use hito_core::{CoreConfig, HostDeviceId, Search};
 use std::time::Duration;

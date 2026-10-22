@@ -1,7 +1,7 @@
 #[path = "fixtures/podcast_service.rs"]
 #[allow(dead_code)]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{
     Action, CoreConfig, Credentials, Error, HostDeviceId, PodcastEpisodeQuery,

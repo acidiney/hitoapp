@@ -1,7 +1,7 @@
 #[path = "fixtures/source_refresh.rs"]
 mod fixture;
-mod support;
 use fixture::Fixture;
+use hito_core::test_support::support;
 use serde_json::json;
 use std::time::Duration;
 

@@ -1,10 +1,6 @@
-#[path = "fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
 use audio_fixture::AudioLibrary;
 use hito_core::OpenedAudio;
+use hito_core::test_support::provider_audio as audio_fixture;
 
 #[tokio::test]
 async fn a_provider_playback_grant_reads_audio_and_cannot_survive_credential_removal() {

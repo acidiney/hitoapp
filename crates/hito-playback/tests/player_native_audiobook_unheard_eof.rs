@@ -1,15 +1,11 @@
 #![cfg(feature = "device")]
 #[path = "fixtures/audiobook_queue.rs"]
 mod audiobook;
-#[path = "../../hito-audio/tests/support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
+use hito_audio::test_support::capture;
 #[path = "fixtures/event_gate.rs"]
 mod event_gate;
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::playback as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Actor, AudiobookChapterAnchor, Error, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerPhase, PlayerQueueInput};

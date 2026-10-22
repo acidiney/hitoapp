@@ -55,12 +55,10 @@ pub struct SearchGate {
 }
 
 impl SearchGate {
-    #[allow(dead_code)]
     pub async fn entered(&self) {
         self.entered.acquire().await.unwrap().forget();
     }
 
-    #[allow(dead_code)]
     pub async fn retired(&self) {
         self.retired.acquire().await.unwrap().forget();
     }
@@ -135,7 +133,6 @@ impl DiscoveryServer {
         self.requests.unexpected.load(Ordering::SeqCst)
     }
 
-    #[allow(dead_code)]
     pub fn hold_search(&self) -> Arc<SearchGate> {
         let gate = Arc::new(SearchGate {
             entered: Semaphore::new(0),

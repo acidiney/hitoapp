@@ -1,6 +1,6 @@
 #[path = "fixtures/audiobooks_library.rs"]
 mod library;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Error, Operation, SyncBatch};
 use serde_json::{Value, json};

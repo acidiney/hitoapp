@@ -2,8 +2,7 @@
 mod host;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
+use hito_core::test_support::content_service as provider;
 
 use axum::http::StatusCode;
 use futures_util::FutureExt;

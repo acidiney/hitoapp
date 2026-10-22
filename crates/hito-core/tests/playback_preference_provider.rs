@@ -1,8 +1,4 @@
-#[path = "fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::provider_audio as audio_fixture;
 
 #[tokio::test]
 async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() {

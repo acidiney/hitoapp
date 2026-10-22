@@ -1,6 +1,5 @@
 use crate::metadata_preferences_fixture as fixture;
-#[path = "../../../hito-core/tests/fixtures/metadata_tag_logs.rs"]
-mod logs;
+use hito_core::test_support::metadata_tag_logs as logs;
 
 use axum::{
     body::Body,

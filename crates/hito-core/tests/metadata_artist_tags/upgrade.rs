@@ -1,7 +1,6 @@
 #![cfg(unix)]
 
-#[path = "../fixtures/media_tool.rs"]
-mod media_tool;
+use hito_core::test_support::media_tool;
 #[path = "../fixtures/metadata_tags_v2.rs"]
 mod prior;
 

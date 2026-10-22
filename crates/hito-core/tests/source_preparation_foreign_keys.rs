@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 #[path = "fixtures/source_preparation_query_plans.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use fixture::Fixture;
 use sqlx::{Connection, Row, SqliteConnection, sqlite::SqliteConnectOptions};

@@ -1910,6 +1910,7 @@ version = "0.1.0-dev"
 dependencies = [
  "cc",
  "cpal",
+ "hito-audio",
  "loom",
  "rtrb",
  "soundtouch-ffi",
@@ -1959,6 +1960,7 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "futures-util",
+ "hito-core",
  "hito-metadata-musicbrainz",
  "hito-plugin-sdk",
  "image",
@@ -2076,6 +2078,7 @@ name = "hito-desktop"
 version = "0.1.0-dev"
 dependencies = [
  "axum",
+ "hito-audio",
  "hito-core",
  "hito-playback",
  "hito-server",
@@ -2123,6 +2126,7 @@ dependencies = [
  "hito-audio",
  "hito-core",
  "hito-plugin-sdk",
+ "hito-testkit",
  "rand 0.8.8",
  "serde",
  "serde_json",
@@ -2399,6 +2403,7 @@ dependencies = [
  "hito-core",
  "hito-playback",
  "hito-plugin-sdk",
+ "hito-testkit",
  "http-body-util",
  "hyper",
  "hyper-util",

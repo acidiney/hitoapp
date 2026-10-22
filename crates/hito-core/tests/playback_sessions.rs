@@ -1,7 +1,6 @@
-#[path = "fixtures/playback.rs"]
-mod fixture;
-mod support;
 use hito_core::Credentials;
+use hito_core::test_support::playback as fixture;
+use hito_core::test_support::support;
 
 #[tokio::test]
 async fn native_owners_can_distinguish_sessions_without_obtaining_their_fingerprints() {

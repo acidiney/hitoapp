@@ -1,8 +1,5 @@
-#[path = "fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::provider_audio as audio_fixture;
+use hito_core::test_support::support;
 
 use audio_fixture::AudioLibrary;
 use hito_core::{

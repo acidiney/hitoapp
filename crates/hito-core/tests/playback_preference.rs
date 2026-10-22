@@ -1,6 +1,5 @@
-#[path = "fixtures/playback.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::playback as fixture;
+use hito_core::test_support::support;
 use std::time::Duration;
 
 #[tokio::test]

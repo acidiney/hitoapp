@@ -1,10 +1,7 @@
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
+use hito_core::test_support::playback as fixture;
 #[path = "api/support.rs"]
 #[allow(dead_code)]
 mod http;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use axum::{
     Router,
     body::Body,

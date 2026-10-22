@@ -15,8 +15,8 @@ mod remote_http;
 mod secrets;
 mod store;
 
-#[cfg(test)]
-mod test_support;
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 pub use catalog::{
     AdoptProviderRecording, Artist, ArtistAssociation, ArtistAssociationEvidence,

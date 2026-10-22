@@ -1,4 +1,4 @@
-mod support;
+use hito_core::test_support::support;
 
 #[tokio::test]
 async fn the_latest_folder_status_is_the_most_recently_accepted_scan() {

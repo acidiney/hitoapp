@@ -1,14 +1,9 @@
-#[path = "../../hito-core/tests/fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use audio_fixture::AudioLibrary;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use hito_core::test_support::provider_audio as audio_fixture;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 

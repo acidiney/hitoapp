@@ -1,9 +1,7 @@
 #![cfg(feature = "device")]
 #[path = "fixtures/application.rs"]
 mod application;
-#[path = "../../hito-audio/tests/support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
+use hito_audio::test_support::capture;
 use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

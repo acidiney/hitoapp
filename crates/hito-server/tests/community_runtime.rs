@@ -1,16 +1,10 @@
 #![cfg(unix)]
 
-#[path = "../../hito-core/tests/fixtures/community_service.rs"]
-mod community;
-#[path = "../../hito-core/tests/fixtures/community_recovery.rs"]
-mod fixture;
+use hito_core::test_support::community_recovery as fixture;
+use hito_core::test_support::community_service as community;
 #[path = "fixtures/artwork_http.rs"]
 #[allow(dead_code)]
 mod http;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 
 use futures_util::FutureExt;
 use hito_core::{CommunityReportAdmission, SuccessfulPlayback, UpdateCommunityPreferences};

@@ -1,13 +1,8 @@
 #![cfg(feature = "device")]
-#[path = "../../hito-audio/tests/support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
+use hito_audio::test_support::capture;
 #[path = "fixtures/event_gate.rs"]
 mod event_gate;
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::playback as fixture;
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;
 use tracing_subscriber::fmt::writer::MakeWriterExt;

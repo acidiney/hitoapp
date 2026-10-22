@@ -1,6 +1,6 @@
 #[path = "fixtures/provider_artwork.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{
     Actor, ArtworkFetchStatus, Credentials, ImportProviderPlaylist, InstallPlugin,

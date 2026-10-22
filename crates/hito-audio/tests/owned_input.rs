@@ -1,4 +1,4 @@
-mod support;
+use hito_audio::test_support as support;
 use std::{
     io::{Read, Seek, SeekFrom},
     sync::{

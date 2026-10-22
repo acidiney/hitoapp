@@ -1,6 +1,5 @@
 #![allow(dead_code)]
-#[path = "../../../hito-audio/tests/support/mod.rs"]
-mod audio;
+use hito_audio::test_support as audio;
 use hito_desktop::{LocalHost, Paths};
 use reqwest::{Client, Method, Response, Url};
 use serde_json::{Value, json};

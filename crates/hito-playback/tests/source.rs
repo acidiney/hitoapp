@@ -1,7 +1,4 @@
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::playback as fixture;
 use std::io::{Read, Seek, SeekFrom};
 
 #[tokio::test]

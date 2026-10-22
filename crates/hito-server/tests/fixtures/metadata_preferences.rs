@@ -1,6 +1,4 @@
-#[allow(dead_code)]
-#[path = "../../../hito-core/tests/fixtures/artist_catalog_profiles_service.rs"]
-mod provider;
+use hito_core::test_support::artist_catalog_profiles_service as provider;
 
 use crate::support::{call, indexed_app};
 use axum::{

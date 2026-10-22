@@ -4,7 +4,7 @@ mod fixture;
 mod handoff;
 #[path = "fixtures/resolution_revocation.rs"]
 mod provider;
-mod support;
+use hito_core::test_support::support;
 
 use fixture::Account;
 use futures_util::FutureExt;

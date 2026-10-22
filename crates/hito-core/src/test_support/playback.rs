@@ -1,6 +1,5 @@
-#![allow(dead_code)]
-use crate::support;
-use hito_core::{Actor, Credentials, Search, Services};
+use super::support;
+use crate::{Actor, Credentials, Search, Services};
 
 pub struct LocalPlayback {
     pub directory: tempfile::TempDir,

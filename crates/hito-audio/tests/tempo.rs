@@ -1,11 +1,8 @@
 #![cfg(feature = "device")]
 
-#[path = "support/capture.rs"]
-mod capture;
-mod support;
-
-use capture::{Capture, amplitude, energy, wait};
 use hito_audio::Player;
+use hito_audio::test_support as support;
+use hito_audio::test_support::capture::{Capture, amplitude, energy, wait};
 use std::time::Duration;
 
 struct Forward(std::fs::File);

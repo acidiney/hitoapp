@@ -7,9 +7,7 @@ use std::{
 };
 use uuid::Uuid;
 
-pub fn migrations() -> Migrator {
-    sqlx::migrate!("../hito-core/migrations")
-}
+pub use hito_core::test_support::migrations;
 
 pub fn id(value: u128) -> String {
     Uuid::from_u128(0x10000000_0000_4000_8000_000000000000 + value).to_string()

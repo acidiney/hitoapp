@@ -1,5 +1,5 @@
-use crate::{provider, support};
-use hito_core::{
+use super::{content_service as provider, support};
+use crate::{
     Action, Actor, AdoptProviderRecording, ChooseSource, Credentials, InstallPlugin,
     OfferPluginService, Services,
 };
@@ -175,7 +175,7 @@ impl Library {
                 speed: 1.25,
             },
             Action::AudiobookChapterSet {
-                chapter: hito_core::AudiobookChapterAnchor {
+                chapter: crate::AudiobookChapterAnchor {
                     audiobook_id: book,
                     entry_id: entries[0],
                     recording_id: recordings[0],

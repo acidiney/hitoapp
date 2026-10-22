@@ -1,10 +1,6 @@
 #![cfg(feature = "native-probe")]
 
-#[path = "support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
-mod support;
-
+use hito_audio::test_support::{self as support, capture};
 use hito_audio::{Player, fail_next_native_processor, native_processor_counts};
 use std::time::Duration;
 

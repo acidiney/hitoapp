@@ -3,8 +3,7 @@
 mod fixture;
 #[path = "fixtures/authority_outage.rs"]
 mod outage;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::support;
 use hito_playback::{PlayerAction, PlayerCommand, PlayerError, PlayerPhase, PlayerRepeat};
 use std::time::Duration;
 use uuid::Uuid;

@@ -1,12 +1,6 @@
-#[path = "../../hito-core/tests/fixtures/community_ranking_library.rs"]
-mod library;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/fixtures/community_rankings.rs"]
-#[allow(dead_code)]
-mod remote;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::community_ranking_library as library;
+use hito_core::test_support::community_rankings as remote;
+use hito_core::test_support::content_service as provider;
 
 use axum::{
     Router,

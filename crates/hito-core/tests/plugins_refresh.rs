@@ -1,6 +1,5 @@
-#[path = "fixtures/plugin_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::plugin_service as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Error, InstallPlugin, OfferPluginService, PluginRefresh, RefreshPlugin};
 

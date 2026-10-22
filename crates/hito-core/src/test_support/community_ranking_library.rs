@@ -1,5 +1,5 @@
-use crate::{provider, support};
-use hito_core::{
+use super::{content_service as provider, support};
+use crate::{
     Action, Actor, AdoptProviderRecording, CommunityRankingConfig, CoreConfig, Credentials,
     HostDeviceId, InstallPlugin, OfferPluginService, PluginInstallation, PreviewPluginInstallation,
     Recording, ResolveSource, Services, Source, SourceResolutionOutcome,
@@ -45,7 +45,7 @@ impl Library {
         config.community_rankings =
             Some(CommunityRankingConfig::new(ranking_url.to_owned()).unwrap());
         assert!(config.community.is_none());
-        let hito = hito_core::open(config).await.unwrap();
+        let hito = crate::open(config).await.unwrap();
         let session = hito.identity.setup(credentials("owner")).await.unwrap();
         let actor = hito.identity.authenticate(&session.token).await.unwrap();
         let youtube = connect(&hito, &actor, primary, "org.hito.youtube", &["sources"]).await;

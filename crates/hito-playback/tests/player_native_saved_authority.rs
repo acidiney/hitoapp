@@ -1,16 +1,13 @@
 #![cfg(feature = "device")]
 #[path = "fixtures/authority_outage.rs"]
 mod authority_outage;
-#[path = "../../hito-audio/tests/support/capture.rs"]
-#[allow(dead_code)]
-mod capture;
+use hito_audio::test_support::capture;
 #[path = "fixtures/navigation.rs"]
 mod fixture;
 #[path = "fixtures/saved_store.rs"]
 mod saved_store;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use hito_core::Action;
+use hito_core::test_support::support;
 use hito_playback::{PlayerAction, PlayerError, PlayerPhase};
 use std::time::Duration;
 use std::{

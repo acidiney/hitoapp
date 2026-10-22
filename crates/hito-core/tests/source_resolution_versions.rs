@@ -1,7 +1,7 @@
 #[path = "fixtures/provider_attachment.rs"]
 #[allow(dead_code, unused_imports)]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use futures_util::FutureExt;

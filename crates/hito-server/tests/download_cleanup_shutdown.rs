@@ -1,13 +1,8 @@
 #![cfg(target_os = "linux")]
 
-#[path = "../../hito-core/tests/fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
+use hito_core::test_support::provider_audio as audio_fixture;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 
 use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;

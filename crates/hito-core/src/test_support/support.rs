@@ -1,6 +1,4 @@
-#![allow(dead_code)]
-
-use hito_core::{
+use crate::{
     Action, Actor, CoreConfig, Credentials, HostDeviceId, Operation, Services, SyncBatch, open,
 };
 use std::path::{Path, PathBuf};
@@ -124,7 +122,7 @@ pub async fn synchronize(hito: &Services, actor: &Actor, actions: Vec<Action>) {
         .unwrap();
 }
 
-pub fn audio_bytes(mut audio: hito_core::AudioFile) -> Vec<u8> {
+pub fn audio_bytes(mut audio: crate::AudioFile) -> Vec<u8> {
     let mut bytes = Vec::new();
     std::io::Read::read_to_end(&mut audio.file, &mut bytes).unwrap();
     bytes

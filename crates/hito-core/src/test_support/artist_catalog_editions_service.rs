@@ -54,7 +54,6 @@ pub struct EditionGate {
     retired: Semaphore,
 }
 
-#[allow(dead_code)]
 impl EditionGate {
     pub async fn entered(&self) {
         self.entered.acquire().await.unwrap().forget();
@@ -126,7 +125,6 @@ impl CatalogServer {
         self.requests.unexpected.load(Ordering::SeqCst)
     }
 
-    #[allow(dead_code)]
     pub fn hold(&self, operation: CatalogEditionOperation) -> Arc<EditionGate> {
         let gate = Arc::new(EditionGate {
             entered: Semaphore::new(0),

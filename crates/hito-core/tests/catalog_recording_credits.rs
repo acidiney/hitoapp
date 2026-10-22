@@ -1,4 +1,4 @@
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{
     ConnectFolder, CoreConfig, DirectoryRef, HostDeviceId, Search, SharedDirectoryConfig,

@@ -1,6 +1,4 @@
-#[path = "../../hito-core/tests/fixtures/collection_artwork.rs"]
-#[allow(dead_code)]
-mod provider;
+use hito_core::test_support::collection_artwork as provider;
 #[path = "api/support.rs"]
 #[allow(dead_code)]
 mod support;

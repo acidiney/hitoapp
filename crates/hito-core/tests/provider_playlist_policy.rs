@@ -1,6 +1,5 @@
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::content_service as fixture;
+use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, StatusCode};
 use futures_util::FutureExt;

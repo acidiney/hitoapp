@@ -1,6 +1,6 @@
 #[path = "fixtures/resolution_musical.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{OpenedAudio, ResolveSource, SourceResolutionOutcome};

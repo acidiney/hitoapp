@@ -1,6 +1,5 @@
-#![allow(dead_code)]
-use crate::{fixture::ProviderServer, support};
-use hito_core::{
+use super::{content_service::ProviderServer, support};
+use crate::{
     Actor, AdoptProviderRecording, InstallPlugin, OfferPluginService, PluginInstallation, Services,
     Source,
 };

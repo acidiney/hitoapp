@@ -253,22 +253,5 @@ fn invalid(state: &ProviderState) -> Response {
 }
 
 fn wav() -> Vec<u8> {
-    let samples = 8000_u32;
-    let mut bytes = Vec::with_capacity(44 + samples as usize * 2);
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&(36 + samples * 2).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16_u32.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&8000_u32.to_le_bytes());
-    bytes.extend_from_slice(&16000_u32.to_le_bytes());
-    bytes.extend_from_slice(&2_u16.to_le_bytes());
-    bytes.extend_from_slice(&16_u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(samples * 2).to_le_bytes());
-    for sample in 0..samples {
-        bytes.extend_from_slice(&(((sample % 80) as i16 - 40) * 300).to_le_bytes());
-    }
-    bytes
+    hito_testkit::audio::pcm16_wav(8000, 1, 8000, |index| ((index % 80) as i16 - 40) * 300)
 }

@@ -2,9 +2,8 @@
 mod collection_artwork_schema;
 #[path = "fixtures/release_credits_upgrade.rs"]
 mod fixture;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::content_service as provider;
+use hito_core::test_support::support;
 
 use hito_core::{Browse, CollectionPublication, Error, ImportProviderPlaylist, Search, SyncEvent};
 use serde_json::json;

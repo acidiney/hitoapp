@@ -1,7 +1,6 @@
 #![allow(dead_code)]
-#[path = "content_service.rs"]
-mod provider;
 use crate::support;
+use hito_core::test_support::content_service as provider;
 
 use hito_core::{
     Actor, AdoptProviderRecording, InstallPlugin, OfferPluginService, Recording, Services,

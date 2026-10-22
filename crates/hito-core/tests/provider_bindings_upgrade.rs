@@ -1,8 +1,7 @@
 #[path = "fixtures/provider_bindings_upgrade.rs"]
 mod fixture;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::content_service as provider;
+use hito_core::test_support::support;
 
 use hito_core::{AdoptProviderRecording, Search};
 use serde_json::json;

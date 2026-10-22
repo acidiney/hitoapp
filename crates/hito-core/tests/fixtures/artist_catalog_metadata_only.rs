@@ -1,6 +1,5 @@
-#[path = "content_service.rs"]
-mod content;
 pub use content::ProviderServer;
+use hito_core::test_support::content_service as content;
 
 use crate::support;
 use hito_core::{

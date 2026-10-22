@@ -41,7 +41,6 @@ struct Gate {
 pub struct HeldResponse(Arc<Gate>);
 
 impl HeldResponse {
-    #[allow(dead_code)]
     pub async fn entered(&self) {
         let mut entered = self.0.entered.subscribe();
         tokio::time::timeout(
@@ -65,12 +64,10 @@ impl Drop for HeldResponse {
 }
 
 impl CommunityServer {
-    #[allow(dead_code)]
     pub async fn hold_provision(&self) -> HeldResponse {
         hold(&self.state.provision_gate).await
     }
 
-    #[allow(dead_code)]
     pub async fn hold_outcome(&self) -> HeldResponse {
         hold(&self.state.outcome_gate).await
     }
@@ -102,7 +99,6 @@ impl CommunityServer {
             .collect()
     }
 
-    #[allow(dead_code)]
     pub async fn accepted_receipts(&self) -> Vec<Value> {
         self.state
             .receipts

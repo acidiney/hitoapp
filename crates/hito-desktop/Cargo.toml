@@ -29,6 +29,7 @@ tauri = { version = "=2.12.4", optional = true }
 tauri-build = { version = "2.7.2", optional = true }
 
 [dev-dependencies]
+hito-audio = { path = "../hito-audio", features = ["test-support"] }
 tempfile.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true

@@ -50,7 +50,6 @@ impl PodcastAudioServer {
         Self::start_owned(audio, false).await
     }
 
-    #[allow(dead_code)]
     pub async fn start_with_ranges(audio: Vec<u8>) -> Self {
         Self::start_owned(audio, true).await
     }
@@ -110,7 +109,6 @@ impl PodcastAudioServer {
         snapshot.audio.push(audio);
     }
 
-    #[allow(dead_code)]
     pub fn hold_enclosure_tail(&self, prefix: usize) -> Arc<HeldTail> {
         assert!(!self.state.ranges && (1..=65536).contains(&prefix));
         let mut configured = self.state.tail.lock().unwrap();
@@ -256,7 +254,6 @@ pub struct HeldTail {
 }
 
 impl HeldTail {
-    #[allow(dead_code)]
     pub async fn entered(&self) {
         let mut entered = self.entered.subscribe();
         tokio::time::timeout(Duration::from_secs(3), entered.wait_for(|entered| *entered))
@@ -265,7 +262,6 @@ impl HeldTail {
             .expect("the owned tail signal must remain available");
     }
 
-    #[allow(dead_code)]
     pub async fn dropped(&self) {
         let mut dropped = self.dropped.subscribe();
         tokio::time::timeout(Duration::from_secs(3), dropped.wait_for(|dropped| *dropped))
@@ -274,7 +270,6 @@ impl HeldTail {
             .expect("the owned body-drop signal must remain available");
     }
 
-    #[allow(dead_code)]
     pub fn released(&self) -> bool {
         *self.release.borrow()
     }

@@ -1,7 +1,6 @@
-#[path = "../../../hito-core/tests/fixtures/plugin_service.rs"]
-mod fixture;
 use super::support::*;
 use axum::http::StatusCode;
+use hito_core::test_support::plugin_service as fixture;
 use serde_json::{Value, json};
 
 #[tokio::test]

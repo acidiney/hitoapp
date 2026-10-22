@@ -1,5 +1,4 @@
-#[path = "playlist_service.rs"]
-mod provider;
+use hito_core::test_support::playlist_service as provider;
 
 use crate::{catalog, support};
 use hito_core::{

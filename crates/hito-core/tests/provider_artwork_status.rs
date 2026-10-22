@@ -1,7 +1,7 @@
 #[path = "fixtures/provider_artwork.rs"]
 #[allow(dead_code)]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{ArtworkFetchStatus, ImportProviderPlaylist};
 use sqlx::{Connection, Executor, SqliteConnection, sqlite::SqliteConnectOptions};

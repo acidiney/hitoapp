@@ -1,8 +1,7 @@
-#[path = "fixtures/artist_identity_selection_catalog.rs"]
-mod catalog;
+use hito_core::test_support::artist_identity_selection_catalog as catalog;
 #[path = "fixtures/artist_identity_selection_library.rs"]
 mod library;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::FutureExt;
 use hito_core::{Action, ArtistIdentityGroupQuery, Browse, ChooseRecordingArtistIdentity, Error};

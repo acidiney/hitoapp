@@ -1,6 +1,6 @@
 #[path = "fixtures/podcast_conditional_redirect_service.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use fixture::PodcastConditionalRedirectServer;
 use futures_util::FutureExt;

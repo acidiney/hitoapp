@@ -1,7 +1,6 @@
 #[cfg(unix)]
-#[path = "fixtures/media_tool.rs"]
-mod media_tool;
-mod support;
+use hito_core::test_support::media_tool;
+use hito_core::test_support::support;
 use std::future::ready;
 
 #[tokio::test]

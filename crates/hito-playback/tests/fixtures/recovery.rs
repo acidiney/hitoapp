@@ -1,8 +1,6 @@
 #![allow(dead_code)]
-#[path = "../../../hito-audio/tests/support/mod.rs"]
-#[allow(dead_code)]
-mod audio;
 use crate::support;
+use hito_audio::test_support as audio;
 use hito_core::{Actor, ConnectFolder, DirectoryRef, MusicFolder, Search, Services};
 
 pub struct Recovery {

@@ -1,6 +1,5 @@
 #![cfg(unix)]
-#[path = "../../hito-core/tests/fixtures/media_tool.rs"]
-mod media_tool;
+use hito_core::test_support::media_tool;
 #[path = "api/support.rs"]
 #[allow(dead_code)]
 mod support;

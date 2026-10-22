@@ -5,6 +5,9 @@ pub use decoding::{AudioFormat, Decoded, Decoder};
 pub use error::{Error, Result};
 pub use symphonia::core::io::MediaSource as Input;
 
+#[cfg(feature = "test-support")]
+pub mod test_support;
+
 #[cfg(feature = "device")]
 mod device;
 #[cfg(feature = "device")]

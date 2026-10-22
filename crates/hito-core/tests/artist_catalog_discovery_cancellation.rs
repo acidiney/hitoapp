@@ -1,11 +1,10 @@
-#[path = "fixtures/artist_catalog_discovery_service.rs"]
-mod discovery;
+use hito_core::test_support::artist_catalog_discovery_service as discovery;
 #[path = "fixtures/artist_catalog_profiles_library.rs"]
 #[allow(dead_code)]
 mod library;
 #[path = "fixtures/artist_catalog_playback_provider.rs"]
 mod playback_provider;
-mod support;
+use hito_core::test_support::support;
 
 use axum::http::Method;
 use futures_util::FutureExt;

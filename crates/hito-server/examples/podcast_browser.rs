@@ -1,12 +1,10 @@
 #[path = "podcast_browser/controls.rs"]
 mod controls;
-#[path = "../../hito-core/tests/fixtures/podcast_audio_service.rs"]
-#[allow(dead_code)]
-mod fixture;
 #[path = "podcast_browser/wav.rs"]
 mod wav;
 
 use controls::OwnedFixture;
+use hito_core::test_support::podcast_audio_service as fixture;
 use hito_core::{CoreConfig, HostDeviceId, PodcastNetworkConfig, SharedDirectoryConfig};
 use std::{future::Future, path::Path, sync::Arc, time::Duration};
 use tokio::{net::TcpListener, sync::Mutex};

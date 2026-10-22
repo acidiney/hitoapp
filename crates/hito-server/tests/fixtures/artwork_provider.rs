@@ -15,7 +15,7 @@ use tokio::{
 };
 
 pub const PROVIDER_RECORDING_ID: &str = "recording/retained-cover";
-pub const COVER: &[u8] = include_bytes!("../../../hito-core/tests/fixtures/cover-a.png");
+pub const COVER: &[u8] = hito_core::test_support::covers::COVER_A;
 const PLAYLIST_ID: &str = "playlist/retained-cover";
 const SNAPSHOT: &str = "owned-snapshot";
 

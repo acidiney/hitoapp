@@ -70,25 +70,7 @@ pub(super) async fn admin(app: &Router) -> String {
 }
 
 pub(super) fn write_wav(path: &std::path::Path) -> Vec<u8> {
-    let sample_count = 8000u32;
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&(36 + sample_count * 2).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16u32.to_le_bytes());
-    bytes.extend_from_slice(&1u16.to_le_bytes());
-    bytes.extend_from_slice(&1u16.to_le_bytes());
-    bytes.extend_from_slice(&8000u32.to_le_bytes());
-    bytes.extend_from_slice(&16000u32.to_le_bytes());
-    bytes.extend_from_slice(&2u16.to_le_bytes());
-    bytes.extend_from_slice(&16u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(sample_count * 2).to_le_bytes());
-    for i in 0..sample_count {
-        bytes.extend_from_slice(&((i % 100) as i16 * 100).to_le_bytes());
-    }
-    std::fs::write(path, &bytes).unwrap();
-    bytes
+    hito_core::test_support::support::write_wav(path, 0)
 }
 
 pub(super) async fn indexed_app() -> (tempfile::TempDir, Router, String, String) {

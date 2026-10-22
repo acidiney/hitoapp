@@ -1,8 +1,7 @@
 #[path = "api/support.rs"]
 mod support;
 
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider_fixture;
+use hito_core::test_support::content_service as provider_fixture;
 
 #[path = "api/identity.rs"]
 mod identity;

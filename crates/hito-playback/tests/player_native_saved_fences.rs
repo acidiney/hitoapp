@@ -3,9 +3,8 @@
 mod fixture;
 #[path = "fixtures/saved_store.rs"]
 mod saved_store;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use hito_core::Action;
+use hito_core::test_support::support;
 use hito_playback::{PlayerAction, PlayerPhase};
 use std::time::Duration;
 use uuid::Uuid;

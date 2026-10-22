@@ -1,6 +1,5 @@
-#[path = "fixtures/podcast_audio_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::podcast_audio_service as fixture;
+use hito_core::test_support::support;
 
 use fixture::PodcastAudioServer;
 use futures_util::FutureExt;

@@ -1,5 +1,5 @@
 #![cfg(target_os = "linux")]
-mod support;
+use hito_core::test_support::support;
 use hito_core::{BrowseDirectories, CoreConfig, DirectoryRef, HostDeviceId, SharedDirectoryConfig};
 use std::time::Duration;
 

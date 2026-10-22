@@ -1,8 +1,7 @@
 #![cfg(target_os = "linux")]
 
-#[path = "fixtures/metadata_tag_logs.rs"]
-mod logs;
-mod support;
+use hito_core::test_support::metadata_tag_logs as logs;
+use hito_core::test_support::support;
 #[path = "fixtures/metadata_tag_diagnostics.rs"]
 mod tool;
 

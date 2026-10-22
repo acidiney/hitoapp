@@ -1,11 +1,10 @@
-#[path = "../../hito-core/tests/fixtures/plugin_service.rs"]
-mod fixture;
 use axum::{
     Router,
     body::Body,
     extract::Query,
     http::{Request, StatusCode, Uri},
 };
+use hito_core::test_support::plugin_service as fixture;
 use hito_core::{CoreConfig, HostDeviceId};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};

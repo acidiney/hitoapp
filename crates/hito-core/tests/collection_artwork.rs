@@ -1,6 +1,5 @@
-#[path = "fixtures/collection_artwork.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::collection_artwork as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Actor, ImportProviderPlaylist, PluginInstallation, Services};
 use hito_plugin_sdk::{ArtworkEntity, ArtworkRequest};

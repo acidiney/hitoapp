@@ -23,6 +23,9 @@ rand.workspace = true
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
+hito-testkit = { path = "../hito-testkit" }
+hito-core = { path = "../hito-core", features = ["test-support"] }
+hito-audio = { path = "../hito-audio", features = ["test-support"] }
 hito-plugin-sdk = { path = "../hito-plugin-sdk" }
 futures-util.workspace = true
 tempfile.workspace = true

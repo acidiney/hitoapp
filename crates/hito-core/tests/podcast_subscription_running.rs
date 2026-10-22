@@ -1,8 +1,7 @@
-#[path = "fixtures/podcast_audio_service.rs"]
-mod audio_fixture;
+use hito_core::test_support::podcast_audio_service as audio_fixture;
 #[path = "fixtures/podcast_held_feed.rs"]
 mod feed_fixture;
-mod support;
+use hito_core::test_support::support;
 
 use audio_fixture::PodcastAudioServer;
 use feed_fixture::HeldFeedServer;

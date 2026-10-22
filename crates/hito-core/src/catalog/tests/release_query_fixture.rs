@@ -1,6 +1,4 @@
-#[path = "../../../tests/fixtures/content_service.rs"]
-mod provider;
-pub(super) use provider::ProviderServer;
+pub(super) use crate::test_support::content_service::ProviderServer;
 
 use super::TRACKS;
 use crate::{

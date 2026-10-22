@@ -1,5 +1,4 @@
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod fixture;
+use hito_core::test_support::content_service as fixture;
 use hito_core::{
     AdoptProviderRecording, CoreConfig, Credentials, HostDeviceId, InstallPlugin,
     OfferPluginService, ProviderSearch,

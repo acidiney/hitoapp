@@ -1,13 +1,7 @@
 #![cfg(unix)]
 
-#[path = "../../hito-core/tests/fixtures/community_service.rs"]
-mod community;
-#[path = "../../hito-core/tests/fixtures/community_recovery.rs"]
-mod fixture;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::community_recovery as fixture;
+use hito_core::test_support::community_service as community;
 
 use axum::{
     Router,

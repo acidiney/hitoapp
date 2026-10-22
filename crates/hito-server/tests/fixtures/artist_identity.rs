@@ -1,5 +1,4 @@
-#[path = "../../../hito-core/tests/fixtures/artist_identity_selection_catalog.rs"]
-mod catalog;
+use hito_core::test_support::artist_identity_selection_catalog as catalog;
 
 use crate::{
     artist_review_fixture::{self as review, Account, Imported},

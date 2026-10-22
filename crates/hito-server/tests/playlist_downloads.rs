@@ -4,10 +4,8 @@ mod fixture;
 mod host;
 #[path = "fixtures/artwork_http.rs"]
 mod http;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::content_service as provider;
+use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, StatusCode};
 use fixture::{Fixture, Selection, wait_for_json};

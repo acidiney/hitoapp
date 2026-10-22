@@ -1,8 +1,7 @@
 #![cfg(unix)]
 
-#[path = "fixtures/media_tool.rs"]
-mod media_tool;
-mod support;
+use hito_core::test_support::media_tool;
+use hito_core::test_support::support;
 
 use hito_core::{CoreConfig, HostDeviceId, Search};
 use lofty::{

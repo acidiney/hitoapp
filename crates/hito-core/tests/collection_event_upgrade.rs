@@ -1,8 +1,7 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-#[path = "fixtures/playlist_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::playlist_service as provider;
+use hito_core::test_support::support;
 
 use hito_core::{
     Action, CollectionPublication, ImportProviderPlaylist, Operation, SyncBatch, SyncEvent,

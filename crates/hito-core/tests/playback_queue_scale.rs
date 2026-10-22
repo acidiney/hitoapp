@@ -1,4 +1,4 @@
-mod support;
+use hito_core::test_support::support;
 use uuid::Uuid;
 
 #[tokio::test]

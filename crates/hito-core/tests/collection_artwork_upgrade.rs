@@ -1,14 +1,12 @@
 #[path = "fixtures/legacy_library.rs"]
 #[allow(dead_code)]
 mod legacy;
-#[path = "fixtures/collection_artwork.rs"]
-#[allow(dead_code)]
-mod provider;
+use hito_core::test_support::collection_artwork as provider;
 #[path = "fixtures/collection_artwork_schema.rs"]
 mod schema;
 #[path = "fixtures/source_resolution_evidence_snapshot.rs"]
 mod snapshot;
-mod support;
+use hito_core::test_support::support;
 #[path = "fixtures/collection_artwork_upgrade.rs"]
 mod upgrade;
 

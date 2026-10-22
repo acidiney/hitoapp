@@ -1,6 +1,6 @@
 #[path = "fixtures/provider_attachment.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use axum::http::{HeaderMap, StatusCode};
 use hito_core::{

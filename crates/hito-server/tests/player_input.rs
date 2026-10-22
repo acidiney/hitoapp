@@ -1,10 +1,7 @@
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
+use hito_core::test_support::playback as fixture;
 #[path = "api/support.rs"]
 #[allow(dead_code)]
 mod http;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use axum::http::StatusCode;
 use hito_playback::Player;
 use serde_json::{Value, json};

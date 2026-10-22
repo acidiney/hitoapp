@@ -1,9 +1,8 @@
 #[path = "fixtures/artist_catalog_profiles_library.rs"]
 #[allow(dead_code)]
 mod library;
-#[path = "fixtures/artist_catalog_discography_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::artist_catalog_discography_service as provider;
+use hito_core::test_support::support;
 
 use axum::http::Method;
 use futures_util::FutureExt;

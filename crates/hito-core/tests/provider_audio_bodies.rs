@@ -1,11 +1,7 @@
-#[path = "fixtures/provider_audio.rs"]
-mod audio_fixture;
-#[path = "fixtures/content_service.rs"]
-mod fixture;
-mod support;
 use audio_fixture::AudioLibrary;
 use axum::http::StatusCode;
 use hito_core::OpenedAudio;
+use hito_core::test_support::provider_audio as audio_fixture;
 
 #[tokio::test]
 async fn provider_chunks_yield_at_most_64_kib_without_losing_audio() {

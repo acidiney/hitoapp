@@ -1,5 +1,5 @@
 #![cfg(target_os = "linux")]
-mod support;
+use hito_core::test_support::support;
 use hito_core::{
     ConnectFolder, CoreConfig, Credentials, DirectoryRef, HostDeviceId, Search,
     SharedDirectoryConfig,

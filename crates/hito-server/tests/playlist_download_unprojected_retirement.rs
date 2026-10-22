@@ -3,10 +3,8 @@ mod fixture;
 #[path = "api/support.rs"]
 #[allow(dead_code)]
 mod http;
-#[path = "../../hito-core/tests/fixtures/playlist_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::playlist_service as provider;
+use hito_core::test_support::support;
 
 use axum::{
     body::Body,

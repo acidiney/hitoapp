@@ -1,10 +1,7 @@
 #![cfg(feature = "device")]
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
+use hito_core::test_support::playback as fixture;
 #[path = "fixtures/progress_events.rs"]
 mod progress_events;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
 use hito_core::{Credentials, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;

@@ -1,12 +1,7 @@
 #![cfg(unix)]
 
-#[path = "fixtures/community_service.rs"]
-mod community;
-#[path = "fixtures/community_recovery.rs"]
-mod fixture;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::community_recovery as fixture;
+use hito_core::test_support::community_service as community;
 
 use hito_core::{
     CommunityCredentialReset, CommunityReportAdmission, Services, SuccessfulPlayback,

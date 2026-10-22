@@ -4,7 +4,7 @@ mod deleted;
 mod library;
 #[path = "fixtures/audiobooks_peer.rs"]
 mod peer;
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Action, AudiobookChapterAnchor, Error};
 use serde_json::{Value, json};

@@ -1,4 +1,4 @@
-mod support;
+use hito_core::test_support::support;
 
 use std::{future::Future, task::Poll, time::Duration};
 use support::library;

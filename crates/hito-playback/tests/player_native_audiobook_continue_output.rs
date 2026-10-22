@@ -2,14 +2,11 @@
 #[path = "fixtures/audiobook_queue.rs"]
 #[allow(dead_code)]
 mod audiobook;
-#[path = "../../hito-audio/tests/support/capture.rs"]
-mod capture;
-#[path = "../../hito-core/tests/fixtures/playback.rs"]
-mod fixture;
+use hito_audio::test_support::capture;
+use hito_core::test_support::playback as fixture;
 #[path = "fixtures/audiobook_output.rs"]
 mod output;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::support;
 
 use hito_core::{Action, AudiobookChapterAnchor, Error};
 use hito_playback::{

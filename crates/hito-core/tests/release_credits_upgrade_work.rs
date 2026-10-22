@@ -1,6 +1,6 @@
 #[path = "fixtures/release_credits_upgrade.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use futures_util::TryStreamExt;
 use hito_core::Browse;

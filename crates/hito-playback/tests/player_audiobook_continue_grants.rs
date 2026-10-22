@@ -1,9 +1,5 @@
-#[path = "../../hito-core/tests/fixtures/audiobook_continue_library.rs"]
-mod library;
-#[path = "../../hito-core/tests/fixtures/content_service.rs"]
-mod provider;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::audiobook_continue_library as library;
+use hito_core::test_support::support;
 
 use hito_core::{Action, AudiobookChapterAnchor, Error};
 use hito_playback::{Player, PlayerAction, PlayerAudiobookRequest, PlayerCommand};

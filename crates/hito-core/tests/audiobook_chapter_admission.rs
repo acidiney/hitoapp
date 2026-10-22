@@ -2,9 +2,8 @@
 mod library;
 #[path = "fixtures/audiobooks_peer.rs"]
 mod peer;
-#[path = "fixtures/playback.rs"]
-mod playback;
-mod support;
+use hito_core::test_support::playback;
+use hito_core::test_support::support;
 
 use hito_core::{Action, Actor, AudiobookChapterAnchor, Credentials, Error, Services};
 use serde_json::{Value, json};

@@ -1,6 +1,5 @@
-#[path = "fixtures/playlist_service.rs"]
-mod fixture;
-mod support;
+use hito_core::test_support::playlist_service as fixture;
+use hito_core::test_support::support;
 
 use hito_core::{Action, AdoptProviderRecording, ImportProviderPlaylist};
 use serde_json::json;

@@ -1,12 +1,9 @@
 #[path = "fixtures/artist_catalog_profiles_library.rs"]
 #[allow(dead_code)]
 mod library;
-#[path = "fixtures/metadata_tag_logs.rs"]
-#[allow(dead_code)]
-mod logs;
-#[path = "fixtures/artist_catalog_editions_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::artist_catalog_editions_service as provider;
+use hito_core::test_support::metadata_tag_logs as logs;
+use hito_core::test_support::support;
 
 use axum::http::Method;
 use futures_util::FutureExt;

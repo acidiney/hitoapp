@@ -1,8 +1,7 @@
 #[path = "fixtures/legacy_library.rs"]
 mod legacy;
-#[path = "fixtures/content_service.rs"]
-mod provider;
-mod support;
+use hito_core::test_support::content_service as provider;
+use hito_core::test_support::support;
 
 use serde_json::json;
 use sqlx::{migrate::Migrator, sqlite::SqliteConnectOptions};

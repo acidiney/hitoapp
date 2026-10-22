@@ -1,8 +1,7 @@
 #![cfg(feature = "device")]
 #[path = "fixtures/recovery.rs"]
 mod fixture;
-#[path = "../../hito-core/tests/support/mod.rs"]
-mod support;
+use hito_core::test_support::support;
 use hito_core::{Action, SyncEvent};
 use hito_playback::{Player, PlayerAction, PlayerCommand};
 use std::time::Duration;

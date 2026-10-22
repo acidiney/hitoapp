@@ -1,11 +1,4 @@
-#[allow(dead_code)]
-pub(super) mod provider {
-    use crate as hito_core;
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/collection_artwork.rs"
-    ));
-}
+pub(super) use crate::test_support::collection_artwork as provider;
 
 use crate::{Credentials, ImportProviderPlaylist, Services};
 use sqlx::SqliteConnection;

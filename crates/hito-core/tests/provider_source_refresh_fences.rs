@@ -1,6 +1,6 @@
 #[path = "fixtures/source_refresh.rs"]
 mod fixture;
-mod support;
+use hito_core::test_support::support;
 
 use fixture::Fixture;
 use serde_json::json;
