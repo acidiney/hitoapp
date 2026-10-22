@@ -7,7 +7,7 @@ import type {
   RecordingDetailsPageProps,
   Source,
 } from "../shared/types";
-import { copiedPlaylistPage, recordingA } from "./playlistPages";
+import { copiedPlaylistPage, recordingA } from "../features/playlists/fixtures/playlistPages";
 
 type Schema = components["schemas"];
 

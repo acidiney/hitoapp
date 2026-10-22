@@ -6,7 +6,7 @@ import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
 import type { RecordingDetailsPageProps } from "./shared/types";
-import { recordingB } from "./fixtures/playlistPages";
+import { recordingB } from "./features/playlists/fixtures/playlistPages";
 import {
   attachedPage,
   attachedRecording,

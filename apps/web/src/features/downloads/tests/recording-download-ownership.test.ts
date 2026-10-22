@@ -5,7 +5,7 @@ import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import { attachedPage } from "../../../fixtures/sourceAttachment";
-import { recordingA, recordingB } from "../../../fixtures/playlistPages";
+import { recordingA, recordingB } from "../../playlists/fixtures/playlistPages";
 import type {
   DownloadReceipt,
   DownloadRequest,

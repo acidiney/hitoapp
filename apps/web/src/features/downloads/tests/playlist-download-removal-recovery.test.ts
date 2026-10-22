@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import PlaylistPage from "../../../pages/PlaylistPage";
+import PlaylistPage from "../../playlists/pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
 import type { Player } from "../../../player/model";
@@ -10,7 +10,7 @@ import {
   copiedPlaylistPage as props,
   recordingA,
   recordingB,
-} from "../../../fixtures/playlistPages";
+} from "../../playlists/fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
