@@ -4,8 +4,6 @@ mod audit;
 mod authority;
 #[path = "timed_lyrics/digest.rs"]
 mod digest;
-#[path = "timed_lyrics/dropped.rs"]
-mod dropped;
 #[path = "fixtures/timed_lyrics.rs"]
 mod fixture;
 #[path = "timed_lyrics/lifecycle.rs"]
@@ -14,6 +12,8 @@ mod lifecycle;
 mod logs;
 #[path = "timed_lyrics/playback.rs"]
 mod playback;
+#[path = "fixtures/timed_lyrics_privacy.rs"]
+mod privacy;
 #[path = "timed_lyrics/protocol.rs"]
 mod protocol;
 #[path = "fixtures/timed_lyrics_provider.rs"]
@@ -35,6 +35,7 @@ use axum::http::StatusCode;
 use fixture::Library;
 use futures_util::FutureExt;
 use hito_plugin_sdk::{LyricsRequest, LyricsResponse};
+use privacy::assert_private_logs;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
@@ -172,37 +173,4 @@ async fn unsupported_version(provider: &provider::Provider) {
     assert!(library.snapshot().await == before);
     library.assert_original();
     assert_private_logs(&capture, &library, provider, &["unsupported", "ready"], &[]);
-}
-
-fn assert_private_logs(
-    capture: &logs::Logs,
-    library: &Library,
-    provider: &provider::Provider,
-    outcomes: &[&str],
-    extra: &[&str],
-) {
-    let cookie = library.account.headers()["cookie"]
-        .to_str()
-        .unwrap()
-        .to_owned();
-    let token = cookie.strip_prefix("hito_session=").unwrap();
-    let session_hash = format!("{:x}", Sha256::digest(token.as_bytes()));
-    let mut canaries = vec![
-        provider::PROVIDER_ID,
-        provider::TOKEN,
-        provider::TITLE,
-        provider::LINE,
-        provider::RECORDING_REVISION,
-        provider::DOCUMENT_REVISION,
-        "owned-music-private-path-canary",
-        "owned-original.wav",
-        &provider.url,
-        &library.recording,
-        &library.observation,
-        &cookie,
-        token,
-        &session_hash,
-    ];
-    canaries.extend_from_slice(extra);
-    capture.assert_private(&canaries, outcomes);
 }

@@ -119,22 +119,32 @@ impl Logs {
         );
     }
 
-    pub fn assert_span_closed(&self, name: &str) {
-        let count = {
-            let captured = self.0.lock().unwrap();
-            assert!(!captured.overflow);
-            let text = std::str::from_utf8(&captured.bytes).unwrap();
-            text.lines()
-                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-                .filter(|event| {
-                    event["fields"]["message"] == "close" && event["span"]["name"] == name
-                })
-                .count()
-        };
+    pub async fn assert_span_closed(&self, name: &str) {
+        let count = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let count = self.closed(name);
+                if count > 0 {
+                    return count;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap_or(0);
         assert_eq!(
             count, 1,
             "The owner must observe exactly one span retirement: span={name}"
         );
+    }
+
+    fn closed(&self, name: &str) -> usize {
+        let captured = self.0.lock().unwrap();
+        assert!(!captured.overflow);
+        let text = std::str::from_utf8(&captured.bytes).unwrap();
+        text.lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .filter(|event| event["fields"]["message"] == "close" && event["span"]["name"] == name)
+            .count()
     }
 
     pub fn assert_core_outcomes(&self, outcomes: &[&str]) {

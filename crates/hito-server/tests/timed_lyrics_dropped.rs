@@ -1,8 +1,20 @@
-use crate::{assert_private_logs, fixture, logs, provider};
+#[path = "fixtures/timed_lyrics.rs"]
+mod fixture;
+#[path = "fixtures/timed_lyrics_logs.rs"]
+mod logs;
+#[path = "fixtures/timed_lyrics_privacy.rs"]
+mod privacy;
+#[path = "fixtures/timed_lyrics_provider.rs"]
+mod provider;
+#[path = "api/support.rs"]
+#[allow(dead_code)]
+mod support;
+
 use axum::http::StatusCode;
 use fixture::Library;
 use futures_util::FutureExt;
 use hito_core::ReadRecordingLyrics;
+use privacy::assert_private_logs;
 use serde_json::json;
 use std::{
     future::pending,
@@ -43,6 +55,9 @@ async fn drop_request(provider: &provider::Provider) {
         .unwrap();
     let capture = logs::Logs::default();
     let subscriber = tracing::Dispatch::new(capture.subscriber_with_close_events());
+    // The SQLite connection workers keep span handles on their own threads, where only the
+    // process default dispatcher is visible; span retirement is observable only through it.
+    tracing::dispatcher::set_global_default(subscriber.clone()).unwrap();
     let decoy = logs::Logs::default();
     let decoy_subscriber = tracing::Dispatch::new(decoy.subscriber_with_close_events());
     let request = || ReadRecordingLyrics {
@@ -89,8 +104,8 @@ async fn drop_request(provider: &provider::Provider) {
     assert!(!gate.released());
     provider.assert_lookups(1).await;
     capture.assert_core_outcomes(&["cancelled"]);
-    capture.assert_span_closed("recording_lyrics_until");
-    capture.assert_span_closed("owned_lyric_parent");
+    capture.assert_span_closed("recording_lyrics_until").await;
+    capture.assert_span_closed("owned_lyric_parent").await;
     decoy.assert_empty();
     assert_private_logs(&capture, &library, provider, &[], &[]);
 
