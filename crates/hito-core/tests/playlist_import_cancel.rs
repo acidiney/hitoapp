@@ -53,7 +53,11 @@ async fn cancelling_a_held_import_frees_control_admission_without_publishing_lat
     )
     .await
     .expect("occupied account control admission must fail promptly");
-    assert!(matches!(busy, Err(Error::Conflict(_))));
+    assert!(
+        matches!(busy, Err(Error::ProviderBusy(_))),
+        "unexpected competing import outcome: {:?}",
+        busy.as_ref().map(|_| "accepted")
+    );
     assert_eq!(server.requests("v1/playlists/detail").await.len(), 1);
     assert_eq!(server.requests("v1/playlists/items").await.len(), 1);
 
