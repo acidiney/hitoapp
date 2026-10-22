@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, it } from "vitest";
-import { artistGroupDownloadStatus } from "./fixtures/artist-identity-groups-download-status";
+import { artistGroupDownloadStatus } from "./artist-identity-groups-download-status";
 
 type Mode =
   | "playlist"
