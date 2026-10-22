@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { ChevronRight, Folder, X } from "lucide-react";
 import { useDirectoryBrowser } from "../hooks/useDirectoryBrowser";
-import type { DirectoryRef } from "../shared/types";
+import type { DirectoryRef } from "../../../shared/types";
 
 type Props = {
   account: string;

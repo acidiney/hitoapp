@@ -1,11 +1,11 @@
-import { request } from "./shared/http";
+import { request } from "../../../shared/http";
 import type {
   DirectoryPage,
   DirectoryRef,
   Job,
   MusicFolder,
   SharedDirectory,
-} from "./shared/types";
+} from "../../../shared/types";
 
 const part = encodeURIComponent;
 export const storageApi = {

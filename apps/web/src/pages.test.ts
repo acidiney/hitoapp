@@ -17,7 +17,7 @@ import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import PlaylistIndexPage from "./features/playlists/pages/PlaylistIndexPage";
 import PlaylistPage from "./features/playlists/pages/PlaylistPage";
 import { useMutation } from "./shared/hooks/useMutation";
-import { useScanJob } from "./hooks/useScanJob";
+import { useScanJob } from "./features/library/hooks/useScanJob";
 import { useAccounts } from "./features/accounts/hooks/useAccounts";
 import type { Job, SyncReceipt } from "./shared/types";
 import { deferred } from "./test/async";

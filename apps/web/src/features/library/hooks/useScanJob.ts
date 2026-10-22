@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
-import { libraryApi } from "../features/library/api/libraryApi";
-import { errorMessage } from "../shared/format";
-import { useNotice } from "../shared/ui/Notices";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
-import { log } from "../shared/log";
+import { libraryApi } from "../api/libraryApi";
+import { errorMessage } from "../../../shared/format";
+import { useNotice } from "../../../shared/ui/Notices";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { log } from "../../../shared/log";
 
 function waitForPoll(signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {

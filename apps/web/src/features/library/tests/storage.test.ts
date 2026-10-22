@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import LibrarySettings from "./components/LibrarySettings";
-import { NoticeProvider } from "./shared/ui/Notices";
-import { storageApi } from "./storageApi";
-import type { MusicFolder, SettingsPageProps } from "./shared/types";
+import LibrarySettings from "../components/LibrarySettings";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import { storageApi } from "../api/storageApi";
+import type { MusicFolder, SettingsPageProps } from "../../../shared/types";
 
-vi.mock("./storageApi", () => ({
+vi.mock("../api/storageApi", () => ({
   storageApi: {
     directories: vi.fn(),
     browse: vi.fn(),
