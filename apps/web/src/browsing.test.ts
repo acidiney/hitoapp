@@ -2,7 +2,7 @@ import { createElement, type AnchorHTMLAttributes } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "./pages/AlbumPage";
-import ArtistPage from "./pages/ArtistPage";
+import ArtistPage from "./features/artists/pages/ArtistPage";
 import Pagination from "./shared/ui/Pagination";
 import TrackToolbar from "./shared/ui/TrackToolbar";
 import AlbumGrid from "./shared/ui/AlbumGrid";

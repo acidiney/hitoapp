@@ -4,7 +4,7 @@ import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";
 import MetadataObservations from "../components/MetadataObservations";
-import ArtistReview from "../components/metadata/ArtistReview";
+import ArtistReview from "../features/artists/components/ArtistReview";
 import RecordingCredits from "../components/metadata/RecordingCredits";
 import SourceAvailability from "../components/SourceAvailability";
 import SourceAttachment from "../components/SourceAttachment";
