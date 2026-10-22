@@ -3,6 +3,7 @@
 #[allow(dead_code)]
 #[path = "support/restart_catalog_entries.rs"]
 mod entries;
+#[allow(dead_code)]
 #[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
 mod fixtures;
 #[allow(dead_code)]
