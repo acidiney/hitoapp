@@ -1,20 +1,20 @@
 import { createElement, type AnchorHTMLAttributes } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import AlbumPage from "./pages/AlbumPage";
-import ArtistPage from "./features/artists/pages/ArtistPage";
-import Pagination from "./shared/ui/Pagination";
-import TrackToolbar from "./shared/ui/TrackToolbar";
-import AlbumGrid from "./shared/ui/AlbumGrid";
-import type { AlbumPageProps, Release } from "./shared/types";
+import AlbumPage from "../pages/AlbumPage";
+import ArtistPage from "../../artists/pages/ArtistPage";
+import Pagination from "../../../shared/ui/Pagination";
+import TrackToolbar from "../../../shared/ui/TrackToolbar";
+import AlbumGrid from "../../../shared/ui/AlbumGrid";
+import type { AlbumPageProps, Release } from "../../../shared/types";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
   subscribe: () => () => {},
   snapshot: () => ({ current: null }),
 }));
-vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./shared/hooks/useMutation", () => ({
+vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
 const navigation = vi.hoisted(() => ({ get: vi.fn() }));

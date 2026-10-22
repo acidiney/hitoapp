@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import HistoryPage from "../pages/HistoryPage";
+import HistoryPage from "../features/catalog/pages/HistoryPage";
 import type { HistoryPageProps } from "../shared/types";
 
 const playQueue = vi.fn(async () => {});

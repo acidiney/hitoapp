@@ -1,8 +1,8 @@
 import { Play, ArrowUpRight, ListMusic } from "lucide-react";
 import { Link } from "@inertiajs/react";
-import type { Playlist, Recording } from "../shared/types";
-import { usePlayer } from "../player/PlaybackProvider";
-import Artwork from "../features/artwork/components/Artwork";
+import type { Playlist, Recording } from "../../../shared/types";
+import { usePlayer } from "../../../player/PlaybackProvider";
+import Artwork from "../../artwork/components/Artwork";
 
 export default function LibrarySpotlight({
   tracks,

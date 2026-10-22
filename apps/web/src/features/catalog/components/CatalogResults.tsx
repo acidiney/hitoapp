@@ -1,13 +1,13 @@
-import type { CatalogPageProps } from "../shared/types";
-import { useMutation } from "../shared/hooks/useMutation";
-import EmptyState from "../shared/ui/EmptyState";
-import Pagination from "../shared/ui/Pagination";
-import TrackTable, { type TrackTableRow } from "../shared/ui/TrackTable";
-import TrackToolbar from "../shared/ui/TrackToolbar";
+import type { CatalogPageProps } from "../../../shared/types";
+import { useMutation } from "../../../shared/hooks/useMutation";
+import EmptyState from "../../../shared/ui/EmptyState";
+import Pagination from "../../../shared/ui/Pagination";
+import TrackTable, { type TrackTableRow } from "../../../shared/ui/TrackTable";
+import TrackToolbar from "../../../shared/ui/TrackToolbar";
 import { useState } from "react";
 import { Grid2X2, List } from "lucide-react";
-import TrackGrid from "../shared/ui/TrackGrid";
-import { log } from "../shared/log";
+import TrackGrid from "../../../shared/ui/TrackGrid";
+import { log } from "../../../shared/log";
 
 export default function CatalogResults({
   user,

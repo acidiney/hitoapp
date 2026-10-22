@@ -1,6 +1,6 @@
-import type { CatalogPageProps } from "../shared/types";
+import type { CatalogPageProps } from "../../../shared/types";
 import CatalogResults from "../components/CatalogResults";
-import PageHeading from "../shared/ui/PageHeading";
+import PageHeading from "../../../shared/ui/PageHeading";
 
 export default function LikesPage(props: CatalogPageProps) {
   return (

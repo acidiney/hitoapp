@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import Shell from "../../../Shell";
-import AlbumPage from "../../../pages/AlbumPage";
+import AlbumPage from "../../catalog/pages/AlbumPage";
 import type { AlbumPageProps } from "../../../shared/types";
 import type { components } from "../../../generated";
 
