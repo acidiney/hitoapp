@@ -114,7 +114,7 @@ test("HTTP LAN navigation fetches fresh private pages through history while pres
     page("HistoryPage", "/history"),
   );
 
-  await import("../../main");
+  await import("../main");
   await screen.findByRole("heading", { name: "Listening history" });
   await waitFor(() => expect(replaced).toHaveBeenCalled());
   const initial = nativeState.call(history);

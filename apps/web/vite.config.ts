@@ -4,7 +4,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      input: "src/main.tsx",
+      input: "src/app/main.tsx",
       output: {
         entryFileNames: "assets/app.js",
         assetFileNames: "assets/app.[ext]",
