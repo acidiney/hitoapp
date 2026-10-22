@@ -132,11 +132,10 @@ fn assert_private(text: &str, private: &[&str]) {
 }
 
 fn assert_detail_log(capture: &logging::Capture, private: &[&str]) {
-    let bytes = capture.snapshot();
-    let text = std::str::from_utf8(&bytes).unwrap();
-    assert_private(text, private);
+    let text = capture.text();
+    assert_private(&text, private);
     assert_private(
-        text,
+        &text,
         &[
             TITLE,
             ARTIST,

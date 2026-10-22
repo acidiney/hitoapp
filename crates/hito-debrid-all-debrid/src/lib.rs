@@ -6,6 +6,8 @@ mod magnet;
 mod media;
 mod prepare;
 mod submit;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 mod transport;
 
 pub use binding::MagnetFileBinding;

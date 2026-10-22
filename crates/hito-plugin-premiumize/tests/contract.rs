@@ -4,10 +4,9 @@ mod http;
 mod logging;
 #[path = "fixtures/provider.rs"]
 mod provider;
-#[path = "../../hito-plugin-real-debrid/tests/support/audio.rs"]
+#[path = "fixtures/wave_audio.rs"]
 pub mod wave_fixture;
-#[path = "../../hito-debrid-premiumize/tests/audio_fixture/mod.rs"]
-pub mod wire_fixture;
+pub use hito_debrid_premiumize::test_support::wire_fixture;
 
 use futures_util::{FutureExt, future};
 use hito_plugin_premiumize::{Config, router};

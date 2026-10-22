@@ -4,6 +4,8 @@ mod error;
 mod file;
 mod file_observation;
 mod observation;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 mod transfer;
 mod transport;
 

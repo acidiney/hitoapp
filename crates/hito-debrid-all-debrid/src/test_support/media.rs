@@ -1,13 +1,12 @@
-use crate::support::{Request, protocol::read_request};
-use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use super::provider::{Request, protocol::read_request};
+use std::{net::SocketAddr, time::Duration};
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpListener, TcpStream},
     sync::oneshot,
     task::JoinHandle,
 };
-use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_rustls::server::TlsStream;
 
 pub struct MediaFixture {
     address: SocketAddr,
@@ -19,27 +18,10 @@ pub struct MediaFixture {
 impl MediaFixture {
     pub async fn start(wave: Vec<u8>) -> Self {
         assert!((44..=1_048_576).contains(&wave.len()));
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let key = KeyPair::generate().expect("the owned media CA key must generate");
-        let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
-        let root = ca.self_signed(&key).expect("the owned media CA must sign");
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, key);
-        let key = KeyPair::generate().unwrap();
-        let certificate = CertificateParams::new(vec!["media.hito-fixture.invalid".into()])
-            .unwrap()
-            .signed_by(&key, &issuer)
-            .expect("the owned media certificate must sign");
-        let config = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(key.serialize_der().into()),
-            )
-            .expect("the owned media TLS endpoint must initialize");
-        let tls = TlsAcceptor::from(Arc::new(config));
+        let hito_testkit::tls::OwnedTls {
+            acceptor: tls,
+            root_der: ca_der,
+        } = hito_testkit::tls::issue("media.hito-fixture.invalid");
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let (stop, mut stopped) = oneshot::channel();

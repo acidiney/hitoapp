@@ -1,6 +1,5 @@
-#[path = "support/media.rs"]
-mod media;
-mod support;
+use hito_debrid_all_debrid::test_support::media;
+use hito_debrid_all_debrid::test_support::provider as support;
 
 use hito_audio::Decoder;
 use hito_debrid_all_debrid::{

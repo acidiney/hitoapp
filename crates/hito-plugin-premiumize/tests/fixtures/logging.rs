@@ -1,42 +1,22 @@
 use super::http::Receipt;
+use hito_testkit::logs::LogCapture;
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    io::{self, Write},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 
 #[derive(Clone, Default)]
-pub struct Capture {
-    bytes: Arc<Mutex<Vec<u8>>>,
-    overflow: Arc<AtomicBool>,
-}
+pub struct Capture(LogCapture);
 
 impl Capture {
     pub fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(
-            tracing_subscriber::fmt()
-                .with_env_filter("off,hito_plugin_premiumize=trace,hito_debrid_premiumize=trace,hito_remote_audio=trace")
-                .without_time()
-                .with_ansi(false)
-                .json()
-                .with_current_span(true)
-                .with_span_list(true)
-                .with_writer(move || capture.clone())
-                .finish()
+        self.0.dispatch_with_spans(
+            "off,hito_plugin_premiumize=trace,hito_debrid_premiumize=trace,hito_remote_audio=trace",
         )
     }
 
     pub fn assert_complete(&self, receipts: &[Receipt], length: u64) {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for private in [
             "owned-private",
             "http://",
@@ -212,21 +192,4 @@ fn keys(value: &Value, expected: &[&str]) {
         .map(String::as_str)
         .collect();
     assert_eq!(actual, expected.iter().copied().collect());
-}
-
-impl Write for Capture {
-    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
-        let mut bytes = self.bytes.lock().unwrap();
-        if input.len() > 65_536_usize.saturating_sub(bytes.len()) {
-            self.overflow.store(true, Ordering::SeqCst);
-            return Err(io::Error::other(
-                "the owned workflow capture exceeded its bound",
-            ));
-        }
-        bytes.extend_from_slice(input);
-        Ok(input.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
 }

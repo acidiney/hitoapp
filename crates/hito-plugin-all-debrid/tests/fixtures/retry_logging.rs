@@ -1,14 +1,12 @@
 use super::{Capture, keys};
 use serde_json::Value;
-use std::{collections::BTreeSet, sync::atomic::Ordering};
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
 impl Capture {
     pub fn assert_pre_unlock_retry(&self, private: &[&str]) {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for secret in private
             .iter()
             .copied()

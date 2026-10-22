@@ -1,4 +1,3 @@
-use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
 use std::{
     net::SocketAddr,
     sync::{Arc, Mutex},
@@ -9,7 +8,6 @@ use tokio::{
     sync::oneshot,
     task::{JoinHandle, JoinSet},
 };
-use tokio_rustls::TlsAcceptor;
 
 pub mod logs;
 mod protocol;
@@ -37,30 +35,8 @@ impl Fixture {
         ));
         assert!(!replies.is_empty() && replies.len() <= 8);
         assert!(replies.iter().all(|reply| reply.body.len() <= 400_000));
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let key = KeyPair::generate().expect("the owned TLS authority key must generate");
-        let mut ca = CertificateParams::new(Vec::<String>::new())
-            .expect("the owned TLS authority must configure");
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
-        let root = ca
-            .self_signed(&key)
-            .expect("the owned TLS authority must sign");
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, key);
-        let key = KeyPair::generate().expect("the owned TLS endpoint key must generate");
-        let certificate = CertificateParams::new(vec![host.into()])
-            .expect("the owned TLS endpoint must configure")
-            .signed_by(&key, &issuer)
-            .expect("the owned TLS endpoint must sign");
-        let tls = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(key.serialize_der().into()),
-            )
-            .expect("the owned TLS endpoint must initialize");
-        let tls = TlsAcceptor::from(Arc::new(tls));
+        let tls = hito_testkit::tls::issue(host);
+        let (tls, ca_der) = (tls.acceptor, tls.root_der);
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("the owned TLS fixture must bind");

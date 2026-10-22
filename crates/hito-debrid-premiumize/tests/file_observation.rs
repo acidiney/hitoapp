@@ -2,8 +2,7 @@
 
 #[path = "file_observation_fixture/logs.rs"]
 mod logs;
-#[path = "audio_fixture/mod.rs"]
-pub mod wire_fixture;
+pub use hito_debrid_premiumize::test_support::wire_fixture;
 
 use hito_debrid_premiumize::{
     BoundFilePhase, PremiumizeClient, TransferBinding, TransferFileBinding,

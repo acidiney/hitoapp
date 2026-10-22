@@ -1,4 +1,4 @@
-mod support;
+use hito_debrid_all_debrid::test_support::provider as support;
 
 use hito_debrid_all_debrid::{AllDebridClient, Error, MagnetFileBinding, MagnetPhase};
 use serde_json::json;

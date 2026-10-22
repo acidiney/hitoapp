@@ -2,13 +2,13 @@
 pub mod http;
 #[path = "../fixtures/provider.rs"]
 pub mod provider;
-#[path = "../../../hito-plugin-real-debrid/tests/support/audio.rs"]
+#[path = "../fixtures/wave_audio.rs"]
 pub mod wave_fixture;
-#[path = "../../../hito-debrid-premiumize/tests/audio_fixture/mod.rs"]
-pub mod wire_fixture;
+pub use hito_debrid_premiumize::test_support::wire_fixture;
 
 use futures_util::{FutureExt, future};
 use hito_plugin_premiumize::{Config, CuratedWavRecording, router};
+use hito_testkit::logs::{LogCapture, trace_filter};
 use provider::{Provider, *};
 use reqwest::{
     Client, Method, StatusCode,
@@ -16,13 +16,7 @@ use reqwest::{
 };
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
-    future::Future,
-    io::{self, Write},
-    panic::AssertUnwindSafe,
-    pin::Pin,
-    sync::{Arc, Mutex},
-    time::Duration,
+    collections::BTreeSet, future::Future, panic::AssertUnwindSafe, pin::Pin, time::Duration,
 };
 use tokio::sync::oneshot;
 use url::Url;
@@ -129,12 +123,7 @@ impl Case {
     }
 
     pub fn events(&self) -> Vec<Value> {
-        let bytes = self.capture.bytes.lock().unwrap();
-        std::str::from_utf8(&bytes)
-            .unwrap()
-            .lines()
-            .map(|line| serde_json::from_str(line).unwrap())
-            .collect()
+        self.capture.0.events()
     }
 
     pub fn record_response(&mut self, response: &reqwest::Response, expected: StatusCode) -> Uuid {
@@ -258,22 +247,19 @@ pub fn copy(entry: &CuratedWavRecording) -> CuratedWavRecording {
 }
 
 #[derive(Clone, Default)]
-struct Capture {
-    bytes: Arc<Mutex<Vec<u8>>>,
-}
+struct Capture(LogCapture);
 
 impl Capture {
     fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(tracing_subscriber::fmt()
-            .with_env_filter("off,hito_plugin_premiumize=trace,hito_debrid_premiumize=trace,hito_remote_audio=trace")
-            .without_time().with_ansi(false).json().with_current_span(true).with_span_list(true)
-            .with_writer(move || capture.clone()).finish())
+        self.0.dispatch_with_spans(&trace_filter(&[
+            "hito_plugin_premiumize",
+            "hito_debrid_premiumize",
+            "hito_remote_audio",
+        ]))
     }
 
     fn assert_safe(&self, requests: &BTreeSet<Uuid>, private: &[String]) {
-        let bytes = self.bytes.lock().unwrap();
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
         for value in [
             "owned-private",
             "http://",
@@ -310,21 +296,5 @@ impl Capture {
             }
         }
         assert_eq!(&completed, requests);
-    }
-}
-
-impl Write for Capture {
-    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
-        let mut bytes = self.bytes.lock().unwrap();
-        if input.len() > 65_536_usize.saturating_sub(bytes.len()) {
-            return Err(io::Error::other(
-                "the owned qualification logs exceeded their bound",
-            ));
-        }
-        bytes.extend_from_slice(input);
-        Ok(input.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }

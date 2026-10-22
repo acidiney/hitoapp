@@ -1,5 +1,4 @@
-#[path = "audio_fixture/mod.rs"]
-mod fixture;
+use hito_debrid_premiumize::test_support::wire_fixture as fixture;
 
 use fixture::{Fixture, Reply, logs::Capture};
 use hito_audio::Decoder;

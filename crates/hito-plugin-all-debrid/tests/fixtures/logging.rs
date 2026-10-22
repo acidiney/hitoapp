@@ -1,12 +1,6 @@
+use hito_testkit::logs::LogCapture;
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    io::{self, Write},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 
 #[path = "recovery_logging.rs"]
@@ -15,33 +9,25 @@ mod recovery;
 mod retry;
 
 #[derive(Clone, Default)]
-pub struct Capture {
-    bytes: Arc<Mutex<Vec<u8>>>,
-    overflow: Arc<AtomicBool>,
-}
+pub struct Capture(LogCapture);
 
 impl Capture {
-    pub(super) fn snapshot(&self) -> Vec<u8> {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        bytes.clone()
+    pub(super) fn text(&self) -> String {
+        let text = self.0.text();
+        assert!(!text.is_empty());
+        text
     }
 
     pub fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(tracing_subscriber::fmt()
-            .with_env_filter("off,hito_plugin_all_debrid=trace,hito_debrid_all_debrid=trace,hito_remote_audio=trace")
-            .without_time().with_ansi(false).json().with_current_span(true).with_span_list(true)
-            .with_writer(move || capture.clone()).finish())
+        self.0.dispatch_with_spans(
+            "off,hito_plugin_all_debrid=trace,hito_debrid_all_debrid=trace,hito_remote_audio=trace",
+        )
     }
 
     pub fn assert_workflow(&self, statuses: &[u16], private: &[&str], length: u64) {
         assert_eq!(statuses.len(), 22);
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for secret in private.iter().copied().chain([
             "http://",
             "https://",
@@ -218,29 +204,10 @@ fn keys(value: &Value, expected: &[&str]) {
     );
 }
 
-impl Write for Capture {
-    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
-        let mut bytes = self.bytes.lock().unwrap();
-        if input.len() > 65_536_usize.saturating_sub(bytes.len()) {
-            self.overflow.store(true, Ordering::SeqCst);
-            return Err(io::Error::other(
-                "owned workflow log capture exceeded its bound",
-            ));
-        }
-        bytes.extend_from_slice(input);
-        Ok(input.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
 impl Capture {
     pub fn assert_retarget_rejected(&self, private: &[&str]) {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for secret in private
             .iter()
             .copied()
@@ -319,10 +286,8 @@ impl Capture {
 
 impl Capture {
     pub fn assert_processing_receipt(&self, private: &[&str]) {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for secret in private
             .iter()
             .copied()

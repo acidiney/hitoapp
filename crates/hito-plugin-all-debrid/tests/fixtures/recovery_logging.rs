@@ -1,17 +1,12 @@
 use super::{Capture, keys};
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::atomic::Ordering,
-};
+use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 
 impl Capture {
     pub fn assert_recovery_receipt(&self, private: &[&str], length: u64) {
-        assert!(!self.overflow.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for secret in private.iter().copied().chain([
             "http://",
             "https://",

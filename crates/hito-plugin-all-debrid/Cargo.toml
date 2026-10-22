@@ -30,7 +30,7 @@ libc = "0.2"
 [dev-dependencies]
 hito-audio = { path = "../hito-audio" }
 hito-debrid-all-debrid = { path = "../hito-debrid-all-debrid", features = ["test-support"] }
-rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+hito-testkit = { path = "../hito-testkit" }
 reqwest.workspace = true
 rustls.workspace = true
 serde_json.workspace = true

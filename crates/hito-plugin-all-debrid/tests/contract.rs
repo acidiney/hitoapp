@@ -1,4 +1,4 @@
-#[path = "../../hito-plugin-real-debrid/tests/support/audio.rs"]
+#[path = "fixtures/wave_audio.rs"]
 mod audio;
 #[path = "fixtures/bound_wav_workflow.rs"]
 mod bound_wav_workflow;
@@ -8,8 +8,7 @@ mod detail_budget;
 mod http;
 #[path = "fixtures/logging.rs"]
 mod logging;
-#[path = "../../hito-debrid-all-debrid/tests/support/media.rs"]
-mod media;
+use hito_debrid_all_debrid::test_support::media;
 #[path = "fixtures/preparation_guards.rs"]
 mod preparation_guards;
 #[path = "fixtures/recovery.rs"]

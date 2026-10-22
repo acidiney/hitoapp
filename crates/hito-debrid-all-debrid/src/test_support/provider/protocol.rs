@@ -3,10 +3,7 @@ use std::time::Instant;
 use tokio::{io::AsyncReadExt, net::TcpStream};
 use tokio_rustls::server::TlsStream;
 
-pub(crate) async fn read_request(
-    socket: &mut TlsStream<TcpStream>,
-    expected_method: &str,
-) -> Request {
+pub async fn read_request(socket: &mut TlsStream<TcpStream>, expected_method: &str) -> Request {
     let server_name = socket
         .get_ref()
         .1

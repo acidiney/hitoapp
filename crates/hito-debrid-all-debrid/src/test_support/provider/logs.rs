@@ -1,53 +1,25 @@
+use hito_testkit::logs::LogCapture;
 use serde_json::Value;
-use std::{
-    collections::BTreeSet,
-    io::{self, Write},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
-const MAX_CAPTURE: usize = 65_536;
-
 #[derive(Clone, Default)]
-pub struct Capture {
-    bytes: Arc<Mutex<Vec<u8>>>,
-    overflowed: Arc<AtomicBool>,
-}
+pub struct Capture(LogCapture);
 
 impl Capture {
     pub fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(
-            tracing_subscriber::fmt()
-                .with_env_filter("off,hito_debrid_all_debrid=trace,hito_remote_audio=trace")
-                .without_time()
-                .with_ansi(false)
-                .json()
-                .with_current_span(true)
-                .with_span_list(true)
-                .with_writer(move || capture.clone())
-                .finish(),
-        )
+        self.0
+            .dispatch_with_spans("off,hito_debrid_all_debrid=trace,hito_remote_audio=trace")
     }
 
     pub fn is_empty(&self) -> bool {
-        assert!(
-            !self.overflowed.load(Ordering::SeqCst),
-            "Workflow log capture overflowed"
-        );
-        let bytes = self.bytes.lock().unwrap();
-        assert!(bytes.len() <= MAX_CAPTURE);
-        bytes.is_empty()
+        self.0.text().is_empty()
     }
 
     pub fn text(&self) -> String {
-        assert!(!self.is_empty(), "Workflow logs must not be empty");
-        let bytes = self.bytes.lock().unwrap();
-        let text = std::str::from_utf8(&bytes).expect("Workflow logs must be UTF-8");
-        text.to_owned()
+        let text = self.0.text();
+        assert!(!text.is_empty(), "Workflow logs must not be empty");
+        text
     }
 
     pub fn assert_workflows(&self, expected: &[(&str, &str, u64)], private: &[&str]) {
@@ -120,20 +92,4 @@ fn assert_keys(value: &Value, expected: &[&str]) {
         .map(String::as_str)
         .collect::<BTreeSet<_>>();
     assert_eq!(keys, expected.iter().copied().collect());
-}
-
-impl Write for Capture {
-    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
-        let mut bytes = self.bytes.lock().unwrap();
-        if input.len() > MAX_CAPTURE.saturating_sub(bytes.len()) {
-            self.overflowed.store(true, Ordering::SeqCst);
-            return Err(io::Error::other("Workflow log capture exceeded its bound"));
-        }
-        bytes.extend_from_slice(input);
-        Ok(input.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
 }

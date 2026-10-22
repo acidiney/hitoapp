@@ -1,5 +1,4 @@
 use crate::support::{Request, protocol::read_request};
-use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
 use std::{
     net::SocketAddr,
     sync::{
@@ -14,7 +13,7 @@ use tokio::{
     sync::{Notify, oneshot},
     task::{JoinHandle, JoinSet},
 };
-use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_rustls::server::TlsStream;
 
 pub struct HeldMedia {
     address: SocketAddr,
@@ -35,27 +34,10 @@ impl HeldMedia {
                 .all(|target| target.starts_with('/') && target.len() <= 2048)
         );
         assert!(targets[0] != targets[1] && targets[1] != targets[2] && targets[0] != targets[2]);
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let key = KeyPair::generate().unwrap();
-        let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
-        let root = ca.self_signed(&key).unwrap();
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, key);
-        let key = KeyPair::generate().unwrap();
-        let certificate = CertificateParams::new(vec!["media.hito-fixture.invalid".into()])
-            .unwrap()
-            .signed_by(&key, &issuer)
-            .unwrap();
-        let config = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(key.serialize_der().into()),
-            )
-            .unwrap();
-        let tls = TlsAcceptor::from(Arc::new(config));
+        let hito_testkit::tls::OwnedTls {
+            acceptor: tls,
+            root_der: ca_der,
+        } = hito_testkit::tls::issue("media.hito-fixture.invalid");
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let headers = std::array::from_fn(|_| Arc::new(Notify::new()));
