@@ -1,23 +1,10 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import TrackToolbar from "../components/TrackToolbar";
 import type { Player, Track } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 const recordings = {
   alice: "1182af62-6979-494d-8bf0-98e9db393e20",

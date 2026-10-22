@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
@@ -34,8 +33,6 @@ vi.mock("@inertiajs/react", () => ({
 }));
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
   window.history.replaceState(null, "", "/");
 });
 

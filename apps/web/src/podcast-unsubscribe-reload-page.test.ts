@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PodcastPage from "./pages/PodcastPage";
 import { NoticeBanner, NoticeProvider } from "./components/Notices";
@@ -34,14 +27,6 @@ vi.mock("@inertiajs/react", () => ({
     href: string;
   }) => createElement("a", { href, ...attributes }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test("Podcast unsubscribe cancels its already-issued Like reload before sending the immutable request", async () => {
   const episode = {

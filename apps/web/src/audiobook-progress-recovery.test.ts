@@ -1,20 +1,12 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookContinuationMedia } from "./fixtures/audiobookContinuationMedia";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
 import type { Action, Source, SyncBatch } from "./types";
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test.each(["request", "acknowledgement body"] as const)(
   "a stalled progress %s expires before the exact checkpoint retries and later chapters follow in order",

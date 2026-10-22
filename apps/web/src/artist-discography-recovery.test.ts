@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistDiscography from "./components/metadata/ArtistDiscography";
 import type { components } from "./generated";
 import {
@@ -27,14 +18,6 @@ import {
 } from "./fixtures/artistDiscography";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("an expired discography continuation requires an explicit restart before replacing its known releases", async () => {
   const errors = vi.spyOn(console, "error");

@@ -1,16 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
 import PluginSettings from "./components/plugins/PluginSettings";
 import { usePlugins } from "./hooks/usePlugins";
@@ -37,12 +27,6 @@ beforeEach(() => {
     vi.spyOn(console, level).mockImplementation((...values) => {
       logs.push(values);
     });
-});
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 function settingsPage(account = installationAccount) {

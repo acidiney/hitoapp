@@ -1,13 +1,8 @@
 import { setImmediate as flushTasks } from "node:timers/promises";
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { Playback, type MediaPort, type Track } from "./playback";
 import type { Source, SourceResolver } from "./playbackSources";
 import type { BrowserMediaOwner } from "./player/BrowserPreparation";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 class Media extends EventTarget implements MediaPort {
   src = "";

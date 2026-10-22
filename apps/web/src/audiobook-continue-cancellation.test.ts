@@ -1,19 +1,12 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
 import type { components } from "./generated";
 import { Playback } from "./playback";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("newer browser Pause retires Continue while its heard prefix waits for acknowledgement", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});

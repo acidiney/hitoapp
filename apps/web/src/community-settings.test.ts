@@ -1,24 +1,11 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import CommunitySettings from "./components/CommunitySettings";
 import type { components } from "./generated";
 
 type Schema = components["schemas"];
 type Preferences = Schema["CommunityPreferences"];
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
 
 test("community consent requires an explicit independent save and retires cancelled or foreign account work", async () => {
   const disabled: Preferences = {

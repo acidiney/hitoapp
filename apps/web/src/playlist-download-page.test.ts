@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import PlaylistPage from "./pages/PlaylistPage";
 import { NoticeProvider } from "./components/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
@@ -18,15 +17,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test("ready entries on a bounded status page remain explicitly partial across focus and timer checks", async () => {
   vi.useFakeTimers();

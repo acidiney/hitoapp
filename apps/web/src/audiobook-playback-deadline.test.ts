@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -32,9 +31,6 @@ afterEach(() => {
   cleanup();
   boundaries.player?.clear();
   boundaries.player = null;
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("the ten-second playback deadline includes a stalled book body and permits only explicit retry", async () => {

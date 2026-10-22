@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -34,8 +33,6 @@ afterEach(() => {
   cleanup();
   boundaries.player?.clear();
   boundaries.player = null;
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("same-book raw props retire a held playback check while the verified bookmark editor retains its old detail", async () => {

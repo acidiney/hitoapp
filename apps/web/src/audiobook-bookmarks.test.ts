@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -60,17 +59,11 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  try {
-    expect(boundaries.prepareSelection).not.toHaveBeenCalled();
-    expect(audio).not.toHaveBeenCalled();
-    expect(boundaries.visit).not.toHaveBeenCalled();
-    expect(boundaries.reload).not.toHaveBeenCalled();
-    expect(document.querySelector("audio")).toBeNull();
-  } finally {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    localStorage.clear();
-  }
+  expect(boundaries.prepareSelection).not.toHaveBeenCalled();
+  expect(audio).not.toHaveBeenCalled();
+  expect(boundaries.visit).not.toHaveBeenCalled();
+  expect(boundaries.reload).not.toHaveBeenCalled();
+  expect(document.querySelector("audio")).toBeNull();
 });
 
 test("explicitly saving and removing a bookmark preserves its exact repeated chapter and other private markers", async () => {

@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import type {
   ImportedPlaylistMetadataRefresh,
@@ -31,14 +22,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
   "a late album lookup receipt cannot cross a change of %s",

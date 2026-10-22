@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, StrictMode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistDiscography from "./components/metadata/ArtistDiscography";
 import ArtistEditions from "./components/metadata/ArtistEditions";
 import type { components } from "./generated";
@@ -28,14 +19,6 @@ import {
 } from "./fixtures/artistReview";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("one StrictMode Browse starts one edition read and replacement ownership requires a new explicit action", async () => {
   const http = discographyHttp();

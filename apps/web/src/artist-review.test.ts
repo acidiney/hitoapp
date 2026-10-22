@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
@@ -29,14 +22,6 @@ import {
 } from "./fixtures/artistReview";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("artist information is searched and previewed before its exact selected identity is explicitly confirmed", async () => {
   const errors = vi.spyOn(console, "error");

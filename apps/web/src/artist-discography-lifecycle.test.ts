@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ComponentProps } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistDiscography from "./components/metadata/ArtistDiscography";
 import type { components } from "./generated";
 import {
@@ -36,14 +27,6 @@ const initial: Props = {
 };
 const lateTitle = "Private previous-owner release";
 const freshTitle = "Current reviewed artist release";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 function page(props: Props, title: string) {
   return {

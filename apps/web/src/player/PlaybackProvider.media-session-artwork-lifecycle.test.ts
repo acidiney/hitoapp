@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, fireEvent } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import Artwork from "../components/Artwork";
 import type { ArtworkFetch } from "../types";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
@@ -13,13 +12,6 @@ import {
   recording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("held image loads cannot publish after track replacement, account replacement, or queue clearing", async () => {
   const media = browserPreparationMedia();

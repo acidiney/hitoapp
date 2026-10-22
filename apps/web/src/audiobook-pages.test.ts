@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -47,16 +46,12 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  try {
-    expect(request).not.toHaveBeenCalled();
-    expect(audio).not.toHaveBeenCalled();
-    expect(boundaries.prepareSelection).not.toHaveBeenCalled();
-    expect(boundaries.visit).not.toHaveBeenCalled();
-    expect(boundaries.reload).not.toHaveBeenCalled();
-    expect(document.querySelector("audio")).toBeNull();
-  } finally {
-    vi.unstubAllGlobals();
-  }
+  expect(request).not.toHaveBeenCalled();
+  expect(audio).not.toHaveBeenCalled();
+  expect(boundaries.prepareSelection).not.toHaveBeenCalled();
+  expect(boundaries.visit).not.toHaveBeenCalled();
+  expect(boundaries.reload).not.toHaveBeenCalled();
+  expect(document.querySelector("audio")).toBeNull();
 });
 
 test("the audiobook index links only grouped books and explains an empty collection", () => {

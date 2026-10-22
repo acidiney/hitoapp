@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, Fragment, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -38,9 +37,6 @@ vi.mock("@inertiajs/react", () => ({
 afterEach(() => {
   cleanup();
   page.props.user = { id: "alice", username: "Alice", admin: false };
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 function deferred<T>() {

@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import PodcastIndexPage from "./pages/PodcastIndexPage";
 import { NoticeProvider } from "./components/Notices";
 import type { components } from "./generated";
@@ -18,13 +10,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("Podcasts recovers a lost subscription acknowledgement with the exact request and polls only while pending", async () => {
   const subscriptionId = "783e5d8c-5f51-453a-9d5e-627838cc02d5";

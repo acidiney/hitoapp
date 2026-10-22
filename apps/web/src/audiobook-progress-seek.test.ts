@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import AudiobookPage from "./pages/AudiobookPage";
@@ -20,12 +12,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 function seekingMedia() {
   type State = {

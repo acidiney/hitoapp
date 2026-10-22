@@ -1,19 +1,12 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../components/Notices";
 import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
 import type { Player } from "./model";
 import type { Source, SyncBatch } from "../types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import { nativeService } from "./native/fixtures/service";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("native account playback creates no browser audio and disposes old account commands and streams", async () => {
   const service = nativeService();

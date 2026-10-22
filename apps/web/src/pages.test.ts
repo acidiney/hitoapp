@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -9,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { accountsApi, change, libraryApi } from "./api";
 import { NoticeBanner, NoticeProvider } from "./components/Notices";
@@ -60,8 +59,6 @@ function deferred<T>() {
 }
 
 beforeEach(() => vi.clearAllMocks());
-afterEach(cleanup);
-
 test("failed playlist creation preserves its form and does not reload", async () => {
   vi.mocked(change).mockRejectedValueOnce(new Error("Server unavailable"));
   render(createElement(PlaylistIndexPage, shared), { wrapper });

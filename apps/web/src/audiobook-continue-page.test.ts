@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
@@ -23,13 +15,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
-
 test.each([
   { mode: "browser", outcome: "commit" },
   { mode: "native", outcome: "commit" },

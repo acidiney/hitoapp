@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
 import MetadataEditor from "./components/MetadataEditor";
@@ -29,10 +20,6 @@ beforeEach(() => {
       },
     });
   });
-});
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
 });
 const inherited = {
   value: "Source",

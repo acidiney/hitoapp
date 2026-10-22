@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, render } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
@@ -15,13 +14,6 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "debug").mockImplementation(() => {});
 });
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
-
 test("a stalled Continue body expires visibly without changing current playback and only an explicit retry can commit", async () => {
   const f = await playingBook();
   const held = heldPlayback(f.fresh);

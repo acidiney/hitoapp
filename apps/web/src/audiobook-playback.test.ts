@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   cleanup,
@@ -35,8 +34,6 @@ afterEach(() => {
   cleanup();
   boundaries.player?.clear();
   boundaries.player = null;
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("explicit chapter playback checks the owned book and selects the exact repeated occurrence", async () => {

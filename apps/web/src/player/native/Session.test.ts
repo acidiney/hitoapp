@@ -1,8 +1,6 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { NativeSession } from "./Session";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => vi.unstubAllGlobals());
 
 test("a lost command response retries its exact payload before a later relative command", async () => {
   const commands: Record<string, unknown>[] = [];

@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
@@ -28,14 +20,6 @@ import {
 } from "./fixtures/artistReview";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("an expired artist confirmation is discarded until an explicit fresh review is confirmed", async () => {
   const errors = vi.spyOn(console, "error");

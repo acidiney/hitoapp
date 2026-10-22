@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "./components/plugins/PluginSettings";
 import { ArtworkProvider } from "./ArtworkProvider";
 import { pluginsApi } from "./pluginsApi";
@@ -57,8 +49,6 @@ beforeEach(() => {
     digest: "reviewed-installation-digest",
   });
 });
-afterEach(cleanup);
-
 function settingsPage(account: string, admin: boolean) {
   return createElement(ArtworkProvider, {
     account,

@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { useDiscovery } from "./hooks/useDiscovery";
 import type { PluginInstallation, Recording } from "./types";
 
@@ -36,12 +35,6 @@ const recording: Recording = {
 const player = {
   prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)),
 };
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,

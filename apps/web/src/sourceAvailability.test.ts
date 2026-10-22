@@ -1,25 +1,11 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import SourceAvailability from "./components/SourceAvailability";
 
 const player = vi.hoisted(() => ({ playQueue: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
-
 test("checking a saved track refreshes only its own sources and leaves playback to an explicit Play action", async () => {
   const fetch = vi.fn().mockResolvedValue(
     new Response(

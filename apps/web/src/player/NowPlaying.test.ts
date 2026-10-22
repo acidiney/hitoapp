@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
 import {
   act,
@@ -64,7 +63,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
   if (originalShow) Object.defineProperty(prototype, "showModal", originalShow);
   else Reflect.deleteProperty(prototype, "showModal");
   if (originalClose) Object.defineProperty(prototype, "close", originalClose);

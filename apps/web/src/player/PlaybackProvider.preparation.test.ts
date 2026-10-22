@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../components/Notices";
 import type {
   ResolveSource,
@@ -16,12 +15,6 @@ import {
   browserPreparationMedia,
   deferred,
 } from "./fixtures/browserPreparationMedia";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 const track = (id: string): Track => ({
   id,

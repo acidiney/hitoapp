@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "./fixtures/sourceAttachment";
 import type { Source } from "./types";
@@ -29,12 +22,6 @@ vi.mock("./components/MetadataObservations", () => ({ default: () => null }));
 vi.mock("./components/SourceAttachment", () => ({
   default: () => createElement("p", null, "Provider attachment controls"),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("local metadata provenance does not hide an eligible plugin audio source", async () => {
   const detail = sourceAttachmentPage.detail;

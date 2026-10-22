@@ -1,13 +1,5 @@
-// @vitest-environment jsdom
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
 import {
@@ -34,11 +26,6 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 function selectedRows() {
   return within(
     screen.getByRole("list", {

@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
 import { browserMediaSession } from "./fixtures/browserMediaSession";
 import {
@@ -8,12 +7,6 @@ import {
   recording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("repeated system play during a pending browser play does not toggle playback and an opposite pause cancels its intent", async () => {
   const media = browserPreparationMedia();

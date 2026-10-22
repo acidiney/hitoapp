@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
 import { browserMediaSession } from "./fixtures/browserMediaSession";
 import {
@@ -8,12 +7,6 @@ import {
   recording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 function ownedAudio() {
   const audio = document.querySelector<HTMLAudioElement>(

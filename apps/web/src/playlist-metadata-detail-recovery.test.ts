@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -37,10 +36,7 @@ vi.mock("@inertiajs/react", () => ({
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
   vi.resetAllMocks();
-  localStorage.clear();
 });
 
 test.each(["request", "network"] as const)(

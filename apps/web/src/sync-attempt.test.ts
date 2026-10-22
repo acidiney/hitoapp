@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { prepareChange, submitChange } from "./api";
 import type { Action, SyncBatch, SyncReceipt } from "./types";
 
@@ -18,12 +17,6 @@ beforeEach(() => {
   localStorage.clear();
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
 });
 
 test("a prepared Resume retries the same device, operation and action after a lost response", async () => {

@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "./pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "./fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "./fixtures/artistGroupDiscography";
@@ -35,15 +27,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test.each([
   ["associations", "headers", 200],

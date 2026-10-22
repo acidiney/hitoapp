@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -28,15 +20,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

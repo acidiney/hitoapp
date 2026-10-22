@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import SettingsPage from "./pages/SettingsPage";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
@@ -42,11 +34,6 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 test("the Metadata settings deep link opens the real account preferences and retains keyboard tab navigation", async () => {
   const read = Promise.resolve(settings());
   const pluginRead = Promise.resolve(connections());

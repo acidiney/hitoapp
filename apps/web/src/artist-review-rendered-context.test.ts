@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
@@ -25,14 +17,6 @@ import {
 } from "./fixtures/artistReview";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test.each(["credited artist", "same-name artist operation"] as const)(
   "a changed server %s requires refreshed track details before artist candidates are requested",

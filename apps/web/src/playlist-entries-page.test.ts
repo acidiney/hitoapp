@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "./pages/PlaylistPage";
 import { NoticeProvider } from "./components/Notices";
@@ -33,14 +25,6 @@ vi.mock("@inertiajs/react", () => ({
     href: string;
   }) => createElement("a", { href, ...attributes }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test("copied playlist keeps unknown occurrences out of recording actions and the real playback queue", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});

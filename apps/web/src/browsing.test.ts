@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import AlbumPage from "./pages/AlbumPage";
 import ArtistPage from "./pages/ArtistPage";
 import Pagination from "./components/Pagination";
@@ -24,11 +23,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
-
 test("album playback keeps repeated recording occurrences and their tagged order", () => {
   const track = {
     id: "recording",

@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -27,15 +19,6 @@ import {
 } from "./fixtures/artistIdentity";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("the current-choice deadline releases its owner and cancels late headers without exposing a choice", async () => {
   vi.useFakeTimers();

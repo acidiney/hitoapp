@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import TrackToolbar from "../components/TrackToolbar";
 import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
@@ -16,12 +9,6 @@ import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import type { Player } from "./model";
 
 type Schema = components["schemas"];
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
-
 test("ordinary browser Play consumes the authenticated playback-source order while the legacy list remains deterministic", async () => {
   const media = audiobookContinuationMedia();
   const recording = "18d29dd6-fc1f-4452-b41a-95c69526e9fb";

@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import {
   createElement,
   StrictMode,
@@ -58,10 +57,6 @@ afterEach(() => {
   cleanup();
   expect(boundaries.audio).not.toHaveBeenCalled();
   expect(boundaries.request).not.toHaveBeenCalled();
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  vi.restoreAllMocks();
 });
 
 test("the audiobook index exposes stable links to the next page and back to the first page", () => {

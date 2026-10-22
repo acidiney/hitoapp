@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   cleanup,
@@ -31,8 +30,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   boundaries.player = null;
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("native bookmark playback selects the exact duplicate beyond a command chunk before its explicit seek", async () => {

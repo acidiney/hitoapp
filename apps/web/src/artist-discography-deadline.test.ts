@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistDiscography from "./components/metadata/ArtistDiscography";
 import type { components } from "./generated";
 import {
@@ -23,15 +15,6 @@ import {
 } from "./fixtures/artistDiscography";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 function stalledBody(status: number, signal: AbortSignal) {
   let entered!: () => void;

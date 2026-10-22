@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -63,15 +62,10 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  try {
-    expect(boundaries.player).not.toHaveBeenCalled();
-    expect(audio).not.toHaveBeenCalled();
-    expect(boundaries.reload).not.toHaveBeenCalled();
-    expect(document.querySelector("audio")).toBeNull();
-  } finally {
-    vi.unstubAllGlobals();
-    localStorage.clear();
-  }
+  expect(boundaries.player).not.toHaveBeenCalled();
+  expect(audio).not.toHaveBeenCalled();
+  expect(boundaries.reload).not.toHaveBeenCalled();
+  expect(document.querySelector("audio")).toBeNull();
 });
 
 test("adding an eligible playlist confirms its owned audiobook before navigating", async () => {

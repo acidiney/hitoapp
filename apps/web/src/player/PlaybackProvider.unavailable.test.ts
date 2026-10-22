@@ -1,19 +1,12 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import TrackToolbar from "../components/TrackToolbar";
 import type { ResolveSource, Source } from "../types";
 import type { Player, Track } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import PlaybackStatus from "./PlaybackStatus";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("an accepted service outage is shown once and selecting Play again makes a new resolution request", async () => {
   const logged: unknown[][] = [];

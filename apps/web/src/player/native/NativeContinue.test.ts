@@ -1,13 +1,7 @@
-// @vitest-environment jsdom
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { audiobookPages } from "../../fixtures/audiobooks";
 import { NativePlayback } from "./NativePlayback";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("native Continue keeps current playback until one exact saved chapter commit", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});

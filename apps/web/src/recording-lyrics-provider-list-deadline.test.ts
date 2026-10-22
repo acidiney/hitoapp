@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { lyricRecordingPage } from "./fixtures/recordingLyrics";
 import {
   attachedLyricProvider,
@@ -25,16 +16,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("the provider-list deadline includes its JSON body and fences a late list after explicit retry", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});

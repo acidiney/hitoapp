@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import MetadataObservations from "./components/MetadataObservations";
 import {
   attributedRecordingPage,
@@ -9,12 +8,6 @@ import {
   uncreditedRecordingObservation,
 } from "./fixtures/recordingAttribution";
 import type { RecordingAttribution } from "./types";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 function renderCredits(attribution: RecordingAttribution) {
   const logs = (["debug", "info", "log", "warn", "error"] as const).map(

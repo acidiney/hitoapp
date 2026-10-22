@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act } from "@testing-library/react";
+import { expect, test } from "vitest";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
 import { browserMediaSession } from "./fixtures/browserMediaSession";
 import { browserSessionImages } from "./fixtures/browserSessionImages";
@@ -9,12 +8,6 @@ import {
   recording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("system artwork is the authorized current recording image only after the browser loads it", async () => {
   const media = browserPreparationMedia();

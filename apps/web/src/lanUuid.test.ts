@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
 import { prepareChange, sessionApi, submitChange } from "./api";
 import { Playback, type MediaPort } from "./playback";
@@ -34,9 +33,6 @@ class Media extends EventTarget implements MediaPort {
 afterEach(() => {
   if (randomUUID) Object.defineProperty(crypto, "randomUUID", randomUUID);
   else Reflect.deleteProperty(crypto, "randomUUID");
-  localStorage.clear();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("HTTP LAN sessions, playback and prepared mutations keep secure UUIDs without crypto.randomUUID", async () => {

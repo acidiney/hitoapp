@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import SourceAvailability from "./components/SourceAvailability";
 import type { Source, SourcePreparationStatus } from "./types";
 
@@ -61,14 +54,6 @@ function heldResponse() {
   });
   return { response, resolve };
 }
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
 
 test.each([
   "network",

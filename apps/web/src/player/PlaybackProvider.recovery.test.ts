@@ -1,16 +1,9 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import type { Player } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("browser audio recovery sends the playback refresh purpose and releases account resources", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});

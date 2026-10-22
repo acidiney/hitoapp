@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import ArtistReview from "./components/metadata/ArtistReview";
 import {
@@ -25,14 +17,6 @@ import {
   reviewedArtistProfile,
   secondCatalog,
 } from "./fixtures/artistReview";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("a lost confirmation acknowledgement is recovered by an explicit authoritative read after returning to the track", async () => {
   const errors = vi.spyOn(console, "error");

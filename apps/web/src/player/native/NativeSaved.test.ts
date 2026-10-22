@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
 import {
   act,
@@ -18,7 +17,6 @@ vi.mock("../PlaybackProvider", () => ({ usePlayer: () => player }));
 afterEach(() => {
   cleanup();
   player?.close();
-  vi.unstubAllGlobals();
 });
 
 test("saved starts send explicit intent without a rendered history seek", async () => {

@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "./components/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
@@ -10,12 +9,6 @@ import { Playback } from "./playback";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 
 type Schema = components["schemas"];
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
-
 test("browser Continue reads fresh exact saved playback after its fixed heard prefix while later progress stays pending", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -1,13 +1,7 @@
-// @vitest-environment jsdom
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { audiobookPages } from "../../fixtures/audiobooks";
 import { NativePlayback } from "./NativePlayback";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("a newer native Pause retires held Continue without reserving or blocking its command", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});

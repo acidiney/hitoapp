@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import SettingsPage from "./pages/SettingsPage";
 import type { components } from "./generated";
 
@@ -17,12 +9,6 @@ type Schema = components["schemas"];
 vi.mock("@inertiajs/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/react")>();
   return { ...actual, usePage: () => ({ url: "/settings?section=privacy" }) };
-});
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("Privacy saves source rankings independently and requires review after a stale revision", async () => {

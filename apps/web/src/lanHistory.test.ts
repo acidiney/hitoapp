@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // @vitest-environment-options {"url":"http://192.168.1.119:8080/history"}
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -53,10 +52,6 @@ afterEach(() => {
   router.cancelAll();
   if (subtle) Object.defineProperty(crypto, "subtle", subtle);
   else Reflect.deleteProperty(crypto, "subtle");
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
   document.body.innerHTML = "";
 });
 

@@ -1,21 +1,9 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { PlaybackProvider } from "../PlaybackProvider";
 import PlayerDock from "../PlayerDock";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
 
 test("native Previous remains available after queue completion without current metadata", async () => {
   const service = nativeService();

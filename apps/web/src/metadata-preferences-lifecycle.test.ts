@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, StrictMode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
 import { HttpError } from "./http";
@@ -40,11 +31,6 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 function enabled() {
   return screen.getByRole("checkbox", {
     name: "Use metadata providers",

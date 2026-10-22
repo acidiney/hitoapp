@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistDiscography from "./components/metadata/ArtistDiscography";
 import type { components } from "./generated";
 import { firstDiscographyPage } from "./fixtures/artistDiscography";
@@ -32,14 +23,6 @@ import {
 } from "./fixtures/artistReview";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("a catalog group browses edition pages and reads only the explicitly chosen edition's ordered occurrences", async () => {
   const errors = vi.spyOn(console, "error");

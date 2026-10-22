@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ComponentProps, type ReactNode } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -37,11 +36,6 @@ vi.mock("@inertiajs/react", () => ({
 
 afterEach(() => {
   cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
   tableRenders.count = 0;
 });
 

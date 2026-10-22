@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { useSourcePreparation } from "./hooks/useSourcePreparation";
 import type { Source, SourcePreparationStatus } from "./types";
 
@@ -49,14 +48,6 @@ function heldResponse() {
   });
   return { response, resolve, reject };
 }
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-});
 
 test.each(["account", "recording", "source", "removal", "unmount"])(
   "%s teardown aborts a pending write and ignores its late acknowledgement",

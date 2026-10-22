@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   cleanup,
@@ -44,18 +43,12 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  try {
-    expect(request).not.toHaveBeenCalled();
-    expect(boundaries.prepareSelection).not.toHaveBeenCalled();
-    expect(audio).not.toHaveBeenCalled();
-    expect(boundaries.visit).not.toHaveBeenCalled();
-    expect(boundaries.reload).not.toHaveBeenCalled();
-    expect(document.querySelector("audio")).toBeNull();
-  } finally {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    localStorage.clear();
-  }
+  expect(request).not.toHaveBeenCalled();
+  expect(boundaries.prepareSelection).not.toHaveBeenCalled();
+  expect(audio).not.toHaveBeenCalled();
+  expect(boundaries.visit).not.toHaveBeenCalled();
+  expect(boundaries.reload).not.toHaveBeenCalled();
+  expect(document.querySelector("audio")).toBeNull();
 });
 
 test.each([

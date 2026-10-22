@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -29,14 +21,6 @@ import {
   reviewedArtistProfile,
   secondCatalog,
 } from "./fixtures/artistReview";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("saving an artist review leaves identity unselected until its reviewed association is explicitly chosen", async () => {
   const errors = vi.spyOn(console, "error");

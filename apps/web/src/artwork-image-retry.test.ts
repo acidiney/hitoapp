@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, Fragment } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
 import Artwork from "./components/Artwork";
 import ArtworkStatus from "./components/ArtworkStatus";
@@ -38,13 +31,6 @@ const targets = [
     identity: { playlist_id: id },
   },
 ] as const;
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test.each(
   targets.flatMap((target) =>

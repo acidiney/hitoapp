@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
@@ -30,14 +22,6 @@ import { reference } from "./fixtures/metadataPreferences";
 type Schema = components["schemas"];
 const base = (recording = artistReviewDetail.recording_id) =>
   `/api/v1/recordings/${recording}`;
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 function publicHttp() {
   const responses = new Map<string, Response[]>();

@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import { NoticeProvider } from "./components/Notices";
@@ -67,15 +59,6 @@ function submitTwice(reference: string) {
     fireEvent.submit(form);
   });
 }
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 const boundaries = ["account", "selection", "removal", "unmount"] as const;
 const outcomes = ["success", "failure"] as const;

@@ -1,17 +1,7 @@
-// @vitest-environment jsdom
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { usePlaylistDownload } from "./hooks/usePlaylistDownload";
 import type { PlaylistDownloadStatus } from "./types";
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test("unchanged busy status exhausts fast polling and observed progress reopens its budget", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });

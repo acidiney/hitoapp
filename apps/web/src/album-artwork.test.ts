@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -37,9 +36,6 @@ vi.mock("@inertiajs/react", () => ({
 afterEach(() => {
   cleanup();
   page.props.user = { id: "alice", username: "Alice", admin: false };
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 test("album covers retrieve exact release artwork, retry failures and reject an abandoned account response", async () => {

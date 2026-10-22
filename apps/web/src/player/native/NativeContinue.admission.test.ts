@@ -1,14 +1,8 @@
-// @vitest-environment jsdom
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { audiobookPages } from "../../fixtures/audiobooks";
 import { NativePlayback } from "./NativePlayback";
 import { nativeService } from "./fixtures/service";
 import type { Command } from "./api";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test.each([false, true])(
   "Pause settles final audiobook admission before its ordered command, retry backoff %s",

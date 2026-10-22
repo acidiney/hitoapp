@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import PodcastIndexPage from "./pages/PodcastIndexPage";
 import { NoticeProvider } from "./components/Notices";
 import {
@@ -23,12 +16,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("Podcasts reloads current subscriptions after returning with the original empty page props", async () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => {});

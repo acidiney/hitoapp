@@ -1,8 +1,6 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { NativePlayback } from "./NativePlayback";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => vi.unstubAllGlobals());
 
 test("native explicit playback intentions keep their direction with stale observations and preserve a prepared selection", async () => {
   const service = nativeService();

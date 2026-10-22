@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ComponentProps } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistEditions from "./components/metadata/ArtistEditions";
 import type { components } from "./generated";
 import { discographyHttp } from "./fixtures/artistDiscographyHttp";
@@ -40,14 +31,6 @@ const initial: Props = {
 };
 const lateTitle = "Private retired-owner edition";
 const freshTitle = "Current chosen edition";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 async function flush() {
   await act(async () => {

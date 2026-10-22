@@ -1,24 +1,11 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { Playback } from "../playback";
 import PlayerDock from "./PlayerDock";
 
 let player: Playback;
 vi.mock("./PlaybackProvider", () => ({ usePlayer: () => player }));
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-});
-
 test("position updates move the seek control without rendering a thousand queued rows", async () => {
   const audio = document.createElement("audio");
   vi.spyOn(audio, "load").mockImplementation(() => {

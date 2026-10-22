@@ -1,17 +1,7 @@
-// @vitest-environment jsdom
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { usePlaylistDownload } from "./hooks/usePlaylistDownload";
 import type { PlaylistDownloadStatus } from "./types";
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-});
 
 test("a rendered removal action cannot retarget a root discovered by a later status read", async () => {
   vi.useFakeTimers();

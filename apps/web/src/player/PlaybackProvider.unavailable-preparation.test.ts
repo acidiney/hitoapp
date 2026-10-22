@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import type { ResolveSource, SyncBatch } from "../types";
 import {
   audioPath,
@@ -17,12 +16,6 @@ import {
   unavailableResponse,
   type OwnedPlaybackRequest,
 } from "./fixtures/browserSourceResolution";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 const first = ownedTrack("f88f701f-a352-41a0-abda-21fc76b8a387");
 const next = ownedTrack("74aa28ac-1583-4df0-8252-484e6c5ce069");

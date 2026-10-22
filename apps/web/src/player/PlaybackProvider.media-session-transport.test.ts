@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act } from "@testing-library/react";
+import { expect, test } from "vitest";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
 import { browserMediaSession } from "./fixtures/browserMediaSession";
 import {
@@ -9,12 +8,6 @@ import {
   recording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("system relative seeks use valid positive offsets and remain inside the current recording", async () => {
   const media = browserPreparationMedia();

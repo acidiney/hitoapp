@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -50,18 +49,11 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  try {
-    expect(boundaries.prepareSelection).not.toHaveBeenCalled();
-    expect(audio).not.toHaveBeenCalled();
-    expect(boundaries.visit).not.toHaveBeenCalled();
-    expect(boundaries.reload).not.toHaveBeenCalled();
-    expect(document.querySelector("audio")).toBeNull();
-  } finally {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    localStorage.clear();
-  }
+  expect(boundaries.prepareSelection).not.toHaveBeenCalled();
+  expect(audio).not.toHaveBeenCalled();
+  expect(boundaries.visit).not.toHaveBeenCalled();
+  expect(boundaries.reload).not.toHaveBeenCalled();
+  expect(document.querySelector("audio")).toBeNull();
 });
 
 test("a stalled sync acknowledgement body aborts at ten seconds and retains the exact explicit bookmark retry", async () => {

@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type AnchorHTMLAttributes } from "react";
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import Shell from "./Shell";
 import Artwork from "./components/Artwork";
 import type { ArtworkFetch } from "./types";
@@ -22,13 +21,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("returning to a recording resumes artwork without accepting its abandoned response", async () => {
   vi.useFakeTimers();

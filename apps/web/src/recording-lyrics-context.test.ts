@@ -1,16 +1,7 @@
-// @vitest-environment jsdom
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
 import { NoticeProvider } from "./components/Notices";
 import {
@@ -29,15 +20,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 function page(props: RecordingDetailsPageProps) {
   return createElement(

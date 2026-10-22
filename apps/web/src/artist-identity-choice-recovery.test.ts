@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistReview from "./components/metadata/ArtistReview";
 import type { components } from "./generated";
 import {
@@ -27,14 +20,6 @@ import {
 } from "./fixtures/artistIdentity";
 
 type Schema = components["schemas"];
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("a rejected stale revision requires an explicit current-choice check before a new selection", async () => {
   const base = `/api/v1/recordings/${artistReviewDetail.recording_id}`;

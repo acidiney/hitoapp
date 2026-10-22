@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import DiscoverPage from "./pages/DiscoverPage";
 import type { DiscoverPageProps, PluginInstallation } from "./types";
 
@@ -13,12 +12,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
-});
 const connection: PluginInstallation = {
   id: "connection",
   service_id: "service",

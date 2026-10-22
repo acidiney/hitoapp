@@ -1,24 +1,11 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import TrackToolbar from "../components/TrackToolbar";
 import type { ResolveSource, SourceResolution } from "../types";
 import type { Player, Track } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("a lost automatic-resolution acknowledgement retries the same request and preserves duplicate queue occurrences", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});

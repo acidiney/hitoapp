@@ -1,7 +1,6 @@
-// @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
 import { NoticeProvider } from "./components/Notices";
@@ -27,11 +26,6 @@ vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("./api", () => ({ change: vi.fn() }));
 vi.mock("./metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
-
 test("provider observations show provider provenance without claiming file inspection", () => {
   render(
     createElement(MetadataObservations, {

@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { act, cleanup } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
 import { audiobookPages } from "../fixtures/audiobooks";
 import type { components } from "../generated";
@@ -10,13 +9,6 @@ import {
   otherRecording,
   renderAccount,
 } from "./fixtures/browserMediaSessionPlayback";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
 
 test("browser community retries keep one claim identity and retire held response bodies across accounts in Strict Mode", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

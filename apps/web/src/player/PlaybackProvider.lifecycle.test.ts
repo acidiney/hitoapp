@@ -1,15 +1,8 @@
-// @vitest-environment jsdom
 import { createElement, StrictMode } from "react";
-import { cleanup, render } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { render } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../components/Notices";
 import { PlaybackProvider } from "./PlaybackProvider";
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("Strict Mode effect replay retains one owned browser audio element and final unmount removes it", () => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});

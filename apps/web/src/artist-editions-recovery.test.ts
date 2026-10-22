@@ -1,15 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import ArtistEditions from "./components/metadata/ArtistEditions";
 import type { components } from "./generated";
 import { discographyHttp } from "./fixtures/artistDiscographyHttp";
@@ -37,14 +28,6 @@ const props = {
   profile: reviewedArtistProfile.profile,
   group: editionGroup,
 };
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("a rejected later-page token can be restarted explicitly after server key loss without retaining the chosen detail", async () => {
   const http = discographyHttp();

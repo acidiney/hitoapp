@@ -1,13 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "./components/LibrarySettings";
 import { NoticeProvider } from "./components/Notices";
 import { storageApi } from "./storageApi";
@@ -70,8 +63,6 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(cleanup);
-
 test("an administrator selects a shared directory through the folder browser", async () => {
   vi.mocked(storageApi.connect).mockResolvedValue(folder);
   vi.mocked(storageApi.folders)

@@ -1,16 +1,7 @@
-// @vitest-environment jsdom
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import { lyricRecordingPage, readyLyrics } from "./fixtures/recordingLyrics";
 import {
   attachedLyricProvider,
@@ -27,15 +18,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test("changing the chosen provider retires its lyric JSON body and waits for explicit Show before each lookup", async () => {
   const output = (["debug", "info", "log", "warn"] as const).map((level) =>

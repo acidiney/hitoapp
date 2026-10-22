@@ -1,14 +1,6 @@
-// @vitest-environment jsdom
 import { createElement } from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import MetadataPreferences from "./components/metadata/MetadataPreferences";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
@@ -47,11 +39,6 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 test("the built-in metadata default can be disabled without connecting or querying a provider", async () => {
   render(createElement(MetadataPreferences, { account: "alice" }));
   const enabled = (await screen.findByRole("checkbox", {

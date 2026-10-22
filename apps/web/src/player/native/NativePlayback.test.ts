@@ -1,9 +1,7 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { NativePlayback } from "./NativePlayback";
 import type { Snapshot } from "./api";
 import { nativeService } from "./fixtures/service";
-
-afterEach(() => vi.unstubAllGlobals());
 
 test("position reconnection preserves an unresolved Rust progress warning", async () => {
   const service = nativeService();

@@ -1,14 +1,9 @@
-import { afterEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
   audioPath,
   browserPreparationModes,
   recording,
 } from "./fixtures/browserPreparationModes";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 test("shuffle cancels the canonical buffer and adopts the shuffled successor on natural completion", async () => {
   vi.spyOn(Math, "random").mockReturnValue(0);

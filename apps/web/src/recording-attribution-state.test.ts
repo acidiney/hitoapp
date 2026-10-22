@@ -1,15 +1,7 @@
-// @vitest-environment jsdom
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
 import {
   attributedRecordingPage,
   historicalRecordingAttribution,
@@ -27,15 +19,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
-});
 
 test.each(["absent", "null"] as const)(
   "%s recording credits leave no empty selected section or creator list",
