@@ -1,11 +1,24 @@
 import { createElement, type ReactNode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import { attachedPage, savedRecording } from "../../sources/fixtures/sourceAttachment";
-import type { DownloadReceipt, DownloadRequest, DownloadStatus } from "../../../shared/types";
+import {
+  attachedPage,
+  savedRecording,
+} from "../../sources/fixtures/sourceAttachment";
+import type {
+  DownloadReceipt,
+  DownloadRequest,
+  DownloadStatus,
+} from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

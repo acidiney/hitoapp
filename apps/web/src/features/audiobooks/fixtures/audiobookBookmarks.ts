@@ -1,5 +1,9 @@
 import { fireEvent, screen } from "@testing-library/react";
-import type { AudiobookDetail, AudiobookPageProps, SyncBatch } from "../../../shared/types";
+import type {
+  AudiobookDetail,
+  AudiobookPageProps,
+  SyncBatch,
+} from "../../../shared/types";
 import { audiobookPages } from "./audiobooks";
 
 export function bookmarkPage(): AudiobookPageProps {

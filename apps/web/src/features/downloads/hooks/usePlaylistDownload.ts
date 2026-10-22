@@ -3,7 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { playlistDownloadApi } from "../api/playlistDownloadApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { DownloadRequest, PlaylistDownloadStatus } from "../../../shared/types";
+import type {
+  DownloadRequest,
+  PlaylistDownloadStatus,
+} from "../../../shared/types";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =

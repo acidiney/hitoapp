@@ -22,7 +22,9 @@ import type {
 } from "../metadata";
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
-vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({
+  usePlayer: () => player,
+}));
 vi.mock("../../../shared/sync", () => ({ change: vi.fn() }));
 vi.mock("../api/metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));

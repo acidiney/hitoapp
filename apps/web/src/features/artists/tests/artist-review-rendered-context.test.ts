@@ -1,5 +1,11 @@
 import { createElement } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";

@@ -6,7 +6,10 @@ import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
 import type { components } from "../../../generated";
 import { Playback } from "../../playback/playback";
-import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import {
+  PlaybackProvider,
+  usePlayer,
+} from "../../playback/components/PlaybackProvider";
 
 type Schema = components["schemas"];
 test("browser Continue reads fresh exact saved playback after its fixed heard prefix while later progress stays pending", async () => {

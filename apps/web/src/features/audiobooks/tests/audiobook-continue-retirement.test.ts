@@ -6,7 +6,10 @@ import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
 import type { components } from "../../../generated";
 import { Playback } from "../../playback/playback";
-import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import {
+  PlaybackProvider,
+  usePlayer,
+} from "../../playback/components/PlaybackProvider";
 
 type Schema = components["schemas"];
 beforeEach(() => {

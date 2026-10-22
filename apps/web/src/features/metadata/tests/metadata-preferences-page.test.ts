@@ -15,7 +15,8 @@ vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
 }));
 vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../plugins/api/pluginsApi")>();
+  const actual =
+    await importOriginal<typeof import("../../plugins/api/pluginsApi")>();
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 

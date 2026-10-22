@@ -7,7 +7,10 @@ import {
 } from "../metadata";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { log } from "../../../shared/log";
-import { useMutation, type MutationResult } from "../../../shared/hooks/useMutation";
+import {
+  useMutation,
+  type MutationResult,
+} from "../../../shared/hooks/useMutation";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useMetadataEditor(

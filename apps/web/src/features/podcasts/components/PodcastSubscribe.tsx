@@ -19,7 +19,8 @@ export default function PodcastSubscribe({
     event.preventDefault();
     const submittedRevision = draftRevision.current;
     void subscribe(address).then((accepted) => {
-      if (accepted && draftRevision.current === submittedRevision) setAddress("");
+      if (accepted && draftRevision.current === submittedRevision)
+        setAddress("");
     });
   }
   return (

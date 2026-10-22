@@ -130,7 +130,9 @@ test("a newer native Pause retires held Continue without reserving or blocking i
     expect(player.snapshot().error).toBe("");
     expect(service.commands).toHaveLength(1);
     expect(service.claims).toBe(1);
-    expect(requests.every((path) => path.startsWith("/api/v1/player"))).toBe(true);
+    expect(requests.every((path) => path.startsWith("/api/v1/player"))).toBe(
+      true,
+    );
     expect(document.querySelectorAll("audio")).toHaveLength(0);
   } finally {
     releasePrepare();

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PluginActions } from "./usePlugins";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
-import type { PluginInstallationPreview, PluginService } from "../../../shared/types";
+import type {
+  PluginInstallationPreview,
+  PluginService,
+} from "../../../shared/types";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";

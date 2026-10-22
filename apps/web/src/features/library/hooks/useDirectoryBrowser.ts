@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { storageApi } from "../api/storageApi";
 import { errorMessage } from "../../../shared/format";
-import type { DirectoryPage, DirectoryRef, SharedDirectory } from "../../../shared/types";
+import type {
+  DirectoryPage,
+  DirectoryRef,
+  SharedDirectory,
+} from "../../../shared/types";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useDirectoryBrowser(account: string) {

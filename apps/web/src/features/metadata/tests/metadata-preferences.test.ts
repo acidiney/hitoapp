@@ -1,5 +1,11 @@
 import { createElement } from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import MetadataPreferences from "../components/MetadataPreferences";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
@@ -10,7 +16,8 @@ vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
 }));
 vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../plugins/api/pluginsApi")>();
+  const actual =
+    await importOriginal<typeof import("../../plugins/api/pluginsApi")>();
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 

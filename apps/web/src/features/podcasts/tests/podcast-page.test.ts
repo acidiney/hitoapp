@@ -23,8 +23,14 @@ vi.mock("../../playback/components/PlaybackProvider", () => ({
 }));
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
-  Link: ({ children, href, ...attributes }: { children: ReactNode; href: string }) =>
-    createElement("a", { href, ...attributes }, children),
+  Link: ({
+    children,
+    href,
+    ...attributes
+  }: {
+    children: ReactNode;
+    href: string;
+  }) => createElement("a", { href, ...attributes }, children),
 }));
 
 afterEach(() => {
@@ -79,7 +85,9 @@ function podcastPageFixture() {
       next_cursor: "owned-cursor/first?revision=4",
       content_revision: 4,
     },
-    progress: [{ recording_id: first.recording.id, position_ms: 12_500, speed: 1.5 }],
+    progress: [
+      { recording_id: first.recording.id, position_ms: 12_500, speed: 1.5 },
+    ],
   } satisfies components["schemas"]["PodcastPageProps"];
   return { subscriptionId, first, second, props };
 }
@@ -113,17 +121,28 @@ test("Podcast episodes resume saved positions, start over explicitly and replace
 
   expect(fetch).not.toHaveBeenCalled();
   expect(playQueue).not.toHaveBeenCalled();
-  const firstRow = within(screen.getByRole("table", { name: "Episodes" }))
-    .getAllByRole("row")[1];
-  expect(within(firstRow).getByRole("button", { name: "Like Owned first episode" })).toBeTruthy();
-  expect(within(firstRow).getByRole("combobox", { name: "Add Owned first episode to playlist" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Resume Owned first episode" }));
+  const firstRow = within(
+    screen.getByRole("table", { name: "Episodes" }),
+  ).getAllByRole("row")[1];
+  expect(
+    within(firstRow).getByRole("button", { name: "Like Owned first episode" }),
+  ).toBeTruthy();
+  expect(
+    within(firstRow).getByRole("combobox", {
+      name: "Add Owned first episode to playlist",
+    }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Resume Owned first episode" }),
+  );
   expect(playQueue).toHaveBeenLastCalledWith(
     [expect.objectContaining({ id: first.recording.id })],
     0,
     { kind: "saved", position: 12.5 },
   );
-  fireEvent.click(screen.getByRole("button", { name: "Start over Owned first episode" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Start over Owned first episode" }),
+  );
   expect(playQueue).toHaveBeenLastCalledWith(
     [expect.objectContaining({ id: first.recording.id })],
     0,
@@ -145,15 +164,25 @@ test("Podcast episodes resume saved positions, start over explicitly and replace
   expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({
     recording_ids: [second.recording.id],
   });
-  expect(screen.getByRole("button", { name: "Resume Owned first episode" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Play Owned second episode" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Resume Owned first episode" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Play Owned second episode" }),
+  ).toBeNull();
   expect(playQueue).not.toHaveBeenCalled();
 
   await act(async () => resolveProgress(Response.json([])));
   await screen.findByRole("button", { name: "Play Owned second episode" });
-  expect(screen.queryByRole("button", { name: "Resume Owned first episode" })).toBeNull();
-  expect(within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row")).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "Play Owned second episode" }));
+  expect(
+    screen.queryByRole("button", { name: "Resume Owned first episode" }),
+  ).toBeNull();
+  expect(
+    within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row"),
+  ).toHaveLength(2);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Play Owned second episode" }),
+  );
   expect(playQueue).toHaveBeenLastCalledWith(
     [expect.objectContaining({ id: second.recording.id })],
     0,
@@ -209,7 +238,9 @@ test("Podcast episodes recover a stale cursor by loading a complete latest first
     name: "Load latest episodes",
   });
   expect(screen.getByRole("alert")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Resume Owned first episode" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Resume Owned first episode" }),
+  ).toBeTruthy();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("button", { name: "Retry episodes" })).toBeNull();
   fireEvent.click(loadLatest);
@@ -217,21 +248,34 @@ test("Podcast episodes recover a stale cursor by loading a complete latest first
   expect(JSON.parse(String(fetch.mock.calls[2][1]?.body))).toEqual({
     recording_ids: [latest.recording.id],
   });
-  expect(screen.getByRole("button", { name: "Resume Owned first episode" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Resume Owned latest episode" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Resume Owned first episode" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Resume Owned latest episode" }),
+  ).toBeNull();
   expect(playQueue).not.toHaveBeenCalled();
 
   await act(async () => {
-    resolveProgress(Response.json([
-      { recording_id: latest.recording.id, position_ms: 48_000, speed: 1.25 },
-    ] satisfies components["schemas"]["RecordingProgress"][]));
+    resolveProgress(
+      Response.json([
+        { recording_id: latest.recording.id, position_ms: 48_000, speed: 1.25 },
+      ] satisfies components["schemas"]["RecordingProgress"][]),
+    );
   });
   await screen.findByRole("button", { name: "Resume Owned latest episode" });
-  expect(screen.queryByRole("button", { name: "Resume Owned first episode" })).toBeNull();
-  expect(within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row")).toHaveLength(2);
   expect(
-    (screen.getByRole("button", { name: "First episodes" }) as HTMLButtonElement)
-      .disabled,
+    screen.queryByRole("button", { name: "Resume Owned first episode" }),
+  ).toBeNull();
+  expect(
+    within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row"),
+  ).toHaveLength(2);
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "First episodes",
+      }) as HTMLButtonElement
+    ).disabled,
   ).toBe(true);
   expect(screen.queryByRole("alert")).toBeNull();
   expect(fetch).toHaveBeenCalledTimes(3);
@@ -309,7 +353,9 @@ test("Podcast episode reads abort on account change and unmount and ignore late 
     }
     if (url.pathname === "/api/v1/recordings/progress") {
       expect(JSON.parse(String(options?.body))).toEqual({
-        recording_ids: [account === "alice" ? second.recording.id : bobLater.recording.id],
+        recording_ids: [
+          account === "alice" ? second.recording.id : bobLater.recording.id,
+        ],
       });
       return account === "alice" ? aliceProgress : bobProgress;
     }
@@ -327,17 +373,25 @@ test("Podcast episode reads abort on account change and unmount and ignore late 
   view.rerender(createElement(PodcastPage, bobProps));
   expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
   expect(fetch.mock.calls[1][1]?.signal?.aborted).toBe(true);
-  expect(screen.getByRole("heading", { name: "Bob private podcast" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Resume Bob private episode" })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Bob private podcast" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Resume Bob private episode" }),
+  ).toBeTruthy();
   expect(screen.queryByText(first.recording.title)).toBeNull();
   expect(fetch).toHaveBeenCalledTimes(2);
 
   await act(async () => {
-    resolveAliceProgress(Response.json([
-      { recording_id: second.recording.id, position_ms: 36_000, speed: 1.25 },
-    ] satisfies components["schemas"]["RecordingProgress"][]));
+    resolveAliceProgress(
+      Response.json([
+        { recording_id: second.recording.id, position_ms: 36_000, speed: 1.25 },
+      ] satisfies components["schemas"]["RecordingProgress"][]),
+    );
   });
-  expect(screen.getByRole("button", { name: "Resume Bob private episode" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Resume Bob private episode" }),
+  ).toBeTruthy();
   expect(screen.queryByText(first.recording.title)).toBeNull();
   expect(screen.queryByText(second.recording.title)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();

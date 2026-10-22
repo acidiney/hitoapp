@@ -16,9 +16,15 @@ vi.mock("../../downloads/components/RecordingDownload", () => ({
   default: () => null,
 }));
 vi.mock("../../artwork/components/Artwork", () => ({ default: () => null }));
-vi.mock("../../artwork/components/ArtworkStatus", () => ({ default: () => null }));
-vi.mock("../../metadata/components/MetadataEditor", () => ({ default: () => null }));
-vi.mock("../../metadata/components/MetadataObservations", () => ({ default: () => null }));
+vi.mock("../../artwork/components/ArtworkStatus", () => ({
+  default: () => null,
+}));
+vi.mock("../../metadata/components/MetadataEditor", () => ({
+  default: () => null,
+}));
+vi.mock("../../metadata/components/MetadataObservations", () => ({
+  default: () => null,
+}));
 vi.mock("../components/SourceAttachment", () => ({
   default: () => createElement("p", null, "Provider attachment controls"),
 }));

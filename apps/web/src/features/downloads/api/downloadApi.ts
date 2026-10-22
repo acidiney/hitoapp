@@ -1,5 +1,9 @@
 import { HttpError, request } from "../../../shared/http";
-import type { DownloadReceipt, DownloadRequest, DownloadStatus } from "../../../shared/types";
+import type {
+  DownloadReceipt,
+  DownloadRequest,
+  DownloadStatus,
+} from "../../../shared/types";
 
 export const downloadApi = {
   async create(

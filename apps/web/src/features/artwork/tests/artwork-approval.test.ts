@@ -1,5 +1,11 @@
 import { createElement, Fragment, type ReactNode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";

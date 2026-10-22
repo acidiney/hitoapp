@@ -1,6 +1,10 @@
 import { request } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { ResolveSource, Source, SourceResolution } from "../../../shared/types";
+import type {
+  ResolveSource,
+  Source,
+  SourceResolution,
+} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>

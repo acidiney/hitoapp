@@ -1,6 +1,12 @@
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import {
   attributedRecordingPage,

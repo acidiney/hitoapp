@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type { PodcastEpisodePage, RecordingProgress } from "../../../shared/types";
+import type {
+  PodcastEpisodePage,
+  RecordingProgress,
+} from "../../../shared/types";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Target = {

@@ -1,5 +1,11 @@
 import { createElement } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import CommunitySettings from "../components/CommunitySettings";
 import type { components } from "../../../generated";

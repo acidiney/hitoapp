@@ -2,7 +2,11 @@ import { createElement } from "react";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { ResolveSource, Source, SourceResolution } from "../../../shared/types";
+import type {
+  ResolveSource,
+  Source,
+  SourceResolution,
+} from "../../../shared/types";
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import PlaybackStatus from "../components/PlaybackStatus";

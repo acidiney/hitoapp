@@ -1,4 +1,7 @@
-import type { CommunityReportAdmission, SuccessfulPlayback } from "../../../shared/types";
+import type {
+  CommunityReportAdmission,
+  SuccessfulPlayback,
+} from "../../../shared/types";
 import { log } from "../../../shared/log";
 
 type Scope = { signal: AbortSignal; active(): boolean };

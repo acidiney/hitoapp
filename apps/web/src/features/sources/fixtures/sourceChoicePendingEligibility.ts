@@ -1,4 +1,8 @@
-import type { Source, SourceChoice, SourcePreparationStatus } from "../../../shared/types";
+import type {
+  Source,
+  SourceChoice,
+  SourcePreparationStatus,
+} from "../../../shared/types";
 import { savedRecording } from "./sourceAttachment";
 import { automaticChoice, choiceSourceA, choiceSourceB } from "./sourceChoice";
 

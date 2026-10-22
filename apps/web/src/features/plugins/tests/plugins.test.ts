@@ -1,10 +1,19 @@
 import { createElement } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { pluginsApi } from "../api/pluginsApi";
-import type { PluginInstallation, PluginSettings as Settings } from "../../../shared/types";
+import type {
+  PluginInstallation,
+  PluginSettings as Settings,
+} from "../../../shared/types";
 vi.mock("../api/pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),

@@ -1,5 +1,11 @@
 import { createElement, type ReactNode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import PodcastIndexPage from "../pages/PodcastIndexPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";

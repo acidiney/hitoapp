@@ -13,7 +13,9 @@ import { nativeService } from "../../fixtures/native/service";
 import PlaybackStatus from "../../components/PlaybackStatus";
 
 let player: NativePlayback;
-vi.mock("../../components/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../components/PlaybackProvider", () => ({
+  usePlayer: () => player,
+}));
 afterEach(() => {
   cleanup();
   player?.close();

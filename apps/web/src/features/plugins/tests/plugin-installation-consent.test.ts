@@ -1,5 +1,13 @@
 import { createElement, type ReactNode } from "react";
-import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import PluginSettings from "../components/PluginSettings";
@@ -436,12 +444,17 @@ test("fresh previews replace only the failed installation's alert while preservi
       ? Response.json({ error: installError }, { status: 503 })
       : undefined;
   fireEvent.click(review.getByRole("button", { name: "Accept and connect" }));
-  expect((await screen.findByRole("alert")).textContent).toContain(installError);
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    installError,
+  );
   expect(installs(http.requests)).toHaveLength(1);
-  expect(screen.getByRole("heading", { name: unrelated.manifest.name })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: unrelated.manifest.name }),
+  ).toBeTruthy();
   expect(screen.getByText("Token saved")).toBeTruthy();
   expect(
-    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement).value,
+    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
+      .value,
   ).toBe(installationToken);
 
   const previewError = "The current declaration is unavailable.";
@@ -451,17 +464,22 @@ test("fresh previews replace only the failed installation's alert while preservi
       : undefined;
   fireEvent.click(screen.getByRole("button", { name: "Review connection" }));
   await waitFor(() =>
-    expect(screen.getAllByRole("alert").map((alert) => alert.textContent)).toEqual([
-      previewError,
-    ]),
+    expect(
+      screen.getAllByRole("alert").map((alert) => alert.textContent),
+    ).toEqual([previewError]),
   );
   expect(screen.queryByText(installError)).toBeNull();
-  expect(screen.queryByRole("button", { name: "Accept and connect" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Accept and connect" }),
+  ).toBeNull();
   expect(installs(http.requests)).toHaveLength(1);
-  expect(screen.getByRole("heading", { name: unrelated.manifest.name })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: unrelated.manifest.name }),
+  ).toBeTruthy();
   expect(screen.getByText("Token saved")).toBeTruthy();
   expect(
-    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement).value,
+    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
+      .value,
   ).toBe(installationToken);
 
   http.state.respond = undefined;
@@ -471,18 +489,29 @@ test("fresh previews replace only the failed installation's alert while preservi
   };
   const freshReview = await reviewConnection();
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(freshReview.getByText(/Playback only\. No new offline downloads/)).toBeTruthy();
-  expect(screen.getByRole("heading", { name: unrelated.manifest.name })).toBeTruthy();
+  expect(
+    freshReview.getByText(/Playback only\. No new offline downloads/),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: unrelated.manifest.name }),
+  ).toBeTruthy();
   expect(screen.getByText("Token saved")).toBeTruthy();
   expect(
-    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement).value,
+    (screen.getByLabelText("Bearer token (optional)") as HTMLInputElement)
+      .value,
   ).toBe(installationToken);
   expect(installs(http.requests)).toHaveLength(1);
-  fireEvent.click(freshReview.getByRole("button", { name: "Accept and connect" }));
-  await waitFor(() =>
-    expect(screen.getAllByRole("button", { name: "Check connection" })).toHaveLength(2),
+  fireEvent.click(
+    freshReview.getByRole("button", { name: "Accept and connect" }),
   );
-  expect(screen.getByRole("heading", { name: unrelated.manifest.name })).toBeTruthy();
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("button", { name: "Check connection" }),
+    ).toHaveLength(2),
+  );
+  expect(
+    screen.getByRole("heading", { name: unrelated.manifest.name }),
+  ).toBeTruthy();
   expect(screen.queryByLabelText("Bearer token (optional)")).toBeNull();
   expect(http.requests).toHaveLength(6);
   const draft = {
@@ -491,7 +520,9 @@ test("fresh previews replace only the failed installation's alert while preservi
     bearer_token: installationToken,
   };
   expect(
-    http.requests.filter(({ path }) => path === "/api/v1/plugins/preview").map(({ body }) => body),
+    http.requests
+      .filter(({ path }) => path === "/api/v1/plugins/preview")
+      .map(({ body }) => body),
   ).toEqual([draft, draft, draft]);
   expect(installs(http.requests).map(({ body }) => body)).toEqual([
     { ...draft, accept_manifest_digest: installationDigest },

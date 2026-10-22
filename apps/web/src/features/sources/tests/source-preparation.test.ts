@@ -6,7 +6,9 @@ import type { Source, SourcePreparationStatus } from "../../../shared/types";
 import { heldResponse } from "../../../test/async";
 
 const player = vi.hoisted(() => ({ playQueue: vi.fn() }));
-vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({
+  usePlayer: () => player,
+}));
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
 
 const recording = "8bd366c9-19c8-4c24-aef9-2d5a70b00d08";

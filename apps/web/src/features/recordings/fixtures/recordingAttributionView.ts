@@ -5,7 +5,10 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type { RecordingDetailsPageProps, SourceChoice } from "../../../shared/types";
+import type {
+  RecordingDetailsPageProps,
+  SourceChoice,
+} from "../../../shared/types";
 
 type HistoryRead = {
   account: string;

@@ -1,5 +1,11 @@
 import { createElement, type AnchorHTMLAttributes } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";

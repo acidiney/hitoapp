@@ -4,7 +4,10 @@ import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
-import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import {
+  PlaybackProvider,
+  usePlayer,
+} from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
 import type { Source, SyncBatch } from "../../../shared/types";
 

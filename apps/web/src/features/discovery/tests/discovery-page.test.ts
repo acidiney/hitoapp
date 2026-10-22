@@ -2,12 +2,17 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import DiscoverPage from "../pages/DiscoverPage";
-import type { DiscoverPageProps, PluginInstallation } from "../../../shared/types";
+import type {
+  DiscoverPageProps,
+  PluginInstallation,
+} from "../../../shared/types";
 
 const { player } = vi.hoisted(() => ({
   player: { prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)) },
 }));
-vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({
+  usePlayer: () => player,
+}));
 vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),

@@ -3,9 +3,15 @@ import { act, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import PlaylistPage from "../../playlists/pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import {
+  PlaybackProvider,
+  usePlayer,
+} from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { PlaylistDownloadStatus, PlaylistPageProps } from "../../../shared/types";
+import type {
+  PlaylistDownloadStatus,
+  PlaylistPageProps,
+} from "../../../shared/types";
 import {
   copiedPlaylistPage,
   recordingA,

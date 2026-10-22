@@ -12,7 +12,10 @@ import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "../pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import {
+  PlaybackProvider,
+  usePlayer,
+} from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
 import type {
   ImportedPlaylistMetadataRefresh,

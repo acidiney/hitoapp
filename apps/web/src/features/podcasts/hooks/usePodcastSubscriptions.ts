@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type { PodcastSubscription, SubscribePodcast } from "../../../shared/types";
+import type {
+  PodcastSubscription,
+  SubscribePodcast,
+} from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
