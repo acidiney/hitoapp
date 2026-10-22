@@ -1,7 +1,7 @@
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 
-afterEach(() => {
+function reset() {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -9,4 +9,7 @@ afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
-});
+}
+
+beforeEach(reset);
+afterEach(reset);
