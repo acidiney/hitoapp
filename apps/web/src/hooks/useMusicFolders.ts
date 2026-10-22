@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { storageApi } from "../storageApi";
-import { libraryApi } from "../api";
+import { libraryApi } from "../features/library/api/libraryApi";
 import { errorMessage } from "../shared/format";
 import type { DirectoryRef, MusicFolder } from "../shared/types";
 import { useRequestScope } from "../shared/hooks/useRequestScope";

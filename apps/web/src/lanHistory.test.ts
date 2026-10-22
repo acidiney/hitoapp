@@ -2,7 +2,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { http, router, type Page } from "@inertiajs/core";
-import { notifySessionChanged } from "./session";
+import { notifySessionChanged } from "./features/session/session";
 
 const nativeState = Object.getOwnPropertyDescriptor(
   History.prototype,

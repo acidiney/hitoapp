@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { change } from "../../api";
+import { change } from "../sync";
 import { errorMessage } from "../format";
 import { useNotice } from "../ui/Notices";
 import type { Action } from "../types";

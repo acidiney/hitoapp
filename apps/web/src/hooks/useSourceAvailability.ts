@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { libraryApi } from "../api";
+import { libraryApi } from "../features/library/api/libraryApi";
 import { HttpError } from "../shared/http";
 import { log } from "../shared/log";
 import type { Source } from "../shared/types";

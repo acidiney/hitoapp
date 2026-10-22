@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { prepareChange, submitChange } from "../api";
+import { prepareChange, submitChange } from "../shared/sync";
 import { pluginsApi } from "../pluginsApi";
 import { playlistFollowApi } from "../playlistFollowApi";
 import { HttpError } from "../shared/http";

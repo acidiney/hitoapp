@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { accountsApi } from "../api";
+import { accountsApi } from "../features/accounts/api/accountsApi";
 import { errorMessage } from "../shared/format";
 import { useNotice } from "../shared/ui/Notices";
 import type { User } from "../shared/types";

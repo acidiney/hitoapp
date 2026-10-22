@@ -10,7 +10,9 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import { accountsApi, change, libraryApi } from "./api";
+import { accountsApi } from "./features/accounts/api/accountsApi";
+import { change } from "./shared/sync";
+import { libraryApi } from "./features/library/api/libraryApi";
 import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import PlaylistPage from "./pages/PlaylistPage";
@@ -20,9 +22,11 @@ import { useAccounts } from "./hooks/useAccounts";
 import type { Job, SyncReceipt } from "./shared/types";
 import { deferred } from "./test/async";
 
-vi.mock("./api", () => ({
-  change: vi.fn(),
+vi.mock("./shared/sync", () => ({ change: vi.fn() }));
+vi.mock("./features/library/api/libraryApi", () => ({
   libraryApi: { scan: vi.fn(), job: vi.fn() },
+}));
+vi.mock("./features/accounts/api/accountsApi", () => ({
   accountsApi: { list: vi.fn(), create: vi.fn(), setLibraryAccess: vi.fn() },
 }));
 vi.mock("@inertiajs/react", () => ({

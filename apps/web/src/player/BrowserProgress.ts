@@ -1,4 +1,4 @@
-import { prepareChange, submitChange } from "../api";
+import { prepareChange, submitChange } from "../shared/sync";
 import { log } from "../shared/log";
 import { HttpError } from "../shared/http";
 import { createUuid } from "../shared/uuid";

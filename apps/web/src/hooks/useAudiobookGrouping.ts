@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
-import { prepareChange, submitChange } from "../api";
+import { prepareChange, submitChange } from "../shared/sync";
 import { audiobookApi } from "../audiobookApi";
 import { errorMessage } from "../shared/format";
 import { HttpError } from "../shared/http";

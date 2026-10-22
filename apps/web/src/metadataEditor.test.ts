@@ -2,12 +2,12 @@ import { createElement } from "react";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import { change } from "./api";
+import { change } from "./shared/sync";
 import MetadataEditor from "./components/MetadataEditor";
 import { NoticeProvider } from "./shared/ui/Notices";
 import { useMetadataEditor } from "./hooks/useMetadataEditor";
 
-vi.mock("./api", () => ({ change: vi.fn() }));
+vi.mock("./shared/sync", () => ({ change: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({
   usePlayer: () => ({ setRecordingField: vi.fn() }),
 }));

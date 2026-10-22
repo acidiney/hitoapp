@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { prepareChange, submitChange } from "../../api";
+import { prepareChange, submitChange } from "../sync";
 import type { Action, SyncBatch, SyncReceipt } from "../types";
 
 const action: Action = {

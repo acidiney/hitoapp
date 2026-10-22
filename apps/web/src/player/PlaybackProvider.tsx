@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { libraryApi } from "../api";
+import { libraryApi } from "../features/library/api/libraryApi";
 import { useNotice } from "../shared/ui/Notices";
 import { Playback, type MediaPort } from "../playback";
 import type { Player } from "./model";

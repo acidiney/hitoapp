@@ -12,7 +12,7 @@ import ArtistIdentityGroupPage from "./pages/ArtistIdentityGroupPage";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import HistoryPage from "./pages/HistoryPage";
 import LikesPage from "./pages/LikesPage";
-import LoginPage from "./pages/LoginPage";
+import LoginPage from "./features/session/pages/LoginPage";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import AudiobookIndexPage from "./pages/AudiobookIndexPage";
 import AudiobookPage from "./pages/AudiobookPage";
@@ -22,7 +22,7 @@ import PlaylistPage from "./pages/PlaylistPage";
 import SettingsPage from "./pages/SettingsPage";
 import ConnectionErrorPage from "./pages/ConnectionErrorPage";
 import Shell from "./Shell";
-import { installSessionBoundary } from "./session";
+import { installSessionBoundary } from "./features/session/session";
 import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
 import "./style.css";
 

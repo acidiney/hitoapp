@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { prepareChange, submitChange } from "../api";
+import { prepareChange, submitChange } from "../shared/sync";
 import { audiobookApi } from "../audiobookApi";
 import { HttpError } from "../shared/http";
 import { log } from "../shared/log";

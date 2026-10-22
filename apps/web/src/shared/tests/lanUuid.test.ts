@@ -1,7 +1,8 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { prepareChange, sessionApi, submitChange } from "../../api";
+import { prepareChange, submitChange } from "../sync";
+import { sessionApi } from "../../features/session/api/sessionApi";
 import { Playback, type MediaPort } from "../../playback";
-import { notifySessionChanged } from "../../session";
+import { notifySessionChanged } from "../../features/session/session";
 import type { Action } from "../types";
 
 const crypto = globalThis.crypto;

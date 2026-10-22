@@ -15,7 +15,7 @@ import {
   Podcast,
   BookOpen,
 } from "lucide-react";
-import { sessionApi } from "../api";
+import { sessionApi } from "../features/session/api/sessionApi";
 import { errorMessage } from "../shared/format";
 import { usePlayer } from "../player/PlaybackProvider";
 import { useNotice } from "../shared/ui/Notices";

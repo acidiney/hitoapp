@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import { change } from "./api";
+import { change } from "./shared/sync";
 import { NoticeProvider } from "./shared/ui/Notices";
 import MetadataEditor from "./components/MetadataEditor";
 import MetadataObservations from "./components/MetadataObservations";
@@ -23,7 +23,7 @@ import type {
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./api", () => ({ change: vi.fn() }));
+vi.mock("./shared/sync", () => ({ change: vi.fn() }));
 vi.mock("./metadataApi", () => ({ metadataApi: { history: vi.fn() } }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));
 test("provider observations show provider provenance without claiming file inspection", () => {
