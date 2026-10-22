@@ -8,7 +8,7 @@ import type { PlaybackStart } from "../../player/model";
 import type { Playlist, PlaylistEntry } from "../types";
 import type { Mutate } from "../hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
-import Artwork from "../../components/Artwork";
+import Artwork from "../../features/artwork/components/Artwork";
 
 export type TrackRow = Track & {
   row_id: string;

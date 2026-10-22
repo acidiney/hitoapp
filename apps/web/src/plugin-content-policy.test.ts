@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./ArtworkProvider";
+import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
 import PluginSettings from "./components/plugins/PluginSettings";
 import type { PluginInstallation, RefreshPlugin } from "./shared/types";
 

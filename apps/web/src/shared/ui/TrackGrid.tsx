@@ -3,7 +3,7 @@ import type { Mutate } from "../hooks/useMutation";
 import type { Playlist } from "../types";
 import type { TrackRow } from "./TrackTable";
 import { usePlayer } from "../../player/PlaybackProvider";
-import Artwork from "../../components/Artwork";
+import Artwork from "../../features/artwork/components/Artwork";
 import TrackActions from "./TrackActions";
 
 export default function TrackGrid({

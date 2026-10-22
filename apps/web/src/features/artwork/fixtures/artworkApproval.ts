@@ -4,7 +4,7 @@ import type {
   PluginRefresh,
   PluginSettings,
   RefreshPlugin,
-} from "../shared/types";
+} from "../../../shared/types";
 
 export function artworkApprovalFixture() {
   const account = "alice";

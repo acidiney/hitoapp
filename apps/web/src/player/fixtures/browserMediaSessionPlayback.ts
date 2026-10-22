@@ -5,7 +5,7 @@ import { NoticeProvider } from "../../shared/ui/Notices";
 import type { Source, SyncBatch } from "../../shared/types";
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../PlaybackProvider";
-import { ArtworkProvider } from "../../ArtworkProvider";
+import { ArtworkProvider } from "../../features/artwork/components/ArtworkProvider";
 
 export const recording: Track = {
   id: "b36566e6-211b-4d2e-8816-a6a4f175a97f",

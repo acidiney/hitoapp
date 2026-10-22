@@ -1,11 +1,11 @@
-import { request } from "./shared/http";
-import { log } from "./shared/log";
+import { request } from "../../../shared/http";
+import { log } from "../../../shared/log";
 import type {
   ArtworkAvailability,
   ArtworkFetch,
   PlaylistArtworkFetch,
   ReleaseArtworkFetch,
-} from "./shared/types";
+} from "../../../shared/types";
 
 export type ArtworkKind = "recording" | "release" | "playlist";
 type ArtworkTarget = { kind: ArtworkKind; id: string };

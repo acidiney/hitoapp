@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import PlaylistPage from "./pages/PlaylistPage";
-import { ArtworkProvider } from "./ArtworkProvider";
+import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
 import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";

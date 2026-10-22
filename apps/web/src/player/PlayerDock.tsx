@@ -9,7 +9,7 @@ import { ListOrdered, Maximize2, Volume2 } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
 import PlaybackQueue from "./PlaybackQueue";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import ListeningPanel from "./ListeningPanel";
 import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";

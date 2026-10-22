@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "./components/plugins/PluginSettings";
-import { ArtworkProvider } from "./ArtworkProvider";
+import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
 import { pluginsApi } from "./pluginsApi";
 import type { PluginInstallation, PluginSettings as Settings } from "./shared/types";
 vi.mock("./pluginsApi", () => ({

@@ -1,6 +1,6 @@
 import { Link } from "@inertiajs/react";
 import type { Release } from "../types";
-import Artwork from "../../components/Artwork";
+import Artwork from "../../features/artwork/components/Artwork";
 
 export default function AlbumGrid({ releases }: { releases: Release[] }) {
   return (

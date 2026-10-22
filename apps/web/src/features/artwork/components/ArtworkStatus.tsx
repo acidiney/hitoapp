@@ -1,4 +1,4 @@
-import { useArtwork } from "../ArtworkProvider";
+import { useArtwork } from "./ArtworkProvider";
 
 type ArtworkStatusProps =
   | { recording: string; release?: never; playlistId?: never }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { useArtwork } from "../ArtworkProvider";
+import { useArtwork } from "../features/artwork/components/ArtworkProvider";
 import { log } from "../shared/log";
 import type { Player, Track } from "./model";
 import { probeSessionArtwork } from "./BrowserSessionArtwork";

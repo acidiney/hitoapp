@@ -1,14 +1,14 @@
 import { createElement, Fragment } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./ArtworkProvider";
-import Artwork from "./components/Artwork";
-import ArtworkStatus from "./components/ArtworkStatus";
+import { ArtworkProvider } from "../components/ArtworkProvider";
+import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 import type {
   ArtworkFetch,
   PlaylistArtworkFetch,
   ReleaseArtworkFetch,
-} from "./shared/types";
+} from "../../../shared/types";
 
 const id = "3017a834-f2ef-4b57-9411-c3b56781132e";
 const targets = [

@@ -7,10 +7,10 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import Shell from "./Shell";
-import AlbumPage from "./pages/AlbumPage";
-import type { AlbumPageProps } from "./shared/types";
-import type { components } from "./generated";
+import Shell from "../../../Shell";
+import AlbumPage from "../../../pages/AlbumPage";
+import type { AlbumPageProps } from "../../../shared/types";
+import type { components } from "../../../generated";
 
 type ReleaseArtworkFetch = components["schemas"]["ReleaseArtworkFetch"];
 

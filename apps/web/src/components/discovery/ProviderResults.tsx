@@ -4,7 +4,7 @@ import { Check, Play, Plus } from "lucide-react";
 import type { ProviderRecording, Recording } from "../../shared/types";
 import type { ProviderSelection } from "../../hooks/useDiscovery";
 import { time } from "../../shared/format";
-import Artwork from "../Artwork";
+import Artwork from "../../features/artwork/components/Artwork";
 
 type SelectionIntent = "play" | "save";
 type ResultProps = {

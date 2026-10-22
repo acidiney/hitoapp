@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Disc3, ListMusic } from "lucide-react";
-import { useArtwork } from "../ArtworkProvider";
+import { useArtwork } from "./ArtworkProvider";
 
 export default function Artwork({
   recording,

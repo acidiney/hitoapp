@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import EmptyState from "../shared/ui/EmptyState";
 import PageHeading from "../shared/ui/PageHeading";
 import AudiobookPagination from "../components/audiobooks/AudiobookPagination";

@@ -8,7 +8,7 @@ import Sidebar from "./components/Sidebar";
 import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 import PlayerDock from "./player/PlayerDock";
-import { ArtworkProvider } from "./ArtworkProvider";
+import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();

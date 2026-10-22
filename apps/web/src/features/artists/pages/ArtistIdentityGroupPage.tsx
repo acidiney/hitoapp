@@ -1,7 +1,7 @@
 import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
 import { Link, usePage } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
-import Artwork from "../../../components/Artwork";
+import Artwork from "../../artwork/components/Artwork";
 import AlbumGrid from "../../../shared/ui/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";

@@ -3,7 +3,7 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
-import { ArtworkProvider } from "../../../ArtworkProvider";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";

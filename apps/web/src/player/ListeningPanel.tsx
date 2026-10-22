@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { ArrowUpRight, Headphones } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import QueueTracks from "./QueueTracks";
 
 export default function ListeningPanel({

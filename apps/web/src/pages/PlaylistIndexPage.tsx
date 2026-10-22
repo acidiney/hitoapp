@@ -6,7 +6,7 @@ import type { PlaylistIndexPageProps } from "../shared/types";
 import { useMutation } from "../shared/hooks/useMutation";
 import EmptyState from "../shared/ui/EmptyState";
 import PageHeading from "../shared/ui/PageHeading";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import PlaylistImport from "../components/playlists/PlaylistImport";
 
 export default function PlaylistIndexPage({

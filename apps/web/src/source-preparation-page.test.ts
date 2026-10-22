@@ -15,8 +15,8 @@ vi.mock("./hooks/useRecordingDownload", () => ({
 vi.mock("./components/downloads/RecordingDownload", () => ({
   default: () => null,
 }));
-vi.mock("./components/Artwork", () => ({ default: () => null }));
-vi.mock("./components/ArtworkStatus", () => ({ default: () => null }));
+vi.mock("./features/artwork/components/Artwork", () => ({ default: () => null }));
+vi.mock("./features/artwork/components/ArtworkStatus", () => ({ default: () => null }));
 vi.mock("./components/MetadataEditor", () => ({ default: () => null }));
 vi.mock("./components/MetadataObservations", () => ({ default: () => null }));
 vi.mock("./components/SourceAttachment", () => ({

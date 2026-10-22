@@ -16,7 +16,7 @@ vi.mock("../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn() }),
 }));
 vi.mock("../shared/ui/TrackActions", () => ({ default: () => null }));
-vi.mock("../components/Artwork", () => ({ default: () => null }));
+vi.mock("../features/artwork/components/Artwork", () => ({ default: () => null }));
 afterEach(() => {
   cleanup();
   playQueue.mockClear();

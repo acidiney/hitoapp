@@ -1,7 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { ArrowDownLeft, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import QueueTracks from "./QueueTracks";
 import PlaybackControls from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";

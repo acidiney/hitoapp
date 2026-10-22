@@ -1,11 +1,11 @@
 import { createElement, Fragment, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./ArtworkProvider";
-import Artwork from "./components/Artwork";
-import ArtworkStatus from "./components/ArtworkStatus";
-import PluginSettings from "./components/plugins/PluginSettings";
-import { artworkApprovalFixture } from "./fixtures/artworkApproval";
+import { ArtworkProvider } from "../components/ArtworkProvider";
+import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
+import PluginSettings from "../../../components/plugins/PluginSettings";
+import { artworkApprovalFixture } from "../fixtures/artworkApproval";
 
 test("accepting artwork capability retries a cached unavailable cover without reloading the account", async () => {
   const fixture = artworkApprovalFixture();

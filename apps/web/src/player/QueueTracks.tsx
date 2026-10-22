@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import Artwork from "../components/Artwork";
+import Artwork from "../features/artwork/components/Artwork";
 import { time } from "../shared/format";
 import { useQueuePage } from "./useQueuePage";
 

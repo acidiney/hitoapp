@@ -1,6 +1,6 @@
 import { Link, usePage } from "@inertiajs/react";
 import type { ArtistIndexPageProps } from "../../../shared/types";
-import Artwork from "../../../components/Artwork";
+import Artwork from "../../artwork/components/Artwork";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";

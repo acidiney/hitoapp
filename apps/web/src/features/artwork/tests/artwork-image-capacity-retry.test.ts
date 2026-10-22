@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./ArtworkProvider";
-import Artwork from "./components/Artwork";
-import ArtworkStatus from "./components/ArtworkStatus";
+import { ArtworkProvider } from "../components/ArtworkProvider";
+import Artwork from "../components/Artwork";
+import ArtworkStatus from "../components/ArtworkStatus";
 
 test("a mounted image can explicitly retry private bytes after 129 settled targets retire its bounded cache entry", async () => {
   vi.useFakeTimers();

@@ -12,7 +12,7 @@ import type {
 import { useRequestScope } from "../shared/hooks/useRequestScope";
 import { errorMessage } from "../shared/format";
 import { log } from "../shared/log";
-import { useRefreshArtworkAvailability } from "../ArtworkProvider";
+import { useRefreshArtworkAvailability } from "../features/artwork/components/ArtworkProvider";
 
 export function usePlugins(account: string) {
   const scope = useRequestScope(account);

@@ -1,4 +1,4 @@
-import Artwork from "../Artwork";
+import Artwork from "../../features/artwork/components/Artwork";
 import TrackActions from "../../shared/ui/TrackActions";
 import type { TrackRow } from "../../shared/ui/TrackTable";
 import { time } from "../../shared/format";

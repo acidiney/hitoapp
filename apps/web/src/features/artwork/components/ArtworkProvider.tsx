@@ -11,7 +11,7 @@ import {
   ArtworkRetrieval,
   idleArtwork,
   type ArtworkKind,
-} from "./artworkRetrieval";
+} from "../api/artworkRetrieval";
 
 const ArtworkContext = createContext<ArtworkRetrieval | null>(null);
 
