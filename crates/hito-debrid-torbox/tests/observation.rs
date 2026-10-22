@@ -8,8 +8,8 @@ mod lifecycle;
 mod rejections;
 #[path = "observation/response.rs"]
 mod response;
-mod support;
 
+use hito_debrid_torbox::test_support::provider as support;
 use hito_debrid_torbox::{Error, TorBoxClient, TorrentFileBinding, TorrentPhase};
 use serde_json::json;
 use support::{Fixture, logs::Capture};

@@ -1,5 +1,4 @@
 use super::fixtures::MEDIA_HOST;
-use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
 use std::{
     net::SocketAddr,
     sync::{
@@ -10,11 +9,11 @@ use std::{
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
+    net::TcpStream,
     sync::oneshot,
     task::JoinHandle,
 };
-use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_rustls::server::TlsStream;
 
 pub struct MediaRequest {
     pub server_name: String,
@@ -43,28 +42,7 @@ pub struct MediaFixture {
 impl MediaFixture {
     pub async fn start(wave: Vec<u8>) -> Self {
         assert!((44..=1_048_576).contains(&wave.len()));
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let key = KeyPair::generate().unwrap();
-        let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
-        let root = ca.self_signed(&key).unwrap();
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, key);
-        let key = KeyPair::generate().unwrap();
-        let certificate = CertificateParams::new(vec![MEDIA_HOST.into()])
-            .unwrap()
-            .signed_by(&key, &issuer)
-            .unwrap();
-        let config = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivateKeyDer::Pkcs8(key.serialize_der().into()),
-            )
-            .unwrap();
-        let tls = TlsAcceptor::from(Arc::new(config));
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let (listener, tls, ca_der) = super::owned_tls::listener(MEDIA_HOST).await;
         let address = listener.local_addr().unwrap();
         let (stop, mut stopped) = oneshot::channel();
         let received = Arc::new(AtomicUsize::new(0));

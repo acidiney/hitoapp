@@ -1,13 +1,9 @@
-#[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "../../hito-plugin-all-debrid/tests/fixtures/http.rs"]
-pub mod http;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_testkit::plugin_server as http;
 #[path = "support/logs.rs"]
 mod logs;
-#[path = "../../hito-debrid-torbox/tests/audio/media_fixture.rs"]
-pub mod media_fixture;
-#[path = "../../hito-debrid-torbox/tests/support/mod.rs"]
-pub mod provider;
+pub use hito_debrid_torbox::test_support::media_fixture;
+pub use hito_debrid_torbox::test_support::provider;
 #[path = "support/requests.rs"]
 mod requests;
 #[path = "support/workflow.rs"]

@@ -2,16 +2,12 @@
 
 #[path = "support/restart_capacity_entries.rs"]
 mod entries;
-#[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "../../hito-plugin-all-debrid/tests/fixtures/http.rs"]
-pub mod http;
-#[path = "../../hito-debrid-torbox/tests/audio/owned_tls.rs"]
-pub mod owned_tls;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_debrid_torbox::test_support::owned_tls;
+pub use hito_testkit::plugin_server as http;
 #[path = "support/restart_capacity_provider.rs"]
 mod provider;
-#[path = "../../hito-debrid-torbox/tests/audio/scripted_media.rs"]
-pub mod scripted_media;
+pub use hito_debrid_torbox::test_support::scripted_media;
 #[path = "support/restart_capacity_workflow.rs"]
 mod workflow;
 

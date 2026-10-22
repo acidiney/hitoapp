@@ -42,12 +42,19 @@ pub fn ramp_wav() -> Vec<u8> {
     pcm16_wav(SAMPLE_RATE, CHANNELS, FRAMES, ramp_sample)
 }
 
-#[derive(Default)]
 pub struct RampVerifier {
     seen: usize,
+    expected_samples: u64,
 }
 
 impl RampVerifier {
+    pub fn new(expected_samples: u64) -> Self {
+        Self {
+            seen: 0,
+            expected_samples,
+        }
+    }
+
     pub fn verify(&mut self, samples: &[f32]) {
         for actual in samples {
             let expected = f32::from(ramp_sample(self.seen)) / 32768.0;
@@ -57,6 +64,6 @@ impl RampVerifier {
     }
 
     pub fn finish(self) {
-        assert_eq!(self.seen as u64, FRAMES * u64::from(CHANNELS));
+        assert_eq!(self.seen as u64, self.expected_samples);
     }
 }

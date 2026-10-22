@@ -143,6 +143,7 @@ impl Owner {
             &self.server,
             Method::GET,
             &format!("v1/audio?source_id={SOURCE}"),
+            super::COOKIE,
             Some(SERVICE_TOKEN),
             None,
         )
@@ -156,6 +157,7 @@ impl Owner {
             &self.server,
             Method::POST,
             path,
+            super::COOKIE,
             Some(SERVICE_TOKEN),
             Some(serde_json::to_value(body).unwrap()),
         )

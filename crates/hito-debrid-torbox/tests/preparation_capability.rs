@@ -1,13 +1,9 @@
 #![cfg(feature = "test-support")]
 
-#[path = "audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "audio/logs.rs"]
-pub mod logs;
-#[path = "audio/owned_tls.rs"]
-pub mod owned_tls;
-#[path = "support/mod.rs"]
-pub mod protocol;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_debrid_torbox::test_support::logs;
+pub use hito_debrid_torbox::test_support::owned_tls;
+pub use hito_debrid_torbox::test_support::provider as protocol;
 #[path = "support/capability_provider.rs"]
 mod provider;
 

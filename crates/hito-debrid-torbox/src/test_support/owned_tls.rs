@@ -1,5 +1,4 @@
-use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair, KeyUsagePurpose};
-use std::sync::Arc;
+use hito_testkit::tls;
 use tokio::{
     io::AsyncReadExt,
     net::{TcpListener, TcpStream},
@@ -7,30 +6,11 @@ use tokio::{
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 pub async fn listener(host: &str) -> (TcpListener, TlsAcceptor, Vec<u8>) {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    let key = KeyPair::generate().unwrap();
-    let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
-    ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
-    let root = ca.self_signed(&key).unwrap();
-    let bytes = root.der().to_vec();
-    let issuer = Issuer::new(ca, key);
-    let key = KeyPair::generate().unwrap();
-    let cert = CertificateParams::new(vec![host.into()])
-        .unwrap()
-        .signed_by(&key, &issuer)
-        .unwrap();
-    let config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(
-            vec![cert.der().clone()],
-            rustls::pki_types::PrivateKeyDer::Pkcs8(key.serialize_der().into()),
-        )
-        .unwrap();
+    let tls::OwnedTls { acceptor, root_der } = tls::issue(&[host]);
     (
         TcpListener::bind("127.0.0.1:0").await.unwrap(),
-        TlsAcceptor::from(Arc::new(config)),
-        bytes,
+        acceptor,
+        root_der,
     )
 }
 

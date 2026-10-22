@@ -141,6 +141,7 @@ async fn post<T: DeserializeOwned>(
         server,
         Method::POST,
         path,
+        super::COOKIE,
         Some(SERVICE_TOKEN),
         Some(serde_json::to_value(request).unwrap()),
     )

@@ -2,18 +2,13 @@
 
 #[path = "support/restart_catalog_entries.rs"]
 pub mod entries;
-#[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "../../hito-plugin-all-debrid/tests/fixtures/http.rs"]
-pub mod http;
-#[path = "../../hito-debrid-torbox/tests/audio/owned_tls.rs"]
-pub mod owned_tls;
-#[path = "../../hito-debrid-torbox/tests/support/mod.rs"]
-pub mod provider;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_debrid_torbox::test_support::owned_tls;
+pub use hito_debrid_torbox::test_support::provider;
+pub use hito_testkit::plugin_server as http;
 #[path = "support/restart_workflow.rs"]
 pub mod ready_workflow;
-#[path = "../../hito-debrid-torbox/tests/audio/scripted_media.rs"]
-pub mod scripted_media;
+pub use hito_debrid_torbox::test_support::scripted_media;
 #[path = "support/state_inputs.rs"]
 mod state_inputs;
 #[path = "support/restart_catalog_workflow.rs"]

@@ -7,11 +7,13 @@ license.workspace = true
 
 [features]
 default = []
-test-support = ["hito-remote-audio/test-support"]
+test-support = ["hito-remote-audio/test-support", "dep:hito-audio", "dep:hito-testkit", "dep:tokio-rustls"]
 
 [dependencies]
 chacha20poly1305.workspace = true
+hito-audio = { path = "../hito-audio", optional = true }
 hito-remote-audio = { path = "../hito-remote-audio" }
+hito-testkit = { path = "../hito-testkit", optional = true }
 hmac = "=0.12.1"
 rand.workspace = true
 reqwest.workspace = true
@@ -20,6 +22,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false, optional = true }
 tokio.workspace = true
 tracing.workspace = true
 uuid.workspace = true
@@ -27,7 +30,7 @@ zeroize.workspace = true
 
 [dev-dependencies]
 hito-audio = { path = "../hito-audio" }
-rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+hito-testkit = { path = "../hito-testkit" }
 tokio-rustls = { version = "=0.26.6", default-features = false }
 tracing-subscriber.workspace = true
 

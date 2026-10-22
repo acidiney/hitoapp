@@ -184,6 +184,7 @@ impl Service {
             &self.server,
             Method::POST,
             path,
+            COOKIE,
             Some(SERVICE_TOKEN),
             Some(serde_json::to_value(request).unwrap()),
         )

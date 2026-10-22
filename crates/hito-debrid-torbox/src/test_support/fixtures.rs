@@ -1,4 +1,5 @@
-use hito_debrid_torbox::TorrentFileBinding;
+use crate::TorrentFileBinding;
+use hito_testkit::audio::{RampVerifier, pcm16_wav, ramp_sample};
 use serde_json::json;
 
 pub const TOKEN: &str = "owned-torbox-key/+?=&-kept-private";
@@ -36,34 +37,11 @@ pub fn observed(finished: bool, present: bool, selected_name: &str) -> Vec<u8> {
 }
 
 pub fn sample(index: usize) -> i16 {
-    let frame = index / usize::from(CHANNELS);
-    let value = ((frame % 257) as i16 - 128) * 128;
-    if index.is_multiple_of(usize::from(CHANNELS)) {
-        value
-    } else {
-        -value
-    }
+    ramp_sample(index)
 }
 
 pub fn wave() -> Vec<u8> {
-    let data_bytes = (WAV_BYTES - 44) as u32;
-    let mut bytes = Vec::with_capacity(WAV_BYTES as usize);
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&(data_bytes + 36).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16_u32.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&CHANNELS.to_le_bytes());
-    bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
-    bytes.extend_from_slice(&(SAMPLE_RATE * u32::from(CHANNELS) * 2).to_le_bytes());
-    bytes.extend_from_slice(&(CHANNELS * 2).to_le_bytes());
-    bytes.extend_from_slice(&16_u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&data_bytes.to_le_bytes());
-    for index in 0..(FRAMES * u64::from(CHANNELS)) as usize {
-        bytes.extend_from_slice(&sample(index).to_le_bytes());
-    }
-    bytes
+    pcm16_wav(SAMPLE_RATE, CHANNELS, FRAMES, sample)
 }
 
 pub fn acknowledgment() -> Vec<u8> {
@@ -74,12 +52,9 @@ pub fn acknowledgment() -> Vec<u8> {
 
 pub fn assert_pcm(bytes: Vec<u8>) {
     let mut decoder = hito_audio::Decoder::open(std::io::Cursor::new(bytes)).unwrap();
-    let mut count = 0;
+    let mut verifier = RampVerifier::new(FRAMES * u64::from(CHANNELS));
     while let Some(block) = decoder.read().unwrap() {
-        for value in block.samples {
-            assert!((*value - f32::from(sample(count)) / 32768.0).abs() < 0.000_001);
-            count += 1;
-        }
+        verifier.verify(block.samples);
     }
-    assert_eq!(count as u64, FRAMES * u64::from(CHANNELS));
+    verifier.finish();
 }

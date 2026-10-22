@@ -16,7 +16,6 @@ enum Contents {
 pub(super) struct Snapshot(Vec<(PathBuf, Metadata, Contents)>);
 
 impl Snapshot {
-    #[allow(dead_code)]
     pub(super) fn unchanged(&self, other: &Self) -> bool {
         self.0.len() == other.0.len()
             && self.0.iter().zip(&other.0).all(
@@ -101,24 +100,6 @@ impl Snapshot {
             entries.push((path, metadata, contents));
         }
         Self(entries)
-    }
-
-    pub(super) fn assert_preserved(&self, directory: &Path) {
-        let after = Self::capture(directory);
-        assert!(
-            self.0.len() == after.0.len(),
-            "bootstrap must preserve exact operator entries"
-        );
-        for ((path, before, contents), (after_path, after, after_contents)) in
-            self.0.iter().zip(&after.0)
-        {
-            assert!(
-                path == after_path
-                    && identity(before) == identity(after)
-                    && contents == after_contents,
-                "bootstrap must preserve types, bytes, links and operator metadata"
-            );
-        }
     }
 }
 

@@ -2,20 +2,14 @@
 
 #[path = "support/concurrent_provider.rs"]
 pub mod concurrent_provider;
-#[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "../../hito-plugin-all-debrid/tests/fixtures/http.rs"]
-pub mod http;
-#[path = "../../hito-debrid-torbox/tests/audio/logs.rs"]
-pub mod logs;
-#[path = "../../hito-debrid-torbox/tests/audio/owned_tls.rs"]
-pub mod owned_tls;
-#[path = "../../hito-debrid-torbox/tests/support/mod.rs"]
-pub mod provider;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_debrid_torbox::test_support::logs;
+pub use hito_debrid_torbox::test_support::owned_tls;
+pub use hito_debrid_torbox::test_support::provider;
+pub use hito_testkit::plugin_server as http;
 #[path = "support/retirement_race.rs"]
 mod retirement_race;
-#[path = "../../hito-debrid-torbox/tests/audio/scripted_media.rs"]
-pub mod scripted_media;
+pub use hito_debrid_torbox::test_support::scripted_media;
 #[path = "support/reusable_workflow.rs"]
 pub mod workflow;
 
@@ -263,6 +257,7 @@ async fn post<T: serde::de::DeserializeOwned>(
         service,
         Method::POST,
         path,
+        COOKIE,
         Some(SERVICE_TOKEN),
         Some(serde_json::to_value(request).unwrap()),
     )

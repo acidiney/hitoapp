@@ -1,39 +1,22 @@
 #![cfg(all(feature = "test-support", unix))]
 
-#[allow(dead_code)]
-#[path = "support/restart_catalog_entries.rs"]
-mod entries;
-#[allow(dead_code)]
-#[path = "../../hito-debrid-torbox/tests/audio/fixtures.rs"]
-mod fixtures;
-#[allow(dead_code)]
-#[path = "../../hito-plugin-all-debrid/tests/fixtures/http.rs"]
-mod http;
-#[allow(dead_code)]
-#[path = "support/logs.rs"]
-mod logs;
-#[allow(dead_code)]
-#[path = "../../hito-debrid-torbox/tests/audio/media_fixture.rs"]
-mod media_fixture;
-#[allow(dead_code)]
-#[path = "../../hito-debrid-torbox/tests/support/mod.rs"]
-mod provider;
-#[allow(dead_code)]
+use hito_debrid_torbox::test_support::fixtures;
+use hito_debrid_torbox::test_support::media_fixture;
+use hito_debrid_torbox::test_support::provider;
+use hito_testkit::plugin_server as http;
 #[path = "bootstrap_support/snapshot.rs"]
 mod snapshot;
-#[allow(dead_code)]
-#[path = "support/state_inputs.rs"]
-mod state_inputs;
 
 use futures_util::{FutureExt, future};
 use hito_debrid_torbox::{MediaAllowlist, TorBoxClient};
 use hito_plugin_sdk::{ProviderRecording, RecordingAttribution, RecordingRequest};
 use hito_plugin_torbox::{Config, CuratedWavRecording, InitError, Service, StateConfig, StateMode};
+use hito_testkit::logs::{LogCapture, trace_filter};
 use reqwest::StatusCode;
 use serde_json::Value;
 use snapshot::Snapshot;
 use std::{
-    collections::BTreeSet, fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt,
+    cell::Cell, collections::BTreeSet, fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt,
     panic::AssertUnwindSafe, path::Path, time::Duration,
 };
 use tracing::instrument::WithSubscriber;
@@ -45,6 +28,8 @@ const COOKIE: &str = "owned-private-torbox-detail-cookie";
 const TITLE: &str = "owned-private-catalog-title";
 const ARTIST: &str = "owned-private-catalog-artist";
 const QUERY: &str = "owned-private-torbox-detail-query";
+const RECORDING: &str = "retained-catalog-recording";
+const SOURCE: &str = "retained-catalog-source";
 
 struct Attempt {
     outcome: &'static str,
@@ -57,7 +42,7 @@ struct Attempt {
 async fn detail_budget_rejection_precedes_private_state_ownership_and_provider_work() {
     let provider = provider::Fixture::start(vec![]).await;
     let media = media_fixture::MediaFixture::start(fixtures::wave()).await;
-    let inputs = state_inputs::Inputs::new();
+    let inputs = StateDirectory::new();
     let directory = inputs.directory.path();
     let key_path = directory.join("candidate.key");
     let original_path = directory.join("owned-original.wav");
@@ -72,8 +57,12 @@ async fn detail_budget_rejection_precedes_private_state_ownership_and_provider_w
     drop(original);
     let key_before = Snapshot::capture(&key_path);
     let original_before = Snapshot::capture(&original_path);
-    let capture = logs::Capture::default();
-    let dispatch = capture.dispatch();
+    let capture = LogCapture::default();
+    let dispatch = capture.dispatch_with_spans(&trace_filter(&[
+        "hito_plugin_torbox",
+        "hito_debrid_torbox",
+        "hito_remote_audio",
+    ]));
     let mut owner = None;
     let mut server = None;
     let outcome = AssertUnwindSafe(tokio::time::timeout(Duration::from_secs(20), async {
@@ -151,16 +140,7 @@ async fn detail_budget_rejection_precedes_private_state_ownership_and_provider_w
     );
     let owners =
         1 + usize::from(existing.outcome == "opened") + usize::from(absent.outcome == "opened");
-    assert_logs(&capture.snapshot(), owners, directory);
-    eprintln!(
-        "detail_budget_evidence served_bytes=32768 overlimit_bytes=32769 existing_outcome={} absent_outcome={} existing_active_preserved={} existing_closed_preserved={} absent_active_preserved={} absent_closed_preserved={} absent_created={created} provider_requests=0 media_requests=0 joined=true",
-        existing.outcome,
-        absent.outcome,
-        existing.active_preserved,
-        existing.closed_preserved,
-        absent.active_preserved,
-        absent.closed_preserved
-    );
+    assert_logs(&capture.text(), owners, directory);
     assert!(
         existing.outcome == "invalid_catalog"
             && absent.outcome == "invalid_catalog"
@@ -242,7 +222,7 @@ async fn exact_detail(server: &http::Server, expected: &ProviderRecording) {
         .header("x-hito-plugin-protocol", "1")
         .header("cookie", COOKIE)
         .json(&RecordingRequest {
-            recording_id: entries::RECORDING.into(),
+            recording_id: RECORDING.into(),
         })
         .send()
         .await
@@ -284,7 +264,7 @@ async fn exact_detail(server: &http::Server, expected: &ProviderRecording) {
 }
 
 fn recording_bytes(bytes: usize) -> CuratedWavRecording {
-    let mut entry = entries::original(false).pop().unwrap();
+    let mut entry = curated_recording();
     entry.recording.attribution = Some(RecordingAttribution {
         creators: vec!["a".repeat(2048); 16],
         provider_label: "owned-private-detail-budget-attribution".into(),
@@ -298,8 +278,7 @@ fn recording_bytes(bytes: usize) -> CuratedWavRecording {
     entry
 }
 
-fn assert_logs(bytes: &[u8], owners: usize, directory: &Path) {
-    let text = std::str::from_utf8(bytes).unwrap();
+fn assert_logs(text: &str, owners: usize, directory: &Path) {
     for private in [
         fixtures::TOKEN,
         SERVICE_TOKEN,
@@ -308,8 +287,8 @@ fn assert_logs(bytes: &[u8], owners: usize, directory: &Path) {
         TITLE,
         ARTIST,
         QUERY,
-        entries::RECORDING,
-        entries::SOURCE,
+        RECORDING,
+        SOURCE,
         "album/owned.wav",
         fixtures::MEDIA_TARGET,
         "0123456789abcdef0123456789abcdef01234567",
@@ -422,4 +401,54 @@ fn assert_logs(bytes: &[u8], owners: usize, directory: &Path) {
         counts[index] += 1;
     }
     assert_eq!(counts, [owners, owners, owners, 1]);
+}
+
+fn curated_recording() -> CuratedWavRecording {
+    CuratedWavRecording {
+        recording: ProviderRecording {
+            id: RECORDING.into(),
+            title: TITLE.into(),
+            artist: ARTIST.into(),
+            duration_ms: Some(fixtures::FRAMES * 1000 / u64::from(fixtures::SAMPLE_RATE)),
+            release: None,
+            disc_number: None,
+            track_number: None,
+            revision: None,
+            attribution: None,
+        },
+        source_id: SOURCE.into(),
+        label: "Curated canonical PCM16 WAV".into(),
+        binding: fixtures::binding(),
+    }
+}
+
+struct StateDirectory {
+    directory: tempfile::TempDir,
+    next_mode: Cell<StateMode>,
+}
+
+impl StateDirectory {
+    fn new() -> Self {
+        let directory = tempfile::tempdir().unwrap();
+        let mut key = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(directory.path().join("candidate.key"))
+            .unwrap();
+        key.write_all(&[73_u8; 32]).unwrap();
+        key.sync_all().unwrap();
+        Self {
+            directory,
+            next_mode: Cell::new(StateMode::CreateNew),
+        }
+    }
+
+    fn next(&self) -> StateConfig {
+        StateConfig {
+            directory: self.directory.path().join("journal"),
+            key_file: self.directory.path().join("candidate.key"),
+            mode: self.next_mode.replace(StateMode::OpenExisting),
+        }
+    }
 }

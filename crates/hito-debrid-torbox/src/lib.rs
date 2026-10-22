@@ -5,6 +5,8 @@ mod media;
 mod observation;
 mod persistence;
 mod prepare;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 mod transport;
 mod workflow;
 

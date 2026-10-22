@@ -161,6 +161,7 @@ impl Workflow {
             &self.service,
             Method::POST,
             path,
+            COOKIE,
             Some(SERVICE_TOKEN),
             Some(serde_json::to_value(request).unwrap()),
         )

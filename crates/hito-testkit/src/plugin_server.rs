@@ -1,4 +1,6 @@
 use axum::Router;
+use reqwest::{Method, StatusCode};
+use serde_json::Value;
 use std::time::Duration;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tracing::instrument::WithSubscriber;
@@ -67,4 +69,41 @@ impl Drop for Server {
             task.abort();
         }
     }
+}
+
+pub async fn json(
+    client: &reqwest::Client,
+    server: &Server,
+    method: Method,
+    path: &str,
+    cookie: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, Vec<u8>) {
+    let mut request = client
+        .request(method, server.base.join(path).expect("plugin path"))
+        .header("x-hito-plugin-protocol", "1")
+        .header("cookie", cookie);
+    if let Some(token) = token {
+        request = request.bearer_auth(token);
+    }
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request
+        .send()
+        .await
+        .expect("owned plugin HTTP request must finish");
+    let status = response.status();
+    assert_eq!(response.headers()["cache-control"], "private, no-store");
+    let mut bytes = Vec::new();
+    let mut response = response;
+    while let Some(chunk) = response.chunk().await.expect("owned JSON body must finish") {
+        assert!(
+            chunk.len() <= 65_536_usize.saturating_sub(bytes.len()),
+            "JSON exceeded its bound"
+        );
+        bytes.extend_from_slice(&chunk);
+    }
+    (status, bytes)
 }

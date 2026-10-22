@@ -1,50 +1,22 @@
 use super::{ARTIST, COOKIE, QUERY, SERVICE_TOKEN, TITLE, WRONG_TOKEN, fixtures};
+use hito_testkit::logs::LogCapture;
 use serde_json::Value;
-use std::{
-    collections::BTreeSet,
-    io::{self, Write},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
 #[derive(Clone, Default)]
-pub struct Capture {
-    bytes: Arc<Mutex<Vec<u8>>>,
-    overflowed: Arc<AtomicBool>,
-}
+pub struct Capture(LogCapture);
 
 impl Capture {
-    #[allow(dead_code)]
-    pub fn snapshot(&self) -> Vec<u8> {
-        assert!(!self.overflowed.load(Ordering::SeqCst));
-        self.bytes.lock().unwrap().clone()
-    }
-
     pub fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(
-            tracing_subscriber::fmt()
-                .with_env_filter(
-                    "off,hito_plugin_torbox=trace,hito_debrid_torbox=trace,hito_remote_audio=trace",
-                )
-                .without_time()
-                .with_ansi(false)
-                .json()
-                .with_current_span(true)
-                .with_span_list(true)
-                .with_writer(move || capture.clone())
-                .finish(),
+        self.0.dispatch_with_spans(
+            "off,hito_plugin_torbox=trace,hito_debrid_torbox=trace,hito_remote_audio=trace",
         )
     }
 
     pub fn assert_workflow(&self, statuses: &[u16], handle: &str) {
-        assert!(!self.overflowed.load(Ordering::SeqCst));
-        let bytes = self.bytes.lock().unwrap();
-        assert!(!bytes.is_empty());
-        let text = std::str::from_utf8(&bytes).unwrap();
+        let text = self.0.text();
+        assert!(!text.is_empty());
         for private in [
             fixtures::TOKEN,
             SERVICE_TOKEN,
@@ -267,21 +239,5 @@ impl Capture {
             ]
         );
         assert_eq!(events.len(), 54);
-    }
-}
-
-impl Write for Capture {
-    fn write(&mut self, input: &[u8]) -> io::Result<usize> {
-        let mut bytes = self.bytes.lock().unwrap();
-        if input.len() > 65_536_usize.saturating_sub(bytes.len()) {
-            self.overflowed.store(true, Ordering::SeqCst);
-            return Err(io::Error::other("owned log capture exceeded its bound"));
-        }
-        bytes.extend_from_slice(input);
-        Ok(input.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }

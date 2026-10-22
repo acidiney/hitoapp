@@ -1,25 +1,19 @@
 #[path = "audio/admission_controls.rs"]
 mod admission_controls;
-#[path = "audio/fixtures.rs"]
-mod fixtures;
-#[path = "audio/logs.rs"]
-mod logs;
+use hito_debrid_torbox::test_support::fixtures;
+use hito_debrid_torbox::test_support::logs;
 #[path = "audio/media_controls.rs"]
 mod media_controls;
-#[path = "audio/media_fixture.rs"]
-mod media_fixture;
+use hito_debrid_torbox::test_support::media_fixture;
 #[path = "audio/mint_controls.rs"]
 mod mint_controls;
 #[path = "audio/opening_controls.rs"]
 mod opening_controls;
-#[path = "audio/owned_tls.rs"]
-mod owned_tls;
+use hito_debrid_torbox::test_support::owned_tls;
 #[path = "audio/provider_fixture.rs"]
 mod provider_fixture;
-#[path = "audio/scripted_media.rs"]
-mod scripted_media;
-#[path = "support/mod.rs"]
-pub mod support;
+pub use hito_debrid_torbox::test_support::provider as support;
+use hito_debrid_torbox::test_support::scripted_media;
 
 use fixtures::*;
 use hito_audio::Decoder;

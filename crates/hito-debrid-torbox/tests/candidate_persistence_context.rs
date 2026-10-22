@@ -1,15 +1,11 @@
 #![cfg(feature = "test-support")]
 
-#[path = "audio/fixtures.rs"]
-pub mod fixtures;
-#[path = "audio/owned_tls.rs"]
-pub mod owned_tls;
+pub use hito_debrid_torbox::test_support::fixtures;
+pub use hito_debrid_torbox::test_support::owned_tls;
 #[path = "support/persistence_logs.rs"]
 mod persistence_logs;
-#[path = "support/mod.rs"]
-pub mod provider;
-#[path = "audio/scripted_media.rs"]
-pub mod scripted_media;
+pub use hito_debrid_torbox::test_support::provider;
+pub use hito_debrid_torbox::test_support::scripted_media;
 #[path = "support/persistence_workflow.rs"]
 pub mod workflow;
 

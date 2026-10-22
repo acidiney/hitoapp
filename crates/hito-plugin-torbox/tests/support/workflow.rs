@@ -12,7 +12,16 @@ use std::time::Duration;
 use uuid::Uuid;
 
 pub async fn discover(client: &reqwest::Client, plugin: &http::Server, statuses: &mut Vec<u16>) {
-    let (status, body) = http::json(client, plugin, Method::GET, "v1/manifest", None, None).await;
+    let (status, body) = http::json(
+        client,
+        plugin,
+        Method::GET,
+        "v1/manifest",
+        super::COOKIE,
+        None,
+        None,
+    )
+    .await;
     statuses.push(status.as_u16());
     assert_eq!(status, StatusCode::OK);
     private_json(&body);
@@ -38,6 +47,7 @@ pub async fn discover(client: &reqwest::Client, plugin: &http::Server, statuses:
             plugin,
             Method::POST,
             "v1/search",
+            super::COOKIE,
             token,
             Some(json!({"query":QUERY,"cursor":null,"limit":10})),
         )
@@ -223,6 +233,7 @@ async fn post(
         plugin,
         Method::POST,
         path,
+        super::COOKIE,
         Some(SERVICE_TOKEN),
         body,
     )

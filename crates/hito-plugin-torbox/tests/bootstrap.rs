@@ -183,7 +183,10 @@ fn rejected(directory: &Path, arguments: &[OsString], reason: Option<&'static st
         .expect("the owned rejection address must identify");
     let child = process::Host::start_with_arguments(directory, arguments, address);
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| child.rejected_and_join()));
-    before.assert_preserved(directory);
+    assert!(
+        before.unchanged(&Snapshot::capture(directory)),
+        "bootstrap must preserve exact operator entries, types, bytes, links and operator metadata"
+    );
     let stopped = outcome.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
     assert!(stopped.status.code() == Some(1) && !stopped.signalled && stopped.stderr.is_empty());
     assert!(reservation.local_addr().ok() == Some(address));
