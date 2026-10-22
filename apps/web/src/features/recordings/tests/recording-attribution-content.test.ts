@@ -1,13 +1,13 @@
 import { createElement } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import MetadataObservations from "./features/metadata/components/MetadataObservations";
+import MetadataObservations from "../../metadata/components/MetadataObservations";
 import {
   attributedRecordingPage,
   selectedRecordingAttribution,
   uncreditedRecordingObservation,
-} from "./fixtures/recordingAttribution";
-import type { RecordingAttribution } from "./shared/types";
+} from "../fixtures/recordingAttribution";
+import type { RecordingAttribution } from "../../../shared/types";
 
 function renderCredits(attribution: RecordingAttribution) {
   const logs = (["debug", "info", "log", "warn", "error"] as const).map(

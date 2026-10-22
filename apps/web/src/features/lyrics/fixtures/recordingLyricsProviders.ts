@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import type { RecordingDetailsPageProps } from "../../../shared/types";
 import { lyricObservation, readyLyrics } from "./recordingLyrics";

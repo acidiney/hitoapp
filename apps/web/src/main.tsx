@@ -9,7 +9,7 @@ import AlbumDetailsPage from "./pages/AlbumDetailsPage";
 import ArtistIndexPage from "./features/artists/pages/ArtistIndexPage";
 import ArtistPage from "./features/artists/pages/ArtistPage";
 import ArtistIdentityGroupPage from "./features/artists/pages/ArtistIdentityGroupPage";
-import RecordingDetailsPage from "./pages/RecordingDetailsPage";
+import RecordingDetailsPage from "./features/recordings/pages/RecordingDetailsPage";
 import HistoryPage from "./pages/HistoryPage";
 import LikesPage from "./pages/LikesPage";
 import LoginPage from "./features/session/pages/LoginPage";

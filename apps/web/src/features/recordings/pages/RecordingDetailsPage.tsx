@@ -1,19 +1,19 @@
 import { Link, router } from "@inertiajs/react";
-import type { RecordingDetailsPageProps } from "../shared/types";
-import Artwork from "../features/artwork/components/Artwork";
-import ArtworkStatus from "../features/artwork/components/ArtworkStatus";
-import MetadataEditor from "../features/metadata/components/MetadataEditor";
-import MetadataObservations from "../features/metadata/components/MetadataObservations";
-import ArtistReview from "../features/artists/components/ArtistReview";
-import RecordingCredits from "../features/metadata/components/RecordingCredits";
-import SourceAvailability from "../components/SourceAvailability";
-import SourceAttachment from "../components/SourceAttachment";
-import SourceChoiceControls from "../components/SourceChoiceControls";
-import RecordingDownload from "../features/downloads/components/RecordingDownload";
-import { useRecordingDownload } from "../features/downloads/hooks/useRecordingDownload";
-import { useSourceChoice } from "../hooks/useSourceChoice";
-import RecordingLyrics from "../features/lyrics/components/RecordingLyrics";
-import { useRecordingLyrics } from "../features/lyrics/hooks/useRecordingLyrics";
+import type { RecordingDetailsPageProps } from "../../../shared/types";
+import Artwork from "../../artwork/components/Artwork";
+import ArtworkStatus from "../../artwork/components/ArtworkStatus";
+import MetadataEditor from "../../metadata/components/MetadataEditor";
+import MetadataObservations from "../../metadata/components/MetadataObservations";
+import ArtistReview from "../../artists/components/ArtistReview";
+import RecordingCredits from "../../metadata/components/RecordingCredits";
+import SourceAvailability from "../../../components/SourceAvailability";
+import SourceAttachment from "../../../components/SourceAttachment";
+import SourceChoiceControls from "../../../components/SourceChoiceControls";
+import RecordingDownload from "../../downloads/components/RecordingDownload";
+import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
+import { useSourceChoice } from "../../../hooks/useSourceChoice";
+import RecordingLyrics from "../../lyrics/components/RecordingLyrics";
+import { useRecordingLyrics } from "../../lyrics/hooks/useRecordingLyrics";
 
 export default function RecordingDetailsPage({
   user,

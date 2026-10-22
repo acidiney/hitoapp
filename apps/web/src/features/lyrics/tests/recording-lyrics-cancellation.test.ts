@@ -11,7 +11,7 @@ import {
 } from "../fixtures/recordingLyrics";
 import { automaticChoice } from "../../../fixtures/sourceChoice";
 import { log } from "../../../shared/log";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 
 vi.mock("@inertiajs/react", () => ({

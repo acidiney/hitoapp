@@ -6,7 +6,7 @@ import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import type { components } from "../../../generated";
 import {
   artistPreview,

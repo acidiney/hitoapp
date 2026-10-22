@@ -11,7 +11,7 @@ import {
   readyLyrics,
 } from "../fixtures/recordingLyrics";
 import { automaticChoice } from "../../../fixtures/sourceChoice";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import type { RecordingDetailsPageProps } from "../../../shared/types";
 

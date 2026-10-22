@@ -6,7 +6,7 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 import { log } from "../../../shared/log";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import {
   lyricObservation,

@@ -7,7 +7,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 import { lyricRecordingPage, readyLyrics } from "../fixtures/recordingLyrics";
 import { automaticChoice } from "../../../fixtures/sourceChoice";
-import RecordingDetailsPage from "../../../pages/RecordingDetailsPage";
+import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import { log } from "../../../shared/log";
 

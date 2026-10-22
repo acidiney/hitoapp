@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import RecordingDetailsPage from "./pages/RecordingDetailsPage";
+import RecordingDetailsPage from "./features/recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
