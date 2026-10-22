@@ -95,6 +95,7 @@ export class BrowserCommunityReporting {
       `/sources/${encodeURIComponent(head.source)}/successful-playback`,
       {
         action: "community.playback.report",
+        errorBody: false,
         method: "POST",
         body: head.claim,
         account: this.account,

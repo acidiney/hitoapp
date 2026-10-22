@@ -7,6 +7,7 @@ type RequestOptions = {
   account?: string;
   signal?: AbortSignal;
   cache?: RequestCache;
+  errorBody?: boolean;
 };
 
 export class HttpError extends Error {
@@ -69,6 +70,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action.startsWith("artwork.") ||
       options.action === "progress.save" ||
       options.action === "session.verify" ||
+      options.action === "community.playback.report" ||
       options.action.startsWith("native.")
         ? log.debug
         : log.info;
@@ -84,7 +86,9 @@ export async function request(path: string, options: RequestOptions) {
   )
     log.debug("http.response", result);
   else log.warn("http.failed", result);
-  const data: unknown = await response.json().catch(() => null);
+  let data: unknown = null;
+  if (options.errorBody === false) void response.body?.cancel().catch(() => {});
+  else data = await response.json().catch(() => null);
   const message =
     data !== null &&
     typeof data === "object" &&
