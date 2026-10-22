@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createInertiaApp } from "@inertiajs/react";
 import CatalogPage from "./pages/CatalogPage";
-import DiscoverPage from "./pages/DiscoverPage";
+import DiscoverPage from "./features/discovery/pages/DiscoverPage";
 import AlbumIndexPage from "./pages/AlbumIndexPage";
 import AlbumPage from "./pages/AlbumPage";
 import AlbumDetailsPage from "./pages/AlbumDetailsPage";

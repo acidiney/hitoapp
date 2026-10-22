@@ -2,7 +2,7 @@ import { Link } from "@inertiajs/react";
 import type { RecordingMetadata } from "../shared/types";
 import { time } from "../shared/format";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
-import DiscoverySearch from "./discovery/DiscoverySearch";
+import DiscoverySearch from "../features/discovery/components/DiscoverySearch";
 
 export default function SourceAttachment({
   account,

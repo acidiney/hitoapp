@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import { pluginsApi } from "../pluginsApi";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
-import { errorMessage } from "../shared/format";
-import { log } from "../shared/log";
+import { pluginsApi } from "../../../pluginsApi";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { errorMessage } from "../../../shared/format";
+import { log } from "../../../shared/log";
 import type {
   PluginInstallation,
   ProviderRecording,
   Recording,
-} from "../shared/types";
-import type { Player } from "../player/model";
+} from "../../../shared/types";
+import type { Player } from "../../../player/model";
 
 type Work = {
   generation: number;

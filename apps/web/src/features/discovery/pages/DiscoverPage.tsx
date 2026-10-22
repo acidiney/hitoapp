@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
 import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
-import type { DiscoverPageProps } from "../shared/types";
+import type { DiscoverPageProps } from "../../../shared/types";
 import { useDiscovery } from "../hooks/useDiscovery";
-import { usePlayer } from "../player/PlaybackProvider";
-import DiscoverySearch from "../components/discovery/DiscoverySearch";
-import ProviderResults from "../components/discovery/ProviderResults";
-import PageHeading from "../shared/ui/PageHeading";
-import EmptyState from "../shared/ui/EmptyState";
+import { usePlayer } from "../../../player/PlaybackProvider";
+import DiscoverySearch from "../components/DiscoverySearch";
+import ProviderResults from "../components/ProviderResults";
+import PageHeading from "../../../shared/ui/PageHeading";
+import EmptyState from "../../../shared/ui/EmptyState";
 
 export default function DiscoverPage({
   user,
