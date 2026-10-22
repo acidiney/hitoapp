@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { libraryApi } from "../../library/api/libraryApi";
+import { sourcesApi } from "../api/sourcesApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import type { Source } from "../../../shared/types";
@@ -103,8 +103,8 @@ export function useSourceAvailability(
     log.debug("source_availability.check_started", fields);
     try {
       const sources = await (refresh
-        ? libraryApi.refreshSources(account, recording, signal)
-        : libraryApi.sources(account, recording, signal));
+        ? sourcesApi.refreshSources(account, recording, signal)
+        : sourcesApi.sources(account, recording, signal));
       if (!active()) return;
       checkSources(sources, recording);
       publish({
@@ -172,7 +172,7 @@ export function useSourceAvailability(
         source_id: source,
       };
       try {
-        const sources = await libraryApi.sources(account, recording, combined);
+        const sources = await sourcesApi.sources(account, recording, combined);
         if (!active()) return false;
         checkSources(sources, recording);
         const ready = sources.some(

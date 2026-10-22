@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { libraryApi } from "../../library/api/libraryApi";
+import { sourcesApi } from "../../sources/api/sourcesApi";
 import { useNotice } from "../../../shared/ui/Notices";
 import { Playback, type MediaPort } from "../playback";
 import type { Player } from "../model";
@@ -74,8 +74,8 @@ function BrowserAccountPlayback({
             options.signal,
           );
         return options.purpose === "refresh"
-          ? libraryApi.recoverSources(account, recording, options.signal)
-          : libraryApi.playbackSources(account, recording, options.signal);
+          ? sourcesApi.recoverSources(account, recording, options.signal)
+          : sourcesApi.playbackSources(account, recording, options.signal);
       },
       (recording, position, speed, chapter) =>
         progress.admit({ recording, position, speed, chapter }),
