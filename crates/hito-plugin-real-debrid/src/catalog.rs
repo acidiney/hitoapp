@@ -1,14 +1,27 @@
-use crate::{CuratedAudioRecording, error::Error};
-use hito_plugin_sdk::{ProviderRecording, SearchPage, SearchRequest};
+use crate::{CuratedAudioRecording, InitError, error::Error};
+use hito_plugin_sdk::{
+    CuratedEntryView, ProviderRecording, SearchPage, SearchRequest, admit_curated_catalog,
+};
 
 pub(crate) struct Catalog {
     entries: Vec<CuratedAudioRecording>,
 }
 
 impl Catalog {
-    pub(crate) fn new(mut entries: Vec<CuratedAudioRecording>) -> Self {
-        entries.sort_by(|left, right| left.recording.id.cmp(&right.recording.id));
-        Self { entries }
+    pub(crate) fn new(entries: Vec<CuratedAudioRecording>) -> Result<Self, InitError> {
+        let entries = admit_curated_catalog(entries, |entry| CuratedEntryView {
+            recording: &entry.recording,
+            source_id: &entry.source_id,
+            label: &entry.label,
+        })
+        .map_err(|_| InitError::InvalidCatalog)?;
+        for entry in &entries {
+            entry
+                .binding
+                .validate()
+                .map_err(|_| InitError::InvalidCatalog)?;
+        }
+        Ok(Self { entries })
     }
 
     pub(crate) fn recording(&self, id: &str) -> Result<&CuratedAudioRecording, Error> {
