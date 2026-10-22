@@ -47,6 +47,7 @@ async fn post(app: &Router, path: &str, body: Value, token: Option<&str>) -> (St
 }
 #[tokio::test]
 async fn plugin_workflow_logs_outcomes_without_tokens_names_bodies_or_input_paths() {
+    hito_core::test_support::tracing_anchor::ensure();
     let logs = Capture::default();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::fmt()
@@ -84,6 +85,7 @@ async fn plugin_workflow_logs_outcomes_without_tokens_names_bodies_or_input_path
 
 #[tokio::test]
 async fn authorization_logs_outcomes_without_session_pkce_or_private_configuration_values() {
+    hito_core::test_support::tracing_anchor::ensure();
     let logs = Capture::default();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::fmt()

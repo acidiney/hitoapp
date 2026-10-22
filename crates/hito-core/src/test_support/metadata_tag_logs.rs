@@ -8,6 +8,7 @@ pub struct CapturedLogs(Arc<Mutex<Vec<u8>>>);
 
 impl CapturedLogs {
     pub fn subscriber(&self) -> impl tracing::Subscriber + Send + Sync + 'static {
+        super::tracing_anchor::ensure();
         let captured = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace")

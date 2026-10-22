@@ -22,6 +22,7 @@ impl Logs {
     + Send
     + Sync
     + 'static {
+        hito_core::test_support::tracing_anchor::ensure();
         let writer = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace,hito_server=trace")
@@ -33,6 +34,7 @@ impl Logs {
     }
 
     pub fn subscriber_with_close_events(&self) -> impl tracing::Subscriber + Send + Sync + 'static {
+        hito_core::test_support::tracing_anchor::ensure();
         let writer = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace,hito_server=trace")

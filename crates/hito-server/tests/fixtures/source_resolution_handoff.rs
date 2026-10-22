@@ -59,6 +59,7 @@ impl Host {
             ..Default::default()
         };
         let (stop, stopped) = oneshot::channel();
+        hito_core::test_support::tracing_anchor::ensure();
         let subscriber = tracing_subscriber::registry().with(handoff);
         let task = tokio::spawn(
             async move {

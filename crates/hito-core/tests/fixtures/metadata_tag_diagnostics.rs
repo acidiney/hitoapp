@@ -227,7 +227,7 @@ write_all(\*STDOUT, $body . ('x' x (65536 - length $body)));
             loop {
                 assert!(
                     !self.directory.join("constraint").exists(),
-                    "Fixture constraint: stdout pipe capacity cannot hold 65536 bytes"
+                    "Fixture constraint: stdout pipe capacity cannot hold 65536 bytes; the kernel per-user pipe buffer quota is exhausted, so run the suite as an unprivileged user or with CAP_SYS_RESOURCE"
                 );
                 if self.directory.join(marker).exists() {
                     return;
