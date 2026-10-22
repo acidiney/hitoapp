@@ -43,24 +43,21 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
   );
   const card = (index: number) =>
     container.querySelector<HTMLElement>(`[data-target="${ids[index]}"]`)!;
+  const retryButtons = () => screen.getAllByText("Retry artwork");
   const cover = (index: number) => card(index).querySelector("img");
   await act(async () => {
     for (let index = 0; index < 128; index++) fireEvent.error(cover(index)!);
   });
   expect(fetch).toHaveBeenCalledTimes(128);
-  expect(screen.getAllByRole("button", { name: "Retry artwork" })).toHaveLength(
-    128,
-  );
+  expect(retryButtons()).toHaveLength(128);
   expect(active).toBe(0);
   expect(cover(128)).toBeTruthy();
   await act(async () => {
     fireEvent.error(cover(128)!);
   });
   expect(fetch).toHaveBeenCalledTimes(129);
-  expect(screen.getAllByRole("button", { name: "Retry artwork" })).toHaveLength(
-    129,
-  );
-  const retry = within(card(0)).getByRole("button", { name: "Retry artwork" });
+  expect(retryButtons()).toHaveLength(129);
+  const retry = within(card(0)).getByText("Retry artwork");
   expect(cover(0)).toBeNull();
   const image = `/api/v1/playlists/${ids[0]}/artwork`;
   await act(async () => {
@@ -75,9 +72,7 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
   expect(
     within(card(0)).queryByRole("button", { name: "Retry artwork" }),
   ).toBeNull();
-  expect(screen.getAllByRole("button", { name: "Retry artwork" })).toHaveLength(
-    128,
-  );
+  expect(retryButtons()).toHaveLength(128);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(60_000);
   });

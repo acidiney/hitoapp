@@ -186,16 +186,10 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
     const list = await screen.findByRole("list", {
       name: "Available editions",
     });
-    await waitFor(() =>
-      expect(within(list).getAllByRole("listitem")).toHaveLength(1),
-    );
+    await waitFor(() => expect(list.children).toHaveLength(1));
     for (let page = 2; page <= 50; page++) {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Load more editions" }),
-      );
-      await waitFor(() =>
-        expect(within(list).getAllByRole("listitem")).toHaveLength(page),
-      );
+      fireEvent.click(screen.getByText("Load more editions"));
+      await waitFor(() => expect(list.children).toHaveLength(page));
     }
     expect(http.fetch).toHaveBeenCalledTimes(50);
     expect(
