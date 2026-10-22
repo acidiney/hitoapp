@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link, router } from "@inertiajs/react";
+import { Link } from "@inertiajs/react";
 import {
   AudioLines,
   Disc3,
@@ -15,10 +14,8 @@ import {
   Podcast,
   BookOpen,
 } from "lucide-react";
-import { sessionApi } from "../features/session/api/sessionApi";
-import { errorMessage } from "../shared/format";
+import { useSignOut } from "../features/session/hooks/useSignOut";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
-import { useNotice } from "../shared/ui/Notices";
 import type { Playlist, User } from "../shared/types";
 import { log } from "../shared/log";
 
@@ -58,20 +55,7 @@ export default function Sidebar({
   path: string;
 }) {
   const player = usePlayer();
-  const notice = useNotice();
-  const [busy, setBusy] = useState(false);
-  async function signOut() {
-    setBusy(true);
-    try {
-      await sessionApi.signOut(user.id);
-      router.clearHistory();
-      player.clear();
-      window.location.replace("/");
-    } catch (error) {
-      notice(errorMessage(error));
-      setBusy(false);
-    }
-  }
+  const { busy, signOut } = useSignOut(user.id, () => player.clear());
   return (
     <aside className="sidebar">
       <Link href="/library" className="brand">

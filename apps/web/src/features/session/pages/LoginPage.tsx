@@ -1,28 +1,10 @@
-import { useState, type FormEvent } from "react";
-import { router } from "@inertiajs/react";
 import { AudioLines } from "lucide-react";
-import { sessionApi } from "../api/sessionApi";
-import { errorMessage } from "../../../shared/format";
+import { useSignIn } from "../hooks/useSignIn";
 import type { LoginPageProps } from "../../../shared/types";
 
 export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await sessionApi.signIn(setup, username, password);
-      router.clearHistory();
-      window.location.replace("/library");
-    } catch (error) {
-      setError(errorMessage(error));
-      setBusy(false);
-    }
-  }
+  const { username, setUsername, password, setPassword, busy, error, submit } =
+    useSignIn(setup);
   return (
     <main className="auth-page">
       <div className="auth-intro">
