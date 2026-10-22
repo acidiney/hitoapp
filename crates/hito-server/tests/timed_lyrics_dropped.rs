@@ -1,9 +1,12 @@
+#[allow(dead_code)]
 #[path = "fixtures/timed_lyrics.rs"]
 mod fixture;
+#[allow(dead_code)]
 #[path = "fixtures/timed_lyrics_logs.rs"]
 mod logs;
 #[path = "fixtures/timed_lyrics_privacy.rs"]
 mod privacy;
+#[allow(dead_code)]
 #[path = "fixtures/timed_lyrics_provider.rs"]
 mod provider;
 #[path = "api/support.rs"]

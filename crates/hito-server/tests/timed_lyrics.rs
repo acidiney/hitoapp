@@ -8,6 +8,7 @@ mod digest;
 mod fixture;
 #[path = "timed_lyrics/lifecycle.rs"]
 mod lifecycle;
+#[allow(dead_code)]
 #[path = "fixtures/timed_lyrics_logs.rs"]
 mod logs;
 #[path = "timed_lyrics/playback.rs"]
