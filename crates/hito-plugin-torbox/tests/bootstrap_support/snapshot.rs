@@ -19,9 +19,13 @@ impl Snapshot {
     #[allow(dead_code)]
     pub(super) fn unchanged(&self, other: &Self) -> bool {
         self.0.len() == other.0.len()
-            && self.0.iter().zip(&other.0).all(|((path, before, bytes), (after_path, after, after_bytes))| {
-                path == after_path && identity(before) == identity(after) && bytes == after_bytes
-            })
+            && self.0.iter().zip(&other.0).all(
+                |((path, before, bytes), (after_path, after, after_bytes))| {
+                    path == after_path
+                        && identity(before) == identity(after)
+                        && bytes == after_bytes
+                },
+            )
     }
 
     pub(super) fn capture(directory: &Path) -> Self {
