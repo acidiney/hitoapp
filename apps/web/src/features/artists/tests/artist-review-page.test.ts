@@ -5,7 +5,7 @@ import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import type { components } from "../../../generated";
 import {

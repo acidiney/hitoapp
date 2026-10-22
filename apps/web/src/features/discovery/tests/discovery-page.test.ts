@@ -7,7 +7,7 @@ import type { DiscoverPageProps, PluginInstallation } from "../../../shared/type
 const { player } = vi.hoisted(() => ({
   player: { prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)) },
 }));
-vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),

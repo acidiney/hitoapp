@@ -8,7 +8,7 @@ import type {
   ProviderRecording,
   Recording,
 } from "../../../shared/types";
-import type { Player } from "../../../player/model";
+import type { Player } from "../../playback/model";
 
 type Work = {
   generation: number;

@@ -13,7 +13,7 @@ import {
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { log } from "../../../shared/log";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 
 type Schema = components["schemas"];
 

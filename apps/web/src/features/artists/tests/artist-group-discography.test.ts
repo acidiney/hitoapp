@@ -32,7 +32,7 @@ const player = vi.hoisted(() => ({
   subscribePosition: vi.fn(),
 }));
 const mutate = vi.hoisted(() => vi.fn());
-vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate, pending: false }),
 }));

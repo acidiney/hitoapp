@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { attachedPage, savedRecording } from "../fixtures/sourceAttachment";
 import {
   readyDownloadA,

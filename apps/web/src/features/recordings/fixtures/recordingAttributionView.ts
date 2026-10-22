@@ -4,7 +4,7 @@ import { render, waitFor } from "@testing-library/react";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import type { RecordingDetailsPageProps, SourceChoice } from "../../../shared/types";
 
 type HistoryRead = {

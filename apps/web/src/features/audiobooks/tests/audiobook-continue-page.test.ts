@@ -6,9 +6,9 @@ import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
 import type { components } from "../../../generated";
 import AudiobookPage from "../pages/AudiobookPage";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
-import { nativeService } from "../../../player/native/fixtures/service";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
+import { nativeService } from "../../playback/fixtures/native/service";
 
 type Schema = components["schemas"];
 vi.mock("@inertiajs/react", () => ({

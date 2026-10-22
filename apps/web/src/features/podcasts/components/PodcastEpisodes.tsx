@@ -4,8 +4,8 @@ import type { TrackRow } from "../../../shared/ui/TrackTable";
 import { time } from "../../../shared/format";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import { log } from "../../../shared/log";
-import { usePlayer } from "../../../player/PlaybackProvider";
-import type { PlaybackStart } from "../../../player/model";
+import { usePlayer } from "../../playback/components/PlaybackProvider";
+import type { PlaybackStart } from "../../playback/model";
 import type { Playlist, PodcastEpisode, RecordingProgress } from "../../../shared/types";
 
 type EpisodeTrack = TrackRow & { playback_start: PlaybackStart };

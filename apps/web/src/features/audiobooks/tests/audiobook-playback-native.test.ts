@@ -9,12 +9,12 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookPage from "../pages/AudiobookPage";
 import { audiobookPages } from "../fixtures/audiobooks";
-import { NativePlayback } from "../../../player/native/NativePlayback";
-import { nativeService } from "../../../player/native/fixtures/service";
-import type { Player } from "../../../player/model";
+import { NativePlayback } from "../../playback/native/NativePlayback";
+import { nativeService } from "../../playback/fixtures/native/service";
+import type { Player } from "../../playback/model";
 
 const boundaries = vi.hoisted(() => ({ player: null as Player | null }));
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => boundaries.player,
 }));
 vi.mock("@inertiajs/react", () => ({

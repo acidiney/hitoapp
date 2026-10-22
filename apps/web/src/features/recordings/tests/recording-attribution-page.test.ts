@@ -10,7 +10,7 @@ import {
 } from "../fixtures/recordingAttribution";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

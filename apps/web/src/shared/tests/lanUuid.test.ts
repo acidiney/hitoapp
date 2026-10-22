@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { prepareChange, submitChange } from "../sync";
 import { sessionApi } from "../../features/session/api/sessionApi";
-import { Playback, type MediaPort } from "../../playback";
+import { Playback, type MediaPort } from "../../features/playback/playback";
 import { notifySessionChanged } from "../../features/session/session";
 import type { Action } from "../types";
 

@@ -4,8 +4,8 @@ import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
 import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 test.each(["request", "acknowledgement body"] as const)(

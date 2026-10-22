@@ -8,7 +8,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { useMetadataEditor } from "../hooks/useMetadataEditor";
 
 vi.mock("../../../shared/sync", () => ({ change: vi.fn() }));
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({ setRecordingField: vi.fn() }),
 }));
 vi.mock("@inertiajs/react", () => ({ router: { reload: vi.fn() } }));

@@ -8,7 +8,7 @@ import type { components } from "../../../generated";
 
 const playQueue = vi.fn(async () => {});
 const clear = vi.fn();
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue,
     clear,

@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
 import type { RecordingDetailsPageProps } from "../../../shared/types";
 import { recordingB } from "../../playlists/fixtures/playlistPages";
 import {

@@ -33,7 +33,7 @@ const boundaries = vi.hoisted(() => ({
   visit: vi.fn(),
   reload: vi.fn(),
 }));
-vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: boundaries.player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: boundaries.player }));
 vi.mock("@inertiajs/react", () => ({
   router: { visit: boundaries.visit, reload: boundaries.reload },
   Link: ({

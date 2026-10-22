@@ -10,10 +10,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookPage from "../pages/AudiobookPage";
 import { audiobookPages, heldAudiobookBody } from "../fixtures/audiobooks";
 import { audiobookPlayer } from "../fixtures/audiobookPlayback";
-import type { Player } from "../../../player/model";
+import type { Player } from "../../playback/model";
 
 const boundaries = vi.hoisted(() => ({ player: null as Player | null }));
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => boundaries.player,
 }));
 vi.mock("@inertiajs/react", () => ({

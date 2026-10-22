@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { sessionApi } from "../features/session/api/sessionApi";
 import { errorMessage } from "../shared/format";
-import { usePlayer } from "../player/PlaybackProvider";
+import { usePlayer } from "../features/playback/components/PlaybackProvider";
 import { useNotice } from "../shared/ui/Notices";
 import type { Playlist, User } from "../shared/types";
 import { log } from "../shared/log";

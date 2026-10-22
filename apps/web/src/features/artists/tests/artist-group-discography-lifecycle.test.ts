@@ -12,7 +12,7 @@ import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
 import { flush } from "../../../test/async";
 
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue: vi.fn(),
     subscribe: () => () => {},

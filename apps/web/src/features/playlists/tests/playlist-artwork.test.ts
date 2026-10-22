@@ -4,8 +4,8 @@ import { expect, test, vi } from "vitest";
 import PlaylistPage from "../pages/PlaylistPage";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
 import type { PlaylistArtworkFetch, PlaylistPageProps } from "../../../shared/types";
 import { copiedPlaylistPage, recordingA } from "../fixtures/playlistPages";
 

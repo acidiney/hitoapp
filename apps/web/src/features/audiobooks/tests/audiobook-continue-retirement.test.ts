@@ -5,8 +5,8 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
 import type { components } from "../../../generated";
-import { Playback } from "../../../playback";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
+import { Playback } from "../../playback/playback";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
 
 type Schema = components["schemas"];
 beforeEach(() => {

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import PlaylistPage from "../../playlists/pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage, recordingB } from "../../playlists/fixtures/playlistPages";
 import type { PlaylistPageProps } from "../../../shared/types";
 

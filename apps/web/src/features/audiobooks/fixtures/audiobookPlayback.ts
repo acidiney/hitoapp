@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { Playback, type MediaPort } from "../../../playback";
+import { Playback, type MediaPort } from "../../playback/playback";
 
 export class AudiobookMedia extends EventTarget implements MediaPort {
   src = "";

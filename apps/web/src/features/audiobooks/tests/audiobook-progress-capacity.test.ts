@@ -4,8 +4,8 @@ import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
 import type { Source, SyncBatch } from "../../../shared/types";
 
 test("256 pending checkpoints pause at capacity and preserve the heard chapter before another queue can replace it", async () => {

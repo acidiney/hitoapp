@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { audiobookApi } from "../api/audiobookApi";
 import { log } from "../../../shared/log";
-import { usePlayer } from "../../../player/PlaybackProvider";
+import { usePlayer } from "../../playback/components/PlaybackProvider";
 import type { AudiobookDetail, PlaylistEntry } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 

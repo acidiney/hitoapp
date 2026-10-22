@@ -3,7 +3,7 @@ import { Link } from "@inertiajs/react";
 import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import type { DiscoverPageProps } from "../../../shared/types";
 import { useDiscovery } from "../hooks/useDiscovery";
-import { usePlayer } from "../../../player/PlaybackProvider";
+import { usePlayer } from "../../playback/components/PlaybackProvider";
 import DiscoverySearch from "../components/DiscoverySearch";
 import ProviderResults from "../components/ProviderResults";
 import PageHeading from "../../../shared/ui/PageHeading";

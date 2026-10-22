@@ -13,7 +13,7 @@ const player = vi.hoisted(() => ({
   subscribe: () => () => {},
   snapshot: () => ({ current: null }),
 }));
-vi.mock("../../../player/PlaybackProvider", () => ({ usePlayer: () => player }));
+vi.mock("../../playback/components/PlaybackProvider", () => ({ usePlayer: () => player }));
 vi.mock("../../../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));

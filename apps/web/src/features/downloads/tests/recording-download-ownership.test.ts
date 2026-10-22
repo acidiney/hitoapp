@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { attachedPage } from "../../sources/fixtures/sourceAttachment";
 import { recordingA, recordingB } from "../../playlists/fixtures/playlistPages";
 import type {

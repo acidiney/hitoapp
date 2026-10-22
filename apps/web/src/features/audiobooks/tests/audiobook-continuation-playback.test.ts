@@ -8,8 +8,8 @@ import {
   chapterAudioPath,
 } from "../fixtures/audiobookContinuationMedia";
 import AudiobookPage from "../pages/AudiobookPage";
-import { PlaybackProvider, usePlayer } from "../../../player/PlaybackProvider";
-import type { Player } from "../../../player/model";
+import { PlaybackProvider, usePlayer } from "../../playback/components/PlaybackProvider";
+import type { Player } from "../../playback/model";
 import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({

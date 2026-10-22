@@ -7,7 +7,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 import { log } from "../../../shared/log";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
-import { PlaybackProvider } from "../../../player/PlaybackProvider";
+import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import {
   lyricObservation,
   lyricRecordingPage,

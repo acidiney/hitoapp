@@ -14,7 +14,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 
 const playQueue = vi.fn(async () => {});
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue,
     subscribe: () => () => {},

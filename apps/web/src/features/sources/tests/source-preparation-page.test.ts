@@ -6,7 +6,7 @@ import { sourceAttachmentPage } from "../fixtures/sourceAttachment";
 import type { Source } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({ playQueue: vi.fn() }),
 }));
 vi.mock("../../downloads/hooks/useRecordingDownload", () => ({

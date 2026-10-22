@@ -17,7 +17,7 @@ const boundaries = vi.hoisted(() => ({
   visit: vi.fn(),
   reload: vi.fn(),
 }));
-vi.mock("../../../player/PlaybackProvider", () => ({
+vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
     mode: "browser",
     prepareSelection: boundaries.prepareSelection,
