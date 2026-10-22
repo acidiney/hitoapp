@@ -11,18 +11,18 @@ import {
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { accountsApi } from "../../features/accounts/api/accountsApi";
-import { change } from "../sync";
+import { change } from "../../shared/sync";
 import { libraryApi } from "../../features/library/api/libraryApi";
-import { NoticeBanner, NoticeProvider } from "../ui/Notices";
+import { NoticeBanner, NoticeProvider } from "../../shared/ui/Notices";
 import PlaylistIndexPage from "../../features/playlists/pages/PlaylistIndexPage";
 import PlaylistPage from "../../features/playlists/pages/PlaylistPage";
-import { useMutation } from "../hooks/useMutation";
+import { useMutation } from "../../shared/hooks/useMutation";
 import { useScanJob } from "../../features/library/hooks/useScanJob";
 import { useAccounts } from "../../features/accounts/hooks/useAccounts";
-import type { Job, SyncReceipt } from "../types";
+import type { Job, SyncReceipt } from "../../shared/types";
 import { deferred } from "../../test/async";
 
-vi.mock("../sync", () => ({ change: vi.fn() }));
+vi.mock("../../shared/sync", () => ({ change: vi.fn() }));
 vi.mock("../../features/library/api/libraryApi", () => ({
   libraryApi: { scan: vi.fn(), job: vi.fn() },
 }));

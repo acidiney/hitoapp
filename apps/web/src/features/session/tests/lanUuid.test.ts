@@ -1,9 +1,9 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { prepareChange, submitChange } from "../sync";
-import { sessionApi } from "../../features/session/api/sessionApi";
-import { Playback, type MediaPort } from "../../features/playback/playback";
-import { notifySessionChanged } from "../../features/session/session";
-import type { Action } from "../types";
+import { prepareChange, submitChange } from "../../../shared/sync";
+import { sessionApi } from "../api/sessionApi";
+import { Playback, type MediaPort } from "../../playback/playback";
+import { notifySessionChanged } from "../session";
+import type { Action } from "../../../shared/types";
 
 const crypto = globalThis.crypto;
 const randomUUID = Object.getOwnPropertyDescriptor(crypto, "randomUUID");

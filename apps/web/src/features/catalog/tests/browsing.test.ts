@@ -4,8 +4,8 @@ import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
 import ArtistPage from "../../artists/pages/ArtistPage";
 import Pagination from "../../../shared/ui/Pagination";
-import TrackToolbar from "../../../shared/ui/TrackToolbar";
-import AlbumGrid from "../../../shared/ui/AlbumGrid";
+import TrackToolbar from "../../playback/components/TrackToolbar";
+import AlbumGrid from "../components/AlbumGrid";
 import type { AlbumPageProps, Release } from "../../../shared/types";
 
 const player = vi.hoisted(() => ({

@@ -1,9 +1,9 @@
 import { Play } from "lucide-react";
-import type { Mutate } from "../hooks/useMutation";
-import type { Playlist } from "../types";
+import type { Mutate } from "../../../shared/hooks/useMutation";
+import type { Playlist } from "../../../shared/types";
 import type { TrackRow } from "./TrackTable";
-import { usePlayer } from "../../features/playback/components/PlaybackProvider";
-import Artwork from "../../features/artwork/components/Artwork";
+import { usePlayer } from "./PlaybackProvider";
+import Artwork from "../../artwork/components/Artwork";
 import TrackActions from "./TrackActions";
 
 export default function TrackGrid({

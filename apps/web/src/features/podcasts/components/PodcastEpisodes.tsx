@@ -1,6 +1,6 @@
 import Artwork from "../../artwork/components/Artwork";
-import TrackActions from "../../../shared/ui/TrackActions";
-import type { TrackRow } from "../../../shared/ui/TrackTable";
+import TrackActions from "../../playback/components/TrackActions";
+import type { TrackRow } from "../../playback/components/TrackTable";
 import { time } from "../../../shared/format";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import { log } from "../../../shared/log";

@@ -1,11 +1,13 @@
 import type { ArtistPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Artwork from "../../artwork/components/Artwork";
-import AlbumGrid from "../../../shared/ui/AlbumGrid";
+import AlbumGrid from "../../catalog/components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
-import TrackTable, { type TrackTableRow } from "../../../shared/ui/TrackTable";
-import TrackToolbar from "../../../shared/ui/TrackToolbar";
+import TrackTable, {
+  type TrackTableRow,
+} from "../../playback/components/TrackTable";
+import TrackToolbar from "../../playback/components/TrackToolbar";
 
 export default function ArtistPage({
   user,

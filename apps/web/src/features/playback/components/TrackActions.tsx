@@ -1,8 +1,8 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../../../shared/uuid";
 import { Link, router } from "@inertiajs/react";
 import { Heart, Info, X } from "lucide-react";
-import type { Action, Playlist } from "../types";
-import type { Mutate } from "../hooks/useMutation";
+import type { Action, Playlist } from "../../../shared/types";
+import type { Mutate } from "../../../shared/hooks/useMutation";
 import type { TrackRow } from "./TrackTable";
 
 export function PlaylistEntryRemove({

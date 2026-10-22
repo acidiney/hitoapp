@@ -4,8 +4,10 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
-import TrackTable, { type TrackTableRow } from "../../../shared/ui/TrackTable";
-import TrackToolbar from "../../../shared/ui/TrackToolbar";
+import TrackTable, {
+  type TrackTableRow,
+} from "../../playback/components/TrackTable";
+import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
 

@@ -1,14 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
-import { time } from "../format";
-import { usePlayer } from "../../features/playback/components/PlaybackProvider";
-import type { Track } from "../../features/playback/playback";
-import type { PlaybackStart } from "../../features/playback/model";
-import type { Playlist, PlaylistEntry } from "../types";
-import type { Mutate } from "../hooks/useMutation";
+import { time } from "../../../shared/format";
+import { usePlayer } from "./PlaybackProvider";
+import type { Track } from "../playback";
+import type { PlaybackStart } from "../model";
+import type { Playlist, PlaylistEntry } from "../../../shared/types";
+import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
-import Artwork from "../../features/artwork/components/Artwork";
+import Artwork from "../../artwork/components/Artwork";
 
 export type TrackRow = Track & {
   row_id: string;

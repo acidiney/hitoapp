@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import TrackToolbar from "../../../shared/ui/TrackToolbar";
+import TrackToolbar from "../components/TrackToolbar";
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 

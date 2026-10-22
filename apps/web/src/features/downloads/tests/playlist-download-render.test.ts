@@ -20,9 +20,11 @@ import {
 
 const tableRenders = vi.hoisted(() => ({ count: 0 }));
 
-vi.mock("../../../shared/ui/TrackTable", async (importOriginal) => {
+vi.mock("../../playback/components/TrackTable", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../../shared/ui/TrackTable")>();
+    await importOriginal<
+      typeof import("../../playback/components/TrackTable")
+    >();
   return {
     ...actual,
     default: function CountedTrackTable(

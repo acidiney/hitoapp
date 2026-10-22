@@ -2,8 +2,10 @@ import type { HistoryPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import PageHeading from "../../../shared/ui/PageHeading";
-import TrackTable, { type TrackTableRow } from "../../../shared/ui/TrackTable";
-import TrackToolbar from "../../../shared/ui/TrackToolbar";
+import TrackTable, {
+  type TrackTableRow,
+} from "../../playback/components/TrackTable";
+import TrackToolbar from "../../playback/components/TrackToolbar";
 
 export default function HistoryPage({
   user,
