@@ -27,6 +27,14 @@ async fn assert_signal_shutdown(signal: &str) {
         .spawn()
         .unwrap();
     let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let mut error_lines = BufReader::new(child.stderr.take().unwrap()).lines();
+    let errors = tokio::spawn(async move {
+        let mut collected = Vec::new();
+        while let Some(line) = error_lines.next_line().await.unwrap() {
+            collected.push(line);
+        }
+        collected
+    });
     let mut logs = Vec::new();
     timeout(Duration::from_secs(10), async {
         while let Some(line) = lines.next_line().await.unwrap() {
@@ -40,6 +48,13 @@ async fn assert_signal_shutdown(signal: &str) {
     })
     .await
     .expect("Server did not become ready in time");
+    let remaining = tokio::spawn(async move {
+        let mut collected = Vec::new();
+        while let Some(line) = lines.next_line().await.unwrap() {
+            collected.push(line);
+        }
+        collected
+    });
 
     let signalled = Command::new("sh")
         .args(["-c", "kill -\"$1\" \"$2\"", "hito-shutdown-test", signal])
@@ -56,10 +71,9 @@ async fn assert_signal_shutdown(signal: &str) {
         status.success(),
         "Server did not exit successfully after SIG{signal}: {status}"
     );
-    while let Some(line) = lines.next_line().await.unwrap() {
-        logs.push(line);
-    }
+    logs.extend(remaining.await.unwrap());
     let output = logs.join("\n");
+    let error_output = errors.await.unwrap().join("\n");
     let events = logs
         .iter()
         .map(|line| serde_json::from_str::<Value>(line).unwrap())
@@ -73,7 +87,8 @@ async fn assert_signal_shutdown(signal: &str) {
         );
     }
     assert!(
-        !output.contains("shutdown-private-path"),
+        !output.contains("shutdown-private-path")
+            && !error_output.contains("shutdown-private-path"),
         "Private database path appeared in logs"
     );
 }
