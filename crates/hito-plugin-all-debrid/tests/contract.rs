@@ -2,6 +2,8 @@
 mod audio;
 #[path = "fixtures/bound_wav_workflow.rs"]
 mod bound_wav_workflow;
+#[path = "fixtures/detail_budget.rs"]
+mod detail_budget;
 #[path = "fixtures/http.rs"]
 mod http;
 #[path = "fixtures/logging.rs"]

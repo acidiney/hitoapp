@@ -6,12 +6,11 @@ mod receipts;
 pub use http::router;
 
 use hito_debrid_all_debrid::{AllDebridClient, MagnetFileBinding, MediaAllowlist};
-use hito_plugin_sdk::{ProviderRecording, ProviderSource, SearchPage, SearchRequest, SourcePage};
-use sha2::{Digest, Sha256};
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
+use hito_plugin_sdk::{
+    CuratedEntryView, ProviderRecording, SearchPage, SearchRequest, admit_curated_catalog,
 };
+use sha2::{Digest, Sha256};
+use std::sync::{Arc, Mutex};
 
 pub struct Config {
     pub service_bearer: String,
@@ -51,44 +50,19 @@ pub(crate) struct Catalog {
 }
 
 impl Catalog {
-    fn new(mut configured: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
-        if configured.is_empty() || configured.len() > 128 {
-            return Err(InitError::InvalidCatalog);
-        }
-        let mut recordings = HashSet::new();
-        let mut sources = HashSet::new();
-        let mut metadata_bytes = 0_usize;
+    fn new(configured: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
+        let configured = admit_curated_catalog(configured, |entry| CuratedEntryView {
+            recording: &entry.recording,
+            source_id: &entry.source_id,
+            label: &entry.label,
+        })
+        .map_err(|_| InitError::InvalidCatalog)?;
         let mut entries = Vec::with_capacity(configured.len());
-        configured.sort_by(|a, b| a.recording.id.cmp(&b.recording.id));
         for value in configured {
-            value
-                .recording
-                .validate()
-                .map_err(|_| InitError::InvalidCatalog)?;
             value
                 .binding
                 .validate()
                 .map_err(|_| InitError::InvalidCatalog)?;
-            SourcePage {
-                items: vec![ProviderSource {
-                    id: value.source_id.clone(),
-                    label: value.label.clone(),
-                    ready: false,
-                }],
-            }
-            .validate()
-            .map_err(|_| InitError::InvalidCatalog)?;
-            if !recordings.insert(value.recording.id.clone())
-                || !sources.insert(value.source_id.clone())
-            {
-                return Err(InitError::InvalidCatalog);
-            }
-            let metadata =
-                serde_json::to_vec(&value.recording).map_err(|_| InitError::InvalidCatalog)?;
-            if metadata.len() > 49_152_usize.saturating_sub(metadata_bytes) {
-                return Err(InitError::InvalidCatalog);
-            }
-            metadata_bytes += metadata.len();
             let encoded = serde_json::to_vec(&(
                 &value.recording,
                 &value.source_id,

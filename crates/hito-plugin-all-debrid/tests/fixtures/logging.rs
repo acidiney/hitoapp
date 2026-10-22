@@ -21,6 +21,13 @@ pub struct Capture {
 }
 
 impl Capture {
+    pub(super) fn snapshot(&self) -> Vec<u8> {
+        assert!(!self.overflow.load(Ordering::SeqCst));
+        let bytes = self.bytes.lock().unwrap();
+        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
+        bytes.clone()
+    }
+
     pub fn dispatch(&self) -> tracing::Dispatch {
         let capture = self.clone();
         tracing::Dispatch::new(tracing_subscriber::fmt()
