@@ -8,7 +8,7 @@ import {
   lyricProviderPage,
   primaryLyricProvider,
 } from "../fixtures/recordingLyricsProviders";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { log } from "../../../shared/log";
 
 vi.mock("@inertiajs/react", () => ({

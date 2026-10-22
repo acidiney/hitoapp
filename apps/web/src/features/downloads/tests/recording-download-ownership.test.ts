@@ -4,7 +4,7 @@ import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
-import { attachedPage } from "../../../fixtures/sourceAttachment";
+import { attachedPage } from "../../sources/fixtures/sourceAttachment";
 import { recordingA, recordingB } from "../../playlists/fixtures/playlistPages";
 import type {
   DownloadReceipt,

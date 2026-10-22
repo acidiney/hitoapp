@@ -6,12 +6,12 @@ import MetadataEditor from "../../metadata/components/MetadataEditor";
 import MetadataObservations from "../../metadata/components/MetadataObservations";
 import ArtistReview from "../../artists/components/ArtistReview";
 import RecordingCredits from "../../metadata/components/RecordingCredits";
-import SourceAvailability from "../../../components/SourceAvailability";
-import SourceAttachment from "../../../components/SourceAttachment";
-import SourceChoiceControls from "../../../components/SourceChoiceControls";
+import SourceAvailability from "../../sources/components/SourceAvailability";
+import SourceAttachment from "../../sources/components/SourceAttachment";
+import SourceChoiceControls from "../../sources/components/SourceChoiceControls";
 import RecordingDownload from "../../downloads/components/RecordingDownload";
 import { useRecordingDownload } from "../../downloads/hooks/useRecordingDownload";
-import { useSourceChoice } from "../../../hooks/useSourceChoice";
+import { useSourceChoice } from "../../sources/hooks/useSourceChoice";
 import RecordingLyrics from "../../lyrics/components/RecordingLyrics";
 import { useRecordingLyrics } from "../../lyrics/hooks/useRecordingLyrics";
 

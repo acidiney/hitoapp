@@ -10,7 +10,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import Shell from "../../../Shell";
 import Artwork from "../components/Artwork";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
-import { sourceAttachmentPage } from "../../../fixtures/sourceAttachment";
+import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 import type { components } from "../../../generated";
 import { deferred } from "../../../test/async";
 

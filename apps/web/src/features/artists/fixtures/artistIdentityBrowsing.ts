@@ -1,6 +1,6 @@
 import type { components } from "../../../generated";
 import { artistIdentityGroupDetail } from "./artistIdentity";
-import { savedRecording, sourceAttachmentPage } from "../../../fixtures/sourceAttachment";
+import { savedRecording, sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 
 type Schema = components["schemas"];
 

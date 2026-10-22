@@ -1,6 +1,6 @@
 import type { components } from "../../../generated";
 import { artistAssociation, artistReviewDetail } from "./artistReview";
-import { savedRecording } from "../../../fixtures/sourceAttachment";
+import { savedRecording } from "../../sources/fixtures/sourceAttachment";
 
 type Schema = components["schemas"];
 export const artistIdentityGroup = "70000000-0000-4000-8000-000000000001";

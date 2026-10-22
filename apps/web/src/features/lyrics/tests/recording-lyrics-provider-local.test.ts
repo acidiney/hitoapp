@@ -6,7 +6,7 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 import { lyricRecordingPage, readyLyrics } from "../fixtures/recordingLyrics";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import { log } from "../../../shared/log";

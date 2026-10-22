@@ -19,8 +19,8 @@ import {
   artistSelection,
   secondCatalog,
 } from "../fixtures/artistReview";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
-import { sourceAttachmentPage } from "../../../fixtures/sourceAttachment";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
+import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 
 type Schema = components["schemas"];
 

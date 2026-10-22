@@ -4,7 +4,7 @@ import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
-import { attachedPage, savedRecording } from "../../../fixtures/sourceAttachment";
+import { attachedPage, savedRecording } from "../../sources/fixtures/sourceAttachment";
 import type { DownloadReceipt, DownloadRequest, DownloadStatus } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({

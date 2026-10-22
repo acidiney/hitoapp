@@ -10,7 +10,7 @@ import {
   lyricSettings,
   readyLyrics,
 } from "../fixtures/recordingLyrics";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 import type { RecordingDetailsPageProps } from "../../../shared/types";

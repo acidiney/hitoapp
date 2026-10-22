@@ -14,7 +14,7 @@ import {
   lyricSettings,
   readyLyrics,
 } from "../fixtures/recordingLyrics";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 
 type Schema = components["schemas"];
 

@@ -12,7 +12,7 @@ import type { Player } from "./model";
 import { log } from "../shared/log";
 import { useRequestScope } from "../shared/hooks/useRequestScope";
 import { NativePlayback } from "./native/NativePlayback";
-import { sourceResolutionApi } from "../sourceResolutionApi";
+import { sourceResolutionApi } from "../features/sources/api/sourceResolutionApi";
 import { useBrowserMediaSession } from "./BrowserMediaSession";
 import { BrowserProgress } from "./BrowserProgress";
 import { request } from "../shared/http";

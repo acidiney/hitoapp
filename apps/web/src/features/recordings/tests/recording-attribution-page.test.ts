@@ -8,7 +8,7 @@ import {
   attributedRecordingPage,
   selectedRecordingAttribution,
 } from "../fixtures/recordingAttribution";
-import { automaticChoice } from "../../../fixtures/sourceChoice";
+import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../../player/PlaybackProvider";
 
