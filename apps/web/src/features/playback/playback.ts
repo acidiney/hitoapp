@@ -1,17 +1,16 @@
 import type {
+  MediaPort,
   PlaybackQueueInput,
   PlaybackOccurrence,
   PlaybackStart,
-  PlaybackView,
+  PlaybackState,
   PreparedSelection,
   Player,
-  QueueView,
   Track,
 } from "./model";
 import type { AudiobookChapterAnchor } from "../../shared/types";
-export type { Track } from "./model";
+export type { MediaPort, Track } from "./model";
 import { log } from "../../shared/log";
-import { createUuid } from "../../shared/uuid";
 import {
   PlaybackSources,
   type Source,
@@ -26,36 +25,15 @@ import {
   BrowserPreparation,
   type BrowserMediaOwner,
 } from "./browser/BrowserPreparation";
-export type { Source } from "./api/playbackSources";
+import { BrowserLookahead } from "./browser/BrowserLookahead";
+import { listenToMedia } from "./browser/BrowserMediaEvents";
 import {
-  prepareAudiobookSelection,
-  type AudiobookPlayback,
-  type AudiobookSelection,
-} from "./browser/AudiobookContinuation";
-
-export interface MediaPort extends EventTarget {
-  src: string;
-  currentTime: number;
-  duration: number;
-  playbackRate: number;
-  defaultPlaybackRate: number;
-  volume: number;
-  paused: boolean;
-  ended?: boolean;
-  readyState?: number;
-  seeking?: boolean;
-  currentSrc?: string;
-  play(): Promise<void>;
-  pause(): void;
-  load(): void;
-  removeAttribute(name: string): void;
-}
-export type PlaybackState = PlaybackView & {
-  queue: Track[];
-  index: number;
-  position: number;
-  duration: number;
-};
+  BrowserAudiobookRun,
+  type AudiobookPreparer,
+} from "./browser/BrowserAudiobookRun";
+import { PlaybackStore } from "./browser/PlaybackStore";
+import type { AudiobookSelection } from "./browser/AudiobookContinuation";
+export type { Source } from "./api/playbackSources";
 
 export class Playback implements Player {
   readonly mode = "browser";
@@ -65,35 +43,12 @@ export class Playback implements Player {
     repeat: true,
     speed: true,
   };
-  private state: PlaybackState = {
-    current: null,
-    queue: [],
-    index: -1,
-    playing: false,
-    loading: false,
-    position: 0,
-    duration: 0,
-    error: "",
-    repeat: "off",
-    shuffle: false,
-    speed: 1,
-    volume: 1,
-    connection: "ready",
-  };
+  private store = new PlaybackStore();
   private queue = new BrowserQueue();
   private traversal = new BrowserTraversal();
   private observation: BrowserObservation;
   private community: BrowserCommunityObservation | null;
   private openingEntry: PlaybackOccurrence | null = null;
-  private queueView: QueueView = {
-    version: 0,
-    total: 0,
-    currentIndex: null,
-    currentEntry: null,
-  };
-  private listeners = new Set<() => void>();
-  private position = { position: 0, duration: 0 };
-  private positionListeners = new Set<() => void>();
   private sources: PlaybackSources | null = null;
   private generation = 0;
   private selection = 0;
@@ -101,12 +56,10 @@ export class Playback implements Player {
   private pendingSeek: number | null = null;
   private activeSource: Source | null = null;
   private durationChanged: (() => void) | null = null;
-  private lookahead: BrowserPreparation | null = null;
-  private openingPreparation: BrowserPreparation | null = null;
-  private lookaheadRevision = 0;
+  private lookahead: BrowserLookahead | null;
   private stopListening: () => void = () => {};
   private stoppingForProgress = false;
-  private continuation: AbortController | null = null;
+  private audiobook: BrowserAudiobookRun;
 
   constructor(
     private media: MediaPort,
@@ -118,10 +71,7 @@ export class Playback implements Player {
       chapter?: AudiobookChapterAnchor,
     ) => boolean | void,
     private mediaOwner?: BrowserMediaOwner,
-    private prepareAudiobook?: (
-      book: string,
-      signal: AbortSignal,
-    ) => Promise<AudiobookPlayback>,
+    prepareAudiobook?: AudiobookPreparer,
     onSuccess?: (source: string, claim: SuccessfulPlayback) => void,
   ) {
     this.community = onSuccess
@@ -138,128 +88,110 @@ export class Playback implements Player {
         : this.onProgress?.(sample.recording, sample.position, sample.speed);
       return result !== false;
     });
+    this.lookahead = mediaOwner
+      ? new BrowserLookahead(resolve, mediaOwner)
+      : null;
+    this.audiobook = new BrowserAudiobookRun(
+      {
+        generation: () => this.generation,
+        selection: () => this.selection,
+        claimSelection: () => ++this.selection,
+        queueView: () => this.store.queueView,
+        persist: () => this.observation.persist(),
+        open: (target) => this.open(target.index, target.position, target),
+        fail: (error) => this.update({ error }),
+      },
+      prepareAudiobook,
+    );
     this.listenMedia();
+  }
+
+  private get state() {
+    return this.store.state;
   }
 
   private listenMedia() {
     const media = this.media;
-    const listeners: [string, EventListener][] = [];
-    const listen = (event: string, action: () => void) => {
-      const listener = () => {
-        if (this.media === media) action();
-      };
-      media.addEventListener(event, listener);
-      listeners.push([event, listener]);
-    };
-    this.stopListening = () => {
-      for (const [event, listener] of listeners)
-        media.removeEventListener(event, listener);
-    };
-    listen("loadedmetadata", () => {
-      this.observation.metadata();
-      log.debug("playback.metadata", { recording_id: this.state.current?.id });
-      this.update({
-        duration: Number.isFinite(media.duration) ? media.duration : 0,
-      });
-      if (this.pendingSeek !== null) {
-        const position = this.pendingSeek;
-        this.pendingSeek = null;
-        this.seek(position);
-      }
-    });
-    listen("durationchange", () => this.durationChanged?.());
-    listen("timeupdate", () => {
-      this.community?.observe();
-      if (this.activeSource && !media.paused && media.currentTime > 0) {
-        this.traversal.resetFailures();
+    this.stopListening = listenToMedia(media, () => this.media === media, {
+      loadedMetadata: () => {
+        this.observation.metadata();
+        log.debug("playback.metadata", {
+          recording_id: this.state.current?.id,
+        });
+        this.update({
+          duration: Number.isFinite(media.duration) ? media.duration : 0,
+        });
+        if (this.pendingSeek !== null) {
+          const position = this.pendingSeek;
+          this.pendingSeek = null;
+          this.seek(position);
+        }
+      },
+      durationChange: () => this.durationChanged?.(),
+      timeUpdate: () => {
+        this.community?.observe();
+        if (this.activeSource && !media.paused && media.currentTime > 0) {
+          this.traversal.resetFailures();
+          this.prepareNext();
+        }
+        this.update({ position: media.currentTime });
+        if (!this.observation.observe()) this.progressBlocked();
+      },
+      play: () => {
+        log.info("playback.started", { recording_id: this.state.current?.id });
+        this.update({ playing: true, loading: false });
         this.prepareNext();
-      }
-      this.update({ position: media.currentTime });
-      if (!this.observation.observe()) this.progressBlocked();
+      },
+      playing: () => {
+        this.community?.observe();
+        if (!this.observation.observe()) this.progressBlocked();
+      },
+      seeked: () => {
+        this.community?.seeked();
+        this.community?.observe();
+        this.observation.seeked();
+        if (!this.observation.observe()) this.progressBlocked();
+      },
+      pause: () => {
+        this.community?.reset();
+        log.debug("playback.paused", { recording_id: this.state.current?.id });
+        if (!this.stoppingForProgress) this.persist();
+        this.update({ playing: false });
+        if (!media.ended) this.cancelLookahead();
+      },
+      error: () => {
+        this.community?.reset();
+        log.warn("playback.media_failed", {
+          recording_id: this.state.current?.id,
+        });
+        if (this.activeSource) void this.recover();
+      },
+      ended: () => {
+        log.info("playback.ended", { recording_id: this.state.current?.id });
+        void this.next(true);
+      },
+      seeking: () => this.community?.seeking(),
+      canPlay: () => this.community?.observe(),
+      interrupted: () => this.community?.reset(),
     });
-    listen("play", () => {
-      log.info("playback.started", { recording_id: this.state.current?.id });
-      this.update({ playing: true, loading: false });
-      this.prepareNext();
-    });
-    listen("playing", () => {
-      this.community?.observe();
-      if (!this.observation.observe()) this.progressBlocked();
-    });
-    listen("seeked", () => {
-      this.community?.seeked();
-      this.community?.observe();
-      this.observation.seeked();
-      if (!this.observation.observe()) this.progressBlocked();
-    });
-    listen("pause", () => {
-      this.community?.reset();
-      log.debug("playback.paused", { recording_id: this.state.current?.id });
-      if (!this.stoppingForProgress) this.persist();
-      this.update({ playing: false });
-      if (!media.ended) this.cancelLookahead();
-    });
-    listen("error", () => {
-      this.community?.reset();
-      log.warn("playback.media_failed", {
-        recording_id: this.state.current?.id,
-      });
-      if (this.activeSource) void this.recover();
-    });
-    listen("ended", () => {
-      log.info("playback.ended", { recording_id: this.state.current?.id });
-      void this.next(true);
-    });
-    listen("seeking", () => this.community?.seeking());
-    listen("canplay", () => this.community?.observe());
-    for (const event of ["waiting", "stalled", "ratechange", "loadstart"])
-      listen(event, () => this.community?.reset());
   }
 
   private cancelLookahead() {
-    this.lookaheadRevision++;
-    this.lookahead?.close();
-    this.lookahead = null;
+    this.lookahead?.cancel();
   }
 
   private prepareNext() {
-    if (!this.mediaOwner || !this.state.playing || !this.activeSource) return;
+    if (!this.lookahead || !this.state.playing || !this.activeSource) return;
     const index = this.traversal.completed(
       this.queue.identities(),
       this.state.index,
       this.state.repeat,
     );
-    const occurrence = index === null ? undefined : this.queue.at(index);
-    const entry = occurrence?.id;
-    const recording = occurrence?.recording;
-    if (!entry || !recording) {
-      this.cancelLookahead();
-      return;
-    }
-    const target = this.lookahead?.target;
-    if (
-      target?.entry === entry &&
-      target.recording === recording.id &&
-      target.generation === this.generation &&
-      target.revision === this.lookaheadRevision
-    )
-      return;
-    const seed =
-      recording.id === this.state.current?.id && this.activeSource.ready
-        ? { ...this.activeSource }
-        : undefined;
-    this.cancelLookahead();
-    this.lookahead = new BrowserPreparation(
-      {
-        generation: this.generation,
-        revision: this.lookaheadRevision,
-        entry,
-        recording: recording.id,
-      },
-      this.resolve,
-      this.mediaOwner,
-      seed,
-    );
+    this.lookahead.prepare(index === null ? undefined : this.queue.at(index), {
+      generation: this.generation,
+      currentRecording: this.state.current?.id,
+      active: this.activeSource,
+    });
   }
 
   private persist() {
@@ -290,8 +222,8 @@ export class Playback implements Player {
       this.update({ error: "" });
   }
 
-  snapshot = () => this.state;
-  queueSnapshot = () => this.queueView;
+  snapshot = this.store.snapshot;
+  queueSnapshot = this.store.queueSnapshot;
   async queuePage(offset: number, limit: number, signal?: AbortSignal) {
     signal?.throwIfAborted();
     if (
@@ -304,7 +236,7 @@ export class Playback implements Player {
     )
       throw new Error("The queue page is invalid.");
     return {
-      version: this.queueView.version,
+      version: this.store.queueView.version,
       total: this.queue.length,
       offset,
       entries: this.queue.page(offset, limit),
@@ -323,43 +255,11 @@ export class Playback implements Player {
     const index = this.queue.indexOf(entry);
     if (index >= 0) this.remove(index);
   }
-  positionSnapshot = () => this.position;
-  subscribePosition = (listener: () => void) => {
-    this.positionListeners.add(listener);
-    return () => {
-      this.positionListeners.delete(listener);
-    };
-  };
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
+  positionSnapshot = this.store.positionSnapshot;
+  subscribePosition = this.store.subscribePosition;
+  subscribe = this.store.subscribe;
   private update(patch: Partial<PlaybackState>) {
-    const { position, duration, ...structure } = patch;
-    const moved =
-      (position !== undefined && position !== this.position.position) ||
-      (duration !== undefined && duration !== this.position.duration);
-    this.state = { ...this.state, ...patch };
-    if (patch.queue !== undefined || patch.index !== undefined) {
-      const current = this.queue.at(this.state.index)?.id;
-      this.queueView = {
-        version: this.queueView.version + 1,
-        total: this.queue.length,
-        currentIndex: current ? this.state.index : null,
-        currentEntry: current ?? null,
-      };
-    }
-    if (moved) {
-      this.position = {
-        position: this.state.position,
-        duration: this.state.duration,
-      };
-      this.positionListeners.forEach((listener) => listener());
-    }
-    if (Object.keys(structure).length)
-      this.listeners.forEach((listener) => listener());
+    this.store.update(patch, this.queue);
   }
 
   setRecordingField(
@@ -409,96 +309,12 @@ export class Playback implements Player {
     await this.open(index, position);
   }
 
-  async continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
-    this.cancelAudiobook();
-    const controller = new AbortController();
-    this.continuation = controller;
-    const combined = AbortSignal.any([signal, controller.signal]);
-    const generation = this.generation;
-    const selection = ++this.selection;
-    const queue = this.queueView;
-    const started = performance.now();
-    const requestId = createUuid();
-    let timedOut = false;
-    const deadline = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, 10_000);
-    let cancel!: () => void;
-    const cancelled = new Promise<never>((_, reject) => {
-      cancel = () => reject(new DOMException("Cancelled", "AbortError"));
-      combined.addEventListener("abort", cancel, { once: true });
-    });
-    const check = () => {
-      combined.throwIfAborted();
-      if (
-        this.continuation !== controller ||
-        generation !== this.generation ||
-        selection !== this.selection ||
-        queue !== this.queueView
-      )
-        throw new DOMException("Superseded", "AbortError");
-    };
-    let committed = false;
-    log.debug("playback.audiobook_continue_started", { request_id: requestId });
-    try {
-      check();
-      if (!this.prepareAudiobook)
-        throw new Error("Audiobook continuation requires a server connection.");
-      if (!this.observation.persist())
-        throw new Error("Listening progress is waiting to be saved.");
-      const fresh = await Promise.race([
-        this.prepareAudiobook(book, combined),
-        cancelled,
-      ]);
-      check();
-      const target = prepareAudiobookSelection(fresh, book);
-      if (!this.observation.persist())
-        throw new Error("Listening progress is waiting to be saved.");
-      check();
-      clearTimeout(deadline);
-      this.continuation = null;
-      committed = true;
-      await this.open(target.index, target.position, target);
-      return true;
-    } catch (error) {
-      if (timedOut && this.continuation === controller && !signal.aborted) {
-        this.update({
-          error: "Continuing this audiobook timed out. Try again.",
-        });
-        return false;
-      }
-      if (
-        combined.aborted ||
-        (error instanceof DOMException && error.name === "AbortError")
-      )
-        return false;
-      this.update({
-        error:
-          "Hito could not continue this audiobook. Check its saved chapter and playback speed, then try again.",
-      });
-      return false;
-    } finally {
-      clearTimeout(deadline);
-      combined.removeEventListener("abort", cancel);
-      if (this.continuation === controller) this.continuation = null;
-      log.debug("playback.audiobook_continue_finished", {
-        request_id: requestId,
-        reason: committed
-          ? "committed"
-          : timedOut
-            ? "timeout"
-            : combined.aborted
-              ? "cancelled"
-              : "rejected",
-        duration_ms: Math.round(performance.now() - started),
-      });
-    }
+  continueAudiobook(book: string, signal: AbortSignal): Promise<boolean> {
+    return this.audiobook.run(book, signal);
   }
 
   private cancelAudiobook() {
-    this.continuation?.abort();
-    this.continuation = null;
+    this.audiobook.cancel();
   }
 
   prepareSelection(): PreparedSelection {
@@ -537,19 +353,7 @@ export class Playback implements Player {
     const occurrence = this.queue.at(index);
     this.openingEntry = occurrence ?? null;
     const current = occurrence?.recording;
-    const candidate = this.lookahead;
-    const prepared =
-      candidate &&
-      candidate.target.entry === occurrence?.id &&
-      candidate.target.recording === current?.id &&
-      candidate.target.generation === this.generation &&
-      candidate.target.revision === this.lookaheadRevision
-        ? candidate
-        : null;
-    if (prepared) this.lookahead = null;
-    this.cancelLookahead();
-    this.openingPreparation?.close();
-    this.openingPreparation = prepared;
+    const prepared = this.lookahead?.claim(occurrence, this.generation) ?? null;
     const generation = ++this.generation;
     log.info("playback.resolving", { recording_id: current?.id, index });
     this.sources?.close();
@@ -589,12 +393,12 @@ export class Playback implements Player {
         const buffered = await prepared.read();
         if (
           generation !== this.generation ||
-          this.openingPreparation !== prepared
+          !this.lookahead?.isOpening(prepared)
         ) {
           prepared.close();
           return;
         }
-        this.openingPreparation = null;
+        this.lookahead?.settleOpening();
         if (buffered && prepared.transfer()) {
           if (buffered.media && buffered.source) {
             const previous = this.media;
@@ -918,8 +722,7 @@ export class Playback implements Player {
     this.openingEntry = null;
     this.durationChanged = null;
     this.cancelLookahead();
-    this.openingPreparation?.close();
-    this.openingPreparation = null;
+    this.lookahead?.closeOpening();
     this.queue.clear();
     this.traversal.reset(this.queue.identities());
     this.selection++;

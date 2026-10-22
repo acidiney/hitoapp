@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Play } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import type { Track } from "../playback";
+import type { Track } from "../model";
 
 export default function TrackToolbar({
   tracks,

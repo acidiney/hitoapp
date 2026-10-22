@@ -1,4 +1,4 @@
-import type { MediaPort } from "../playback";
+import type { MediaPort } from "../model";
 import type { SuccessfulPlayback } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 import { log } from "../../../shared/log";

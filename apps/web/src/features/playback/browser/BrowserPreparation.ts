@@ -1,6 +1,6 @@
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
-import type { MediaPort } from "../playback";
+import type { MediaPort } from "../model";
 import {
   PlaybackSources,
   type Source,

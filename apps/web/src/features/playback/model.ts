@@ -99,3 +99,28 @@ export interface Player {
   reconnect?(): Promise<void>;
   retrySaved?(): Promise<void>;
 }
+
+export interface MediaPort extends EventTarget {
+  src: string;
+  currentTime: number;
+  duration: number;
+  playbackRate: number;
+  defaultPlaybackRate: number;
+  volume: number;
+  paused: boolean;
+  ended?: boolean;
+  readyState?: number;
+  seeking?: boolean;
+  currentSrc?: string;
+  play(): Promise<void>;
+  pause(): void;
+  load(): void;
+  removeAttribute(name: string): void;
+}
+
+export type PlaybackState = PlaybackView & {
+  queue: Track[];
+  index: number;
+  position: number;
+  duration: number;
+};

@@ -7,8 +7,8 @@ import {
 } from "react";
 import { sourcesApi } from "../../sources/api/sourcesApi";
 import { useNotice } from "../../../shared/ui/Notices";
-import { Playback, type MediaPort } from "../playback";
-import type { Player } from "../model";
+import { Playback } from "../playback";
+import type { MediaPort, Player } from "../model";
 import { log } from "../../../shared/log";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { NativePlayback } from "../native/NativePlayback";
