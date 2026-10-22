@@ -69,6 +69,8 @@ export const readyLyrics = {
   status: "ready",
   recording_id: lyricRecordingPage.detail.recording_id,
   observation_id: lyricObservation.id,
+  document_digest:
+    "060d07c159e679c9c9d7e4fe49196858693125773545272e4f5689f15ef030c5",
   document: {
     recording: {
       id: lyricObservation.provider_recording_id,

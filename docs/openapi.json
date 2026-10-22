@@ -14645,12 +14645,16 @@
             "required": [
               "recording_id",
               "observation_id",
+              "document_digest",
               "document",
               "status"
             ],
             "properties": {
               "document": {
                 "$ref": "#/components/schemas/LyricsResponse"
+              },
+              "document_digest": {
+                "type": "string"
               },
               "observation_id": {
                 "type": "string"

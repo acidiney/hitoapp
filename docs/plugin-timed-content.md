@@ -48,7 +48,7 @@ The result has a `status` field:
 
 | Status        | Meaning                                                                                                                          |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `ready`       | Contains the exact Hito `recording_id`, `observation_id` and SDK `document`. `document.lyrics: null` is a valid negative answer. |
+| `ready`       | Contains the exact Hito `recording_id`, `observation_id`, host `document_digest` and SDK `document`. `document.lyrics: null` is a valid negative answer. |
 | `unsupported` | The approved service does not support version 1 of the lyrics extension. Other approved capabilities remain available.           |
 | `unavailable` | The provider failed, returned invalid data, exceeded the received-byte limit or missed the total deadline.                       |
 | `cancelled`   | The caller cancelled the public core operation.                                                                                  |
@@ -60,6 +60,14 @@ Negotiation accepts at most 4,096 received bytes. A lyric response accepts at mo
 Lookup does not modify the library or collection, adopt a recording, resolve sources, fetch audio, prepare transfers or create a download. Structured completion events contain generated correlation IDs, safe outcomes and elapsed time. Provider identities, document text, revisions, credentials and private paths are excluded.
 
 An independent lyrics provider can serve a current attached provider identity. A lyrics-only service without a retained identity or review path cannot yet be selected for a local recording. That identity-review workflow remains unfinished. This lookup does not establish timeline alignment or enable synchronized highlighting.
+
+## Document fingerprint
+
+Every ready response includes a lowercase SHA-256 `document_digest`. Hito computes it from its serialization of the complete validated typed `LyricsResponse`, after the existing authority recheck. It includes provider reference, document/rendition identities, text, timings and attribution, including a valid null-lyrics response. Clients treat the value as opaque. It identifies returned content; it does not certify its provenance or establish an audio timeline. No registry, persistence, additional provider request or new SDK protocol is introduced, and digests are excluded from workflow logs.
+
+One authenticated HTTP tracer checks identical-response stability and separate timing/text changes with unchanged document IDs and revisions. It also preserves authorization, exact provider calls, private state and original audio, and checks diagnostics before its digest assertions. The initial missing-field failure passes unchanged after the implementation. All fourteen normal lyric cases and scoped core/server strict checks pass; two existing diagnostic cases remain ignored. An independent Docker execution repeats the new case using the retained qualified executable, after matching the combined Rust/Cargo/vendor inputs apart from a service README update. That execution passes in 0.84 seconds and leaves no containers.
+
+Actual Rust export and TypeScript generation add only the required ready-result field, preserving all 105 paths, 257 schema names and other contract content. Both TypeScript configurations pass after adding that field to the shared typed test fixture. Static rendering is unchanged. Reviewed offsets, current audio-load ownership and synchronized highlighting remain separate work.
 
 ## Current lyric providers
 

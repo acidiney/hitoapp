@@ -4,6 +4,7 @@ use hito_plugin_sdk::{ProviderRecording, ProviderSource, SourcePage};
 use std::collections::HashSet;
 
 const MAX_RECORDINGS: usize = 128;
+const MAX_DETAIL_BYTES: usize = 32_768;
 const MAX_METADATA_BYTES: usize = 49_152;
 
 pub struct Config {
@@ -61,7 +62,9 @@ impl Config {
             }
             let encoded =
                 serde_json::to_vec(&entry.recording).map_err(|_| InitError::InvalidCatalog)?;
-            if encoded.len() > MAX_METADATA_BYTES.saturating_sub(metadata_bytes) {
+            if encoded.len() > MAX_DETAIL_BYTES
+                || encoded.len() > MAX_METADATA_BYTES.saturating_sub(metadata_bytes)
+            {
                 return Err(InitError::InvalidCatalog);
             }
             metadata_bytes += encoded.len();

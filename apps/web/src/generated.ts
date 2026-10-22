@@ -2520,6 +2520,7 @@ export interface components {
         };
         LyricsLookup: {
             document: components["schemas"]["LyricsResponse"];
+            document_digest: string;
             observation_id: string;
             recording_id: string;
             /** @enum {string} */
