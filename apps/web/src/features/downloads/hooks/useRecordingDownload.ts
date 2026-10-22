@@ -1,10 +1,10 @@
-import { createUuid } from "../shared/uuid";
+import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useState } from "react";
-import { downloadApi } from "../downloadApi";
-import { HttpError } from "../shared/http";
-import { log } from "../shared/log";
-import type { DownloadRequest, DownloadStatus } from "../shared/types";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { downloadApi } from "../api/downloadApi";
+import { HttpError } from "../../../shared/http";
+import { log } from "../../../shared/log";
+import type { DownloadRequest, DownloadStatus } from "../../../shared/types";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
   | { kind: "create"; body: Readonly<DownloadRequest> }

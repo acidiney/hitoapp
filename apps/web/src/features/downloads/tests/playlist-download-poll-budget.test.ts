@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { usePlaylistDownload } from "./hooks/usePlaylistDownload";
-import type { PlaylistDownloadStatus } from "./shared/types";
+import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
+import type { PlaylistDownloadStatus } from "../../../shared/types";
 
 test("unchanged busy status exhausts fast polling and observed progress reopens its budget", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });

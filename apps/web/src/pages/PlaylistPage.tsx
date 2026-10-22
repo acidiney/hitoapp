@@ -9,7 +9,7 @@ import TrackToolbar from "../shared/ui/TrackToolbar";
 import PlaylistFollowStatus from "../components/playlists/PlaylistFollowStatus";
 import PlaylistFollowResume from "../components/playlists/PlaylistFollowResume";
 import PlaylistMetadataRefresh from "../components/playlists/PlaylistMetadataRefresh";
-import PlaylistDownload from "../components/downloads/PlaylistDownload";
+import PlaylistDownload from "../features/downloads/components/PlaylistDownload";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";

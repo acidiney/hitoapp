@@ -9,10 +9,10 @@ vi.mock("@inertiajs/react", () => ({ Link: "a" }));
 vi.mock("./player/PlaybackProvider", () => ({
   usePlayer: () => ({ playQueue: vi.fn() }),
 }));
-vi.mock("./hooks/useRecordingDownload", () => ({
+vi.mock("./features/downloads/hooks/useRecordingDownload", () => ({
   useRecordingDownload: () => ({}),
 }));
-vi.mock("./components/downloads/RecordingDownload", () => ({
+vi.mock("./features/downloads/components/RecordingDownload", () => ({
   default: () => null,
 }));
 vi.mock("./features/artwork/components/Artwork", () => ({ default: () => null }));

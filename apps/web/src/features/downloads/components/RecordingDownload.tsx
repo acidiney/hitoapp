@@ -1,4 +1,4 @@
-import type { DownloadStatus } from "../../shared/types";
+import type { DownloadStatus } from "../../../shared/types";
 
 type Props = {
   download: DownloadStatus | null;

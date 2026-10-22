@@ -1,5 +1,5 @@
-import type { PlaylistDownloadStatus } from "../../shared/types";
-import { usePlaylistDownload } from "../../hooks/usePlaylistDownload";
+import type { PlaylistDownloadStatus } from "../../../shared/types";
+import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
 
 type ViewProps = {
   download: PlaylistDownloadStatus | null;

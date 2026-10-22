@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { usePlaylistDownload } from "./hooks/usePlaylistDownload";
-import type { PlaylistDownloadStatus } from "./shared/types";
+import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
+import type { PlaylistDownloadStatus } from "../../../shared/types";
 
 test("a rendered removal action cannot retarget a root discovered by a later status read", async () => {
   vi.useFakeTimers();

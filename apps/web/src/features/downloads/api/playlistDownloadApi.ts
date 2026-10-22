@@ -1,9 +1,9 @@
-import { HttpError, request } from "./shared/http";
+import { HttpError, request } from "../../../shared/http";
 import type {
   DownloadRequest,
   PlaylistDownloadReceipt,
   PlaylistDownloadStatus,
-} from "./shared/types";
+} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const states = new Set([
