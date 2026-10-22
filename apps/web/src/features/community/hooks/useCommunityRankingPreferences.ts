@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { HttpError, request } from "../shared/http";
-import { log } from "../shared/log";
-import { createUuid } from "../shared/uuid";
-import type { components } from "../generated";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { HttpError, request } from "../../../shared/http";
+import { log } from "../../../shared/log";
+import { createUuid } from "../../../shared/uuid";
+import type { components } from "../../../generated";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Preferences = components["schemas"]["CommunityRankingPreferences"];
 type Update = components["schemas"]["UpdateCommunityRankingPreferences"];

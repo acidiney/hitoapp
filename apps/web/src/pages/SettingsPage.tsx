@@ -5,8 +5,8 @@ import AccountSettings from "../features/accounts/components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
 import PluginSettings from "../components/plugins/PluginSettings";
 import MetadataPreferences from "../components/metadata/MetadataPreferences";
-import CommunitySettings from "../components/CommunitySettings";
-import CommunityRankingSettings from "../components/CommunityRankingSettings";
+import CommunitySettings from "../features/community/components/CommunitySettings";
+import CommunityRankingSettings from "../features/community/components/CommunityRankingSettings";
 import PageHeading from "../shared/ui/PageHeading";
 import { log } from "../shared/log";
 
