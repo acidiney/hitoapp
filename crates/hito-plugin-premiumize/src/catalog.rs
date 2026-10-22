@@ -1,5 +1,5 @@
 use crate::{CuratedWavRecording, InitError, policy::Error};
-use hito_plugin_sdk::{ProviderSource, SearchPage, SearchRequest, SourcePage};
+use hito_plugin_sdk::{CuratedEntryView, SearchPage, SearchRequest, admit_curated_catalog};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
@@ -9,43 +9,22 @@ pub(crate) struct Catalog {
 }
 
 impl Catalog {
-    pub(crate) fn new(mut entries: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
-        if entries.is_empty() || entries.len() > 128 {
-            return Err(InitError::InvalidConfiguration);
-        }
-        entries.sort_by(|left, right| left.recording.id.cmp(&right.recording.id));
-        let mut recordings = HashSet::new();
-        let mut sources = HashSet::new();
+    pub(crate) fn new(entries: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
+        let entries = admit_curated_catalog(entries, |entry| CuratedEntryView {
+            recording: &entry.recording,
+            source_id: &entry.source_id,
+            label: &entry.label,
+        })
+        .map_err(|_| InitError::InvalidConfiguration)?;
         let mut transfers = HashSet::new();
         let mut items = HashSet::new();
-        let mut bytes = 0_usize;
         let mut digest = Sha256::new();
         for entry in &entries {
-            entry
-                .recording
-                .validate()
-                .map_err(|_| InitError::InvalidConfiguration)?;
-            let detail = serde_json::to_vec(&entry.recording)
-                .map_err(|_| InitError::InvalidConfiguration)?;
-            if detail.len() > 32_768 {
-                return Err(InitError::InvalidConfiguration);
-            }
             entry
                 .binding
                 .validate()
                 .map_err(|_| InitError::InvalidConfiguration)?;
-            SourcePage {
-                items: vec![ProviderSource {
-                    id: entry.source_id.clone(),
-                    label: entry.label.clone(),
-                    ready: false,
-                }],
-            }
-            .validate()
-            .map_err(|_| InitError::InvalidConfiguration)?;
-            if !recordings.insert(&entry.recording.id)
-                || !sources.insert(&entry.source_id)
-                || !transfers.insert(&entry.binding.transfer.transfer_id)
+            if !transfers.insert(&entry.binding.transfer.transfer_id)
                 || !items.insert(&entry.binding.item_id)
             {
                 return Err(InitError::InvalidConfiguration);
@@ -57,10 +36,6 @@ impl Catalog {
                 &entry.binding,
             ))
             .map_err(|_| InitError::InvalidConfiguration)?;
-            if canonical.len() > 49_152_usize.saturating_sub(bytes) {
-                return Err(InitError::InvalidConfiguration);
-            }
-            bytes += canonical.len();
             digest.update((canonical.len() as u64).to_be_bytes());
             digest.update(canonical);
         }
