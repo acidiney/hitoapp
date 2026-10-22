@@ -9,7 +9,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistIndexPage from "../pages/ArtistIndexPage";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
-import Sidebar from "../../../components/Sidebar";
+import Sidebar from "../../../app/Sidebar";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 

@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import Shell from "../../../Shell";
+import Shell from "../../../app/Shell";
 import AlbumPage from "../../catalog/pages/AlbumPage";
 import type { AlbumPageProps } from "../../../shared/types";
 import type { components } from "../../../generated";

@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import Shell from "../../../Shell";
+import Shell from "../../../app/Shell";
 import Artwork from "../components/Artwork";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";

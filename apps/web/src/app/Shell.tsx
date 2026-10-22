@@ -1,14 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
-import type { SharedPageProps } from "./shared/types";
-import { log } from "./shared/log";
-import LibrarySearch from "./components/LibrarySearch";
-import Sidebar from "./components/Sidebar";
-import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
-import { PlaybackProvider } from "./features/playback/components/PlaybackProvider";
-import PlayerDock from "./features/playback/components/PlayerDock";
-import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
+import type { SharedPageProps } from "../shared/types";
+import { log } from "../shared/log";
+import LibrarySearch from "./LibrarySearch";
+import Sidebar from "./Sidebar";
+import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
+import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
+import PlayerDock from "../features/playback/components/PlayerDock";
+import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();

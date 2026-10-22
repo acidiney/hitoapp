@@ -20,10 +20,10 @@ import PodcastIndexPage from "./features/podcasts/pages/PodcastIndexPage";
 import PodcastPage from "./features/podcasts/pages/PodcastPage";
 import PlaylistPage from "./features/playlists/pages/PlaylistPage";
 import SettingsPage from "./features/settings/pages/SettingsPage";
-import ConnectionErrorPage from "./pages/ConnectionErrorPage";
-import Shell from "./Shell";
+import ConnectionErrorPage from "./app/ConnectionErrorPage";
+import Shell from "./app/Shell";
 import { installSessionBoundary } from "./features/session/session";
-import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
+import { installHistoryPolicy, prepareHistoryPage } from "./app/historyPolicy";
 import "./style.css";
 
 const layout = (page: ReactNode) => <Shell>{page}</Shell>;
