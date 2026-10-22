@@ -151,3 +151,11 @@ export type RefreshPodcast = Schema["RefreshPodcast"];
 export type PodcastRefreshReceipt = Schema["PodcastRefreshReceipt"];
 export type UnsubscribePodcast = Schema["UnsubscribePodcast"];
 export type PodcastUnsubscribeReceipt = Schema["PodcastUnsubscribeReceipt"];
+export type AudiobookPlayback = Schema["AudiobookPlayback"];
+export type CommunityRankingPreferences = Schema["CommunityRankingPreferences"];
+export type UpdateCommunityRankingPreferences =
+  Schema["UpdateCommunityRankingPreferences"];
+export type LyricsLookup = Schema["LyricsLookup"];
+export type ReadRecordingLyrics = Schema["ReadRecordingLyrics"];
+export type RecordingLyricsProvider = Schema["RecordingLyricsProvider"];
+export type RecordingLyricsProviders = Schema["RecordingLyricsProviders"];

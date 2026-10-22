@@ -1,4 +1,4 @@
-import { HttpError, request } from "../../../shared/http";
+import { HttpError, request, requestJson } from "../../../shared/http";
 import type {
   DownloadRequest,
   PlaylistDownloadReceipt,
@@ -83,13 +83,15 @@ export const playlistDownloadApi = {
     signal: AbortSignal,
   ): Promise<PlaylistDownloadStatus | null> {
     try {
-      const status: PlaylistDownloadStatus = await (
-        await request(`/playlists/${encodeURIComponent(playlist)}/download`, {
-          action: "downloads.status",
-          account,
-          signal,
-        })
-      ).json();
+      const status: PlaylistDownloadStatus =
+        await requestJson<PlaylistDownloadStatus>(
+          `/playlists/${encodeURIComponent(playlist)}/download`,
+          {
+            action: "downloads.status",
+            account,
+            signal,
+          },
+        );
       if (!validStatus(status, playlist))
         throw new Error("Hito returned an invalid playlist download status");
       return status;

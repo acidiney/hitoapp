@@ -1,6 +1,6 @@
 import { createUuid } from "./uuid";
 import type { Action, SyncBatch, SyncReceipt } from "./types";
-import { request } from "./http";
+import { requestJson } from "./http";
 import { log } from "./log";
 
 function deviceId() {
@@ -30,15 +30,13 @@ export async function submitChange(
     action: action.kind,
   });
   try {
-    const receipt: SyncReceipt = await (
-      await request("/sync", {
-        action: action.kind === "progress_set" ? "progress.save" : "sync.push",
-        method: "POST",
-        body: batch,
-        account,
-        signal,
-      })
-    ).json();
+    const receipt: SyncReceipt = await requestJson<SyncReceipt>("/sync", {
+      action: action.kind === "progress_set" ? "progress.save" : "sync.push",
+      method: "POST",
+      body: batch,
+      account,
+      signal,
+    });
     const acknowledged = receipt?.acknowledged;
     if (
       !Array.isArray(acknowledged) ||

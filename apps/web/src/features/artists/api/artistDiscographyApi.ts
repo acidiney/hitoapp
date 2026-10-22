@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   ArtistDiscographyAvailability,
   ReadArtistDiscography,
@@ -14,17 +14,15 @@ export const artistDiscographyApi = {
     body: ReadArtistDiscography,
     signal: AbortSignal,
   ): Promise<ArtistDiscographyAvailability> {
-    return (
-      await request(
-        `/recordings/${part(recording)}/artist-associations/${part(association)}/discography`,
-        {
-          action: "artist_discography.read",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      )
-    ).json();
+    return requestJson<ArtistDiscographyAvailability>(
+      `/recordings/${part(recording)}/artist-associations/${part(association)}/discography`,
+      {
+        action: "artist_discography.read",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
   },
 };

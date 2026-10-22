@@ -6,6 +6,7 @@ type RequestOptions = {
   body?: unknown;
   account?: string;
   signal?: AbortSignal;
+  cache?: RequestCache;
 };
 
 export class HttpError extends Error {
@@ -33,6 +34,7 @@ export async function request(path: string, options: RequestOptions) {
       method: options.method ?? "GET",
       credentials: "same-origin",
       signal: options.signal,
+      cache: options.cache,
       headers: {
         "content-type": "application/json",
         "x-hito-request": "1",
@@ -66,6 +68,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action === "podcasts.status" ||
       options.action.startsWith("artwork.") ||
       options.action === "progress.save" ||
+      options.action === "session.verify" ||
       options.action.startsWith("native.")
         ? log.debug
         : log.info;
@@ -73,10 +76,11 @@ export async function request(path: string, options: RequestOptions) {
     return response;
   }
   if (
-    ["downloads.status", "source_preparation.status"].includes(
+    (["downloads.status", "source_preparation.status"].includes(
       options.action,
     ) &&
-    response.status === 404
+      response.status === 404) ||
+    (options.action === "session.verify" && response.status === 401)
   )
     log.debug("http.response", result);
   else log.warn("http.failed", result);
@@ -96,4 +100,11 @@ export async function request(path: string, options: RequestOptions) {
       ? data.code
       : undefined;
   throw new HttpError(response.status, message, code);
+}
+
+export async function requestJson<T>(
+  path: string,
+  options: RequestOptions,
+): Promise<T> {
+  return (await request(path, options)).json() as Promise<T>;
 }

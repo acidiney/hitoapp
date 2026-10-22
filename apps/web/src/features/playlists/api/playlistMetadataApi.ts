@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   ImportedPlaylistMetadataRefresh,
   RefreshImportedPlaylistMetadata,
@@ -11,17 +11,15 @@ export const playlistMetadataApi = {
     body: Readonly<RefreshImportedPlaylistMetadata>,
     signal: AbortSignal,
   ): Promise<ImportedPlaylistMetadataRefresh> {
-    return (
-      await request(
-        `/playlists/${encodeURIComponent(playlist)}/metadata/refresh`,
-        {
-          action: "playlists.metadata.refresh",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      )
-    ).json();
+    return requestJson<ImportedPlaylistMetadataRefresh>(
+      `/playlists/${encodeURIComponent(playlist)}/metadata/refresh`,
+      {
+        action: "playlists.metadata.refresh",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
   },
 };

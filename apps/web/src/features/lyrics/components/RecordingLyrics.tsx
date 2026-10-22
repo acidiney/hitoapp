@@ -1,4 +1,7 @@
-import type { LyricsLookup, RecordingLyricsProvider } from "../api/lyricsApi";
+import type {
+  LyricsLookup,
+  RecordingLyricsProvider,
+} from "../../../shared/types";
 import RecordingCredits from "../../metadata/components/RecordingCredits";
 
 type Props = {

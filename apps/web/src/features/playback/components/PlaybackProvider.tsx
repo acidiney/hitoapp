@@ -15,8 +15,7 @@ import { NativePlayback } from "../native/NativePlayback";
 import { sourceResolutionApi } from "../../sources/api/sourceResolutionApi";
 import { useBrowserMediaSession } from "../browser/BrowserMediaSession";
 import { BrowserProgress } from "../browser/BrowserProgress";
-import { request } from "../../../shared/http";
-import type { components } from "../../../generated";
+import { audiobookApi } from "../../audiobooks/api/audiobookApi";
 import { BrowserCommunityReporting } from "../browser/BrowserCommunityReporting";
 
 const PlaybackContext = createContext<Player | null>(null);
@@ -114,16 +113,7 @@ function BrowserAccountPlayback({
         check();
         await progress.flush(combined);
         check();
-        const response = await request(
-          `/audiobooks/${encodeURIComponent(book)}/playback`,
-          {
-            action: "audiobooks.playback_read",
-            account,
-            signal: combined,
-          },
-        );
-        const playback: components["schemas"]["AudiobookPlayback"] =
-          await response.json();
+        const playback = await audiobookApi.playback(account, book, combined);
         check();
         return playback;
       },

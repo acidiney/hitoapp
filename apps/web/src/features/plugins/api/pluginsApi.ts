@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { request, requestJson } from "../../../shared/http";
 import type {
   InstallPlugin,
   OfferPluginService,
@@ -26,15 +26,16 @@ export const pluginsApi = {
     body: FollowProviderPlaylist,
     signal: AbortSignal,
   ): Promise<PlaylistFollowReceipt> {
-    return (
-      await request(`/plugins/${part(installation)}/playlists/follow`, {
+    return requestJson<PlaylistFollowReceipt>(
+      `/plugins/${part(installation)}/playlists/follow`,
+      {
         action: "playlists.follow",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async importPlaylist(
     account: string,
@@ -42,15 +43,16 @@ export const pluginsApi = {
     body: ImportProviderPlaylist,
     signal: AbortSignal,
   ): Promise<PlaylistImportReceipt> {
-    return (
-      await request(`/plugins/${part(installation)}/playlists/import`, {
+    return requestJson<PlaylistImportReceipt>(
+      `/plugins/${part(installation)}/playlists/import`,
+      {
         action: "playlists.import",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async adopt(
     account: string,
@@ -58,15 +60,13 @@ export const pluginsApi = {
     body: AdoptProviderRecording,
     signal: AbortSignal,
   ): Promise<Recording> {
-    return (
-      await request(`/plugins/${part(installation)}/recordings`, {
-        action: "providers.adopt",
-        method: "POST",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<Recording>(`/plugins/${part(installation)}/recordings`, {
+      action: "providers.adopt",
+      method: "POST",
+      account,
+      body,
+      signal,
+    });
   },
   async search(
     account: string,
@@ -74,68 +74,65 @@ export const pluginsApi = {
     body: ProviderSearch,
     signal: AbortSignal,
   ): Promise<ProviderSearchPage> {
-    return (
-      await request(`/plugins/${part(installation)}/search`, {
+    return requestJson<ProviderSearchPage>(
+      `/plugins/${part(installation)}/search`,
+      {
         action: "providers.search",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async settings(
     account: string,
     signal: AbortSignal,
   ): Promise<PluginSettings> {
-    return (
-      await request("/plugins", { action: "plugins.list", account, signal })
-    ).json();
+    return requestJson<PluginSettings>("/plugins", {
+      action: "plugins.list",
+      account,
+      signal,
+    });
   },
   async install(
     account: string,
     body: InstallPlugin,
     signal: AbortSignal,
   ): Promise<PluginInstallation> {
-    return (
-      await request("/plugins", {
-        action: "plugins.install",
-        method: "POST",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<PluginInstallation>("/plugins", {
+      action: "plugins.install",
+      method: "POST",
+      account,
+      body,
+      signal,
+    });
   },
   async preview(
     account: string,
     body: PreviewPluginInstallation,
     signal: AbortSignal,
   ): Promise<PluginInstallationPreview> {
-    return (
-      await request("/plugins/preview", {
-        action: "plugins.preview",
-        method: "POST",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<PluginInstallationPreview>("/plugins/preview", {
+      action: "plugins.preview",
+      method: "POST",
+      account,
+      body,
+      signal,
+    });
   },
   async offer(
     account: string,
     body: OfferPluginService,
     signal: AbortSignal,
   ): Promise<PluginService> {
-    return (
-      await request("/plugins/services", {
-        action: "plugins.offer",
-        method: "POST",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<PluginService>("/plugins/services", {
+      action: "plugins.offer",
+      method: "POST",
+      account,
+      body,
+      signal,
+    });
   },
   async withdraw(
     account: string,
@@ -156,15 +153,13 @@ export const pluginsApi = {
     body: RefreshPlugin,
     signal: AbortSignal,
   ): Promise<PluginRefresh> {
-    return (
-      await request(`/plugins/${part(plugin.id)}/refresh`, {
-        action: "plugins.refresh",
-        method: "POST",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<PluginRefresh>(`/plugins/${part(plugin.id)}/refresh`, {
+      action: "plugins.refresh",
+      method: "POST",
+      account,
+      body,
+      signal,
+    });
   },
   async remove(
     account: string,
@@ -184,14 +179,15 @@ export const pluginsApi = {
     plugin: PluginInstallation,
     signal: AbortSignal,
   ): Promise<PluginInstallation> {
-    return (
-      await request(`/plugins/${part(plugin.id)}/credential`, {
+    return requestJson<PluginInstallation>(
+      `/plugins/${part(plugin.id)}/credential`,
+      {
         action: "plugins.clear_credential",
         method: "DELETE",
         account,
         body: { revision: plugin.revision },
         signal,
-      })
-    ).json();
+      },
+    );
   },
 };

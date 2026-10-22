@@ -1,14 +1,16 @@
 import type { Credentials, User } from "../../../shared/types";
-import { request } from "../../../shared/http";
+import { request, requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 const part = encodeURIComponent;
 
 export const accountsApi = {
   async list(account: string, signal?: AbortSignal): Promise<User[]> {
-    return (
-      await request("/users", { action: "accounts.list", account, signal })
-    ).json();
+    return requestJson<User[]>("/users", {
+      action: "accounts.list",
+      account,
+      signal,
+    });
   },
   async create(
     account: string,
@@ -16,15 +18,13 @@ export const accountsApi = {
     password: string,
     signal?: AbortSignal,
   ): Promise<User> {
-    const user: User = await (
-      await request("/users", {
-        action: "accounts.create",
-        method: "POST",
-        account,
-        body: { username, password } satisfies Credentials,
-        signal,
-      })
-    ).json();
+    const user: User = await requestJson<User>("/users", {
+      action: "accounts.create",
+      method: "POST",
+      account,
+      body: { username, password } satisfies Credentials,
+      signal,
+    });
     log.info("account.created", { account_id: user.id });
     return user;
   },

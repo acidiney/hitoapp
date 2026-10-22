@@ -1,4 +1,4 @@
-import { HttpError, request } from "../../../shared/http";
+import { HttpError, request, requestJson } from "../../../shared/http";
 import type {
   PreparationReason,
   PrepareSource,
@@ -97,13 +97,12 @@ export const sourcePreparationApi = {
     signal: AbortSignal,
   ): Promise<SourcePreparationStatus | null> {
     try {
-      const status: SourcePreparationStatus = await (
-        await request(path(recording, source), {
+      const status: SourcePreparationStatus =
+        await requestJson<SourcePreparationStatus>(path(recording, source), {
           action: "source_preparation.status",
           account,
           signal,
-        })
-      ).json();
+        });
       if (!validStatus(status, recording, source))
         throw new Error("Hito returned an invalid preparation status");
       return status;

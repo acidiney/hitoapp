@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
-import { request } from "../../../shared/http";
+import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
 import type {
   CommunityPreferences,
@@ -59,13 +59,9 @@ export function useCommunityPreferences(account: string) {
     const started = performance.now();
     let outcome = "cancelled";
     setSnapshot(empty(owner));
-    void request("/community/preferences", {
-      action: "community.preferences",
-      account,
-      signal,
-    })
-      .then(async (response) => {
-        const accepted: CommunityPreferences = await response.json();
+    void communityApi
+      .preferences(account, signal)
+      .then((accepted) => {
         if (!active()) return;
         outcome = "accepted";
         owner.pending = null;
@@ -145,15 +141,12 @@ export function useCommunityPreferences(account: string) {
         : value,
     );
     try {
-      const accepted: CommunityPreferences = await (
-        await request("/community/preferences", {
-          action: "community.preferences.update",
-          method: "PUT",
+      const accepted: CommunityPreferences =
+        await communityApi.updatePreferences(
           account,
-          body: current.draft,
-          signal: captured.signal,
-        })
-      ).json();
+          current.draft,
+          captured.signal,
+        );
       if (!active()) return;
       outcome = "accepted";
       owner.pending = null;

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { HttpError, request } from "../../../shared/http";
+import { HttpError } from "../../../shared/http";
+import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
-import type { components } from "../../../generated";
+import type {
+  CommunityRankingPreferences as Preferences,
+  UpdateCommunityRankingPreferences as Update,
+} from "../../../shared/types";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
-type Preferences = components["schemas"]["CommunityRankingPreferences"];
-type Update = components["schemas"]["UpdateCommunityRankingPreferences"];
 type Phase = "load" | "save";
 type Owner = { controller: AbortController | null; pending: Phase | null };
 type Snapshot = {
@@ -82,22 +84,7 @@ export function useCommunityRankingPreferences(account: string) {
     );
     try {
       const accepted: Preferences = await Promise.race([
-        request("/community/ranking-preferences", {
-          action:
-            phase === "load"
-              ? "community.rankings.preferences"
-              : "community.rankings.preferences.update",
-          account,
-          method: phase === "load" ? "GET" : "PUT",
-          body: update,
-          signal,
-        }).then(async (response) => {
-          if (signal.aborted) {
-            await response.body?.cancel();
-            signal.throwIfAborted();
-          }
-          return response.json() as Promise<Preferences>;
-        }),
+        communityApi.rankingPreferences(account, update ?? null, signal),
         cancelled,
       ]);
       if (!active() || signal.aborted) return;

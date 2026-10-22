@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import { lyricsApi, type RecordingLyricsProvider } from "../api/lyricsApi";
+import { lyricsApi } from "../api/lyricsApi";
+import type { RecordingLyricsProvider } from "../../../shared/types";
 import type { RecordingMetadata } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";

@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import type {
   ArtworkAvailability,
@@ -288,9 +288,12 @@ export class ArtworkRetrieval {
     await this.acquire(signal);
     try {
       if (!this.current(entry)) throw signal.reason;
-      return await (
-        await request(path, { action, method, account: this.account, signal })
-      ).json();
+      return await requestJson<T>(path, {
+        action,
+        method,
+        account: this.account,
+        signal,
+      });
     } finally {
       this.requests--;
       this.waiting.values().next().value?.();

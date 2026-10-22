@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   AttachReviewedProviderSource,
   ProviderCandidate,
@@ -13,18 +13,16 @@ export const sourceBindingsApi = {
     body: ProviderCandidate,
     signal: AbortSignal,
   ): Promise<ProviderSourceReview> {
-    return (
-      await request(
-        `/recordings/${encodeURIComponent(recording)}/sources/review`,
-        {
-          action: "sources.review",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      )
-    ).json();
+    return requestJson<ProviderSourceReview>(
+      `/recordings/${encodeURIComponent(recording)}/sources/review`,
+      {
+        action: "sources.review",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
   },
   async attach(
     account: string,
@@ -32,17 +30,15 @@ export const sourceBindingsApi = {
     body: AttachReviewedProviderSource,
     signal: AbortSignal,
   ): Promise<Recording> {
-    return (
-      await request(
-        `/recordings/${encodeURIComponent(recording)}/sources/attach`,
-        {
-          action: "sources.attach",
-          method: "POST",
-          account,
-          body,
-          signal,
-        },
-      )
-    ).json();
+    return requestJson<Recording>(
+      `/recordings/${encodeURIComponent(recording)}/sources/attach`,
+      {
+        action: "sources.attach",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
   },
 };

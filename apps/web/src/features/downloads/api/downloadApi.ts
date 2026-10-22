@@ -1,4 +1,4 @@
-import { HttpError, request } from "../../../shared/http";
+import { HttpError, request, requestJson } from "../../../shared/http";
 import type {
   DownloadReceipt,
   DownloadRequest,
@@ -12,15 +12,16 @@ export const downloadApi = {
     body: Readonly<DownloadRequest>,
     signal: AbortSignal,
   ): Promise<DownloadReceipt> {
-    return (
-      await request(`/recordings/${encodeURIComponent(recording)}/download`, {
+    return requestJson<DownloadReceipt>(
+      `/recordings/${encodeURIComponent(recording)}/download`,
+      {
         action: "downloads.create",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async status(
     account: string,
@@ -28,13 +29,14 @@ export const downloadApi = {
     signal: AbortSignal,
   ): Promise<DownloadStatus | null> {
     try {
-      return await (
-        await request(`/recordings/${encodeURIComponent(recording)}/download`, {
+      return await requestJson<DownloadStatus | null>(
+        `/recordings/${encodeURIComponent(recording)}/download`,
+        {
           action: "downloads.status",
           account,
           signal,
-        })
-      ).json();
+        },
+      );
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) return null;
       throw error;

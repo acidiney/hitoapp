@@ -1,5 +1,6 @@
 import { createUuid } from "../../shared/uuid";
 import { router } from "@inertiajs/react";
+import { HttpError, requestJson } from "../../shared/http";
 import { log } from "../../shared/log";
 
 const revisionKey = "hito-session-revision";
@@ -90,23 +91,21 @@ export function installSessionBoundary(
   }
   async function verify() {
     try {
-      const response = await fetch("/api/v1/me", {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: verification.signal,
-      });
       let currentAccount: string | null = null;
-      if (response.ok) {
-        const user: unknown = await response.json();
+      let status = 200;
+      try {
+        const user = await requestJson<unknown>("/me", {
+          action: "session.verify",
+          cache: "no-store",
+          signal: verification.signal,
+        });
         currentAccount = account({ user });
         if (!currentAccount) throw new Error("Invalid session response");
-      } else if (response.status !== 401) {
-        throw new Error("Session check failed");
+      } catch (error) {
+        if (!(error instanceof HttpError && error.status === 401)) throw error;
+        status = error.status;
       }
-      log.debug("session.verified", {
-        status: response.status,
-        request_id: response.headers.get("x-request-id") ?? undefined,
-      });
+      log.debug("session.verified", { status });
       if (currentAccount !== initialAccount)
         invalidate("initial_account_changed");
       checkRevision();

@@ -2,6 +2,7 @@ import type {
   CommunityReportAdmission,
   SuccessfulPlayback,
 } from "../../../shared/types";
+import { HttpError, request } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 type Scope = { signal: AbortSignal; active(): boolean };
@@ -90,18 +91,14 @@ export class BrowserCommunityReporting {
     head: Pending,
     signal: AbortSignal,
   ): Promise<CommunityReportAdmission | "retry" | "rejected"> {
-    const responsePromise = fetch(
-      `/api/v1/sources/${encodeURIComponent(head.source)}/successful-playback`,
+    const responsePromise = request(
+      `/sources/${encodeURIComponent(head.source)}/successful-playback`,
       {
+        action: "community.playback.report",
         method: "POST",
-        credentials: "same-origin",
+        body: head.claim,
+        account: this.account,
         signal,
-        headers: {
-          "content-type": "application/json",
-          "x-hito-request": "1",
-          "x-hito-account": this.account,
-        },
-        body: JSON.stringify(head.claim),
       },
     );
     void responsePromise.then(
@@ -110,12 +107,12 @@ export class BrowserCommunityReporting {
       },
       () => {},
     );
-    const response = await abortable(responsePromise, signal);
-    if (!response.ok) {
-      void response.body?.cancel().catch(() => {});
-      return response.status === 429 || response.status >= 500
-        ? "retry"
-        : "rejected";
+    let response: Response;
+    try {
+      response = await abortable(responsePromise, signal);
+    } catch (error) {
+      if (!(error instanceof HttpError)) throw error;
+      return error.status === 429 || error.status >= 500 ? "retry" : "rejected";
     }
     if (
       !response.headers.get("content-type")?.startsWith("application/json") ||

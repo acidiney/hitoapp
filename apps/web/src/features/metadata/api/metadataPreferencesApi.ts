@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   MetadataSettings,
   UpdateMetadataSettings,
@@ -9,27 +9,23 @@ export const metadataPreferencesApi = {
     account: string,
     signal: AbortSignal,
   ): Promise<MetadataSettings> {
-    return (
-      await request("/metadata/settings", {
-        action: "metadata.settings",
-        account,
-        signal,
-      })
-    ).json();
+    return requestJson<MetadataSettings>("/metadata/settings", {
+      action: "metadata.settings",
+      account,
+      signal,
+    });
   },
   async update(
     account: string,
     body: UpdateMetadataSettings,
     signal: AbortSignal,
   ): Promise<MetadataSettings> {
-    return (
-      await request("/metadata/settings", {
-        action: "metadata.settings.update",
-        method: "PUT",
-        account,
-        body,
-        signal,
-      })
-    ).json();
+    return requestJson<MetadataSettings>("/metadata/settings", {
+      action: "metadata.settings.update",
+      method: "PUT",
+      account,
+      body,
+      signal,
+    });
   },
 };

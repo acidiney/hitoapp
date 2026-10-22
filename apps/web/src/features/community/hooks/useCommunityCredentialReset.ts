@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
-import { request } from "../../../shared/http";
+import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
 import type { CommunityCredentialReset } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
@@ -33,14 +33,8 @@ export function useCommunityCredentialReset(account: string) {
     const started = performance.now();
     let reason = "cancelled";
     try {
-      const receipt: CommunityCredentialReset = await (
-        await request("/community/credentials", {
-          action: "community.credentials.reset",
-          method: "DELETE",
-          account,
-          signal: captured.signal,
-        })
-      ).json();
+      const receipt: CommunityCredentialReset =
+        await communityApi.resetCredentials(account, captured.signal);
       if (!captured.active()) return;
       reason = "accepted";
       owner.pending = false;

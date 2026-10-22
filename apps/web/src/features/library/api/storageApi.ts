@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { request, requestJson } from "../../../shared/http";
 import type {
   DirectoryPage,
   DirectoryRef,
@@ -13,13 +13,11 @@ export const storageApi = {
     account: string,
     signal: AbortSignal,
   ): Promise<SharedDirectory[]> {
-    return (
-      await request("/storage/directories", {
-        action: "folders.directories",
-        account,
-        signal,
-      })
-    ).json();
+    return requestJson<SharedDirectory[]>("/storage/directories", {
+      action: "folders.directories",
+      account,
+      signal,
+    });
   },
   async browse(
     account: string,
@@ -27,28 +25,24 @@ export const storageApi = {
     offset: number | null,
     signal: AbortSignal,
   ): Promise<DirectoryPage> {
-    return (
-      await request("/storage/browse", {
-        action: "folders.browse",
-        method: "POST",
-        account,
-        body: { directory, offset },
-        signal,
-      })
-    ).json();
+    return requestJson<DirectoryPage>("/storage/browse", {
+      action: "folders.browse",
+      method: "POST",
+      account,
+      body: { directory, offset },
+      signal,
+    });
   },
   async folders(
     account: string,
     library: string,
     signal: AbortSignal,
   ): Promise<MusicFolder[]> {
-    return (
-      await request(`/libraries/${part(library)}/folders`, {
-        action: "folders.list",
-        account,
-        signal,
-      })
-    ).json();
+    return requestJson<MusicFolder[]>(`/libraries/${part(library)}/folders`, {
+      action: "folders.list",
+      account,
+      signal,
+    });
   },
   async connect(
     account: string,
@@ -56,15 +50,13 @@ export const storageApi = {
     directory: DirectoryRef,
     signal: AbortSignal,
   ): Promise<MusicFolder> {
-    return (
-      await request(`/libraries/${part(library)}/folders`, {
-        action: "folders.connect",
-        method: "POST",
-        account,
-        body: { directory },
-        signal,
-      })
-    ).json();
+    return requestJson<MusicFolder>(`/libraries/${part(library)}/folders`, {
+      action: "folders.connect",
+      method: "POST",
+      account,
+      body: { directory },
+      signal,
+    });
   },
   async remove(
     account: string,
@@ -84,13 +76,11 @@ export const storageApi = {
     folder: string,
     signal: AbortSignal,
   ): Promise<Job> {
-    return (
-      await request(`/folders/${part(folder)}/scan`, {
-        action: "folders.scan",
-        method: "POST",
-        account,
-        signal,
-      })
-    ).json();
+    return requestJson<Job>(`/folders/${part(folder)}/scan`, {
+      action: "folders.scan",
+      method: "POST",
+      account,
+      signal,
+    });
   },
 };

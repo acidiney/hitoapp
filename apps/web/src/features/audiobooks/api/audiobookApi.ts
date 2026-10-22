@@ -1,5 +1,5 @@
-import { request } from "../../../shared/http";
-import type { AudiobookDetail } from "../../../shared/types";
+import { request, requestJson } from "../../../shared/http";
+import type { AudiobookDetail, AudiobookPlayback } from "../../../shared/types";
 
 export const audiobookApi = {
   async read(
@@ -28,5 +28,15 @@ export const audiobookApi = {
     )
       throw new Error("Hito could not verify this audiobook.");
     return detail;
+  },
+  playback(
+    account: string,
+    book: string,
+    signal: AbortSignal,
+  ): Promise<AudiobookPlayback> {
+    return requestJson<AudiobookPlayback>(
+      `/audiobooks/${encodeURIComponent(book)}/playback`,
+      { action: "audiobooks.playback_read", account, signal },
+    );
   },
 };

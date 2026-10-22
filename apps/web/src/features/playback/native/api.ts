@@ -1,5 +1,5 @@
 import type { components } from "../../../generated";
-import { request } from "../../../shared/http";
+import { request, requestJson } from "../../../shared/http";
 import { readObservations } from "./observations";
 
 type Schema = components["schemas"];
@@ -17,69 +17,63 @@ export const nativeApi = {
     account: string,
     signal: AbortSignal,
   ): Promise<Schema["PlayerStatus"]> {
-    return (
-      await request("/player", { action: "native.inspect", account, signal })
-    ).json();
+    return requestJson<Schema["PlayerStatus"]>("/player", {
+      action: "native.inspect",
+      account,
+      signal,
+    });
   },
   async claim(
     account: string,
     epoch: string,
     signal: AbortSignal,
   ): Promise<Attachment> {
-    return (
-      await request("/player/claim", {
-        action: "native.claim",
-        method: "POST",
-        account,
-        signal,
-        body: { epoch } satisfies Schema["PlayerClaim"],
-      })
-    ).json();
+    return requestJson<Attachment>("/player/claim", {
+      action: "native.claim",
+      method: "POST",
+      account,
+      signal,
+      body: { epoch } satisfies Schema["PlayerClaim"],
+    });
   },
   async command(
     account: string,
     body: Command,
     signal: AbortSignal,
   ): Promise<Receipt> {
-    return (
-      await request("/player/commands", {
-        action: "native.command",
-        method: "POST",
-        account,
-        signal,
-        body,
-      })
-    ).json();
+    return requestJson<Receipt>("/player/commands", {
+      action: "native.command",
+      method: "POST",
+      account,
+      signal,
+      body,
+    });
   },
   async queue(
     account: string,
     body: Schema["PlayerQueueRequest"],
     signal: AbortSignal,
   ): Promise<Schema["PlayerQueuePage"]> {
-    return (
-      await request("/player/queue", {
-        action: "native.queue",
-        method: "POST",
-        account,
-        signal,
-        body,
-      })
-    ).json();
+    return requestJson<Schema["PlayerQueuePage"]>("/player/queue", {
+      action: "native.queue",
+      method: "POST",
+      account,
+      signal,
+      body,
+    });
   },
   async prepareAudiobook(
     account: string,
     body: AudiobookRequest,
     signal: AbortSignal,
   ): Promise<AudiobookContinuation> {
-    return (
-      await request("/player/audiobooks/prepare", {
-        action: "native.audiobook_prepare",
-        method: "POST",
-        account,
-        signal,
-        body,
-      })
-    ).json();
+    return requestJson<AudiobookContinuation>("/player/audiobooks/prepare", {
+      action: "native.audiobook_prepare",
+      method: "POST",
+      account,
+      signal,
+      body,
+    });
   },
   async cancelAudiobook(
     account: string,
@@ -99,15 +93,16 @@ export const nativeApi = {
     body: Schema["PlayerAudiobookCancel"] & { command: Command },
     signal: AbortSignal,
   ): Promise<Schema["PlayerAudiobookSettlement"]> {
-    return (
-      await request("/player/audiobooks/cancel", {
+    return requestJson<Schema["PlayerAudiobookSettlement"]>(
+      "/player/audiobooks/cancel",
+      {
         action: "native.audiobook_settle",
         method: "POST",
         account,
         signal,
         body,
-      })
-    ).json();
+      },
+    );
   },
   async observe<T extends Snapshot | Position>(
     account: string,

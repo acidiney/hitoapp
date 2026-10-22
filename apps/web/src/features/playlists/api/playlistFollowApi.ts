@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   PlaylistFollow,
   PlaylistFollowRefresh,
@@ -13,13 +13,11 @@ export const playlistFollowApi = {
     playlist: string,
     signal: AbortSignal,
   ): Promise<PlaylistFollow> {
-    return (
-      await request(`/playlists/${part(playlist)}/follow`, {
-        action: "playlists.follow.status",
-        account,
-        signal,
-      })
-    ).json();
+    return requestJson<PlaylistFollow>(`/playlists/${part(playlist)}/follow`, {
+      action: "playlists.follow.status",
+      account,
+      signal,
+    });
   },
   async refresh(
     account: string,
@@ -27,14 +25,15 @@ export const playlistFollowApi = {
     body: Readonly<RefreshFollowedPlaylist>,
     signal: AbortSignal,
   ): Promise<PlaylistFollowRefresh> {
-    return (
-      await request(`/playlists/${part(playlist)}/follow/refresh`, {
+    return requestJson<PlaylistFollowRefresh>(
+      `/playlists/${part(playlist)}/follow/refresh`,
+      {
         action: "playlists.follow.refresh",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
 };

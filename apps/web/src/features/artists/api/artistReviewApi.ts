@@ -1,4 +1,4 @@
-import { request } from "../../../shared/http";
+import { requestJson } from "../../../shared/http";
 import type {
   ArtistAssociation,
   ArtistCandidatePreviewAvailability,
@@ -19,15 +19,16 @@ export const artistReviewApi = {
     body: BeginArtistReview,
     signal: AbortSignal,
   ): Promise<ArtistReviewContext> {
-    return (
-      await request(`/recordings/${part(recording)}/artist-review/context`, {
+    return requestJson<ArtistReviewContext>(
+      `/recordings/${part(recording)}/artist-review/context`,
+      {
         action: "artist_review.context",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async search(
     account: string,
@@ -35,15 +36,16 @@ export const artistReviewApi = {
     body: SearchArtistCandidates,
     signal: AbortSignal,
   ): Promise<ArtistCandidateSearchAvailability> {
-    return (
-      await request(`/recordings/${part(recording)}/artist-review/search`, {
+    return requestJson<ArtistCandidateSearchAvailability>(
+      `/recordings/${part(recording)}/artist-review/search`,
+      {
         action: "artist_review.search",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async preview(
     account: string,
@@ -51,15 +53,16 @@ export const artistReviewApi = {
     body: SelectArtistCandidate,
     signal: AbortSignal,
   ): Promise<ArtistCandidatePreviewAvailability> {
-    return (
-      await request(`/recordings/${part(recording)}/artist-review/preview`, {
+    return requestJson<ArtistCandidatePreviewAvailability>(
+      `/recordings/${part(recording)}/artist-review/preview`,
+      {
         action: "artist_review.preview",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async confirm(
     account: string,
@@ -67,28 +70,30 @@ export const artistReviewApi = {
     body: SelectArtistCandidate,
     signal: AbortSignal,
   ): Promise<ArtistAssociation> {
-    return (
-      await request(`/recordings/${part(recording)}/artist-review/confirm`, {
+    return requestJson<ArtistAssociation>(
+      `/recordings/${part(recording)}/artist-review/confirm`,
+      {
         action: "artist_review.confirm",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async associations(
     account: string,
     recording: string,
     signal: AbortSignal,
   ): Promise<ArtistAssociation[]> {
-    return (
-      await request(`/recordings/${part(recording)}/artist-associations`, {
+    return requestJson<ArtistAssociation[]>(
+      `/recordings/${part(recording)}/artist-associations`,
+      {
         action: "artist_review.associations",
         account,
         signal,
-      })
-    ).json();
+      },
+    );
   },
   async profile(
     account: string,
@@ -96,15 +101,13 @@ export const artistReviewApi = {
     association: string,
     signal: AbortSignal,
   ): Promise<ArtistProfileAvailability> {
-    return (
-      await request(
-        `/recordings/${part(recording)}/artist-associations/${part(association)}/profile`,
-        {
-          action: "artist_review.profile",
-          account,
-          signal,
-        },
-      )
-    ).json();
+    return requestJson<ArtistProfileAvailability>(
+      `/recordings/${part(recording)}/artist-associations/${part(association)}/profile`,
+      {
+        action: "artist_review.profile",
+        account,
+        signal,
+      },
+    );
   },
 };

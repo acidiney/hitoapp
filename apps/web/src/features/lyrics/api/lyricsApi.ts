@@ -1,12 +1,9 @@
-import { request } from "../../../shared/http";
-import type { components } from "../../../generated";
-
-export type LyricsLookup = components["schemas"]["LyricsLookup"];
-export type ReadRecordingLyrics = components["schemas"]["ReadRecordingLyrics"];
-export type RecordingLyricsProvider =
-  components["schemas"]["RecordingLyricsProvider"];
-export type RecordingLyricsProviders =
-  components["schemas"]["RecordingLyricsProviders"];
+import { requestJson } from "../../../shared/http";
+import type {
+  LyricsLookup,
+  ReadRecordingLyrics,
+  RecordingLyricsProviders,
+} from "../../../shared/types";
 
 export const lyricsApi = {
   async providers(
@@ -14,12 +11,10 @@ export const lyricsApi = {
     recording: string,
     signal: AbortSignal,
   ): Promise<RecordingLyricsProviders> {
-    return (
-      await request(
-        `/recordings/${encodeURIComponent(recording)}/lyrics/providers`,
-        { action: "lyrics.providers", account, signal },
-      )
-    ).json();
+    return requestJson<RecordingLyricsProviders>(
+      `/recordings/${encodeURIComponent(recording)}/lyrics/providers`,
+      { action: "lyrics.providers", account, signal },
+    );
   },
   async read(
     account: string,
@@ -27,14 +22,15 @@ export const lyricsApi = {
     body: ReadRecordingLyrics,
     signal: AbortSignal,
   ): Promise<LyricsLookup> {
-    return (
-      await request(`/recordings/${encodeURIComponent(recording)}/lyrics`, {
+    return requestJson<LyricsLookup>(
+      `/recordings/${encodeURIComponent(recording)}/lyrics`,
+      {
         action: "lyrics.read",
         method: "POST",
         account,
         body,
         signal,
-      })
-    ).json();
+      },
+    );
   },
 };
