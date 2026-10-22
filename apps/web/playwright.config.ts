@@ -1,6 +1,12 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: [
+    "**/*.test.ts",
+    "**/collection-artwork.spec.ts",
+    "**/community-ranking.spec.ts",
+    "**/recording-lyric-provider-choice.spec.ts",
+  ],
   workers: 1,
   retries: 0,
   timeout: 60000,

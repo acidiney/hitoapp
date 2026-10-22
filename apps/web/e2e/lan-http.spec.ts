@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { SyncBatch } from "../src/types";
+import type { SyncBatch } from "../src/shared/types";
 
 // Requires a fresh e2e-server with scripts/audio-fixtures.mjs --e2e fixtures.
 // Its configured origins must include both test URLs in the browser namespace.
