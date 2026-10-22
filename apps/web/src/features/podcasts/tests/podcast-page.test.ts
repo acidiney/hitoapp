@@ -9,12 +9,12 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import PodcastPage from "./pages/PodcastPage";
-import { NoticeProvider } from "./shared/ui/Notices";
-import type { components } from "./generated";
+import PodcastPage from "../pages/PodcastPage";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import type { components } from "../../../generated";
 
 const playQueue = vi.fn(async () => {});
-vi.mock("./player/PlaybackProvider", () => ({
+vi.mock("../../../player/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue,
     subscribe: () => () => {},

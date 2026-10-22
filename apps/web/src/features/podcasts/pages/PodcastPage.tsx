@@ -1,13 +1,13 @@
 import { Link } from "@inertiajs/react";
-import EmptyState from "../shared/ui/EmptyState";
-import PageHeading from "../shared/ui/PageHeading";
-import PodcastEpisodes from "../components/podcasts/PodcastEpisodes";
-import PodcastStatus from "../components/podcasts/PodcastStatus";
-import PodcastControls from "../components/podcasts/PodcastControls";
-import { useMutation } from "../shared/hooks/useMutation";
+import EmptyState from "../../../shared/ui/EmptyState";
+import PageHeading from "../../../shared/ui/PageHeading";
+import PodcastEpisodes from "../components/PodcastEpisodes";
+import PodcastStatus from "../components/PodcastStatus";
+import PodcastControls from "../components/PodcastControls";
+import { useMutation } from "../../../shared/hooks/useMutation";
 import { usePodcastEpisodes } from "../hooks/usePodcastEpisodes";
 import { usePodcastLifecycle } from "../hooks/usePodcastLifecycle";
-import type { PodcastPageProps } from "../shared/types";
+import type { PodcastPageProps } from "../../../shared/types";
 
 export default function PodcastPage({
   user,

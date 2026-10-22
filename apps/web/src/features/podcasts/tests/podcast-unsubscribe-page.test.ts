@@ -8,10 +8,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import PodcastPage from "./pages/PodcastPage";
-import { NoticeProvider } from "./shared/ui/Notices";
-import type { PlaybackView } from "./player/model";
-import type { components } from "./generated";
+import PodcastPage from "../pages/PodcastPage";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import type { PlaybackView } from "../../../player/model";
+import type { components } from "../../../generated";
 
 const playback: PlaybackView = {
   current: null,
@@ -29,7 +29,7 @@ const clear = vi.fn(() => {
   playback.current = null;
   playback.playing = false;
 });
-vi.mock("./player/PlaybackProvider", () => ({
+vi.mock("../../../player/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue,
     clear,

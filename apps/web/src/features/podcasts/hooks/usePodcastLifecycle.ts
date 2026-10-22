@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
-import { HttpError } from "../shared/http";
-import { log } from "../shared/log";
-import { podcastApi } from "../podcastApi";
-import type { PodcastSubscription } from "../shared/types";
+import { HttpError } from "../../../shared/http";
+import { log } from "../../../shared/log";
+import { podcastApi } from "../api/podcastApi";
+import type { PodcastSubscription } from "../../../shared/types";
 import { usePodcastCommand } from "./usePodcastCommand";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type EpisodeUpdates = {
   generation: object;

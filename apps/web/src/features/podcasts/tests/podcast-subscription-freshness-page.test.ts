@@ -7,15 +7,15 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import PodcastIndexPage from "./pages/PodcastIndexPage";
-import { NoticeProvider } from "./shared/ui/Notices";
+import PodcastIndexPage from "../pages/PodcastIndexPage";
+import { NoticeProvider } from "../../../shared/ui/Notices";
 import {
   emptyPodcastPage,
   ownedPodcastFeed,
   ownedPodcastJob,
   readyPodcast,
-} from "./fixtures/podcastSubscriptions";
-import type { components } from "./generated";
+} from "../fixtures/podcastSubscriptions";
+import type { components } from "../../../generated";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },

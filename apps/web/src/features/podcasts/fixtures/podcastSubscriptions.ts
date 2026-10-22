@@ -1,4 +1,4 @@
-import type { components } from "../generated";
+import type { components } from "../../../generated";
 
 export const ownedPodcastFeed =
   "https://feed.invalid/owned-private-existing-podcast.xml";

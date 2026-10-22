@@ -1,4 +1,4 @@
-import { request } from "./shared/http";
+import { request } from "../../../shared/http";
 import type {
   PodcastEpisodePage,
   PodcastRefreshReceipt,
@@ -10,7 +10,7 @@ import type {
   SavedPlaybackRequest,
   SubscribePodcast,
   UnsubscribePodcast,
-} from "./shared/types";
+} from "../../../shared/types";
 
 export const podcastApi = {
   async unsubscribe(

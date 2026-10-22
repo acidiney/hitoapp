@@ -2,13 +2,13 @@ import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import PodcastPage from "./pages/PodcastPage";
-import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
-import type { components } from "./generated";
+import PodcastPage from "../pages/PodcastPage";
+import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
+import type { components } from "../../../generated";
 
 const playQueue = vi.fn(async () => {});
 const clear = vi.fn();
-vi.mock("./player/PlaybackProvider", () => ({
+vi.mock("../../../player/PlaybackProvider", () => ({
   usePlayer: () => ({
     playQueue,
     clear,

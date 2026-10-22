@@ -1,9 +1,9 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import PodcastIndexPage from "./pages/PodcastIndexPage";
-import { NoticeProvider } from "./shared/ui/Notices";
-import type { components } from "./generated";
+import PodcastIndexPage from "../pages/PodcastIndexPage";
+import { NoticeProvider } from "../../../shared/ui/Notices";
+import type { components } from "../../../generated";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },

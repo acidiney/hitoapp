@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { HttpError } from "../shared/http";
-import { log } from "../shared/log";
-import { podcastApi } from "../podcastApi";
+import { HttpError } from "../../../shared/http";
+import { log } from "../../../shared/log";
+import { podcastApi } from "../api/podcastApi";
 import type {
   PodcastRefreshReceipt,
   PodcastUnsubscribeReceipt,
   RefreshPodcast,
   UnsubscribePodcast,
-} from "../shared/types";
-import { createUuid } from "../shared/uuid";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+} from "../../../shared/types";
+import { createUuid } from "../../../shared/uuid";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
   | { kind: "refresh"; body: Readonly<RefreshPodcast> }
