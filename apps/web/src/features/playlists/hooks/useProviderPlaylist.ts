@@ -1,7 +1,7 @@
 import { createUuid } from "../../../shared/uuid";
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";

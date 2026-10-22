@@ -1,9 +1,9 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
-import PluginSettings from "./components/plugins/PluginSettings";
-import { usePlugins } from "./hooks/usePlugins";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
+import PluginSettings from "../components/PluginSettings";
+import { usePlugins } from "../hooks/usePlugins";
 import {
   confirmedInstallation,
   installationAccount,
@@ -17,7 +17,7 @@ import {
   replacementInstallationDigest,
   replacementInstallationToken,
   type Persistence,
-} from "./fixtures/pluginInstallation";
+} from "../fixtures/pluginInstallation";
 
 const logs: unknown[][] = [];
 

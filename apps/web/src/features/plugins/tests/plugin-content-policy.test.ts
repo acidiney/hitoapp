@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { ArtworkProvider } from "./features/artwork/components/ArtworkProvider";
-import PluginSettings from "./components/plugins/PluginSettings";
-import type { PluginInstallation, RefreshPlugin } from "./shared/types";
+import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
+import PluginSettings from "../components/PluginSettings";
+import type { PluginInstallation, RefreshPlugin } from "../../../shared/types";
 
 type Persistence = NonNullable<
   PluginInstallation["manifest"]["content_policy"]

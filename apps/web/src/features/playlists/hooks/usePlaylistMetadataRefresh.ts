@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { playlistMetadataApi } from "../api/playlistMetadataApi";
 import { HttpError } from "../../../shared/http";
 import { createUuid } from "../../../shared/uuid";

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import SettingsPage from "../../../pages/SettingsPage";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { connections, settings } from "../fixtures/metadataPreferences";
 import type { SettingsPageProps } from "../../../shared/types";
 
@@ -14,8 +14,8 @@ vi.mock("@inertiajs/react", async (importOriginal) => {
 vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
 }));
-vi.mock("../../../pluginsApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../pluginsApi")>();
+vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../plugins/api/pluginsApi")>();
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 

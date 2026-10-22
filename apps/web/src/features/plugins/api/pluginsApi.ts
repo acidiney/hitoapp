@@ -1,4 +1,4 @@
-import { request } from "./shared/http";
+import { request } from "../../../shared/http";
 import type {
   InstallPlugin,
   OfferPluginService,
@@ -17,7 +17,7 @@ import type {
   PlaylistImportReceipt,
   FollowProviderPlaylist,
   PlaylistFollowReceipt,
-} from "./shared/types";
+} from "../../../shared/types";
 const part = encodeURIComponent;
 export const pluginsApi = {
   async followPlaylist(

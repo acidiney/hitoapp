@@ -3,7 +3,7 @@ import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import type {
   ArtistAssociation,
   ArtistCandidatePreviewAvailability,

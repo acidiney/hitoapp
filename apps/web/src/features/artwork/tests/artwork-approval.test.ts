@@ -4,7 +4,7 @@ import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
-import PluginSettings from "../../../components/plugins/PluginSettings";
+import PluginSettings from "../../plugins/components/PluginSettings";
 import { artworkApprovalFixture } from "../fixtures/artworkApproval";
 
 test("accepting artwork capability retries a cached unavailable cover without reloading the account", async () => {

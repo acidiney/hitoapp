@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import type { PluginInstallation, PluginRefresh } from "../../shared/types";
-import type { PluginActions } from "../../hooks/usePlugins";
+import type { PluginInstallation, PluginRefresh } from "../../../shared/types";
+import type { PluginActions } from "../hooks/usePlugins";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 type Review = Extract<PluginRefresh, { kind: "review_required" }>;

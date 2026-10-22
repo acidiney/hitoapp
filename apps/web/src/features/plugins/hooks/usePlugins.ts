@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pluginsApi } from "../pluginsApi";
+import { pluginsApi } from "../api/pluginsApi";
 import type {
   InstallPlugin,
   OfferPluginService,
@@ -8,11 +8,11 @@ import type {
   PluginSettings,
   PreviewPluginInstallation,
   RefreshPlugin,
-} from "../shared/types";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
-import { errorMessage } from "../shared/format";
-import { log } from "../shared/log";
-import { useRefreshArtworkAvailability } from "../features/artwork/components/ArtworkProvider";
+} from "../../../shared/types";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
+import { errorMessage } from "../../../shared/format";
+import { log } from "../../../shared/log";
+import { useRefreshArtworkAvailability } from "../../artwork/components/ArtworkProvider";
 
 export function usePlugins(account: string) {
   const scope = useRequestScope(account);

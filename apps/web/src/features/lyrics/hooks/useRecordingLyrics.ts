@@ -6,7 +6,7 @@ import {
   type LyricsLookup,
   type RecordingLyricsProvider,
 } from "../api/lyricsApi";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import type { RecordingMetadata } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";

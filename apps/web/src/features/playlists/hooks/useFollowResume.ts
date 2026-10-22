@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { prepareChange, submitChange } from "../../../shared/sync";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { playlistFollowApi } from "../api/playlistFollowApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";

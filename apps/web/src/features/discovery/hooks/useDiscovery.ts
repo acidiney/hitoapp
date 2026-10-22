@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";

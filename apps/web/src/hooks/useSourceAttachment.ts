@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { errorMessage } from "../shared/format";
 import { log } from "../shared/log";
-import { pluginsApi } from "../pluginsApi";
+import { pluginsApi } from "../features/plugins/api/pluginsApi";
 import { sourceBindingsApi } from "../sourceBindingsApi";
 import type {
   PluginInstallation,

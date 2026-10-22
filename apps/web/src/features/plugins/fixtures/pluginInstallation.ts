@@ -3,7 +3,7 @@ import type {
   PluginInstallation,
   PluginInstallationPreview,
   PluginService,
-} from "../shared/types";
+} from "../../../shared/types";
 
 export type Persistence = NonNullable<
   PluginInstallation["manifest"]["content_policy"]

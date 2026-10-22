@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
-import { pluginsApi } from "../../../pluginsApi";
+import { pluginsApi } from "../../plugins/api/pluginsApi";
 import type {
   MetadataProvider,
   MetadataSettings,

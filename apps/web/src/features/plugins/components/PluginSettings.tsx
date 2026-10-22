@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Link } from "@inertiajs/react";
-import { usePlugins } from "../../hooks/usePlugins";
+import { usePlugins } from "../hooks/usePlugins";
 import ConnectPlugin from "./ConnectPlugin";
 import PluginConnection from "./PluginConnection";
 import PluginServices from "./PluginServices";
