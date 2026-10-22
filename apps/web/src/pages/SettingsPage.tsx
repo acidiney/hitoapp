@@ -1,7 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { usePage } from "@inertiajs/react";
 import type { SettingsPageProps } from "../shared/types";
-import AccountSettings from "../components/AccountSettings";
+import AccountSettings from "../features/accounts/components/AccountSettings";
 import LibrarySettings from "../components/LibrarySettings";
 import PluginSettings from "../components/plugins/PluginSettings";
 import MetadataPreferences from "../components/metadata/MetadataPreferences";

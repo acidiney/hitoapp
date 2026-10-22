@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { accountsApi } from "../features/accounts/api/accountsApi";
-import { errorMessage } from "../shared/format";
-import { useNotice } from "../shared/ui/Notices";
-import type { User } from "../shared/types";
-import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { accountsApi } from "../api/accountsApi";
+import { errorMessage } from "../../../shared/format";
+import { useNotice } from "../../../shared/ui/Notices";
+import type { User } from "../../../shared/types";
+import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useAccounts(account: string) {
   const notice = useNotice();

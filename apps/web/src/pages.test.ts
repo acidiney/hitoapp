@@ -18,7 +18,7 @@ import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import PlaylistPage from "./pages/PlaylistPage";
 import { useMutation } from "./shared/hooks/useMutation";
 import { useScanJob } from "./hooks/useScanJob";
-import { useAccounts } from "./hooks/useAccounts";
+import { useAccounts } from "./features/accounts/hooks/useAccounts";
 import type { Job, SyncReceipt } from "./shared/types";
 import { deferred } from "./test/async";
 
