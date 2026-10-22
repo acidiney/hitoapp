@@ -14,6 +14,7 @@ import type {
   PlaylistImportReceipt,
   PlaylistIndexPageProps,
 } from "./types";
+import { heldResponse } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -29,16 +30,6 @@ const props: PlaylistIndexPageProps = {
     [otherPlaylistConnection.service_id]: "Other playlist collection",
   },
 };
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  let reject!: (error: Error) => void;
-  const response = new Promise<Response>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
-  return { response, resolve, reject };
-}
 
 function renderPage(page: PlaylistIndexPageProps) {
   return render(createElement(PlaylistIndexPage, page), {

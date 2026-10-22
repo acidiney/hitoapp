@@ -15,12 +15,7 @@ import {
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
 import { log } from "./log";
-
-async function flush() {
-  await act(async () => {
-    for (let step = 0; step < 8; step++) await Promise.resolve();
-  });
-}
+import { flush } from "./test/async";
 
 test.each(["editions", "track list"] as const)(
   "%s reads stop at twenty seconds through headers, success bodies and error bodies",

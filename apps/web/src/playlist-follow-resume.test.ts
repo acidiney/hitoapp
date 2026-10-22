@@ -9,6 +9,7 @@ import { copiedPlaylistPage } from "./fixtures/playlistPages";
 import { playlistConnection } from "./fixtures/playlistImports";
 import type { components } from "./generated";
 import type { PlaylistPageProps } from "./types";
+import { heldResponse } from "./test/async";
 
 type Schema = components["schemas"];
 
@@ -17,14 +18,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  const response = new Promise<Response>((accept) => {
-    resolve = accept;
-  });
-  return { response, resolve };
-}
 
 test("a paused playlist explicitly reviews its original connection and retries an unconfirmed resume unchanged", async () => {
   vi.useFakeTimers();

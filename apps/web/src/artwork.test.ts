@@ -12,6 +12,7 @@ import Artwork from "./components/Artwork";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "./fixtures/sourceAttachment";
 import type { components } from "./generated";
+import { deferred } from "./test/async";
 
 type ArtworkFetch = components["schemas"]["ArtworkFetch"];
 
@@ -38,14 +39,6 @@ afterEach(() => {
   cleanup();
   page.props.user = { id: "alice", username: "Alice", admin: false };
 });
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((accept) => {
-    resolve = accept;
-  });
-  return { promise, resolve };
-}
 
 test("duplicate missing recording covers share retrieval and retry retained artwork when ready", async () => {
   vi.useFakeTimers();

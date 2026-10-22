@@ -10,6 +10,7 @@ import {
 } from "./fixtures/artistReview";
 import { firstDiscographyPage } from "./fixtures/artistDiscography";
 import type { ArtistIdentityGroupPageProps } from "./types";
+import { flush } from "./test/async";
 
 vi.mock("./player/PlaybackProvider", () => ({
   usePlayer: () => ({
@@ -95,12 +96,6 @@ test.each([
     }
   },
 );
-
-async function flush() {
-  await act(async () => {
-    for (let step = 0; step < 8; step++) await Promise.resolve();
-  });
-}
 
 test.each([
   "account",

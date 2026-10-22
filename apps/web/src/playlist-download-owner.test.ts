@@ -7,20 +7,13 @@ import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
 import type { PlaylistDownloadStatus, PlaylistPageProps } from "./types";
 import { copiedPlaylistPage, recordingB } from "./fixtures/playlistPages";
+import { heldResponse } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  const response = new Promise<Response>((accept) => {
-    resolve = accept;
-  });
-  return { response, resolve };
-}
 
 test("a held removal cannot cross accounts and an unmounted status read cannot restart playlist download work", async () => {
   vi.useFakeTimers();

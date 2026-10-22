@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SourceAvailability from "./components/SourceAvailability";
 import type { Source, SourcePreparationStatus } from "./types";
+import { heldResponse } from "./test/async";
 
 const player = vi.hoisted(() => ({ playQueue: vi.fn() }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
@@ -45,14 +46,6 @@ function status(
     created_at: 1,
     updated_at: 1,
   };
-}
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  const response = new Promise<Response>((accept) => {
-    resolve = accept;
-  });
-  return { response, resolve };
 }
 
 test.each([

@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useDiscovery } from "./hooks/useDiscovery";
 import type { PluginInstallation, Recording } from "./types";
+import { deferred } from "./test/async";
 
 const connection: PluginInstallation = {
   id: "connection",
@@ -40,14 +41,6 @@ const response = (body: unknown, status = 200) =>
     status,
     headers: { "content-type": "application/json" },
   });
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
-
 test("search uses the private POST contract and leaves transient hits out of playback", async () => {
   const fetch = vi
     .fn()

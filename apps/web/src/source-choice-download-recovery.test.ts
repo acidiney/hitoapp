@@ -16,22 +16,13 @@ import {
   manualSourceA,
   recoveredDownloadB,
 } from "./fixtures/sourceChoiceDownloadRecovery";
+import { heldResponse } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  let reject!: (error: Error) => void;
-  const response = new Promise<Response>((accept, fail) => {
-    resolve = accept;
-    reject = fail;
-  });
-  return { response, resolve, reject };
-}
 
 function expectOwnedRequest(options: RequestInit | undefined) {
   const headers = new Headers(options?.headers);

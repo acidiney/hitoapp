@@ -19,6 +19,7 @@ import {
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
 import { log } from "./log";
+import { flush } from "./test/async";
 
 type Schema = components["schemas"];
 type Props = ComponentProps<typeof ArtistEditions>;
@@ -31,12 +32,6 @@ const initial: Props = {
 };
 const lateTitle = "Private retired-owner edition";
 const freshTitle = "Current chosen edition";
-
-async function flush() {
-  await act(async () => {
-    for (let step = 0; step < 8; step++) await Promise.resolve();
-  });
-}
 
 function currentPage(props: Props) {
   return {

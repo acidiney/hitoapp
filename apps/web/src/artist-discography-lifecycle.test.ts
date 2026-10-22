@@ -16,6 +16,7 @@ import {
   lastDiscographyPage,
 } from "./fixtures/artistDiscography";
 import { discographyHttp } from "./fixtures/artistDiscographyHttp";
+import { flush } from "./test/async";
 
 type Schema = components["schemas"];
 type Props = ComponentProps<typeof ArtistDiscography>;
@@ -48,12 +49,6 @@ function page(props: Props, title: string) {
 
 function path(props: Props) {
   return `/api/v1/recordings/${encodeURIComponent(props.recording)}/artist-associations/${encodeURIComponent(props.association.id)}/discography`;
-}
-
-async function flush() {
-  await act(async () => {
-    for (let step = 0; step < 8; step++) await Promise.resolve();
-  });
 }
 
 async function browse() {

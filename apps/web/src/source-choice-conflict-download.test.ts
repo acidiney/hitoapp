@@ -13,20 +13,13 @@ import {
   previousA2,
   savedA1,
 } from "./fixtures/sourceChoiceConflictDownload";
+import { heldResponse } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  const response = new Promise<Response>((accept) => {
-    resolve = accept;
-  });
-  return { response, resolve };
-}
 
 function expectOwnedRequest(options: RequestInit | undefined) {
   const headers = new Headers(options?.headers);

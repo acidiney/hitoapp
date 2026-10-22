@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useSourcePreparation } from "./hooks/useSourcePreparation";
 import type { Source, SourcePreparationStatus } from "./types";
+import { heldResponse } from "./test/async";
 
 const recording = "bd22c4d8-c9cc-42c1-9cb7-57c729c69653";
 const source: Source = {
@@ -37,16 +38,6 @@ function status(
     updated_at: 1,
     ...update,
   };
-}
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  let reject!: (error: Error) => void;
-  const response = new Promise<Response>((accept, fail) => {
-    resolve = accept;
-    reject = fail;
-  });
-  return { response, resolve, reject };
 }
 
 test.each(["account", "recording", "source", "removal", "unmount"])(

@@ -15,19 +15,12 @@ import {
   selectedArtistIdentity,
   unselectedArtistIdentity,
 } from "./fixtures/artistIdentity";
+import { deferred } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
 
 function navigationFixture(
   group: () => Response | Promise<Response>,

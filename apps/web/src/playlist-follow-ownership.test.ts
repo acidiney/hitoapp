@@ -8,6 +8,7 @@ import { PlaybackProvider } from "./player/PlaybackProvider";
 import { copiedPlaylistPage } from "./fixtures/playlistPages";
 import type { components } from "./generated";
 import type { PlaylistPageProps } from "./types";
+import { heldResponse } from "./test/async";
 
 type Schema = components["schemas"];
 
@@ -16,14 +17,6 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
 }));
-
-function heldResponse() {
-  let resolve!: (response: Response) => void;
-  const response = new Promise<Response>((accept) => {
-    resolve = accept;
-  });
-  return { response, resolve };
-}
 
 function page(props: PlaylistPageProps) {
   return createElement(

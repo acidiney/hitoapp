@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest";
 import { Playback, type MediaPort, type Track } from "./playback";
 import type { Source, SourceResolver } from "./playbackSources";
 import type { BrowserMediaOwner } from "./player/BrowserPreparation";
+import { deferred } from "./test/async";
 
 class Media extends EventTarget implements MediaPort {
   src = "";
@@ -45,14 +46,6 @@ class Media extends EventTarget implements MediaPort {
   removeAttribute(name: string) {
     if (name === "src") this.src = "";
   }
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((finish) => {
-    resolve = finish;
-  });
-  return { promise, resolve };
 }
 
 const track = (id: string): Track => ({

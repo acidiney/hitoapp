@@ -18,6 +18,7 @@ import { useMutation } from "./hooks/useMutation";
 import { useScanJob } from "./hooks/useScanJob";
 import { useAccounts } from "./hooks/useAccounts";
 import type { Job, SyncReceipt } from "./types";
+import { deferred } from "./test/async";
 
 vi.mock("./api", () => ({
   change: vi.fn(),
@@ -48,16 +49,6 @@ const shared = {
   connections: [],
   service_names: {},
 };
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
-  return { promise, resolve, reject };
-}
-
 beforeEach(() => vi.clearAllMocks());
 test("failed playlist creation preserves its form and does not reload", async () => {
   vi.mocked(change).mockRejectedValueOnce(new Error("Server unavailable"));
