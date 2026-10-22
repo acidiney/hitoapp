@@ -38,7 +38,7 @@ pub fn pcm16_wav(
     wav
 }
 
-pub fn ramp_wav() -> Vec<u8> {
+pub fn wav() -> Vec<u8> {
     pcm16_wav(SAMPLE_RATE, CHANNELS, FRAMES, ramp_sample)
 }
 

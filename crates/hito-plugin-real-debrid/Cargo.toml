@@ -27,6 +27,7 @@ libc = "0.2"
 [dev-dependencies]
 hito-audio = { path = "../hito-audio" }
 hito-debrid-real-debrid = { path = "../hito-debrid-real-debrid", features = ["test-support"] }
+hito-testkit = { path = "../hito-testkit" }
 hyper.workspace = true
 hyper-util.workspace = true
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }

@@ -24,6 +24,6 @@ zeroize.workspace = true
 [dev-dependencies]
 hito-remote-audio = { path = "../hito-remote-audio", features = ["test-support"] }
 hito-audio = { path = "../hito-audio" }
+hito-testkit = { path = "../hito-testkit" }
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
 tokio-rustls = { version = "=0.26.6", default-features = false }
-tracing-subscriber.workspace = true

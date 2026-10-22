@@ -6,7 +6,7 @@ use tokio::{
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 pub async fn listener(host: &str) -> (TcpListener, TlsAcceptor, Vec<u8>) {
-    let tls::OwnedTls { acceptor, root_der } = tls::issue(&[host]);
+    let tls::OwnedTls { acceptor, root_der } = tls::issue(host);
     (
         TcpListener::bind("127.0.0.1:0").await.unwrap(),
         acceptor,

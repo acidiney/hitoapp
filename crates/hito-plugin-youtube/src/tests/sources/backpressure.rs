@@ -159,7 +159,7 @@ async fn actively_waiting_audio_times_out_closes_upstream_and_releases_its_relay
         .unwrap()
         .unwrap();
     cdn.shutdown().await;
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.0.text();
     assert!(output.lines().any(|line| {
         let event: serde_json::Value = serde_json::from_str(line).unwrap();
         event["fields"]["event"] == "youtube_audio_complete"

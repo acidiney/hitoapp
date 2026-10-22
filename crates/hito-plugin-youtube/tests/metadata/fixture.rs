@@ -1,13 +1,12 @@
 use futures_util::StreamExt;
 use hito_plugin_youtube::{Config, Service};
+use hito_testkit::logs::LogCapture;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::{
-    fs,
-    io::{self, Write},
+    fs, io,
     os::unix::fs::PermissionsExt,
     path::Path,
-    sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tracing::instrument::WithSubscriber;
@@ -141,13 +140,7 @@ impl Fixture {
             matches!(server_cleanup, Ok(Ok(Ok(())))),
             "metadata HTTP cleanup failed"
         );
-        let logs = self
-            .capture
-            .0
-            .lock()
-            .unwrap_or_else(|_| panic!("metadata logs failed"));
-        let logs =
-            std::str::from_utf8(&logs).unwrap_or_else(|_| panic!("metadata log encoding failed"));
+        let logs = self.capture.0.text();
         for forbidden in [
             "private-",
             "googlevideo.com",
@@ -204,12 +197,18 @@ pub(super) fn write(directory: &Path, name: &str, value: &Value) {
         .unwrap_or_else(|_| panic!("metadata JSON setup failed"));
 }
 
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
+#[derive(Clone)]
+struct Capture(LogCapture);
+
+impl Default for Capture {
+    fn default() -> Self {
+        Self(LogCapture::with_limit(1_048_576))
+    }
+}
 
 impl Capture {
     fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
+        let capture = self.0.clone();
         tracing::Dispatch::new(
             tracing_subscriber::registry()
                 .with(tracing_subscriber::filter::filter_fn(|metadata| {
@@ -223,23 +222,5 @@ impl Capture {
                         .with_writer(move || capture.clone()),
                 ),
         )
-    }
-}
-
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let mut capture = self
-            .0
-            .lock()
-            .map_err(|_| io::Error::other("metadata log lock failed"))?;
-        if bytes.len() > 1_048_576 - capture.len() {
-            return Err(io::Error::other("metadata log bound reached"));
-        }
-        capture.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }

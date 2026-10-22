@@ -25,5 +25,6 @@ url.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+hito-testkit = { path = "../hito-testkit" }
 http-body-util.workspace = true
 tower.workspace = true

@@ -96,7 +96,7 @@ async fn socket_audio_delivery_logs_complete_after_the_declared_content_length()
         .unwrap();
     cdn.shutdown().await;
 
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.0.text();
     private(output.as_bytes(), directory.path());
     let events: Vec<Value> = output
         .lines()

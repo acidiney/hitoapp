@@ -4,38 +4,19 @@ use axum::{
     http::{Request, StatusCode},
 };
 use hito_plugin_sdk::{Capability, Manifest};
+use hito_testkit::logs::LogCapture;
 use http_body_util::BodyExt;
 use serde_json::Value;
-use std::{
-    collections::BTreeSet,
-    fs,
-    io::Write,
-    os::unix::fs::PermissionsExt,
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeSet, fs, os::unix::fs::PermissionsExt};
 use tower::ServiceExt;
 use tracing::instrument::WithSubscriber;
 use tracing_subscriber::prelude::*;
-
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
 
 #[tokio::test]
 async fn manifest_declares_search_sources_and_metadata_without_starting_the_executable() {
     let _ambient_no_subscriber_dispatch =
         tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
-    let logs = Capture::default();
+    let logs = LogCapture::unbounded();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::filter::filter_fn(|metadata| {
@@ -101,7 +82,7 @@ async fn manifest_declares_search_sources_and_metadata_without_starting_the_exec
     assert!(wire.get("authorization").is_none());
     assert!(!directory.path().join("invoked").exists());
 
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.text();
     assert!(
         !output.contains("private-"),
         "Manifest logs exposed injected private content"

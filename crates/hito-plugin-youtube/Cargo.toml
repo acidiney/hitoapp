@@ -28,7 +28,7 @@ nix = { version = "0.30.1", default-features = false, features = ["signal", "pro
 
 [dev-dependencies]
 hito-audio = { path = "../hito-audio" }
-rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
+hito-testkit = { path = "../hito-testkit" }
 reqwest = { workspace = true, features = ["stream"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

@@ -14,17 +14,17 @@ use axum::{
     response::Response,
 };
 use hito_plugin_sdk::{ProviderRecording, RecordingRequest, SourcePage};
+use hito_testkit::logs::LogCapture;
 use http_body_util::{BodyExt, Limited};
 use serde_json::{Value, json};
 use std::fmt::Write as _;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{self, Read, Write},
+    io::Read,
     os::unix::fs::PermissionsExt,
     path::Path,
     process::{Command, Stdio},
-    sync::{Arc, Mutex},
     time::Duration,
 };
 use tower::ServiceExt;
@@ -240,7 +240,7 @@ async fn recording_sources_relay_owned_aac_with_ranges_and_native_decode() {
     }
     cdn.shutdown().await;
     process_policy(directory.path());
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.0.text();
     assert!(
         !output.contains("private-"),
         "Workflow logs exposed private input"
@@ -480,11 +480,17 @@ fn process_policy(directory: &Path) {
     );
 }
 
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
+#[derive(Clone)]
+struct Capture(LogCapture);
+
+impl Default for Capture {
+    fn default() -> Self {
+        Self(LogCapture::with_limit(1_048_576))
+    }
+}
 impl Capture {
     fn dispatch(&self) -> tracing::Dispatch {
-        let captured = self.clone();
+        let captured = self.0.clone();
         tracing::Dispatch::new(
             tracing_subscriber::registry()
                 .with(tracing_subscriber::filter::filter_fn(|metadata| {
@@ -498,18 +504,5 @@ impl Capture {
                         .with_writer(move || captured.clone()),
                 ),
         )
-    }
-}
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let mut captured = self.0.lock().unwrap();
-        if captured.len() + bytes.len() > 1_048_576 {
-            return Err(io::Error::other("Owned log capture exceeded its bound"));
-        }
-        captured.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }

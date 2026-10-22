@@ -1,38 +1,14 @@
+use hito_testkit::logs::{LogCapture, trace_filter};
 use serde_json::Value;
-use std::{
-    io::Write,
-    sync::{Arc, Mutex},
-};
 use uuid::Uuid;
 
 #[derive(Clone, Default)]
-pub struct Capture(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        let mut captured = self
-            .0
-            .lock()
-            .map_err(|_| std::io::Error::other("log lock"))?;
-        if bytes.len() > 65_536_usize.saturating_sub(captured.len()) {
-            return Err(std::io::Error::other(
-                "owned log capture exceeded its bound",
-            ));
-        }
-        captured.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
+pub struct Capture(LogCapture);
 
 impl Capture {
     #[allow(dead_code)]
     pub fn assert_private_requests(&self, forbidden: &[&str], statuses: &[u16]) {
-        let text = String::from_utf8(self.0.lock().expect("log capture must lock").clone())
-            .expect("structured logs must be UTF-8");
+        let text = self.0.text();
         for secret in forbidden {
             assert!(!text.contains(secret), "logs exposed a private canary");
         }
@@ -72,21 +48,15 @@ impl Capture {
     }
 
     pub fn dispatch(&self) -> tracing::Dispatch {
-        let capture = self.clone();
-        tracing::Dispatch::new(
-            tracing_subscriber::fmt()
-                .with_env_filter("off,hito_plugin_real_debrid=trace,hito_debrid_real_debrid=trace,hito_remote_audio=trace")
-                .with_ansi(false)
-                .without_time()
-                .json()
-                .with_writer(move || capture.clone())
-                .finish(),
-        )
+        self.0.dispatch(&trace_filter(&[
+            "hito_plugin_real_debrid",
+            "hito_debrid_real_debrid",
+            "hito_remote_audio",
+        ]))
     }
 
     pub fn assert_private_completion(&self, forbidden: &[&str], length: u64) {
-        let text = String::from_utf8(self.0.lock().expect("log capture must lock").clone())
-            .expect("structured logs must be UTF-8");
+        let text = self.0.text();
         for secret in forbidden {
             assert!(!text.contains(secret), "logs exposed a private canary");
         }

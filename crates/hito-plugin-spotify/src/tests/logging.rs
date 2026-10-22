@@ -10,12 +10,12 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::ProviderPlaylist;
+use hito_testkit::logs::LogCapture;
 use serde_json::json;
 use std::{
     collections::HashSet,
-    io::Write,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
@@ -23,26 +23,12 @@ use std::{
 use tracing::instrument::WithSubscriber;
 use tracing_subscriber::prelude::*;
 
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 #[tokio::test]
 async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
     let _ambient_no_subscriber_dispatch =
         tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     for level in [tracing::Level::INFO, tracing::Level::TRACE] {
-        let logs = Capture::default();
+        let logs = LogCapture::unbounded();
         let captured = logs.clone();
         let subscriber = tracing_subscriber::registry()
             .with(tracing_subscriber::filter::filter_fn(|metadata| {
@@ -174,7 +160,7 @@ async fn workflow_completion_logs_are_useful_at_info_and_private_at_trace() {
         );
         assert_eq!(calls.load(Ordering::SeqCst), 4);
 
-        let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        let output = logs.text();
         assert!(
             !output.contains("private-"),
             "Workflow logs exposed private content"

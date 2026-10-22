@@ -1,28 +1,14 @@
 mod support;
 use axum::{body::Body, http::Request};
 use hito_plugin_folder::Folder;
+use hito_testkit::logs::LogCapture;
 use http_body_util::BodyExt;
-use std::{
-    io::Write,
-    sync::{Arc, Mutex},
-};
 use tower::ServiceExt;
 use tracing::instrument::WithSubscriber;
 
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
 #[tokio::test]
 async fn trace_logs_redact_successful_and_rejected_protocol_input() {
-    let logs = Capture::default();
+    let logs = LogCapture::unbounded();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::fmt()
         .json()
@@ -43,7 +29,7 @@ async fn trace_logs_redact_successful_and_rejected_protocol_input() {
         let _ = app.clone().oneshot(Request::get("/v1/audio?source_id=missing&source_id=private-duplicate-sentinel").header("authorization", "Bearer private-token-sentinel").body(Body::empty()).unwrap()).await.unwrap();
         let _ = app.oneshot(Request::post("/v1/search").header("content-type", "application/json").body(Body::from(r#"{"query":"private-malformed-sentinel","limit":]"#)).unwrap()).await.unwrap();
     }.with_subscriber(subscriber).await;
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.text();
     assert!(output.contains("folder_scan_complete"));
     assert!(output.contains("folder_request_complete"));
     assert!(output.contains("request_id"));
@@ -66,7 +52,7 @@ async fn real_network_audio_keeps_scoped_logging_and_server_shutdown_releases_ow
         Some("private-network-title-sentinel"),
         440,
     );
-    let logs = Capture::default();
+    let logs = LogCapture::unbounded();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::fmt()
         .json()
@@ -126,7 +112,7 @@ async fn real_network_audio_keeps_scoped_logging_and_server_shutdown_releases_ow
         .unwrap()
         .unwrap();
     assert!(tokio::net::TcpStream::connect(address).await.is_err());
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.text();
     assert!(output.contains("folder_scan_complete"));
     let entry: serde_json::Value = output
         .lines()

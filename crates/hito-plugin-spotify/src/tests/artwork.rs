@@ -7,10 +7,10 @@ use axum::{
     routing::get,
 };
 use hito_plugin_sdk::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
+use hito_testkit::logs::LogCapture;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
-    io::Write,
     sync::{Arc, Mutex, OnceLock},
     time::Duration,
 };
@@ -21,23 +21,9 @@ const PROVIDER_ID: &str = "0000000000000000000002";
 const EMBED_PATH: &str = "/embed/track/0000000000000000000002";
 const IMAGE: &[u8] = include_bytes!("fixtures/artwork.png");
 
-#[derive(Clone, Default)]
-struct Capture(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Capture {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 #[tokio::test]
 async fn artwork_returns_owned_raster_without_forwarding_credentials_or_exposing_metadata() {
-    let logs = Capture::default();
+    let logs = LogCapture::unbounded();
     let captured = logs.clone();
     let subscriber = tracing_subscriber::registry()
         .with(tracing_subscriber::filter::filter_fn(|metadata| {
@@ -170,7 +156,7 @@ async fn artwork_returns_owned_raster_without_forwarding_credentials_or_exposing
     assert_eq!(response.bytes().await.unwrap().as_ref(), IMAGE);
     assert_eq!(*calls.lock().unwrap(), ["embed", "image"]);
 
-    let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let output = logs.text();
     assert!(!output.contains("private-"));
     assert!(!output.contains(image_url.get().unwrap().as_str()));
     assert!(!output.contains(PROVIDER_ID));

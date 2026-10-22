@@ -1,8 +1,5 @@
 use super::protocol::{FramedReply, Reply, Request, framed_reply, read_request, reply};
-use rcgen::{
-    BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
-    KeyUsagePurpose,
-};
+use hito_testkit::tls::OwnedAuthority;
 use std::{
     collections::VecDeque,
     net::SocketAddr,
@@ -78,17 +75,10 @@ impl Fixture {
             api_replies.len() <= MAX_CONNECTIONS
                 && api_replies.iter().all(|body| body.len() <= 65_536)
         );
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let ca_key = KeyPair::generate().expect("the owned TLS CA key must generate");
-        let mut ca = CertificateParams::new(Vec::<String>::new())
-            .expect("the owned CA parameters must initialize");
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
-        let root = ca.self_signed(&ca_key).expect("the owned TLS CA must sign");
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, ca_key);
-        let api_tls = acceptor(API_HOST, &issuer);
-        let media_tls = acceptor(media_host, &issuer);
+        let authority = OwnedAuthority::new();
+        let ca_der = authority.root_der.clone();
+        let api_tls = authority.acceptor(API_HOST);
+        let media_tls = authority.acceptor(media_host);
         let api = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("the owned API TLS listener must bind");
@@ -197,25 +187,6 @@ impl Drop for Fixture {
             server.abort();
         }
     }
-}
-
-fn acceptor(host: &str, issuer: &Issuer<'_, KeyPair>) -> TlsAcceptor {
-    let key = KeyPair::generate().expect("the owned TLS server key must generate");
-    let mut leaf = CertificateParams::new(vec![host.into()])
-        .expect("the owned TLS server parameters must initialize");
-    leaf.key_usages = vec![KeyUsagePurpose::DigitalSignature];
-    leaf.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
-    let certificate = leaf
-        .signed_by(&key, issuer)
-        .expect("the owned TLS server certificate must sign");
-    let config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(
-            vec![certificate.der().clone()],
-            rustls::pki_types::PrivatePkcs8KeyDer::from(key.serialize_der()).into(),
-        )
-        .expect("the owned TLS server must initialize");
-    TlsAcceptor::from(Arc::new(config))
 }
 
 async fn exchange(socket: TcpStream, origin: Origin, tls: TlsAcceptor, state: Arc<State>) {

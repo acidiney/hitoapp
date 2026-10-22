@@ -9,10 +9,17 @@ use std::{
 
 pub const MAX_CAPTURE_BYTES: usize = 65_536;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct LogCapture {
     bytes: Arc<Mutex<Vec<u8>>>,
     overflowed: Arc<AtomicBool>,
+    limit: usize,
+}
+
+impl Default for LogCapture {
+    fn default() -> Self {
+        Self::with_limit(MAX_CAPTURE_BYTES)
+    }
 }
 
 pub fn trace_filter(targets: &[&str]) -> String {
@@ -22,6 +29,18 @@ pub fn trace_filter(targets: &[&str]) -> String {
 }
 
 impl LogCapture {
+    pub fn with_limit(limit: usize) -> Self {
+        Self {
+            bytes: Arc::default(),
+            overflowed: Arc::default(),
+            limit,
+        }
+    }
+
+    pub fn unbounded() -> Self {
+        Self::with_limit(usize::MAX)
+    }
+
     pub fn dispatch(&self, filter: &str) -> tracing::Dispatch {
         let capture = self.clone();
         tracing::Dispatch::new(
@@ -56,7 +75,7 @@ impl LogCapture {
             "owned log capture exceeded its bound"
         );
         let bytes = self.bytes.lock().expect("log capture must lock");
-        assert!(bytes.len() <= MAX_CAPTURE_BYTES);
+        assert!(bytes.len() <= self.limit);
         String::from_utf8(bytes.clone()).expect("structured logs must be UTF-8")
     }
 
@@ -89,7 +108,7 @@ impl Write for LogCapture {
             .bytes
             .lock()
             .map_err(|_| io::Error::other("log capture lock failed"))?;
-        if input.len() > MAX_CAPTURE_BYTES.saturating_sub(bytes.len()) {
+        if input.len() > self.limit.saturating_sub(bytes.len()) {
             self.overflowed.store(true, Ordering::SeqCst);
             return Err(io::Error::other("owned log capture exceeded its bound"));
         }

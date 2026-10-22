@@ -8,11 +8,8 @@ use axum::{
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
+use hito_testkit::tls::OwnedAuthority;
 use hyper_util::{rt::TokioIo, service::TowerToHyperService};
-use rcgen::{
-    BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
-    KeyUsagePurpose,
-};
 use serde_json::json;
 use std::{
     net::SocketAddr,
@@ -24,7 +21,6 @@ use tokio::{
     sync::oneshot,
     task::{JoinHandle, JoinSet},
 };
-use tokio_rustls::TlsAcceptor;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Origin {
@@ -83,16 +79,10 @@ impl Provider {
         assert!(!audio.is_empty() && audio.len() <= 1_048_576);
         assert!(["audio/wav", "audio/mpeg"].contains(&content_type));
         assert!(path.starts_with('/') && path.len() <= 4096);
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let key = KeyPair::generate().expect("owned CA key");
-        let mut ca = CertificateParams::new(Vec::<String>::new()).expect("owned CA parameters");
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
-        let root = ca.self_signed(&key).expect("owned root certificate");
-        let ca_der = root.der().to_vec();
-        let issuer = Issuer::new(ca, key);
-        let api_tls = acceptor(API_HOST, &issuer);
-        let media_tls = acceptor(MEDIA_HOST, &issuer);
+        let authority = OwnedAuthority::new();
+        let ca_der = authority.root_der.clone();
+        let api_tls = authority.acceptor(API_HOST);
+        let media_tls = authority.acceptor(MEDIA_HOST);
         let api = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("owned API listener");
@@ -247,24 +237,6 @@ impl Drop for Provider {
             task.abort();
         }
     }
-}
-
-fn acceptor(host: &str, issuer: &Issuer<'_, KeyPair>) -> TlsAcceptor {
-    let key = KeyPair::generate().expect("owned leaf key");
-    let mut leaf = CertificateParams::new(vec![host.into()]).expect("owned leaf parameters");
-    leaf.key_usages = vec![KeyUsagePurpose::DigitalSignature];
-    leaf.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
-    let certificate = leaf
-        .signed_by(&key, issuer)
-        .expect("owned leaf certificate");
-    let config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(
-            vec![certificate.der().clone()],
-            rustls::pki_types::PrivatePkcs8KeyDer::from(key.serialize_der()).into(),
-        )
-        .expect("owned TLS server configuration");
-    TlsAcceptor::from(Arc::new(config))
 }
 
 async fn exchange(

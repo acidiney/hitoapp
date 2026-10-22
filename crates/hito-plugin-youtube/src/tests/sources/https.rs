@@ -1,7 +1,4 @@
-use rcgen::{
-    BasicConstraints, CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
-    KeyUsagePurpose,
-};
+use hito_testkit::tls::OwnedAuthority;
 use std::{
     collections::BTreeMap,
     io,
@@ -18,7 +15,7 @@ use tokio::{
     sync::Semaphore,
     task::{JoinHandle, JoinSet},
 };
-use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_rustls::server::TlsStream;
 use tokio_util::sync::CancellationToken;
 
 pub(super) const HOST: &str = "rr1---sn-hito.googlevideo.com";
@@ -49,32 +46,16 @@ pub(super) struct Fixture {
 
 impl Fixture {
     pub async fn start(audio: Vec<u8>) -> Self {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let ca_key = KeyPair::generate().unwrap();
-        let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
-        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
-        ca.distinguished_name
-            .push(DnType::CommonName, "Hito owned CDN CA");
-        let root = ca.self_signed(&ca_key).unwrap();
-        let issuer = Issuer::new(ca, ca_key);
-        let key = KeyPair::generate().unwrap();
-        let mut leaf = CertificateParams::new(vec![HOST.to_owned()]).unwrap();
-        leaf.key_usages = vec![KeyUsagePurpose::DigitalSignature];
-        leaf.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
-        let certificate = leaf.signed_by(&key, &issuer).unwrap();
-        let tls = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.der().clone()],
-                rustls::pki_types::PrivatePkcs8KeyDer::from(key.serialize_der()).into(),
-            )
-            .unwrap();
-        let acceptor = TlsAcceptor::from(Arc::new(tls));
+        let authority = OwnedAuthority::new();
+        let acceptor = authority.acceptor(HOST);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let mut roots = rustls::RootCertStore::empty();
-        roots.add(root.der().clone()).unwrap();
+        roots
+            .add(rustls::pki_types::CertificateDer::from(
+                authority.root_der.clone(),
+            ))
+            .unwrap();
         let client_tls = rustls::ClientConfig::builder()
             .with_root_certificates(roots)
             .with_no_client_auth();

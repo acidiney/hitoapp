@@ -79,7 +79,7 @@ impl Fixture {
         let tls::OwnedTls {
             acceptor: tls,
             root_der: ca_der,
-        } = tls::issue(&[host]);
+        } = tls::issue(host);
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("the owned TLS fixture must bind");
