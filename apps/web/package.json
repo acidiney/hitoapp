@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc --noEmit && tsc -p tsconfig.e2e.json && vite build",
     "test": "vitest run",
-    "e2e": "playwright test --project=default --project=live",
+    "e2e": "playwright test",
     "generate:api": "openapi-typescript ../../docs/openapi.json -o src/generated.ts"
   },
   "dependencies": {
