@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeProvider } from "../components/Notices";
+import { NoticeProvider } from "../shared/ui/Notices";
 import type { Player } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 

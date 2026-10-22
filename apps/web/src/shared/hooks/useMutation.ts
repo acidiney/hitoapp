@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { change } from "../api";
+import { change } from "../../api";
 import { errorMessage } from "../format";
-import { useNotice } from "../components/Notices";
+import { useNotice } from "../ui/Notices";
 import type { Action } from "../types";
 import { useRequestScope } from "./useRequestScope";
 

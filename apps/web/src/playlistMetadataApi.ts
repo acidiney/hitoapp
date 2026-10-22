@@ -1,8 +1,8 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   ImportedPlaylistMetadataRefresh,
   RefreshImportedPlaylistMetadata,
-} from "./types";
+} from "./shared/types";
 
 export const playlistMetadataApi = {
   async refresh(

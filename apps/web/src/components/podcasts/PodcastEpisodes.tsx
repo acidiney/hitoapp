@@ -1,12 +1,12 @@
 import Artwork from "../Artwork";
-import TrackActions from "../TrackActions";
-import type { TrackRow } from "../TrackTable";
-import { time } from "../../format";
-import type { Mutate } from "../../hooks/useMutation";
-import { log } from "../../log";
+import TrackActions from "../../shared/ui/TrackActions";
+import type { TrackRow } from "../../shared/ui/TrackTable";
+import { time } from "../../shared/format";
+import type { Mutate } from "../../shared/hooks/useMutation";
+import { log } from "../../shared/log";
 import { usePlayer } from "../../player/PlaybackProvider";
 import type { PlaybackStart } from "../../player/model";
-import type { Playlist, PodcastEpisode, RecordingProgress } from "../../types";
+import type { Playlist, PodcastEpisode, RecordingProgress } from "../../shared/types";
 
 type EpisodeTrack = TrackRow & { playback_start: PlaybackStart };
 

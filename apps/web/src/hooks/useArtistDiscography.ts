@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { artistDiscographyApi } from "../artistDiscographyApi";
-import { errorMessage } from "../format";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import type {
   ArtistAssociation,
   ArtistDiscographyAvailability,
   CatalogArtistProfile,
   CatalogReleaseGroup,
-} from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 const PAGE_LIMIT = 20;
 const MAX_PAGES = 50;

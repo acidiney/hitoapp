@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { pluginsApi } from "../pluginsApi";
-import { useRequestScope } from "./useRequestScope";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import type {
   PluginInstallation,
   ProviderRecording,
   Recording,
-} from "../types";
+} from "../shared/types";
 import type { Player } from "../player/model";
 
 type Work = {

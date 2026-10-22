@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import PodcastIndexPage from "./pages/PodcastIndexPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import {
   emptyPodcastPage,
   ownedPodcastFeed,

@@ -1,10 +1,10 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   EditionTrackListAvailability,
   ReadEditionTrackList,
   ReadReleaseGroupEditions,
   ReleaseGroupEditionsAvailability,
-} from "./types";
+} from "./shared/types";
 
 const part = encodeURIComponent;
 const INVALID_RESPONSE =

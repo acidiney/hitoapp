@@ -1,5 +1,5 @@
 import { Link, router } from "@inertiajs/react";
-import type { RecordingDetailsPageProps } from "../types";
+import type { RecordingDetailsPageProps } from "../shared/types";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";

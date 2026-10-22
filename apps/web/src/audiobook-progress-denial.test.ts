@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookContinuationMedia } from "./fixtures/audiobookContinuationMedia";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { Action, Source, SyncBatch } from "./types";
+import type { Action, Source, SyncBatch } from "./shared/types";
 
 test("a rejected recording checkpoint does not starve the next chapter or retry a definitive denial", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

@@ -1,10 +1,10 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   AttachReviewedProviderSource,
   ProviderCandidate,
   ProviderSourceReview,
   Recording,
-} from "./types";
+} from "./shared/types";
 
 export const sourceBindingsApi = {
   async review(

@@ -2,10 +2,10 @@ import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import PlaylistPage from "./pages/PlaylistPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 import { copiedPlaylistPage, recordingB } from "./fixtures/playlistPages";
-import type { PlaylistPageProps } from "./types";
+import type { PlaylistPageProps } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

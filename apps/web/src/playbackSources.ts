@@ -1,11 +1,11 @@
-import { createUuid } from "./uuid";
+import { createUuid } from "./shared/uuid";
 import type {
   ResolveSource,
   Source as ApiSource,
   SourceResolution,
-} from "./types";
-import { HttpError } from "./http";
-import { log } from "./log";
+} from "./shared/types";
+import { HttpError } from "./shared/http";
+import { log } from "./shared/log";
 
 export type Source = Pick<ApiSource, "id" | "ready">;
 type SourceRequest =

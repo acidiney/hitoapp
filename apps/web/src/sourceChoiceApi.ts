@@ -1,13 +1,13 @@
-import { createUuid } from "./uuid";
-import { HttpError, request } from "./http";
-import { log } from "./log";
+import { createUuid } from "./shared/uuid";
+import { HttpError, request } from "./shared/http";
+import { log } from "./shared/log";
 import type {
   ChooseSource,
   ResetSourceChoice,
   SourceChoice,
   SourceChoiceReceipt,
   SourceChoiceResetReceipt,
-} from "./types";
+} from "./shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>

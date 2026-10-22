@@ -1,4 +1,4 @@
-import { log } from "../log";
+import { log } from "../shared/log";
 
 export function probeSessionArtwork(
   account: string,

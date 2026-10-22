@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Folder } from "lucide-react";
-import type { SettingsPageProps } from "../types";
+import type { SettingsPageProps } from "../shared/types";
 import MusicFolders from "./MusicFolders";
 
 export default function LibrarySettings({

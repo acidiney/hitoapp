@@ -14,7 +14,7 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
-import { log } from "./log";
+import { log } from "./shared/log";
 import { flush } from "./test/async";
 
 test.each(["editions", "track list"] as const)(

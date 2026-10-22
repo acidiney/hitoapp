@@ -1,8 +1,8 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   ArtistDiscographyAvailability,
   ReadArtistDiscography,
-} from "./types";
+} from "./shared/types";
 
 const part = encodeURIComponent;
 

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import { lyricsApi, type RecordingLyricsProvider } from "../lyricsApi";
-import type { RecordingMetadata } from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+import type { RecordingMetadata } from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Owner = {
   generation: number;

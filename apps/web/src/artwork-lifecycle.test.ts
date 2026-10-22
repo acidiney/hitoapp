@@ -3,7 +3,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import Shell from "./Shell";
 import Artwork from "./components/Artwork";
-import type { ArtworkFetch } from "./types";
+import type { ArtworkFetch } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   usePage: () => ({

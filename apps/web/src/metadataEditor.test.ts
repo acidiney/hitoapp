@@ -4,7 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
 import MetadataEditor from "./components/MetadataEditor";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { useMetadataEditor } from "./hooks/useMetadataEditor";
 
 vi.mock("./api", () => ({ change: vi.fn() }));

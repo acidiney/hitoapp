@@ -1,4 +1,4 @@
-import type { Action, RecordingMetadata, ReleaseMetadata } from "./types";
+import type { Action, RecordingMetadata, ReleaseMetadata } from "./shared/types";
 
 export type MetadataTarget = { kind: "recording" | "release"; id: string };
 export type MetadataField = "title" | "artist";

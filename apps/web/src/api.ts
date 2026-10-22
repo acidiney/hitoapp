@@ -1,4 +1,4 @@
-import { createUuid } from "./uuid";
+import { createUuid } from "./shared/uuid";
 import type {
   Action,
   Credentials,
@@ -8,9 +8,9 @@ import type {
   SyncBatch,
   SyncReceipt,
   User,
-} from "./types";
-import { request } from "./http";
-import { log } from "./log";
+} from "./shared/types";
+import { request } from "./shared/http";
+import { log } from "./shared/log";
 import { notifySessionChanged } from "./session";
 
 const part = encodeURIComponent;

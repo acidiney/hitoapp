@@ -10,7 +10,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import ArtistIndexPage from "./pages/ArtistIndexPage";
 import ArtistIdentityGroupPage from "./pages/ArtistIdentityGroupPage";
 import Sidebar from "./components/Sidebar";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { artistIdentityBrowsing } from "./fixtures/artistIdentityBrowsing";
 
 const navigation = vi.hoisted(() => ({ get: vi.fn() }));
@@ -22,7 +22,7 @@ const player = vi.hoisted(() => ({
 }));
 const mutate = vi.hoisted(() => vi.fn());
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./hooks/useMutation", () => ({
+vi.mock("./shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate, pending: false }),
 }));
 vi.mock("@inertiajs/react", () => ({

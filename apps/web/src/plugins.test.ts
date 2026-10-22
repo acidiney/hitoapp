@@ -4,7 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "./components/plugins/PluginSettings";
 import { ArtworkProvider } from "./ArtworkProvider";
 import { pluginsApi } from "./pluginsApi";
-import type { PluginInstallation, PluginSettings as Settings } from "./types";
+import type { PluginInstallation, PluginSettings as Settings } from "./shared/types";
 vi.mock("./pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),

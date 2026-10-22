@@ -14,7 +14,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookIndexPage from "./pages/AudiobookIndexPage";
 import { audiobookPages } from "./fixtures/audiobooks";
-import { log } from "./log";
+import { log } from "./shared/log";
 
 const boundaries = vi.hoisted(() => ({
   visit: vi.fn(),

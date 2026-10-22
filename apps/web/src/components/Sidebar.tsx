@@ -16,11 +16,11 @@ import {
   BookOpen,
 } from "lucide-react";
 import { sessionApi } from "../api";
-import { errorMessage } from "../format";
+import { errorMessage } from "../shared/format";
 import { usePlayer } from "../player/PlaybackProvider";
-import { useNotice } from "./Notices";
-import type { Playlist, User } from "../types";
-import { log } from "../log";
+import { useNotice } from "../shared/ui/Notices";
+import type { Playlist, User } from "../shared/types";
+import { log } from "../shared/log";
 
 const navigation = [
   {

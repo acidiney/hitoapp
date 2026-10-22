@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { sessionApi } from "./api";
+import { sessionApi } from "../../api";
 
 test("HTTP logs correlate server responses without retaining authentication contents", async () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => {});

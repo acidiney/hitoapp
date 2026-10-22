@@ -1,6 +1,6 @@
 import { act, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import type { ResolveSource, SyncBatch } from "../types";
+import type { ResolveSource, SyncBatch } from "../shared/types";
 import {
   audioPath,
   browserPreparationMedia,

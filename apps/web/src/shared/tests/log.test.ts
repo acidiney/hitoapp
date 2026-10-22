@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { createLogger, type LogFields } from "./log";
+import { createLogger, type LogFields } from "../log";
 
 test("logs retain request correlation and discard sensitive or unknown fields", () => {
   const sink = vi.fn();

@@ -13,7 +13,7 @@ import { audiobookPages, heldAudiobookBody } from "./fixtures/audiobooks";
 import { bookmarkResult, enterBookmark } from "./fixtures/audiobookBookmarks";
 import { audiobookPlayer } from "./fixtures/audiobookPlayback";
 import type { Player } from "./player/model";
-import type { AudiobookDetail, SyncBatch } from "./types";
+import type { AudiobookDetail, SyncBatch } from "./shared/types";
 
 const boundaries = vi.hoisted(() => ({ player: null as Player | null }));
 vi.mock("./player/PlaybackProvider", () => ({

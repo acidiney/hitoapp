@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import type { PluginInstallation, PluginRefresh } from "../../types";
+import type { PluginInstallation, PluginRefresh } from "../../shared/types";
 import type { PluginActions } from "../../hooks/usePlugins";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 

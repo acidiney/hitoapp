@@ -1,5 +1,5 @@
 import type { MediaPort } from "../playback";
-import type { AudiobookChapterAnchor } from "../types";
+import type { AudiobookChapterAnchor } from "../shared/types";
 import type { PlaybackOccurrence, Track } from "./model";
 
 export type BrowserCheckpoint = Readonly<{

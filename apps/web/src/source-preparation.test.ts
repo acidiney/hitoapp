@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SourceAvailability from "./components/SourceAvailability";
-import type { Source, SourcePreparationStatus } from "./types";
+import type { Source, SourcePreparationStatus } from "./shared/types";
 import { heldResponse } from "./test/async";
 
 const player = vi.hoisted(() => ({ playQueue: vi.fn() }));

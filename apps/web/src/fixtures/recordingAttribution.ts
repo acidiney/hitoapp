@@ -1,5 +1,5 @@
 import type { components } from "../generated";
-import type { MetadataObservation, RecordingDetailsPageProps } from "../types";
+import type { MetadataObservation, RecordingDetailsPageProps } from "../shared/types";
 import { sourceAttachmentPage } from "./sourceAttachment";
 
 export const selectedRecordingAttribution = {

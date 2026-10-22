@@ -1,17 +1,17 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../shared/uuid";
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { pluginsApi } from "../pluginsApi";
-import { errorMessage } from "../format";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import type {
   FollowProviderPlaylist,
   ImportProviderPlaylist,
   PlaylistFollowInterval,
   PluginInstallation,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type PlaylistAttempt =
   | { kind: "copy"; body: Readonly<ImportProviderPlaylist> }

@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeBanner, NoticeProvider } from "../components/Notices";
+import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { audiobookContinuationMedia } from "../fixtures/audiobookContinuationMedia";
 import type { Player } from "./model";
-import type { Source, SyncBatch } from "../types";
+import type { Source, SyncBatch } from "../shared/types";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import { nativeService } from "./native/fixtures/service";
 

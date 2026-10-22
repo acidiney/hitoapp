@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import {
   audiobookContinuationMedia,
@@ -10,7 +10,7 @@ import {
 import AudiobookPage from "./pages/AudiobookPage";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { Action, Source, SyncBatch } from "./types";
+import type { Action, Source, SyncBatch } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>

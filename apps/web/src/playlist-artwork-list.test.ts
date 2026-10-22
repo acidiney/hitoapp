@@ -2,11 +2,11 @@ import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import { copiedPlaylistPage } from "./fixtures/playlistPages";
 import { playlistImportPage } from "./fixtures/playlistImports";
-import type { Playlist, PlaylistArtworkFetch } from "./types";
+import type { Playlist, PlaylistArtworkFetch } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

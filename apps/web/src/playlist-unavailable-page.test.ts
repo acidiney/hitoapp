@@ -3,10 +3,10 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "./pages/PlaylistPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { ResolveSource, SourceResolution, SyncBatch } from "./types";
+import type { ResolveSource, SourceResolution, SyncBatch } from "./shared/types";
 import { unavailablePlaylistPages } from "./fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({

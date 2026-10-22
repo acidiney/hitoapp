@@ -1,5 +1,5 @@
-import { time } from "../../format";
-import type { CatalogEditionTrackList } from "../../types";
+import { time } from "../../shared/format";
+import type { CatalogEditionTrackList } from "../../shared/types";
 
 const kinds = { audio: "Audio", pregap: "Pregap", data: "Data" };
 

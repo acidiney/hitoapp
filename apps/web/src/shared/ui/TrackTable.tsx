@@ -2,13 +2,13 @@ import { useSyncExternalStore } from "react";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
 import { time } from "../format";
-import { usePlayer } from "../player/PlaybackProvider";
-import type { Track } from "../playback";
-import type { PlaybackStart } from "../player/model";
+import { usePlayer } from "../../player/PlaybackProvider";
+import type { Track } from "../../playback";
+import type { PlaybackStart } from "../../player/model";
 import type { Playlist, PlaylistEntry } from "../types";
 import type { Mutate } from "../hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
-import Artwork from "./Artwork";
+import Artwork from "../../components/Artwork";
 
 export type TrackRow = Track & {
   row_id: string;

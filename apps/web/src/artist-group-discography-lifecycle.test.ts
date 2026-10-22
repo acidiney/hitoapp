@@ -9,7 +9,7 @@ import {
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
 import { firstDiscographyPage } from "./fixtures/artistDiscography";
-import type { ArtistIdentityGroupPageProps } from "./types";
+import type { ArtistIdentityGroupPageProps } from "./shared/types";
 import { flush } from "./test/async";
 
 vi.mock("./player/PlaybackProvider", () => ({
@@ -19,7 +19,7 @@ vi.mock("./player/PlaybackProvider", () => ({
     snapshot: () => ({ current: null }),
   }),
 }));
-vi.mock("./hooks/useMutation", () => ({
+vi.mock("./shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
 vi.mock("@inertiajs/react", () => ({

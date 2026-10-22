@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { change } from "./api";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import MetadataEditor from "./components/MetadataEditor";
 import MetadataObservations from "./components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -14,7 +14,7 @@ import type {
   RecordingMetadata,
   ReleaseMetadata,
   TextMetadata,
-} from "./types";
+} from "./shared/types";
 import type {
   MetadataEditorInput,
   MetadataField,

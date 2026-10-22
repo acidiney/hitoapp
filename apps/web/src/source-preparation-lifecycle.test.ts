@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useSourcePreparation } from "./hooks/useSourcePreparation";
-import type { Source, SourcePreparationStatus } from "./types";
+import type { Source, SourcePreparationStatus } from "./shared/types";
 import { heldResponse } from "./test/async";
 
 const recording = "bd22c4d8-c9cc-42c1-9cb7-57c729c69653";

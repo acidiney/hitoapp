@@ -1,5 +1,5 @@
 import { useArtistGroupDiscography } from "../../hooks/useArtistGroupDiscography";
-import type { ArtistIdentityGroupDetail } from "../../types";
+import type { ArtistIdentityGroupDetail } from "../../shared/types";
 import ArtistDiscography from "./ArtistDiscography";
 
 export default function ArtistGroupDiscography({

@@ -6,9 +6,9 @@ import {
   type MetadataEditorInput,
 } from "../metadata";
 import { usePlayer } from "../player/PlaybackProvider";
-import { log } from "../log";
-import { useMutation, type MutationResult } from "./useMutation";
-import { useRequestScope } from "./useRequestScope";
+import { log } from "../shared/log";
+import { useMutation, type MutationResult } from "../shared/hooks/useMutation";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 export function useMetadataEditor(
   account: string,

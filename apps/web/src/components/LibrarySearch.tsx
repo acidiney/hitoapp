@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { Search } from "lucide-react";
-import { log } from "../log";
+import { log } from "../shared/log";
 
 export default function LibrarySearch({
   query,

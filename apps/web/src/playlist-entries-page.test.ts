@@ -3,10 +3,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "./pages/PlaylistPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { SyncBatch } from "./types";
+import type { SyncBatch } from "./shared/types";
 import {
   copiedPlaylistPage as props,
   recordingA,

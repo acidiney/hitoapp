@@ -6,7 +6,7 @@ import type {
   ImportedPlaylistMetadataRefresh,
   PluginSettings,
   RefreshImportedPlaylistMetadata,
-} from "./types";
+} from "./shared/types";
 import {
   metadataDownloadPath,
   metadataInstallation,

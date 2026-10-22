@@ -1,4 +1,4 @@
-import type { PluginInstallation } from "../../types";
+import type { PluginInstallation } from "../../shared/types";
 
 export default function PluginPersistencePolicy({
   policy,

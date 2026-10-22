@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useDiscovery } from "./hooks/useDiscovery";
-import type { PluginInstallation, Recording } from "./types";
+import type { PluginInstallation, Recording } from "./shared/types";
 import { deferred } from "./test/async";
 
 const connection: PluginInstallation = {

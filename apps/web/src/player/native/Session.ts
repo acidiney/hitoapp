@@ -1,6 +1,6 @@
-import { createUuid } from "../../uuid";
-import { HttpError } from "../../http";
-import { log } from "../../log";
+import { createUuid } from "../../shared/uuid";
+import { HttpError } from "../../shared/http";
+import { log } from "../../shared/log";
 import {
   nativeApi,
   type Action,

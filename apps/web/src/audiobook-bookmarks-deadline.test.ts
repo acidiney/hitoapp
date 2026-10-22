@@ -14,7 +14,7 @@ import {
   bookmarkResult,
   enterBookmark,
 } from "./fixtures/audiobookBookmarks";
-import type { SyncBatch, SyncReceipt } from "./types";
+import type { SyncBatch, SyncReceipt } from "./shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {

@@ -11,13 +11,13 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "./pages/PlaylistPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
 import type {
   ImportedPlaylistMetadataRefresh,
   RefreshImportedPlaylistMetadata,
-} from "./types";
+} from "./shared/types";
 import { recordingA } from "./fixtures/playlistPages";
 import {
   metadataDownloadPath,

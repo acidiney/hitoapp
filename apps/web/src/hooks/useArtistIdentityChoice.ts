@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { artistIdentityApi } from "../artistIdentityApi";
 import { artistReviewApi } from "../artistReviewApi";
-import { log } from "../log";
-import { HttpError } from "../http";
-import { createUuid } from "../uuid";
+import { log } from "../shared/log";
+import { HttpError } from "../shared/http";
+import { createUuid } from "../shared/uuid";
 import type {
   ArtistAssociation,
   ArtistReviewContext,
@@ -11,8 +11,8 @@ import type {
   RecordingArtistIdentityChoice,
   RecordingMetadata,
   ResetRecordingArtistIdentity,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Phase = "read" | "choose" | "reset";
 type Attempt =

@@ -1,5 +1,5 @@
-import { HttpError } from "../../http";
-import { log } from "../../log";
+import { HttpError } from "../../shared/http";
+import { log } from "../../shared/log";
 import {
   nativeApi,
   type AudiobookRequest,

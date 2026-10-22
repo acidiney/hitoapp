@@ -11,13 +11,13 @@ import {
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import { accountsApi, change, libraryApi } from "./api";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
 import PlaylistPage from "./pages/PlaylistPage";
-import { useMutation } from "./hooks/useMutation";
+import { useMutation } from "./shared/hooks/useMutation";
 import { useScanJob } from "./hooks/useScanJob";
 import { useAccounts } from "./hooks/useAccounts";
-import type { Job, SyncReceipt } from "./types";
+import type { Job, SyncReceipt } from "./shared/types";
 import { deferred } from "./test/async";
 
 vi.mock("./api", () => ({

@@ -1,4 +1,4 @@
-import type { PlaylistIndexPageProps, PluginInstallation } from "../types";
+import type { PlaylistIndexPageProps, PluginInstallation } from "../shared/types";
 
 export const playlistConnection: PluginInstallation = {
   id: "playlist-installation",

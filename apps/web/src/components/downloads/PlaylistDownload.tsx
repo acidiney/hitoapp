@@ -1,4 +1,4 @@
-import type { PlaylistDownloadStatus } from "../../types";
+import type { PlaylistDownloadStatus } from "../../shared/types";
 import { usePlaylistDownload } from "../../hooks/usePlaylistDownload";
 
 type ViewProps = {

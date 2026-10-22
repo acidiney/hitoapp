@@ -1,4 +1,4 @@
-import type { SourceChoice, DownloadStatus } from "../types";
+import type { SourceChoice, DownloadStatus } from "../shared/types";
 import {
   automaticChoice,
   choiceSourceA,

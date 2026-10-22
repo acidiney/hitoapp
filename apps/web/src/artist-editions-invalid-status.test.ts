@@ -14,7 +14,7 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
-import { log } from "./log";
+import { log } from "./shared/log";
 
 test.each([
   [

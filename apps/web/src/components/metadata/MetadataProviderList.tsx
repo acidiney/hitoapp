@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { MetadataProvider, PluginSettings } from "../../types";
+import type { MetadataProvider, PluginSettings } from "../../shared/types";
 
 type ProviderOption = {
   key: string;

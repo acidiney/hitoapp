@@ -8,7 +8,7 @@ import type {
   ArtworkFetch,
   PlaylistArtworkFetch,
   ReleaseArtworkFetch,
-} from "./types";
+} from "./shared/types";
 
 const id = "3017a834-f2ef-4b57-9411-c3b56781132e";
 const targets = [

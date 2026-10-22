@@ -1,13 +1,13 @@
 import { createElement } from "react";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "../pages/PlaylistPage";
-import { NoticeProvider } from "../components/Notices";
+import { NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../player/PlaybackProvider";
 import type {
   PlaylistPageProps,
   PluginInstallation,
   PluginSettings,
-} from "../types";
+} from "../shared/types";
 import { copiedPlaylistPage } from "./playlistPages";
 import { playlistConnection } from "./playlistImports";
 

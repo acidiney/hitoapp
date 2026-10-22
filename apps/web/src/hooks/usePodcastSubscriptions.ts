@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import { podcastApi } from "../podcastApi";
-import type { PodcastSubscription, SubscribePodcast } from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+import type { PodcastSubscription, SubscribePodcast } from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Run = { controller: AbortController };
 type Owner = {

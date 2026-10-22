@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { Playlist } from "../../types";
+import type { Playlist } from "../../shared/types";
 
 export default function AudiobookCreate({
   playlists,

@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import type { AlbumDetailsPageProps } from "../types";
+import type { AlbumDetailsPageProps } from "../shared/types";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
 import MetadataEditor from "../components/MetadataEditor";

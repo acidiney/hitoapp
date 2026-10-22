@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { prepareChange, submitChange } from "../api";
 import { audiobookApi } from "../audiobookApi";
-import { errorMessage } from "../format";
-import { HttpError } from "../http";
-import { log } from "../log";
-import type { Playlist, SyncBatch } from "../types";
-import { useRequestScope } from "./useRequestScope";
+import { errorMessage } from "../shared/format";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
+import type { Playlist, SyncBatch } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Attempt = {
   playlist: Playlist;

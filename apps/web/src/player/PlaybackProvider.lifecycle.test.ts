@@ -1,7 +1,7 @@
 import { createElement, StrictMode } from "react";
 import { render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeProvider } from "../components/Notices";
+import { NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "./PlaybackProvider";
 
 test("Strict Mode effect replay retains one owned browser audio element and final unmount removes it", () => {

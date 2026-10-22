@@ -1,5 +1,5 @@
-import { log } from "../../log";
-import { HttpError } from "../../http";
+import { log } from "../../shared/log";
+import { HttpError } from "../../shared/http";
 import type {
   PlaybackQueueInput,
   PlaybackStart,

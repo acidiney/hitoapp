@@ -5,7 +5,7 @@ import { router } from "@inertiajs/react";
 import type {
   ImportedPlaylistMetadataRefresh,
   RefreshImportedPlaylistMetadata,
-} from "./types";
+} from "./shared/types";
 import {
   heldMetadataResponse,
   metadataDownloadPath,

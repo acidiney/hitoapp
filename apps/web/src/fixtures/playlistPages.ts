@@ -1,4 +1,4 @@
-import type { PlaylistEntry, PlaylistPageProps } from "../types";
+import type { PlaylistEntry, PlaylistPageProps } from "../shared/types";
 
 export const recordingA = "cd53993a-c582-42af-a67b-61280e39d3c2";
 export const recordingB = "eb6a9e9e-39fc-464f-bb2a-3ae17834e748";

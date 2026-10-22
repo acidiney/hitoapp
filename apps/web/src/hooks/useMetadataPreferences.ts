@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import { metadataPreferencesApi } from "../metadataPreferencesApi";
 import { pluginsApi } from "../pluginsApi";
 import type {
@@ -8,9 +8,9 @@ import type {
   MetadataSettings,
   PluginSettings,
   UpdateMetadataSettings,
-} from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 const MAX_PROVIDERS = 8;
 type Phase = "load" | "save" | null;

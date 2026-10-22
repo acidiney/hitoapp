@@ -1,4 +1,4 @@
-import type { AudiobookChapterAnchor, Recording } from "../types";
+import type { AudiobookChapterAnchor, Recording } from "../shared/types";
 
 export type Track = Pick<
   Recording,

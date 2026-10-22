@@ -8,10 +8,10 @@ import type {
   PluginSettings,
   PreviewPluginInstallation,
   RefreshPlugin,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
-import { errorMessage } from "../format";
-import { log } from "../log";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import { useRefreshArtworkAvailability } from "../ArtworkProvider";
 
 export function usePlugins(account: string) {

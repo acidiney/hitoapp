@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { storageApi } from "../storageApi";
 import { libraryApi } from "../api";
-import { errorMessage } from "../format";
-import type { DirectoryRef, MusicFolder } from "../types";
-import { useRequestScope } from "./useRequestScope";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import type { DirectoryRef, MusicFolder } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
+import { log } from "../shared/log";
 
 export function useMusicFolders(account: string, library: string) {
   const scope = useRequestScope(`${account}\0${library}`);

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import {
   otherPlaylistConnection,
   playlistConnection,
@@ -13,7 +13,7 @@ import type {
   ImportProviderPlaylist,
   PlaylistImportReceipt,
   PlaylistIndexPageProps,
-} from "./types";
+} from "./shared/types";
 import { heldResponse } from "./test/async";
 
 vi.mock("@inertiajs/react", () => ({

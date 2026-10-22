@@ -12,7 +12,7 @@ import {
   uncreditedRecordingObservation,
 } from "./fixtures/recordingAttribution";
 import { recordingAttributionView } from "./fixtures/recordingAttributionView";
-import type { RecordingDetailsPageProps } from "./types";
+import type { RecordingDetailsPageProps } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

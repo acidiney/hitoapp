@@ -1,5 +1,5 @@
-import type { CommunityReportAdmission, SuccessfulPlayback } from "../types";
-import { log } from "../log";
+import type { CommunityReportAdmission, SuccessfulPlayback } from "../shared/types";
+import { log } from "../shared/log";
 
 type Scope = { signal: AbortSignal; active(): boolean };
 type Pending = { source: string; claim: SuccessfulPlayback; scope: Scope };

@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { ArtworkProvider } from "../ArtworkProvider";
-import { NoticeProvider } from "../components/Notices";
+import { NoticeProvider } from "../shared/ui/Notices";
 import type { components } from "../generated";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../player/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "../types";
+import type { RecordingDetailsPageProps } from "../shared/types";
 import { lyricObservation, readyLyrics } from "./recordingLyrics";
 
 type Schema = components["schemas"];

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
-import { log } from "../log";
-import { useRequestScope } from "./useRequestScope";
+import { log } from "../shared/log";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type ReloadOptions = NonNullable<Parameters<typeof router.reload>[0]>;
 type ReloadPage = Parameters<NonNullable<ReloadOptions["onSuccess"]>>[0];

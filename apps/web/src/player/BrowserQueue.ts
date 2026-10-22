@@ -1,4 +1,4 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../shared/uuid";
 import type { PlaybackOccurrence, PlaybackQueueInput, Track } from "./model";
 
 export class BrowserQueue {

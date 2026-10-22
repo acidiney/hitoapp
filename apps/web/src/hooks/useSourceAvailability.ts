@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { libraryApi } from "../api";
-import { HttpError } from "../http";
-import { log } from "../log";
-import type { Source } from "../types";
-import { useRequestScope } from "./useRequestScope";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
+import type { Source } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type View = {
   sources: Source[] | null;

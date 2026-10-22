@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { PlaylistEntry } from "../../types";
+import type { PlaylistEntry } from "../../shared/types";
 
 export default function AudiobookBookmarkForm({
   chapters,

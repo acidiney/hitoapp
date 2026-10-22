@@ -3,7 +3,7 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import type { components } from "./generated";
 import {
   lyricRecordingPage,
@@ -11,7 +11,7 @@ import {
   readyLyrics,
 } from "./fixtures/recordingLyrics";
 import { automaticChoice } from "./fixtures/sourceChoice";
-import { log } from "./log";
+import { log } from "./shared/log";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 

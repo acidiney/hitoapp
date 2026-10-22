@@ -1,5 +1,5 @@
-import { request } from "./http";
-import type { MetadataSettings, UpdateMetadataSettings } from "./types";
+import { request } from "./shared/http";
+import type { MetadataSettings, UpdateMetadataSettings } from "./shared/types";
 
 export const metadataPreferencesApi = {
   async settings(

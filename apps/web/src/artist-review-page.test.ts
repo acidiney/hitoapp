@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "./fixtures/artistIdentity";
 import { ArtworkProvider } from "./ArtworkProvider";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import type { components } from "./generated";

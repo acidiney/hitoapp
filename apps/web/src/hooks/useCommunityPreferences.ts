@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { errorMessage } from "../format";
-import { request } from "../http";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { request } from "../shared/http";
+import { log } from "../shared/log";
 import type {
   CommunityPreferences,
   UpdateCommunityPreferences,
-} from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Phase = "load" | "save" | null;
 type Owner = { generation: number; pending: Phase };

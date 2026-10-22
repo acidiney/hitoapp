@@ -1,9 +1,9 @@
 import { Link } from "@inertiajs/react";
 import { FolderPlus, FolderSync } from "lucide-react";
-import type { CatalogPageProps } from "../types";
+import type { CatalogPageProps } from "../shared/types";
 import { useScanJob } from "../hooks/useScanJob";
 import CatalogResults from "../components/CatalogResults";
-import PageHeading from "../components/PageHeading";
+import PageHeading from "../shared/ui/PageHeading";
 import LibrarySpotlight from "../components/LibrarySpotlight";
 
 export default function CatalogPage(props: CatalogPageProps) {

@@ -1,13 +1,13 @@
 import { Link } from "@inertiajs/react";
-import type { AlbumPageProps } from "../types";
-import { useMutation } from "../hooks/useMutation";
-import { time } from "../format";
+import type { AlbumPageProps } from "../shared/types";
+import { useMutation } from "../shared/hooks/useMutation";
+import { time } from "../shared/format";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
-import TrackTable, { type TrackTableRow } from "../components/TrackTable";
-import TrackToolbar from "../components/TrackToolbar";
-import Pagination from "../components/Pagination";
-import EmptyState from "../components/EmptyState";
+import TrackTable, { type TrackTableRow } from "../shared/ui/TrackTable";
+import TrackToolbar from "../shared/ui/TrackToolbar";
+import Pagination from "../shared/ui/Pagination";
+import EmptyState from "../shared/ui/EmptyState";
 
 export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
   const { release, tracks: page } = detail;

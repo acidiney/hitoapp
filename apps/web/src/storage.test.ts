@@ -2,9 +2,9 @@ import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "./components/LibrarySettings";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { storageApi } from "./storageApi";
-import type { MusicFolder, SettingsPageProps } from "./types";
+import type { MusicFolder, SettingsPageProps } from "./shared/types";
 
 vi.mock("./storageApi", () => ({
   storageApi: {

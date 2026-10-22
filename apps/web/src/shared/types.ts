@@ -1,4 +1,4 @@
-import type { components } from "./generated";
+import type { components } from "../generated";
 
 type Schema = components["schemas"];
 export type User = Schema["User"];

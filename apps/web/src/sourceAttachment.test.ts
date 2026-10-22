@@ -2,10 +2,10 @@ import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { RecordingDetailsPageProps } from "./types";
+import type { RecordingDetailsPageProps } from "./shared/types";
 import { recordingB } from "./fixtures/playlistPages";
 import {
   attachedPage,

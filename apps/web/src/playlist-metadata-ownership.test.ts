@@ -6,7 +6,7 @@ import type {
   ImportedPlaylistMetadataRefresh,
   PlaylistPageProps,
   RefreshImportedPlaylistMetadata,
-} from "./types";
+} from "./shared/types";
 import {
   heldMetadataResponse,
   metadataDownloadPath,

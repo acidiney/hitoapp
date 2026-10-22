@@ -1,10 +1,10 @@
 import { Link } from "@inertiajs/react";
-import EmptyState from "../components/EmptyState";
-import PageHeading from "../components/PageHeading";
+import EmptyState from "../shared/ui/EmptyState";
+import PageHeading from "../shared/ui/PageHeading";
 import PodcastStatus from "../components/podcasts/PodcastStatus";
 import PodcastSubscribe from "../components/podcasts/PodcastSubscribe";
 import { usePodcastSubscriptions } from "../hooks/usePodcastSubscriptions";
-import type { PodcastIndexPageProps } from "../types";
+import type { PodcastIndexPageProps } from "../shared/types";
 
 export default function PodcastIndexPage({
   user,

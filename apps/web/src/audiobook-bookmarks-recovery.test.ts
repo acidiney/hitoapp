@@ -16,7 +16,7 @@ import {
   enterBookmark,
 } from "./fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "./fixtures/audiobooks";
-import type { SyncBatch } from "./types";
+import type { SyncBatch } from "./shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {

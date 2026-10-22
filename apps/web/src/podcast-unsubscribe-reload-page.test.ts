@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PodcastPage from "./pages/PodcastPage";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import type { components } from "./generated";
 
 const playQueue = vi.fn(async () => {});

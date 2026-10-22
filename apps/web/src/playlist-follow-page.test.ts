@@ -3,12 +3,12 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import {
   playlistConnection as connection,
   playlistImportPage as props,
 } from "./fixtures/playlistImports";
-import type { FollowProviderPlaylist, PlaylistFollowReceipt } from "./types";
+import type { FollowProviderPlaylist, PlaylistFollowReceipt } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },

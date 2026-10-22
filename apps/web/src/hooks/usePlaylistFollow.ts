@@ -1,10 +1,10 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../shared/uuid";
 import { useEffect, useMemo, useState } from "react";
 import { playlistFollowApi } from "../playlistFollowApi";
-import { HttpError } from "../http";
-import { log } from "../log";
-import type { PlaylistFollow, RefreshFollowedPlaylist } from "../types";
-import { useRequestScope } from "./useRequestScope";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
+import type { PlaylistFollow, RefreshFollowedPlaylist } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 import { useFollowDetail } from "./useFollowDetail";
 
 type RequestRun = { controller: AbortController };

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { PluginService } from "../../types";
+import type { PluginService } from "../../shared/types";
 import type { PluginActions } from "../../hooks/usePlugins";
 
 export default function PluginServices({

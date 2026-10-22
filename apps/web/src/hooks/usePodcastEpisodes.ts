@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import { podcastApi } from "../podcastApi";
-import type { PodcastEpisodePage, RecordingProgress } from "../types";
-import { useRequestScope } from "./useRequestScope";
+import type { PodcastEpisodePage, RecordingProgress } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Target = {
   cursor: string | null;

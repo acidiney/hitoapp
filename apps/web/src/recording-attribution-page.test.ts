@@ -3,7 +3,7 @@ import { createElement, type ReactNode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "./ArtworkProvider";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import {
   attributedRecordingPage,
   selectedRecordingAttribution,

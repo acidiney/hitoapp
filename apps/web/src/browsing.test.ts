@@ -3,10 +3,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "./pages/AlbumPage";
 import ArtistPage from "./pages/ArtistPage";
-import Pagination from "./components/Pagination";
-import TrackToolbar from "./components/TrackToolbar";
-import AlbumGrid from "./components/AlbumGrid";
-import type { AlbumPageProps, Release } from "./types";
+import Pagination from "./shared/ui/Pagination";
+import TrackToolbar from "./shared/ui/TrackToolbar";
+import AlbumGrid from "./shared/ui/AlbumGrid";
+import type { AlbumPageProps, Release } from "./shared/types";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -14,7 +14,7 @@ const player = vi.hoisted(() => ({
   snapshot: () => ({ current: null }),
 }));
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./hooks/useMutation", () => ({
+vi.mock("./shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn(), pending: false }),
 }));
 const navigation = vi.hoisted(() => ({ get: vi.fn() }));

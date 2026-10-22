@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import HistoryPage from "../pages/HistoryPage";
-import type { HistoryPageProps } from "../types";
+import type { HistoryPageProps } from "../shared/types";
 
 const playQueue = vi.fn(async () => {});
 vi.mock("./PlaybackProvider", () => ({
@@ -12,10 +12,10 @@ vi.mock("./PlaybackProvider", () => ({
     snapshot: () => ({ current: null }),
   }),
 }));
-vi.mock("../hooks/useMutation", () => ({
+vi.mock("../shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate: vi.fn() }),
 }));
-vi.mock("../components/TrackActions", () => ({ default: () => null }));
+vi.mock("../shared/ui/TrackActions", () => ({ default: () => null }));
 vi.mock("../components/Artwork", () => ({ default: () => null }));
 afterEach(() => {
   cleanup();

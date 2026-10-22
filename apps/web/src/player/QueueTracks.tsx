@@ -2,7 +2,7 @@ import { memo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
 import Artwork from "../components/Artwork";
-import { time } from "../format";
+import { time } from "../shared/format";
 import { useQueuePage } from "./useQueuePage";
 
 const QueueTracks = memo(function QueueTracks({

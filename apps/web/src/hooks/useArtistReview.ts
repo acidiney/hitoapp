@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { artistReviewApi } from "../artistReviewApi";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import { metadataPreferencesApi } from "../metadataPreferencesApi";
 import { pluginsApi } from "../pluginsApi";
 import type {
@@ -13,9 +13,9 @@ import type {
   ArtistSearchCandidate,
   MetadataProvider,
   RecordingMetadata,
-} from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Found = Extract<
   ArtistCandidateSearchAvailability,

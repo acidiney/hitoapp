@@ -2,7 +2,7 @@ import { Link } from "@inertiajs/react";
 import { Play, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Track } from "../playback";
-import type { Source } from "../types";
+import type { Source } from "../shared/types";
 import { usePlayer } from "../player/PlaybackProvider";
 import { useSourceAvailability } from "../hooks/useSourceAvailability";
 import { useSourcePreparation } from "../hooks/useSourcePreparation";

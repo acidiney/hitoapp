@@ -1,5 +1,5 @@
 import { router, type Page } from "@inertiajs/core";
-import { log } from "./log";
+import { log } from "./shared/log";
 
 let freshHistory = false;
 

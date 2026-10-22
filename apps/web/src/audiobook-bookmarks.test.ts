@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookPage from "./pages/AudiobookPage";
 import { audiobookPages, heldAudiobookBody } from "./fixtures/audiobooks";
-import type { Action, AudiobookDetail, SyncBatch } from "./types";
+import type { Action, AudiobookDetail, SyncBatch } from "./shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {

@@ -7,7 +7,7 @@ import type {
   ArtistSearchCandidate,
   CatalogArtistProfile,
   RecordingMetadata,
-} from "../../types";
+} from "../../shared/types";
 
 const kinds = {
   person: "Person",

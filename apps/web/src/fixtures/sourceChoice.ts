@@ -1,5 +1,5 @@
 import type { components } from "../generated";
-import type { Source } from "../types";
+import type { Source } from "../shared/types";
 import { savedRecording } from "./sourceAttachment";
 
 export const choiceSourceA: Source = {

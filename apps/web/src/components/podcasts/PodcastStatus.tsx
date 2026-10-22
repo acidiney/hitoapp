@@ -1,4 +1,4 @@
-import type { PodcastSubscription } from "../../types";
+import type { PodcastSubscription } from "../../shared/types";
 
 export default function PodcastStatus({
   subscription,

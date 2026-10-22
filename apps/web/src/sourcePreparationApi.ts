@@ -1,11 +1,11 @@
-import { HttpError, request } from "./http";
+import { HttpError, request } from "./shared/http";
 import type {
   PreparationReason,
   PrepareSource,
   SourcePreparationPhase,
   SourcePreparationReceipt,
   SourcePreparationStatus,
-} from "./types";
+} from "./shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>

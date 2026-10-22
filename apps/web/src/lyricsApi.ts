@@ -1,4 +1,4 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type { components } from "./generated";
 
 export type LyricsLookup = components["schemas"]["LyricsLookup"];

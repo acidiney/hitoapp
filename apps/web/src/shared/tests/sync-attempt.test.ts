@@ -1,6 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { prepareChange, submitChange } from "./api";
-import type { Action, SyncBatch, SyncReceipt } from "./types";
+import { prepareChange, submitChange } from "../../api";
+import type { Action, SyncBatch, SyncReceipt } from "../types";
 
 const action: Action = {
   kind: "playlist_follow_resume",

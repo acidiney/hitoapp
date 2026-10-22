@@ -2,10 +2,10 @@ import { createElement } from "react";
 import { expect, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { ArtworkProvider } from "../ArtworkProvider";
-import { NoticeProvider } from "../components/Notices";
+import { NoticeProvider } from "../shared/ui/Notices";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../player/PlaybackProvider";
-import type { RecordingDetailsPageProps, SourceChoice } from "../types";
+import type { RecordingDetailsPageProps, SourceChoice } from "../shared/types";
 
 type HistoryRead = {
   account: string;

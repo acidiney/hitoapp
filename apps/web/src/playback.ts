@@ -8,10 +8,10 @@ import type {
   QueueView,
   Track,
 } from "./player/model";
-import type { AudiobookChapterAnchor } from "./types";
+import type { AudiobookChapterAnchor } from "./shared/types";
 export type { Track } from "./player/model";
-import { log } from "./log";
-import { createUuid } from "./uuid";
+import { log } from "./shared/log";
+import { createUuid } from "./shared/uuid";
 import {
   PlaybackSources,
   type Source,
@@ -21,7 +21,7 @@ import { BrowserTraversal } from "./player/BrowserTraversal";
 import { BrowserQueue } from "./player/BrowserQueue";
 import { BrowserObservation } from "./player/BrowserObservation";
 import { BrowserCommunityObservation } from "./player/BrowserCommunityObservation";
-import type { SuccessfulPlayback } from "./types";
+import type { SuccessfulPlayback } from "./shared/types";
 import {
   BrowserPreparation,
   type BrowserMediaOwner,

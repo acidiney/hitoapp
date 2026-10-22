@@ -1,6 +1,6 @@
 import { Play, ArrowUpRight, ListMusic } from "lucide-react";
 import { Link } from "@inertiajs/react";
-import type { Playlist, Recording } from "../types";
+import type { Playlist, Recording } from "../shared/types";
 import { usePlayer } from "../player/PlaybackProvider";
 import Artwork from "./Artwork";
 

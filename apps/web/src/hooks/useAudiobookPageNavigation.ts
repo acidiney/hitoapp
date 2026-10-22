@@ -6,9 +6,9 @@ import {
   useState,
   type ComponentProps,
 } from "react";
-import { log } from "../log";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+import { log } from "../shared/log";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Run = { cancel: () => void };
 type Owner = { run: Run | null; failedHref: string | null; error: string };

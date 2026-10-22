@@ -1,5 +1,5 @@
-import { time } from "../../format";
-import type { AudiobookDetail } from "../../types";
+import { time } from "../../shared/format";
+import type { AudiobookDetail } from "../../shared/types";
 
 export default function AudiobookBookmarkList({
   detail,

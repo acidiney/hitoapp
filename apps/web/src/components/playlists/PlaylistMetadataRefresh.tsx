@@ -1,4 +1,4 @@
-import type { ImportedPlaylistMetadataRefresh } from "../../types";
+import type { ImportedPlaylistMetadataRefresh } from "../../shared/types";
 
 type MetadataRefreshProps = {
   pending: boolean;

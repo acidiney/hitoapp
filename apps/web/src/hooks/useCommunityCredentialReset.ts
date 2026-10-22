@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { errorMessage } from "../format";
-import { request } from "../http";
-import { log } from "../log";
-import type { CommunityCredentialReset } from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+import { errorMessage } from "../shared/format";
+import { request } from "../shared/http";
+import { log } from "../shared/log";
+import type { CommunityCredentialReset } from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Owner = { pending: boolean };
 type Snapshot = {

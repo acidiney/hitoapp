@@ -1,5 +1,5 @@
 import type { components } from "../../generated";
-import { request } from "../../http";
+import { request } from "../../shared/http";
 import { readObservations } from "./observations";
 
 type Schema = components["schemas"];

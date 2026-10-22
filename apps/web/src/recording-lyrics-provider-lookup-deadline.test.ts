@@ -10,7 +10,7 @@ import {
   lyricProviderPage,
 } from "./fixtures/recordingLyricsProviders";
 import { automaticChoice } from "./fixtures/sourceChoice";
-import { log } from "./log";
+import { log } from "./shared/log";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },

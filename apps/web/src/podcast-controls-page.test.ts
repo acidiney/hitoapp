@@ -11,7 +11,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PodcastPage from "./pages/PodcastPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import type { components } from "./generated";
 
 const playQueue = vi.fn(async () => {});

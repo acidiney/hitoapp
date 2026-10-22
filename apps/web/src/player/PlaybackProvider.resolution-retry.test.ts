@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeProvider } from "../components/Notices";
-import TrackToolbar from "../components/TrackToolbar";
-import type { ResolveSource, SourceResolution } from "../types";
+import { NoticeProvider } from "../shared/ui/Notices";
+import TrackToolbar from "../shared/ui/TrackToolbar";
+import type { ResolveSource, SourceResolution } from "../shared/types";
 import type { Player, Track } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 

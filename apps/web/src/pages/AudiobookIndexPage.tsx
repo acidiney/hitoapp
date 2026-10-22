@@ -1,12 +1,12 @@
 import { Link } from "@inertiajs/react";
 import Artwork from "../components/Artwork";
-import EmptyState from "../components/EmptyState";
-import PageHeading from "../components/PageHeading";
+import EmptyState from "../shared/ui/EmptyState";
+import PageHeading from "../shared/ui/PageHeading";
 import AudiobookPagination from "../components/audiobooks/AudiobookPagination";
 import AudiobookCreate from "../components/audiobooks/AudiobookCreate";
 import { useAudiobookPageNavigation } from "../hooks/useAudiobookPageNavigation";
 import { useAudiobookGrouping } from "../hooks/useAudiobookGrouping";
-import type { AudiobookIndexPageProps } from "../types";
+import type { AudiobookIndexPageProps } from "../shared/types";
 
 export default function AudiobookIndexPage({
   user,

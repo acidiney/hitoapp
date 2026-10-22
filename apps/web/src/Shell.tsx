@@ -1,11 +1,11 @@
 import { useEffect, type ReactNode } from "react";
 import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
-import type { SharedPageProps } from "./types";
-import { log } from "./log";
+import type { SharedPageProps } from "./shared/types";
+import { log } from "./shared/log";
 import LibrarySearch from "./components/LibrarySearch";
 import Sidebar from "./components/Sidebar";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider } from "./player/PlaybackProvider";
 import PlayerDock from "./player/PlayerDock";
 import { ArtworkProvider } from "./ArtworkProvider";

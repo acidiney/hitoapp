@@ -1,11 +1,11 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   ArtistIdentityChoiceReceipt,
   ArtistIdentityGroupDetail,
   ChooseRecordingArtistIdentity,
   RecordingArtistIdentityChoice,
   ResetRecordingArtistIdentity,
-} from "./types";
+} from "./shared/types";
 
 const part = encodeURIComponent;
 

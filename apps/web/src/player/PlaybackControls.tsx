@@ -7,7 +7,7 @@ import {
   SkipBack,
   SkipForward,
 } from "lucide-react";
-import { time } from "../format";
+import { time } from "../shared/format";
 import { usePlayer } from "./PlaybackProvider";
 
 export default function PlaybackControls() {

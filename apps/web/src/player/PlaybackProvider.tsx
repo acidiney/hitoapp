@@ -6,16 +6,16 @@ import {
   type ReactNode,
 } from "react";
 import { libraryApi } from "../api";
-import { useNotice } from "../components/Notices";
+import { useNotice } from "../shared/ui/Notices";
 import { Playback, type MediaPort } from "../playback";
 import type { Player } from "./model";
-import { log } from "../log";
-import { useRequestScope } from "../hooks/useRequestScope";
+import { log } from "../shared/log";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 import { NativePlayback } from "./native/NativePlayback";
 import { sourceResolutionApi } from "../sourceResolutionApi";
 import { useBrowserMediaSession } from "./BrowserMediaSession";
 import { BrowserProgress } from "./BrowserProgress";
-import { request } from "../http";
+import { request } from "../shared/http";
 import type { components } from "../generated";
 import { BrowserCommunityReporting } from "./BrowserCommunityReporting";
 

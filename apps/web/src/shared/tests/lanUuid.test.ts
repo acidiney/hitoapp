@@ -1,8 +1,8 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { prepareChange, sessionApi, submitChange } from "./api";
-import { Playback, type MediaPort } from "./playback";
-import { notifySessionChanged } from "./session";
-import type { Action } from "./types";
+import { prepareChange, sessionApi, submitChange } from "../../api";
+import { Playback, type MediaPort } from "../../playback";
+import { notifySessionChanged } from "../../session";
+import type { Action } from "../types";
 
 const crypto = globalThis.crypto;
 const randomUUID = Object.getOwnPropertyDescriptor(crypto, "randomUUID");

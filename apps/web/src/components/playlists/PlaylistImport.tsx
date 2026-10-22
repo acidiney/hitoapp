@@ -4,7 +4,7 @@ import {
   useProviderPlaylist,
   type PlaylistCreationMode,
 } from "../../hooks/useProviderPlaylist";
-import type { PlaylistFollowInterval, PluginInstallation } from "../../types";
+import type { PlaylistFollowInterval, PluginInstallation } from "../../shared/types";
 
 export default function PlaylistImport({
   account,

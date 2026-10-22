@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { prepareChange, submitChange } from "../api";
 import { audiobookApi } from "../audiobookApi";
-import { HttpError } from "../http";
-import { log } from "../log";
-import type { Action, AudiobookDetail, SyncBatch } from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
+import type { Action, AudiobookDetail, SyncBatch } from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type BookmarkAction = Extract<
   Action,

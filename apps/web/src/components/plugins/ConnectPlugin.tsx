@@ -1,4 +1,4 @@
-import type { PluginService } from "../../types";
+import type { PluginService } from "../../shared/types";
 import type { PluginActions } from "../../hooks/usePlugins";
 import { usePluginInstallation } from "../../hooks/usePluginInstallation";
 import PluginInstallationReview from "./PluginInstallationReview";

@@ -1,11 +1,11 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../shared/uuid";
 import { useState, type FormEvent } from "react";
 import { Link, router } from "@inertiajs/react";
 import { Plus } from "lucide-react";
-import type { PlaylistIndexPageProps } from "../types";
-import { useMutation } from "../hooks/useMutation";
-import EmptyState from "../components/EmptyState";
-import PageHeading from "../components/PageHeading";
+import type { PlaylistIndexPageProps } from "../shared/types";
+import { useMutation } from "../shared/hooks/useMutation";
+import EmptyState from "../shared/ui/EmptyState";
+import PageHeading from "../shared/ui/PageHeading";
 import Artwork from "../components/Artwork";
 import PlaylistImport from "../components/playlists/PlaylistImport";
 

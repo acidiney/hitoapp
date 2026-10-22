@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { pluginsApi } from "../pluginsApi";
 import { playlistMetadataApi } from "../playlistMetadataApi";
-import { HttpError } from "../http";
-import { createUuid } from "../uuid";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { createUuid } from "../shared/uuid";
+import { log } from "../shared/log";
 import type {
   ImportedPlaylistMetadataRefresh,
   PlaylistDetail,
   RefreshImportedPlaylistMetadata,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 import { usePlaylistMetadataDetail } from "./usePlaylistMetadataDetail";
 
 type MetadataOwner = {

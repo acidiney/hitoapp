@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, expect, test, vi } from "vitest";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
-import { HttpError } from "./http";
+import { HttpError } from "./shared/http";
 import {
   builtin,
   catalog,

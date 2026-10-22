@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import PlaylistIndexPage from "./pages/PlaylistIndexPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import type { components } from "./generated";
 import {
   playlistConnection as connection,

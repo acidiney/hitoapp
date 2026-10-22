@@ -5,7 +5,7 @@ import SettingsPage from "./pages/SettingsPage";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
 import { connections, settings } from "./fixtures/metadataPreferences";
-import type { SettingsPageProps } from "./types";
+import type { SettingsPageProps } from "./shared/types";
 
 vi.mock("@inertiajs/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/react")>();

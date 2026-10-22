@@ -1,5 +1,5 @@
-import { request } from "./http";
-import type { AudiobookDetail } from "./types";
+import { request } from "./shared/http";
+import type { AudiobookDetail } from "./shared/types";
 
 export const audiobookApi = {
   async read(

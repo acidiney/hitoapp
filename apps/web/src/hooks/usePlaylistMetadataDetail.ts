@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
-import { log } from "../log";
-import { useRequestScope } from "./useRequestScope";
+import { log } from "../shared/log";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type DetailOwner = { cancel: (() => void) | null; error: string };
 type DetailState = { owner: DetailOwner; pending: boolean; error: string };

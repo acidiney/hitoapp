@@ -2,8 +2,8 @@ import { useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { AudioLines } from "lucide-react";
 import { sessionApi } from "../api";
-import { errorMessage } from "../format";
-import type { LoginPageProps } from "../types";
+import { errorMessage } from "../shared/format";
+import type { LoginPageProps } from "../shared/types";
 
 export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
   const [username, setUsername] = useState("");

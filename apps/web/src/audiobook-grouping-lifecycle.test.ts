@@ -14,7 +14,7 @@ import type {
   AudiobookDetail,
   AudiobookIndexPageProps,
   SyncBatch,
-} from "./types";
+} from "./shared/types";
 
 const boundaries = vi.hoisted(() => ({
   player: vi.fn(() => {

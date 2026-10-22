@@ -1,6 +1,6 @@
 import { Link } from "@inertiajs/react";
-import type { RecordingMetadata } from "../types";
-import { time } from "../format";
+import type { RecordingMetadata } from "../shared/types";
+import { time } from "../shared/format";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
 import DiscoverySearch from "./discovery/DiscoverySearch";
 

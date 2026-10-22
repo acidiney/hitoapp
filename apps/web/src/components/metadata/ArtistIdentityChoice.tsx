@@ -1,4 +1,4 @@
-import type { RecordingArtistIdentityChoice } from "../../types";
+import type { RecordingArtistIdentityChoice } from "../../shared/types";
 import { Link } from "@inertiajs/react";
 
 export default function ArtistIdentityChoice({

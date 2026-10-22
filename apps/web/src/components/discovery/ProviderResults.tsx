@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { Check, Play, Plus } from "lucide-react";
-import type { ProviderRecording, Recording } from "../../types";
+import type { ProviderRecording, Recording } from "../../shared/types";
 import type { ProviderSelection } from "../../hooks/useDiscovery";
-import { time } from "../../format";
+import { time } from "../../shared/format";
 import Artwork from "../Artwork";
 
 type SelectionIntent = "play" | "save";

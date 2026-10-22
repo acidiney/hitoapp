@@ -1,13 +1,13 @@
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeBanner, NoticeProvider } from "../components/Notices";
+import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import type {
   ResolveSource,
   Source,
   SourceResolution,
   SyncBatch,
-} from "../types";
+} from "../shared/types";
 import type { Player, Track } from "./model";
 import { PlaybackProvider, usePlayer } from "./PlaybackProvider";
 import {

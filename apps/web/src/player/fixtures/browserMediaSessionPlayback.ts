@@ -1,8 +1,8 @@
 import { createElement, StrictMode, type ReactNode } from "react";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
-import { NoticeProvider } from "../../components/Notices";
-import type { Source, SyncBatch } from "../../types";
+import { NoticeProvider } from "../../shared/ui/Notices";
+import type { Source, SyncBatch } from "../../shared/types";
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../PlaybackProvider";
 import { ArtworkProvider } from "../../ArtworkProvider";

@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, render } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
 import type { components } from "./generated";

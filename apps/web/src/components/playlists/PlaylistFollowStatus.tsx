@@ -1,5 +1,5 @@
 import { Link } from "@inertiajs/react";
-import type { PlaylistFollow } from "../../types";
+import type { PlaylistFollow } from "../../shared/types";
 
 type FollowStatusProps = {
   follow: PlaylistFollow | null;

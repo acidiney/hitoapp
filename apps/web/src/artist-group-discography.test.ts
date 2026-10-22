@@ -11,7 +11,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "./pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "./fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "./fixtures/artistGroupDiscography";
-import type { ArtistAssociation } from "./types";
+import type { ArtistAssociation } from "./shared/types";
 import {
   artistAssociation,
   reviewedArtistProfile,
@@ -33,7 +33,7 @@ const player = vi.hoisted(() => ({
 }));
 const mutate = vi.hoisted(() => vi.fn());
 vi.mock("./player/PlaybackProvider", () => ({ usePlayer: () => player }));
-vi.mock("./hooks/useMutation", () => ({
+vi.mock("./shared/hooks/useMutation", () => ({
   useMutation: () => ({ mutate, pending: false }),
 }));
 vi.mock("@inertiajs/react", () => ({

@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 import { artistReviewApi } from "../artistReviewApi";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import type {
   ArtistAssociation,
   ArtistIdentityGroupDetail,
   ArtistProfileAvailability,
   CatalogArtistProfile,
   MetadataProvider,
-} from "../types";
-import { createUuid } from "../uuid";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 const REQUEST_DEADLINE_MS = 20_000;
 const CHANGED_ARTIST =

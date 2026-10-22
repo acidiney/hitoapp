@@ -1,4 +1,4 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   ArtistAssociation,
   ArtistCandidatePreviewAvailability,
@@ -8,7 +8,7 @@ import type {
   BeginArtistReview,
   SearchArtistCandidates,
   SelectArtistCandidate,
-} from "./types";
+} from "./shared/types";
 
 const part = encodeURIComponent;
 

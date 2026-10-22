@@ -1,5 +1,5 @@
-import { log } from "../log";
-import { createUuid } from "../uuid";
+import { log } from "../shared/log";
+import { createUuid } from "../shared/uuid";
 import type { MediaPort } from "../playback";
 import {
   PlaybackSources,

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
-import type { PluginInstallation } from "../../types";
+import type { PluginInstallation } from "../../shared/types";
 
 export default function DiscoverySearch({
   connections,

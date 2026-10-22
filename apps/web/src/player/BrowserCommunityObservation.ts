@@ -1,7 +1,7 @@
 import type { MediaPort } from "../playback";
-import type { SuccessfulPlayback } from "../types";
-import { createUuid } from "../uuid";
-import { log } from "../log";
+import type { SuccessfulPlayback } from "../shared/types";
+import { createUuid } from "../shared/uuid";
+import { log } from "../shared/log";
 
 type Sample = { at: number; position: number; speed: number };
 type Episode = {

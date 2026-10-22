@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookProgressMedia } from "./fixtures/audiobookProgressMedia";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { Source, SyncBatch } from "./types";
+import type { Source, SyncBatch } from "./shared/types";
 
 test("256 pending checkpoints pause at capacity and preserve the heard chapter before another queue can replace it", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

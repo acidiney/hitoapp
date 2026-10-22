@@ -2,7 +2,7 @@ import type {
   PreparationReason,
   SourcePreparationPhase,
   SourcePreparationStatus,
-} from "../types";
+} from "../shared/types";
 
 const phases: Record<SourcePreparationPhase, string> = {
   queued: "Audio preparation is queued.",

@@ -1,5 +1,5 @@
 import { useArtistDiscography } from "../../hooks/useArtistDiscography";
-import type { ArtistAssociation, CatalogArtistProfile } from "../../types";
+import type { ArtistAssociation, CatalogArtistProfile } from "../../shared/types";
 import ArtistEditions from "./ArtistEditions";
 
 const kinds = {

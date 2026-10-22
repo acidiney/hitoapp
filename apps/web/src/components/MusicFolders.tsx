@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Folder, FolderPlus, FolderSync, Trash2 } from "lucide-react";
-import type { Library, MusicFolder } from "../types";
+import type { Library, MusicFolder } from "../shared/types";
 import { useMusicFolders } from "../hooks/useMusicFolders";
 import FolderPicker from "./FolderPicker";
 

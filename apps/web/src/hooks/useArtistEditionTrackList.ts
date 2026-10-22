@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { artistEditionApi } from "../artistEditionApi";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import type {
   CatalogEditionSummary,
   CatalogEditionTrackList,
   EditionTrackListAvailability,
-} from "../types";
-import { createUuid } from "../uuid";
+} from "../shared/types";
+import { createUuid } from "../shared/uuid";
 import type { ArtistEditionContext } from "./useArtistEditions";
-import { useRequestScope } from "./useRequestScope";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 const REQUEST_DEADLINE_MS = 20_000;
 const MAX_MEDIA = 256;

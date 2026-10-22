@@ -6,7 +6,7 @@ import type {
   PluginInstallation,
   PluginService,
   PluginSettings,
-} from "../types";
+} from "../shared/types";
 
 export const builtin: MetadataProvider = { kind: "builtin_musicbrainz" };
 

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { audiobookApi } from "../audiobookApi";
-import { log } from "../log";
+import { log } from "../shared/log";
 import { usePlayer } from "../player/PlaybackProvider";
-import type { AudiobookDetail, PlaylistEntry } from "../types";
-import { createUuid } from "../uuid";
+import type { AudiobookDetail, PlaylistEntry } from "../shared/types";
+import { createUuid } from "../shared/uuid";
 
 type Bookmark = AudiobookDetail["bookmarks"][number];
 

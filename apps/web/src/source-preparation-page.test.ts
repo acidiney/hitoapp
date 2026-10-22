@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "./pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "./fixtures/sourceAttachment";
-import type { Source } from "./types";
+import type { Source } from "./shared/types";
 
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
 vi.mock("./player/PlaybackProvider", () => ({

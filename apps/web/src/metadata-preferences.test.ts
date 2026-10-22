@@ -4,7 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import MetadataPreferences from "./components/metadata/MetadataPreferences";
 import { metadataPreferencesApi } from "./metadataPreferencesApi";
 import { pluginsApi } from "./pluginsApi";
-import type { MetadataSettings, PluginSettings } from "./types";
+import type { MetadataSettings, PluginSettings } from "./shared/types";
 
 vi.mock("./metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },

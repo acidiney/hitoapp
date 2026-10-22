@@ -1,12 +1,12 @@
 import { Link } from "@inertiajs/react";
-import EmptyState from "../components/EmptyState";
-import PageHeading from "../components/PageHeading";
+import EmptyState from "../shared/ui/EmptyState";
+import PageHeading from "../shared/ui/PageHeading";
 import AudiobookBookmarkForm from "../components/audiobooks/AudiobookBookmarkForm";
 import AudiobookBookmarkList from "../components/audiobooks/AudiobookBookmarkList";
-import { time } from "../format";
+import { time } from "../shared/format";
 import { useAudiobookBookmarks } from "../hooks/useAudiobookBookmarks";
 import { useAudiobookPlayback } from "../hooks/useAudiobookPlayback";
-import type { AudiobookPageProps } from "../types";
+import type { AudiobookPageProps } from "../shared/types";
 
 export default function AudiobookPage({
   user,

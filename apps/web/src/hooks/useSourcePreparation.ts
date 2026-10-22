@@ -1,15 +1,15 @@
-import { createUuid } from "../uuid";
+import { createUuid } from "../shared/uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import { sourcePreparationApi } from "../sourcePreparationApi";
 import type {
   PrepareSource,
   Source,
   SourcePreparationReceipt,
   SourcePreparationStatus,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type View = {
   status: SourcePreparationStatus | null;

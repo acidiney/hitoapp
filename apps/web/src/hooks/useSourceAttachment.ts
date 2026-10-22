@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { errorMessage } from "../format";
-import { log } from "../log";
+import { errorMessage } from "../shared/format";
+import { log } from "../shared/log";
 import { pluginsApi } from "../pluginsApi";
 import { sourceBindingsApi } from "../sourceBindingsApi";
 import type {
@@ -8,8 +8,8 @@ import type {
   ProviderCandidate,
   ProviderRecording,
   ProviderSourceReview,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 type Phase = "settings" | "search" | "review" | "attach";
 type Work = {

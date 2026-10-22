@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { storageApi } from "../storageApi";
-import { errorMessage } from "../format";
-import type { DirectoryPage, DirectoryRef, SharedDirectory } from "../types";
-import { useRequestScope } from "./useRequestScope";
+import { errorMessage } from "../shared/format";
+import type { DirectoryPage, DirectoryRef, SharedDirectory } from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 export function useDirectoryBrowser(account: string) {
   const [directories, setDirectories] = useState<SharedDirectory[]>([]);

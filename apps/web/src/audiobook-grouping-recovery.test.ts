@@ -11,7 +11,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "./pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "./fixtures/audiobooks";
-import type { SyncBatch } from "./types";
+import type { SyncBatch } from "./shared/types";
 
 const navigationCallbacks = {
   onBefore: expect.any(Function),

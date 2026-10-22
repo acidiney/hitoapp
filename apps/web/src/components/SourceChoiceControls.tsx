@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { SourceChoice } from "../types";
+import type { SourceChoice } from "../shared/types";
 
 const modes: Record<SourceChoice["mode"], string> = {
   automatic: "Automatic source selection",

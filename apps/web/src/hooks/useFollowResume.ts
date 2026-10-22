@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { prepareChange, submitChange } from "../api";
 import { pluginsApi } from "../pluginsApi";
 import { playlistFollowApi } from "../playlistFollowApi";
-import { HttpError } from "../http";
-import { log } from "../log";
+import { HttpError } from "../shared/http";
+import { log } from "../shared/log";
 import type {
   PlaylistDetail,
   PluginInstallation,
   PluginService,
   SyncBatch,
-} from "../types";
-import { useRequestScope } from "./useRequestScope";
+} from "../shared/types";
+import { useRequestScope } from "../shared/hooks/useRequestScope";
 
 export type FollowResumeReview = {
   installation: PluginInstallation;

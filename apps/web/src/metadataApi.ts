@@ -1,5 +1,5 @@
-import { request } from "./http";
-import type { RecordingMetadata, ReleaseMetadata } from "./types";
+import { request } from "./shared/http";
+import type { RecordingMetadata, ReleaseMetadata } from "./shared/types";
 import type { MetadataTarget } from "./metadata";
 
 export const metadataApi = {

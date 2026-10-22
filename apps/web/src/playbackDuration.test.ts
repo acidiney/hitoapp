@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { Playback, type MediaPort, type Track } from "./playback";
 import type { BrowserMediaOwner } from "./player/BrowserPreparation";
-import { log } from "./log";
+import { log } from "./shared/log";
 
 afterEach(() => vi.restoreAllMocks());
 

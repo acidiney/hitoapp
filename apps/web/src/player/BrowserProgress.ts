@@ -1,8 +1,8 @@
 import { prepareChange, submitChange } from "../api";
-import { log } from "../log";
-import { HttpError } from "../http";
-import { createUuid } from "../uuid";
-import type { SyncBatch } from "../types";
+import { log } from "../shared/log";
+import { HttpError } from "../shared/http";
+import { createUuid } from "../shared/uuid";
+import type { SyncBatch } from "../shared/types";
 import type { BrowserCheckpoint } from "./BrowserObservation";
 
 type Scope = { signal: AbortSignal; active(): boolean };

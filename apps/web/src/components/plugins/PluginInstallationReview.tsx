@@ -1,4 +1,4 @@
-import type { PluginInstallationPreview } from "../../types";
+import type { PluginInstallationPreview } from "../../shared/types";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 export default function PluginInstallationReview({

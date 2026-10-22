@@ -13,7 +13,7 @@ import Artwork from "../components/Artwork";
 import ListeningPanel from "./ListeningPanel";
 import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
-import { log } from "../log";
+import { log } from "../shared/log";
 
 export default function PlayerDock({
   showListeningPanel = false,

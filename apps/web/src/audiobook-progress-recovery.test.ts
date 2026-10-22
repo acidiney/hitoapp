@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { act, render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { NoticeBanner, NoticeProvider } from "./components/Notices";
+import { NoticeBanner, NoticeProvider } from "./shared/ui/Notices";
 import { audiobookPages } from "./fixtures/audiobooks";
 import { audiobookContinuationMedia } from "./fixtures/audiobookContinuationMedia";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { Action, Source, SyncBatch } from "./types";
+import type { Action, Source, SyncBatch } from "./shared/types";
 
 test.each(["request", "acknowledgement body"] as const)(
   "a stalled progress %s expires before the exact checkpoint retries and later chapters follow in order",

@@ -18,7 +18,7 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "./fixtures/artistReview";
-import { log } from "./log";
+import { log } from "./shared/log";
 import { flush } from "./test/async";
 
 type Schema = components["schemas"];

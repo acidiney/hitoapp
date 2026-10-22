@@ -7,7 +7,7 @@ import {
   selectedRecordingAttribution,
   uncreditedRecordingObservation,
 } from "./fixtures/recordingAttribution";
-import type { RecordingAttribution } from "./types";
+import type { RecordingAttribution } from "./shared/types";
 
 function renderCredits(attribution: RecordingAttribution) {
   const logs = (["debug", "info", "log", "warn", "error"] as const).map(

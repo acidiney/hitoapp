@@ -16,7 +16,7 @@ import type {
   AudiobookIndexPageProps,
   AudiobookPageProps,
   SyncBatch,
-} from "./types";
+} from "./shared/types";
 
 type NavigationOptions = NonNullable<Parameters<typeof router.visit>[1]>;
 type NavigationVisit = Parameters<

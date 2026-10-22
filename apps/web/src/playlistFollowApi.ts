@@ -1,9 +1,9 @@
-import { request } from "./http";
+import { request } from "./shared/http";
 import type {
   PlaylistFollow,
   PlaylistFollowRefresh,
   RefreshFollowedPlaylist,
-} from "./types";
+} from "./shared/types";
 
 const part = encodeURIComponent;
 

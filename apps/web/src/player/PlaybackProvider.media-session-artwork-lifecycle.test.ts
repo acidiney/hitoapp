@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import Artwork from "../components/Artwork";
-import type { ArtworkFetch } from "../types";
+import type { ArtworkFetch } from "../shared/types";
 import { browserPreparationMedia } from "./fixtures/browserPreparationMedia";
 import { browserMediaSession } from "./fixtures/browserMediaSession";
 import { browserSessionImages } from "./fixtures/browserSessionImages";

@@ -2,10 +2,10 @@ import { createElement, type ComponentProps, type ReactNode } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import PlaylistPage from "./pages/PlaylistPage";
-import { NoticeProvider } from "./components/Notices";
+import { NoticeProvider } from "./shared/ui/Notices";
 import { PlaybackProvider, usePlayer } from "./player/PlaybackProvider";
 import type { Player } from "./player/model";
-import type { PlaylistDownloadStatus, PlaylistPageProps } from "./types";
+import type { PlaylistDownloadStatus, PlaylistPageProps } from "./shared/types";
 import {
   copiedPlaylistPage,
   recordingA,
@@ -14,9 +14,9 @@ import {
 
 const tableRenders = vi.hoisted(() => ({ count: 0 }));
 
-vi.mock("./components/TrackTable", async (importOriginal) => {
+vi.mock("./shared/ui/TrackTable", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("./components/TrackTable")>();
+    await importOriginal<typeof import("./shared/ui/TrackTable")>();
   return {
     ...actual,
     default: function CountedTrackTable(
