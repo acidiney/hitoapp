@@ -355,4 +355,3 @@ fn closed(address: SocketAddr) {
         "rejected or joined bootstrap must not retain a listener"
     );
 }
-
