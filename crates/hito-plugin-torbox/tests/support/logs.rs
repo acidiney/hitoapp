@@ -17,6 +17,12 @@ pub struct Capture {
 }
 
 impl Capture {
+    #[allow(dead_code)]
+    pub fn snapshot(&self) -> Vec<u8> {
+        assert!(!self.overflowed.load(Ordering::SeqCst));
+        self.bytes.lock().unwrap().clone()
+    }
+
     pub fn dispatch(&self) -> tracing::Dispatch {
         let capture = self.clone();
         tracing::Dispatch::new(

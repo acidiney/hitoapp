@@ -1,46 +1,23 @@
 use crate::{CuratedWavRecording, InitError, policy::Error};
-use hito_plugin_sdk::{ProviderSource, SearchPage, SearchRequest, SourcePage};
-use std::collections::HashSet;
+use hito_plugin_sdk::{CuratedEntryView, SearchPage, SearchRequest, admit_curated_catalog};
 
 pub(crate) struct Catalog {
     entries: Vec<CuratedWavRecording>,
 }
 
 impl Catalog {
-    pub(crate) fn new(mut entries: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
-        if entries.is_empty() || entries.len() > 128 {
-            return Err(InitError::InvalidCatalog);
-        }
-        entries.sort_by(|a, b| a.recording.id.cmp(&b.recording.id));
-        let mut recordings = HashSet::new();
-        let mut sources = HashSet::new();
-        let mut bytes = 0_usize;
+    pub(crate) fn new(entries: Vec<CuratedWavRecording>) -> Result<Self, InitError> {
+        let entries = admit_curated_catalog(entries, |entry| CuratedEntryView {
+            recording: &entry.recording,
+            source_id: &entry.source_id,
+            label: &entry.label,
+        })
+        .map_err(|_| InitError::InvalidCatalog)?;
         for entry in &entries {
-            entry
-                .recording
-                .validate()
-                .map_err(|_| InitError::InvalidCatalog)?;
             entry
                 .binding
                 .validate()
                 .map_err(|_| InitError::InvalidCatalog)?;
-            let source = SourcePage {
-                items: vec![ProviderSource {
-                    id: entry.source_id.clone(),
-                    label: entry.label.clone(),
-                    ready: false,
-                }],
-            };
-            source.validate().map_err(|_| InitError::InvalidCatalog)?;
-            if !recordings.insert(&entry.recording.id) || !sources.insert(&entry.source_id) {
-                return Err(InitError::InvalidCatalog);
-            }
-            let encoded = serde_json::to_vec(&(&entry.recording, &source))
-                .map_err(|_| InitError::InvalidCatalog)?;
-            if encoded.len() > 49_152_usize.saturating_sub(bytes) {
-                return Err(InitError::InvalidCatalog);
-            }
-            bytes += encoded.len();
         }
         Ok(Self { entries })
     }
