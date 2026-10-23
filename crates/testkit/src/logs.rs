@@ -2,10 +2,21 @@ use serde_json::Value;
 use std::{
     io::{self, Write},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
 };
+
+static CALLSITE_INTEREST_ANCHOR: OnceLock<tracing::Dispatch> = OnceLock::new();
+
+/// While one dispatcher is alive, tracing-core caches a callsite's interest from
+/// the dispatcher of whichever thread registers it first. A callsite first used on
+/// a thread without the capture would then be disabled for every capture. A second,
+/// permanent dispatcher keeps tracing-core on its all-dispatchers path.
+fn anchor_callsite_interest() {
+    CALLSITE_INTEREST_ANCHOR
+        .get_or_init(|| tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()));
+}
 
 pub const MAX_CAPTURE_BYTES: usize = 65_536;
 
@@ -42,6 +53,7 @@ impl LogCapture {
     }
 
     pub fn dispatch(&self, filter: &str) -> tracing::Dispatch {
+        anchor_callsite_interest();
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()
@@ -55,6 +67,7 @@ impl LogCapture {
     }
 
     pub fn dispatch_with_spans(&self, filter: &str) -> tracing::Dispatch {
+        anchor_callsite_interest();
         let capture = self.clone();
         tracing::Dispatch::new(
             tracing_subscriber::fmt()
