@@ -16,7 +16,7 @@ pub struct Recording {
     pub liked: bool,
 }
 
-#[derive(Deserialize, Default, ToSchema)]
+#[derive(Clone, Deserialize, Default, ToSchema)]
 pub struct Search {
     pub artist: Option<String>,
     pub q: Option<String>,

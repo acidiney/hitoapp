@@ -1,5 +1,5 @@
 mod html;
-mod page;
+mod pages;
 pub mod props;
 mod protocol;
 
@@ -11,7 +11,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 use hito_core::{Search, Services};
-use page::Screen;
+use pages::Screen;
 use props::{LoginPageProps, PageComponent, PageProps};
 use protocol::Protocol;
 use serde_json::json;
