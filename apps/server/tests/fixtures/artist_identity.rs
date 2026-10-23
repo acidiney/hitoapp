@@ -26,6 +26,7 @@ pub(super) struct Library {
     pub other: String,
     pub provider: MetadataProvider,
     pub peer: Account,
+    pub credit_ids: Vec<String>,
     playlist: String,
     origin: ProviderServer,
     catalog: catalog::CatalogServer,
@@ -130,6 +131,12 @@ impl Library {
             )
             .await;
         assert_eq!(status, StatusCode::OK);
+        let credit_ids = owner.get(&app, "/api/v1/artists").await["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|artist| artist["id"].as_str().unwrap().to_owned())
+            .collect();
         Self {
             app,
             owner,
@@ -138,6 +145,7 @@ impl Library {
             other: imported.other_recording,
             provider,
             peer,
+            credit_ids,
             playlist,
             origin,
             catalog,
@@ -296,9 +304,17 @@ impl Library {
             )
             .await;
         assert_eq!(status, StatusCode::OK);
+        let mut credit_pages = Vec::new();
+        for id in &self.credit_ids {
+            credit_pages.push(
+                self.owner
+                    .get(&self.app, &format!("/api/v1/artists/{id}"))
+                    .await,
+            );
+        }
         json!({
             "recordings": self.owner.get(&self.app, "/api/v1/recordings").await,
-            "artists": self.owner.get(&self.app, "/api/v1/artists").await,
+            "credit_pages": credit_pages,
             "releases": self.owner.get(&self.app, "/api/v1/releases").await,
             "libraries": self.owner.get(&self.app, "/api/v1/libraries").await,
             "metadata": metadata, "sources": sources, "associations": associations, "progress": progress,

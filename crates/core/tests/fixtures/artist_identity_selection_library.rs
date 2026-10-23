@@ -22,6 +22,7 @@ pub struct Library {
     pub imported: String,
     pub namesake: String,
     pub receipt: PlaylistImportReceipt,
+    pub credit_ids: Vec<String>,
     pub metadata_provider: MetadataProvider,
     pub origin: provider::ProviderServer,
     pub catalog: catalog::CatalogServer,
@@ -150,6 +151,15 @@ impl Library {
             },
         ]);
         support::synchronize(&hito, &actor, actions).await;
+        let credit_ids = hito
+            .catalog
+            .artists(&actor, Default::default())
+            .await
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|artist| artist.id)
+            .collect();
         let catalog = catalog::CatalogServer::start().await;
         let service = hito
             .plugins
@@ -199,6 +209,7 @@ impl Library {
             imported,
             namesake,
             receipt,
+            credit_ids,
             metadata_provider,
             origin,
             catalog,
@@ -235,10 +246,20 @@ impl Library {
             sources.push(current);
         }
         assert_eq!(std::fs::read(&self.audio).unwrap(), self.original);
+        let mut credit_pages = Vec::new();
+        for id in &self.credit_ids {
+            credit_pages.push(
+                self.hito
+                    .catalog
+                    .artist(&self.actor, id, Default::default())
+                    .await
+                    .ok(),
+            );
+        }
         json!({
             "shared_library": self.hito.catalog.libraries(&self.actor).await.unwrap().into_iter().find(|library| library.id == self.shared).unwrap(),
             "recordings": self.hito.catalog.recordings(&self.actor, Default::default()).await.unwrap(),
-            "legacy_artists": self.hito.catalog.artists(&self.actor, Default::default()).await.unwrap(),
+            "credit_pages": credit_pages,
             "releases": self.hito.catalog.releases(&self.actor, Default::default()).await.unwrap(),
             "metadata": metadata, "sources": sources, "receipt": self.receipt,
             "playlist": self.hito.collection.playlist(&self.actor, &self.receipt.playlist_id.to_string()).await.unwrap(),

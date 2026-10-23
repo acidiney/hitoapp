@@ -96,8 +96,10 @@ async fn exercise(library: &library::Library) {
             )
             .await
             .unwrap();
-        assert_eq!(legacy.total, 1);
-        assert_eq!(legacy.items[0].name, LOCAL);
+        assert_eq!(
+            legacy.total, 0,
+            "A reviewed credit is represented by its group instead of the credit index"
+        );
         let found = hito
             .catalog
             .artist_identity_groups(actor, query(term, Some(&library.shared)))
@@ -110,7 +112,12 @@ async fn exercise(library: &library::Library) {
         assert_eq!(found.items[0].id, *group);
         assert_eq!(found.items[0].name.value, LOCAL);
         assert_eq!(found.items[0].name.recording_id, library.local);
-        assert_eq!(found.items[0].name.artist_id, legacy.items[0].id);
+        let credit = hito
+            .catalog
+            .artist(actor, &found.items[0].name.artist_id, Default::default())
+            .await
+            .unwrap();
+        assert_eq!(credit.artist.name, LOCAL);
         assert_eq!(
             found.items[0].name.association_id,
             selections[0].selection.as_ref().unwrap().association_id

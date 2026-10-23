@@ -21,12 +21,12 @@ async fn inertia_group_reads_stay_local_after_disconnect_and_follow_explicit_res
 }
 
 async fn exercise(library: &Library) {
+    let legacy = library.owner.get(&library.app, "/api/v1/artists").await;
     let (local_request, local_receipt) = library.select(&library.local).await;
     let (_, imported_receipt) = library.select(&library.imported).await;
     let group = local_receipt["selection"]["group_id"].as_str().unwrap();
     assert_eq!(imported_receipt["selection"]["group_id"], group);
     let path = format!("/artist-groups/{group}");
-    let legacy = library.owner.get(&library.app, "/api/v1/artists").await;
     let mut before = library.snapshot().await;
     before.as_object_mut().unwrap().remove("settings");
     before.as_object_mut().unwrap().remove("plugins");

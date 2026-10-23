@@ -47,6 +47,11 @@ async fn exercise(library: &library::RetainedLibrary) {
         .await
         .unwrap();
     let before = library.snapshot().await;
+    assert_eq!(
+        library.listed_credits().await,
+        ["Retained album credit"],
+        "A credit fully represented by a current choice leaves the credit index"
+    );
     let metadata = hito
         .catalog
         .recording_metadata(actor, recording, Default::default())
@@ -175,6 +180,11 @@ async fn exercise(library: &library::RetainedLibrary) {
             .unwrap()
             .total,
         0
+    );
+    assert_eq!(
+        library.listed_credits().await,
+        ["C4 Pedro", "Retained album credit"],
+        "A retired choice returns its credit to the index"
     );
     assert_eq!(
         library.snapshot().await,

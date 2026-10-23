@@ -1,3 +1,4 @@
+use super::artist_catalog::identity::push_unrepresented_credit;
 use super::{Browse, Catalog, Page, Recording, Release, Search};
 use crate::{Actor, Error, Result};
 use serde::Serialize;
@@ -43,6 +44,7 @@ impl Catalog {
         let mut count = QueryBuilder::new("SELECT count(*) FROM account_artists c");
         browse.filter(&mut count, actor, "c", "account_artists_fts", "name")?;
         count.push(" AND (EXISTS (SELECT 1 FROM account_artist_releases ar WHERE ar.user_id = c.user_id AND ar.artist_id = c.id) OR EXISTS (SELECT 1 FROM account_recording_credits rc WHERE rc.user_id = c.user_id AND rc.artist_id = c.id))");
+        push_unrepresented_credit(&mut count, actor, "c");
         let total = count
             .build_query_scalar()
             .fetch_one(&self.store.pool)
@@ -112,6 +114,7 @@ fn selected(
     if let Some(id) = id {
         query.push(" AND c.id = ").push_bind(id.to_owned());
     } else {
+        push_unrepresented_credit(&mut query, actor, "c");
         let (offset, limit) = browse.bounds();
         query
             .push(" ORDER BY c.name COLLATE NOCASE, c.id LIMIT ")

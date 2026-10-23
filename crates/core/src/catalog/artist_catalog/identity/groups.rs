@@ -222,15 +222,7 @@ fn bounds(offset: Option<i64>, limit: Option<i64>) -> (i64, i64) {
     )
 }
 
-fn visible(
-    actor: &Actor,
-    library: Option<&str>,
-    group: Option<&str>,
-) -> QueryBuilder<'static, Sqlite> {
-    let mut query=QueryBuilder::new("WITH visible AS (
-        SELECT choice.group_id,choice.recording_id,choice.revision,choice.association_id,choice.artist_id,
-            choice.selection_order,r.library_id,artist.name,artist.rowid AS artist_rowid,choice.user_id
-        FROM recording_artist_identity_choices choice
+const CURRENT_CHOICES: &str = "FROM recording_artist_identity_choices choice
         JOIN recordings r ON r.id=choice.recording_id
         JOIN library_members access ON access.library_id=r.library_id AND access.user_id=choice.user_id
         JOIN account_recording_credits credit ON credit.recording_id=r.id AND credit.user_id=choice.user_id AND credit.artist_id=choice.artist_id
@@ -238,7 +230,55 @@ fn visible(
         LEFT JOIN personal_recording_metadata personal ON personal.recording_id=r.id AND personal.user_id=choice.user_id
         WHERE choice.retired=0 AND choice.association_id IS NOT NULL
             AND r.metadata_observation_id=choice.observation_id AND personal.artist_operation_id IS choice.artist_operation_id
-            AND choice.user_id=");
+            AND choice.user_id=";
+
+/// Restricts a library-credit query to credits that no reviewed identity group fully represents.
+/// A credit is represented when it has a current chosen recording and every recording and release
+/// it holds also belongs to a current chosen recording.
+pub(crate) fn push_unrepresented_credit(
+    query: &mut QueryBuilder<'static, Sqlite>,
+    actor: &Actor,
+    credit: &str,
+) {
+    let user = actor.id().to_owned();
+    query
+        .push(format!(
+            " AND NOT ({credit}.id IN (SELECT choice.artist_id {CURRENT_CHOICES}"
+        ))
+        .push_bind(user.clone())
+        .push(format!(
+            ") AND NOT EXISTS (SELECT 1 FROM account_recording_credits rc
+                WHERE rc.user_id={credit}.user_id AND rc.artist_id={credit}.id
+                AND rc.recording_id NOT IN (SELECT choice.recording_id {CURRENT_CHOICES}"
+        ))
+        .push_bind(user.clone())
+        .push(format!(
+            ")) AND NOT EXISTS (SELECT 1 FROM account_artist_releases ar
+                WHERE ar.user_id={credit}.user_id AND ar.artist_id={credit}.id
+                AND ar.release_id NOT IN (
+                    SELECT m.release_id FROM sources source JOIN source_metadata m ON m.source_id=source.id
+                    WHERE source.recording_id IN (SELECT choice.recording_id {CURRENT_CHOICES}"
+        ))
+        .push_bind(user.clone())
+        .push(format!(
+            ") UNION SELECT p.release_id FROM provider_release_appearances p
+                    WHERE p.recording_id IN (SELECT choice.recording_id {CURRENT_CHOICES}"
+        ))
+        .push_bind(user)
+        .push("))))");
+}
+
+fn visible(
+    actor: &Actor,
+    library: Option<&str>,
+    group: Option<&str>,
+) -> QueryBuilder<'static, Sqlite> {
+    let mut query = QueryBuilder::new(
+        "WITH visible AS (
+        SELECT choice.group_id,choice.recording_id,choice.revision,choice.association_id,choice.artist_id,
+            choice.selection_order,r.library_id,artist.name,artist.rowid AS artist_rowid,choice.user_id ",
+    );
+    query.push(CURRENT_CHOICES);
     query.push_bind(actor.id().to_owned());
     if let Some(library) = library {
         query

@@ -2,7 +2,7 @@
 
 Hito can retain an explicit performer identity choice for each recording and account. Choices group local and imported recordings only when the user has reviewed the same exact artist identity through the same provider installation. Equal artist names do not establish identity.
 
-Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index retains every existing library-credit card alongside the chosen groups. Recording and source identities remain unchanged. Packaged Chromium acceptance passes; WebKit, replacing duplicate legacy cards, automatic matching and deployment remain unfinished.
+Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index lists a library-credit card only while some of its content is not covered by a chosen group. Recording and source identities remain unchanged. Packaged Chromium acceptance passes; WebKit, automatic matching and deployment remain unfinished.
 
 ## Ownership
 
@@ -43,7 +43,7 @@ The display name comes from the earliest accepted currently eligible member's ac
 
 Search uses the existing catalog Unicode and prefix policy. It matches only the group's current display credit. A hidden member, an inaccessible library and a different member label cannot introduce a search match.
 
-The Artists index shows **Chosen artists** separately from **Library credits**. Opening a chosen group uses `/artist-groups/{id}`. Its library filters and independently paged recordings and releases use the same authorized core projection as the JSON API. Changing the library resets the group's page offsets; changing one page preserves the other offsets. Group links retain the selected library and page size, without carrying unrelated index search or offsets.
+The Artists index shows **Chosen artists** separately from **Library credits**. A library credit leaves the credits list when it has a current chosen recording and every recording and release it holds also belongs to a current chosen recording. This is the only way two cards for one artist merge. Equal names alone never do: a credit that still holds an unreviewed recording stays listed, and two namesakes chosen under different provider artists stay in separate groups. Resetting or retiring a choice, or losing library access, returns the credit to the list. The credit page `/artists/{id}` stays readable by identifier and album links still use it. The `/api/v1/artists` list and its total follow the same rule. Opening a chosen group uses `/artist-groups/{id}`. Its library filters and independently paged recordings and releases use the same authorized core projection as the JSON API. Changing the library resets the group's page offsets; changing one page preserves the other offsets. Group links retain the selected library and page size, without carrying unrelated index search or offsets.
 
 Recording Details links a current choice to its group only after reading that group's authorized saved credit. Pending requests, failed reads, Reset and changed recording ownership remove the link. Group pages reuse the existing album and track components, retain original recording identifiers and unavailable markers, and start playback only through explicit controls. Existing artwork retrieval remains available. Browsing does not add provider catalog, discography, source preparation or download workflows.
 

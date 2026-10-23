@@ -3,6 +3,7 @@ use crate::{
     artist_identity_inertia_fixture::page,
     artist_review_fixture as review,
 };
+use axum::http::StatusCode;
 use futures_util::FutureExt;
 use hito_core::{ArtistIdentityChoiceReceipt, ChooseRecordingArtistIdentity};
 use serde_json::json;
@@ -53,10 +54,37 @@ async fn exercise(library: &Library) {
                 .any(|item| item["id"] == *artist)
         );
     }
+    let covered = [&local.context.artist_id];
+    let remaining = library.owner.get(&library.app, "/api/v1/artists").await;
+    let expected: Vec<_> = legacy["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|item| !covered.contains(&&item["id"].as_str().unwrap().to_owned()))
+        .cloned()
+        .collect();
+    assert_eq!(remaining["items"], json!(expected));
     assert_eq!(
-        library.owner.get(&library.app, "/api/v1/artists").await,
-        legacy
+        remaining["total"].as_i64().unwrap(),
+        legacy["total"].as_i64().unwrap() - 1,
+        "A credit fully represented by the reviewed identity leaves the credit index, while the imported credit still holds an unreviewed recording"
     );
+    for id in covered {
+        let (status, _) = library
+            .owner
+            .request(
+                &library.app,
+                "GET",
+                &format!("/api/v1/artists/{id}"),
+                json!(null),
+            )
+            .await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "Covered credit pages stay reachable"
+        );
+    }
     let preserved = library.snapshot().await;
     let provider_before = library.provider_counts().await;
     let groups = library
@@ -96,6 +124,17 @@ async fn exercise(library: &Library) {
     assert_eq!(index["component"], "ArtistIndexPage");
     assert_eq!(index["props"]["artists"], artists);
     assert_eq!(index["props"]["query"], "Owned");
+    let shown: Vec<_> = index["props"]["artists"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        !shown.contains(&local.context.artist_id.as_str()),
+        "The index shows the reviewed identity once instead of its fully represented local credit"
+    );
+
     assert_eq!(index["props"]["identity_groups"], group_page);
 
     let next = page(
@@ -203,10 +242,6 @@ async fn exercise(library: &Library) {
     .await;
     assert_eq!(scoped["props"]["artists"], local_artists);
     assert_eq!(scoped["props"]["identity_groups"], local_groups);
-    assert_eq!(
-        library.owner.get(&library.app, "/api/v1/artists").await,
-        legacy
-    );
     assert_eq!(library.snapshot().await, preserved);
     assert_eq!(library.provider_counts().await, provider_before);
 }

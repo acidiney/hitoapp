@@ -171,6 +171,18 @@ impl RetainedLibrary {
         support::scan(&self.hito, &self.admin, &self.library_id).await;
     }
 
+    pub async fn listed_credits(&self) -> Vec<String> {
+        self.hito
+            .catalog
+            .artists(&self.listener, Default::default())
+            .await
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|artist| artist.name)
+            .collect()
+    }
+
     pub async fn snapshot(&self) -> Value {
         assert_eq!(std::fs::read(&self.audio).unwrap(), self.original);
         let metadata = self
@@ -181,7 +193,6 @@ impl RetainedLibrary {
             .unwrap();
         json!({
             "recordings": self.hito.catalog.recordings(&self.listener, Default::default()).await.unwrap(),
-            "legacy_artists": self.hito.catalog.artists(&self.listener, Default::default()).await.unwrap(),
             "releases": self.hito.catalog.releases(&self.listener, Default::default()).await.unwrap(),
             "title": metadata.title, "artist": metadata.artist, "selected_observation": metadata.selected_observation,
             "sources": self.hito.catalog.sources(&self.listener, &self.recording_id).await.unwrap(),
