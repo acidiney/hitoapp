@@ -67,9 +67,10 @@ pub(crate) fn command(event: MediaControlEvent) -> Option<MediaCommand> {
         MediaControlEvent::SetPosition(MediaPosition(position)) => MediaCommand::Seek {
             position_ms: position.as_millis().min(u64::MAX as u128) as u64,
         },
-        MediaControlEvent::OpenUri(_) | MediaControlEvent::Raise | MediaControlEvent::Quit => {
-            return None;
-        }
+        MediaControlEvent::SetVolume(_)
+        | MediaControlEvent::OpenUri(_)
+        | MediaControlEvent::Raise
+        | MediaControlEvent::Quit => return None,
     })
 }
 
