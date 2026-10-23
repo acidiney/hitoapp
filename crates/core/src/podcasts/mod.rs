@@ -14,9 +14,9 @@ mod query_work;
 
 use crate::{Catalog, remote_http::RemoteHttp, store::Store};
 pub use types::{
-    PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
-    PodcastSubscription, PodcastSubscriptionReceipt, PodcastUnsubscribeReceipt, RefreshPodcast,
-    SubscribePodcast, UnsubscribePodcast,
+    EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,
+    PodcastRefreshReceipt, PodcastSubscription, PodcastSubscriptionReceipt,
+    PodcastUnsubscribeReceipt, RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
 };
 
 #[derive(Clone)]

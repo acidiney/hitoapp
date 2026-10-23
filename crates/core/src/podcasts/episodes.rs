@@ -1,7 +1,8 @@
 use super::{
-    PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, Podcasts, subscriptions::identity,
+    EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, Podcasts,
+    subscriptions::identity,
 };
-use crate::{Actor, Error, Result};
+use crate::{Actor, Error, Result, collection::saved_progress};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -131,6 +132,31 @@ impl Podcasts {
             next_cursor,
             content_revision: revision,
         })
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn episodes_with_progress(
+        &self,
+        actor: &Actor,
+        subscription: &str,
+        query: PodcastEpisodeQuery,
+    ) -> Result<EpisodesWithProgress> {
+        let episodes = self.episodes(actor, subscription, query).await?;
+        let recording_ids = episodes
+            .items
+            .iter()
+            .map(|episode| {
+                Uuid::parse_str(&episode.recording.id)
+                    .map_err(|_| Error::Internal("Stored recording identity is invalid".into()))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let progress = saved_progress(&self.store, actor, &recording_ids).await?;
+        tracing::debug!(
+            episode_count = episodes.items.len(),
+            progress_count = progress.len(),
+            "Podcast episodes joined with saved progress"
+        );
+        Ok(EpisodesWithProgress { episodes, progress })
     }
 }
 

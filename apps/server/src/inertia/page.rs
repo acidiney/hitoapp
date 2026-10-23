@@ -6,7 +6,6 @@ use hito_core::{
     Actor, ArtistIdentityGroupBrowse, ArtistIdentityGroupQuery, AudiobookLibraryQuery, Browse,
     Error, PodcastEpisodeQuery, Search, Services,
 };
-use uuid::Uuid;
 
 pub enum Screen<'a> {
     Catalog,
@@ -116,35 +115,20 @@ impl<'a> Screen<'a> {
             }
             Self::Podcast(id) => {
                 let subscription = services.podcasts.subscription(actor, id).await?;
-                let episodes = if fields.requested("episodes") || fields.requested("progress") {
-                    Some(
-                        services
-                            .podcasts
-                            .episodes(actor, id, PodcastEpisodeQuery::default())
-                            .await?,
+                let query = PodcastEpisodeQuery::default();
+                let (episodes, progress) = if fields.requested("progress") {
+                    let joined = services
+                        .podcasts
+                        .episodes_with_progress(actor, id, query)
+                        .await?;
+                    (Some(joined.episodes), Some(joined.progress))
+                } else if fields.requested("episodes") {
+                    (
+                        Some(services.podcasts.episodes(actor, id, query).await?),
+                        None,
                     )
                 } else {
-                    None
-                };
-                let progress = if fields.requested("progress") {
-                    let recording_ids = episodes
-                        .as_ref()
-                        .into_iter()
-                        .flat_map(|page| &page.items)
-                        .map(|episode| {
-                            Uuid::parse_str(&episode.recording.id).map_err(|_| {
-                                Error::Internal("Stored recording identity is invalid".into())
-                            })
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    Some(
-                        services
-                            .collection
-                            .saved_playback(actor, &recording_ids)
-                            .await?,
-                    )
-                } else {
-                    None
+                    (None, None)
                 };
                 Ok(PageProps::Podcast(PodcastPageProps {
                     shared,

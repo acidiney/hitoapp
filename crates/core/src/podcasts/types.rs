@@ -1,4 +1,4 @@
-use crate::Recording;
+use crate::{Recording, RecordingProgress};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -72,4 +72,9 @@ pub struct PodcastEpisodePage {
     pub limit: u16,
     pub next_cursor: Option<String>,
     pub content_revision: i64,
+}
+
+pub struct EpisodesWithProgress {
+    pub episodes: PodcastEpisodePage,
+    pub progress: Vec<RecordingProgress>,
 }

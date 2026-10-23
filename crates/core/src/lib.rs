@@ -82,9 +82,9 @@ pub use plugins::{
     PreviewPluginInstallation, RefreshPlugin,
 };
 pub use podcasts::{
-    PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, PodcastRefreshReceipt,
-    PodcastSubscription, PodcastSubscriptionReceipt, PodcastUnsubscribeReceipt, Podcasts,
-    RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
+    EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,
+    PodcastRefreshReceipt, PodcastSubscription, PodcastSubscriptionReceipt,
+    PodcastUnsubscribeReceipt, Podcasts, RefreshPodcast, SubscribePodcast, UnsubscribePodcast,
 };
 pub use remote_http::PodcastNetworkConfig;
 use store::Store;
