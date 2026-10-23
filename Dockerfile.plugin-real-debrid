@@ -13,6 +13,9 @@ ENV CARGO_TARGET_DIR=/build/real-debrid-release-target \
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY apps/server apps/server
+COPY apps/desktop apps/desktop
+COPY apps/community apps/community
 COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${HITO_REAL_DEBRID_SOURCE_ID}-${TARGETARCH},target=/build/real-debrid-release-target \

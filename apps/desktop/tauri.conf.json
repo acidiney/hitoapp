@@ -3,12 +3,12 @@
   "productName": "Hito",
   "version": "0.1.0-dev",
   "identifier": "org.hito.audio",
-  "build": { "frontendDist": "../../apps/web/dist" },
+  "build": { "frontendDist": "../web/dist" },
   "app": { "windows": [], "security": { "capabilities": [] } },
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": { "../../apps/web/dist/": "web/" },
+    "resources": { "../web/dist/": "web/" },
     "icon": [],
     "category": "Music",
     "shortDescription": "Your audio library and player"

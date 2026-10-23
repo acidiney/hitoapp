@@ -9,6 +9,9 @@ ENV CARGO_TARGET_DIR=/build/plugin-folder-release-target CARGO_BUILD_JOBS=2 CARG
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY apps/server apps/server
+COPY apps/desktop apps/desktop
+COPY apps/community apps/community
 COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID},target=/build/plugin-folder-release-target cargo build --locked --release -j 2 -p hito-plugin-folder && cp /build/plugin-folder-release-target/release/hito-plugin-folder /hito-plugin-folder

@@ -65,17 +65,21 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 
 ## Repository
 
-| Directory                | Responsibility                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `crates/core`       | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
-| `crates/hito-server`     | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
-| `crates/hito-desktop`    | Standalone local backend, private WebView access, application storage and exit lifecycle                |
-| `crates/audio`      | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
-| `crates/playback`   | Authenticated queues, authorized native playback, revocation, and joined cleanup               |
-| `crates/plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
-| `apps/web`               | Shared React UI with browser and native player implementations                                                     |
-| `scripts`                | Deterministic audio fixtures                                                                            |
-| `docs`                   | Architecture, API contracts, operations, release scope, and verification evidence                       |
+| Directory                                     | Responsibility                                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `apps/server`                                 | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
+| `apps/desktop`                                | Standalone local backend, private WebView access, application storage and exit lifecycle                |
+| `apps/community`                              | Separate community ranking service executable                                                           |
+| `apps/web`                                    | Shared React UI with browser and native player implementations                                          |
+| `crates/core`                                 | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
+| `crates/audio`                                | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
+| `crates/playback`                             | Authenticated queues, authorized native playback, revocation, and joined cleanup                        |
+| `crates/plugin-sdk`                           | Apache-2.0 plugin manifest and capability contract                                                      |
+| `crates/remote-audio, crates/debrid`          | Remote audio contract and debrid provider clients                                                       |
+| `crates/metadata-musicbrainz, crates/testkit` | MusicBrainz metadata adapter and shared test fixtures                                                   |
+| `plugins`                                     | Plugin executables: folder, Spotify, YouTube, Jamendo and debrid providers                              |
+| `scripts`                                     | Verification, packaging and deterministic audio fixture tools                                           |
+| `docs`                                        | Architecture, API contracts, operations, release scope, and verification evidence                       |
 
 See the actual [TODO checklist](TODO.md), [architecture](docs/architecture.md), [operations](docs/operations.md), [API](docs/api.md), and [implementation status](docs/status.md).
 

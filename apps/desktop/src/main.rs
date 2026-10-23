@@ -40,7 +40,7 @@ fn main() {
             let web = if web.join("assets/app.js").is_file() {
                 web
             } else {
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist")
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist")
             };
             let host = tauri::async_runtime::block_on(LocalHost::start(Paths {
                 data: data.clone(),

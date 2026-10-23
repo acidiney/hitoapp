@@ -12,7 +12,7 @@ test-results
 **/test-results
 **/playwright-report
 backups
-crates/hito-desktop/gen/schemas
+apps/desktop/gen/schemas
 fixtures/e2e-generated
 **/*.db
 **/*.db-shm

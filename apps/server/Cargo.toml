@@ -7,9 +7,9 @@ license.workspace = true
 
 [dependencies]
 tokio-util.workspace = true
-hito-core = { path = "../core" }
-hito-playback = { path = "../playback", features = ["schema"] }
-hito-plugin-sdk = { path = "../plugin-sdk", features = ["schema"] }
+hito-core = { path = "../../crates/core" }
+hito-playback = { path = "../../crates/playback", features = ["schema"] }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk", features = ["schema"] }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -28,8 +28,8 @@ hyper.workspace = true
 hyper-util.workspace = true
 
 [dev-dependencies]
-hito-testkit = { path = "../testkit" }
-hito-core = { path = "../core", features = ["test-support"] }
+hito-testkit = { path = "../../crates/testkit" }
+hito-core = { path = "../../crates/core", features = ["test-support"] }
 sqlx.workspace = true
 lofty.workspace = true
 tokio-stream = "0.1"

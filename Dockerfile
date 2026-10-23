@@ -16,6 +16,9 @@ ARG HITO_SERVER_CACHE_ID=hito-server-main
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY apps/server apps/server
+COPY apps/desktop apps/desktop
+COPY apps/community apps/community
 COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_SERVER_CACHE_ID},target=/build/target cargo build --locked --release -j 2 -p hito-server && cp /build/target/release/hito-server /hito-server

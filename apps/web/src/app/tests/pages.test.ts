@@ -5,7 +5,7 @@ import { buildPages, pages, resolvePage } from "../pages";
 
 const contract = resolve(
   import.meta.dirname,
-  "../../../../../crates/hito-server/src/inertia/props.rs",
+  "../../../../../apps/server/src/inertia/props.rs",
 );
 
 function serverComponents() {
