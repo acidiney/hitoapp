@@ -56,9 +56,11 @@ test("system next, previous, and stop follow the owned queue and never restart a
     await act(async () => system.invoke("nexttrack"));
     expect(view.player().snapshot().current?.id).toBe(otherRecording.id);
     expect(system.session.metadata?.title).toBe(otherRecording.title);
+    expect(system.session.metadata?.album).toBe("");
     await act(async () => system.invoke("previoustrack"));
     expect(view.player().snapshot().current?.id).toBe(recording.id);
     expect(system.session.metadata?.title).toBe(recording.title);
+    expect(system.session.metadata?.album).toBe(recording.album);
     const oldCallbacks = [...system.handlers];
     act(() => system.invoke("stop"));
     expect(view.player().snapshot().current).toBeNull();
