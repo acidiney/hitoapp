@@ -145,6 +145,9 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     const saved = await screen.findByRole("region", {
       name: "Saved artist reviews",
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(within(saved).getAllByRole("listitem")).toHaveLength(1);
     expect(confirmations).toBe(1);
     expect(fetch).toHaveBeenCalledTimes(12);
