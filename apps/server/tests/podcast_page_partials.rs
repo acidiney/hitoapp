@@ -11,7 +11,8 @@ use axum::{
     http::{Request, StatusCode},
 };
 use hito_core::{CoreConfig, HostDeviceId, PodcastNetworkConfig};
-use serde_json::json;
+use http_body_util::BodyExt;
+use serde_json::{Value, json};
 use support::call;
 use tower::ServiceExt;
 use tracing::instrument::WithSubscriber;
@@ -60,23 +61,28 @@ async fn only_a_progress_reload_reads_saved_progress_for_the_episode_page() {
     let path = format!("/podcasts/{}", receipt["subscription_id"].as_str().unwrap());
 
     let episodes = CapturedLogs::default();
-    let status = reload(&app, &path, token, "episodes")
+    let (status, props) = reload(&app, &path, token, "episodes")
         .with_subscriber(episodes.subscriber())
         .await;
     assert_eq!(status, StatusCode::OK);
+    assert!(props.get("episodes").is_some());
+    assert!(props.get("progress").is_none());
     assert!(!episodes.text().contains(JOINED));
 
     let progress = CapturedLogs::default();
-    let status = reload(&app, &path, token, "progress")
+    let (status, props) = reload(&app, &path, token, "progress")
         .with_subscriber(progress.subscriber())
         .await;
     assert_eq!(status, StatusCode::OK);
+    assert!(props.get("episodes").is_none());
+    assert_eq!(props["progress"], json!([]));
     assert!(progress.text().contains(JOINED));
     assert!(fixture.finish().await);
 }
 
-async fn reload(app: &Router, path: &str, token: &str, fields: &str) -> StatusCode {
-    app.clone()
+async fn reload(app: &Router, path: &str, token: &str, fields: &str) -> (StatusCode, Value) {
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri(path)
@@ -88,6 +94,9 @@ async fn reload(app: &Router, path: &str, token: &str, fields: &str) -> StatusCo
                 .unwrap(),
         )
         .await
-        .unwrap()
-        .status()
+        .unwrap();
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let page: Value = serde_json::from_slice(&body).unwrap();
+    (status, page["props"].clone())
 }

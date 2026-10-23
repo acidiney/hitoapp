@@ -1,7 +1,7 @@
 use super::PageRequest;
 use crate::error::ApiResult;
 use crate::inertia::props::*;
-use hito_core::{AudiobookLibraryQuery, Error};
+use hito_core::AudiobookLibraryQuery;
 
 pub(super) async fn index(request: PageRequest<'_>) -> ApiResult<PageProps> {
     let collection = &request.services.collection;
@@ -14,11 +14,7 @@ pub(super) async fn index(request: PageRequest<'_>) -> ApiResult<PageProps> {
                         limit: request
                             .search
                             .limit
-                            .map(u16::try_from)
-                            .transpose()
-                            .map_err(|_| {
-                                Error::Invalid("Audiobook pages contain 1 to 100 books".into())
-                            })?,
+                            .map(|limit| u16::try_from(limit).unwrap_or(u16::MAX)),
                         cursor: request.pagination.cursor.clone(),
                     },
                 )
