@@ -1,8 +1,8 @@
 # RFC 0002: Separate podcasts and downloads from Catalog
 
-Status: Proposed
+Status: Implemented
 
-Scope: design only. No code changes come with this document.
+Scope: design. The code follows in the commits listed under What changed.
 
 ## Problem
 
@@ -128,3 +128,25 @@ flowchart LR
     Cat2[Catalog reads only]
   end
 ```
+
+## What changed
+
+Implemented as Option A, with Option C as the first step, in separate commits:
+
+1. `tests/playback_origin_contract.rs` runs one contract over the local, managed, provider and podcast origins through the public grant. It passed on the old code.
+2. `managed`, `podcast_remote`, `podcast_audio_slots` and `podcast_audio_accounts` moved into one `AudioRelay` struct inside `Catalog`. This step was interim and is gone now.
+3. `AudioOrigin`, the opaque `Located` value and an ordered `Origins` registry replaced the `Binding` enum. A unit test pins the order (provider, podcast, managed, local) and first-match-wins.
+4. `ManagedOrigin` moved to `downloads/` and `EnclosureOrigin` to `podcasts/`. Stream authority became the `AuthorityCheck` trait, so the relay no longer names `DownloadAuthority`. `Catalog` no longer imports `Downloads`.
+5. New `PlaybackAccess` service (`Services::playback`) owns `playback_source`, `open_audio`, `audio_file`, `preferred_playback_source`, `playback_candidates`, `PlaybackSource` and the relay. `hito-playback` and `apps/server/src/audio.rs` changed by receiver. Tests changed by receiver only.
+6. `Podcasts` reads episode recordings with the shared `recordings_on` function and no longer holds `Catalog`.
+
+Open questions, answered by the smallest change:
+
+- `recordings_by_ids` for episodes: a shared core read function. `recordings_on` already served audiobooks and artist groups, so the recording shape stays in one place.
+- `audio_file`: moved to `PlaybackAccess` with the rest of the local file path.
+- Origin ordering: pinned by a unit test.
+- Native playback and desktop: they compile against `PlaybackSource` and `Services::playback`; only `hito-playback` needed edits.
+
+`Catalog` keeps a private `LocalFiles` reader because artwork extraction reads embedded pictures from local files. `PlaybackAccess` shares it for the local origin. A provider source opened through `open_audio` still skips grant admission, as before. The old guard that rejected a provider binding in the grant-based open path is gone, because the source-kind filter in SQL already excluded those sources.
+
+`docs/openapi.json` and `apps/web/src/generated.ts` are unchanged.

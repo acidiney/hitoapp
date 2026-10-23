@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, library-storage and plugin services. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, playback access, collection, library-storage, plugin, download and podcast services. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
 
 Each statement here is one of four kinds, and the text says which:
 
@@ -104,7 +104,8 @@ flowchart LR
   Plugins --> SQLite
   LibraryStorage --> Files[Granted music folders]
   Plugins -->|bounded HTTP, bearer token| Plug[Plugin processes]
-  Catalog -->|search, detail, sources, audio relay| Plug
+  Catalog -->|search, detail, sources| Plug
+  Playback[PlaybackAccess] -->|provider audio relay| Plug
   Plug -->|provider APIs| Ext[External providers]
   Catalog -. opt-in, planned .-> Community[Community service]
 ```
@@ -210,7 +211,8 @@ flowchart LR
   Store --> DB[(SQLite / WAL)]
   Storage --> Music[Granted read-only music folders]
   Desktop[Tauri development host / private local backend] --> HTTP
-  Catalog -->|private search, adoption and relay| Provider
+  Catalog -->|private search and adoption| Provider
+  Playback -->|audio relay| Provider
   Catalog -. opt-in .-> Community[Planned community service]
 ```
 
@@ -311,7 +313,7 @@ Artwork stays behind the core's filesystem authorization. The private reader mod
 
 ## Plugin connections
 
-`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. `Catalog` owns transient provider search, durable adoption into owner-only libraries, and saved-recording source refresh. Its private plugin operations keep approved endpoints and credentials out of the HTTP/UI adapters. Source refresh requests only availability, preserves accepted metadata, and publishes a bounded generation after current authority checks. Cached source reads never contact providers. Audio uses a separate media client with live authority checks. See [implemented protocol and recovery](plugins.md).
+`Plugins` owns administrator-offered service addresses, personal installations, credential encryption, bounded HTTP manifest checks, and revision fencing. The concrete client and vault stay private to core. Manifest review does not write until accepted and refetched. `Catalog` owns transient provider search, durable adoption into owner-only libraries, and saved-recording source refresh. Its private plugin operations keep approved endpoints and credentials out of the HTTP/UI adapters. Source refresh requests only availability, preserves accepted metadata, and publishes a bounded generation after current authority checks. Cached source reads never contact providers. Audio uses a separate media client with live authority checks, opened through `PlaybackAccess`. See [implemented protocol and recovery](plugins.md).
 
 ## Provider discovery
 

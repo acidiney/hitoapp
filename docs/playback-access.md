@@ -1,21 +1,29 @@
 # Playback access
 
-`Catalog::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. The [native playback owner](native-playback.md) now uses it for authorized input and output supervision. The desktop shared UI uses authenticated commands; its Rust queue owner calls this boundary. The renderer never receives the trusted grant or private locator.
+`PlaybackAccess::playback_source(actor, recording, source)` issues an opaque core grant for an exact recording/source pair. The [native playback owner](native-playback.md) now uses it for authorized input and output supervision. The desktop shared UI uses authenticated commands; its Rust queue owner calls this boundary. The renderer never receives the trusted grant or private locator.
 
 An authenticated `Actor` retains a private session fingerprint. It is neither serialized nor included in Debug output. Ordinary application requests still authenticate through the shared HTTP extractor. A long-running playback owner must retain the grant and supervise `revoked()` while starting, playing, paused, or draining buffered audio.
 
 ```mermaid
 flowchart LR
-  Request[Authenticated account and recording/source IDs] --> Catalog[Core playback admission]
-  Catalog --> Session[Session identity and expiry]
-  Catalog --> Membership[Durable library membership grant]
-  Catalog --> Local[Local host, folder generation and source binding]
-  Catalog --> Provider[Approved provider, credential and audio authority]
+  Request[Authenticated account and recording/source IDs] --> Access[PlaybackAccess admission]
+  Access --> Session[Session identity and expiry]
+  Access --> Membership[Durable library membership grant]
+  Access --> Local[Local origin: host, folder generation and source binding]
+  Access --> Managed[Managed origin from Downloads: intent, generation and access grant]
+  Access --> Podcast[Enclosure origin from Podcasts: subscription and enclosure revision]
+  Access --> Provider[Provider origin: approved provider, credential and audio authority]
   Catalog --> Grant[Opaque PlaybackSource]
   Grant --> Open[Open owned file or ranged audio stream]
   Grant --> Watch[Owner awaits revoked]
   Watch --> Stop[Native session stops and joins output]
 ```
+
+## Origins
+
+`PlaybackAccess` owns the grant, the revocation loop and the audio relay. Each source kind is an `AudioOrigin` that locates the source, later says whether what it located is still current, and opens the audio. `Downloads` supplies the managed origin and `Podcasts` the enclosure origin, next to their SQL. Local files and provider streams are origins inside `PlaybackAccess`. A grant keeps the opaque value its origin located, and every check asks that origin again.
+
+Origins are tried in a fixed order: provider, podcast, managed, local. A unit test pins the order. `Catalog` no longer serves audio, and `Downloads` and `Podcasts` no longer depend on it. `tests/playback_origin_contract.rs` runs one contract over all four kinds. A grant dies when its pinned state changes, stays dead after the state returns, and a fresh grant is admitted.
 
 ## Checks and revocation
 
