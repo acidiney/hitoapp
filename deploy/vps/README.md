@@ -90,7 +90,7 @@ Offer these internal addresses in Settings, Plugins. Each listener then connects
 | ----------------------------- | ------------------------------------------------------------------------ |
 | `http://plugin-folder:8090/`  | Search and play generated demo WAV files                                 |
 | `http://plugin-spotify:8092/` | Import or follow public playlists and retrieve artwork; no Spotify audio |
-| `http://plugin-youtube:8093/` | Music search and metadata only; audio extraction is blocked on the VPS  |
+| `http://plugin-youtube:8093/` | Music search and metadata only; audio extraction is blocked on the VPS   |
 
 Spotify artwork is part of the Spotify service and needs its artwork capability approved. Playback and automatic matching use the existing Hito workflows; providers do not render UI. Provider availability, extraction challenges and browser codec support can still fail. Linux amd64 and live provider acceptance must be checked on the actual images before claiming them verified. Real-Debrid is not included here; its current curated WAV service requires separate private configuration and is not general torrent support.
 
