@@ -124,7 +124,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   expect(detail).toEqual(before);
 });
 
-test("chosen artists stay beside every library credit and page independently", () => {
+test("chosen artists stay beside the library credits they leave listed and page independently", () => {
   const { index, group } = artistIdentityBrowsing();
   const before = structuredClone(index);
   const fetch = vi.fn();
@@ -247,7 +247,7 @@ test("group detail stays within Artists navigation", () => {
   ).toBeNull();
 });
 
-test("an emptied chosen-artist page keeps its previous page and every legacy credit", () => {
+test("an emptied chosen-artist page keeps its previous page and the listed library credits", () => {
   const { index } = artistIdentityBrowsing();
   index.identity_groups.items = [];
   index.identity_groups.offset = 4;

@@ -76,7 +76,12 @@ export async function browseArtistGroups(
     .locator("..");
   checkpoint(5);
   await expect(chosenSection.locator("a.artist-card")).toHaveCount(1);
-  await expect(creditsSection.locator("a.artist-card")).toHaveCount(1);
+  const credits = await read<Schema["ArtistPage"]>(
+    "/api/v1/artists?limit=1&offset=1",
+  );
+  await expect(creditsSection.locator("a.artist-card")).toHaveCount(
+    credits.items.length,
+  );
   const firstGroup = groups.items[0];
   await expect(chosenSection.locator("a.artist-card")).toHaveAttribute(
     "href",

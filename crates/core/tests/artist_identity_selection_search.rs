@@ -12,7 +12,7 @@ const LOCAL: &str = "ÉVORA Artist";
 const IMPORTED: &str = "PrivateSecondaryLabel";
 
 #[tokio::test]
-async fn group_search_uses_catalog_unicode_prefix_policy_for_only_the_visible_display_credit() {
+async fn group_search_uses_catalog_unicode_prefix_policy_for_every_current_member_credit() {
     let mut library = library::Library::prepare().await;
     let result = AssertUnwindSafe(exercise(&library)).catch_unwind().await;
     library.origin.shutdown().await;
@@ -154,16 +154,20 @@ async fn exercise(library: &library::Library) {
     } else {
         "evora"
     };
-    let hidden = hito
+    let other_member = hito
         .catalog
         .artist_identity_groups(actor, query(hidden_term, None))
         .await
         .unwrap();
     assert_eq!(
-        hidden.total, 0,
-        "A non-display member label must not match the group's search"
+        other_member.total, 1,
+        "A credit hidden from the credit index stays findable through any current member label"
     );
-    assert!(hidden.items.is_empty());
+    assert_eq!(other_member.items[0].id, *group);
+    assert_eq!(
+        other_member.items[0].name.value,
+        visible.items[0].name.value
+    );
     let peer = hito
         .catalog
         .artist_identity_groups(&library.peer, query("evora", None))

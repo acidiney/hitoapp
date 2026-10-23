@@ -84,11 +84,11 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         let mut count = visible(actor, query.library.as_deref(), None);
         count.push("SELECT count(*) FROM summary");
-        filter_display_name(&mut count, actor, &terms);
+        filter_member_names(&mut count, actor, &terms);
         let total = count.build_query_scalar().fetch_one(&mut *tx).await?;
         let mut selected = visible(actor, query.library.as_deref(), None);
         selected.push("SELECT * FROM summary");
-        filter_display_name(&mut selected, actor, &terms);
+        filter_member_names(&mut selected, actor, &terms);
         selected
             .push(" ORDER BY name COLLATE NOCASE,id LIMIT ")
             .push_bind(limit)
@@ -208,10 +208,10 @@ impl Catalog {
     }
 }
 
-fn filter_display_name(query: &mut QueryBuilder<'static, Sqlite>, actor: &Actor, terms: &str) {
+fn filter_member_names(query: &mut QueryBuilder<'static, Sqlite>, actor: &Actor, terms: &str) {
     if !terms.is_empty() {
-        query.push(" WHERE artist_rowid IN (SELECT rowid FROM account_artists_fts WHERE account_artists_fts MATCH ")
-            .push_bind(scoped_terms(actor, "name", terms)).push(")");
+        query.push(" WHERE id IN (SELECT group_id FROM visible WHERE artist_rowid IN (SELECT rowid FROM account_artists_fts WHERE account_artists_fts MATCH ")
+            .push_bind(scoped_terms(actor, "name", terms)).push("))");
     }
 }
 
@@ -232,40 +232,33 @@ const CURRENT_CHOICES: &str = "FROM recording_artist_identity_choices choice
             AND r.metadata_observation_id=choice.observation_id AND personal.artist_operation_id IS choice.artist_operation_id
             AND choice.user_id=";
 
-/// Restricts a library-credit query to credits that no reviewed identity group fully represents.
-/// A credit is represented when it has a current chosen recording and every recording and release
-/// it holds also belongs to a current chosen recording.
-pub(crate) fn push_unrepresented_credit(
-    query: &mut QueryBuilder<'static, Sqlite>,
-    actor: &Actor,
-    credit: &str,
-) {
-    let user = actor.id().to_owned();
+/// Starts a query with the actor's current chosen recordings as one materialized set.
+pub(crate) fn chosen_recordings_cte(actor: &Actor) -> QueryBuilder<'static, Sqlite> {
+    let mut query = QueryBuilder::new(format!(
+        "WITH chosen AS MATERIALIZED (SELECT choice.recording_id,choice.artist_id {CURRENT_CHOICES}"
+    ));
+    query.push_bind(actor.id().to_owned()).push(")");
     query
-        .push(format!(
-            " AND NOT ({credit}.id IN (SELECT choice.artist_id {CURRENT_CHOICES}"
-        ))
-        .push_bind(user.clone())
-        .push(format!(
-            ") AND NOT EXISTS (SELECT 1 FROM account_recording_credits rc
+}
+
+/// Restricts a library-credit query that starts from `chosen_recordings_cte` to credits that no
+/// reviewed identity fully represents. A credit is represented when it has a chosen recording,
+/// every recording it holds is chosen, and every release it holds contains a chosen recording of
+/// that same credit.
+pub(crate) fn push_unrepresented_credit(query: &mut QueryBuilder<'static, Sqlite>, credit: &str) {
+    query.push(format!(
+        " AND NOT (EXISTS (SELECT 1 FROM chosen WHERE chosen.artist_id={credit}.id)
+            AND NOT EXISTS (SELECT 1 FROM account_recording_credits rc
                 WHERE rc.user_id={credit}.user_id AND rc.artist_id={credit}.id
-                AND rc.recording_id NOT IN (SELECT choice.recording_id {CURRENT_CHOICES}"
-        ))
-        .push_bind(user.clone())
-        .push(format!(
-            ")) AND NOT EXISTS (SELECT 1 FROM account_artist_releases ar
+                AND NOT EXISTS (SELECT 1 FROM chosen WHERE chosen.recording_id=rc.recording_id))
+            AND NOT EXISTS (SELECT 1 FROM account_artist_releases ar
                 WHERE ar.user_id={credit}.user_id AND ar.artist_id={credit}.id
-                AND ar.release_id NOT IN (
-                    SELECT m.release_id FROM sources source JOIN source_metadata m ON m.source_id=source.id
-                    WHERE source.recording_id IN (SELECT choice.recording_id {CURRENT_CHOICES}"
-        ))
-        .push_bind(user.clone())
-        .push(format!(
-            ") UNION SELECT p.release_id FROM provider_release_appearances p
-                    WHERE p.recording_id IN (SELECT choice.recording_id {CURRENT_CHOICES}"
-        ))
-        .push_bind(user)
-        .push("))))");
+                AND NOT EXISTS (SELECT 1 FROM chosen k WHERE k.artist_id={credit}.id
+                    AND (EXISTS (SELECT 1 FROM sources source JOIN source_metadata m ON m.source_id=source.id
+                            WHERE source.recording_id=k.recording_id AND m.release_id=ar.release_id)
+                        OR EXISTS (SELECT 1 FROM provider_release_appearances p
+                            WHERE p.recording_id=k.recording_id AND p.release_id=ar.release_id)))))"
+    ));
 }
 
 fn visible(

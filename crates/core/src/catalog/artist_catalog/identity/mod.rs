@@ -8,7 +8,7 @@ mod types;
 #[path = "tests/retirement_work.rs"]
 mod retirement_work;
 
-pub(crate) use groups::push_unrepresented_credit;
+pub(crate) use groups::{chosen_recordings_cte, push_unrepresented_credit};
 pub use types::*;
 
 use crate::Result;

@@ -242,6 +242,10 @@ async fn exercise(library: &Library) {
     .await;
     assert_eq!(scoped["props"]["artists"], local_artists);
     assert_eq!(scoped["props"]["identity_groups"], local_groups);
+    assert_eq!(
+        library.owner.get(&library.app, "/api/v1/artists").await,
+        remaining
+    );
     assert_eq!(library.snapshot().await, preserved);
     assert_eq!(library.provider_counts().await, provider_before);
 }

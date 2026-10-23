@@ -79,9 +79,9 @@ async fn exercise(library: &library::Library) {
     let before = library.snapshot().await;
     let requests = library.catalog.requests();
     let origin = library.origin_requests().await;
-    assert_label(library, group, first, FIRST, SECOND).await;
+    assert_label(library, group, first, FIRST, SECOND, true).await;
     reset(library, first, 1).await;
-    assert_label(library, group, second, SECOND, FIRST).await;
+    assert_label(library, group, second, SECOND, FIRST, false).await;
     let replayed = hito
         .catalog
         .choose_recording_artist_identity(
@@ -95,13 +95,13 @@ async fn exercise(library: &library::Library) {
         serde_json::to_value(replayed).unwrap(),
         serde_json::to_value(&first_receipt).unwrap()
     );
-    assert_label(library, group, second, SECOND, FIRST).await;
+    assert_label(library, group, second, SECOND, FIRST, false).await;
     rechoose(library, first, 2, &first_selection.association_id).await;
-    assert_label(library, group, second, SECOND, FIRST).await;
+    assert_label(library, group, second, SECOND, FIRST, true).await;
     reset(library, second, 1).await;
-    assert_label(library, group, first, FIRST, SECOND).await;
+    assert_label(library, group, first, FIRST, SECOND, false).await;
     rechoose(library, second, 2, &second_selection.association_id).await;
-    assert_label(library, group, first, FIRST, SECOND).await;
+    assert_label(library, group, first, FIRST, SECOND, true).await;
     let imported_association = if &library.imported == first {
         &first_selection.association_id
     } else {
@@ -114,17 +114,41 @@ async fn exercise(library: &library::Library) {
     } else {
         (SECOND, FIRST)
     };
-    assert_label(library, group, &library.local, local_name, imported_name).await;
+    assert_label(
+        library,
+        group,
+        &library.local,
+        local_name,
+        imported_name,
+        true,
+    )
+    .await;
     hito.identity
         .set_library_access(actor, &library.shared, &actor.user().id, false)
         .await
         .unwrap();
-    assert_label(library, group, &library.imported, imported_name, local_name).await;
+    assert_label(
+        library,
+        group,
+        &library.imported,
+        imported_name,
+        local_name,
+        false,
+    )
+    .await;
     hito.identity
         .set_library_access(actor, &library.shared, &actor.user().id, true)
         .await
         .unwrap();
-    assert_label(library, group, &library.local, local_name, imported_name).await;
+    assert_label(
+        library,
+        group,
+        &library.local,
+        local_name,
+        imported_name,
+        true,
+    )
+    .await;
     assert_eq!(library.snapshot().await, before);
     assert_eq!(library.catalog.requests(), requests);
     assert_eq!(library.origin_requests().await, origin);
@@ -199,7 +223,8 @@ async fn assert_label(
     group: &str,
     recording: &str,
     name: &str,
-    hidden: &str,
+    other: &str,
+    other_visible: bool,
 ) {
     let visible = library
         .hito
@@ -212,7 +237,7 @@ async fn assert_label(
         "Group labels must follow the earliest accepted currently eligible credit"
     );
     assert_eq!(visible.group.name.recording_id, recording);
-    for (term, count) in [(name, 1), (hidden, 0)] {
+    for (term, count) in [(name, 1), (other, i64::from(other_visible))] {
         let found = library
             .hito
             .catalog

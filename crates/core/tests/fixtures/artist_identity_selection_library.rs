@@ -219,6 +219,16 @@ impl Library {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn music(&self) -> PathBuf {
+        self.audio.parent().unwrap().to_path_buf()
+    }
+
+    #[allow(dead_code)]
+    pub fn database(&self) -> PathBuf {
+        self._directory.path().join("hito.db")
+    }
+
     pub async fn snapshot(&self) -> Value {
         let mut metadata = Vec::new();
         let mut sources = Vec::new();
@@ -253,7 +263,12 @@ impl Library {
                     .catalog
                     .artist(&self.actor, id, Default::default())
                     .await
-                    .ok(),
+                    .map(Some)
+                    .or_else(|error| match error {
+                        Error::NotFound => Ok(None),
+                        other => Err(other),
+                    })
+                    .unwrap(),
             );
         }
         json!({
