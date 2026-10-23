@@ -37,52 +37,51 @@ The library has artwork cards and a list view, a recording spotlight, personal p
 
 ## Develop and verify
 
-Run builds and tests inside Docker:
+Run builds and tests inside Docker. The root `Makefile` is the single task entry. `make help` lists the targets.
 
 ```sh
-docker compose --profile tools run --rm rust cargo test --workspace --locked
-docker compose --profile tools run --rm rust cargo fmt --all --check
-docker compose --profile tools run --rm rust cargo clippy --workspace --all-targets --locked -- -D warnings
-docker compose --profile tools run --rm node npm ci
-docker compose --profile tools run --rm node npm test
-docker compose --profile tools run --rm node npm run build
+make test-rust     # cargo test for the whole workspace
+make test-web      # vitest
+make lint          # clippy with warnings denied
+make fmt           # rustfmt check
+make contracts     # OpenAPI and TypeScript regeneration check
+make e2e           # isolated browser server plus Playwright
+make verify        # full development check (scripts/verify.sh)
 ```
 
-`./scripts/verify.sh` runs the full development check. See [development](docs/development.md) for the pinned Rust toolchain, editor setup, and generated API contracts.
+[Development](docs/development.md) covers isolated Compose projects, Cargo targets per worktree, the disk budget and running a single test. [Testing](docs/testing.md) explains the test layers.
 
-`./scripts/check-desktop.sh` checks the native audio engine, authorized playback owner, and protected desktop HTTP workflows through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The shared UI uses Rust playback in desktop and browser audio on the web. The WebView check verifies actual native output, reload without restarting playback, pause/resume, persisted progress, and joined shutdown. Installers and platform acceptance remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md), and [engine limits](docs/native-audio.md).
+`./scripts/check-desktop.sh` (or `make desktop`) checks the native audio engine, authorized playback owner and protected desktop HTTP workflows through a clocked device monitor, then builds the standalone Tauri host and exercises its Linux WebView in Docker. It uses temporary local storage and synthetic audio. The shared UI uses Rust playback in desktop and browser audio on the web. Installers and platform acceptance remain in development. See [desktop ownership](docs/desktop.md), [native playback](docs/native-playback.md) and [engine limits](docs/native-audio.md).
 
-The browser test uses a separate server with temporary storage. It creates its own accounts and never changes the normal server database:
-
-```sh
-docker compose --profile tools run --rm node node /workspace/scripts/audio-fixtures.mjs --e2e
-docker compose --profile e2e up --build -d e2e-server
-docker compose --profile e2e run --rm browser
-docker compose --profile e2e stop e2e-server
-```
-
-Remove and recreate `e2e-server` before rerunning its first-run test. Browser audio fixtures use a separate directory from development music. Test screenshots and traces stay in ignored `test-results` directories.
+The browser test uses a separate server with temporary storage. It creates its own accounts and never changes the normal server database. Run it with `make e2e`; it recreates `e2e-server` each time, so the first-run test always starts clean. Browser audio fixtures use a separate directory from development music. Test screenshots and traces stay in ignored `test-results` directories.
 
 ## Repository
 
-| Directory                                     | Responsibility                                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `apps/server`                                 | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
-| `apps/desktop`                                | Standalone local backend, private WebView access, application storage and exit lifecycle                |
-| `apps/community`                              | Separate community ranking service executable                                                           |
-| `apps/web`                                    | Shared React UI with browser and native player implementations                                          |
-| `crates/core`                                 | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
-| `crates/audio`                                | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
-| `crates/playback`                             | Authenticated queues, authorized native playback, revocation, and joined cleanup                        |
-| `crates/plugin-sdk`                           | Apache-2.0 plugin manifest and capability contract                                                      |
-| `crates/remote-audio, crates/debrid`          | Remote audio contract and debrid provider clients                                                       |
-| `crates/metadata-musicbrainz, crates/testkit` | MusicBrainz metadata adapter and shared test fixtures                                                   |
-| `plugins`                                     | Plugin executables: folder, Spotify, YouTube, Jamendo and debrid providers                              |
-| `docker`                                      | Dockerfiles for the server, community service and plugin images                                         |
-| `scripts`                                     | Verification, packaging and deterministic audio fixture tools                                           |
-| `docs`                                        | Architecture, API contracts, operations, release scope, and verification evidence                       |
+```text
+apps/
+  server/      Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle
+  desktop/     Standalone Tauri host with a private local backend and native playback
+  community/   Separate community ranking service executable
+  web/         Shared React UI (browser and native player implementations)
+crates/
+  core/        Identity, catalog, collection transactions, library storage, plugins, SQLite
+  audio/       Owned-input decoding, native device output, transport controls
+  playback/    Authenticated queues and authorized native playback
+  plugin-sdk/  Apache-2.0 plugin wire contract and curated catalog admission
+  remote-audio/ Remote audio contract shared by the debrid clients
+  metadata-musicbrainz/  MusicBrainz metadata adapter
+  testkit/     Shared test helpers: log capture, TLS, plugin HTTP server, WAV fixtures
+  debrid/      Provider clients: real-debrid, all-debrid, torbox, premiumize
+plugins/       Plugin services: folder, spotify, youtube, jamendo, real-debrid, all-debrid, torbox, premiumize
+docker/        Dockerfiles for the server, community service and plugin images
+deploy/        VPS deployment files
+scripts/       Verification, setup, packaging and audio fixture tools
+docs/          Architecture, API contracts, operations, release scope and evidence
+```
 
-See the actual [TODO checklist](TODO.md), [architecture](docs/architecture.md), [operations](docs/operations.md), [API](docs/api.md), and [implementation status](docs/status.md).
+The root also holds `compose.yaml` and one `compose.<plugin>.yaml` overlay per plugin service, plus `Makefile`, `Hito Setup.command`, `Hito Setup.ps1` and `hito-setup`. Package names keep the `hito-` prefix, for example `hito-core` lives in `crates/core`.
+
+Start with the [documentation index](docs/README.md). Other entry points are the [TODO checklist](TODO.md), [architecture](docs/architecture.md), [operations](docs/operations.md), [API](docs/api.md) and [implementation status](docs/status.md).
 
 ## License
 
