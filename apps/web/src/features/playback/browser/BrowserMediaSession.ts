@@ -188,7 +188,8 @@ function connectSession(player: Player, account: string) {
     if (
       current?.id !== metadata?.id ||
       current?.title !== metadata?.title ||
-      current?.artist !== metadata?.artist
+      current?.artist !== metadata?.artist ||
+      current?.album !== metadata?.album
     ) {
       metadata = current;
       attempt("metadata", () => {
@@ -197,6 +198,7 @@ function connectSession(player: Player, account: string) {
             ? new MediaMetadata({
                 title: current.title,
                 artist: current.artist,
+                album: current.album ?? "",
                 artwork,
               })
             : null;

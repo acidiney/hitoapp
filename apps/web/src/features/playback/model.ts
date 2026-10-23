@@ -2,7 +2,7 @@ import type { AudiobookChapterAnchor, Recording } from "../../shared/types";
 
 export type Track = Pick<
   Recording,
-  "id" | "title" | "artist" | "duration_ms" | "available"
+  "id" | "title" | "artist" | "album" | "duration_ms" | "available"
 > &
   Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
 

@@ -11,6 +11,7 @@ export const recording: Track = {
   id: "b36566e6-211b-4d2e-8816-a6a4f175a97f",
   title: "Private owned title",
   artist: "Private owned artist",
+  album: "Private owned album",
   duration_ms: 90000,
   available: true,
 };
@@ -18,6 +19,7 @@ export const otherRecording: Track = {
   ...recording,
   id: "9e725279-2136-4429-a07f-e3b1e5be86a3",
   title: "Second private owned title",
+  album: null,
 };
 const source: Source = {
   id: "49858203-ce08-478f-95fe-482f34e376fb",

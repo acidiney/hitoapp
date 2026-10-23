@@ -1,6 +1,6 @@
 # Browser Now Playing integration
 
-The browser player publishes the current authorized title, artist, verified artwork, duration, position and playback state through the browser's Media Session API. This is deployed to the normal local development server after isolated Chromium/WebKit acceptance and stopped clone and normal preservation audits. Album metadata is not in the current player track contract; native operating-system integration and physical device acceptance remain open.
+The browser player publishes the current authorized title, artist, verified artwork, duration, position and playback state through the browser's Media Session API. This is deployed to the normal local development server after isolated Chromium/WebKit acceptance and stopped clone and normal preservation audits. The title, artist and album come from the queued recording. A recording with no album publishes an empty album. Native operating-system integration and physical device acceptance remain open.
 
 ## Ownership
 
@@ -39,7 +39,7 @@ Chromium and WebKit backend checks examine 2,213 and 2,252 JSON records respecti
 
 The same deployed image also passes fresh Chromium/WebKit next-entry workflows after integration, preserving background buffering and natural advancement. Local publication retains all nine ordered server configuration files, the prior image alias, fresh backups and unchanged provider services. Health, exact OpenAPI/assets, anonymous player rejection and loopback/LAN checks pass without authenticating a normal listener. See [deployment evidence](status.md#running-local-deployment).
 
-Physical Safari/phone presentation, OS artwork fetching, hardware controls, album publication and native desktop integration remain unverified or unfinished. This feature does not resolve the reported mobile Safari duration/silent-tail bug or establish gapless playback and release latency targets.
+Physical Safari/phone presentation, OS artwork fetching, hardware controls and native desktop integration remain unverified or unfinished. In native playback mode (`native_playback`) the web app owns no audio element and publishes nothing to the Media Session. The operating-system panel there depends on the Rust desktop host, which has no Now Playing code yet. This feature does not resolve the reported mobile Safari duration/silent-tail bug or establish gapless playback and release latency targets.
 
 ## Duration revisions in verified source
 

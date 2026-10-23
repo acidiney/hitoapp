@@ -23,7 +23,7 @@ test("browser playback publishes the playing recording and handles system pause,
     expect(system.session.metadata).toMatchObject({
       title: recording.title,
       artist: recording.artist,
-      album: "",
+      album: recording.album,
     });
     expect(system.session.playbackState).toBe("playing");
     expect(system.session.position).toEqual({
