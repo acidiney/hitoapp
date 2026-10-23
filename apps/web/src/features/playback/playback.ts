@@ -27,6 +27,7 @@ import {
   type BrowserMediaOwner,
 } from "./browser/BrowserPreparation";
 import { BrowserLookahead } from "./browser/BrowserLookahead";
+import { BrowserEndGuard, reconcileDuration } from "./browser/BrowserDuration";
 import { listenToMedia } from "./browser/BrowserMediaEvents";
 import {
   BrowserAudiobookRun,
@@ -57,6 +58,9 @@ export class Playback implements Player {
   private pendingSeek: number | null = null;
   private activeSource: Source | null = null;
   private durationChanged: (() => void) | null = null;
+  private serverBound: number | null = null;
+  private entryEnded = false;
+  private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
   private lookahead: BrowserLookahead | null;
   private stopListening: () => void = () => {};
   private stoppingForProgress = false;
@@ -117,12 +121,11 @@ export class Playback implements Player {
     this.stopListening = listenToMedia(media, () => this.media === media, {
       loadedMetadata: () => {
         this.observation.metadata();
+        this.entryEnded = false;
         log.debug("playback.metadata", {
           recording_id: this.state.current?.id,
         });
-        this.update({
-          duration: Number.isFinite(media.duration) ? media.duration : 0,
-        });
+        this.update({ duration: this.reconcile(media).seconds });
         if (this.pendingSeek !== null) {
           const position = this.pendingSeek;
           this.pendingSeek = null;
@@ -138,6 +141,7 @@ export class Playback implements Player {
         }
         this.update({ position: this.pendingSeek || media.currentTime });
         if (!this.observation.observe()) this.progressBlocked();
+        if (this.activeSource) this.endGuard.observe(media, this.serverBound);
       },
       play: () => {
         log.info("playback.started", { recording_id: this.state.current?.id });
@@ -156,6 +160,7 @@ export class Playback implements Player {
       },
       pause: () => {
         this.community?.reset();
+        this.endGuard.cancel();
         log.debug("playback.paused", { recording_id: this.state.current?.id });
         if (!this.stoppingForProgress) this.persist();
         this.update({ playing: false });
@@ -169,13 +174,43 @@ export class Playback implements Player {
         if (this.activeSource) void this.recover();
       },
       ended: () => {
+        if (!this.activeSource || this.entryEnded) return;
+        this.entryEnded = true;
+        this.endGuard.cancel();
         log.info("playback.ended", { recording_id: this.state.current?.id });
         void this.next(true);
       },
-      seeking: () => this.community?.seeking(),
+      seeking: () => {
+        this.endGuard.cancel();
+        this.community?.seeking();
+      },
       canPlay: () => this.community?.observe(),
       interrupted: () => this.community?.reset(),
     });
+  }
+
+  private reconcile(media: MediaPort) {
+    const current = this.state.current;
+    const duration = reconcileDuration(media.duration, current?.duration_ms);
+    const bound = duration.server ? duration.seconds : null;
+    if (bound !== null && bound !== this.serverBound)
+      log.debug("playback.duration_server_preferred", {
+        recording_id: current?.id,
+        reason: "media_overlong",
+        count: Math.round(media.duration * 1000),
+        duration_ms: Math.round(bound * 1000),
+      });
+    this.serverBound = bound;
+    return duration;
+  }
+
+  private endAtKnownDuration() {
+    if (!this.activeSource || this.entryEnded) return;
+    this.entryEnded = true;
+    log.info("playback.ended_at_known_duration", {
+      recording_id: this.state.current?.id,
+    });
+    void this.next(true);
   }
 
   private cancelLookahead() {
@@ -347,6 +382,8 @@ export class Playback implements Player {
     this.selection++;
     this.observation.retire();
     this.community?.retire();
+    this.endGuard.cancel();
+    this.serverBound = null;
     if (continuation) {
       this.media.pause();
       this.queue.replace(continuation.queue);
@@ -414,9 +451,10 @@ export class Playback implements Player {
             this.media.playbackRate = this.state.speed;
             this.activeSource = { ...buffered.source };
             this.observeSource(occurrence, buffered.source);
+            this.entryEnded = false;
             this.update({
               duration: Number.isFinite(this.media.duration)
-                ? this.media.duration
+                ? this.reconcile(this.media).seconds
                 : (current.duration_ms ?? 0) / 1000,
             });
             const seek = this.pendingSeek ?? position;
@@ -488,7 +526,7 @@ export class Playback implements Player {
       const started = performance.now();
       if (!sourceCurrent()) return;
       const known = Number.isFinite(media.duration) && media.duration >= 0;
-      const duration = known ? media.duration : 0;
+      const duration = this.reconcile(media).seconds;
       if (duration === this.state.duration) return;
       this.update({ duration });
       log.debug("playback.duration_changed", {
@@ -723,6 +761,8 @@ export class Playback implements Player {
     this.community?.retire();
     this.openingEntry = null;
     this.durationChanged = null;
+    this.endGuard.cancel();
+    this.serverBound = null;
     this.cancelLookahead();
     this.lookahead?.closeOpening();
     this.queue.clear();
