@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 
 test("set up, scan, listen across navigation, edit a playlist, and switch accounts", async ({
   page,
@@ -14,6 +15,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await page
     .getByLabel("Password", { exact: true })
     .fill("docker browser test password");
+  await paceAuthAttempt();
   await page.getByRole("button", { name: "Create administrator" }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
@@ -590,6 +592,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await page
     .getByLabel("Password", { exact: true })
     .fill("listener docker test password");
+  await paceAuthAttempt();
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),

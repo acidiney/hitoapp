@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
@@ -86,6 +87,7 @@ test("a new copy uses the current field after a committed import loses its respo
     await page
       .getByLabel("Password", { exact: true })
       .fill("docker browser test password");
+    await paceAuthAttempt();
     const setup = await page
       .getByRole("button", { name: "Create administrator", exact: true })
       .count();

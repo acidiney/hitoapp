@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { randomUUID } from "node:crypto";
 import {
   expect,
@@ -28,6 +29,7 @@ async function signIn(page: Page) {
   await page
     .getByLabel("Password", { exact: true })
     .fill("docker browser test password");
+  await paceAuthAttempt();
   const setup = await page
     .getByRole("button", { name: "Create administrator", exact: true })
     .count();

@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
@@ -16,6 +17,7 @@ test("selected provider audio plays and seeks in the library without exposing it
     await page
       .getByLabel("Password", { exact: true })
       .fill("docker browser test password");
+    await paceAuthAttempt();
     const setup = await page
       .getByRole("button", { name: "Create administrator", exact: true })
       .count();

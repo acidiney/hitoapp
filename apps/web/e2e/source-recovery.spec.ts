@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
@@ -16,6 +17,7 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
     await page
       .getByLabel("Password", { exact: true })
       .fill("docker browser test password");
+    await paceAuthAttempt();
     const setup = await page
       .getByRole("button", { name: "Create administrator", exact: true })
       .count();

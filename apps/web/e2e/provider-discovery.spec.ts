@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
@@ -7,6 +8,7 @@ async function signIn(page: Page, username: string, password: string) {
   await page.goto("/discover");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
+  await paceAuthAttempt();
   const setup = await page
     .getByRole("button", { name: "Create administrator", exact: true })
     .count();
