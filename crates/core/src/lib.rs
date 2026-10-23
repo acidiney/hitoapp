@@ -135,10 +135,12 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
         directories: storage.directories.clone(),
-        managed: managed.clone(),
-        podcast_remote: podcast_remote.clone(),
-        podcast_audio_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
-        podcast_audio_accounts: admission::Accounts::new(2),
+        relay: catalog::audio::AudioRelay {
+            managed: managed.clone(),
+            podcast_remote: podcast_remote.clone(),
+            podcast_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
+            podcast_accounts: admission::Accounts::new(2),
+        },
     };
     tracing::info!("Core services ready");
     Ok(Services {

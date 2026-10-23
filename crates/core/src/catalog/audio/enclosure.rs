@@ -2,7 +2,7 @@ use super::{
     AudioRequest, AudioStream, OpenedAudio, headers,
     remote::{Authority, Permits, RemoteAudio},
 };
-use crate::{Catalog, Error, PlaybackSource, Result, catalog::podcast::PodcastEnclosure};
+use crate::{Catalog, Error, PlaybackSource, Result, catalog::audio::podcast::PodcastEnclosure};
 
 impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, fields(account_id = account,
@@ -14,14 +14,19 @@ impl Catalog {
         authority: PlaybackSource,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
-        let account = self.podcast_audio_accounts.enter(account)?;
+        let account = self.relay.podcast_accounts.enter(account)?;
         let global = self
-            .podcast_audio_slots
+            .relay
+            .podcast_slots
             .clone()
             .try_acquire_owned()
             .map_err(|_| Error::Conflict("Audio streams are busy. Try again.".into()))?;
         let remote = authority
-            .while_authorized(self.podcast_remote.audio(&enclosure.enclosure_url, request))
+            .while_authorized(
+                self.relay
+                    .podcast_remote
+                    .audio(&enclosure.enclosure_url, request),
+            )
             .await?;
         let mut opened = headers::read(&remote.response, request)?;
         tracing::debug!(

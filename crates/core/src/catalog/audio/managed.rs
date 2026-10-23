@@ -1,4 +1,4 @@
-use super::Catalog;
+use crate::catalog::Catalog;
 use crate::{
     Actor, Error, Result,
     library_storage::{ManagedFileLocation, managed_mime},
@@ -7,7 +7,7 @@ use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct ManagedLocation {
+pub(in crate::catalog) struct ManagedLocation {
     pub file: ManagedFileLocation,
     intent: String,
     generation: i64,
@@ -28,7 +28,7 @@ struct Selected {
 }
 
 impl Catalog {
-    pub(super) async fn managed_location(
+    pub(in crate::catalog) async fn managed_location(
         &self,
         actor: &Actor,
         source: &str,
@@ -55,7 +55,7 @@ impl Catalog {
             .push(" AND file.account_id=")
             .push_bind(actor.id().to_owned())
             .push(" AND file.state='ready' AND ");
-        super::push_source_choice(&mut query, actor.id());
+        crate::catalog::push_source_choice(&mut query, actor.id());
         query.push(" ORDER BY intent.id LIMIT 1");
         let row: Option<Selected> = query
             .build_query_as()

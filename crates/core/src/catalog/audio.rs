@@ -1,12 +1,26 @@
 mod enclosure;
 pub(crate) mod headers;
+pub(super) mod managed;
+pub(super) mod podcast;
 mod range;
 pub(crate) mod remote;
 mod stream;
 use super::Catalog;
-use crate::{Actor, Result};
+use crate::{
+    Actor, Result, admission::Accounts, library_storage::ManagedFiles, remote_http::RemoteHttp,
+};
 pub use range::ByteRange;
+use std::sync::Arc;
 pub use stream::AudioStream;
+use tokio::sync::Semaphore;
+
+#[derive(Clone)]
+pub(crate) struct AudioRelay {
+    pub managed: ManagedFiles,
+    pub podcast_remote: RemoteHttp,
+    pub podcast_slots: Arc<Semaphore>,
+    pub podcast_accounts: Accounts,
+}
 
 #[derive(Default, Clone, Copy)]
 pub struct AudioRequest {

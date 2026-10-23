@@ -6,11 +6,9 @@ mod availability;
 mod browse;
 mod candidates;
 pub use candidates::PlaybackCandidates;
-mod managed;
 mod media;
 mod playback;
 pub use playback::PlaybackSource;
-mod podcast;
 mod preferred;
 mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
@@ -81,8 +79,5 @@ pub struct Catalog {
     pub(crate) provider_artwork_slots: Arc<Semaphore>,
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) directories: crate::library_storage::Directories,
-    pub(crate) managed: crate::library_storage::ManagedFiles,
-    pub(crate) podcast_remote: crate::remote_http::RemoteHttp,
-    pub(crate) podcast_audio_slots: Arc<Semaphore>,
-    pub(crate) podcast_audio_accounts: crate::admission::Accounts,
+    pub(crate) relay: audio::AudioRelay,
 }

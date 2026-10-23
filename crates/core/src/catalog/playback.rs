@@ -1,4 +1,4 @@
-use super::{Catalog, media::Location, podcast::PodcastEnclosure};
+use super::{Catalog, audio::podcast::PodcastEnclosure, media::Location};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result};
 use std::{
     future::Future,

@@ -1,9 +1,9 @@
-use super::{Catalog, push_source_choice};
+use crate::catalog::{Catalog, push_source_choice};
 use crate::{Actor, Result};
 use sqlx::QueryBuilder;
 
 #[derive(Clone, PartialEq, Eq, sqlx::FromRow)]
-pub(super) struct PodcastEnclosure {
+pub(in crate::catalog) struct PodcastEnclosure {
     pub source_id: String,
     pub episode_id: String,
     pub recording_id: String,
@@ -17,7 +17,7 @@ pub(super) struct PodcastEnclosure {
 }
 
 impl Catalog {
-    pub(super) async fn podcast_enclosure(
+    pub(in crate::catalog) async fn podcast_enclosure(
         &self,
         actor: &Actor,
         source: &str,

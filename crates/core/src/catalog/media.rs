@@ -16,7 +16,7 @@ type IndexedLocation = (String, String, String, i64);
 #[derive(Clone, PartialEq, Eq)]
 pub(super) enum Location {
     Indexed(IndexedLocation),
-    Managed(super::managed::ManagedLocation),
+    Managed(super::audio::managed::ManagedLocation),
 }
 
 impl Catalog {
@@ -24,7 +24,7 @@ impl Catalog {
     pub async fn audio_file(&self, actor: &Actor, source: &str) -> Result<AudioFile> {
         actor.check_session(&self.store).await?;
         if let Some(location) = self.managed_location(actor, source).await? {
-            let file = match self.managed.open_file(&location.file).await {
+            let file = match self.relay.managed.open_file(&location.file).await {
                 Ok(file) => file,
                 Err(Error::NotFound) => {
                     crate::downloads::retire_unusable_copy(&self.store, &location.file).await?;
