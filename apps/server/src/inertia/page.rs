@@ -115,14 +115,7 @@ impl<'a> Screen<'a> {
                 }))
             }
             Self::Podcast(id) => {
-                let subscription_id = Uuid::parse_str(id).map_err(|_| Error::NotFound)?;
-                let subscription = services
-                    .podcasts
-                    .subscriptions(actor)
-                    .await?
-                    .into_iter()
-                    .find(|subscription| subscription.subscription_id == subscription_id)
-                    .ok_or(Error::NotFound)?;
+                let subscription = services.podcasts.subscription(actor, id).await?;
                 let episodes = if fields.requested("episodes") || fields.requested("progress") {
                     Some(
                         services

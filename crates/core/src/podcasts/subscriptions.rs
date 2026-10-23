@@ -172,32 +172,57 @@ impl Podcasts {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn subscriptions(&self, actor: &Actor) -> Result<Vec<PodcastSubscription>> {
         actor.check_session(&self.store).await?;
-        let rows: Vec<SubscriptionRow> = sqlx::query_as(
-            "SELECT p.id,p.title,j.id IS NOT NULL AS refresh_pending,
-                p.error IS NOT NULL AS refresh_failed,p.last_refreshed_at,p.content_revision
-             FROM podcast_subscriptions p JOIN current_podcast_authority a ON a.id=p.id
-             LEFT JOIN podcast_refresh_jobs j ON j.subscription_id=p.id
-                AND j.generation=p.generation AND j.status IN ('queued','running')
-             WHERE p.user_id=? ORDER BY p.created_at,p.id LIMIT 100",
-        )
+        let rows: Vec<SubscriptionRow> = sqlx::query_as(&format!(
+            "{SUBSCRIPTION_SELECT} WHERE p.user_id=? ORDER BY p.created_at,p.id LIMIT 100"
+        ))
         .bind(actor.id())
         .fetch_all(&self.store.pool)
         .await?;
         let result = rows
             .into_iter()
-            .map(|row| {
-                Ok(PodcastSubscription {
-                    subscription_id: identity(&row.id)?,
-                    title: row.title,
-                    refresh_pending: row.refresh_pending,
-                    refresh_failed: row.refresh_failed,
-                    last_refreshed_at: row.last_refreshed_at,
-                    content_revision: row.content_revision,
-                })
-            })
+            .map(SubscriptionRow::into_subscription)
             .collect::<Result<Vec<_>>>()?;
         actor.check_session(&self.store).await?;
         Ok(result)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn subscription(
+        &self,
+        actor: &Actor,
+        subscription: &str,
+    ) -> Result<PodcastSubscription> {
+        let subscription_id = Uuid::parse_str(subscription).map_err(|_| Error::NotFound)?;
+        actor.check_session(&self.store).await?;
+        let row: Option<SubscriptionRow> = sqlx::query_as(&format!(
+            "{SUBSCRIPTION_SELECT} WHERE p.id=? AND p.user_id=?"
+        ))
+        .bind(subscription_id.to_string())
+        .bind(actor.id())
+        .fetch_optional(&self.store.pool)
+        .await?;
+        let result = row.ok_or(Error::NotFound)?.into_subscription()?;
+        actor.check_session(&self.store).await?;
+        Ok(result)
+    }
+}
+
+const SUBSCRIPTION_SELECT: &str = "SELECT p.id,p.title,j.id IS NOT NULL AS refresh_pending,
+        p.error IS NOT NULL AS refresh_failed,p.last_refreshed_at,p.content_revision
+     FROM podcast_subscriptions p JOIN current_podcast_authority a ON a.id=p.id
+     LEFT JOIN podcast_refresh_jobs j ON j.subscription_id=p.id
+        AND j.generation=p.generation AND j.status IN ('queued','running')";
+
+impl SubscriptionRow {
+    fn into_subscription(self) -> Result<PodcastSubscription> {
+        Ok(PodcastSubscription {
+            subscription_id: identity(&self.id)?,
+            title: self.title,
+            refresh_pending: self.refresh_pending,
+            refresh_failed: self.refresh_failed,
+            last_refreshed_at: self.last_refreshed_at,
+            content_revision: self.content_revision,
+        })
     }
 }
 
