@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { enterAdmin } from "./fixtures/admin-session";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -8,18 +9,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
-  ).toBeVisible();
-  await page.getByLabel("Username", { exact: true }).fill("admin");
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill("docker browser test password");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Your library", exact: true }),
-  ).toBeVisible();
+  await enterAdmin(page);
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Settings", exact: true })
