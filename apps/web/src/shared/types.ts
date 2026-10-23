@@ -37,6 +37,10 @@ export type ArtistIdentityChoiceReceipt = Schema["ArtistIdentityChoiceReceipt"];
 export type ResetRecordingArtistIdentity =
   Schema["ResetRecordingArtistIdentity"];
 export type ArtistIdentityGroupDetail = Schema["ArtistIdentityGroupDetail"];
+export type ArtistIdentityGroup = Schema["ArtistIdentityGroup"];
+export type ArtistIdentityGroupList = Schema["ArtistIdentityGroupPage"];
+export type ApplyArtistIdentityToCredit = Schema["ApplyArtistIdentityToCredit"];
+export type ArtistIdentityCreditReceipt = Schema["ArtistIdentityCreditReceipt"];
 export type ArtistReviewContext = Schema["ArtistReviewContext"];
 export type ArtistSearchCandidate = Schema["ArtistSearchCandidate"];
 export type CatalogArtistProfile = Schema["CatalogArtistProfile"];

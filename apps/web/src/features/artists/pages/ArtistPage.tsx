@@ -1,5 +1,6 @@
 import type { ArtistPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
+import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import AlbumGrid from "../../catalog/components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
@@ -45,6 +46,7 @@ export default function ArtistPage({
           </p>
         </div>
       </section>
+      <ArtistCreditIdentity account={user.id} artist={artist} />
       {releases.total > 0 && (
         <section aria-labelledby="artist-albums-title">
           <h2 className="discography-heading" id="artist-albums-title">
