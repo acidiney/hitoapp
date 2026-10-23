@@ -348,24 +348,17 @@ impl<'a> Screen<'a> {
             Self::PlaylistIndex => {
                 let (connections, service_names) =
                     if fields.requested("connections") || fields.requested("service_names") {
-                        let settings = services.plugins.settings(actor).await?;
+                        let connected = services.plugins.connections(actor).await?;
                         let service_names = fields.requested("service_names").then(|| {
-                            let connected: std::collections::HashSet<&str> = settings
-                                .installations
-                                .iter()
-                                .map(|installation| installation.service_id.as_str())
-                                .collect();
-                            settings
-                                .services
-                                .into_iter()
-                                .filter(|service| connected.contains(service.id.as_str()))
-                                .map(|service| (service.id, service.name))
+                            connected
+                                .connected_services()
+                                .map(|service| (service.id.clone(), service.name.clone()))
                                 .collect()
                         });
                         (
                             fields
                                 .requested("connections")
-                                .then_some(settings.installations),
+                                .then_some(connected.installations),
                             service_names,
                         )
                     } else {
@@ -397,18 +390,18 @@ impl<'a> Screen<'a> {
             Self::Discover => {
                 let (connections, service_names) =
                     if fields.requested("connections") || fields.requested("service_names") {
-                        let settings = services.plugins.settings(actor).await?;
+                        let offered = services.plugins.connections(actor).await?;
+                        let service_names = fields.requested("service_names").then(|| {
+                            offered
+                                .offered_services()
+                                .map(|service| (service.id.clone(), service.name.clone()))
+                                .collect()
+                        });
                         (
                             fields
                                 .requested("connections")
-                                .then_some(settings.installations),
-                            fields.requested("service_names").then(|| {
-                                settings
-                                    .services
-                                    .into_iter()
-                                    .map(|service| (service.id, service.name))
-                                    .collect()
-                            }),
+                                .then_some(offered.installations),
+                            service_names,
                         )
                     } else {
                         (None, None)

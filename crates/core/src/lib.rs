@@ -76,10 +76,10 @@ pub use metadata::{
     RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
 };
 pub use plugins::{
-    InstallPlugin, OfferPluginService, PluginAuthorization, PluginAuthorizationRedirect,
-    PluginAuthorizationState, PluginAuthorizationStatus, PluginCredential, PluginInstallation,
-    PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings, Plugins,
-    PreviewPluginInstallation, RefreshPlugin,
+    Connections, InstallPlugin, OfferPluginService, PluginAuthorization,
+    PluginAuthorizationRedirect, PluginAuthorizationState, PluginAuthorizationStatus,
+    PluginCredential, PluginInstallation, PluginInstallationPreview, PluginRefresh, PluginService,
+    PluginSettings, Plugins, PreviewPluginInstallation, RefreshPlugin,
 };
 pub use podcasts::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,

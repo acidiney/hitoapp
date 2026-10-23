@@ -1,5 +1,5 @@
 use super::{
-    InstallPlugin, PluginInstallation, PluginService, PluginSettings, Plugins,
+    Connections, InstallPlugin, PluginInstallation, PluginService, PluginSettings, Plugins,
     manifest::fingerprint,
 };
 use crate::{Actor, Error, Result};
@@ -10,6 +10,19 @@ use uuid::Uuid;
 impl Plugins {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn settings(&self, actor: &Actor) -> Result<PluginSettings> {
+        let Connections {
+            services,
+            installations,
+        } = self.connections(actor).await?;
+        Ok(PluginSettings {
+            credential_storage_ready: self.vault.ready(),
+            services,
+            installations,
+        })
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn connections(&self, actor: &Actor) -> Result<Connections> {
         let mut tx = self.store.pool.begin().await?;
         let services = sqlx::query_as::<_, PluginService>("SELECT id,name,base_url,revision FROM plugin_services WHERE active = 1 ORDER BY name COLLATE NOCASE,id")
             .fetch_all(&mut *tx).await?;
@@ -21,11 +34,11 @@ impl Plugins {
             .collect::<Result<Vec<_>>>()?;
         tx.commit().await?;
         tracing::debug!(
-            count = installations.len(),
-            "Personal plugin settings loaded"
+            service_count = services.len(),
+            installation_count = installations.len(),
+            "Personal plugin connections loaded"
         );
-        Ok(PluginSettings {
-            credential_storage_ready: self.vault.ready(),
+        Ok(Connections {
             services,
             installations,
         })

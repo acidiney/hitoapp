@@ -1,5 +1,6 @@
 use hito_plugin_sdk::Manifest;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -58,6 +59,28 @@ pub struct PluginSettings {
     pub credential_storage_ready: bool,
     pub services: Vec<PluginService>,
     pub installations: Vec<PluginInstallation>,
+}
+
+pub struct Connections {
+    pub services: Vec<PluginService>,
+    pub installations: Vec<PluginInstallation>,
+}
+
+impl Connections {
+    pub fn offered_services(&self) -> impl Iterator<Item = &PluginService> {
+        self.services.iter()
+    }
+
+    pub fn connected_services(&self) -> impl Iterator<Item = &PluginService> {
+        let connected: HashSet<&str> = self
+            .installations
+            .iter()
+            .map(|installation| installation.service_id.as_str())
+            .collect();
+        self.services
+            .iter()
+            .filter(move |service| connected.contains(service.id.as_str()))
+    }
 }
 
 #[derive(Deserialize, ToSchema)]

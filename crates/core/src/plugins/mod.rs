@@ -30,7 +30,7 @@ pub(crate) use preparation::{PreparationConnection, PreparationExchange, Prepara
 pub(crate) use transport::SourceBatch;
 pub(crate) use transport::artwork::{MAX_ARTWORK_BYTES, ProviderArtwork};
 pub use types::{
-    InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation,
+    Connections, InstallPlugin, OfferPluginService, PluginCredential, PluginInstallation,
     PluginInstallationPreview, PluginRefresh, PluginService, PluginSettings,
     PreviewPluginInstallation, RefreshPlugin,
 };
