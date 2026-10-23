@@ -10,6 +10,7 @@ import TrackTable, {
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
+import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
 export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
   const { release, tracks: page } = detail;
@@ -74,6 +75,14 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
         <EmptyState
           title="No tracks on this page"
           text="Return to the previous page to listen to this album."
+        />
+      )}
+      {detail.catalog_anchor && (
+        <AlbumCompleteTrackList
+          key={`${user.id}/${release.id}`}
+          account={user.id}
+          release={release.id}
+          anchor={detail.catalog_anchor}
         />
       )}
       <Pagination

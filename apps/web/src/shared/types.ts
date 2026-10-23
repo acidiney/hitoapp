@@ -60,6 +60,12 @@ export type CatalogEditionSummary = Schema["CatalogEditionSummary"];
 export type CatalogEditionTrackList = Schema["CatalogEditionTrackList"];
 export type ReleaseGroupEditionsAvailability =
   Schema["ReleaseGroupEditionsAvailability"];
+export type AlbumCatalogAnchor = Schema["AlbumCatalogAnchor"];
+export type AlbumEditionTrackListAvailability =
+  Schema["AlbumEditionTrackListAvailability"];
+export type ReadAlbumEditionTrackList = Schema["ReadAlbumEditionTrackList"];
+export type CatalogTrackMatch = Schema["CatalogTrackMatch"];
+export type CatalogAdoption = Schema["CatalogAdoption"];
 export type EditionTrackListAvailability =
   Schema["EditionTrackListAvailability"];
 export type ReadReleaseGroupEditions = Schema["ReadReleaseGroupEditions"];

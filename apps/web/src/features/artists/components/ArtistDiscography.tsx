@@ -19,12 +19,14 @@ export default function ArtistDiscography({
   association,
   profile,
   browseOnMount = false,
+  release,
 }: {
   account: string;
   recording: string;
   association: ArtistAssociation;
   profile: CatalogArtistProfile;
   browseOnMount?: boolean;
+  release?: string;
 }) {
   const workflow = useArtistDiscography(
     account,
@@ -76,6 +78,7 @@ export default function ArtistDiscography({
               association={association}
               profile={profile}
               group={group}
+              release={release}
             />
           </li>
         ))}

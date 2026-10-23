@@ -23,6 +23,7 @@ export type ArtistEditionContext = {
   association: ArtistAssociation;
   profile: CatalogArtistProfile;
   group: CatalogReleaseGroup;
+  release?: string;
 };
 type Owner = { pending: boolean };
 type State = {

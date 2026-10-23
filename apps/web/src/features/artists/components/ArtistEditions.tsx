@@ -3,7 +3,9 @@ import {
   useArtistEditions,
   type ArtistEditionContext,
 } from "../hooks/useArtistEditions";
+import { useAlbumEditionTrackList } from "../hooks/useAlbumEditionTrackList";
 import { useArtistEditionTrackList } from "../hooks/useArtistEditionTrackList";
+import AlbumEditionTrackList from "./AlbumEditionTrackList";
 import ArtistEditionTrackList from "./ArtistEditionTrackList";
 
 export default function ArtistEditions(context: ArtistEditionContext) {
@@ -19,7 +21,15 @@ export default function ArtistEditions(context: ArtistEditionContext) {
 
 function ArtistEditionBrowser(context: ArtistEditionContext) {
   const workflow = useArtistEditions(context, true);
-  const tracks = useArtistEditionTrackList(context, workflow.chosen);
+  const tracks = useArtistEditionTrackList(
+    context,
+    context.release === undefined ? workflow.chosen : null,
+  );
+  const comparison = useAlbumEditionTrackList(
+    context,
+    context.release ?? "",
+    context.release === undefined ? null : workflow.chosen,
+  );
   if (!workflow.opened)
     return (
       <button
@@ -102,14 +112,23 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
           Load more editions
         </button>
       )}
-      {workflow.chosen && (
-        <ArtistEditionTrackList
-          edition={tracks.edition}
-          pending={tracks.pending}
-          error={tracks.error}
-          retry={tracks.retry}
-        />
-      )}
+      {workflow.chosen &&
+        (context.release === undefined ? (
+          <ArtistEditionTrackList
+            edition={tracks.edition}
+            pending={tracks.pending}
+            error={tracks.error}
+            retry={tracks.retry}
+          />
+        ) : (
+          <AlbumEditionTrackList
+            account={context.account}
+            comparison={comparison.comparison}
+            pending={comparison.pending}
+            error={comparison.error}
+            retry={comparison.retry}
+          />
+        ))}
     </section>
   );
 }
