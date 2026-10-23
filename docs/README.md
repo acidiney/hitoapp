@@ -12,6 +12,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 - [Playback access](playback-access.md)
 - [API](api.md) and the generated [OpenAPI schema](openapi.json)
 - [Logging](logging.md)
+- [Design proposals (RFCs)](rfcs/README.md): proposed architecture changes, not yet built.
 
 ## Development and testing
 
