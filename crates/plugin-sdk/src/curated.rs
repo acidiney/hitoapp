@@ -17,15 +17,24 @@ pub enum CuratedCatalogError {
 
 impl fmt::Display for CuratedCatalogError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::EntryCount => "The curated catalog must contain 1 to 128 entries",
-            Self::InvalidRecording => "A curated recording is invalid",
-            Self::InvalidSource => "A curated source is invalid",
-            Self::DuplicateRecording => "The curated catalog repeats a recording ID",
-            Self::DuplicateSource => "The curated catalog repeats a source ID",
-            Self::RecordingTooLarge => "A curated recording exceeds the detail budget",
-            Self::CatalogTooLarge => "The curated catalog exceeds its aggregate budget",
-        })
+        match self {
+            Self::EntryCount => write!(
+                formatter,
+                "The curated catalog must contain 1 to {MAX_CURATED_ENTRIES} entries"
+            ),
+            Self::InvalidRecording => formatter.write_str("A curated recording is invalid"),
+            Self::InvalidSource => formatter.write_str("A curated source is invalid"),
+            Self::DuplicateRecording => {
+                formatter.write_str("The curated catalog repeats a recording ID")
+            }
+            Self::DuplicateSource => formatter.write_str("The curated catalog repeats a source ID"),
+            Self::RecordingTooLarge => {
+                formatter.write_str("A curated recording exceeds the detail budget")
+            }
+            Self::CatalogTooLarge => {
+                formatter.write_str("The curated catalog exceeds its aggregate budget")
+            }
+        }
     }
 }
 
@@ -38,6 +47,15 @@ pub struct CuratedEntryView<'a> {
 }
 
 pub fn admit_curated_catalog<E>(
+    entries: Vec<E>,
+    view: impl for<'a> Fn(&'a E) -> CuratedEntryView<'a>,
+) -> Result<Vec<E>, CuratedCatalogError> {
+    admit(entries, view).inspect_err(|reason| {
+        tracing::error!(?reason, "The curated catalog was rejected at startup");
+    })
+}
+
+fn admit<E>(
     mut entries: Vec<E>,
     view: impl for<'a> Fn(&'a E) -> CuratedEntryView<'a>,
 ) -> Result<Vec<E>, CuratedCatalogError> {

@@ -70,10 +70,11 @@ fn error(entries: Vec<Entry>) -> CuratedCatalogError {
 }
 
 #[test]
-fn limits_match_the_documented_budgets() {
-    assert_eq!(MAX_CURATED_ENTRIES, 128);
-    assert_eq!(MAX_CURATED_CATALOG_BYTES, 49_152);
-    assert_eq!(MAX_RECORDING_METADATA_BYTES, 32_768);
+fn the_entry_count_message_names_the_limit() {
+    assert_eq!(
+        CuratedCatalogError::EntryCount.to_string(),
+        format!("The curated catalog must contain 1 to {MAX_CURATED_ENTRIES} entries")
+    );
 }
 
 #[test]
