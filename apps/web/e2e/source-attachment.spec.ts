@@ -24,23 +24,11 @@ declare global {
   }
 }
 
-async function signIn(
-  page: Page,
-  username = "admin",
-  password = "docker browser test password",
-) {
+async function signIn(page: Page, username: string, password: string) {
   await page.goto("/library");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  const setup = await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .count();
-  await page
-    .getByRole("button", {
-      name: setup ? "Create administrator" : "Sign in",
-      exact: true,
-    })
-    .click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
@@ -224,7 +212,10 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     }
   });
   try {
-    await signIn(page);
+    await page.goto("/library");
+    await expect(
+      page.getByRole("heading", { name: "Your library", exact: true }),
+    ).toBeVisible();
     signedIn = true;
     for (const [index, fixture] of [playlist, ...providers].entries()) {
       const offered = await page.request.post("/api/v1/plugins/services", {
@@ -638,7 +629,10 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
         })
       ).status(),
     ).toBe(201);
-    const other = await browser.newContext({ baseURL });
+    const other = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
     try {
       const listener = await other.newPage();
       listener.on("pageerror", (error) => errors.push(error.message));
@@ -727,12 +721,18 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     ])
       expect(observations).not.toContain(secret);
     expect(errors).toEqual([]);
-    // Sign-in probing, absent covers and the injected audio fault are HTTP diagnostics.
-    const expectedResponses = new Map([
-      [new URL("/api/v1/me", baseURL).href, 401],
+    // Sign-in probing, absent covers, absent saved copies and the injected audio fault are HTTP diagnostics.
+    const knownResponses = new Map([
       [new URL(`/api/v1/recordings/${recording}/artwork`, baseURL).href, 404],
       [new URL(`/api/v1/sources/${sources[0].id}/audio`, baseURL).href, 502],
     ]);
+    const absentCopy = new RegExp(
+      `^${new URL("/api/v1/", baseURL).href}(recordings|playlists)/[^/]+/(artwork|download)$`,
+    );
+    const expectedResponses = {
+      get: (url: string) =>
+        knownResponses.get(url) ?? (absentCopy.test(url) ? 404 : undefined),
+    };
     const messages = new Map([
       [
         401,
@@ -756,7 +756,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     }
     expect(
       failedResponses.filter((response) => response.status === 401),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       failedResponses.filter((response) => response.status === 502),
     ).toHaveLength(1);

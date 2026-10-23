@@ -71,10 +71,7 @@ export async function mediaSessionProvider() {
     bytes: wav(index ? 660 : 440),
   }));
   const cover = await readFile(
-    new URL(
-      "../../../../crates/core/tests/fixtures/cover-a.png",
-      import.meta.url,
-    ),
+    new URL("./images/cover-a.png", import.meta.url),
   );
   const width = cover.readUInt32BE(16);
   const height = cover.readUInt32BE(20);

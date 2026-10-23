@@ -7,15 +7,7 @@ async function signIn(page: Page, username: string, password: string) {
   await page.goto("/discover");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  const setup = await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .count();
-  await page
-    .getByRole("button", {
-      name: setup ? "Create administrator" : "Sign in",
-      exact: true,
-    })
-    .click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
@@ -32,7 +24,6 @@ test("provider discovery saves, pages and plays privately with stale selection p
   page.on("pageerror", (error) => errors.push(error.message));
   let connection: Schema["PluginInstallation"] | null = null;
   try {
-    await signIn(page, "admin", "docker browser test password");
     await page.goto("/discover");
     await page
       .getByRole("link", { name: "Connect a music service", exact: true })
@@ -198,7 +189,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         exact: true,
       })
       .click();
-    const audio = page.locator("audio");
+    const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -279,8 +270,11 @@ test("provider discovery saves, pages and plays privately with stale selection p
         `/api/v1/artists?library=${encodeURIComponent(owned.items[0].library_id)}`,
       )
     ).json();
-    expect(artistIndex.total).toBe(1);
-    const artistId = artistIndex.items[0].id;
+    const discoveredArtists = (
+      artistIndex.items as { id: string; name: string }[]
+    ).filter((artist) => artist.name === fixture.recording.artist);
+    expect(discoveredArtists).toHaveLength(1);
+    const artistId = discoveredArtists[0].id;
     await page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("link", { name: "Artists", exact: true })
@@ -354,7 +348,10 @@ test("provider discovery saves, pages and plays privately with stale selection p
       },
     });
     expect(created.status()).toBe(201);
-    const other = await browser.newContext({ baseURL });
+    const other = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
     try {
       const listener = await other.newPage();
       listener.on("pageerror", (error) => errors.push(error.message));
@@ -406,13 +403,13 @@ test("provider discovery saves, pages and plays privately with stale selection p
         name: `Play ${fixture.recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.second.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page.goto(`/artists/${artistId}`);
     await expect(
       page.getByRole("heading", {
@@ -423,13 +420,13 @@ test("provider discovery saves, pages and plays privately with stale selection p
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Play tracks", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     for (const title of [fixture.recording.title, fixture.second.title]) {
       const row = page.getByRole("row").filter({
         has: page.getByRole("button", { name: `Play ${title}`, exact: true }),

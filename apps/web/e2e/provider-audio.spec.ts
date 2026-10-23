@@ -11,20 +11,7 @@ test("selected provider audio plays and seeks in the library without exposing it
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
-    await page.goto("/settings");
-    await page.getByLabel("Username", { exact: true }).fill("admin");
-    await page
-      .getByLabel("Password", { exact: true })
-      .fill("docker browser test password");
-    const setup = await page
-      .getByRole("button", { name: "Create administrator", exact: true })
-      .count();
-    await page
-      .getByRole("button", {
-        name: setup ? "Create administrator" : "Sign in",
-        exact: true,
-      })
-      .click();
+    await page.goto("/library");
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
@@ -79,7 +66,7 @@ test("selected provider audio plays and seeks in the library without exposing it
     await page
       .getByRole("button", { name: `Play ${recording.title}`, exact: true })
       .click();
-    const audio = page.locator("audio");
+    const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -132,7 +119,7 @@ test("selected provider audio plays and seeks in the library without exposing it
         name: `Play ${recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(errors).toEqual([]);
   } finally {
     await fixture.close();

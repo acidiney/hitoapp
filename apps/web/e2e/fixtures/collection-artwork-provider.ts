@@ -8,9 +8,9 @@ import type { components } from "../../src/generated";
 type Schema = components["schemas"];
 export type Entity = "recording" | "release" | "playlist";
 const images = {
-  recording: "crates/core/tests/fixtures/cover-a.png",
-  release: "crates/core/tests/fixtures/cover-b.png",
-  playlist: "plugins/spotify/src/tests/fixtures/artwork.png",
+  recording: "apps/web/e2e/fixtures/images/cover-a.png",
+  release: "apps/web/e2e/fixtures/images/cover-b.png",
+  playlist: "apps/web/e2e/fixtures/images/playlist-artwork.png",
 } satisfies Record<Entity, string>;
 
 export async function ownedOriginals() {

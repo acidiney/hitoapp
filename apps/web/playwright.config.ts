@@ -1,6 +1,11 @@
 import { defineConfig } from "@playwright/test";
+import {
+  adminSessionPath,
+  sharedAdminSession,
+} from "./e2e/fixtures/admin-session";
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   testIgnore: [
     "**/*.test.ts",
     "**/collection-artwork.spec.ts",
@@ -12,6 +17,7 @@ export default defineConfig({
   timeout: 60000,
   use: {
     baseURL: process.env.HITO_TEST_URL ?? "http://e2e-server:8080",
+    storageState: sharedAdminSession ? adminSessionPath : undefined,
     headless: true,
     viewport: { width: 1440, height: 1000 },
     screenshot: "only-on-failure",

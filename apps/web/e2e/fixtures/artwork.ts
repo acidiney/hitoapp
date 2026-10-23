@@ -13,10 +13,7 @@ export async function artworkFixture() {
   const token = `artwork-private-token-${unique}`;
   const reference = `https://provider.invalid/private-artwork-playlist/${unique}`;
   const image = await readFile(
-    new URL(
-      "../../../../crates/core/tests/fixtures/cover-a.png",
-      import.meta.url,
-    ),
+    new URL("./images/cover-a.png", import.meta.url),
   );
   const manifest: Schema["Manifest"] = {
     id: "org.hito.browser.artwork-fixture",
@@ -108,14 +105,28 @@ export async function artworkFixture() {
       return;
     }
     if (path === "/fixture/v1/artwork" && request.method === "POST") {
+      const playlistCover = isDeepStrictEqual(body, {
+        entity: "playlist",
+        provider_id: detail.id,
+      });
+      const recordingCover = isDeepStrictEqual(body, {
+        entity: "recording",
+        provider_id: recording.id,
+      });
       if (
         !manifest.capabilities.includes("artwork") ||
-        !isDeepStrictEqual(body, {
-          entity: "recording",
-          provider_id: recording.id,
-        })
+        !(playlistCover || recordingCover)
       ) {
         response.writeHead(400).end();
+        return;
+      }
+      if (playlistCover) {
+        response
+          .writeHead(200, {
+            "content-type": "image/png",
+            "content-length": image.length,
+          })
+          .end(image);
         return;
       }
       response.writeHead(200, {

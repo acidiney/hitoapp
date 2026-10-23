@@ -12,19 +12,6 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     await page.goto("/library");
-    await page.getByLabel("Username", { exact: true }).fill("admin");
-    await page
-      .getByLabel("Password", { exact: true })
-      .fill("docker browser test password");
-    const setup = await page
-      .getByRole("button", { name: "Create administrator", exact: true })
-      .count();
-    await page
-      .getByRole("button", {
-        name: setup ? "Create administrator" : "Sign in",
-        exact: true,
-      })
-      .click();
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
@@ -72,7 +59,7 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
     await page
       .getByRole("button", { name: `Play ${saved[0].title}`, exact: true })
       .click();
-    const audio = page.locator("audio");
+    const audio = page.locator("audio[data-hito-player]");
     await expect.poll(() => tail.entered).toBe(true);
     await expect
       .poll(() =>
@@ -152,11 +139,16 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
       ),
     ).toBe(false);
     const play = page.getByRole("button", { name: "Play track", exact: true });
-    const bounds = await play.boundingBox();
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
     const dock = await page
       .getByRole("contentinfo", { name: "Audio player" })
       .boundingBox();
-    expect(bounds && dock && bounds.y + bounds.height <= dock.y).toBe(true);
+    for (const control of [play, panel]) {
+      const bounds = await control.boundingBox();
+      expect(bounds && dock && bounds.y + bounds.height <= dock.y).toBe(true);
+    }
     await play.click();
     await expect
       .poll(() => audio.evaluate((element: HTMLAudioElement) => element.src))
