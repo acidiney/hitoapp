@@ -13,7 +13,7 @@ mod archive_query_work;
 #[path = "tests/query_work.rs"]
 mod query_work;
 
-use crate::{Catalog, remote_http::RemoteHttp, store::Store};
+use crate::{HostDeviceId, remote_http::RemoteHttp, store::Store};
 pub(crate) use enclosure_origin::EnclosureOrigin;
 pub use types::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,
@@ -24,6 +24,6 @@ pub use types::{
 #[derive(Clone)]
 pub struct Podcasts {
     pub(crate) store: Store,
-    pub(crate) catalog: Catalog,
+    pub(crate) host: HostDeviceId,
     pub(crate) remote: RemoteHttp,
 }

@@ -177,7 +177,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         community,
         podcasts: Podcasts {
             store: store.clone(),
-            catalog: catalog.clone(),
+            host: config.host_device.clone(),
             remote: podcast_remote.clone(),
         },
         catalog,

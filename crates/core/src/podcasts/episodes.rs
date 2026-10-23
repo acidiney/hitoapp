@@ -2,7 +2,7 @@ use super::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery, Podcasts,
     subscriptions::identity,
 };
-use crate::{Actor, Error, Result, collection::saved_progress};
+use crate::{Actor, Error, Recording, Result, catalog::recordings_on, collection::saved_progress};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -110,10 +110,7 @@ impl Podcasts {
             .iter()
             .map(|row| identity(&row.recording_id))
             .collect::<Result<Vec<_>>>()?;
-        let recordings = self
-            .catalog
-            .recordings_by_ids(actor, &recording_ids)
-            .await?;
+        let recordings = self.episode_recordings(actor, &recording_ids).await?;
         let items = rows
             .into_iter()
             .zip(recordings)
@@ -132,6 +129,30 @@ impl Podcasts {
             next_cursor,
             content_revision: revision,
         })
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), count = recordings.len()))]
+    async fn episode_recordings(
+        &self,
+        actor: &Actor,
+        recordings: &[Uuid],
+    ) -> Result<Vec<Recording>> {
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            actor.check_session(&self.store).await?;
+            let selected = recordings_on(
+                &mut *self.store.pool.acquire().await?,
+                &self.host,
+                actor,
+                recordings,
+            )
+            .await?;
+            actor.check_session(&self.store).await?;
+            Ok(selected)
+        })
+        .await
+        .unwrap_or(Err(Error::Upstream(
+            "Recording selection could not be checked in time",
+        )))
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
