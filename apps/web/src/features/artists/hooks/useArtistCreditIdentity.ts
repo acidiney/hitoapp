@@ -20,6 +20,9 @@ type Owner = {
   controller: AbortController | null;
   attempt: ApplyArtistIdentityToCredit | null;
   totals: CreditIdentityTotals;
+  batches: number;
+  final: boolean;
+  closed: boolean;
 };
 type View = {
   step: Step;
@@ -45,6 +48,8 @@ const noTotals = (): CreditIdentityTotals => ({
   skippedUnavailable: 0,
 });
 const DEADLINE_MS = 15000;
+const comparable = (name: string) =>
+  name.trim().split(/\s+/).join(" ").toLowerCase();
 
 function validReceipt(
   receipt: ArtistIdentityCreditReceipt,
@@ -73,14 +78,28 @@ export function useArtistCreditIdentity(
   artist: { id: string; name: string },
 ) {
   const owner = useMemo<Owner>(
-    () => ({ controller: null, attempt: null, totals: noTotals() }),
+    () => ({
+      controller: null,
+      attempt: null,
+      totals: noTotals(),
+      batches: 0,
+      final: false,
+      closed: false,
+    }),
     [account, artist.id],
   );
   const [view, setView] = useState<View>(empty);
   useEffect(() => {
+    owner.closed = false;
     setView(empty);
-    return () => owner.controller?.abort();
+    return () => {
+      owner.closed = true;
+      owner.controller?.abort();
+    };
   }, [owner]);
+  const show = (update: View | ((value: View) => View)) => {
+    if (!owner.closed) setView(update);
+  };
 
   async function run<T>(work: (signal: AbortSignal) => Promise<T>) {
     if (owner.controller) return undefined;
@@ -96,16 +115,25 @@ export function useArtistCreditIdentity(
   }
 
   async function find() {
-    setView({ ...empty, step: "loading" });
+    show({ ...empty, step: "loading" });
     try {
       const page = await run((signal) =>
         artistIdentityApi.groupsForCredit(account, artist.name, signal),
       );
-      setView(
-        page ? { ...empty, step: "choosing", groups: page.items } : empty,
+      show(
+        page
+          ? {
+              ...empty,
+              step: "choosing",
+              groups: page.items.filter(
+                (group) =>
+                  comparable(group.name.value) === comparable(artist.name),
+              ),
+            }
+          : empty,
       );
     } catch {
-      setView({
+      show({
         ...empty,
         error: "Hito could not load reviewed artists. Try again.",
       });
@@ -115,6 +143,8 @@ export function useArtistCreditIdentity(
   async function apply(group: ArtistIdentityGroup) {
     if (owner.controller) return;
     owner.totals = noTotals();
+    owner.batches = 0;
+    owner.final = false;
     owner.attempt = {
       request_id: createUuid(),
       group_id: group.id,
@@ -125,7 +155,7 @@ export function useArtistCreditIdentity(
   async function continueApply(group: ArtistIdentityGroup) {
     const started = performance.now();
     let reason = "completed";
-    setView((value) => ({
+    show((value) => ({
       ...value,
       step: "applying",
       selected: group,
@@ -141,36 +171,53 @@ export function useArtistCreditIdentity(
         if (!receipt) return;
         if (!validReceipt(receipt, artist.id, body))
           throw new Error("Invalid artist identity receipt");
-        owner.totals = {
-          applied: owner.totals.applied + receipt.applied,
-          unchanged: owner.totals.unchanged + receipt.unchanged,
-          skippedDifferent:
-            owner.totals.skippedDifferent + receipt.skipped_different,
-          skippedUnavailable:
-            owner.totals.skippedUnavailable + receipt.skipped_unavailable,
-        };
-        owner.attempt = receipt.next_after
-          ? {
-              request_id: createUuid(),
-              group_id: group.id,
-              after: receipt.next_after,
-            }
-          : null;
+        const next = receipt.next_after ?? null;
+        if (next !== null && body.after != null && next <= body.after) {
+          owner.attempt = null;
+          throw new Error("The artist identity walk did not advance");
+        }
+        owner.batches += 1;
+        owner.totals = owner.final
+          ? { ...owner.totals, applied: owner.totals.applied + receipt.applied }
+          : {
+              applied: owner.totals.applied + receipt.applied,
+              unchanged: owner.totals.unchanged + receipt.unchanged,
+              skippedDifferent:
+                owner.totals.skippedDifferent + receipt.skipped_different,
+              skippedUnavailable:
+                owner.totals.skippedUnavailable + receipt.skipped_unavailable,
+            };
+        if (next) {
+          owner.attempt = {
+            request_id: createUuid(),
+            group_id: group.id,
+            after: next,
+          };
+        } else if (!owner.final && owner.batches > 1) {
+          owner.final = true;
+          owner.attempt = { request_id: createUuid(), group_id: group.id };
+        } else owner.attempt = null;
       }
-      setView({ ...empty, totals: owner.totals, selected: group });
+      show({ ...empty, totals: owner.totals, selected: group });
     } catch (error) {
       reason = "failed";
       const rejected =
-        error instanceof HttpError && error.status >= 400 && error.status < 500;
+        error instanceof HttpError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        error.status !== 408 &&
+        error.status !== 429;
       if (rejected) owner.attempt = null;
-      setView((value) => ({
+      show((value) => ({
         ...value,
         step: "choosing",
-        totals: null,
+        totals: owner.batches > 0 ? owner.totals : null,
         retrying: owner.attempt !== null,
         error: owner.attempt
           ? "Hito could not confirm the artist identity request. Retry the same request to recover its result."
-          : "Hito could not apply this artist identity. Check the credit and try again.",
+          : owner.batches > 0
+            ? "Hito stopped before every track was checked. The counts below are already saved."
+            : "Hito could not apply this artist identity. Check the credit and try again.",
       }));
     } finally {
       log.info("artist_identity_credit.finished", {
@@ -185,14 +232,14 @@ export function useArtistCreditIdentity(
     ...view,
     find,
     choose: (group: ArtistIdentityGroup) =>
-      setView((value) => ({
+      show((value) => ({
         ...value,
         step: "confirming",
         selected: group,
         error: "",
       })),
     cancel: () =>
-      setView((value) => ({ ...value, step: "choosing", selected: null })),
+      show((value) => ({ ...value, step: "choosing", selected: null })),
     apply,
     retry: () => (view.selected ? continueApply(view.selected) : undefined),
   };

@@ -54,8 +54,10 @@ export default function ArtistCreditIdentity({
         <div role="group" aria-label="Confirm artist identity">
           <p>
             Use {identity.selected.name.value} for every track you can access
-            under the credit {artist.name}? Tracks that already have a different
-            reviewed artist keep it. You can reset any track later.
+            under the credit {artist.name}? A track keeps its choice when it
+            already has a different reviewed artist, or when a different
+            artist's choice needs review. Tracks never chosen, reset, or needing
+            review for this artist are updated. You can reset any track later.
           </p>
           <button
             type="button"
