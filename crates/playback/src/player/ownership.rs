@@ -21,7 +21,7 @@ pub(super) struct AdmissionSelection {
 impl State {
     pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<AdmissionSelection> {
         match action {
-            Action::Submit(command) => {
+            Action::Submit(command) | Action::Host(command) => {
                 if self.owned(actor, command.lease)?.check(command)?.is_some() {
                     return Ok(AdmissionSelection::default());
                 }
@@ -104,6 +104,11 @@ impl State {
         recordings: Vec<Recording>,
         progress_ready: bool,
     ) -> Result<Response> {
+        let host = matches!(action, Action::Host(_));
+        let action = match action {
+            Action::Host(command) => Action::Submit(command),
+            action => action,
+        };
         match action {
             Action::Inspect => Ok(Response::Inspection(PlayerInspection {
                 native: self.native,
@@ -283,7 +288,9 @@ impl State {
                 if owned.queue.snapshot().current.is_none() {
                     owned.desired_playing = false;
                 }
-                owned.sequence = command.sequence;
+                if !host {
+                    owned.sequence = command.sequence;
+                }
                 owned.publish();
                 tracing::debug!(
                     event = "player_command_accepted",
@@ -295,6 +302,9 @@ impl State {
                     sequence: command.sequence,
                     revision: owned.queue.revision(),
                 };
+                if host {
+                    return Ok(Response::Receipt(receipt));
+                }
                 if owned.receipts.len() == 64 {
                     owned.receipts.pop_front();
                 }
@@ -307,7 +317,7 @@ impl State {
                     });
                 Ok(Response::Receipt(receipt))
             }
-            Action::PrepareAudiobook(_) | Action::CancelAudiobook { .. } => {
+            Action::PrepareAudiobook(_) | Action::CancelAudiobook { .. } | Action::Host(_) => {
                 Err(PlayerError::Invalid)
             }
         }

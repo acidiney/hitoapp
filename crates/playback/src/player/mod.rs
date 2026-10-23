@@ -4,6 +4,7 @@ mod continuation;
 mod continuation_commit;
 mod effects;
 mod loading;
+mod media;
 mod owner;
 mod ownership;
 mod progress;
@@ -51,6 +52,9 @@ enum Action {
         id: Uuid,
         command: Option<PlayerCommand>,
     },
+    /// A command from the host's operating-system media controls. Lease,
+    /// sequence and revision are filled in by the owner when it is admitted.
+    Host(PlayerCommand),
     Queue {
         lease: Uuid,
         revision: u64,
@@ -80,26 +84,55 @@ struct Request {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
     pub fn start(services: hito_core::Services) -> (Self, PlayerOwner) {
-        Self::spawn(services, effects::Effects::Disabled)
+        Self::spawn(services, effects::Effects::Disabled, None)
+    }
+
+    #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
+    pub fn start_with_media(
+        services: hito_core::Services,
+        media: crate::MediaIntegration,
+    ) -> (Self, PlayerOwner) {
+        Self::spawn(services, effects::Effects::Disabled, Some(media))
     }
 
     #[cfg(feature = "device")]
     #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
     pub fn native(services: hito_core::Services) -> (Self, PlayerOwner) {
         let effects = effects::Effects::native(services.catalog.clone(), services.playback.clone());
-        Self::spawn(services, effects)
+        Self::spawn(services, effects, None)
     }
 
-    fn spawn(services: hito_core::Services, effects: effects::Effects) -> (Self, PlayerOwner) {
+    #[cfg(feature = "device")]
+    #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
+    pub fn native_with_media(
+        services: hito_core::Services,
+        media: crate::MediaIntegration,
+    ) -> (Self, PlayerOwner) {
+        let effects = effects::Effects::native(services.catalog.clone(), services.playback.clone());
+        Self::spawn(services, effects, Some(media))
+    }
+
+    fn spawn(
+        services: hito_core::Services,
+        effects: effects::Effects,
+        media: Option<crate::MediaIntegration>,
+    ) -> (Self, PlayerOwner) {
         let native = effects.enabled();
         let id = NEXT_PLAYER.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("player_owner", id);
         let (requests, received) = mpsc::channel(32);
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(
-            owner::run(services, received, stopped, effects)
-                .instrument(tracing::Span::current())
-                .with_current_subscriber(),
+            owner::run(
+                services,
+                requests.downgrade(),
+                received,
+                stopped,
+                effects,
+                media,
+            )
+            .instrument(tracing::Span::current())
+            .with_current_subscriber(),
         );
         (
             Self {

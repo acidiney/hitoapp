@@ -9,10 +9,13 @@ type Admission = Pin<Box<dyn Future<Output = (Request, Result<Vec<Recording>>)> 
 
 pub(super) async fn run(
     services: Services,
+    host: mpsc::WeakSender<Request>,
     mut requests: mpsc::Receiver<Request>,
     mut stopped: oneshot::Receiver<()>,
     mut effects: super::effects::Effects,
+    media: Option<crate::MediaIntegration>,
 ) -> Result<()> {
+    let mut media = media.map(|media| super::media::Driver::new(media, services.catalog.clone()));
     let mut state = State {
         epoch: Uuid::new_v4(),
         owner: None,
@@ -36,6 +39,9 @@ pub(super) async fn run(
             committing.take().unwrap().retire();
         }
         effects.sync(&state, progress.can_play(&state));
+        if let Some(media) = &mut media {
+            media.sync(&state);
+        }
         tokio::select! {
             biased;
             _ = &mut stopped => break,
@@ -44,6 +50,19 @@ pub(super) async fn run(
                 if let Some(owned) = &mut state.owner && owned.scope == report.scope {
                     owned.persistence_error = report.failed.then_some(PlayerError::Persistence);
                     owned.publish();
+                }
+            },
+            event = async { media.as_mut().unwrap().next().await }, if media.is_some() => {
+                match event {
+                    super::media::Event::Loaded(key, loaded) => media.as_mut().unwrap().loaded(&key, loaded),
+                    super::media::Event::Command(command) => {
+                        if let Some((actor, action)) = media.as_ref().unwrap().request(command, &state)
+                            && let Some(sender) = host.upgrade()
+                            && sender.try_send(super::media::host_request(actor, action)).is_err()
+                        {
+                            tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
+                        }
+                    }
                 }
             },
             report = loader.next() => { state.loaded(report); },
@@ -78,7 +97,8 @@ pub(super) async fn run(
                 let _ = request.reply.send(response);
             },
             request = requests.recv(), if pending.is_none() => {
-                let Some(request) = request else { break; };
+                let Some(mut request) = request else { break; };
+                super::media::stamp(&state, &mut request);
                 let services = services.clone();
                 let preflight = state.preflight(&request.actor, &request.action);
                 if preflight.as_ref().is_ok_and(|selection| selection.continuation.is_some()) {
@@ -117,6 +137,9 @@ pub(super) async fn run(
     drop(loader);
     drop(continuation);
     state.owner = None;
+    if let Some(media) = &mut media {
+        media.close();
+    }
     let (_, saved) = tokio::join!(effects.close(), progress.close());
     tracing::info!(event = "player_owner_closed", "Playback admission joined");
     saved

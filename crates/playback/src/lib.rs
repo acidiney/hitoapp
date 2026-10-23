@@ -1,8 +1,13 @@
 mod cancel;
+mod media;
 mod player;
 mod seeking;
 mod source;
 pub use cancel::SourceStop;
+pub use media::{
+    MediaArtwork, MediaCommand, MediaCommandSender, MediaIntegration, MediaPlayback, MediaSink,
+    MediaTrack, media_commands,
+};
 pub use player::{
     Player, PlayerAction, PlayerAttachment, PlayerAudiobookContinuation, PlayerAudiobookRequest,
     PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure, PlayerInspection, PlayerOwner,
