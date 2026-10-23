@@ -40,10 +40,13 @@ The library has artwork cards and a list view, a recording spotlight, personal p
 Run builds and tests inside Docker. The root `Makefile` is the single task entry. `make help` lists the targets.
 
 ```sh
-make test-rust     # cargo test for the whole workspace
+make test-rust     # cargo test for the whole workspace, plus the ignored storage walk test
 make test-web      # vitest
+make web-install   # npm ci
+make web-audit     # npm audit, high severity
 make lint          # clippy with warnings denied
-make fmt           # rustfmt check
+make fmt           # rustfmt, rewrites files
+make fmt-check     # rustfmt check
 make contracts     # OpenAPI and TypeScript regeneration check
 make e2e           # isolated browser server plus Playwright
 make verify        # full development check (scripts/verify.sh)

@@ -13,18 +13,21 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 
 | Target | Runs |
 | --- | --- |
-| `make up` / `make down` | Build and start, or stop, the normal `server` service |
+| `make up` / `make down` | Build and start, or stop, the normal `server` service. Always act on the running `hito` project |
 | `make build-tools` | Build the Rust tools image |
-| `make fmt` | `cargo fmt --all --check` |
-| `make test-rust` | `cargo test --workspace --locked` with the debrid and plugin `test-support` features |
+| `make fmt` | `cargo fmt --all`, which rewrites files |
+| `make fmt-check` | `cargo fmt --all --check` |
+| `make test-rust` | `cargo test --workspace --locked` with the debrid and plugin `test-support` features, then the ignored `storage_walk_stalls` test in `hito-core` |
 | `make lint` | `cargo clippy --workspace --all-targets` with warnings denied |
 | `make test-web` | `npm test` (vitest) in `apps/web` |
+| `make web-install` | `npm ci` in `apps/web` |
+| `make web-audit` | `npm audit --audit-level=high` |
 | `make web-build` | `npm run build` |
 | `make contracts` | `scripts/check-contracts.sh` |
 | `make setup-check` | `scripts/check-setup.sh` |
-| `make e2e` | Recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server |
+| `make e2e` | Generate the e2e audio fixtures, recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server |
 | `make desktop` | `scripts/check-desktop.sh` |
-| `make verify` | `scripts/verify.sh`, the full check |
+| `make verify` | `scripts/verify.sh`, the full check. The script only calls the targets above |
 
 ## Docker only
 
@@ -38,10 +41,10 @@ Give each source snapshot and worktree its own Compose project and its own Cargo
 
 ```sh
 make COMPOSE_PROJECT=hito-arch test-rust
-make COMPOSE_PROJECT=hito-arch COMPOSE_EXTRA='-f path/override.yaml' lint
+make COMPOSE_PROJECT=hito-arch COMPOSE_EXTRA='path/override.yaml:path/more.yaml' lint
 ```
 
-`COMPOSE_PROJECT` sets `COMPOSE_PROJECT_NAME`. Compose prefixes named volumes with the project name, so `rust-target`, `cargo-registry` and `node-modules` become separate per project. `COMPOSE_EXTRA` appends extra Compose files.
+`COMPOSE_PROJECT` sets `COMPOSE_PROJECT_NAME`. Compose prefixes named volumes with the project name, so `rust-target`, `cargo-registry` and `node-modules` become separate per project. `COMPOSE_EXTRA` is a colon-separated list of Compose files. The Makefile appends it to `compose.yaml` and exports the result as `COMPOSE_FILE`, so it applies to every target. `COMPOSE_PROJECT` applies to every target except `make up` and `make down`, which always act on the running `hito` project.
 
 ## Disk and CPU budget
 
@@ -73,9 +76,11 @@ docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-
 docker compose --profile tools run --rm node npx vitest run src/features/catalog/tests/browsing.test.ts
 ```
 
-## Known environment limits
+## Docker Desktop quirks
 
-Two `hito-core` tag-metadata tests need 64 KiB pipes. The Docker Desktop VM denies root the pipe-size change they request, so they fail there. The tests are correct. They do not pass on that host, and the limit is not fixed by raising timeouts or ignoring them. Run them on a Linux Docker host to confirm. Every other Rust crate and the web suite pass in Docker Desktop.
+Two `hito-core` tests, `metadata_artist_tags_exit` and `metadata_artist_tags_diagnostics`, need a 64 KiB stdout pipe. Docker Desktop's VM caps root pipes at 8 KiB once the per-user pipe quota is used, so the `rust` tools service sets `cap_add: [SYS_RESOURCE]`. Do not drop it, and do not weaken the tests.
+
+Docker Desktop's VM clock can run ahead of the host. After you edit a file on the host, Cargo may then treat the old artifact as fresh. If a rebuild seems skipped, run `touch <edited files>` inside the container, or `cargo clean -p <crate>`.
 
 ## Full verification and desktop checks
 
