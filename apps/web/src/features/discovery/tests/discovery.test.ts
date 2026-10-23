@@ -412,3 +412,37 @@ test("logs exclude queries, cursors, provider content, and rejected private erro
     expect(logged).not.toContain(value);
   expect(logged).toContain("providers.adopt");
 });
+
+test("a service without sources still saves results but never starts playback from them", async () => {
+  const searchOnly: PluginInstallation = {
+    ...connection,
+    manifest: {
+      ...connection.manifest,
+      capabilities: ["search", "metadata", "artwork"],
+    },
+  };
+  const unavailable = { ...recording, available: false };
+  const fetch = vi
+    .fn()
+    .mockImplementation(() => Promise.resolve(response(unavailable)))
+    .mockResolvedValueOnce(response({ items: [hit] }));
+  vi.stubGlobal("fetch", fetch);
+  player.prepareSelection.mockClear();
+  const { result } = renderHook(() =>
+    useDiscovery("alice", searchOnly, player),
+  );
+  await act(async () => {
+    await result.current.search("query");
+  });
+  await act(async () => {
+    await result.current.select(hit, "play");
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(player.prepareSelection).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.select(hit, "save");
+  });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(result.current.saved.get(hit.id)).toEqual(unavailable);
+  expect(player.prepareSelection).not.toHaveBeenCalled();
+});

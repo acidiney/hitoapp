@@ -182,3 +182,41 @@ test("a failed search does not claim there are no matching tracks", async () => 
     screen.queryByRole("heading", { name: "No matching tracks" }),
   ).toBeNull();
 });
+
+test("a service without sources offers adding to the library but not playing", async () => {
+  const hit = { id: "remote", title: "Provider song", artist: "Fixture" };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [hit] }))),
+  );
+  render(
+    createElement(DiscoverPage, {
+      ...props,
+      connections: [
+        {
+          ...connection,
+          manifest: {
+            ...connection.manifest,
+            capabilities: ["search", "metadata", "artwork"],
+          },
+        },
+      ],
+    }),
+  );
+  fireEvent.change(screen.getByRole("searchbox", { name: "Search music" }), {
+    target: { value: "song" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  const add = (await screen.findByRole("button", {
+    name: "Add Provider song to library",
+  })) as HTMLButtonElement;
+  expect(add.disabled).toBe(false);
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Play Provider song",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(screen.getByText(/provides no audio/)).toBeTruthy();
+});

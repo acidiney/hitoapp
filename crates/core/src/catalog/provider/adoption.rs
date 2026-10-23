@@ -28,14 +28,17 @@ impl Catalog {
             .map_err(|message| Error::Invalid(message.into()))?;
         let operation = self
             .plugins
-            .operation(
-                actor,
-                installation,
-                request.installation_revision,
-                &[Capability::Sources],
-            )
+            .operation(actor, installation, request.installation_revision, &[])
             .await?;
-        let (details, sources) = operation.recording(&request_id).await?;
+        if !operation.offers(Capability::Sources)
+            && !operation.offers(Capability::Search)
+            && !operation.offers(Capability::Metadata)
+        {
+            return Err(Error::Invalid(
+                "This plugin has not been approved for the requested capability".into(),
+            ));
+        }
+        let (details, sources) = operation.recording_for_saving(&request_id).await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
@@ -51,22 +54,27 @@ impl Catalog {
         let recording = published.recording_id;
         let release = published.release_id;
         let observation = published.observation_id;
-        persist::sources(
-            &mut tx,
-            &published.binding,
-            release.as_deref(),
-            &observation,
-            &details,
-            &sources,
-        )
-        .await?;
+        if let Some(sources) = &sources {
+            persist::sources(
+                &mut tx,
+                &published.binding,
+                release.as_deref(),
+                &observation,
+                &details,
+                sources,
+            )
+            .await?;
+        }
         crate::metadata::refresh_recording_credits(&mut tx, &recording).await?;
         if let Some(release) = &release {
             crate::metadata::refresh_release(&mut tx, actor.id(), release).await?;
         }
         let result = persist::selected(&mut tx, actor, &self.host, &recording).await?;
         tx.commit().await?;
-        tracing::info!(sources = sources.items.len(), "Provider recording adopted");
+        tracing::info!(
+            sources = sources.as_ref().map(|page| page.items.len()),
+            "Provider recording adopted"
+        );
         Ok(result)
     }
 }

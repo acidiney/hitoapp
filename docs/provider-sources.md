@@ -4,6 +4,8 @@ A saved recording can use audio from several connected providers. Adding a sourc
 
 In track details, select **Find a source**, choose a connected music service and search. **Review match** compares the saved track with the provider's current details. **Use this source** confirms the association. Hito owns this interface; plugins return structured data.
 
+A provider that does not offer sources can still save a recording from Discover. Hito keeps its metadata and artwork and stores no sources from it. Play finds audio through the other approved providers. **Find a source** still needs a provider that offers sources.
+
 The user must check that the candidate is the same recording. Covers, live performances and remixes must remain separate. This workflow does not establish automatic matching.
 
 ```mermaid

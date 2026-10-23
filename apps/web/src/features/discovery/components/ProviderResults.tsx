@@ -12,6 +12,7 @@ type ResultProps = {
   saved?: Recording;
   selection: ProviderSelection | null;
   disabled: boolean;
+  canPlay: boolean;
   onSelect: (hit: ProviderRecording, intent: SelectionIntent) => void;
 };
 function ProviderResult({
@@ -19,6 +20,7 @@ function ProviderResult({
   saved,
   selection,
   disabled,
+  canPlay,
   onSelect,
 }: ResultProps) {
   const play = useRef<HTMLButtonElement>(null);
@@ -56,7 +58,7 @@ function ProviderResult({
         className="icon-button provider-play"
         ref={play}
         aria-label={`Play ${hit.title}`}
-        disabled={disabled}
+        disabled={disabled || !canPlay}
         onClick={() => select("play")}
       >
         <Play size={18} fill="currentColor" />
@@ -127,17 +129,17 @@ export default function ProviderResults({
   saved,
   selection,
   pending,
-  canSelect,
+  canPlay,
   onSelect,
 }: {
   items: ProviderRecording[];
   saved: ReadonlyMap<string, Recording>;
   selection: ProviderSelection | null;
   pending: boolean;
-  canSelect: boolean;
+  canPlay: boolean;
   onSelect: ResultProps["onSelect"];
 }) {
-  const disabled = pending || Boolean(selection?.pending) || !canSelect;
+  const disabled = pending || Boolean(selection?.pending);
   return (
     <ol
       className="provider-results"
@@ -151,6 +153,7 @@ export default function ProviderResults({
           saved={saved.get(hit.id)}
           selection={selection}
           disabled={disabled}
+          canPlay={canPlay}
           onSelect={onSelect}
         />
       ))}

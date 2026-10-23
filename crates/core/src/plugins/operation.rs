@@ -280,6 +280,23 @@ impl Operation {
         let sources = self.sources(request).await?;
         Ok((details, sources))
     }
+    pub(crate) fn offers(&self, capability: Capability) -> bool {
+        self.approved_capabilities.contains(&capability)
+    }
+    pub(crate) async fn recording_for_saving(
+        &self,
+        request: &RecordingRequest,
+    ) -> Result<(ProviderRecording, Option<SourcePage>)> {
+        if self.offers(Capability::Sources) {
+            let (details, sources) = self.recording(request).await?;
+            return Ok((details, Some(sources)));
+        }
+        let details = self.recording_details(request).await?;
+        let mut connection = self.store.pool.acquire().await?;
+        self.actor.check_session_on(&mut connection).await?;
+        self.recheck(&mut connection).await?;
+        Ok((details, None))
+    }
     pub(crate) async fn recording_details(
         &self,
         request: &RecordingRequest,

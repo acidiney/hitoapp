@@ -84,8 +84,8 @@ export default function DiscoverPage({
           />
           {!selected.manifest.capabilities.includes("sources") && (
             <p className="discovery-note">
-              This service supports search only. Choose another service to add
-              or play results.
+              This service finds tracks but provides no audio. Added tracks play
+              through your other services.
             </p>
           )}
           {discovery.error && (
@@ -123,7 +123,7 @@ export default function DiscoverPage({
               saved={discovery.saved}
               selection={discovery.selection}
               pending={discovery.pending}
-              canSelect={selected.manifest.capabilities.includes("sources")}
+              canPlay={selected.manifest.capabilities.includes("sources")}
               onSelect={(hit, intent) => void discovery.select(hit, intent)}
             />
           ) : discovery.pending ? (

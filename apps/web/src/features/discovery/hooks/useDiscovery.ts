@@ -150,7 +150,9 @@ export function useDiscovery(
       current.generation !== owner.generation ||
       owner.search ||
       owner.adoption ||
-      !connection?.manifest.capabilities.includes("sources") ||
+      (intent === "play" &&
+        !connection?.manifest.capabilities.includes("sources")) ||
+      !connection?.manifest.capabilities.includes("search") ||
       !current.items.some((item) => item.id === hit.id)
     )
       return null;
