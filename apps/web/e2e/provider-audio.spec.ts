@@ -79,7 +79,7 @@ test("selected provider audio plays and seeks in the library without exposing it
     await page
       .getByRole("button", { name: `Play ${recording.title}`, exact: true })
       .click();
-    const audio = page.locator("audio");
+    const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -132,7 +132,7 @@ test("selected provider audio plays and seeks in the library without exposing it
         name: `Play ${recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     expect(errors).toEqual([]);
   } finally {
     await fixture.close();

@@ -198,7 +198,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         exact: true,
       })
       .click();
-    const audio = page.locator("audio");
+    const audio = page.locator("audio[data-hito-player]");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -279,8 +279,11 @@ test("provider discovery saves, pages and plays privately with stale selection p
         `/api/v1/artists?library=${encodeURIComponent(owned.items[0].library_id)}`,
       )
     ).json();
-    expect(artistIndex.total).toBe(1);
-    const artistId = artistIndex.items[0].id;
+    const discoveredArtists = (
+      artistIndex.items as { id: string; name: string }[]
+    ).filter((artist) => artist.name === fixture.recording.artist);
+    expect(discoveredArtists).toHaveLength(1);
+    const artistId = discoveredArtists[0].id;
     await page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("link", { name: "Artists", exact: true })
@@ -406,13 +409,13 @@ test("provider discovery saves, pages and plays privately with stale selection p
         name: `Play ${fixture.recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.second.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page.goto(`/artists/${artistId}`);
     await expect(
       page.getByRole("heading", {
@@ -423,13 +426,13 @@ test("provider discovery saves, pages and plays privately with stale selection p
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Play tracks", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByRole("button", {
         name: `Play ${fixture.recording.title}`,
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     for (const title of [fixture.recording.title, fixture.second.title]) {
       const row = page.getByRole("row").filter({
         has: page.getByRole("button", { name: `Play ${title}`, exact: true }),

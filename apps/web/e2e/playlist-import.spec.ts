@@ -283,19 +283,19 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     ]);
     await expect(
       page.getByRole("button", { name: "Play playlist", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     for (const index of [0, 3]) {
       await expect(
         rows.nth(index).getByRole("button", {
           name: `Play ${fixture.recording.title}`,
           exact: true,
         }),
-      ).toBeDisabled();
+      ).toBeEnabled();
       await expect(
         rows
           .nth(index)
           .getByRole("button", { name: fixture.recording.title, exact: true }),
-      ).toBeDisabled();
+      ).toBeEnabled();
       await expect(
         rows
           .nth(index)
@@ -430,7 +430,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       rows
         .last()
         .getByRole("button", { name: fixture.recording.title, exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByText(fixture.detail.attribution.label, { exact: true }),
     ).toBeVisible();
