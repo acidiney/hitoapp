@@ -548,3 +548,256 @@ test.each([
     media.close();
   }
 });
+
+const statusReads = (requests: OwnedPlaybackRequest[]) =>
+  preparationRequests(requests).filter((request) => request.method === "GET");
+const submissions = (requests: OwnedPlaybackRequest[]) =>
+  preparationRequests(requests).filter((request) => request.method === "POST");
+
+test("a boundary reached during a slow resolution waits at most ten seconds and then skips", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const media = browserPreparationMedia();
+  const held = deferred<Response>();
+  let resolving: OwnedPlaybackRequest | null = null;
+  const { requests } = ownedPlaybackHttp((request) => {
+    if (request.path === cachedSourcesPath(first) && request.method === "GET")
+      return Response.json([firstSource]);
+    if (request.path === cachedSourcesPath(after) && request.method === "GET")
+      return Response.json([afterSource]);
+    if (request.path === cachedSourcesPath(next) && request.method === "GET")
+      return Response.json([]);
+    if (request.path === `${sourcesPath(next)}/refresh`)
+      return Response.json([]);
+    if (request.path === `${sourcesPath(next)}/resolve`) {
+      resolving = request;
+      return held.promise;
+    }
+    if (request.path === "/api/v1/sync")
+      return Response.json({
+        acknowledged: (request.body as SyncBatch).operations.map(
+          (operation) => operation.id,
+        ),
+      });
+    throw new Error("Unexpected slow resolution request");
+  });
+  const { players, unmount } = renderPlaybackAccount("alice");
+  const player = players.get("alice")!;
+  try {
+    await act(async () => {
+      await player.playQueue([first, next, after]);
+    });
+    await vi.waitFor(() => expect(resolving).not.toBeNull());
+    await act(async () => {
+      media.end(media.created[0]);
+    });
+    expect(player.snapshot().current?.id).toBe(next.id);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+    });
+    expect(player.snapshot().current?.id).toBe(next.id);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+    await vi.waitFor(() =>
+      expect(player.snapshot().current?.id).toBe(after.id),
+    );
+    expect(resolving!.signal.aborted).toBe(true);
+    expect(requests.some((r) => r.path.endsWith("/preparation"))).toBe(false);
+  } finally {
+    held.resolve(Response.json({}));
+    unmount();
+    media.close();
+  }
+});
+
+test.each([
+  ["still preparing", () => Response.json(status("preparing"))],
+  ["failed", () => Response.json(status("failed"))],
+])(
+  "pausing and resuming while the next source is %s never submits the same entry twice",
+  async (_name, poll) => {
+    const media = browserPreparationMedia();
+    const { requests } = workflow({
+      nextSources: () => [waitingSource],
+      prepare: accepted,
+      poll,
+    });
+    const { players, unmount } = renderPlaybackAccount("alice");
+    const player = players.get("alice")!;
+    try {
+      await act(async () => {
+        await player.playQueue([first, next]);
+      });
+      await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
+      for (let toggle = 0; toggle < 2; toggle++) {
+        await act(async () => {
+          await player.setPlaying(false);
+        });
+        await act(async () => {
+          await player.setPlaying(true);
+        });
+        await vi.waitFor(() =>
+          expect(
+            requests.filter((r) => r.path.endsWith("/resolve")).length,
+          ).toBeGreaterThan(toggle + 1),
+        );
+      }
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(submissions(requests)).toHaveLength(1);
+    } finally {
+      unmount();
+      media.close();
+    }
+  },
+);
+
+test("a rejected submission is not repeated after pausing and resuming", async () => {
+  const media = browserPreparationMedia();
+  const { requests } = workflow({
+    nextSources: () => [waitingSource],
+    prepare: () => Response.json({ error: "Quota" }, { status: 429 }),
+  });
+  const { players, unmount } = renderPlaybackAccount("alice");
+  const player = players.get("alice")!;
+  try {
+    await act(async () => {
+      await player.playQueue([first, next]);
+    });
+    await vi.waitFor(() => expect(submissions(requests)).toHaveLength(1));
+    await act(async () => {
+      await player.setPlaying(false);
+    });
+    await act(async () => {
+      await player.setPlaying(true);
+    });
+    await vi.waitFor(() =>
+      expect(
+        requests.filter((r) => r.path.endsWith("/resolve")).length,
+      ).toBeGreaterThan(1),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(submissions(requests)).toHaveLength(1);
+  } finally {
+    unmount();
+    media.close();
+  }
+});
+
+test("polling stops at the ninety second deadline", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const media = browserPreparationMedia();
+  const { requests } = workflow({
+    nextSources: () => [waitingSource],
+    prepare: accepted,
+    poll: () => Response.json(status("preparing")),
+  });
+  const { players, unmount } = renderPlaybackAccount("alice");
+  const player = players.get("alice")!;
+  try {
+    await act(async () => {
+      await player.playQueue([first, next]);
+    });
+    await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(85_000);
+    });
+    const reads = statusReads(requests).length;
+    expect(reads).toBeGreaterThan(10);
+    const pending = statusReads(requests).at(-1)!;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(statusReads(requests).length).toBeLessThanOrEqual(reads + 1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(statusReads(requests).length).toBeLessThanOrEqual(reads + 1);
+    expect(pending.signal.aborted || statusReads(requests).length > reads).toBe(
+      true,
+    );
+  } finally {
+    unmount();
+    media.close();
+  }
+});
+
+test("three consecutive failed status reads stop polling, while an absent status keeps waiting", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const media = browserPreparationMedia();
+  let mode: "error" | "absent" = "error";
+  const { requests } = workflow({
+    nextSources: () => [waitingSource],
+    prepare: accepted,
+    poll: () =>
+      mode === "error"
+        ? Response.json({ error: "down" }, { status: 503 })
+        : Response.json({ error: "none" }, { status: 404 }),
+  });
+  const { players, unmount } = renderPlaybackAccount("alice");
+  const player = players.get("alice")!;
+  try {
+    await act(async () => {
+      await player.playQueue([first, next]);
+    });
+    await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(statusReads(requests)).toHaveLength(3);
+    expect(player.snapshot().error).toBe("");
+    expect(player.snapshot().playing).toBe(true);
+  } finally {
+    unmount();
+    media.close();
+  }
+
+  mode = "absent";
+  const absent = browserPreparationMedia();
+  const second = renderPlaybackAccount("alice");
+  try {
+    await act(async () => {
+      await second.players.get("alice")!.playQueue([first, next]);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(statusReads(requests).length).toBeGreaterThanOrEqual(6);
+  } finally {
+    second.unmount();
+    absent.close();
+  }
+});
+
+test("a next check beyond the lookahead deadline stops instead of polling", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const media = browserPreparationMedia();
+  const { requests } = workflow({
+    nextSources: () => [waitingSource],
+    prepare: accepted,
+    poll: () =>
+      Response.json({
+        ...status("preparing"),
+        next_check_at: Math.floor(Date.now() / 1000) + 3600,
+      }),
+  });
+  const { players, unmount } = renderPlaybackAccount("alice");
+  const player = players.get("alice")!;
+  try {
+    await act(async () => {
+      await player.playQueue([first, next]);
+    });
+    await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(statusReads(requests)).toHaveLength(1);
+    expect(player.snapshot().playing).toBe(true);
+  } finally {
+    unmount();
+    media.close();
+  }
+});

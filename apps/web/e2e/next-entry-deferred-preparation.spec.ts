@@ -166,7 +166,10 @@ test("a next track waiting for provider preparation is prepared while the curren
     }
     expect(errors).toEqual([]);
   } finally {
-    await cleanup?.();
-    await fixture.close();
+    try {
+      await cleanup?.();
+    } finally {
+      await fixture.close();
+    }
   }
 });

@@ -7,7 +7,10 @@ import {
   type SourcePreparer,
   type SourceResolver,
 } from "../api/playbackSources";
-import { prepareDeferredSource } from "./BrowserDeferredSource";
+import {
+  prepareDeferredSource,
+  type Submission,
+} from "./BrowserDeferredSource";
 
 const ACQUISITION_MS = 15_000;
 const PROVIDER_PREPARATION_MS = 90_000;
@@ -17,6 +20,11 @@ export type BrowserMediaOwner = {
   create(): MediaPort;
   activate(media: MediaPort): void;
   release(media: MediaPort): void;
+};
+
+export type SubmissionLedger = {
+  get(source: string): Submission | undefined;
+  set(source: string, state: Submission): void;
 };
 
 export type PreparationTarget = {
@@ -45,7 +53,8 @@ export class BrowserPreparation {
   private ready: Promise<Prepared | null>;
   private started = performance.now();
   private abort = new AbortController();
-  private provider = false;
+  private finding = true;
+  private deadlineAt = 0;
 
   constructor(
     readonly target: PreparationTarget,
@@ -53,11 +62,13 @@ export class BrowserPreparation {
     private owner: BrowserMediaOwner,
     seed?: Source,
     private preparer?: SourcePreparer,
+    private ledger?: SubmissionLedger,
   ) {
     this.sources = new PlaybackSources(target.recording, resolve, seed);
     this.stopped = new Promise<null>((resolve) => {
       this.cancelled = resolve;
     });
+    this.deadlineAt = this.started + ACQUISITION_MS;
     this.timer = setTimeout(() => this.close("deadline"), ACQUISITION_MS);
     this.ready = Promise.race([this.prepare(), this.stopped]);
     log.debug("playback.next_preparation_started", {
@@ -72,10 +83,14 @@ export class BrowserPreparation {
       if (!source && !this.closed) source = await this.prepareDeferred();
       if (this.closed) return null;
       if (!source) {
+        this.finding = false;
         clearTimeout(this.timer);
         this.finished("unavailable");
         return { sources: this.sources };
       }
+      this.finding = false;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.close("deadline"), ACQUISITION_MS);
       const media = this.owner.create();
       this.media = media;
       const buffered = await new Promise<boolean>((resolve) => {
@@ -114,26 +129,25 @@ export class BrowserPreparation {
 
   private async prepareDeferred(): Promise<Source | undefined> {
     const waiting = this.sources.deferred;
-    if (!this.preparer || !waiting) return;
+    if (!this.preparer || !waiting || this.abort.signal.aborted) return;
     clearTimeout(this.timer);
+    this.deadlineAt = this.started + PROVIDER_PREPARATION_MS;
     this.timer = setTimeout(
       () => this.close("deadline"),
-      Math.max(0, PROVIDER_PREPARATION_MS - (performance.now() - this.started)),
+      Math.max(0, this.deadlineAt - performance.now()),
     );
-    this.provider = true;
-    try {
-      const ready = await prepareDeferredSource(
-        this.preparer,
-        this.target.recording,
-        waiting.id,
-        this.abort.signal,
-      );
-      if (!ready || this.closed) return;
-      await this.sources.reloadCached();
-      return this.sources.next();
-    } finally {
-      this.provider = false;
-    }
+    const ready = await prepareDeferredSource(
+      this.preparer,
+      this.target.recording,
+      waiting.id,
+      this.abort.signal,
+      { remainingMs: () => this.deadlineAt - performance.now() },
+      this.ledger?.get(waiting.id),
+      (state) => this.ledger?.set(waiting.id, state),
+    );
+    if (!ready || this.closed) return;
+    await this.sources.reloadCached();
+    return this.sources.next();
   }
 
   async read(): Promise<Prepared | null> {
@@ -164,7 +178,7 @@ export class BrowserPreparation {
   }
 
   private async settled(): Promise<Prepared | null> {
-    if (!this.provider) return this.ready;
+    if (!this.finding) return this.ready;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const limit = new Promise<"waited">((resolve) => {
       timer = setTimeout(() => resolve("waited"), BOUNDARY_WAIT_MS);
@@ -172,13 +186,17 @@ export class BrowserPreparation {
     const outcome = await Promise.race([this.ready, limit]);
     clearTimeout(timer);
     if (outcome !== "waited") return outcome;
-    log.debug("playback.next_preparation_finished", {
-      recording_id: this.target.recording,
-      operation_id: this.id,
-      reason: "provider_still_preparing",
-      duration_ms: Math.round(performance.now() - this.started),
-    });
-    this.abort.abort();
+    if (this.finding) {
+      log.debug("playback.next_preparation_finished", {
+        recording_id: this.target.recording,
+        operation_id: this.id,
+        reason: "still_finding_source",
+        duration_ms: Math.round(performance.now() - this.started),
+      });
+      this.sources.close();
+      this.abort.abort();
+      return { sources: this.sources };
+    }
     return this.ready;
   }
 

@@ -2,6 +2,7 @@ import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
+import { msUntilCheck } from "../api/preparationPolicy";
 import { sourcePreparationApi } from "../api/sourcePreparationApi";
 import type {
   PrepareSource,
@@ -110,13 +111,9 @@ export function useSourcePreparation(
       : performance.now() - owner.changedAt < 30_000
         ? 5_000
         : 30_000;
-    const due = owner.view.status?.next_check_at;
     owner.timer = setTimeout(
       () => void load(),
-      Math.min(
-        86_400_000,
-        Math.max(interval, due == null ? 0 : due * 1000 - Date.now()),
-      ),
+      Math.min(86_400_000, Math.max(interval, msUntilCheck(owner.view.status))),
     );
   }
 

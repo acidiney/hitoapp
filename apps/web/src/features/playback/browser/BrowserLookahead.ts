@@ -4,6 +4,7 @@ import type {
   Source,
 } from "../api/playbackSources";
 import type { PlaybackOccurrence } from "../model";
+import type { Submission } from "./BrowserDeferredSource";
 import {
   BrowserPreparation,
   type BrowserMediaOwner,
@@ -19,6 +20,10 @@ export class BrowserLookahead {
   private prepared: BrowserPreparation | null = null;
   private opening: BrowserPreparation | null = null;
   private revision = 0;
+  private submissions: {
+    entry: string;
+    states: Map<string, Submission>;
+  } | null = null;
 
   constructor(
     private resolve: SourceResolver,
@@ -45,6 +50,9 @@ export class BrowserLookahead {
         ? { ...following.active }
         : undefined;
     this.cancel();
+    if (this.submissions?.entry !== entry)
+      this.submissions = { entry, states: new Map() };
+    const states = this.submissions.states;
     this.prepared = new BrowserPreparation(
       {
         generation: following.generation,
@@ -56,6 +64,10 @@ export class BrowserLookahead {
       this.owner,
       seed,
       this.preparer,
+      {
+        get: (source) => states.get(source),
+        set: (source, state) => states.set(source, state),
+      },
     );
   }
 
