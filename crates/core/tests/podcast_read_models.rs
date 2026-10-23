@@ -66,6 +66,10 @@ impl Fixture {
     }
 
     async fn guest(&self) -> Actor {
+        self.guest_session().await.0
+    }
+
+    async fn guest_session(&self) -> (Actor, String) {
         let credentials = || Credentials {
             username: "read-model-guest".into(),
             password: "owned guest read model password".into(),
@@ -76,11 +80,13 @@ impl Fixture {
             .await
             .unwrap();
         let session = self.hito.identity.login(credentials()).await.unwrap();
-        self.hito
+        let actor = self
+            .hito
             .identity
             .authenticate(&session.token)
             .await
-            .unwrap()
+            .unwrap();
+        (actor, session.token)
     }
 
     async fn recording_ids(&self) -> Vec<Uuid> {
@@ -264,5 +270,18 @@ fn progress(recording_id: Uuid, position_ms: u64) -> RecordingProgress {
         recording_id,
         position_ms,
         speed: 1.25,
+    }
+}
+
+#[tokio::test]
+async fn a_revoked_session_is_unauthorized_before_the_identity_is_judged() {
+    let fixture = Fixture::start().await;
+    let (guest, token) = fixture.guest_session().await;
+    fixture.hito.identity.logout(&token).await.unwrap();
+    for identity in [fixture.subscription.as_str(), "not-a-uuid"] {
+        assert!(matches!(
+            fixture.hito.podcasts.subscription(&guest, identity).await,
+            Err(Error::Unauthorized)
+        ));
     }
 }

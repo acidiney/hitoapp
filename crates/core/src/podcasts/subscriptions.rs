@@ -192,8 +192,8 @@ impl Podcasts {
         actor: &Actor,
         subscription: &str,
     ) -> Result<PodcastSubscription> {
-        let subscription_id = Uuid::parse_str(subscription).map_err(|_| Error::NotFound)?;
         actor.check_session(&self.store).await?;
+        let subscription_id = Uuid::parse_str(subscription).map_err(|_| Error::NotFound)?;
         let row: Option<SubscriptionRow> = sqlx::query_as(&format!(
             "{SUBSCRIPTION_SELECT} WHERE p.id=? AND p.user_id=?"
         ))
