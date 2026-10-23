@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 
-INPUTS = ["Dockerfile.community", ".dockerignore", "LICENSE", "Cargo.toml", "Cargo.lock",
+INPUTS = ["docker/community.Dockerfile", ".dockerignore", "LICENSE", "Cargo.toml", "Cargo.lock",
           "rust-toolchain.toml", ".cargo", "apps/community", "vendor", "docs/third-party/sqlx-sqlite.md"]
 
 parser = argparse.ArgumentParser()

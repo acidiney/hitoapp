@@ -4,7 +4,7 @@ services:
     image: hito-plugin-torbox:${HITO_TORBOX_IMAGE_TAG:-development}
     build:
       context: ${HITO_TORBOX_BUILD_CONTEXT:-.}
-      dockerfile: Dockerfile.plugin-torbox
+      dockerfile: docker/plugin-torbox.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-torbox-package-${COMPOSE_PROJECT_NAME:-standalone}
         HITO_TORBOX_SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}

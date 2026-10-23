@@ -9,8 +9,8 @@ from pathlib import Path
 import subprocess
 
 PRODUCT_INPUTS = [
-    "Dockerfile", ".dockerignore", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
-    ".cargo", "crates", "plugins", "vendor", "apps/web", "docs/openapi.json",
+    "docker/server.Dockerfile", ".dockerignore", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
+    ".cargo", "crates", "plugins", "vendor", "apps", "docs/openapi.json",
 ]
 
 

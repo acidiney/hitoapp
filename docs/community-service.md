@@ -208,7 +208,7 @@ The runtime instance span covers readiness, shutdown request, runtime state-clos
 
 ## Private development container
 
-[Dockerfile.community](../Dockerfile.community) and [scripts/community/compose.yaml](../scripts/community/compose.yaml) package the executable for an isolated local project. On 18 October 2026, the `linux/arm64` image built from community source `9c85538` passed health, effective configuration, private-volume provisioning, authenticated HTTP, persisted-receipt replay, log privacy and held-request shutdown checks. This configuration does not change the normal Hito deployment or complete a public-release gate.
+[docker/community.Dockerfile](../docker/community.Dockerfile) and [scripts/community/compose.yaml](../scripts/community/compose.yaml) package the executable for an isolated local project. On 18 October 2026, the `linux/arm64` image built from community source `9c85538` passed health, effective configuration, private-volume provisioning, authenticated HTTP, persisted-receipt replay, log privacy and held-request shutdown checks. This configuration does not change the normal Hito deployment or complete a public-release gate.
 
 Compose uses `network_mode: none`, with no published ports or application network. Only the container's IPv4 loopback is available, so external HTTP clients cannot reach the service; inspect it through `docker compose exec`. This follows Docker's [none-network behavior](https://docs.docker.com/engine/network/drivers/none/). The binary retains its default `127.0.0.1:8095` listener. A schema health check runs every five seconds without credentials or provider requests.
 

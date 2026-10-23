@@ -141,7 +141,7 @@ These Linux process fixtures do not qualify all semantic CLI/catalog inputs, a r
 
 ## AllDebrid restricted package
 
-`Dockerfile.plugin-all-debrid` and `compose.all-debrid.yaml` package the selected
+`docker/plugin-all-debrid.Dockerfile` and `compose.all-debrid.yaml` package the selected
 executable separately from Hito. The service runs as UID/GID 10001 with a
 read-only root and private input volume, no Linux capabilities, no privilege
 escalation and bounded CPU, memory, PIDs and logs. Normal publication defaults to
@@ -193,7 +193,7 @@ The executable defaults to `127.0.0.1:8096`. It accepts `--provider-token-file`,
 
 All 22 adapter and six service cases pass together in Docker, with strict all-target checks for both crates and formatting. The hosted HTTP/TLS case decodes the exact owned WAV and verifies authentication, source/header isolation and private logs. Two boundary cases cover malformed/protocol/opaque-ID rejection with no upstream work, pagination, and a provider file changing after ready observation and HEAD. A real-child case verifies startup, authenticated metadata, held control-body completion through SIGTERM, closed listening and correlated private logs. Two bootstrap cases reject 17 unsafe file/catalog/credential scenarios before binding while preserving input bytes and Unix metadata. Fresh independent source reviews pass.
 
-`Dockerfile.plugin-real-debrid` and `compose.real-debrid.yaml` define a restricted standalone image and an external private credential volume. Builds require an immutable source ID for a separate Cargo cache; running a prebuilt image does not.
+`docker/plugin-real-debrid.Dockerfile` and `compose.real-debrid.yaml` define a restricted standalone image and an external private credential volume. Builds require an immutable source ID for a separate Cargo cache; running a prebuilt image does not.
 
 Image `sha256:ea431ad6ec5339720b24cd504a359a8c28f20c9daa4ce527a1ed99cdb6a149cb`, built from `13041bf`, passes isolated container startup and metadata acceptance. It runs as UID/GID 10001 with a read-only root and credential mount, dropped capabilities, one CPU, 256 MiB memory and 64 processes. The audit disables all external networking and publishes no ports. Health, the public manifest, exact authenticated search/detail, absent and wrong credentials, unknown recording and invalid limit checks pass. All three private input files retain their bytes, inode, owner, mode, links and timestamps. A repeated TRACE run emits 19 bounded JSON records with one lifecycle identity and no supplied private canaries, including both normalized credential values. Synthetic JSON leaks first exposed a missing normalized provider-token check in the audit; the corrected gate and its independent second review pass. Idle SIGTERM exits with code zero in 0.074 seconds. The stopped container and private audit evidence remain under `/private/tmp/hito-real-debrid-package-13041bf/`.
 

@@ -2,7 +2,7 @@ services:
   plugin-folder:
     build:
       context: .
-      dockerfile: Dockerfile.plugin-folder
+      dockerfile: docker/plugin-folder.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-cargo-${COMPOSE_PROJECT_NAME:-hito-plugin-folder}
     ports:

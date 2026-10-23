@@ -186,7 +186,11 @@ export function deployment(state, repository, hostInstallation) {
     services: {
       server: {
         image: `hito-local/server:${state.project}`,
-        build: { context: literal(hostPath(repository)), target: "runtime" },
+        build: {
+          context: literal(hostPath(repository)),
+          dockerfile: "docker/server.Dockerfile",
+          target: "runtime",
+        },
         ports: [`127.0.0.1:${state.port}:8080`],
         volumes: [
           { type: "volume", source: "hito-data", target: "/data" },

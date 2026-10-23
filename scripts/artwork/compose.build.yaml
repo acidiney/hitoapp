@@ -4,7 +4,7 @@ services:
     image: ${HITO_PACKAGED_TAG:?Set the unique final-source runtime image tag}
     build:
       context: ../..
-      dockerfile: Dockerfile
+      dockerfile: docker/server.Dockerfile
       target: runtime
       args:
         HITO_SERVER_CACHE_ID: ${HITO_PACKAGED_CACHE_ID:?Set the unique final-source server cache}

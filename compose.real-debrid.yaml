@@ -4,7 +4,7 @@ services:
     image: hito-plugin-real-debrid:${HITO_REAL_DEBRID_IMAGE_TAG:-development}
     build:
       context: .
-      dockerfile: Dockerfile.plugin-real-debrid
+      dockerfile: docker/plugin-real-debrid.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-real-debrid-${COMPOSE_PROJECT_NAME:-standalone}
         HITO_REAL_DEBRID_SOURCE_ID: ${HITO_REAL_DEBRID_SOURCE_ID:-}

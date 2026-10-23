@@ -4,7 +4,7 @@ services:
     image: hito-community:${HITO_COMMUNITY_IMAGE_TAG:-development}
     build:
       context: ../..
-      dockerfile: Dockerfile.community
+      dockerfile: docker/community.Dockerfile
       args:
         HITO_COMMUNITY_CACHE_ID: hito-community-${COMPOSE_PROJECT_NAME:-standalone}
     user: "10001:10001"

@@ -7,6 +7,10 @@ docker compose --profile tools build rust
 ./scripts/verify.sh
 ```
 
+A root `Makefile` wraps the same Docker Compose commands: `make fmt`, `make test-rust`, `make test-web`, `make lint`, `make contracts`, `make web-build`, `make e2e`, `make desktop`, `make setup-check` and `make verify`. `make verify` runs `scripts/verify.sh`. Set `COMPOSE_PROJECT=<name>` for an isolated Compose project and `COMPOSE_EXTRA='-f override.yaml'` to add Compose files.
+
+Dockerfiles live in `docker/`; the root `compose.yaml` and the plugin Compose files select them with `dockerfile:` while keeping the repository root as the build context.
+
 The verification script checks formatting, Rust tests, Clippy, generated API contracts, browser unit tests, the production web build, dependency audit, and the isolated browser workflow. Its browser server uses temporary storage, separate from the normal server volume.
 
 Browser fixtures live in `fixtures/e2e-generated`, distinct from development music in `fixtures/generated`. The verification script generates them with `audio-fixtures.mjs --e2e`. Do not mount personal music into the browser test server. Rust indexing tests use owned temporary WAV fixtures and protocol-boundary media-tool scripts, with FFmpeg supplied by the tools image.

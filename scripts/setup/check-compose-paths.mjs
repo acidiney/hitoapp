@@ -49,6 +49,7 @@ if (process.argv[2] === "prepare") {
     `${hostInstallation}/storage.json`,
   );
   assert.equal(literal(parsed.services.server.build.context), repository);
+  assert.equal(parsed.services.server.build.dockerfile, "docker/server.Dockerfile");
   console.log(
     "Compose preserves literal folder paths and the existing project.",
   );

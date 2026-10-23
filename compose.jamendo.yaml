@@ -4,7 +4,7 @@ services:
     image: hito-plugin-jamendo:${HITO_JAMENDO_IMAGE_TAG:-development}
     build:
       context: .
-      dockerfile: Dockerfile.plugin-jamendo
+      dockerfile: docker/plugin-jamendo.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-jamendo-${COMPOSE_PROJECT_NAME:-standalone}
     user: "10001:10001"

@@ -3,6 +3,7 @@ services:
   server:
     build:
       context: .
+      dockerfile: docker/server.Dockerfile
       target: runtime
     ports:
       - "127.0.0.1:${HITO_PORT:-8080}:8080"
@@ -23,6 +24,7 @@ services:
     profiles: [tools]
     build:
       context: .
+      dockerfile: docker/server.Dockerfile
       target: rust-tools
     working_dir: /workspace
     environment:
@@ -48,6 +50,7 @@ services:
     profiles: [e2e]
     build:
       context: .
+      dockerfile: docker/server.Dockerfile
       target: runtime
     environment:
       HITO_PUBLIC_ORIGIN: http://localhost:8080
@@ -76,6 +79,7 @@ services:
     profiles: [desktop]
     build:
       context: .
+      dockerfile: docker/server.Dockerfile
       target: desktop-tools
     working_dir: /workspace
     volumes:

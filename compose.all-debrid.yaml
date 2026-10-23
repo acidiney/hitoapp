@@ -4,7 +4,7 @@ services:
     image: hito-plugin-all-debrid:${HITO_ALL_DEBRID_IMAGE_TAG:-development}
     build:
       context: ${HITO_ALL_DEBRID_BUILD_CONTEXT:-.}
-      dockerfile: Dockerfile.plugin-all-debrid
+      dockerfile: docker/plugin-all-debrid.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-all-debrid-${COMPOSE_PROJECT_NAME:-standalone}
         HITO_ALL_DEBRID_SOURCE_ID: ${HITO_ALL_DEBRID_SOURCE_ID:?Set the frozen source revision}

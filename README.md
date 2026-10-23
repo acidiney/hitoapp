@@ -78,6 +78,7 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 | `crates/remote-audio, crates/debrid`          | Remote audio contract and debrid provider clients                                                       |
 | `crates/metadata-musicbrainz, crates/testkit` | MusicBrainz metadata adapter and shared test fixtures                                                   |
 | `plugins`                                     | Plugin executables: folder, Spotify, YouTube, Jamendo and debrid providers                              |
+| `docker`                                      | Dockerfiles for the server, community service and plugin images                                         |
 | `scripts`                                     | Verification, packaging and deterministic audio fixture tools                                           |
 | `docs`                                        | Architecture, API contracts, operations, release scope, and verification evidence                       |
 

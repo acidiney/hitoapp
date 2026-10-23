@@ -4,7 +4,7 @@ services:
     image: hito-plugin-youtube:latest
     build:
       context: .
-      dockerfile: Dockerfile.plugin-youtube
+      dockerfile: docker/plugin-youtube.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-youtube-${COMPOSE_PROJECT_NAME:-hito}
     ports:

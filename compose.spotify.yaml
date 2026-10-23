@@ -4,7 +4,7 @@ services:
     image: hito-plugin-spotify:latest
     build:
       context: .
-      dockerfile: Dockerfile.plugin-spotify
+      dockerfile: docker/plugin-spotify.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-plugin-spotify-public-${COMPOSE_PROJECT_NAME:-hito}
     ports:

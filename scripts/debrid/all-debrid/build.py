@@ -42,7 +42,7 @@ def resolve(manifest):
     configuration = json.loads(resolved.stdout)
     service = configuration["services"]["plugin-all-debrid"]
     expected_build = {
-        "context": str(context), "dockerfile": "Dockerfile.plugin-all-debrid",
+        "context": str(context), "dockerfile": "docker/plugin-all-debrid.Dockerfile",
         "args": {"HITO_ALL_DEBRID_SOURCE_ID": revision, "HITO_ALL_DEBRID_INPUT_SHA256": digest,
                  "HITO_PLUGIN_CACHE_ID": "hito-plugin-all-debrid-" + project},
     }

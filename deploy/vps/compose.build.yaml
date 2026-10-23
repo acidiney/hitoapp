@@ -6,7 +6,7 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: Dockerfile
+      dockerfile: docker/server.Dockerfile
       target: runtime
       args:
         HITO_SERVER_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-server
@@ -19,7 +19,7 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: Dockerfile.plugin-folder
+      dockerfile: docker/plugin-folder.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-folder
       labels:
@@ -31,7 +31,7 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: Dockerfile.plugin-spotify
+      dockerfile: docker/plugin-spotify.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-spotify
       labels:
@@ -43,7 +43,7 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: Dockerfile.plugin-youtube
+      dockerfile: docker/plugin-youtube.Dockerfile
       args:
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-youtube
       labels:
