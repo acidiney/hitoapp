@@ -410,7 +410,9 @@ test("existing independent playlist copies automatically retain private provider
     ).toBe(true);
     expect(await savedState(page, copies, recordingId)).toEqual(before);
     const providerArtwork = fixture.requests.filter(
-      (request) => request.path === "/fixture/v1/artwork",
+      (request) =>
+        request.path === "/fixture/v1/artwork" &&
+        (request.body as { entity?: string } | null)?.entity === "recording",
     );
     expect(providerArtwork).toHaveLength(1);
     expect(providerArtwork[0]).toMatchObject({
@@ -471,6 +473,22 @@ test("existing independent playlist copies automatically retain private provider
     }
     phase = "ready";
     await loadedCopies(page, copies, recordingId, title, baseURL);
+    for (const copy of copies) {
+      await page.goto(`/playlists/${copy}`);
+      const cover = page.locator(".collection-hero .artwork img");
+      await expect(cover).toHaveAttribute(
+        "src",
+        `/api/v1/playlists/${copy}/artwork`,
+      );
+      await expect
+        .poll(() =>
+          cover.evaluate(
+            (element: HTMLImageElement) =>
+              element.complete && element.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+    }
     expect(jobs.filter((item) => item.method === "POST")).toHaveLength(1);
     expect(artworkEnqueues).toEqual([
       { phase: "retrieving", path: `${artworkPath}/fetch` },

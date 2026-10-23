@@ -65,7 +65,9 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
         imports.push(request.postDataJSON());
       if (
         request.method() === "POST" &&
-        new URL(request.url()).pathname.endsWith("/artwork/fetch")
+        /^\/api\/v1\/recordings\/[^/]+\/artwork\/fetch$/.test(
+          new URL(request.url()).pathname,
+        )
       )
         artworkEnqueues.push({
           phase: currentPhase(),
@@ -134,6 +136,15 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
           ).href,
       ),
     );
+    const playlistCoverURLs = new Set(
+      copies.map(
+        (copy) =>
+          new URL(
+            `/api/v1/playlists/${encodeURIComponent(copy)}/artwork`,
+            baseURL,
+          ).href,
+      ),
+    );
     const messages = new Map([
       [
         401,
@@ -156,6 +167,8 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
           expect(["copies", "retrieving", "ready", "disconnected"]).toContain(
             response.phase,
           );
+        else if (playlistCoverURLs.has(response.url))
+          expect(["copies", "retrieving", "ready"]).toContain(response.phase);
         else {
           expect(response.url).toBe(artworkURL);
           expect(["copies", "retrieving"]).toContain(response.phase);
