@@ -59,6 +59,27 @@ The Tracks section uses selected recording metadata, personal fields, likes, and
 
 `GET /api/v1/recordings?artist=<credit-id>` filters by the authenticated account's exact recording credit. Artist detail returns separate `recordings` and `releases` pages. `offset` pages albums, `recording_offset` pages recordings, and `limit` bounds each page to 1–200, default 60. The web uses the same detail read and URL parameters. Searching an artist's name does not replace that identity filter.
 
+## Complete track list on an album page
+
+An album page can compare its library tracks with a catalog edition. The page shows **Show complete track list** when one of the album's recordings has a confirmed artist identity (the same review used in Recording Details). Loading the page makes no catalog request. The button reads the reviewed artist, then the first discography page. The user picks a release group, an edition, and **Choose edition**. Only that choice reads the edition's tracks.
+
+```mermaid
+flowchart LR
+  Page[Album page] --> Anchor[First album track with a confirmed artist]
+  Anchor --> Browse[Discography, editions, Choose edition]
+  Browse --> Read[POST /api/v1/albums/id/edition-track-list]
+  Read --> Provider[Reviewed provider reads the edition]
+  Provider --> Merge[Core matches tracks by provider recording ID]
+  Merge --> Rows[Disc and track order with library and catalog-only rows]
+  Rows -->|Play on a catalog-only row| Save[Save through the same provider, then play]
+```
+
+Rows follow the provider's disc and track order, including repeated recordings, bonus discs, pregaps and data tracks. A row is "In your library" only when the provider recording ID of the occurrence equals the current primary provider identity of a recording this account can access. Equal titles never match, and a track without a provider recording ID stays catalog-only. The row shows the account's own title when it has one. Album recordings that the edition does not list appear under a separate heading. The built-in MusicBrainz provider has no stored recording identities, so its rows are all catalog-only and cannot be saved from here.
+
+Play on a catalog-only row saves that one recording through the provider that served the edition, using the existing metadata and source adoption, and then starts playback. The normal playback owner finds audio, including automatic resolution through other approved providers. Reading the list saves nothing, creates no download and starts no audio. The album's own table keeps working during a provider outage, and the section shows that the list is unavailable with an explicit retry. Leaving the page cancels a pending read or save.
+
+Limits. The album must have at most 1,000 tracks to be compared. The edition is chosen again on each visit, because Hito does not yet store which edition an album belongs to. When the album was saved from the chosen edition's own provider release, the list says so. Live-provider acceptance is still open.
+
 ## Ownership and indexing
 
 `Catalog` owns access, grouping, paging, and typed reads. JSON and Inertia adapters use the same capability. HTTP responses and artwork references include only libraries the account can access; private detail IDs return not found. Browser pagination preserves active filters and page size without logging query values.
