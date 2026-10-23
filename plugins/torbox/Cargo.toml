@@ -1,5 +1,5 @@
 [package]
-name = "hito-plugin-premiumize"
+name = "hito-plugin-torbox"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,18 +7,23 @@ license.workspace = true
 
 [features]
 default = []
-test-support = ["hito-debrid-premiumize/test-support"]
+test-support = ["hito-debrid-torbox/test-support"]
 
 [dependencies]
 axum.workspace = true
-base64.workspace = true
+cap-fs-ext.workspace = true
+cap-std.workspace = true
 futures-util.workspace = true
 hmac = "=0.12.1"
-hito-debrid-premiumize = { path = "../debrid/premiumize" }
-hito-plugin-sdk = { path = "../plugin-sdk" }
+hito-debrid-torbox = { path = "../../crates/debrid/torbox" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
+hyper.workspace = true
+hyper-util.workspace = true
+libc = "=0.2.190"
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+sqlx.workspace = true
 subtle = "=2.6.1"
 thiserror.workspace = true
 tokio.workspace = true
@@ -27,15 +32,13 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
-
 [dev-dependencies]
-hito-audio = { path = "../audio" }
-hito-testkit = { path = "../testkit" }
+hito-audio = { path = "../../crates/audio" }
+hito-testkit = { path = "../../crates/testkit" }
 reqwest.workspace = true
 rustls.workspace = true
 tempfile.workspace = true
+tokio.workspace = true
 tokio-rustls = { version = "=0.26.6", default-features = false }
 url.workspace = true
 
@@ -44,7 +47,7 @@ name = "contract"
 required-features = ["test-support"]
 
 [[bin]]
-name = "hito-plugin-premiumize"
+name = "hito-plugin-torbox"
 path = "src/main.rs"
 test = false
 bench = false

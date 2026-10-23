@@ -12,6 +12,7 @@ ENV CARGO_TARGET_DIR=/build/jamendo-release-target \
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${TARGETARCH},target=/build/jamendo-release-target cargo build --locked --release -j 2 -p hito-plugin-jamendo && cp /build/jamendo-release-target/release/hito-plugin-jamendo /hito-plugin-jamendo
 

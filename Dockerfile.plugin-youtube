@@ -12,6 +12,7 @@ ENV CARGO_TARGET_DIR=/build/youtube-release-target \
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${TARGETARCH},target=/build/youtube-release-target cargo build --locked --release -j 2 -p hito-plugin-youtube && cp /build/youtube-release-target/release/hito-plugin-youtube /hito-plugin-youtube
 

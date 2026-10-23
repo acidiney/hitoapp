@@ -16,7 +16,7 @@ FILES = {
     ".dockerignore", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "LICENSE",
     "Dockerfile.plugin-all-debrid", "compose.all-debrid.yaml",
 }
-PREFIXES = (".cargo/", "crates/", "vendor/", "scripts/debrid/all-debrid/")
+PREFIXES = (".cargo/", "crates/", "plugins/", "vendor/", "scripts/debrid/all-debrid/")
 
 
 def canonical(value):

@@ -13,6 +13,7 @@ ENV CARGO_TARGET_DIR=/build/real-debrid-release-target \
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo .cargo
 COPY crates crates
+COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${HITO_REAL_DEBRID_SOURCE_ID}-${TARGETARCH},target=/build/real-debrid-release-target \
     if [ -z "${HITO_REAL_DEBRID_SOURCE_ID}" ]; then printf '%s\n' 'Set HITO_REAL_DEBRID_SOURCE_ID to the immutable source snapshot ID before building.' >&2; exit 1; fi && \

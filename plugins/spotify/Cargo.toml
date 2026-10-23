@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-hito-plugin-sdk = { path = "../plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
 image.workspace = true
 png = "0.18.1"
 zune-core = { version = "=0.5.3", features = ["std"] }
@@ -25,6 +25,6 @@ url.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-hito-testkit = { path = "../testkit" }
+hito-testkit = { path = "../../crates/testkit" }
 http-body-util.workspace = true
 tower.workspace = true

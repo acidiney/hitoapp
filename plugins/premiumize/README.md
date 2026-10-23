@@ -38,7 +38,7 @@ Private-file loading requires Unix descriptor checks. Every opened input must be
 | Receipt key | Exactly 32 raw bytes, not hex or base64 text; an all-zero key is rejected. |
 | Catalog | At most 1,048,576 bytes of JSON, followed by the existing router's stricter entry and canonical-size bounds. |
 
-The catalog object contains `media_origins` and `recordings`. Every recording entry contains `recording`, `source_id`, `label` and `binding`. `recording` uses the SDK [ProviderRecording](../plugin-sdk/src/content.rs); `binding` uses the existing [TransferFileBinding](../debrid/premiumize/src/audio.rs), including its nested [TransferBinding](../debrid/premiumize/src/transfer.rs). Origins must satisfy the shared HTTPS media allowlist. Unknown catalog, entry and SDK recording fields are rejected. The typed binding retains its existing deserialization rules.
+The catalog object contains `media_origins` and `recordings`. Every recording entry contains `recording`, `source_id`, `label` and `binding`. `recording` uses the SDK [ProviderRecording](../../crates/plugin-sdk/src/content.rs); `binding` uses the existing [TransferFileBinding](../../crates/debrid/premiumize/src/audio.rs), including its nested [TransferBinding](../../crates/debrid/premiumize/src/transfer.rs). Origins must satisfy the shared HTTPS media allowlist. Unknown catalog, entry and SDK recording fields are rejected. The typed binding retains its existing deserialization rules.
 
 Logs are JSON on stdout. `RUST_LOG` controls verbosity within the allowed Hito targets; HTTP/TLS dependency traces remain excluded at `trace`. Startup errors use fixed reasons without operator paths, arguments, credentials or catalog contents. SIGINT and SIGTERM request graceful shutdown; the executable process test qualifies successful SIGTERM after metadata requests with no active audio stream.
 
@@ -53,21 +53,21 @@ This qualifies the executable's owned metadata/bootstrap process behavior and th
 Run the checks sequentially from the repository root, following the Docker, free-space and target-isolation rules in `AGENTS.md`:
 
 ```sh
-docker compose -f crates/hito-plugin-premiumize/tests/compose.runtime.yaml --profile tools \
+docker compose -f plugins/premiumize/tests/compose.runtime.yaml --profile tools \
   run --rm --no-deps -T --pull never rust \
   cargo clippy --offline --locked -p hito-plugin-premiumize --all-targets -- -D warnings
 
-docker compose -f crates/hito-plugin-premiumize/tests/compose.runtime.yaml --profile tools \
+docker compose -f plugins/premiumize/tests/compose.runtime.yaml --profile tools \
   run --rm --no-deps -T --pull never rust \
   cargo clippy --offline --locked -p hito-plugin-premiumize --all-targets \
   --features test-support -- -D warnings
 
-docker compose -f crates/hito-plugin-premiumize/tests/compose.runtime.yaml --profile tools \
+docker compose -f plugins/premiumize/tests/compose.runtime.yaml --profile tools \
   run --rm --no-deps -T --pull never rust \
   cargo test --offline --locked -p hito-plugin-premiumize --features test-support \
   -- --test-threads=1 --nocapture
 
-docker compose -f crates/hito-plugin-premiumize/tests/compose.runtime.yaml --profile tools \
+docker compose -f plugins/premiumize/tests/compose.runtime.yaml --profile tools \
   run --rm --no-deps -T --pull never rust \
   cargo test --offline --locked -p hito-debrid-premiumize --features test-support \
   -- --test-threads=1 --nocapture

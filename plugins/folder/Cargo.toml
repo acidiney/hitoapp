@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-hito-plugin-sdk = { path = "../plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -24,7 +24,7 @@ uuid.workspace = true
 tempfile.workspace = true
 
 [dev-dependencies]
-hito-testkit = { path = "../testkit" }
+hito-testkit = { path = "../../crates/testkit" }
 tower.workspace = true
 http-body-util.workspace = true
 libsqlite3-sys = { version = "=0.30.1", default-features = false }

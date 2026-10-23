@@ -10,7 +10,7 @@ export type Entity = "recording" | "release" | "playlist";
 const images = {
   recording: "crates/core/tests/fixtures/cover-a.png",
   release: "crates/core/tests/fixtures/cover-b.png",
-  playlist: "crates/hito-plugin-spotify/src/tests/fixtures/artwork.png",
+  playlist: "plugins/spotify/src/tests/fixtures/artwork.png",
 } satisfies Record<Entity, string>;
 
 export async function ownedOriginals() {

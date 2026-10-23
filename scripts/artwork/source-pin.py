@@ -10,7 +10,7 @@ import subprocess
 
 PRODUCT_INPUTS = [
     "Dockerfile", ".dockerignore", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
-    ".cargo", "crates", "vendor", "apps/web", "docs/openapi.json",
+    ".cargo", "crates", "plugins", "vendor", "apps/web", "docs/openapi.json",
 ]
 
 
