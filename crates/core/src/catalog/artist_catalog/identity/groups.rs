@@ -261,7 +261,7 @@ pub(crate) fn push_unrepresented_credit(query: &mut QueryBuilder<'static, Sqlite
     ));
 }
 
-fn visible(
+pub(super) fn visible(
     actor: &Actor,
     library: Option<&str>,
     group: Option<&str>,

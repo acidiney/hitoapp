@@ -79,7 +79,7 @@ impl Catalog {
         let group = {
             let mut connection = self.store.pool.acquire().await?;
             actor.check_session_on(&mut connection).await?;
-            credit_access(&mut connection, actor, artist).await?;
+            credit_name(&mut connection, actor, artist).await?;
             if let Some(receipt) =
                 receipts::replay(&mut connection, actor, request.request_id, &digest).await?
             {
@@ -91,7 +91,7 @@ impl Catalog {
         let connection = Connection::open(self, actor, &group.provider).await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
-        credit_access(&mut tx, actor, artist).await?;
+        let credit_name = credit_name(&mut tx, actor, artist).await?;
         if let Some(receipt) = receipts::replay(&mut tx, actor, request.request_id, &digest).await?
         {
             return Ok(receipt);
@@ -102,9 +102,16 @@ impl Catalog {
         }
         policy::approved(&mut tx, actor, &group.provider).await?;
         connection.recheck(&mut tx).await?;
-        if !has_current_member(&mut tx, actor, &request.group_id).await? {
+        let reviewed = current_member_names(&mut tx, actor, &request.group_id).await?;
+        if reviewed.is_empty() {
             return Err(Error::Conflict(
                 "The chosen artist has no current reviewed recording".into(),
+            ));
+        }
+        let wanted = comparable(&credit_name);
+        if !reviewed.iter().any(|name| comparable(name) == wanted) {
+            return Err(Error::Conflict(
+                "The chosen artist was not reviewed for a recording with this credit".into(),
             ));
         }
         let mut targets: Vec<String> = sqlx::query_scalar(
@@ -212,7 +219,7 @@ async fn plan(
             outcome.unchanged += 1;
             return Ok(None);
         }
-        Some((_, Some(_), false)) => {
+        Some((_, Some(chosen), _)) if chosen != group => {
             outcome.skipped_different += 1;
             return Ok(None);
         }
@@ -285,40 +292,47 @@ async fn load_group(
     })
 }
 
-async fn credit_access(
+async fn credit_name(
     connection: &mut SqliteConnection,
     actor: &Actor,
     artist: &str,
-) -> Result<()> {
-    let visible: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM account_artists a
+) -> Result<String> {
+    sqlx::query_scalar(
+        "SELECT a.name FROM account_artists a
          JOIN library_members m ON m.library_id=a.library_id AND m.user_id=a.user_id
-         WHERE a.user_id=? AND a.id=?)",
+         WHERE a.user_id=? AND a.id=? LIMIT 1",
     )
     .bind(actor.id())
     .bind(artist)
-    .fetch_one(connection)
-    .await?;
-    if visible {
-        Ok(())
-    } else {
-        Err(Error::NotFound)
-    }
+    .fetch_optional(connection)
+    .await?
+    .ok_or(Error::NotFound)
 }
 
-async fn has_current_member(
+fn comparable(name: &str) -> String {
+    name.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+async fn current_member_names(
     connection: &mut SqliteConnection,
     actor: &Actor,
     group: &str,
-) -> Result<bool> {
-    Ok(sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM recording_artist_identity_choices c
-         JOIN recordings r ON r.id=c.recording_id
-         JOIN library_members m ON m.library_id=r.library_id AND m.user_id=c.user_id
-         WHERE c.user_id=? AND c.group_id=? AND c.retired=0 AND c.association_id IS NOT NULL)",
-    )
-    .bind(actor.id())
-    .bind(group)
-    .fetch_one(connection)
-    .await?)
+) -> Result<Vec<String>> {
+    let mut query = groups::visible(actor, None, Some(group));
+    query.push("SELECT DISTINCT name FROM visible LIMIT 200");
+    Ok(query.build_query_scalar().fetch_all(connection).await?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::comparable;
+
+    #[test]
+    fn credit_names_compare_without_case_or_spacing_but_not_by_prefix() {
+        assert_eq!(comparable("  C4   Pedro "), comparable("c4 pedro"));
+        assert_ne!(comparable("Prince"), comparable("Prince Royce"));
+    }
 }
