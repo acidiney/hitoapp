@@ -60,12 +60,29 @@ The authenticated routes are generated into OpenAPI and the shared TypeScript co
 | POST | `/api/v1/recordings/{id}/artist-identity/reset` | Reset the choice |
 | GET | `/api/v1/artist-identity-groups` | Browse authorized groups |
 | GET | `/api/v1/artist-identity-groups/{id}` | Read independently paged members |
+| POST | `/api/v1/artists/{id}/artist-identity` | Apply a chosen artist to the recordings of a library credit |
 
 Opening Artist information in Recording Details reads the local choice. Saving an artist review does not choose an identity. After viewing the saved review, the user can select **Choose this reviewed artist**. The control obtains a fresh review context and submits one revisioned request.
 
 An uncertain result retains the exact request identifier and body for an explicit Retry. After a valid acknowledgement, the UI rereads the current choice instead of displaying a historical receipt as current state. A revision conflict requires a fresh read before another choice. Reset remains available for selected and retired choices when metadata providers are disabled or removed.
 
 The group label uses the authorized saved credit from a group-detail read limited to one entry. It does not substitute the provider's profile name. Account, recording, artist-operation and metadata-observation changes retire pending work. The workflow has a total 15-second deadline and does not subscribe to playback position updates.
+
+## Applying one identity to a whole credit
+
+Choosing a performer track by track is slow when a credit holds many recordings. On a library credit page, **Find reviewed artists for this credit** lists the account's chosen artists whose members carry the same credit label. Equal names only suggest candidates; the user picks one, and a confirmation step names the artist, the credit and the rule below before anything is written.
+
+**Use this identity for all tracks with this credit** sends one request with a request identifier, the chosen group and an optional cursor. The group already fixes the provider installation and exact provider artist identifier the user reviewed. For each current recording of that credit, in recording-identifier order, core applies the per-recording rules inside one immediate transaction:
+
+- The account must still be able to read the credit, the group must still have a current chosen recording the account can read, and the provider must still be selected, approved and unchanged. Otherwise the request fails with a conflict and writes nothing.
+- A recording whose credit, observation or library grant cannot be captured is skipped as unavailable.
+- A recording with a current choice for the same group is counted as unchanged.
+- A recording with a current choice for a different group is left alone and counted as skipped.
+- Any other recording, including one that was never chosen, was reset, or was retired for review, gets a confirmed association for its own credit and observation, then a new choice at the next revision.
+
+One accepted request is limited to 100 recordings, matching the 100-operation collection batch limit. It stores one immutable receipt with the counts and a `next_after` cursor, and every choice it writes shares that receipt's acceptance order. When more recordings remain, the response carries `next_after`; the client sends the next request with that cursor and a new request identifier. Skipped recordings sit before the cursor, so the walk always ends. Replaying a request identifier with the same body returns the stored receipt; a changed body conflicts, and request identifiers share the account namespace with Choose and Reset. Each recording can be reset on its own afterwards, and a credit leaves the Artists index under the rule above once all its recordings and releases are covered.
+
+The web control repeats batches until the cursor ends and then shows how many tracks now use the artist, how many already did, how many kept a different artist, and how many could not be changed. A lost acknowledgement keeps the exact request for an explicit Retry. Logs hold counts and timings only.
 
 ## Verification and limits
 
