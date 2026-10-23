@@ -82,7 +82,7 @@ async fn retagging_preserves_recording_source_and_personal_collections() {
     assert_eq!(sources[0].id, source);
     assert!(sources[0].ready);
     assert_eq!(
-        support::audio_bytes(hito.catalog.audio_file(&actor, &source).await.unwrap()),
+        support::audio_bytes(hito.playback.audio_file(&actor, &source).await.unwrap()),
         std::fs::read(&path).unwrap()
     );
     let playlist = hito
@@ -154,7 +154,7 @@ async fn corrupt_replacement_is_unavailable_and_restoring_verified_bytes_keeps_i
     assert_eq!(current.id, original.id);
     assert!(!current.available && current.liked);
     assert!(matches!(
-        hito.catalog.audio_file(&actor, &source).await,
+        hito.playback.audio_file(&actor, &source).await,
         Err(hito_core::Error::NotFound)
     ));
     std::fs::write(&path, bytes).unwrap();

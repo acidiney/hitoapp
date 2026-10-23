@@ -7,7 +7,7 @@ async fn logout_revokes_an_opened_playback_grant_and_a_retained_actor_cannot_reo
     let f = LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();
@@ -20,7 +20,7 @@ async fn logout_revokes_an_opened_playback_grant_and_a_retained_actor_cannot_reo
     assert!(grant.open_file().await.is_err());
     assert!(
         f.services
-            .catalog
+            .playback
             .playback_source(&f.actor, &f.recording, &f.source)
             .await
             .is_err()
@@ -32,7 +32,7 @@ async fn restoring_library_access_does_not_revive_a_previous_playback_grant() {
     let f = LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();
@@ -59,7 +59,7 @@ async fn restoring_library_access_does_not_revive_a_previous_playback_grant() {
     );
     assert!(
         f.services
-            .catalog
+            .playback
             .playback_source(&f.actor, &f.recording, &f.source)
             .await
             .is_ok()
@@ -97,14 +97,14 @@ async fn playback_authority_requires_the_recording_source_pair_and_the_accounts_
         .unwrap();
     assert!(matches!(
         f.services
-            .catalog
+            .playback
             .playback_source(&other, &f.recording, &f.source)
             .await,
         Err(hito_core::Error::NotFound)
     ));
     assert!(matches!(
         f.services
-            .catalog
+            .playback
             .playback_source(&f.actor, &uuid::Uuid::new_v4().to_string(), &f.source)
             .await,
         Err(hito_core::Error::NotFound)
@@ -120,7 +120,7 @@ async fn expired_sessions_notify_the_owner_without_a_new_command_or_read() {
     let f = LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();
@@ -150,7 +150,7 @@ async fn reconnecting_a_folder_and_rescanning_cannot_restore_old_playback_author
     let f = LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();
@@ -187,7 +187,7 @@ async fn reconnecting_a_folder_and_rescanning_cannot_restore_old_playback_author
     assert!(grant.check().await.is_err());
     assert!(
         f.services
-            .catalog
+            .playback
             .playback_source(&f.actor, &f.recording, &f.source)
             .await
             .is_ok()

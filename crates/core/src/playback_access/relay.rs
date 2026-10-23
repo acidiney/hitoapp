@@ -1,12 +1,8 @@
 pub(crate) mod headers;
-pub(crate) mod local;
-pub(crate) mod origin;
-pub(crate) mod provider;
 mod range;
 pub(crate) mod remote;
 mod stream;
-use super::Catalog;
-use crate::{Actor, PlaybackSource, Result};
+use crate::{AudioFile, PlaybackSource, Result};
 pub use range::ByteRange;
 pub use stream::AudioStream;
 
@@ -28,46 +24,6 @@ pub struct AudioContent {
     pub range: Option<std::ops::RangeInclusive<u64>>,
     pub seekable: bool,
     pub body: Option<AudioStream>,
-}
-
-pub struct AudioFile {
-    pub file: std::fs::File,
-    pub length: u64,
-    pub content_type: &'static str,
-}
-
-impl Catalog {
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub async fn open_audio(
-        &self,
-        actor: &Actor,
-        source: &str,
-        request: AudioRequest,
-    ) -> Result<OpenedAudio> {
-        if let Some(opened) = self
-            .origins
-            .provider
-            .open_current(actor, source, request)
-            .await?
-        {
-            return Ok(opened);
-        }
-        self.audio_playback_source(actor, source)
-            .await?
-            .open(request)
-            .await
-    }
-
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), source_id))]
-    pub async fn audio_file(&self, actor: &Actor, source: &str) -> Result<AudioFile> {
-        actor.check_session(&self.store).await?;
-        for origin in self.origins.iter() {
-            if let Some(file) = origin.open_file(actor, source).await? {
-                return Ok(file);
-            }
-        }
-        Err(crate::Error::NotFound)
-    }
 }
 
 pub(super) async fn open_file_audio(

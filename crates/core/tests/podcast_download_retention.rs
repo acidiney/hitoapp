@@ -135,7 +135,7 @@ async fn exercise(
         ])
     );
     let remote = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id)
         .await
         .unwrap();
@@ -171,7 +171,7 @@ async fn exercise(
     assert_ne!(saved_source, remote.source_id());
     let ready_snapshot = serde_json::to_value(&ready).unwrap();
     let saved = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id)
         .await
         .unwrap();
@@ -241,7 +241,7 @@ async fn exercise(
     );
     let requests_at_shutdown = server.requests();
     let preferred = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id)
         .await
         .unwrap();

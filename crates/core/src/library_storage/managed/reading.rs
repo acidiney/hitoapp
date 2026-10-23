@@ -2,7 +2,7 @@ use super::{
     MAX_MANAGED_BYTES, ManagedFileLocation, ManagedFiles, blocking, name, private_metadata,
     unavailable,
 };
-use crate::{Error, Result, catalog::AudioFile};
+use crate::{AudioFile, Error, Result};
 
 impl ManagedFiles {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(file_id = %location.file_id))]

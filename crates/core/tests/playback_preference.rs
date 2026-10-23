@@ -28,7 +28,7 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
         let grant = tokio::time::timeout(
             Duration::from_secs(2),
             f.services
-                .catalog
+                .playback
                 .preferred_playback_source(&f.actor, &f.recording),
         )
         .await
@@ -41,7 +41,7 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
         );
         let mut candidates = f
             .services
-            .catalog
+            .playback
             .playback_candidates(&f.actor, &f.recording)
             .await
             .unwrap();
@@ -59,7 +59,7 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
         .unwrap();
     assert!(matches!(
         f.services
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.recording)
             .await,
         Err(hito_core::Error::NotFound)
@@ -83,7 +83,7 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
         .unwrap();
     assert!(matches!(
         f.services
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.recording)
             .await,
         Err(hito_core::Error::NotFound)
@@ -91,7 +91,7 @@ async fn preferred_playback_excludes_unavailable_history_and_rechecks_membership
     f.services.identity.logout(&f.token).await.unwrap();
     assert!(matches!(
         f.services
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.recording)
             .await,
         Err(hito_core::Error::Unauthorized)

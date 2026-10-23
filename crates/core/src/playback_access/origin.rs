@@ -52,7 +52,7 @@ pub(crate) trait AudioOrigin: Send + Sync {
     ) -> BoxFuture<'a, Result<OpenedAudio>> {
         Box::pin(async move {
             let audio = grant.open_file().await?;
-            super::open_file_audio(grant, audio, request).await
+            super::relay::open_file_audio(grant, audio, request).await
         })
     }
 }
@@ -154,7 +154,7 @@ mod tests {
     async fn production_origins_are_tried_provider_podcast_managed_then_local() {
         let (_directory, hito, _actor, _library, _music) = support::library("origin-kinds").await;
         let kinds: Vec<_> = hito
-            .catalog
+            .playback
             .origins
             .iter()
             .map(|origin| origin.kind())

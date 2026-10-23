@@ -1,15 +1,9 @@
 pub(crate) mod artist_catalog;
 mod artists;
 mod artwork;
-pub(crate) mod audio;
 mod availability;
 mod browse;
-mod candidates;
 pub(crate) mod local_files;
-pub use candidates::PlaybackCandidates;
-mod playback;
-pub use playback::PlaybackSource;
-mod preferred;
 mod provider;
 pub(crate) use provider::MAX_PLAYBACK_BINDINGS;
 pub(crate) use provider::publish_provider_metadata;
@@ -59,7 +53,6 @@ pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
     ReleaseArtworkFetch,
 };
-pub use audio::{AudioContent, AudioFile, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;
 pub use releases::{Release, ReleaseDetail, ReleaseTrack};
@@ -78,5 +71,4 @@ pub struct Catalog {
     pub(crate) provider_artwork_slots: Arc<Semaphore>,
     pub(crate) resolution_callers: provider::CallerAdmission,
     pub(crate) local_files: local_files::LocalFiles,
-    pub(crate) origins: audio::origin::Origins,
 }

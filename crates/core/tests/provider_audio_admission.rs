@@ -60,7 +60,7 @@ async fn five_accounts_can_each_hold_playing_and_preloaded_audio_and_dropping_re
         for _ in 0..2 {
             let OpenedAudio::Content(audio) = f
                 .hito
-                .catalog
+                .playback
                 .open_audio(actor, source, Default::default())
                 .await
                 .unwrap()
@@ -71,7 +71,7 @@ async fn five_accounts_can_each_hold_playing_and_preloaded_audio_and_dropping_re
         }
         assert!(matches!(
             f.hito
-                .catalog
+                .playback
                 .open_audio(actor, source, Default::default())
                 .await,
             Err(hito_core::Error::Conflict(_))
@@ -81,7 +81,7 @@ async fn five_accounts_can_each_hold_playing_and_preloaded_audio_and_dropping_re
     drop(bodies.remove(0));
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&f.actor, &f.source.id, Default::default())
             .await
             .unwrap(),

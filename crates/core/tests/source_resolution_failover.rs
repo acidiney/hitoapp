@@ -64,7 +64,7 @@ async fn exercise(plan: Plan, outcome: &str) {
             assert!(metadata.observations.items.iter().all(|observation| observation.provider_recording_id.as_deref() != Some(protocol::FAILED))
                 && metadata.observations.items.iter().filter(|observation| observation.provider_recording_id.as_deref() == Some(protocol::READY)).count() == 1,
                 "the failed first candidate must not publish metadata while the valid second retains its evidence");
-            let OpenedAudio::Content(mut audio) = owned.hito.catalog.open_audio(
+            let OpenedAudio::Content(mut audio) = owned.hito.playback.open_audio(
                 &owned.actor, &resolution.sources[0].id, Default::default(),
             ).await.unwrap_or_else(|_| panic!("the valid failover source must open through public playback"))
             else { panic!("the valid failover source must supply audio content") };

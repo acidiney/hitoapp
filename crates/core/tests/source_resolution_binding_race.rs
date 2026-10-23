@@ -410,7 +410,7 @@ async fn adopt(
 async fn audio_bytes(hito: &Services, actor: &Actor, source: &str) -> Vec<u8> {
     tokio::time::timeout(Duration::from_secs(3), async {
         let OpenedAudio::Content(mut audio) = hito
-            .catalog
+            .playback
             .open_audio(actor, source, Default::default())
             .await
             .unwrap()

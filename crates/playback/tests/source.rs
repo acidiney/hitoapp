@@ -6,7 +6,7 @@ async fn authorized_local_input_streams_and_seeks_without_exposing_a_path_to_the
     let f = fixture::LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();

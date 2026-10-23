@@ -87,6 +87,6 @@ async fn renaming_the_root_selects_a_surviving_metadata_owner() {
         .await
         .unwrap();
     assert_eq!(current.total, 1);
-    assert!(moved.catalog.audio_file(&actor, &source).await.is_ok());
+    assert!(moved.playback.audio_file(&actor, &source).await.is_ok());
     assert_eq!(current.items[0].title, "Corrected title");
 }

@@ -25,7 +25,7 @@ async fn host_owns_local_playability_independently_of_sync_origin() {
         .remove(0);
     assert_eq!(source.device_id.as_deref(), Some("desktop-owner"));
     assert!(source.ready);
-    assert!(owner.catalog.audio_file(&actor, &source.id).await.is_ok());
+    assert!(owner.playback.audio_file(&actor, &source.id).await.is_ok());
 
     let playlist = Uuid::new_v4();
     synchronize(
@@ -85,7 +85,7 @@ async fn host_owns_local_playability_independently_of_sync_origin() {
             .ready
     );
     assert!(matches!(
-        other.catalog.audio_file(&other_actor, &source.id).await,
+        other.playback.audio_file(&other_actor, &source.id).await,
         Err(Error::NotFound)
     ));
     assert!(

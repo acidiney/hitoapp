@@ -189,7 +189,7 @@ async fn exercise(
         b.audio_requests(),
     );
     let OpenedAudio::Content(mut opened) = services
-        .catalog
+        .playback
         .open_audio(&actor, saved_source, AudioRequest::default())
         .await
         .unwrap()
@@ -248,7 +248,7 @@ async fn exercise(
     assert!(
         matches!(
             services
-                .catalog
+                .playback
                 .open_audio(&actor, saved_source, AudioRequest::default())
                 .await,
             Err(Error::NotFound)

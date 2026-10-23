@@ -79,7 +79,7 @@ async fn saved_musical_identity_resolves_wrapped_video_title_with_approved_metad
                     && youtube.requests("v1/audio").await.is_empty(),
                 "automatic resolution must discover the source without downloading audio"
             );
-            let OpenedAudio::Content(mut audio) = owned.hito.catalog.open_audio(
+            let OpenedAudio::Content(mut audio) = owned.hito.playback.open_audio(
                 &owned.actor, &resolution.sources[0].id, Default::default(),
             ).await.unwrap_or_else(|_| panic!("the automatic source must open through the catalog"))
             else { panic!("the automatic source must yield provider audio") };

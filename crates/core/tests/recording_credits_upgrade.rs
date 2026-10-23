@@ -84,7 +84,7 @@ async fn upgrade_exposes_existing_albumless_recordings_and_preserves_private_cre
     assert!(legacy.items[0].available);
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, legacy::SOURCE)
                 .await
                 .unwrap()

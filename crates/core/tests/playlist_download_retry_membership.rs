@@ -188,7 +188,7 @@ async fn exercise(library: &AudioLibrary) {
             .count(),
         1
     );
-    let audio = hito.catalog.audio_file(actor, source).await.unwrap();
+    let audio = hito.playback.audio_file(actor, source).await.unwrap();
     assert!(support::audio_bytes(audio) == library.original);
     assert_eq!(
         library.server.requests("v1/audio").await.len(),

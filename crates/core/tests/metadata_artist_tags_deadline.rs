@@ -172,7 +172,7 @@ async fn fallback_shares_the_original_deadline_and_retires_both_owned_attempts()
         before
     );
     assert!(
-        support::audio_bytes(hito.catalog.audio_file(&actor, &source).await.unwrap())
+        support::audio_bytes(hito.playback.audio_file(&actor, &source).await.unwrap())
             == original_bytes
     );
     assert!(std::fs::read(&original_path).unwrap() == original_bytes);

@@ -74,7 +74,7 @@ async fn explicit_download_outlives_its_session_and_old_receipts_never_spawn_aft
     assert_ne!(source, fixture.source.id);
     let OpenedAudio::Content(mut audio) = fixture
         .hito
-        .catalog
+        .playback
         .open_audio(&fixture.actor, &source, AudioRequest::default())
         .await
         .unwrap()

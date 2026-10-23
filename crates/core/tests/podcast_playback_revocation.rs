@@ -102,12 +102,12 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, replacement: &[
     )
     .await;
     let old_a = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();
     let old_b = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();
@@ -160,7 +160,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, replacement: &[
             .unwrap()
     );
     let fresh = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();

@@ -159,7 +159,7 @@ async fn automatic_refresh_uses_a_ready_binding_without_waiting_for_a_stalled_pr
         .find(|source| source.id != old_sources[stalled])
         .unwrap();
     let grant = hito
-        .catalog
+        .playback
         .playback_source(&actor, &recording.id, &replacement.id)
         .await
         .unwrap();

@@ -32,7 +32,7 @@ async fn identical_pathnames_on_two_hosts_have_independent_folder_and_source_own
         let source = sources.iter().find(|source| source.ready).unwrap();
         assert!(
             services
-                .catalog
+                .playback
                 .audio_file(&actor, &source.id)
                 .await
                 .is_ok()
@@ -96,7 +96,7 @@ async fn native_file_locators_do_not_conflate_non_utf8_names() {
         assert!(
             !support::audio_bytes(
                 services
-                    .catalog
+                    .playback
                     .audio_file(&actor, &sources[0].id)
                     .await
                     .unwrap()

@@ -73,10 +73,10 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
             .ready
     );
     assert!(matches!(
-        hito.catalog.audio_file(&actor, &a_source).await,
+        hito.playback.audio_file(&actor, &a_source).await,
         Err(Error::NotFound)
     ));
-    let path = hito.catalog.audio_file(&actor, &b_source).await.unwrap();
+    let path = hito.playback.audio_file(&actor, &b_source).await.unwrap();
     assert_eq!(support::audio_bytes(path), original_audio);
 
     let replacement = recordings
@@ -91,7 +91,7 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
     assert!(replacement_source.ready);
     assert_ne!(replacement_source.id, a_source);
     let path = hito
-        .catalog
+        .playback
         .audio_file(&actor, &replacement_source.id)
         .await
         .unwrap();
@@ -134,11 +134,16 @@ async fn replacing_one_duplicate_preserves_the_other_recording_and_source() {
     assert_ne!(restored.id, a_source);
     assert_ne!(restored.id, replacement_source.id);
     assert_eq!(
-        support::audio_bytes(hito.catalog.audio_file(&actor, &restored.id).await.unwrap()),
+        support::audio_bytes(
+            hito.playback
+                .audio_file(&actor, &restored.id)
+                .await
+                .unwrap()
+        ),
         original_audio
     );
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .audio_file(&actor, &replacement_source.id)
             .await,
         Err(Error::NotFound)

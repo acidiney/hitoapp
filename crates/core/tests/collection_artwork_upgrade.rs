@@ -139,7 +139,7 @@ async fn historical_artwork_upgrade_preserves_ready_references_pending_authority
     );
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&owner, legacy::SOURCE)
                 .await
                 .unwrap()

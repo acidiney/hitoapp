@@ -102,7 +102,7 @@ async fn exercise(directory: &Path, server: &PodcastRangeServer, original: &[u8]
         last: Some(fixture::LAST as u64),
     };
     let OpenedAudio::Content(head) = hito
-        .catalog
+        .playback
         .open_audio(
             &actor,
             source,
@@ -141,7 +141,7 @@ async fn exercise(directory: &Path, server: &PodcastRangeServer, original: &[u8]
     )
     .await;
     let unsatisfiable = hito
-        .catalog
+        .playback
         .open_audio(
             &actor,
             source,
@@ -240,7 +240,7 @@ async fn assert_selected(
     original: &[u8],
 ) {
     let OpenedAudio::Content(mut audio) = hito
-        .catalog
+        .playback
         .open_audio(
             actor,
             source,

@@ -118,7 +118,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, original: &[u8]
     )
     .await;
     let selected = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await;
     assert!(

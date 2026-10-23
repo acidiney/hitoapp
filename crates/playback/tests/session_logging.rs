@@ -23,7 +23,7 @@ async fn an_owned_session_retains_workflow_logs_across_threads_without_private_i
     let f = fixture::LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();

@@ -165,7 +165,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
         );
     }
     let grant = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id.to_string())
         .await
         .unwrap();
@@ -299,7 +299,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer) {
     );
     assert!(continued.next_cursor.is_none());
     let selected = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id.to_string())
         .await
         .unwrap();

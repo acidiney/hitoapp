@@ -384,7 +384,7 @@ async fn ready_case(library: &mut Library) {
     assert_ne!(source, recording.source);
     let grant = library
         .hito
-        .catalog
+        .playback
         .playback_source(&library.actor, &recording.id, &source)
         .await
         .unwrap();
@@ -412,7 +412,7 @@ async fn ready_case(library: &mut Library) {
     );
     let reopened = library
         .hito
-        .catalog
+        .playback
         .playback_source(&library.actor, &recording.id, &source)
         .await
         .unwrap();
@@ -474,7 +474,7 @@ async fn ready_case(library: &mut Library) {
     assert!(matches!(
         library
             .hito
-            .catalog
+            .playback
             .audio_file(&library.other, &source)
             .await,
         Err(Error::NotFound)

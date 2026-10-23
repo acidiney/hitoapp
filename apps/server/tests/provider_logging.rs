@@ -50,7 +50,7 @@ async fn provider_workflows_log_safe_outcomes_without_private_content_or_credent
         server.audio(axum::http::StatusCode::OK, axum::http::HeaderMap::from_iter([
             ("content-type".parse().unwrap(),"audio/wav".parse().unwrap())
         ]), vec![1,2,3,4]).await;
-        let hito_core::OpenedAudio::Content(mut audio) = hito.catalog.open_audio(&actor,&source.id,Default::default()).await.unwrap() else { panic!("audio must open") };
+        let hito_core::OpenedAudio::Content(mut audio) = hito.playback.open_audio(&actor,&source.id,Default::default()).await.unwrap() else { panic!("audio must open") };
         while audio.body.as_mut().unwrap().chunk().await.unwrap().is_some() {}
         drop(audio);
         server.reply("v1/sources", serde_json::json!({"items":[],"unexpected":"provider-private-rejected-body"})).await;

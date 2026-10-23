@@ -315,7 +315,7 @@ async fn prepare_with_runtime(
         .unwrap();
     let actor = services.identity.authenticate(token).await.unwrap();
     let control = services
-        .catalog
+        .playback
         .playback_source(&actor, recording, control["id"].as_str().unwrap())
         .await
         .unwrap();

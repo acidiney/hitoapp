@@ -372,7 +372,7 @@ async fn metadata_upgrade_preserves_real_imports_follows_private_state_and_delet
         assert!(
             support::audio_bytes(
                 upgraded
-                    .catalog
+                    .playback
                     .audio_file(&account.actor, &source.id)
                     .await
                     .unwrap()

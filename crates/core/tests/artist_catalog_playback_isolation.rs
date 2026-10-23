@@ -187,7 +187,7 @@ async fn exercise(
     .await;
     let audio = timeout(Duration::from_secs(3), async {
         let opened = hito
-            .catalog
+            .playback
             .open_audio(actor, &source.id, AudioRequest::default())
             .await
             .unwrap();

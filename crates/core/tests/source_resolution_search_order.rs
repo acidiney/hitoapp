@@ -68,7 +68,7 @@ async fn equally_timed_candidates_preserve_the_providers_first_valid_search_resu
             );
             assert!(youtube.requests("v1/audio").await.is_empty(),
                 "automatic selection must not fetch audio before an explicit open");
-            let OpenedAudio::Content(mut audio) = owned.hito.catalog.open_audio(
+            let OpenedAudio::Content(mut audio) = owned.hito.playback.open_audio(
                 &owned.actor, &resolution.sources[0].id, Default::default(),
             ).await.unwrap_or_else(|_| panic!("the selected first source must open"))
             else { panic!("the selected first source must provide content") };

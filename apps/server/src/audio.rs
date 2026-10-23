@@ -4,10 +4,10 @@ use axum::{
     http::{Method, Request, StatusCode, header},
     response::Response,
 };
-use hito_core::{Actor, AudioRequest, ByteRange, Catalog, OpenedAudio};
+use hito_core::{Actor, AudioRequest, ByteRange, OpenedAudio, PlaybackAccess};
 
 pub async fn response(
-    catalog: &Catalog,
+    playback: &PlaybackAccess,
     actor: &Actor,
     source: &str,
     request: Request<Body>,
@@ -19,7 +19,7 @@ pub async fn response(
         range(request.headers())
     };
     let invalid = parsed.is_err();
-    let opened = catalog
+    let opened = playback
         .open_audio(
             actor,
             source,

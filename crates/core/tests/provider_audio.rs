@@ -22,7 +22,7 @@ async fn provider_audio_uses_only_the_owned_fixed_endpoint_and_yields_original_b
         .audio(StatusCode::OK, headers, original.clone())
         .await;
     let OpenedAudio::Content(mut audio) = hito
-        .catalog
+        .playback
         .open_audio(&actor, &source.id, AudioRequest::default())
         .await
         .unwrap()
@@ -67,7 +67,7 @@ async fn provider_audio_uses_only_the_owned_fixed_endpoint_and_yields_original_b
         )
         .await;
     let OpenedAudio::Content(mut audio) = hito
-        .catalog
+        .playback
         .open_audio(
             &actor,
             &source.id,

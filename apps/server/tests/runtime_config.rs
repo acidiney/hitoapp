@@ -75,7 +75,7 @@ async fn legacy_audio_remains_playable_after_identity_adoption_and_restart() {
             .unwrap();
         assert!(sources[0].ready);
         let mut path = services
-            .catalog
+            .playback
             .audio_file(&actor, &sources[0].id)
             .await
             .unwrap();

@@ -1,6 +1,6 @@
 use super::Key;
 use crate::PlayerError;
-use hito_core::{Actor, Catalog, PlaybackCandidates, PlaybackSource};
+use hito_core::{Actor, Catalog, PlaybackAccess, PlaybackCandidates, PlaybackSource};
 use std::{future::Future, pin::Pin};
 use tokio::sync::oneshot;
 
@@ -18,6 +18,7 @@ struct Refresh {
 }
 pub(super) struct Sources {
     catalog: Catalog,
+    playback: PlaybackAccess,
     key: Option<Key>,
     demand: Option<Demand>,
     candidates: Option<PlaybackCandidates>,
@@ -30,9 +31,10 @@ pub(super) struct Sources {
     error: PlayerError,
 }
 impl Sources {
-    pub fn new(catalog: Catalog) -> Self {
+    pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
         Self {
             catalog,
+            playback,
             key: None,
             demand: None,
             candidates: None,
@@ -112,12 +114,12 @@ impl Sources {
         if self.refreshing.as_ref().is_some_and(|_| self.refreshed) {
             return false;
         }
-        let catalog = self.catalog.clone();
+        let playback = self.playback.clone();
         let candidates = self.candidates.take();
         self.reading = Some(Box::pin(async move {
             let mut candidates = match candidates {
                 Some(candidates) => candidates,
-                None => catalog
+                None => playback
                     .playback_candidates(&demand.actor, &demand.recording)
                     .await
                     .map_err(PlayerError::from)?,

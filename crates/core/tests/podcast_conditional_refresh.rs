@@ -137,7 +137,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer, original:
         ));
     }
     let grant = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &first.recording.id)
         .await
         .unwrap();
@@ -275,7 +275,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalServer, original:
         .await
         .expect("304 must preserve the previously captured enclosure authority");
     let selected = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &first.recording.id)
         .await
         .unwrap();

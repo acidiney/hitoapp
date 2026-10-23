@@ -430,7 +430,7 @@ async fn assert_ready(library: &AudioLibrary, expected: &DownloadStatus) {
     );
     let grant = library
         .hito
-        .catalog
+        .playback
         .playback_source(
             &library.actor,
             &library.source.recording_id,

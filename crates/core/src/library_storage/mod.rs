@@ -1,3 +1,4 @@
+mod audio_file;
 mod blocking;
 mod browsing;
 mod directories;
@@ -21,6 +22,7 @@ mod walking;
 mod worker;
 
 use crate::{HostDeviceId, store::Store};
+pub use audio_file::AudioFile;
 pub use browsing::{BrowseDirectories, DirectoryEntry, DirectoryPage};
 pub(crate) use directories::Directories;
 pub(crate) use directories::OpenedMedia;

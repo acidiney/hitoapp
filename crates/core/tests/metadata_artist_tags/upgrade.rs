@@ -159,7 +159,7 @@ async fn unchanged_version_two_inspections_refresh_tags_without_decoding_audio()
     assert_eq!(recordings.items[0].id, recording.id);
     assert!(recordings.items[0].available);
     assert!(
-        support::audio_bytes(hito.catalog.audio_file(&actor, &source).await.unwrap()) == original
+        support::audio_bytes(hito.playback.audio_file(&actor, &source).await.unwrap()) == original
     );
     assert!(std::fs::read(path).unwrap() == original);
 

@@ -137,7 +137,7 @@ async fn exercise(library: &AudioLibrary) {
         .collect();
     assert_ne!(sources[0], sources[1]);
     for source in sources {
-        let audio = hito.catalog.audio_file(actor, source).await.unwrap();
+        let audio = hito.playback.audio_file(actor, source).await.unwrap();
         assert!(support::audio_bytes(audio) == library.original);
     }
     for (request_id, receipt) in [

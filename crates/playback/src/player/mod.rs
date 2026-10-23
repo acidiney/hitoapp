@@ -86,7 +86,7 @@ impl Player {
     #[cfg(feature = "device")]
     #[tracing::instrument(level = "info", skip_all, fields(player_owner))]
     pub fn native(services: hito_core::Services) -> (Self, PlayerOwner) {
-        let effects = effects::Effects::native(services.catalog.clone());
+        let effects = effects::Effects::native(services.catalog.clone(), services.playback.clone());
         Self::spawn(services, effects)
     }
 

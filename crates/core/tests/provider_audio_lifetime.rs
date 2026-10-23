@@ -9,10 +9,13 @@ async fn removing_a_connection_cancels_a_pending_audio_handshake() {
     f.ready().await;
     let gate = f.server.hold("v1/audio").await;
     let pending = {
-        let (catalog, actor, source) =
-            (f.hito.catalog.clone(), f.actor.clone(), f.source.id.clone());
+        let (playback, actor, source) = (
+            f.hito.playback.clone(),
+            f.actor.clone(),
+            f.source.id.clone(),
+        );
         tokio::spawn(async move {
-            catalog
+            playback
                 .open_audio(&actor, &source, AudioRequest::default())
                 .await
         })
@@ -40,7 +43,7 @@ async fn withdrawing_a_service_cancels_an_in_progress_audio_read() {
     let gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()
@@ -87,7 +90,7 @@ async fn clearing_credentials_in_another_service_cancels_unpolled_bodies_and_rel
     let gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut first) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, AudioRequest::default())
         .await
         .unwrap()
@@ -96,7 +99,7 @@ async fn clearing_credentials_in_another_service_cancels_unpolled_bodies_and_rel
     };
     let OpenedAudio::Content(mut second) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, AudioRequest::default())
         .await
         .unwrap()
@@ -106,7 +109,7 @@ async fn clearing_credentials_in_another_service_cancels_unpolled_bodies_and_rel
     gate.entered().await;
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&f.actor, &f.source.id, AudioRequest::default())
             .await,
         Err(hito_core::Error::Conflict(_))
@@ -127,7 +130,7 @@ async fn clearing_credentials_in_another_service_cancels_unpolled_bodies_and_rel
         loop {
             match f
                 .hito
-                .catalog
+                .playback
                 .open_audio(&f.actor, &f.source.id, AudioRequest::default())
                 .await
             {
@@ -153,7 +156,7 @@ async fn connection_checks_and_cached_readiness_changes_do_not_interrupt_a_healt
     let gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()
@@ -207,7 +210,7 @@ async fn connection_checks_and_cached_readiness_changes_do_not_interrupt_a_healt
     );
     assert!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&f.actor, &f.source.id, Default::default())
             .await
             .is_err()

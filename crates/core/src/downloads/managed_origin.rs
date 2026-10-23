@@ -1,11 +1,9 @@
 use super::retire_unusable_copy;
 use crate::{
     Actor, AudioFile, Error, HostDeviceId, Result, Store,
-    catalog::{
-        audio::origin::{AudioOrigin, Located},
-        push_source_choice,
-    },
+    catalog::push_source_choice,
     library_storage::{ManagedFileLocation, ManagedFiles, managed_mime},
+    playback_access::origin::{AudioOrigin, Located},
 };
 use futures_util::future::BoxFuture;
 use sqlx::QueryBuilder;

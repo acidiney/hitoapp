@@ -1,5 +1,4 @@
-use super::Catalog;
-use super::audio::origin::{AudioOrigin, Located};
+use super::origin::{AudioOrigin, Located, Origins};
 use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result, Store};
 use std::{
     future::Future,
@@ -25,77 +24,6 @@ pub struct PlaybackSource {
     revoked: Arc<AtomicBool>,
 }
 
-impl Catalog {
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub async fn playback_source(
-        &self,
-        actor: &Actor,
-        recording: &str,
-        source: &str,
-    ) -> Result<PlaybackSource> {
-        tokio::time::timeout(
-            Duration::from_secs(1),
-            self.admit_playback(actor, recording, source),
-        )
-        .await
-        .unwrap_or(Err(Error::Upstream(
-            "Playback authorization could not be checked in time",
-        )))
-    }
-
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
-    pub(super) async fn audio_playback_source(
-        &self,
-        actor: &Actor,
-        source: &str,
-    ) -> Result<PlaybackSource> {
-        tokio::time::timeout(Duration::from_secs(1), async {
-            actor.check_session(&self.store).await?;
-            let recording: String = sqlx::query_scalar(
-                "SELECT recording_id FROM sources WHERE id=? AND provider IN ('local','download','podcast')",
-            )
-            .bind(source)
-            .fetch_optional(&self.store.pool)
-            .await?
-            .ok_or(Error::NotFound)?;
-            self.admit_playback(actor, &recording, source).await
-        })
-        .await
-        .unwrap_or(Err(Error::Upstream(
-            "Playback authorization could not be checked in time",
-        )))
-    }
-
-    async fn admit_playback(
-        &self,
-        actor: &Actor,
-        recording: &str,
-        source: &str,
-    ) -> Result<PlaybackSource> {
-        actor.check_session(&self.store).await?;
-        let membership = playback_membership(&self.store, actor, recording, source).await?;
-        let (origin, located) = self.origins.locate(actor, source).await?;
-        let grant = PlaybackSource {
-            id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
-            store: self.store.clone(),
-            actor: actor.clone(),
-            recording: recording.into(),
-            source: source.into(),
-            membership,
-            origin,
-            located,
-            revoked: Arc::new(AtomicBool::new(false)),
-        };
-        grant.check().await?;
-        tracing::debug!(
-            playback_grant = grant.id,
-            origin = grant.origin.kind(),
-            "Playback source authorized"
-        );
-        Ok(grant)
-    }
-}
-
 async fn playback_membership(
     store: &Store,
     actor: &Actor,
@@ -116,6 +44,36 @@ async fn playback_membership(
 }
 
 impl PlaybackSource {
+    pub(super) async fn admit(
+        store: &Store,
+        origins: &Origins,
+        actor: &Actor,
+        recording: &str,
+        source: &str,
+    ) -> Result<Self> {
+        actor.check_session(store).await?;
+        let membership = playback_membership(store, actor, recording, source).await?;
+        let (origin, located) = origins.locate(actor, source).await?;
+        let grant = Self {
+            id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
+            store: store.clone(),
+            actor: actor.clone(),
+            recording: recording.into(),
+            source: source.into(),
+            membership,
+            origin,
+            located,
+            revoked: Arc::new(AtomicBool::new(false)),
+        };
+        grant.check().await?;
+        tracing::debug!(
+            playback_grant = grant.id,
+            origin = grant.origin.kind(),
+            "Playback source authorized"
+        );
+        Ok(grant)
+    }
+
     pub fn source_id(&self) -> &str {
         &self.source
     }
@@ -236,7 +194,7 @@ impl PlaybackSource {
     }
 }
 
-impl super::audio::remote::AuthorityCheck for PlaybackSource {
+impl super::relay::remote::AuthorityCheck for PlaybackSource {
     fn check(&self) -> futures_util::future::BoxFuture<'_, Result<()>> {
         Box::pin(PlaybackSource::check(self))
     }

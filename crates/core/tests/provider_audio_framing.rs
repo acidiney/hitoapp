@@ -58,7 +58,7 @@ async fn raw_chunked_audio_rejects_unsupported_and_ambiguous_transfer_framing() 
             .unwrap()
             .remove(0);
         let opened = hito
-            .catalog
+            .playback
             .open_audio(&actor, &source.id, Default::default())
             .await;
         if !valid {

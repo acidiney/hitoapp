@@ -19,7 +19,7 @@ async fn candidates_visit_each_copy_once_and_new_copies_require_a_new_plan() {
     assert_eq!(expected.len(), 2);
     let mut plan = f
         .services
-        .catalog
+        .playback
         .playback_candidates(&f.actor, &f.recording)
         .await
         .unwrap();
@@ -40,7 +40,7 @@ async fn candidates_visit_each_copy_once_and_new_copies_require_a_new_plan() {
     assert!(plan.next().await.unwrap().is_none());
     let mut fresh = f
         .services
-        .catalog
+        .playback
         .playback_candidates(&f.actor, &f.recording)
         .await
         .unwrap();

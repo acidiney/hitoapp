@@ -1,6 +1,6 @@
 use super::{Target, Update, controls::Controls, sources::Sources};
 use crate::{PlayerError, PlayerPhase, Session, Status};
-use hito_core::Catalog;
+use hito_core::{Catalog, PlaybackAccess};
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::watch;
 
@@ -16,9 +16,9 @@ pub(crate) struct Native {
     update: Option<Update>,
 }
 impl Native {
-    pub fn new(catalog: Catalog) -> Self {
+    pub fn new(catalog: Catalog, playback: PlaybackAccess) -> Self {
         Self {
-            sources: Sources::new(catalog),
+            sources: Sources::new(catalog, playback),
             target: None,
             session: None,
             observed: None,

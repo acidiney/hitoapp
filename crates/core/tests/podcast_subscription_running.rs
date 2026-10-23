@@ -105,7 +105,7 @@ async fn exercise(
     assert_eq!(page.items.len(), 1);
     let episode = page.items.remove(0);
     let old_grant = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();
@@ -257,7 +257,7 @@ async fn exercise(
     );
     assert_private_state(&hito, &actor, &retained).await;
     let new_grant = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &retained.recording_id.to_string())
         .await
         .unwrap();
@@ -301,7 +301,7 @@ async fn assert_inactive(hito: &Services, actor: &Actor, retained: &Episode) {
         Err(Error::NotFound)
     ));
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .preferred_playback_source(actor, &retained.recording_id.to_string(),)
             .await,
         Err(Error::NotFound)

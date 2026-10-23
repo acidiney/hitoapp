@@ -8,7 +8,7 @@ async fn a_provider_playback_grant_reads_audio_and_cannot_survive_credential_rem
     f.ready().await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -46,7 +46,7 @@ async fn logout_cancels_a_provider_handshake_without_waiting_for_the_provider() 
     let actor = f.hito.identity.authenticate(&session.token).await.unwrap();
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -71,7 +71,7 @@ async fn refreshing_a_connection_or_its_source_list_does_not_revoke_existing_pla
     f.ready().await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -121,7 +121,7 @@ async fn reapproving_a_withdrawn_sources_capability_does_not_revive_old_playback
     f.ready().await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -175,7 +175,7 @@ async fn reapproving_a_withdrawn_sources_capability_does_not_revive_old_playback
     );
     assert!(
         f.hito
-            .catalog
+            .playback
             .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
             .await
             .is_ok()

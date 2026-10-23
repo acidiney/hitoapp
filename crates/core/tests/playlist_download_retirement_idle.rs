@@ -113,7 +113,7 @@ async fn exercise(library: &AudioLibrary) {
     assert!(std::fs::read(media).unwrap() == library.original);
     let preserved = preserved_state(library, &playlists).await;
     let grant = hito
-        .catalog
+        .playback
         .playback_source(actor, recording, &source)
         .await
         .unwrap();
@@ -200,7 +200,7 @@ async fn exercise(library: &AudioLibrary) {
         Err(Error::NotFound)
     ));
     assert!(matches!(
-        hito.catalog.audio_file(actor, &source).await,
+        hito.playback.audio_file(actor, &source).await,
         Err(Error::NotFound)
     ));
     let sources = hito.catalog.sources(actor, recording).await.unwrap();
@@ -340,7 +340,7 @@ async fn assert_private(
         Err(Error::NotFound)
     ));
     assert!(matches!(
-        library.hito.catalog.audio_file(other, source).await,
+        library.hito.playback.audio_file(other, source).await,
         Err(Error::NotFound)
     ));
     for playlist in playlists {

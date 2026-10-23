@@ -1,9 +1,13 @@
-use super::{Catalog, PlaybackSource, SourceAccess, push_source_access};
-use crate::{Actor, Error, Result, identity::recording_access};
+use super::{PlaybackAccess, PlaybackSource};
+use crate::{
+    Actor, Error, Result,
+    catalog::{SourceAccess, push_source_access},
+    identity::recording_access,
+};
 use sqlx::QueryBuilder;
 use std::time::Duration;
 
-impl Catalog {
+impl PlaybackAccess {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn preferred_playback_source(
         &self,

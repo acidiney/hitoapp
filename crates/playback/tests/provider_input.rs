@@ -7,7 +7,7 @@ async fn provider_audio_is_decoded_through_an_authorized_bounded_input() {
     f.ready().await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -34,7 +34,7 @@ async fn an_owner_can_interrupt_a_pending_provider_read_without_waiting_for_data
     let gate = f.server.hold("audio-tail").await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -67,7 +67,7 @@ async fn short_valid_ranges_continue_until_the_representation_ends() {
     f.server.range_chunks(1024).await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -96,7 +96,7 @@ async fn a_failed_range_request_cannot_turn_into_clean_end_of_input() {
     f.server.range_chunks(1024).await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();

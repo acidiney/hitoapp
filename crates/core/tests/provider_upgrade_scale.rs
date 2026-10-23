@@ -89,7 +89,7 @@ async fn populated_provider_upgrade_preserves_one_hundred_thousand_collection_re
     let (hito, actor) = fixture.open().await;
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, legacy::SOURCE)
                 .await
                 .unwrap()

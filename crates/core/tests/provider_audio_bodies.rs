@@ -12,7 +12,7 @@ async fn provider_chunks_yield_at_most_64_kib_without_losing_audio() {
         .await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()
@@ -44,7 +44,7 @@ async fn premature_audio_eof_is_an_error_without_deleting_the_saved_source() {
     let gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()

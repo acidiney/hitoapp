@@ -247,7 +247,7 @@ async fn oversized_optional_artist_tags_preserve_playback_and_private_log_values
     assert_eq!(sources.len(), 1);
     assert_eq!(sources[0].id, source.id);
     assert!(sources[0].ready);
-    let audio = hito.catalog.audio_file(&actor, &source.id).await.unwrap();
+    let audio = hito.playback.audio_file(&actor, &source.id).await.unwrap();
     assert_eq!(audio.content_type, "audio/flac");
     assert!(support::audio_bytes(audio) == expected);
 }

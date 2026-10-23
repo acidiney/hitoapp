@@ -68,7 +68,7 @@ async fn populated_binding_upgrade_preserves_one_hundred_thousand_provider_recor
     );
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, fixture::SOURCE)
                 .await
                 .unwrap()

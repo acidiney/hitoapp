@@ -10,7 +10,7 @@ async fn a_consumer_pause_does_not_expire_ready_audio() {
     let gate = f.server.hold("audio-tail").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()
@@ -44,7 +44,7 @@ async fn a_healthy_audio_body_can_continue_beyond_the_control_request_deadline()
     let gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, AudioRequest::default())
         .await
         .unwrap()
@@ -77,7 +77,7 @@ async fn stalled_audio_fails_within_the_read_deadline_and_releases_its_slot() {
     let _gate = f.server.hold("audio-body").await;
     let OpenedAudio::Content(mut audio) = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap()
@@ -107,13 +107,13 @@ async fn stalled_audio_fails_within_the_read_deadline_and_releases_its_slot() {
     );
     let first = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
     let second = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();

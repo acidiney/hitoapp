@@ -209,7 +209,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, wav: &[u8]) {
     assert_eq!(sources[0].provider, "podcast");
     assert!(!sources[0].ready);
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .preferred_playback_source(&actor, &recording_id)
             .await,
         Err(Error::NotFound)
@@ -474,7 +474,7 @@ async fn exercise_running(
     assert_eq!(sources[0].provider, "podcast");
     assert!(!sources[0].ready);
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .preferred_playback_source(&actor, &recording_id)
             .await,
         Err(Error::NotFound)

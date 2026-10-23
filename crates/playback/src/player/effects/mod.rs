@@ -56,8 +56,8 @@ pub(super) enum Effects {
 }
 impl Effects {
     #[cfg(feature = "device")]
-    pub fn native(catalog: hito_core::Catalog) -> Self {
-        Self::Native(Box::new(native::Native::new(catalog)))
+    pub fn native(catalog: hito_core::Catalog, playback: hito_core::PlaybackAccess) -> Self {
+        Self::Native(Box::new(native::Native::new(catalog, playback)))
     }
     pub fn enabled(&self) -> bool {
         !matches!(self, Self::Disabled)

@@ -148,7 +148,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalRedirectServer, o
     )
     .unwrap();
     let grant = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &first.recording.id)
         .await
         .unwrap();
@@ -294,7 +294,7 @@ async fn exercise(directory: &Path, server: &PodcastConditionalRedirectServer, o
         .await
         .expect("rejecting the unrelated 304 must retain the original audio grant");
     assert_eq!(
-        hito.catalog
+        hito.playback
             .preferred_playback_source(&actor, &first.recording.id)
             .await
             .unwrap()

@@ -165,7 +165,7 @@ async fn removing_and_reconnecting_a_folder_preserves_originals_and_collection_r
     assert_eq!(current.items[0].id, recording.id);
     assert!(current.items[0].liked && !current.items[0].available);
     assert!(matches!(
-        services.catalog.audio_file(&actor, &source.id).await,
+        services.playback.audio_file(&actor, &source.id).await,
         Err(hito_core::Error::NotFound)
     ));
     assert!(
@@ -210,7 +210,7 @@ async fn removing_and_reconnecting_a_folder_preserves_originals_and_collection_r
     assert_eq!(
         support::audio_bytes(
             services
-                .catalog
+                .playback
                 .audio_file(&actor, &source.id)
                 .await
                 .unwrap()

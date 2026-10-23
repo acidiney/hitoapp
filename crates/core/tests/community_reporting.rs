@@ -225,7 +225,7 @@ async fn reporting_requires_playback_consent_and_queues_only_redacted_public_sou
         "Saving consent must not provision a reporter or send a report"
     );
     let grant = hito
-        .catalog
+        .playback
         .playback_source(&actor, &recording.id, &source.id)
         .await
         .unwrap();

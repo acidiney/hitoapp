@@ -91,7 +91,7 @@ pub async fn audio(
     Path(id): Path<String>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::response(&services.catalog, &actor, &id, request).await
+    crate::audio::response(&services.playback, &actor, &id, request).await
 }
 
 #[utoipa::path(head, path = "/api/v1/sources/{id}/audio", params(("id" = String, Path)),
@@ -105,5 +105,5 @@ pub async fn audio_head(
     Path(id): Path<String>,
     request: Request,
 ) -> ApiResult<Response> {
-    crate::audio::response(&services.catalog, &actor, &id, request).await
+    crate::audio::response(&services.playback, &actor, &id, request).await
 }

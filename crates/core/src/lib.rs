@@ -9,6 +9,7 @@ mod identity;
 mod library_storage;
 mod maintenance;
 mod metadata;
+mod playback_access;
 mod plugins;
 mod podcasts;
 mod remote_http;
@@ -26,14 +27,13 @@ pub use catalog::{
     ArtistIdentityGroupMember, ArtistIdentityGroupName, ArtistIdentityGroupQuery,
     ArtistIdentitySelection, ArtistProfileAvailability, ArtistReviewConnection,
     ArtistReviewContext, ArtistReviewMetadataBinding, Artwork, ArtworkAvailability, ArtworkFetch,
-    ArtworkFetchStatus, AssociateRecordingArtist, AttachReviewedProviderSource, AudioContent,
-    AudioFile, AudioRequest, AudioStream, Browse, ByteRange, Catalog,
+    ArtworkFetchStatus, AssociateRecordingArtist, AttachReviewedProviderSource, Browse, Catalog,
     ChooseRecordingArtistIdentity, ChooseSource, EditionTrackListAvailability, LyricsLookup,
-    MetadataProvider, MetadataSettings, OpenedAudio, Page, PlaybackCandidates, PlaybackSource,
-    PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch, ProviderSourceReview,
-    ReadArtistDiscography, ReadEditionTrackList, ReadRecordingLyrics, ReadReleaseGroupEditions,
-    Recording, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
-    RecordingLyricsProvider, RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail,
+    MetadataProvider, MetadataSettings, Page, PlaylistArtworkFetch, PrepareSource,
+    ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadArtistDiscography,
+    ReadEditionTrackList, ReadRecordingLyrics, ReadReleaseGroupEditions, Recording,
+    RecordingArtistIdentityChoice, RecordingArtistIdentityState, RecordingLyricsProvider,
+    RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail,
     ReleaseGroupEditionsAvailability, ReleaseTrack, ResetRecordingArtistIdentity,
     ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
     SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
@@ -65,6 +65,7 @@ pub use downloads::{
 };
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
+pub use library_storage::AudioFile;
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
     LibraryStorage, MusicFolder, SharedDirectory,
@@ -74,6 +75,10 @@ pub use metadata::{
     InspectedTags, MetadataHistoryQuery, MetadataObservation, MusicBrainzArtistRole,
     MusicBrainzArtistTag, ObservationOrigin, ObservationPage, ObservedTag, OptionalTextMetadata,
     RecordingMetadata, ReleaseMetadata, TagLocation, TextMetadata,
+};
+pub use playback_access::{
+    AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio, PlaybackAccess,
+    PlaybackCandidates, PlaybackSource,
 };
 pub use plugins::{
     Connections, InstallPlugin, OfferPluginService, PluginAuthorization,
@@ -93,6 +98,7 @@ use store::Store;
 pub struct Services {
     pub identity: Identity,
     pub catalog: Catalog,
+    pub playback: PlaybackAccess,
     pub collection: Collection,
     pub community: Community,
     pub storage: LibraryStorage,
@@ -139,8 +145,13 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
-        origins: catalog::audio::origin::Origins::new(
-            catalog::audio::provider::ProviderOrigin {
+        local_files: local_files.clone(),
+    };
+    let playback = PlaybackAccess {
+        store: store.clone(),
+        host: config.host_device.clone(),
+        origins: playback_access::Origins::new(
+            playback_access::ProviderOrigin {
                 store: store.clone(),
                 plugins: plugins.clone(),
             },
@@ -153,11 +164,10 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 config.host_device.clone(),
                 managed.clone(),
             )),
-            std::sync::Arc::new(catalog::audio::local::LocalOrigin {
+            std::sync::Arc::new(playback_access::LocalOrigin {
                 files: local_files.clone(),
             }),
         ),
-        local_files,
     };
     tracing::info!("Core services ready");
     Ok(Services {
@@ -171,6 +181,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
             remote: podcast_remote.clone(),
         },
         catalog,
+        playback,
         collection: Collection {
             store: store.clone(),
             host: config.host_device.clone(),

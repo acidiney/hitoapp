@@ -126,7 +126,7 @@ async fn reopening_the_old_ledger_preserves_wire_events_replay_and_deleted_seque
     );
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, legacy::SOURCE)
                 .await
                 .unwrap()

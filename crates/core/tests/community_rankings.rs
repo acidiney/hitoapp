@@ -279,7 +279,7 @@ async fn held_body(
     };
     timeout(Duration::from_secs(2), async {
         let OpenedAudio::Content(mut audio) = hito
-            .catalog
+            .playback
             .open_audio(actor, &selected.id, Default::default())
             .await
             .unwrap()

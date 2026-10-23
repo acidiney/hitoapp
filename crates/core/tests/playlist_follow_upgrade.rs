@@ -55,7 +55,7 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
         .unwrap()
         .remove(0);
     let original_audio = support::audio_bytes(
-        hito.catalog
+        hito.playback
             .audio_file(&actor, &local_source.id)
             .await
             .unwrap(),
@@ -315,7 +315,7 @@ async fn the_follow_upgrade_preserves_populated_imports_private_state_and_delete
     assert_eq!(
         support::audio_bytes(
             upgraded
-                .catalog
+                .playback
                 .audio_file(&actor, &local_source.id)
                 .await
                 .unwrap()

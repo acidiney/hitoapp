@@ -20,7 +20,7 @@ async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_
         .await;
     assert!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&f.actor, &f.source.id, Default::default())
             .await
             .is_err()
@@ -97,7 +97,7 @@ async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_
         f.server.audio(status, response, vec![0; length]).await;
         assert!(matches!(
             f.hito
-                .catalog
+                .playback
                 .open_audio(&f.actor, &f.source.id, AudioRequest { head: false, range })
                 .await,
             Err(hito_core::Error::Upstream(_))
@@ -106,7 +106,7 @@ async fn malformed_audio_handshakes_are_rejected_without_following_redirects_or_
     f.ready().await;
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&f.actor, &f.source.id, Default::default())
             .await
             .unwrap(),
@@ -141,7 +141,7 @@ async fn audio_requires_the_owning_account_before_contacting_the_provider() {
     let bob = f.hito.identity.authenticate(&session.token).await.unwrap();
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .open_audio(&bob, &f.source.id, Default::default())
             .await,
         Err(hito_core::Error::NotFound)

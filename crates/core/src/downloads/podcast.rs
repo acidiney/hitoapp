@@ -1,7 +1,7 @@
 use super::{Downloads, lease::Lease, origin::DownloadOrigin};
 use crate::{
     AudioRequest, AudioStream, OpenedAudio, Result,
-    catalog::audio::{
+    playback_access::relay::{
         headers,
         remote::{Authority, RemoteAudio},
     },

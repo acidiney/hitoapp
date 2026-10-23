@@ -25,7 +25,7 @@ async fn playback_keeps_its_opened_file_when_the_path_is_replaced() {
         .unwrap()
         .remove(0);
     let opened = services
-        .catalog
+        .playback
         .audio_file(&actor, &source.id)
         .await
         .unwrap();
@@ -36,7 +36,7 @@ async fn playback_keeps_its_opened_file_when_the_path_is_replaced() {
         "Playback must retain the file it opened"
     );
     assert!(matches!(
-        services.catalog.audio_file(&actor, &source.id).await,
+        services.playback.audio_file(&actor, &source.id).await,
         Err(Error::NotFound)
     ));
 }

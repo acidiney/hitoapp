@@ -55,7 +55,7 @@ async fn provider_schema_upgrade_preserves_file_evidence_references_and_search()
     assert_eq!(sqlx::query_scalar::<_, String>("SELECT json_group_array(json_array(sequence,id,source_id,recording_id,origin,file_checksum,inspection_version,title,artist)) FROM metadata_observations").fetch_one(&pool).await.unwrap(), observations);
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, legacy::SOURCE)
                 .await
                 .unwrap()

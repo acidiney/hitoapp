@@ -197,14 +197,14 @@ async fn exercise(directory: &Path, server: &mut PodcastAudioServer, wav: &[u8])
         Some(downloaded_source.as_str())
     );
     let preferred = reopened
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &recording_id)
         .await
         .unwrap();
     assert!(preferred.is_local());
     assert_eq!(preferred.source_id(), downloaded_source);
     let OpenedAudio::Content(mut audio) = reopened
-        .catalog
+        .playback
         .open_audio(&actor, preferred.source_id(), AudioRequest::default())
         .await
         .unwrap()

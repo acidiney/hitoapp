@@ -1,5 +1,9 @@
-use super::{Catalog, PlaybackSource, SourceAccess, push_source_access};
-use crate::{Actor, Error, Result, identity::recording_access};
+use super::{PlaybackAccess, PlaybackSource};
+use crate::{
+    Actor, Error, Result,
+    catalog::{MAX_PLAYBACK_BINDINGS, SourceAccess, push_source_access},
+    identity::recording_access,
+};
 use sqlx::QueryBuilder;
 use std::{collections::VecDeque, time::Duration};
 
@@ -11,7 +15,7 @@ struct ProviderSnapshot {
 }
 
 pub struct PlaybackCandidates {
-    catalog: Catalog,
+    playback: PlaybackAccess,
     actor: Actor,
     recording: String,
     remaining: u64,
@@ -23,7 +27,7 @@ pub struct PlaybackCandidates {
     providers: VecDeque<ProviderSnapshot>,
 }
 
-impl Catalog {
+impl PlaybackAccess {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn playback_candidates(
         &self,
@@ -53,7 +57,7 @@ impl Catalog {
             )
             .bind(recording)
             .bind(actor.id())
-            .bind(super::provider::MAX_PLAYBACK_BINDINGS as i64)
+            .bind(MAX_PLAYBACK_BINDINGS as i64)
             .fetch_all(&mut *connection)
             .await?;
             let mut enclosure = QueryBuilder::new(
@@ -76,7 +80,7 @@ impl Catalog {
                 None => None,
             };
             Ok(PlaybackCandidates {
-                catalog: self.clone(),
+                playback: self.clone(),
                 actor: actor.clone(),
                 recording: recording.to_owned(),
                 remaining: count as u64 + (providers.len() * hito_plugin_sdk::MAX_SOURCES_PER_RECORDING) as u64 + u64::from(podcast.is_some()),
@@ -106,8 +110,8 @@ impl PlaybackCandidates {
     }
 
     async fn advance(&mut self) -> Result<Option<PlaybackSource>> {
-        self.actor.check_session(&self.catalog.store).await?;
-        let mut connection = self.catalog.store.pool.acquire().await?;
+        self.actor.check_session(&self.playback.store).await?;
+        let mut connection = self.playback.store.pool.acquire().await?;
         recording_access(&mut connection, &self.actor, &self.recording).await?;
         while self.remaining > 0 {
             if !self.local
@@ -119,7 +123,7 @@ impl PlaybackCandidates {
                 match podcast.check().await {
                     Ok(()) => return Ok(Some(podcast)),
                     Err(Error::NotFound) => {
-                        connection = self.catalog.store.pool.acquire().await?;
+                        connection = self.playback.store.pool.acquire().await?;
                         continue;
                     }
                     Err(error) => return Err(error),
@@ -136,7 +140,7 @@ impl PlaybackCandidates {
                 });
                 push_source_access(
                     &mut query,
-                    &self.catalog.host,
+                    &self.playback.host,
                     self.actor.id(),
                     SourceAccess::LocalFile,
                 );
@@ -163,7 +167,7 @@ impl PlaybackCandidates {
                     .push(" AND s.provider='plugin' AND ");
                 push_source_access(
                     &mut query,
-                    &self.catalog.host,
+                    &self.playback.host,
                     self.actor.id(),
                     SourceAccess::Playable,
                 );
@@ -203,12 +207,12 @@ impl PlaybackCandidates {
             self.remaining -= 1;
             drop(connection);
             match self
-                .catalog
+                .playback
                 .playback_source(&self.actor, &self.recording, &source)
                 .await
             {
                 Ok(grant) => return Ok(Some(grant)),
-                Err(Error::NotFound) => connection = self.catalog.store.pool.acquire().await?,
+                Err(Error::NotFound) => connection = self.playback.store.pool.acquire().await?,
                 Err(error) => return Err(error),
             }
         }

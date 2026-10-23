@@ -438,7 +438,7 @@ async fn assert_public_output(legacy: &fixture::Legacy, count: i64) {
     assert_ne!(other_release.release.artist_id, release.release.artist_id);
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, fixture::SOURCE)
                 .await
                 .unwrap()

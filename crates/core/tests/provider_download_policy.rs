@@ -172,7 +172,7 @@ async fn exercise(
     assert!(server.requests("v1/audio").await.is_empty());
 
     let OpenedAudio::Content(mut audio) = hito
-        .catalog
+        .playback
         .open_audio(actor, &sources[0].id, AudioRequest::default())
         .await
         .unwrap()

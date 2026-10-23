@@ -1,13 +1,13 @@
 use crate::{
     Actor, AudioRequest, AudioStream, Error, OpenedAudio, PlaybackSource, Result, Store,
     admission::Accounts,
-    catalog::{
-        audio::{
+    catalog::push_source_choice,
+    playback_access::{
+        origin::{AudioOrigin, Located},
+        relay::{
             headers,
-            origin::{AudioOrigin, Located},
             remote::{Authority, Permits, RemoteAudio},
         },
-        push_source_choice,
     },
     remote_http::RemoteHttp,
 };

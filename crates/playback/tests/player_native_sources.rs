@@ -120,13 +120,13 @@ async fn next_cancels_held_provider_startup_without_waiting_for_its_reply_or_lea
     assert!(capture::amplitude(&capture.recent(0.1), 440.) > 0.2);
     let first = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
     let second = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
@@ -202,13 +202,13 @@ async fn close_joins_held_provider_startup_without_waiting_for_the_provider_resp
     assert!(state.has_changed().is_err());
     let first = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
     let second = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();

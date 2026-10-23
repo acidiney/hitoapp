@@ -98,7 +98,7 @@ async fn upgrade_preserves_source_identity_and_keeps_historical_bindings_out_of_
     );
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, legacy::SOURCE)
                 .await
                 .unwrap()

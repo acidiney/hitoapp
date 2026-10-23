@@ -134,7 +134,7 @@ async fn populated_version_44_upgrade_preserves_release_state_and_rejects_broken
     );
     assert_eq!(
         support::audio_bytes(
-            hito.catalog
+            hito.playback
                 .audio_file(&actor, fixture::SOURCE)
                 .await
                 .unwrap()

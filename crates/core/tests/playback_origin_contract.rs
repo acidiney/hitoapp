@@ -20,7 +20,7 @@ struct Subject<'a> {
 impl Subject<'_> {
     async fn admit(&self) -> Result<PlaybackSource, Error> {
         self.hito
-            .catalog
+            .playback
             .playback_source(self.actor, &self.recording, &self.source)
             .await
     }
@@ -54,7 +54,7 @@ impl Subject<'_> {
             .unwrap();
         let grant = self
             .hito
-            .catalog
+            .playback
             .playback_source(&actor, &self.recording, &self.source)
             .await
             .unwrap();
@@ -62,7 +62,7 @@ impl Subject<'_> {
         assert_dead(&grant, "logout").await;
         assert!(
             self.hito
-                .catalog
+                .playback
                 .playback_source(&actor, &self.recording, &self.source)
                 .await
                 .is_err()
@@ -255,7 +255,7 @@ async fn a_podcast_grant_dies_when_its_enclosure_is_replaced_and_never_revives()
         .items
         .remove(0);
     let first = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();

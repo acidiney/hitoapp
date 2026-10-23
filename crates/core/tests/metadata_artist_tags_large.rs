@@ -202,7 +202,7 @@ async fn a_megabyte_optional_artist_tag_preserves_playback_and_private_collectio
         serde_json::to_value(hito.collection.events(&actor, 0).await.unwrap()).unwrap(),
         operations
     );
-    let audio = hito.catalog.audio_file(&actor, &source.id).await.unwrap();
+    let audio = hito.playback.audio_file(&actor, &source.id).await.unwrap();
     assert_eq!(audio.content_type, "audio/flac");
     assert!(support::audio_bytes(audio) == expected);
     assert!(std::fs::read(&path).unwrap() == expected);

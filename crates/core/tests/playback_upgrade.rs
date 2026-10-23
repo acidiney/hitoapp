@@ -32,7 +32,7 @@ async fn upgrading_existing_memberships_preserves_library_data_and_mints_indepen
 
     let (services, actor) = f.open().await;
     let grant = services
-        .catalog
+        .playback
         .playback_source(&actor, legacy::RECORDING, legacy::SOURCE)
         .await
         .unwrap();

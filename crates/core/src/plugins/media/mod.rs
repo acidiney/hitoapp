@@ -2,7 +2,7 @@ mod authority;
 use crate::{
     AudioRequest, AudioStream, Error, OpenedAudio, Result,
     admission::Accounts,
-    catalog::audio::{
+    playback_access::relay::{
         headers,
         remote::{Authority as StreamAuthority, Permits, RemoteAudio},
     },

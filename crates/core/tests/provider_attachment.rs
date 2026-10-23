@@ -307,7 +307,7 @@ async fn reviewed_source_attachment_preserves_copied_identity_metadata_and_colle
         assert_eq!(sources[0].recording_id, recording);
         assert!(sources[0].ready);
         let grant = hito
-            .catalog
+            .playback
             .preferred_playback_source(&actor, &recording)
             .await
             .unwrap();

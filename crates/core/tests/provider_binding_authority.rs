@@ -230,7 +230,7 @@ async fn distinct_connections_keep_equal_remote_source_ids_and_audio_authority_s
     assert!(sources.iter().any(|source| source.id == first_source));
     for source in sources {
         let grant = hito
-            .catalog
+            .playback
             .playback_source(&actor, &recording.id, &source.id)
             .await
             .unwrap();

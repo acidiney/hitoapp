@@ -93,7 +93,7 @@ async fn a_missing_download_requires_a_fresh_explicit_request_and_preserves_the_
     assert!(
         fixture
             .hito
-            .catalog
+            .playback
             .open_audio(&fixture.actor, &old_source, AudioRequest::default())
             .await
             .is_err()
@@ -260,7 +260,7 @@ async fn a_checksum_mismatch_fails_the_retained_copy_without_starting_an_implici
     assert!(
         fixture
             .hito
-            .catalog
+            .playback
             .open_audio(&fixture.actor, &source, AudioRequest::default())
             .await
             .is_err()
@@ -382,7 +382,7 @@ fn owned_generated_media(fixture: &AudioLibrary) -> PathBuf {
 async fn read_audio(fixture: &AudioLibrary, source: &str) -> Vec<u8> {
     let OpenedAudio::Content(mut audio) = fixture
         .hito
-        .catalog
+        .playback
         .open_audio(&fixture.actor, source, AudioRequest::default())
         .await
         .unwrap()

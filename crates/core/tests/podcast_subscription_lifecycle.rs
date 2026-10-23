@@ -89,7 +89,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, wav: &[u8]) {
     assert_eq!(episodes.items.len(), 1);
     let episode = episodes.items.remove(0);
     let initial_audio = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &episode.recording.id)
         .await
         .unwrap();
@@ -179,7 +179,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, wav: &[u8]) {
     assert_private_state(&hito, &actor, &retained).await;
     assert_requests(server, 2, 1);
     let captured = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &retained.recording_id.to_string())
         .await
         .unwrap();
@@ -323,7 +323,7 @@ async fn exercise(directory: &Path, server: &PodcastAudioServer, wav: &[u8]) {
     assert_active(&hito, &actor, &retained).await;
     assert_private_state(&hito, &actor, &retained).await;
     let playback = hito
-        .catalog
+        .playback
         .preferred_playback_source(&actor, &retained.recording_id.to_string())
         .await
         .unwrap();
@@ -388,13 +388,13 @@ async fn assert_inactive(hito: &Services, actor: &Actor, retained: &RetainedEpis
         Err(Error::NotFound)
     ));
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .preferred_playback_source(actor, &retained.recording_id.to_string(),)
             .await,
         Err(Error::NotFound)
     ));
     assert!(matches!(
-        hito.catalog
+        hito.playback
             .playback_source(
                 actor,
                 &retained.recording_id.to_string(),

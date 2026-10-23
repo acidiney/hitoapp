@@ -59,7 +59,7 @@ async fn automatic_matching_distinguishes_a_live_album_from_a_song_named_live() 
             assert_eq!(control.sources.len(), 1);
             assert!(control.sources[0].ready);
             let opened = hito
-                .catalog
+                .playback
                 .open_audio(&actor, &control.sources[0].id, Default::default())
                 .await
                 .unwrap_or_else(|_| panic!("the accepted control source must open"));

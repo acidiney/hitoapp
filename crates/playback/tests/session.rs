@@ -11,7 +11,7 @@ async fn logout_stops_and_joins_actual_output_without_another_player_command() {
     let f = local_fixture::LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();
@@ -48,7 +48,7 @@ async fn cancelling_the_close_waiter_still_reclaims_an_owner_blocked_during_star
     let gate = f.server.hold("audio-tail").await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -74,13 +74,13 @@ async fn cancelling_the_close_waiter_still_reclaims_an_owner_blocked_during_star
     .unwrap();
     let first = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
     let second = f
         .hito
-        .catalog
+        .playback
         .open_audio(&f.actor, &f.source.id, Default::default())
         .await
         .unwrap();
@@ -96,7 +96,7 @@ async fn a_queue_owner_can_stop_pending_startup_before_waiting_for_cleanup() {
     let gate = f.server.hold("audio-tail").await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
@@ -122,7 +122,7 @@ async fn readiness_cannot_succeed_after_a_ready_session_has_been_stopped() {
     let f = local_fixture::LocalPlayback::start().await;
     let grant = f
         .services
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.recording, &f.source)
         .await
         .unwrap();

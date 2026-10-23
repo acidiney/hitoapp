@@ -46,7 +46,7 @@ pub(super) async fn run(
     let control = source_id(&sources, true);
     let actor = services.identity.authenticate(token).await.unwrap();
     let original_grant = services
-        .catalog
+        .playback
         .playback_source(&actor, &recording, control)
         .await
         .unwrap();
@@ -104,7 +104,7 @@ pub(super) async fn run(
     assert_ne!(replacement_source, source);
     let replacement_control = source_id(&replacement_sources, true);
     let replacement_grant = services
-        .catalog
+        .playback
         .playback_source(&actor, &replacement_recording, replacement_control)
         .await
         .unwrap();

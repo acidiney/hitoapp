@@ -6,13 +6,13 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
     f.ready().await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .preferred_playback_source(&f.actor, &f.source.recording_id)
         .await
         .unwrap();
     let mut candidates = f
         .hito
-        .catalog
+        .playback
         .playback_candidates(&f.actor, &f.source.recording_id)
         .await
         .unwrap();
@@ -43,7 +43,7 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
     assert!(candidates.next().await.unwrap().is_none());
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.source.recording_id)
             .await,
         Err(hito_core::Error::NotFound)
@@ -56,7 +56,7 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
         .unwrap();
     assert!(
         f.hito
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.source.recording_id)
             .await
             .is_ok()
@@ -68,7 +68,7 @@ async fn preferred_provider_uses_the_current_snapshot_and_respects_withdrawal() 
         .unwrap();
     assert!(matches!(
         f.hito
-            .catalog
+            .playback
             .preferred_playback_source(&f.actor, &f.source.recording_id)
             .await,
         Err(hito_core::Error::NotFound)

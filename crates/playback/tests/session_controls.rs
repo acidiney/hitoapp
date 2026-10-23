@@ -12,7 +12,7 @@ async fn provider_output_obeys_controls_and_is_reclaimed_when_permission_changes
     f.server.range_chunks(1024).await;
     let grant = f
         .hito
-        .catalog
+        .playback
         .playback_source(&f.actor, &f.source.recording_id, &f.source.id)
         .await
         .unwrap();
