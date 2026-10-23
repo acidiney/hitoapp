@@ -90,7 +90,7 @@ Offer these internal addresses in Settings, Plugins. Each listener then connects
 | ----------------------------- | ------------------------------------------------------------------------ |
 | `http://plugin-folder:8090/`  | Search and play generated demo WAV files                                 |
 | `http://plugin-spotify:8092/` | Import or follow public playlists and retrieve artwork; no Spotify audio |
-| `http://plugin-youtube:8093/` | Music search and selected progressive AAC/M4A audio through yt-dlp       |
+| `http://plugin-youtube:8093/` | Music search and metadata only; audio extraction is blocked on the VPS  |
 
 Spotify artwork is part of the Spotify service and needs its artwork capability approved. Playback and automatic matching use the existing Hito workflows; providers do not render UI. Provider availability, extraction challenges and browser codec support can still fail. Linux amd64 and live provider acceptance must be checked on the actual images before claiming them verified. Real-Debrid is not included here; its current curated WAV service requires separate private configuration and is not general torrent support.
 
@@ -133,5 +133,7 @@ Restore into new empty volumes, retain the originals, and test the restored inst
 ## Approve an upgrade
 
 Updates are manual. Preserve the old immutable images and private configuration, take a verified stopped backup, load reviewed new amd64 images, then change the four pinned image IDs and revision together. Recreate with `up -d --no-build --pull never --wait`, verify health, login, library, plugins and playback, then retain evidence before retiring old images.
+
+The VPS YouTube service runs with `--metadata-only` because YouTube blocks audio extraction from the datacenter IP address. It offers search and metadata only, and Hito no longer asks it for audio. When you upgrade an existing install to this command, each listener must open Settings, Plugins, choose Check connection, then Accept changes, to approve the removed `sources` capability. See [YouTube plugin](../../docs/plugin-youtube.md#metadata-only-mode).
 
 An older binary may reject a database migrated by a newer image. Rollback requires the matching stopped pre-upgrade backup, its keys and its image revision in separate restored volumes. Changing an image tag alone is not a safe database rollback. Never run `down -v`, delete these volumes, prune unrelated images, or change another project's containers to free space.

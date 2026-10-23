@@ -93,6 +93,7 @@ services:
     image: ${HITO_YOUTUBE_IMAGE:?Set the loaded immutable amd64 YouTube-plugin image ID}
     environment:
       RUST_LOG: info
+    command: [--listen, "0.0.0.0:8093", --metadata-only]
     init: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0700

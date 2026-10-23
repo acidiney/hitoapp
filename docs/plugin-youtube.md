@@ -24,6 +24,12 @@ Options considered, with evidence and decisions:
 
 The tests did not show that every anonymous method fails or that the VPS address is banned everywhere. They show that none of the methods tried works for the sampled recording. The full probe record is in [VPS deployment](vps-deployment.md#youtube-extraction-on-the-vps).
 
+### Metadata-only mode
+
+Start the service with `--metadata-only` and it declares only `search` and `metadata`. The `/v1/sources` and `/v1/audio` routes are not mounted, so they answer 404 and never start yt-dlp. Because the manifest no longer lists `sources`, Hito stops asking this plugin to resolve audio, and Play no longer pays for an extraction that fails. Without the flag, behavior is unchanged. At startup the service logs one `youtube_service_mode` event with `mode` set to `metadata_only` or `full`.
+
+The VPS compose file sets this flag. The change removes a capability from the manifest, so an existing connection does not switch on its own. In Settings, Plugins, use Check connection, then Accept changes. Until then the old approval remains. Tests start the real binary with and without the flag and check the manifest, the 404 responses, and that only a search runs the extractor. The VPS deployment itself has not been updated or verified for this change.
+
 ## Isolated Docker service
 
 Build and start the service in its own project:
