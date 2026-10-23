@@ -1,3 +1,4 @@
+pub mod album_editions;
 pub mod artist_catalog;
 pub mod artist_discography;
 pub mod artist_editions;

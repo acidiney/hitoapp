@@ -52,6 +52,148 @@
         ]
       }
     },
+    "/api/v1/albums/{id}/edition-track-list": {
+      "post": {
+        "operationId": "album_edition_track_list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadAlbumEditionTrackList"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumEditionTrackListAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artist-identity-groups": {
       "get": {
         "operationId": "artist_identity_groups",
@@ -11891,6 +12033,21 @@
         },
         "additionalProperties": false
       },
+      "AlbumCatalogAnchor": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "association_id"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "recording_id": {
+            "type": "string"
+          }
+        }
+      },
       "AlbumDetailsPageProps": {
         "allOf": [
           {
@@ -11904,6 +12061,117 @@
             "properties": {
               "detail": {
                 "$ref": "#/components/schemas/ReleaseMetadata"
+              }
+            }
+          }
+        ]
+      },
+      "AlbumEditionTrackListAvailability": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "association_id",
+              "edition",
+              "matches",
+              "library_only",
+              "adoption",
+              "is_album_release",
+              "status"
+            ],
+            "properties": {
+              "adoption": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CatalogAdoption"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "association_id": {
+                "type": "string"
+              },
+              "edition": {
+                "$ref": "#/components/schemas/CatalogEditionTrackList"
+              },
+              "is_album_release": {
+                "type": "boolean"
+              },
+              "library_only": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReleaseTrack"
+                }
+              },
+              "matches": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CatalogTrackMatch"
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
               }
             }
           }
@@ -13349,6 +13617,22 @@
           "backing_tracks"
         ]
       },
+      "CatalogAdoption": {
+        "type": "object",
+        "required": [
+          "installation_id",
+          "installation_revision"
+        ],
+        "properties": {
+          "installation_id": {
+            "type": "string"
+          },
+          "installation_revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "CatalogArtistKind": {
         "type": "string",
         "enum": [
@@ -13659,6 +13943,21 @@
           "pregap",
           "data"
         ]
+      },
+      "CatalogTrackMatch": {
+        "type": "object",
+        "required": [
+          "occurrence_id",
+          "recording"
+        ],
+        "properties": {
+          "occurrence_id": {
+            "type": "string"
+          },
+          "recording": {
+            "$ref": "#/components/schemas/Recording"
+          }
+        }
       },
       "CatalogTrackOccurrence": {
         "type": "object",
@@ -17973,6 +18272,30 @@
           }
         }
       },
+      "ReadAlbumEditionTrackList": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "association_id",
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "edition_id": {
+            "type": "string"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "ReadArtistDiscography": {
         "type": "object",
         "required": [
@@ -18503,9 +18826,20 @@
         "type": "object",
         "required": [
           "release",
-          "tracks"
+          "tracks",
+          "catalog_anchor"
         ],
         "properties": {
+          "catalog_anchor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumCatalogAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "release": {
             "$ref": "#/components/schemas/Release"
           },
@@ -18666,6 +19000,38 @@
       },
       "ReleasePage": {
         "$ref": "#/components/schemas/Page_Release"
+      },
+      "ReleaseTrack": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Recording"
+          },
+          {
+            "type": "object",
+            "required": [
+              "entry_id"
+            ],
+            "properties": {
+              "disc_number": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "entry_id": {
+                "type": "string"
+              },
+              "track_number": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              }
+            }
+          }
+        ]
       },
       "ResetRecordingArtistIdentity": {
         "type": "object",
