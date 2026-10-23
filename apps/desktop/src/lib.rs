@@ -1,10 +1,16 @@
 mod access;
 mod backend;
 mod host;
+#[cfg(feature = "gui")]
+mod os_controls;
 mod storage;
+mod system_media;
 
 pub use host::LocalHost;
+#[cfg(feature = "gui")]
+pub use os_controls::{OsControls, WindowHandle};
 use std::path::PathBuf;
+pub use system_media::{Controls, Lazy, Metadata, SystemMedia};
 
 pub struct Paths {
     pub data: PathBuf,

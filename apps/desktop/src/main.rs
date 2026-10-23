@@ -3,7 +3,8 @@
 mod exit;
 
 use exit::{Decision, Lifecycle};
-use hito_desktop::{LocalHost, Paths};
+use hito_desktop::{Lazy, LocalHost, OsControls, Paths, SystemMedia, WindowHandle};
+use hito_playback::{MediaIntegration, media_commands};
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWindowResponse};
 use tracing_subscriber::prelude::*;
@@ -42,11 +43,24 @@ fn main() {
             } else {
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist")
             };
-            let host = tauri::async_runtime::block_on(LocalHost::start(Paths {
-                data: data.clone(),
-                music,
-                web,
-            }))?;
+            let (sender, commands) = media_commands();
+            let handle = WindowHandle::default();
+            let controls = {
+                let handle = handle.clone();
+                Lazy::new(move || OsControls::create(sender, &handle))
+            };
+            let media = MediaIntegration::new(
+                SystemMedia::new(controls, data.join("media-artwork")),
+                commands,
+            );
+            let host = tauri::async_runtime::block_on(LocalHost::start_with_media(
+                Paths {
+                    data: data.clone(),
+                    music,
+                    web,
+                },
+                Some(media),
+            ))?;
             let entry = host.entry_url();
             let origin = entry.origin();
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(entry))
@@ -66,6 +80,12 @@ fn main() {
                 })
                 .on_new_window(|_, _| NewWindowResponse::Deny)
                 .build();
+            #[cfg(windows)]
+            if let Ok(window) = &window
+                && let Ok(hwnd) = window.hwnd()
+            {
+                let _ = handle.set(hwnd.0 as usize);
+            }
             if let Err(error) = window {
                 if tauri::async_runtime::block_on(host.shutdown()).is_err() {
                     tracing::error!(

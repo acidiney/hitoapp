@@ -8,7 +8,7 @@ license.workspace = true
 [features]
 default = []
 device = ["hito-playback/device"]
-gui = ["dep:tauri", "dep:tauri-build", "device"]
+gui = ["dep:tauri", "dep:tauri-build", "dep:souvlaki", "device"]
 
 [dependencies]
 hito-core = { path = "../../crates/core" }
@@ -24,6 +24,7 @@ thiserror.workspace = true
 url.workspace = true
 subtle = "2.6.1"
 tauri = { version = "=2.12.4", optional = true }
+souvlaki = { version = "=0.8.3", optional = true }
 
 [build-dependencies]
 tauri-build = { version = "2.7.2", optional = true }

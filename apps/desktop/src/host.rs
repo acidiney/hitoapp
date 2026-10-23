@@ -14,6 +14,14 @@ pub struct LocalHost {
 impl LocalHost {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn start(paths: Paths) -> Result<Self> {
+        Self::start_with_media(paths, None).await
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn start_with_media(
+        paths: Paths,
+        media: Option<hito_playback::MediaIntegration>,
+    ) -> Result<Self> {
         let lock = storage::claim(&paths.data)?;
         let mut config = hito_server::RuntimeConfig::load(
             paths.data.join("hito.db"),
@@ -39,9 +47,15 @@ impl LocalHost {
         config.http.origin = origin.origin().ascii_serialization();
         let (access, entry) = Access::new(&origin);
         #[cfg(feature = "device")]
-        let (player, owner) = hito_playback::Player::native(services.clone());
+        let (player, owner) = match media {
+            Some(media) => hito_playback::Player::native_with_media(services.clone(), media),
+            None => hito_playback::Player::native(services.clone()),
+        };
         #[cfg(not(feature = "device"))]
-        let (player, owner) = hito_playback::Player::start(services.clone());
+        let (player, owner) = match media {
+            Some(media) => hito_playback::Player::start_with_media(services.clone(), media),
+            None => hito_playback::Player::start(services.clone()),
+        };
         let app = access.protect(hito_server::router_with_player(
             services.clone(),
             config.http,
