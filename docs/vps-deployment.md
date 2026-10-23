@@ -1,6 +1,6 @@
 # VPS deployment
 
-The development deployment at `https://hito.example.com` runs source revision `9279340057d102a56c398b20b457efdfcbb4bb40`, installed on 2026-10-20. It is available for testing, but real YouTube playback is currently failing. This installation does not satisfy the public release gates.
+The development deployment at `https://hito.example.com` runs source revision `9279340057d102a56c398b20b457efdfcbb4bb40`, installed on 2026-10-20. It is available for testing. YouTube audio does not work from the VPS (see [YouTube extraction on the VPS](#youtube-extraction-on-the-vps)); search and metadata do. This installation does not satisfy the public release gates.
 
 ## Installed services
 
@@ -23,6 +23,10 @@ An isolated Chromium workflow completed against the public HTTPS origin in 5.06 
 
 A separate live Spotify read returned 411 playlist entries and retained verified album information in the sampled entries. YouTube search returned candidates, but source extraction failed before audio became available. The deployed core incorrectly settles these provider failures as `no_suitable_source`. Verified source now retains a separate `provider_unavailable` outcome and shows it in the browser without duplicate resolution requests. Its directed tests and independent repeats pass, but this correction and migration 0055 are not deployed. It improves failure reporting and retry behavior; it does not make blocked audio available. See [source verification and remaining acceptance](automatic-sources.md#provider-failure-outcomes).
 
+## YouTube extraction on the VPS
+
+Current behavior and an external dependency. YouTube blocks audio extraction from the VPS datacenter address. The project owner has decided not to work around this with cookies, signed-in accounts, residential proxies or a relay through a personal computer. On servers, YouTube provides search and metadata only, and audio comes from other providers. A table of every option considered is in [the YouTube plugin guide](plugin-youtube.md#server-side-limitation). The probes below are the evidence.
+
 Native probes with the installed extractor exited unsuccessfully, with stderr mentioning sign-in and bot confirmation on the existing VPS connection. The `web_embedded` and `tv_downgraded` clients returned the same failure. IPv6 did not produce playable metadata. No cookies, personal browser session, proxy or Mac-hosted service were introduced.
 
 An isolated candidate then replaced only the complete extractor bundle with official nightly `2026.10.10.233141`, using its published archive checksum. The Rust plugin and Deno binaries remained byte-identical. One explicit `tv_samsung` metadata probe on the same Docker bridge and IPv4 connection failed in 2.89 seconds, without a metadata object and with exactly the same error-output hash as the earlier failures. No audio was requested. Temporary containers and staging files were removed; the candidate image was retained for inspection and was not deployed. This version upgrade did not resolve playback.
@@ -35,7 +39,7 @@ This establishes a rejection before format selection for that request. It does n
 
 An isolated comparison then tested automatic anonymous Player-token generation with the official Bgutil 2.0.2 provider and matching verified plugin. Both attempts used the same recording, VPS connection, deployed extractor image, `mweb` client and optional-token setting. The baseline supplied no Player token and returned `LOGIN_REQUIRED` in 2.81 seconds. The candidate requested and retrieved a token, then supplied it in the actual outgoing Player request; it still returned `LOGIN_REQUIRED` in 3.73 seconds. Neither produced metadata or eligible AAC formats, and neither requested audio. Both stayed within the existing eight-second extraction deadline. The two test containers were removed, and independent checks confirmed no remaining test resources or change to the deployed container's identity and start time.
 
-That mechanism was insufficient for this sample. It does not establish that every anonymous approach fails or that the IP is globally blocked. Automatic VPS playback remains unresolved, consistent with the [provider's documented limits](https://github.com/Brainicism/bgutil-ytdlp-pot-provider#verification).
+That mechanism was insufficient for this sample. It does not establish that every anonymous approach fails or that the IP is globally blocked. Automatic YouTube playback from the VPS is not available, consistent with the [provider's documented limits](https://github.com/Brainicism/bgutil-ytdlp-pot-provider#verification).
 
 ## Backups and remaining acceptance
 
