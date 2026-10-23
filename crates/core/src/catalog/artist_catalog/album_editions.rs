@@ -1,0 +1,266 @@
+use super::{MetadataProvider, REQUEST_BUDGET, ReadEditionTrackList, editions::EditionRead};
+use crate::{Actor, Catalog, Error, Recording, ReleaseTrack, Result, catalog::recordings_on};
+use hito_plugin_sdk::CatalogEditionTrackList;
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    time::Instant,
+};
+use utoipa::ToSchema;
+use uuid::Uuid;
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReadAlbumEditionTrackList {
+    pub recording_id: String,
+    pub association_id: String,
+    pub release_group_id: String,
+    pub edition_id: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct CatalogTrackMatch {
+    pub occurrence_id: String,
+    pub recording: Recording,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct CatalogAdoption {
+    pub installation_id: String,
+    pub installation_revision: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum AlbumEditionTrackListAvailability {
+    Available {
+        association_id: String,
+        edition: CatalogEditionTrackList,
+        matches: Vec<CatalogTrackMatch>,
+        library_only: Vec<ReleaseTrack>,
+        #[schema(required = true)]
+        adoption: Option<CatalogAdoption>,
+        is_album_release: bool,
+    },
+    Disabled,
+    Unsupported,
+    Unavailable,
+    Cancelled,
+}
+
+impl AlbumEditionTrackListAvailability {
+    fn outcome(&self) -> &'static str {
+        match self {
+            Self::Available { .. } => "available",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+            Self::Unavailable => "unavailable",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+impl Catalog {
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "album_edition_track_list", request_id = %Uuid::new_v4()))]
+    pub async fn album_edition_track_list_until(
+        &self,
+        actor: &Actor,
+        release: &str,
+        request: ReadAlbumEditionTrackList,
+        cancelled: impl Future<Output = ()> + Send,
+    ) -> Result<AlbumEditionTrackListAvailability> {
+        let started = Instant::now();
+        let deadline = tokio::time::Instant::now() + REQUEST_BUDGET;
+        tokio::pin!(cancelled);
+        let result = tokio::select! {
+            biased;
+            _ = &mut cancelled => Ok(AlbumEditionTrackListAvailability::Cancelled),
+            result = tokio::time::timeout_at(deadline, self.read_album_edition(actor, release, request)) => {
+                result.unwrap_or(Ok(AlbumEditionTrackListAvailability::Unavailable))
+            }
+        };
+        let (matched, library_only) = match &result {
+            Ok(AlbumEditionTrackListAvailability::Available {
+                matches,
+                library_only,
+                ..
+            }) => (matches.len(), library_only.len()),
+            _ => (0, 0),
+        };
+        tracing::debug!(
+            outcome = result
+                .as_ref()
+                .map(AlbumEditionTrackListAvailability::outcome)
+                .unwrap_or_else(|error| error.code()),
+            matched,
+            library_only,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Album edition track list read completed"
+        );
+        result
+    }
+
+    async fn read_album_edition(
+        &self,
+        actor: &Actor,
+        release: &str,
+        request: ReadAlbumEditionTrackList,
+    ) -> Result<AlbumEditionTrackListAvailability> {
+        let detail = self.release_for_comparison(actor, release).await?;
+        if !detail
+            .tracks
+            .items
+            .iter()
+            .any(|track| track.recording.id == request.recording_id)
+        {
+            return Err(Error::NotFound);
+        }
+        let read = self
+            .read_edition(
+                actor,
+                &request.recording_id,
+                &request.association_id,
+                ReadEditionTrackList {
+                    release_group_id: request.release_group_id,
+                    edition_id: request.edition_id,
+                },
+            )
+            .await?;
+        let (association, edition, playback_revision) = match read {
+            EditionRead::Available {
+                association,
+                edition,
+                playback_revision,
+            } => (association, edition, playback_revision),
+            EditionRead::Missing(status) => return Ok(status.into()),
+        };
+        let installation = match &association.provider {
+            MetadataProvider::HttpPlugin { installation_id } => Some(installation_id.as_str()),
+            MetadataProvider::BuiltinMusicBrainz => None,
+        };
+        let linked = match installation {
+            Some(installation) => {
+                self.linked_recordings(actor, installation, &edition)
+                    .await?
+            }
+            None => HashMap::new(),
+        };
+        let mut matches = Vec::new();
+        for medium in &edition.media {
+            for track in &medium.tracks {
+                if let Some(recording) = track
+                    .recording_id
+                    .as_ref()
+                    .and_then(|provider_id| linked.get(provider_id))
+                {
+                    matches.push(CatalogTrackMatch {
+                        occurrence_id: track.id.clone(),
+                        recording: recording.clone(),
+                    });
+                }
+            }
+        }
+        let linked_ids: HashSet<&str> = matches
+            .iter()
+            .map(|linked| linked.recording.id.as_str())
+            .collect();
+        let library_only = detail
+            .tracks
+            .items
+            .into_iter()
+            .filter(|track| !linked_ids.contains(track.recording.id.as_str()))
+            .collect();
+        let is_album_release = match installation {
+            Some(installation) => {
+                self.release_is_provider_edition(actor, release, installation, &edition.id)
+                    .await?
+            }
+            None => false,
+        };
+        let adoption = installation
+            .zip(playback_revision)
+            .map(|(installation, revision)| CatalogAdoption {
+                installation_id: installation.into(),
+                installation_revision: revision,
+            });
+        Ok(AlbumEditionTrackListAvailability::Available {
+            association_id: association.id,
+            edition,
+            matches,
+            library_only,
+            adoption,
+            is_album_release,
+        })
+    }
+
+    async fn linked_recordings(
+        &self,
+        actor: &Actor,
+        installation: &str,
+        edition: &CatalogEditionTrackList,
+    ) -> Result<HashMap<String, Recording>> {
+        let wanted: Vec<&str> = edition
+            .media
+            .iter()
+            .flat_map(|medium| &medium.tracks)
+            .filter_map(|track| track.recording_id.as_deref())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        if wanted.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let wanted = serde_json::to_string(&wanted)
+            .map_err(|_| Error::Internal("Catalog identities could not be encoded".into()))?;
+        let mut connection = self.store.pool.acquire().await?;
+        actor.check_session_on(&mut connection).await?;
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT item.provider_recording_id, item.recording_id FROM json_each(?) wanted
+            JOIN provider_items item ON item.installation_id = ? AND item.provider_recording_id = wanted.value
+                AND item.role = 'primary' AND item.retired = 0
+            JOIN plugin_installations installation ON installation.id = item.installation_id AND installation.user_id = ?
+            JOIN recordings r ON r.id = item.recording_id AND r.metadata_binding_id = item.id
+            JOIN library_members member ON member.library_id = r.library_id AND member.user_id = ?",
+        )
+        .bind(wanted)
+        .bind(installation)
+        .bind(actor.id())
+        .bind(actor.id())
+        .fetch_all(&mut *connection)
+        .await?;
+        let ids = rows
+            .iter()
+            .map(|(_, recording)| Uuid::parse_str(recording))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|_| Error::Internal("A stored recording identity is invalid".into()))?;
+        let recordings = recordings_on(&mut connection, &self.host, actor, &ids).await?;
+        Ok(rows
+            .into_iter()
+            .zip(recordings)
+            .map(|((provider_id, _), recording)| (provider_id, recording))
+            .collect())
+    }
+
+    async fn release_is_provider_edition(
+        &self,
+        actor: &Actor,
+        release: &str,
+        installation: &str,
+        edition: &str,
+    ) -> Result<bool> {
+        let key: Option<String> = sqlx::query_scalar(
+            "SELECT release.identity_key FROM releases release JOIN account_releases account ON account.id = release.id
+            WHERE release.id = ? AND account.user_id = ?",
+        )
+        .bind(release)
+        .bind(actor.id())
+        .fetch_optional(&self.store.pool)
+        .await?;
+        Ok(key
+            .and_then(|key| serde_json::from_str::<(String, String, String)>(&key).ok())
+            .is_some_and(|(kind, owner, id)| {
+                kind == "plugin" && owner == installation && id == edition
+            }))
+    }
+}

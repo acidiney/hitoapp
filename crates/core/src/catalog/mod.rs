@@ -36,17 +36,19 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artist_catalog::{
-    ApplyArtistIdentityToCredit, ArtistAssociation, ArtistAssociationEvidence,
-    ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability, ArtistCreditRole,
-    ArtistDiscographyAvailability, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
-    ArtistIdentityGroup, ArtistIdentityGroupBrowse, ArtistIdentityGroupDetail,
-    ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
-    ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistProfileAvailability,
-    ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
-    AssociateRecordingArtist, ChooseRecordingArtistIdentity, EditionTrackListAvailability,
-    MetadataProvider, MetadataSettings, ReadArtistDiscography, ReadEditionTrackList,
-    ReadReleaseGroupEditions, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
-    ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, UpdateMetadataSettings,
+    AlbumEditionTrackListAvailability, ApplyArtistIdentityToCredit, ArtistAssociation,
+    ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
+    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
+    ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt, ArtistIdentityGroup,
+    ArtistIdentityGroupBrowse, ArtistIdentityGroupDetail, ArtistIdentityGroupLibrary,
+    ArtistIdentityGroupMember, ArtistIdentityGroupName, ArtistIdentityGroupQuery,
+    ArtistIdentitySelection, ArtistProfileAvailability, ArtistReviewConnection,
+    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption,
+    CatalogTrackMatch, ChooseRecordingArtistIdentity, EditionTrackListAvailability,
+    MetadataProvider, MetadataSettings, ReadAlbumEditionTrackList, ReadArtistDiscography,
+    ReadEditionTrackList, ReadReleaseGroupEditions, RecordingArtistIdentityChoice,
+    RecordingArtistIdentityState, ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity,
+    UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
@@ -55,7 +57,7 @@ pub use artwork::{
 };
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;
-pub use releases::{Release, ReleaseDetail, ReleaseTrack};
+pub use releases::{AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 pub use types::{Page, Recording, Search, Source};

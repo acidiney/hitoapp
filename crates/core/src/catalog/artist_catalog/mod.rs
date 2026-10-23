@@ -1,3 +1,4 @@
+mod album_editions;
 mod associations;
 mod authority;
 mod confirmation;
@@ -14,6 +15,10 @@ mod review;
 mod types;
 pub use identity::*;
 
+pub use album_editions::{
+    AlbumEditionTrackListAvailability, CatalogAdoption, CatalogTrackMatch,
+    ReadAlbumEditionTrackList,
+};
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,

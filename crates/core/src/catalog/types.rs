@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Serialize, sqlx::FromRow, ToSchema)]
+#[derive(Clone, Serialize, sqlx::FromRow, ToSchema)]
 pub struct Recording {
     pub id: String,
     pub library_id: String,

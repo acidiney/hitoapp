@@ -51,6 +51,20 @@ impl Connection {
         }
     }
 
+    pub(super) fn saving_revision(&self) -> Option<i64> {
+        match self {
+            Self::Builtin(_) => None,
+            Self::Http(operation) => [
+                Capability::Sources,
+                Capability::Search,
+                Capability::Metadata,
+            ]
+            .into_iter()
+            .any(|capability| operation.offers(capability))
+            .then(|| operation.catalog_installation_revision()),
+        }
+    }
+
     pub(super) async fn supported(&self) -> Result<bool> {
         match self {
             Self::Builtin(_) => Ok(true),

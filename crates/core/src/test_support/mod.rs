@@ -2,6 +2,8 @@
 pub(crate) mod work_meter;
 
 #[cfg(feature = "test-support")]
+pub mod album_edition_service;
+#[cfg(feature = "test-support")]
 pub mod artist_catalog_discography_service;
 #[cfg(feature = "test-support")]
 pub mod artist_catalog_discovery_service;

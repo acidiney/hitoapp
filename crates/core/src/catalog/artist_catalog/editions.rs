@@ -1,12 +1,13 @@
 use super::{
-    EditionTrackListAvailability, REQUEST_BUDGET, ReadEditionTrackList, ReadReleaseGroupEditions,
-    ReleaseGroupEditionsAvailability,
+    ArtistAssociation, EditionTrackListAvailability, REQUEST_BUDGET, ReadEditionTrackList,
+    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
     authority::{ReviewedRead, ReviewedReadState},
     continuation,
 };
 use crate::{Actor, Catalog, Error, Result};
 use hito_plugin_sdk::{
-    CatalogEditionOperation, EditionTrackListRequest, ReleaseGroupEditionsRequest,
+    CatalogEditionOperation, CatalogEditionTrackList, EditionTrackListRequest,
+    ReleaseGroupEditionsRequest,
 };
 use std::{future::Future, time::Instant};
 use uuid::Uuid;
@@ -179,6 +180,31 @@ impl Catalog {
         association: &str,
         request: ReadEditionTrackList,
     ) -> Result<EditionTrackListAvailability> {
+        Ok(
+            match self
+                .read_edition(actor, recording, association, request)
+                .await?
+            {
+                EditionRead::Available {
+                    association,
+                    edition,
+                    ..
+                } => EditionTrackListAvailability::Available {
+                    association_id: association.id,
+                    edition,
+                },
+                EditionRead::Missing(status) => status,
+            },
+        )
+    }
+
+    pub(super) async fn read_edition(
+        &self,
+        actor: &Actor,
+        recording: &str,
+        association: &str,
+        request: ReadEditionTrackList,
+    ) -> Result<EditionRead> {
         let provider_request = EditionTrackListRequest {
             release_group_id: request.release_group_id,
             edition_id: request.edition_id,
@@ -188,8 +214,14 @@ impl Catalog {
             .map_err(|_| Error::Invalid("Use a valid edition track-list request".into()))?;
         let read = match ReviewedRead::capture(self, actor, recording, association).await? {
             ReviewedReadState::Available(read) => read,
-            ReviewedReadState::Disabled => return Ok(EditionTrackListAvailability::Disabled),
-            ReviewedReadState::Unavailable => return Ok(EditionTrackListAvailability::Unavailable),
+            ReviewedReadState::Disabled => {
+                return Ok(EditionRead::Missing(EditionTrackListAvailability::Disabled));
+            }
+            ReviewedReadState::Unavailable => {
+                return Ok(EditionRead::Missing(
+                    EditionTrackListAvailability::Unavailable,
+                ));
+            }
         };
         let supported = read
             .connection
@@ -197,8 +229,16 @@ impl Catalog {
             .await;
         read.recheck().await?;
         match supported {
-            Ok(false) => return Ok(EditionTrackListAvailability::Unsupported),
-            Err(Error::Upstream(_)) => return Ok(EditionTrackListAvailability::Unavailable),
+            Ok(false) => {
+                return Ok(EditionRead::Missing(
+                    EditionTrackListAvailability::Unsupported,
+                ));
+            }
+            Err(Error::Upstream(_)) => {
+                return Ok(EditionRead::Missing(
+                    EditionTrackListAvailability::Unavailable,
+                ));
+            }
             result => {
                 result?;
             }
@@ -206,15 +246,29 @@ impl Catalog {
         let result = read.connection.edition_tracks(&provider_request).await;
         read.recheck().await?;
         let edition = match result {
-            Err(Error::Upstream(_)) => return Ok(EditionTrackListAvailability::Unavailable),
+            Err(Error::Upstream(_)) => {
+                return Ok(EditionRead::Missing(
+                    EditionTrackListAvailability::Unavailable,
+                ));
+            }
             result => result?,
         };
         edition
             .validate_for(&provider_request)
             .map_err(|_| Error::Upstream("The provider returned an invalid edition track list"))?;
-        Ok(EditionTrackListAvailability::Available {
-            association_id: read.association.id,
+        Ok(EditionRead::Available {
+            playback_revision: read.connection.saving_revision(),
+            association: read.association,
             edition,
         })
     }
+}
+
+pub(super) enum EditionRead {
+    Available {
+        association: ArtistAssociation,
+        edition: CatalogEditionTrackList,
+        playback_revision: Option<i64>,
+    },
+    Missing(EditionTrackListAvailability),
 }

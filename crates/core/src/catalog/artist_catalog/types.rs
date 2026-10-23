@@ -270,6 +270,18 @@ pub enum EditionTrackListAvailability {
     Cancelled,
 }
 
+impl From<EditionTrackListAvailability> for super::AlbumEditionTrackListAvailability {
+    fn from(status: EditionTrackListAvailability) -> Self {
+        match status {
+            EditionTrackListAvailability::Disabled => Self::Disabled,
+            EditionTrackListAvailability::Unsupported => Self::Unsupported,
+            EditionTrackListAvailability::Cancelled => Self::Cancelled,
+            EditionTrackListAvailability::Unavailable
+            | EditionTrackListAvailability::Available { .. } => Self::Unavailable,
+        }
+    }
+}
+
 impl EditionTrackListAvailability {
     pub(super) fn outcome(&self) -> &'static str {
         match self {
