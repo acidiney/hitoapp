@@ -1,26 +1,16 @@
-mod enclosure;
 pub(crate) mod headers;
-pub(super) mod managed;
-pub(super) mod podcast;
+pub(crate) mod local;
+pub(crate) mod managed;
+pub(crate) mod origin;
+pub(crate) mod podcast;
+pub(crate) mod provider;
 mod range;
 pub(crate) mod remote;
 mod stream;
 use super::Catalog;
-use crate::{
-    Actor, Result, admission::Accounts, library_storage::ManagedFiles, remote_http::RemoteHttp,
-};
+use crate::{Actor, PlaybackSource, Result};
 pub use range::ByteRange;
-use std::sync::Arc;
 pub use stream::AudioStream;
-use tokio::sync::Semaphore;
-
-#[derive(Clone)]
-pub(crate) struct AudioRelay {
-    pub managed: ManagedFiles,
-    pub podcast_remote: RemoteHttp,
-    pub podcast_slots: Arc<Semaphore>,
-    pub podcast_accounts: Accounts,
-}
 
 #[derive(Default, Clone, Copy)]
 pub struct AudioRequest {
@@ -42,20 +32,10 @@ pub struct AudioContent {
     pub body: Option<AudioStream>,
 }
 
-pub(super) struct ProviderAudio {
-    pub operation: crate::plugins::Operation,
-    pub remote: String,
-    pub binding_id: String,
-    pub binding_revision: i64,
-}
-
-#[derive(sqlx::FromRow)]
-struct ProviderAudioBinding {
-    installation_id: String,
-    provider_source_id: String,
-    installation_revision: i64,
-    binding_id: String,
-    binding_revision: i64,
+pub struct AudioFile {
+    pub file: std::fs::File,
+    pub length: u64,
+    pub content_type: &'static str,
 }
 
 impl Catalog {
@@ -66,89 +46,67 @@ impl Catalog {
         source: &str,
         request: AudioRequest,
     ) -> Result<OpenedAudio> {
-        if let Some(provider) = self.provider_audio(actor, source).await? {
-            return provider
-                .operation
-                .audio(
-                    source,
-                    &provider.remote,
-                    &provider.binding_id,
-                    provider.binding_revision,
-                    request,
-                )
-                .await;
+        if let Some(opened) = self
+            .origins
+            .provider
+            .open_current(actor, source, request)
+            .await?
+        {
+            return Ok(opened);
         }
-        let authority = self.audio_playback_source(actor, source).await?;
-        if !authority.is_local() {
-            return authority.open_podcast(request).await;
-        }
-        let audio = authority.open_file().await?;
-        let total = audio.length;
-        let range = if request.head {
-            None
-        } else if let Some(selection) = request.range {
-            let Some(range) = selection.resolve(total) else {
-                return Ok(OpenedAudio::Unsatisfiable {
-                    length: Some(total),
-                });
-            };
-            Some(range)
-        } else {
-            None
-        };
-        let start = range.as_ref().map_or(0, |range| *range.start());
-        let length = range
-            .as_ref()
-            .map_or(total, |range| range.end() - range.start() + 1);
-        let content_type = audio.content_type;
-        let body = if request.head {
-            None
-        } else {
-            Some(AudioStream::local(audio, authority, start, length).await?)
-        };
-        tracing::debug!(length, "Local audio opened");
-        Ok(OpenedAudio::Content(Box::new(AudioContent {
-            content_type,
-            length: Some(length),
-            total_length: Some(total),
-            range,
-            seekable: true,
-            body,
-        })))
+        self.audio_playback_source(actor, source)
+            .await?
+            .open(request)
+            .await
     }
 
-    pub(super) async fn provider_audio(
-        &self,
-        actor: &Actor,
-        source: &str,
-    ) -> Result<Option<ProviderAudio>> {
-        let binding: Option<ProviderAudioBinding> = sqlx::query_as("SELECT ps.installation_id,ps.provider_source_id,p.revision AS installation_revision,item.id AS binding_id,item.revision AS binding_revision
-            FROM provider_sources ps JOIN sources s ON s.id=ps.source_id AND s.ready=1
-            JOIN provider_items item ON item.id=ps.binding_id AND item.retired=0
-            JOIN provider_source_state state ON state.binding_id=item.id AND state.generation=ps.generation
-            JOIN recordings r ON r.id=s.recording_id JOIN library_members m ON m.library_id=r.library_id
-            JOIN plugin_installations p ON p.id=ps.installation_id AND p.user_id=m.user_id AND p.active=1
-            JOIN plugin_services service ON service.id=p.service_id AND service.active=1
-            JOIN source_choice_bindings permitted ON permitted.binding_id=item.id AND permitted.recording_id=s.recording_id AND permitted.user_id=p.user_id
-            WHERE ps.source_id=? AND m.user_id=?")
-            .bind(source).bind(actor.id()).fetch_optional(&self.store.pool).await?;
-        let Some(binding) = binding else {
-            return Ok(None);
-        };
-        let operation = self
-            .plugins
-            .operation(
-                actor,
-                &binding.installation_id,
-                binding.installation_revision,
-                &[hito_plugin_sdk::Capability::Sources],
-            )
-            .await?;
-        Ok(Some(ProviderAudio {
-            operation,
-            remote: binding.provider_source_id,
-            binding_id: binding.binding_id,
-            binding_revision: binding.binding_revision,
-        }))
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), source_id))]
+    pub async fn audio_file(&self, actor: &Actor, source: &str) -> Result<AudioFile> {
+        actor.check_session(&self.store).await?;
+        for origin in self.origins.iter() {
+            if let Some(file) = origin.open_file(actor, source).await? {
+                return Ok(file);
+            }
+        }
+        Err(crate::Error::NotFound)
     }
+}
+
+pub(super) async fn open_file_audio(
+    grant: &PlaybackSource,
+    audio: AudioFile,
+    request: AudioRequest,
+) -> Result<OpenedAudio> {
+    let total = audio.length;
+    let range = if request.head {
+        None
+    } else if let Some(selection) = request.range {
+        let Some(range) = selection.resolve(total) else {
+            return Ok(OpenedAudio::Unsatisfiable {
+                length: Some(total),
+            });
+        };
+        Some(range)
+    } else {
+        None
+    };
+    let start = range.as_ref().map_or(0, |range| *range.start());
+    let length = range
+        .as_ref()
+        .map_or(total, |range| range.end() - range.start() + 1);
+    let content_type = audio.content_type;
+    let body = if request.head {
+        None
+    } else {
+        Some(AudioStream::local(audio, grant.clone(), start, length).await?)
+    };
+    tracing::debug!(length, "Local audio opened");
+    Ok(OpenedAudio::Content(Box::new(AudioContent {
+        content_type,
+        length: Some(length),
+        total_length: Some(total),
+        range,
+        seekable: true,
+        body,
+    })))
 }

@@ -1,5 +1,6 @@
-use super::{Catalog, audio::podcast::PodcastEnclosure, media::Location};
-use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result};
+use super::Catalog;
+use super::audio::origin::{AudioOrigin, Located};
+use crate::{Actor, AudioFile, AudioRequest, Error, OpenedAudio, Result, Store};
 use std::{
     future::Future,
     sync::{
@@ -14,20 +15,14 @@ static NEXT_GRANT: AtomicU64 = AtomicU64::new(1);
 #[derive(Clone)]
 pub struct PlaybackSource {
     id: u64,
-    catalog: Catalog,
+    store: Store,
     actor: Actor,
     recording: String,
     source: String,
     membership: String,
-    binding: Binding,
+    origin: Arc<dyn AudioOrigin>,
+    located: Located,
     revoked: Arc<AtomicBool>,
-}
-
-#[derive(Clone)]
-enum Binding {
-    Local(Location),
-    Provider(crate::plugins::AudioAuthority),
-    Podcast(PodcastEnclosure),
 }
 
 impl Catalog {
@@ -63,11 +58,7 @@ impl Catalog {
             .fetch_optional(&self.store.pool)
             .await?
             .ok_or(Error::NotFound)?;
-            let authority = self.admit_playback(actor, &recording, source).await?;
-            if matches!(authority.binding, Binding::Provider(_)) {
-                return Err(Error::NotFound);
-            }
-            Ok(authority)
+            self.admit_playback(actor, &recording, source).await
         })
         .await
         .unwrap_or(Err(Error::Upstream(
@@ -82,52 +73,46 @@ impl Catalog {
         source: &str,
     ) -> Result<PlaybackSource> {
         actor.check_session(&self.store).await?;
-        let membership = self.playback_membership(actor, recording, source).await?;
-        let binding = if let Some(provider) = self.provider_audio(actor, source).await? {
-            Binding::Provider(provider.operation.audio_authority(
-                source,
-                &provider.remote,
-                &provider.binding_id,
-                provider.binding_revision,
-            ))
-        } else if let Some(enclosure) = self.podcast_enclosure(actor, source).await? {
-            Binding::Podcast(enclosure)
-        } else {
-            Binding::Local(self.media_location(actor, source).await?)
-        };
+        let membership = playback_membership(&self.store, actor, recording, source).await?;
+        let (origin, located) = self.origins.locate(actor, source).await?;
         let grant = PlaybackSource {
             id: NEXT_GRANT.fetch_add(1, Ordering::Relaxed),
-            catalog: self.clone(),
+            store: self.store.clone(),
             actor: actor.clone(),
             recording: recording.into(),
             source: source.into(),
             membership,
-            binding,
+            origin,
+            located,
             revoked: Arc::new(AtomicBool::new(false)),
         };
         grant.check().await?;
-        tracing::debug!(playback_grant = grant.id, "Playback source authorized");
+        tracing::debug!(
+            playback_grant = grant.id,
+            origin = grant.origin.kind(),
+            "Playback source authorized"
+        );
         Ok(grant)
     }
+}
 
-    async fn playback_membership(
-        &self,
-        actor: &Actor,
-        recording: &str,
-        source: &str,
-    ) -> Result<String> {
-        sqlx::query_scalar(
-            "SELECT access.id FROM sources s JOIN recordings r ON r.id=s.recording_id
-            JOIN library_access_grants access ON access.library_id=r.library_id AND access.user_id=?
-            WHERE s.id=? AND r.id=?",
-        )
-        .bind(actor.id())
-        .bind(source)
-        .bind(recording)
-        .fetch_optional(&self.store.pool)
-        .await?
-        .ok_or(Error::NotFound)
-    }
+async fn playback_membership(
+    store: &Store,
+    actor: &Actor,
+    recording: &str,
+    source: &str,
+) -> Result<String> {
+    sqlx::query_scalar(
+        "SELECT access.id FROM sources s JOIN recordings r ON r.id=s.recording_id
+        JOIN library_access_grants access ON access.library_id=r.library_id AND access.user_id=?
+        WHERE s.id=? AND r.id=?",
+    )
+    .bind(actor.id())
+    .bind(source)
+    .bind(recording)
+    .fetch_optional(&store.pool)
+    .await?
+    .ok_or(Error::NotFound)
 }
 
 impl PlaybackSource {
@@ -136,7 +121,15 @@ impl PlaybackSource {
     }
 
     pub fn is_local(&self) -> bool {
-        matches!(self.binding, Binding::Local(_))
+        self.origin.local()
+    }
+
+    pub(super) fn actor(&self) -> &Actor {
+        &self.actor
+    }
+
+    pub(super) fn located(&self) -> &Located {
+        &self.located
     }
 
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(playback_grant = self.id))]
@@ -145,37 +138,18 @@ impl PlaybackSource {
             return Err(Error::NotFound);
         }
         let result = tokio::time::timeout(Duration::from_secs(1), async {
-            self.actor.check_session(&self.catalog.store).await?;
-            if self
-                .catalog
-                .playback_membership(&self.actor, &self.recording, &self.source)
-                .await?
+            self.actor.check_session(&self.store).await?;
+            if playback_membership(&self.store, &self.actor, &self.recording, &self.source).await?
                 != self.membership
             {
                 return Err(Error::NotFound);
             }
-            match &self.binding {
-                Binding::Local(location)
-                    if self
-                        .catalog
-                        .media_location(&self.actor, &self.source)
-                        .await?
-                        != *location =>
-                {
-                    return Err(Error::NotFound);
-                }
-                Binding::Provider(authority) => authority.check().await?,
-                Binding::Podcast(enclosure)
-                    if self
-                        .catalog
-                        .podcast_enclosure(&self.actor, &self.source)
-                        .await?
-                        .as_ref()
-                        != Some(enclosure) =>
-                {
-                    return Err(Error::NotFound);
-                }
-                _ => {}
+            if !self
+                .origin
+                .still_valid(&self.actor, &self.source, &self.located)
+                .await?
+            {
+                return Err(Error::NotFound);
             }
             Ok(())
         })
@@ -231,42 +205,33 @@ impl PlaybackSource {
         result
     }
 
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
-    pub async fn open_file(&self) -> Result<AudioFile> {
+    pub(super) async fn supervised<T>(
+        &self,
+        operation: impl Future<Output = Result<T>>,
+    ) -> Result<T> {
         self.check().await?;
-        if !matches!(self.binding, Binding::Local(_)) {
-            return Err(Error::NotFound);
-        }
-        let file = tokio::select! {
+        let value = tokio::select! {
             biased;
             error = self.revoked() => return Err(error),
-            result = self.catalog.audio_file(&self.actor, &self.source) => result?,
+            result = operation => result?,
         };
         self.check().await?;
-        Ok(file)
+        Ok(value)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
+    pub async fn open_file(&self) -> Result<AudioFile> {
+        self.supervised(async {
+            self.origin
+                .open_file(&self.actor, &self.source)
+                .await?
+                .ok_or(Error::NotFound)
+        })
+        .await
     }
 
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
     pub async fn open(&self, request: AudioRequest) -> Result<OpenedAudio> {
-        if matches!(self.binding, Binding::Podcast(_)) {
-            return self.open_podcast(request).await;
-        }
-        self.check().await?;
-        let opened = tokio::select! {
-            biased;
-            error = self.revoked() => return Err(error),
-            result = self.catalog.open_audio(&self.actor, &self.source, request) => result?,
-        };
-        self.check().await?;
-        Ok(opened)
-    }
-
-    pub(super) async fn open_podcast(&self, request: AudioRequest) -> Result<OpenedAudio> {
-        let Binding::Podcast(enclosure) = &self.binding else {
-            return Err(Error::NotFound);
-        };
-        self.catalog
-            .open_podcast_audio(self.actor.id(), enclosure, self.clone(), request)
-            .await
+        self.origin.open(self, request).await
     }
 }

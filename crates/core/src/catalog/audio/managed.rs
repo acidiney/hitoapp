@@ -1,13 +1,21 @@
-use crate::catalog::Catalog;
+use super::origin::{AudioOrigin, Located};
 use crate::{
-    Actor, Error, Result,
-    library_storage::{ManagedFileLocation, managed_mime},
+    Actor, AudioFile, Error, HostDeviceId, Result, Store,
+    catalog::push_source_choice,
+    library_storage::{ManagedFileLocation, ManagedFiles, managed_mime},
 };
+use futures_util::future::BoxFuture;
 use sqlx::QueryBuilder;
 use uuid::Uuid;
 
+pub(crate) struct ManagedOrigin {
+    pub store: Store,
+    pub host: HostDeviceId,
+    pub files: ManagedFiles,
+}
+
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::catalog) struct ManagedLocation {
+pub(crate) struct ManagedLocation {
     pub file: ManagedFileLocation,
     intent: String,
     generation: i64,
@@ -27,8 +35,8 @@ struct Selected {
     access_grant: String,
 }
 
-impl Catalog {
-    pub(in crate::catalog) async fn managed_location(
+impl ManagedOrigin {
+    async fn managed_location(
         &self,
         actor: &Actor,
         source: &str,
@@ -55,7 +63,7 @@ impl Catalog {
             .push(" AND file.account_id=")
             .push_bind(actor.id().to_owned())
             .push(" AND file.state='ready' AND ");
-        crate::catalog::push_source_choice(&mut query, actor.id());
+        push_source_choice(&mut query, actor.id());
         query.push(" ORDER BY intent.id LIMIT 1");
         let row: Option<Selected> = query
             .build_query_as()
@@ -77,5 +85,66 @@ impl Catalog {
             generation: row.intent_generation,
             access_grant: row.access_grant,
         }))
+    }
+}
+
+impl AudioOrigin for ManagedOrigin {
+    fn kind(&self) -> &'static str {
+        "managed"
+    }
+
+    fn local(&self) -> bool {
+        true
+    }
+
+    fn locate<'a>(
+        &'a self,
+        actor: &'a Actor,
+        source: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Located>>> {
+        Box::pin(async move {
+            Ok(self
+                .managed_location(actor, source)
+                .await?
+                .map(Located::new))
+        })
+    }
+
+    fn still_valid<'a>(
+        &'a self,
+        actor: &'a Actor,
+        source: &'a str,
+        located: &'a Located,
+    ) -> BoxFuture<'a, Result<bool>> {
+        Box::pin(async move {
+            Ok(self.managed_location(actor, source).await?.as_ref()
+                == Some(located.pinned::<ManagedLocation>()?))
+        })
+    }
+
+    fn open_file<'a>(
+        &'a self,
+        actor: &'a Actor,
+        source: &'a str,
+    ) -> BoxFuture<'a, Result<Option<AudioFile>>> {
+        Box::pin(async move {
+            let Some(location) = self.managed_location(actor, source).await? else {
+                return Ok(None);
+            };
+            let file = match self.files.open_file(&location.file).await {
+                Ok(file) => file,
+                Err(Error::NotFound) => {
+                    crate::downloads::retire_unusable_copy(&self.store, &location.file).await?;
+                    return Err(Error::NotFound);
+                }
+                Err(error) => return Err(error),
+            };
+            if self.managed_location(actor, source).await?.as_ref() != Some(&location) {
+                return Err(Error::NotFound);
+            }
+            actor.check_session(&self.store).await?;
+            tracing::debug!(event = "download_audio_opened");
+            Ok(Some(file))
+        })
     }
 }

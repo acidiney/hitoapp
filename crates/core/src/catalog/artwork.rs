@@ -91,7 +91,7 @@ impl Catalog {
                 .acquire_owned()
                 .await
                 .map_err(|_| crate::Error::Internal("Artwork reader stopped".into()))?;
-            let audio = match self.local_audio(actor, source).await {
+            let audio = match self.local_files.audio(actor, source).await {
                 Ok(audio) => audio,
                 Err(crate::Error::NotFound) => continue,
                 Err(error) => return Err(error),

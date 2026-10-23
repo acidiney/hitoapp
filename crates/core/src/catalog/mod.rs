@@ -5,8 +5,8 @@ pub(crate) mod audio;
 mod availability;
 mod browse;
 mod candidates;
+pub(crate) mod local_files;
 pub use candidates::PlaybackCandidates;
-mod media;
 mod playback;
 pub use playback::PlaybackSource;
 mod preferred;
@@ -59,10 +59,9 @@ pub use artwork::{
     Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, PlaylistArtworkFetch,
     ReleaseArtworkFetch,
 };
-pub use audio::{AudioContent, AudioRequest, AudioStream, ByteRange, OpenedAudio};
+pub use audio::{AudioContent, AudioFile, AudioRequest, AudioStream, ByteRange, OpenedAudio};
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;
-pub use media::AudioFile;
 pub use releases::{Release, ReleaseDetail, ReleaseTrack};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -78,6 +77,6 @@ pub struct Catalog {
     pub(crate) artwork_slots: Arc<Semaphore>,
     pub(crate) provider_artwork_slots: Arc<Semaphore>,
     pub(crate) resolution_callers: provider::CallerAdmission,
-    pub(crate) directories: crate::library_storage::Directories,
-    pub(crate) relay: audio::AudioRelay,
+    pub(crate) local_files: local_files::LocalFiles,
+    pub(crate) origins: audio::origin::Origins,
 }

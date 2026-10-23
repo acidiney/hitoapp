@@ -125,6 +125,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         config.community_rankings,
     )?;
     let podcast_remote = remote_http::RemoteHttp::new(&config.podcast_network);
+    let local_files = catalog::local_files::LocalFiles {
+        store: store.clone(),
+        host: config.host_device.clone(),
+        directories: storage.directories.clone(),
+    };
     let catalog = Catalog {
         community: community.clone(),
         plugins: plugins.clone(),
@@ -134,13 +139,27 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         provider_artwork_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
         resolution_callers: Default::default(),
-        directories: storage.directories.clone(),
-        relay: catalog::audio::AudioRelay {
-            managed: managed.clone(),
-            podcast_remote: podcast_remote.clone(),
-            podcast_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
-            podcast_accounts: admission::Accounts::new(2),
-        },
+        origins: catalog::audio::origin::Origins::new(
+            catalog::audio::provider::ProviderOrigin {
+                store: store.clone(),
+                plugins: plugins.clone(),
+            },
+            std::sync::Arc::new(catalog::audio::podcast::EnclosureOrigin {
+                store: store.clone(),
+                remote: podcast_remote.clone(),
+                slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
+                accounts: admission::Accounts::new(2),
+            }),
+            std::sync::Arc::new(catalog::audio::managed::ManagedOrigin {
+                store: store.clone(),
+                host: config.host_device.clone(),
+                files: managed.clone(),
+            }),
+            std::sync::Arc::new(catalog::audio::local::LocalOrigin {
+                files: local_files.clone(),
+            }),
+        ),
+        local_files,
     };
     tracing::info!("Core services ready");
     Ok(Services {

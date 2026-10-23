@@ -161,8 +161,20 @@ async fn a_managed_grant_dies_when_its_download_is_replaced_and_never_revives() 
         .logout_does_not_revive_a_grant("admin", "indexing test password")
         .await;
     let grant = subject.admitted().await;
-    f.hito.downloads.remove(&f.actor, &intent).await.unwrap();
-    assert_dead(&grant, "download removal").await;
+    let owned = f.directory.path().join("hito.downloads");
+    for entry in std::fs::read_dir(&owned).unwrap() {
+        let path = entry.unwrap().path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "media")
+        {
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+    let unavailable = f.hito.downloads.status(&f.actor, &recording).await.unwrap();
+    assert!(matches!(unavailable.status, DownloadState::Failed));
+    assert_eq!(unavailable.intent_id, intent);
+    assert_dead(&grant, "the managed file was lost").await;
     let (_, replacement) = download(Uuid::new_v4()).await;
     assert_dead(&grant, "a replacement download").await;
     let replaced = Subject {
