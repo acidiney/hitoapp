@@ -76,15 +76,15 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect
     .poll(() =>
       page
-        .locator("audio")
+        .locator("audio[data-hito-player]")
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(0.2);
   const before = await page
-    .locator("audio")
+    .locator("audio[data-hito-player]")
     .evaluate((audio: HTMLAudioElement) => audio.currentTime);
   const playingSource = await page
-    .locator("audio")
+    .locator("audio[data-hito-player]")
     .evaluate((audio: HTMLAudioElement) => audio.src);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await navigation.getByRole("link", { name: "Albums", exact: true }).click();
@@ -127,7 +127,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect
     .poll(() =>
       page
-        .locator("audio")
+        .locator("audio[data-hito-player]")
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
@@ -234,7 +234,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect
     .poll(() =>
       page
-        .locator("audio")
+        .locator("audio[data-hito-player]")
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
@@ -351,12 +351,12 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   );
   expect(
     await page
-      .locator("audio")
+      .locator("audio[data-hito-player]")
       .evaluate((audio: HTMLAudioElement) => audio.src),
   ).toBe(playingSource);
   expect(
     await page
-      .locator("audio")
+      .locator("audio[data-hito-player]")
       .evaluate((audio: HTMLAudioElement) => audio.paused),
   ).toBe(false);
   await navigation.getByRole("link", { name: "Library", exact: true }).click();
@@ -409,14 +409,14 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await page
     .getByRole("button", { name: "Expand player", exact: true })
     .click();
-  await page.route("**/api/v1/recordings/*/sources", (route) =>
+  await page.route("**/api/v1/recordings/*/playback-sources", (route) =>
     route.fulfill({ status: 503 }),
   );
   await expanded.locator(".queue-track").last().click();
   await expect(expanded.getByRole("status")).toContainText(
     "Audio is unavailable",
   );
-  await page.unroute("**/api/v1/recordings/*/sources");
+  await page.unroute("**/api/v1/recordings/*/playback-sources");
   await expanded.locator(".queue-track").first().click();
   await expect(expanded.getByRole("status")).toHaveCount(0);
   await expanded
@@ -442,7 +442,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect
     .poll(() =>
       page
-        .locator("audio")
+        .locator("audio[data-hito-player]")
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
@@ -498,9 +498,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect(
     page.getByRole("tab", { name: "Privacy", exact: true }),
   ).toBeFocused();
-  await expect(page.getByRole("tabpanel")).toContainText(
-    "No playback outcomes",
-  );
+  await expect(page.getByRole("tabpanel")).toContainText("Playback reporting");
   await page.keyboard.press("End");
   await expect(
     page.getByRole("tab", { name: "Accounts", exact: true }),
@@ -549,7 +547,7 @@ test("set up, scan, listen across navigation, edit a playlist, and switch accoun
   await expect
     .poll(() =>
       otherTab
-        .locator("audio")
+        .locator("audio[data-hito-player]")
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(0);
