@@ -123,9 +123,9 @@ The provider serves `GET` and `HEAD v1/audio?source_id=<encoded opaque ID>`. Onl
 
 ```mermaid
 flowchart LR
-  Browser[Authenticated audio request] --> Catalog[Catalog open_audio]
-  Catalog --> Local[Owned local file]
-  Catalog --> Authority[Personal provider source authority]
+  Browser[Authenticated audio request] --> Access[PlaybackAccess open_audio]
+  Access --> Local[Owned local file]
+  Access --> Authority[Personal provider source authority]
   Authority --> Media[Separate bounded media client]
   Media --> Service[Fixed approved audio endpoint]
   Service --> Validate[Status, audio type and byte range validation]

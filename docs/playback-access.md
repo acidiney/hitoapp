@@ -23,7 +23,7 @@ flowchart LR
 
 `PlaybackAccess` owns the grant, the revocation loop and the audio relay. Each source kind is an `AudioOrigin` that locates the source, later says whether what it located is still current, and opens the audio. `Downloads` supplies the managed origin and `Podcasts` the enclosure origin, next to their SQL. Local files and provider streams are origins inside `PlaybackAccess`. A grant keeps the opaque value its origin located, and every check asks that origin again.
 
-Origins are tried in a fixed order: provider, podcast, managed, local. A unit test pins the order. `Catalog` no longer serves audio, and `Downloads` and `Podcasts` no longer depend on it. `tests/playback_origin_contract.rs` runs one contract over all four kinds. A grant dies when its pinned state changes, stays dead after the state returns, and a fresh grant is admitted.
+Origins are tried in a fixed order: provider, podcast, managed, local. A unit test pins the order. `Catalog` no longer serves audio, and `Downloads` and `Podcasts` no longer hold it. They still share some code with it, listed in [RFC 0002](rfcs/0002-playback-access-boundary.md#what-changed). `tests/playback_origin_contract.rs` runs one contract over all four kinds. A grant dies when its pinned state changes, stays dead after the state returns, and a fresh grant is admitted.
 
 ## Checks and revocation
 

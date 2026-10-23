@@ -303,7 +303,7 @@ Local development work, not a release. See [architecture](docs/architecture.md),
 - [x] Fix flaky tests at the root cause instead of retrying them.
 - [x] Rewrite the documentation around the crate graph, with diagrams.
 - [x] Implement RFC 0003, page read models in core.
-- [ ] Finish RFC 0002, the playback access boundary. In progress.
+- [x] Implement RFC 0002, the playback access boundary.
 - [ ] Decide RFC 0001, the provider source lifecycle as one module.
 - [ ] Decide RFC 0004, host identity versus sync client identity. It needs your decision on the wire renames.
 - [ ] Decide the product question: should PlaylistIndex show connected services only, or all services as Discover does?

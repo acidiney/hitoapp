@@ -4,11 +4,11 @@
 
 ## Ownership
 
-The engine accepts an owned `Input`, including `std::fs::File`, with read/seek and length capabilities. It accepts no path, URL, account string, or renderer-supplied authority. A trusted input can perform I/O; `hito-playback::Source` obtains it through core's catalog and retains its [playback access grant](playback-access.md). An opened file alone does not provide revocation.
+The engine accepts an owned `Input`, including `std::fs::File`, with read/seek and length capabilities. It accepts no path, URL, account string, or renderer-supplied authority. A trusted input can perform I/O; `hito-playback::Source` obtains it through core's `PlaybackAccess` and retains its [playback access grant](playback-access.md). An opened file alone does not provide revocation.
 
 ```mermaid
 flowchart LR
-  Catalog[Core catalog / authorized grant] --> Session[hito-playback session and owned input]
+  Access[Core PlaybackAccess / authorized grant] --> Session[hito-playback session and owned input]
   Session --> Player[hito-audio Player]
   Player --> Decoder[Owned decoder worker / Symphonia]
   Decoder --> Tempo[Worker-owned SoundTouch / bounded tempo segments]

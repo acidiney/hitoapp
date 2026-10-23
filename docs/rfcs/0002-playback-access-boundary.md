@@ -149,4 +149,10 @@ Open questions, answered by the smallest change:
 
 `Catalog` keeps a private `LocalFiles` reader because artwork extraction reads embedded pictures from local files. `PlaybackAccess` shares it for the local origin. A provider source opened through `open_audio` still skips grant admission, as before. The old guard that rejected a provider binding in the grant-based open path is gone, because the source-kind filter in SQL already excluded those sources.
 
+Remaining coupling, stated precisely:
+
+- `Downloads` and `Podcasts` no longer hold `Catalog`, but they still import from it. `downloads/managed_origin.rs` and `podcasts/enclosure_origin.rs` use `catalog::push_source_choice`, and `podcasts/episodes.rs` uses `catalog::recordings_on`.
+- There is still a module-level cycle through `playback_access`. `downloads/podcast.rs` and `plugins/media` import `playback_access::relay`, while the managed and enclosure origins live under `downloads/` and `podcasts/` and are only wired together in `lib.rs`. `PlaybackAccess` itself names neither `Downloads` nor `Podcasts`.
+- `PlaybackAccess` reads `catalog` SQL predicates and `LocalFiles`.
+
 `docs/openapi.json` and `apps/web/src/generated.ts` are unchanged.
