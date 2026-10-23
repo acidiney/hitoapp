@@ -1,8 +1,6 @@
 pub(crate) mod headers;
 pub(crate) mod local;
-pub(crate) mod managed;
 pub(crate) mod origin;
-pub(crate) mod podcast;
 pub(crate) mod provider;
 mod range;
 pub(crate) mod remote;

@@ -1,23 +1,24 @@
-use crate::{Error, PlaybackSource, Result};
+use crate::{Error, Result};
 use bytes::Bytes;
+use futures_util::future::BoxFuture;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{Mutex, OwnedSemaphorePermit, watch};
 use tracing::{Instrument, instrument::WithSubscriber};
 
-#[derive(Clone)]
-pub(crate) enum Authority {
-    Provider(Box<crate::plugins::AudioAuthority>),
-    Podcast(Box<PlaybackSource>),
-    Download(crate::downloads::DownloadAuthority),
+pub(crate) trait AuthorityCheck: Send + Sync {
+    fn check(&self) -> BoxFuture<'_, Result<()>>;
 }
 
+#[derive(Clone)]
+pub(crate) struct Authority(Arc<dyn AuthorityCheck>);
+
 impl Authority {
+    pub(crate) fn new(authority: impl AuthorityCheck + 'static) -> Self {
+        Self(Arc::new(authority))
+    }
+
     async fn check(&self) -> Result<()> {
-        match self {
-            Self::Provider(authority) => authority.check().await,
-            Self::Podcast(authority) => authority.check().await,
-            Self::Download(authority) => authority.check().await,
-        }
+        self.0.check().await
     }
 }
 

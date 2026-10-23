@@ -1,7 +1,10 @@
-use super::origin::{AudioOrigin, Located};
+use super::retire_unusable_copy;
 use crate::{
     Actor, AudioFile, Error, HostDeviceId, Result, Store,
-    catalog::push_source_choice,
+    catalog::{
+        audio::origin::{AudioOrigin, Located},
+        push_source_choice,
+    },
     library_storage::{ManagedFileLocation, ManagedFiles, managed_mime},
 };
 use futures_util::future::BoxFuture;
@@ -9,14 +12,14 @@ use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 pub(crate) struct ManagedOrigin {
-    pub store: Store,
-    pub host: HostDeviceId,
-    pub files: ManagedFiles,
+    store: Store,
+    host: HostDeviceId,
+    files: ManagedFiles,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct ManagedLocation {
-    pub file: ManagedFileLocation,
+struct ManagedLocation {
+    file: ManagedFileLocation,
     intent: String,
     generation: i64,
     access_grant: String,
@@ -36,6 +39,10 @@ struct Selected {
 }
 
 impl ManagedOrigin {
+    pub(crate) fn new(store: Store, host: HostDeviceId, files: ManagedFiles) -> Self {
+        Self { store, host, files }
+    }
+
     async fn managed_location(
         &self,
         actor: &Actor,
@@ -134,7 +141,7 @@ impl AudioOrigin for ManagedOrigin {
             let file = match self.files.open_file(&location.file).await {
                 Ok(file) => file,
                 Err(Error::NotFound) => {
-                    crate::downloads::retire_unusable_copy(&self.store, &location.file).await?;
+                    retire_unusable_copy(&self.store, &location.file).await?;
                     return Err(Error::NotFound);
                 }
                 Err(error) => return Err(error),

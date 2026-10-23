@@ -124,11 +124,11 @@ impl PlaybackSource {
         self.origin.local()
     }
 
-    pub(super) fn actor(&self) -> &Actor {
+    pub(crate) fn actor(&self) -> &Actor {
         &self.actor
     }
 
-    pub(super) fn located(&self) -> &Located {
+    pub(crate) fn located(&self) -> &Located {
         &self.located
     }
 
@@ -184,7 +184,7 @@ impl PlaybackSource {
     }
 
     #[tracing::instrument(level = "trace", skip_all, err(Debug), fields(playback_grant = self.id))]
-    pub(super) async fn while_authorized<T>(
+    pub(crate) async fn while_authorized<T>(
         &self,
         operation: impl Future<Output = Result<T>>,
     ) -> Result<T> {
@@ -205,7 +205,7 @@ impl PlaybackSource {
         result
     }
 
-    pub(super) async fn supervised<T>(
+    pub(crate) async fn supervised<T>(
         &self,
         operation: impl Future<Output = Result<T>>,
     ) -> Result<T> {
@@ -233,5 +233,11 @@ impl PlaybackSource {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(playback_grant = self.id))]
     pub async fn open(&self, request: AudioRequest) -> Result<OpenedAudio> {
         self.origin.open(self, request).await
+    }
+}
+
+impl super::audio::remote::AuthorityCheck for PlaybackSource {
+    fn check(&self) -> futures_util::future::BoxFuture<'_, Result<()>> {
+        Box::pin(PlaybackSource::check(self))
     }
 }

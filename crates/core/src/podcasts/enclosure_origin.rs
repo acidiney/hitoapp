@@ -1,10 +1,14 @@
-use super::{
-    AudioRequest, AudioStream, OpenedAudio, headers,
-    origin::{AudioOrigin, Located},
-    remote::{Authority, Permits, RemoteAudio},
-};
 use crate::{
-    Actor, Error, PlaybackSource, Result, Store, admission::Accounts, catalog::push_source_choice,
+    Actor, AudioRequest, AudioStream, Error, OpenedAudio, PlaybackSource, Result, Store,
+    admission::Accounts,
+    catalog::{
+        audio::{
+            headers,
+            origin::{AudioOrigin, Located},
+            remote::{Authority, Permits, RemoteAudio},
+        },
+        push_source_choice,
+    },
     remote_http::RemoteHttp,
 };
 use futures_util::future::BoxFuture;
@@ -13,27 +17,36 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 
 pub(crate) struct EnclosureOrigin {
-    pub store: Store,
-    pub remote: RemoteHttp,
-    pub slots: Arc<Semaphore>,
-    pub accounts: Accounts,
+    store: Store,
+    remote: RemoteHttp,
+    slots: Arc<Semaphore>,
+    accounts: Accounts,
 }
 
 #[derive(Clone, PartialEq, Eq, sqlx::FromRow)]
-pub(crate) struct PodcastEnclosure {
-    pub source_id: String,
-    pub episode_id: String,
-    pub recording_id: String,
-    pub user_id: String,
-    pub subscription_id: String,
-    pub subscription_generation: i64,
-    pub enclosure_revision: i64,
-    pub enclosure_url: String,
-    pub declared_mime: Option<String>,
-    pub byte_length: Option<i64>,
+struct PodcastEnclosure {
+    source_id: String,
+    episode_id: String,
+    recording_id: String,
+    user_id: String,
+    subscription_id: String,
+    subscription_generation: i64,
+    enclosure_revision: i64,
+    enclosure_url: String,
+    declared_mime: Option<String>,
+    byte_length: Option<i64>,
 }
 
 impl EnclosureOrigin {
+    pub(crate) fn new(store: Store, remote: RemoteHttp) -> Self {
+        Self {
+            store,
+            remote,
+            slots: Arc::new(Semaphore::new(16)),
+            accounts: Accounts::new(2),
+        }
+    }
+
     async fn podcast_enclosure(
         &self,
         actor: &Actor,
@@ -88,7 +101,7 @@ impl EnclosureOrigin {
             audio.body = Some(AudioStream::remote(
                 RemoteAudio::new(
                     remote.response,
-                    Authority::Podcast(Box::new(grant.clone())),
+                    Authority::new(grant.clone()),
                     Some(Permits {
                         _account: account,
                         _global: global,

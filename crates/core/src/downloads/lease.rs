@@ -236,3 +236,9 @@ pub(super) fn stored_uuid(value: &str) -> Result<Uuid> {
     Uuid::parse_str(value)
         .map_err(|_| Error::Internal("Stored download identity is invalid".into()))
 }
+
+impl crate::catalog::audio::remote::AuthorityCheck for DownloadAuthority {
+    fn check(&self) -> futures_util::future::BoxFuture<'_, Result<()>> {
+        Box::pin(DownloadAuthority::check(self))
+    }
+}

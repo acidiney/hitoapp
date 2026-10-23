@@ -34,7 +34,7 @@ impl Downloads {
                     audio.body = Some(AudioStream::remote(
                         RemoteAudio::new(
                             remote.response,
-                            Authority::Download(lease.authority(&self.store)),
+                            Authority::new(lease.authority(&self.store)),
                             None,
                         ),
                         audio.length,

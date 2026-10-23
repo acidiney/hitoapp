@@ -101,7 +101,7 @@ impl MediaClient {
             audio.body = Some(AudioStream::remote(
                 RemoteAudio::new(
                     response,
-                    StreamAuthority::Provider(Box::new(authority)),
+                    StreamAuthority::new(authority),
                     Some(Permits {
                         _account: account,
                         _global: global,

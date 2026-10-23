@@ -1,3 +1,4 @@
+mod enclosure_origin;
 mod episodes;
 mod feed;
 mod lifecycle;
@@ -13,6 +14,7 @@ mod archive_query_work;
 mod query_work;
 
 use crate::{Catalog, remote_http::RemoteHttp, store::Store};
+pub(crate) use enclosure_origin::EnclosureOrigin;
 pub use types::{
     EpisodesWithProgress, PodcastEpisode, PodcastEpisodePage, PodcastEpisodeQuery,
     PodcastRefreshReceipt, PodcastSubscription, PodcastSubscriptionReceipt,

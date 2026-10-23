@@ -1,6 +1,7 @@
 mod cleanup;
 mod health;
 mod lease;
+mod managed_origin;
 mod origin;
 mod playlist_admission;
 mod playlist_changes;
@@ -19,8 +20,8 @@ mod types;
 mod worker;
 
 use crate::{HostDeviceId, Plugins, library_storage::ManagedFiles, store::Store};
-pub(crate) use health::retire_unusable_copy;
-pub(crate) use lease::DownloadAuthority;
+use health::retire_unusable_copy;
+pub(crate) use managed_origin::ManagedOrigin;
 pub(crate) use origin::OriginSelection;
 pub(crate) use playlist_changes::playlist_changed_on;
 pub use playlist_types::{

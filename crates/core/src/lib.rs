@@ -144,17 +144,15 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
                 store: store.clone(),
                 plugins: plugins.clone(),
             },
-            std::sync::Arc::new(catalog::audio::podcast::EnclosureOrigin {
-                store: store.clone(),
-                remote: podcast_remote.clone(),
-                slots: std::sync::Arc::new(tokio::sync::Semaphore::new(16)),
-                accounts: admission::Accounts::new(2),
-            }),
-            std::sync::Arc::new(catalog::audio::managed::ManagedOrigin {
-                store: store.clone(),
-                host: config.host_device.clone(),
-                files: managed.clone(),
-            }),
+            std::sync::Arc::new(podcasts::EnclosureOrigin::new(
+                store.clone(),
+                podcast_remote.clone(),
+            )),
+            std::sync::Arc::new(downloads::ManagedOrigin::new(
+                store.clone(),
+                config.host_device.clone(),
+                managed.clone(),
+            )),
             std::sync::Arc::new(catalog::audio::local::LocalOrigin {
                 files: local_files.clone(),
             }),

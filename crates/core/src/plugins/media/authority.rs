@@ -50,3 +50,9 @@ impl Authority {
         }
     }
 }
+
+impl crate::catalog::audio::remote::AuthorityCheck for Authority {
+    fn check(&self) -> futures_util::future::BoxFuture<'_, Result<()>> {
+        Box::pin(Authority::check(self))
+    }
+}
