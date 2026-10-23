@@ -61,6 +61,33 @@ Dropping the session or canceling a caller waiting for startup or close requests
 
 Revocation uses the [core grant's polling and query deadlines](playback-access.md), not an instantaneous cutoff. Already submitted device audio can still drain. An operating-system read, container seek, or driver call cannot be forcibly interrupted in process, so joined cleanup may wait for it to return.
 
+## System media sink
+
+The playback owner can publish to the operating system's Now Playing surface through `MediaSink`, a small trait in `hito-playback`. The owner passes it structural facts only. The React UI is not involved, so native mode needs no audio element and no Media Session code.
+
+```mermaid
+flowchart LR
+  State[Owner state and position watch] --> Driver[Media driver]
+  Driver -->|key change| Load[Recording and artwork load as the owning account]
+  Load --> Publisher[Publisher]
+  Driver --> Publisher
+  Publisher -->|track, state, clear| Sink[MediaSink]
+  Sink --> OS[Operating system]
+  OS -->|MediaCommand| Driver
+  Driver -->|Host action| Admission[Normal admission and session check]
+  Admission --> State
+```
+
+The publisher keeps one current track keyed by account, queue entry and recording. A key change clears the sink at once and starts one metadata load. The load reads the recording through the owner's account session, then the release image, then the recording image. An image counts only if it is a PNG or JPEG of at most 2 MiB and 1024 by 1024 pixels, judged from the file header and not from the declared type. A slow image is dropped after three seconds. A result for an earlier key is ignored. A failed load publishes nothing.
+
+Title, artist and album are published once per track. Playback state is republished on pause, resume, seek, speed change and track change. Position ticks never reach the sink, so the operating system extrapolates between updates. The duration is the decoded one unless it is more than 10 percent and 5 seconds longer than the recording's known duration, in which case the known one wins. This is the rule the browser player uses. If the decoded duration changes by a second or more after the first publish, the track is published again with it.
+
+The sink is cleared when the queue empties, the session is withdrawn (logout or a failed session check), another session claims the player, a system Stop arrives, and when the owner closes.
+
+System commands are Play, Pause, Toggle, Next, Previous, Stop, absolute Seek and relative seek. The owner turns each into an ordinary player action for the owning account and admits it through the same session check as an HTTP command. Stop maps to Clear, as in the browser. Seeks are clamped to the reconciled duration and ignored when none is known. These commands take their lease, sequence and revision from the owner at admission time, then restore the sequence counter, so a media key never makes a client's next command a conflict. When the request queue is full a system command is dropped.
+
+Current limits. The state shows paused for a moment while a track loads. The playback rate is passed to the sink, but the chosen OS crate has no rate field, so a sped-up track drifts on the operating system's clock until the next state change. No physical operating-system panel has been checked. See [the desktop host](desktop.md#system-media-controls).
+
 ## Verification and limits
 
 After building the Docker Rust and desktop images, run:

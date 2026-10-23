@@ -54,6 +54,18 @@ Dropping the host or canceling a caller waiting for shutdown only sends the stop
 
 Existing core cancellation guards also stop snapshot readers and directory walks. A blocked operating-system filesystem call cannot be forcibly interrupted in process. Its read-only helper retains its own handle and permit until that call returns. This host verification does not establish disconnected-drive behavior or synchronously join every filesystem thread.
 
+## System media controls
+
+The desktop host shows the playing track in the operating system's Now Playing surface and accepts its transport buttons. The playback owner supplies the data, as described in [native playback](native-playback.md#system-media-sink). The host adds three pieces.
+
+`SystemMedia` implements the owner's sink. It maps title, artist, album, duration and playing or paused state onto an OS controls interface, and drops empty artist and album strings. Bounded artwork is written to `media-artwork/` in the application data directory, in a directory with mode 0700 and a file with mode 0600, and passed as a `file:` URL. There is one file per track. It is deleted on the next track, on clear and on shutdown, and leftovers are removed at startup. The path goes to the operating system only. It is never logged.
+
+`OsControls` wraps the `souvlaki` crate, which uses MPNowPlayingInfoCenter and MPRemoteCommandCenter on macOS, SystemMediaTransportControls on Windows and MPRIS over D-Bus on Linux. It is compiled only with the `gui` feature and is created on first use, after the window exists, because Windows needs the window handle. If creation fails the host logs one safe warning and playback continues without media keys.
+
+Tauri's setup creates the command channel and passes the sink to `LocalHost::start_with_media`. Hosts without a sink, including every test host, use `LocalHost::start` and behave as before.
+
+Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
+
 ## Development verification
 
 Run both checks from the repository root:
