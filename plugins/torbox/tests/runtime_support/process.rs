@@ -45,7 +45,7 @@ pub fn free_address() -> SocketAddr {
         0,
     ))
     .and_then(|reservation| reservation.local_addr())
-        .unwrap_or_else(|_| panic!("an owned listen address must reserve"))
+    .unwrap_or_else(|_| panic!("an owned listen address must reserve"))
 }
 
 pub fn refuses_connections(address: SocketAddr) -> bool {
