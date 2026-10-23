@@ -1,0 +1,13 @@
+{
+  "name": "hito",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace apps/web",
+    "test": "npm test --workspace apps/web",
+    "e2e": "npm run e2e --workspace apps/web",
+    "generate:api": "npm run generate:api --workspace apps/web"
+  }
+}

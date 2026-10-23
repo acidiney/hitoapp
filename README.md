@@ -42,7 +42,7 @@ Run builds and tests inside Docker. The root `Makefile` is the single task entry
 ```sh
 make test-rust     # cargo test for the whole workspace, plus the ignored storage walk test
 make test-web      # vitest
-make web-install   # npm ci
+make web-install   # npm ci (root workspace, installs into apps/web/node_modules)
 make web-audit     # npm audit, high severity
 make lint          # clippy with warnings denied
 make fmt           # rustfmt, rewrites files

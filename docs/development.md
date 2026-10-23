@@ -20,7 +20,7 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make test-rust` | `cargo test --workspace --locked` with the debrid and plugin `test-support` features, then the ignored `storage_walk_stalls` test in `hito-core` |
 | `make lint` | `cargo clippy --workspace --all-targets` with warnings denied |
 | `make test-web` | `npm test` (vitest) in `apps/web` |
-| `make web-install` | `npm ci` in `apps/web` |
+| `make web-install` | `npm ci` from `apps/web`, which installs the root npm workspace into `apps/web/node_modules` |
 | `make web-audit` | `npm audit --audit-level=high` |
 | `make web-build` | `npm run build` |
 | `make contracts` | `scripts/check-contracts.sh` |
@@ -28,6 +28,10 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make e2e` | Generate the e2e audio fixtures, recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server |
 | `make desktop` | `scripts/check-desktop.sh` |
 | `make verify` | `scripts/verify.sh`, the full check. The script only calls the targets above |
+
+## npm workspace
+
+The repository root has a `package.json` that declares `apps/web` as its only workspace, one `package-lock.json`, and a `.npmrc` with `install-strategy=nested`. Dependencies still install into `apps/web/node_modules`, so the compose volumes and the scripts that import `apps/web/node_modules/@playwright/test` keep working. Run npm from `/workspace/apps/web` as before. The container also writes a small `node_modules` at the repository root (a workspace link, npm's hidden lockfile and the vitest cache). It holds no dependencies, and git ignores it. To change a dependency, run `npm install -w apps/web <package>` in the `node` service from `/workspace` and review the lockfile diff, because the nested strategy can reshape it.
 
 ## Docker only
 
