@@ -8,8 +8,9 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    ArtistIdentityChoiceReceipt, ChooseRecordingArtistIdentity, RecordingArtistIdentityChoice,
-    ResetRecordingArtistIdentity, Services,
+    ApplyArtistIdentityToCredit, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
+    ChooseRecordingArtistIdentity, RecordingArtistIdentityChoice, ResetRecordingArtistIdentity,
+    Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -103,6 +104,39 @@ pub async fn reset(
             .unwrap_or_else(|error| error.code()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Artist identity reset HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/artists/{id}/artist-identity", operation_id = "apply_artist_identity_to_credit",
+    params(("id" = String, Path)), request_body = ApplyArtistIdentityToCredit,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistIdentityCreditReceipt), (status = 400, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "info", skip_all, fields(operation = "http_artist_identity_credit", request_id = %Uuid::new_v4()))]
+pub async fn apply_to_credit(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<ApplyArtistIdentityToCredit>,
+) -> ApiResult<Json<ArtistIdentityCreditReceipt>> {
+    let started = Instant::now();
+    let result = services
+        .catalog
+        .apply_artist_identity_to_credit(&actor, &id, request)
+        .await;
+    tracing::info!(
+        outcome = result
+            .as_ref()
+            .map(|_| "accepted")
+            .unwrap_or_else(|error| error.code()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Artist identity credit HTTP request completed"
     );
     Ok(Json(result?))
 }

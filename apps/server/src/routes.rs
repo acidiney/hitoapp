@@ -124,6 +124,7 @@ fn api_routes() -> OpenApiRouter<Services> {
             api::artist_identity::choose
         ))
         .routes(routes!(api::artist_identity::reset))
+        .routes(routes!(api::artist_identity::apply_to_credit))
         .routes(routes!(api::artist_identity_groups::list))
         .routes(routes!(api::artist_identity_groups::read))
         .routes(routes!(api::artist_profiles::associations))
