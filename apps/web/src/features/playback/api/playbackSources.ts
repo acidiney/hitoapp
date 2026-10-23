@@ -1,13 +1,29 @@
 import { createUuid } from "../../../shared/uuid";
 import type {
+  PrepareSource,
   ResolveSource,
   Source as ApiSource,
+  SourcePreparationStatus,
   SourceResolution,
 } from "../../../shared/types";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
-export type Source = Pick<ApiSource, "id" | "ready">;
+export type Source = Pick<ApiSource, "id" | "ready"> &
+  Partial<Pick<ApiSource, "can_prepare">>;
+export type SourcePreparer = {
+  start(
+    recording: string,
+    source: string,
+    body: Readonly<PrepareSource>,
+    signal: AbortSignal,
+  ): Promise<unknown>;
+  status(
+    recording: string,
+    source: string,
+    signal: AbortSignal,
+  ): Promise<SourcePreparationStatus | null>;
+};
 type SourceRequest =
   | { purpose: "cached" | "refresh" }
   | { purpose: "resolve"; body: Readonly<ResolveSource> };
@@ -24,6 +40,7 @@ export class PlaybackSources {
   private resolved = false;
   private attempted = new Set<string>();
   private resolutionOutcome: SourceResolution["outcome"] | null = null;
+  private waiting: Source | null = null;
 
   constructor(
     private recording: string,
@@ -38,6 +55,18 @@ export class PlaybackSources {
 
   get outcome(): SourceResolution["outcome"] | null {
     return this.resolutionOutcome;
+  }
+
+  get deferred(): Source | null {
+    return this.waiting;
+  }
+
+  async reloadCached(): Promise<void> {
+    if (this.controller.signal.aborted) return;
+    await this.load({ purpose: "cached" });
+    this.candidates = this.candidates.filter(
+      (candidate) => !this.attempted.has(candidate.id),
+    );
   }
 
   async next(): Promise<Source | undefined> {
@@ -132,6 +161,9 @@ export class PlaybackSources {
     const sources = Array.isArray(result) ? result : result.sources;
     if (!Array.isArray(result)) this.resolutionOutcome = result.outcome;
     const seen = new Set<string>();
+    this.waiting =
+      sources.find((source) => !source.ready && source.can_prepare === true) ??
+      null;
     this.candidates = sources.filter((source) => {
       if (
         !source.ready ||

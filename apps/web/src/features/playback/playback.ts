@@ -14,6 +14,7 @@ import { log } from "../../shared/log";
 import {
   PlaybackSources,
   type Source,
+  type SourcePreparer,
   type SourceResolver,
 } from "./api/playbackSources";
 import { BrowserTraversal } from "./browser/BrowserTraversal";
@@ -73,6 +74,7 @@ export class Playback implements Player {
     private mediaOwner?: BrowserMediaOwner,
     prepareAudiobook?: AudiobookPreparer,
     onSuccess?: (source: string, claim: SuccessfulPlayback) => void,
+    sourcePreparer?: SourcePreparer,
   ) {
     this.community = onSuccess
       ? new BrowserCommunityObservation(onSuccess)
@@ -89,7 +91,7 @@ export class Playback implements Player {
       return result !== false;
     });
     this.lookahead = mediaOwner
-      ? new BrowserLookahead(resolve, mediaOwner)
+      ? new BrowserLookahead(resolve, mediaOwner, sourcePreparer)
       : null;
     this.audiobook = new BrowserAudiobookRun(
       {

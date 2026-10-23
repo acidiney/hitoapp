@@ -4,8 +4,14 @@ import type { MediaPort } from "../model";
 import {
   PlaybackSources,
   type Source,
+  type SourcePreparer,
   type SourceResolver,
 } from "../api/playbackSources";
+import { prepareDeferredSource } from "./BrowserDeferredSource";
+
+const ACQUISITION_MS = 15_000;
+const PROVIDER_PREPARATION_MS = 90_000;
+const BOUNDARY_WAIT_MS = 10_000;
 
 export type BrowserMediaOwner = {
   create(): MediaPort;
@@ -38,18 +44,21 @@ export class BrowserPreparation {
   private timer: ReturnType<typeof setTimeout>;
   private ready: Promise<Prepared | null>;
   private started = performance.now();
+  private abort = new AbortController();
+  private provider = false;
 
   constructor(
     readonly target: PreparationTarget,
     resolve: SourceResolver,
     private owner: BrowserMediaOwner,
     seed?: Source,
+    private preparer?: SourcePreparer,
   ) {
     this.sources = new PlaybackSources(target.recording, resolve, seed);
     this.stopped = new Promise<null>((resolve) => {
       this.cancelled = resolve;
     });
-    this.timer = setTimeout(() => this.close("deadline"), 15_000);
+    this.timer = setTimeout(() => this.close("deadline"), ACQUISITION_MS);
     this.ready = Promise.race([this.prepare(), this.stopped]);
     log.debug("playback.next_preparation_started", {
       recording_id: target.recording,
@@ -59,7 +68,8 @@ export class BrowserPreparation {
 
   private async prepare(): Promise<Prepared | null> {
     try {
-      const source = await this.sources.next();
+      let source = await this.sources.next();
+      if (!source && !this.closed) source = await this.prepareDeferred();
       if (this.closed) return null;
       if (!source) {
         clearTimeout(this.timer);
@@ -102,8 +112,32 @@ export class BrowserPreparation {
     }
   }
 
+  private async prepareDeferred(): Promise<Source | undefined> {
+    const waiting = this.sources.deferred;
+    if (!this.preparer || !waiting) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(
+      () => this.close("deadline"),
+      Math.max(0, PROVIDER_PREPARATION_MS - (performance.now() - this.started)),
+    );
+    this.provider = true;
+    try {
+      const ready = await prepareDeferredSource(
+        this.preparer,
+        this.target.recording,
+        waiting.id,
+        this.abort.signal,
+      );
+      if (!ready || this.closed) return;
+      await this.sources.reloadCached();
+      return this.sources.next();
+    } finally {
+      this.provider = false;
+    }
+  }
+
   async read(): Promise<Prepared | null> {
-    const prepared = await this.ready;
+    const prepared = await this.settled();
     if (this.closed || !prepared) return null;
     const started = performance.now();
     try {
@@ -129,6 +163,25 @@ export class BrowserPreparation {
     return prepared;
   }
 
+  private async settled(): Promise<Prepared | null> {
+    if (!this.provider) return this.ready;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const limit = new Promise<"waited">((resolve) => {
+      timer = setTimeout(() => resolve("waited"), BOUNDARY_WAIT_MS);
+    });
+    const outcome = await Promise.race([this.ready, limit]);
+    clearTimeout(timer);
+    if (outcome !== "waited") return outcome;
+    log.debug("playback.next_preparation_finished", {
+      recording_id: this.target.recording,
+      operation_id: this.id,
+      reason: "provider_still_preparing",
+      duration_ms: Math.round(performance.now() - this.started),
+    });
+    this.abort.abort();
+    return this.ready;
+  }
+
   transfer() {
     if (this.closed) return false;
     this.transferred = true;
@@ -142,6 +195,7 @@ export class BrowserPreparation {
     this.closed = true;
     clearTimeout(this.timer);
     this.sources.close();
+    this.abort.abort();
     this.cancelBuffer?.();
     this.releaseMedia();
     this.cancelled(null);

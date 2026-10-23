@@ -1,4 +1,8 @@
-import type { SourceResolver, Source } from "../api/playbackSources";
+import type {
+  SourcePreparer,
+  SourceResolver,
+  Source,
+} from "../api/playbackSources";
 import type { PlaybackOccurrence } from "../model";
 import {
   BrowserPreparation,
@@ -19,6 +23,7 @@ export class BrowserLookahead {
   constructor(
     private resolve: SourceResolver,
     private owner: BrowserMediaOwner,
+    private preparer?: SourcePreparer,
   ) {}
 
   cancel() {
@@ -50,6 +55,7 @@ export class BrowserLookahead {
       this.resolve,
       this.owner,
       seed,
+      this.preparer,
     );
   }
 

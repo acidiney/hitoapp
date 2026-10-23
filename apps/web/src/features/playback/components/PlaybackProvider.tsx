@@ -12,6 +12,7 @@ import type { MediaPort, Player } from "../model";
 import { log } from "../../../shared/log";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { NativePlayback } from "../native/NativePlayback";
+import { sourcePreparationApi } from "../../sources/api/sourcePreparationApi";
 import { sourceResolutionApi } from "../../sources/api/sourceResolutionApi";
 import { useBrowserMediaSession } from "../browser/BrowserMediaSession";
 import { BrowserProgress } from "../browser/BrowserProgress";
@@ -118,6 +119,12 @@ function BrowserAccountPlayback({
         return playback;
       },
       (source, claim) => community.admit(source, claim),
+      {
+        start: (recording, source, body, signal) =>
+          sourcePreparationApi.create(account, recording, source, body, signal),
+        status: (recording, source, signal) =>
+          sourcePreparationApi.status(account, recording, source, signal),
+      },
     );
     return { audio, media, player, community };
   });

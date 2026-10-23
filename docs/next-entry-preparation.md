@@ -1,6 +1,6 @@
 # Preparing the next browser queue entry
 
-The shared browser player prepares one upcoming queue occurrence while the current track plays. This is deployed to the normal local development server. Native preparation, unavailable-source preparation and release performance acceptance remain open.
+The shared browser player prepares one upcoming queue occurrence while the current track plays. This is deployed to the normal local development server. Native preparation, deployment of provider-side preparation and release performance acceptance remain open.
 
 ## Ownership and behavior
 
@@ -20,11 +20,21 @@ flowchart LR
   Fresh --> Current
 ```
 
-The preparation owns its source attempts, cancellation signal and paused media. It has a fifteen-second background acquisition/buffering deadline. It can resolve a ready source through approved providers, but does not yet start the separate unavailable-source preparation workflow. Preparation never issues Download or Keep offline commands.
+The preparation owns its source attempts, cancellation signal and paused media. It has a fifteen-second background acquisition/buffering deadline. It runs the same ordered stages as ordinary Play: existing sources, one refresh, one automatic resolution. All of that happens while the current track plays, never at the transition. Preparation never issues Download or Keep offline commands.
 
 At handoff, current authorized source order is read again. A historical resolution result does not override a newer manual source choice. An exhausted preparation also checks for a source that became ready while the current track played. This final server read means prebuffering alone does not establish a gapless or zero-wait transition.
 
 Queue replacement, removal, repeat/shuffle changes and account teardown cancel obsolete work. Ownership is limited to current media and one preparation. A repeated recording retains distinct queue entry IDs and can reuse a verified current source without repeating provider matching. Buffer transfer releases the outgoing element. If seeking the adopted element fails, ordinary source recovery retains its attempt identity and requested position.
+
+## Sources that need provider preparation
+
+When those stages leave no ready source but the next entry has one that an approved connection can prepare (`ready` false, `can_prepare` true), lookahead asks the provider to prepare it. This is the same `POST .../sources/{source}/preparation` request the Prepare audio button sends, with one request UUID and no automatic retry. A rejected request (quota, authorization) ends the attempt.
+
+Lookahead then checks the status every five seconds, or later if the server sets `next_check_at`, for up to 90 seconds from the start of preparation. `failed`, `blocked`, `cancelled` and `submission_unknown` end the attempt. Three consecutive failed status reads also end it. On `ready` it re-reads the authorized sources, so a manual choice made meanwhile still decides which source plays, then buffers that source as usual.
+
+At the boundary, a source that is still preparing is awaited for at most ten seconds. After that the entry is skipped as unavailable, which is today's outcome, and the polling stops. Queue edits, skips, repeat/shuffle changes and account teardown abort the polling and any buffered media. The server keeps its own durable preparation. Hito has no cancel endpoint, so an abandoned request still finishes there and the source is ready the next time it is played. Hito never creates a download.
+
+Only the first preparable source in authorized order is prepared, and only for the one upcoming entry. This does spend provider quota without a click. The play-time path still never prepares a source on its own; only lookahead does.
 
 ## Verification
 
@@ -47,3 +57,9 @@ A stopped whole-volume clone rehearsal and a fresh normal backup precede local p
 The later browser Media Session image `sha256:3c2941e1ea009813503c39cd0fb0ca1bfefea5477189d4202c6ae1be5278221c` retains the same Rust application and is now deployed locally. Fresh next-entry workflows on that exact image pass Chromium in 21.6 seconds and WebKit in 22.6 seconds after integration. These remain workflow timings, not latency benchmarks.
 
 Native playback, unavailable/debrid preparation, physical Safari behavior, broader outages, codec coverage, measured start/recovery targets and deterministic gapless verification remain separate gates. See [the release backlog](../TODO.md).
+
+## Provider preparation evidence
+
+Fourteen provider-boundary cases cover the next entry in this state: request and status checks during current playback with the current element never paused, buffer adoption without a second search or download, the five-second cadence, each stopped phase, a rejected request without retry, a non-preparable source, one preparation however many position ticks arrive, cancellation on skip, queue edit and account change, a manual choice made during preparation, and the ten-second boundary limit in both directions. They failed before the change and the 142 playback cases pass after it.
+
+A default-run Chromium test (`next-entry-deferred-preparation.spec.ts`) uses the shared provider fixture, now with an optional preparation capability. It plays the first of two tracks, sees one prepare request for the second, sees the second track's audio fetched while the first still plays with no pause event, then seeks the first to near its end. The `playing` event for the second track follows the first track's `ended` event by under one second. No Download request is sent. This is one workflow timing, not a latency benchmark. Native playback and gapless output are still open.

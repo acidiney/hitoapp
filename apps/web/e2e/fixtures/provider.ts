@@ -2,7 +2,11 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
-export async function providerFixture(prefix = "Relay", expanded = false) {
+export async function providerFixture(
+  prefix = "Relay",
+  expanded = false,
+  preparation = false,
+) {
   const audio = await readFile(
     "/workspace/fixtures/e2e-generated/Music/Fixture 440 Hz.wav",
   );
@@ -42,6 +46,8 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
     { id: string; label: string; ready: boolean }[]
   >();
   const failures = new Map<string, number>();
+  const prepared = new Set<string>();
+  const preparations = { begin: 0, status: 0 };
   const sourceRequests: string[] = [];
   const gates = new Map<
     string,
@@ -131,9 +137,46 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
           id: "org.hito.relay-fixture",
           name: "Relay fixture",
           protocol_version: 1,
-          capabilities: ["search", "sources"],
+          capabilities: preparation
+            ? ["search", "sources", "source_preparation"]
+            : ["search", "sources"],
         };
         break;
+      case "/fixture/v1/sources/prepare":
+      case "/fixture/v1/sources/preparation/status": {
+        const value = JSON.parse(body);
+        const target = {
+          operation_id: value.operation_id,
+          recording_id: value.recording_id,
+          source_id: value.source_id,
+        };
+        const waiting = {
+          phase: "preparing",
+          progress_basis_points: 2500,
+          poll_after_seconds: 5,
+        };
+        if (url.pathname.endsWith("/prepare")) {
+          preparations.begin++;
+          reply = {
+            ...target,
+            submission: {
+              outcome: "accepted",
+              handle: "fixture-preparation-handle",
+              status: waiting,
+            },
+          };
+        } else {
+          preparations.status++;
+          reply = {
+            ...target,
+            handle: value.handle,
+            status: prepared.has(value.source_id)
+              ? { phase: "ready" }
+              : waiting,
+          };
+        }
+        break;
+      }
       case "/fixture/v1/search":
         reply =
           JSON.parse(body).cursor === "browser-private-next"
@@ -218,6 +261,17 @@ export async function providerFixture(prefix = "Relay", expanded = false) {
         items.map((item) => ({ ...item })),
       );
       items.forEach((item) => sources.add(item.id));
+    },
+    preparations,
+    releasePreparation: (recordingId: string) => {
+      const id = sourceFor(recordingId);
+      prepared.add(id);
+      sourcePages.set(
+        recordingId,
+        (sourcePages.get(recordingId) ?? []).map((item) =>
+          item.id === id ? { ...item, ready: true } : item,
+        ),
+      );
     },
     failSource: (id: string, status = 410) => {
       failures.set(id, status);
