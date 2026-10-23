@@ -687,55 +687,67 @@ test("a rejected submission is not repeated after pausing and resuming", async (
   }
 });
 
-test("polling stops at the ninety second deadline", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-  const media = browserPreparationMedia();
-  const { requests } = workflow({
-    nextSources: () => [waitingSource],
-    prepare: accepted,
-    poll: () => Response.json(status("preparing")),
-  });
-  const { players, unmount } = renderPlaybackAccount("alice");
-  const player = players.get("alice")!;
-  try {
-    await act(async () => {
-      await player.playQueue([first, next]);
+test.each([
+  ["a preparing status", () => Response.json(status("preparing"))],
+  ["an absent status", () => Response.json({ error: "none" }, { status: 404 })],
+])(
+  "polling %s stops at the ninety second bound and the entry falls back",
+  async (_name, poll) => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const media = browserPreparationMedia();
+    const { requests } = workflow({
+      nextSources: () => [waitingSource],
+      prepare: accepted,
+      poll,
     });
-    await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(85_000);
-    });
-    const reads = statusReads(requests).length;
-    expect(reads).toBeGreaterThan(10);
-    const pending = statusReads(requests).at(-1)!;
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
-    });
-    expect(statusReads(requests).length).toBeLessThanOrEqual(reads + 1);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    expect(statusReads(requests).length).toBeLessThanOrEqual(reads + 1);
-    expect(pending.signal.aborted || statusReads(requests).length > reads).toBe(
-      true,
-    );
-  } finally {
-    unmount();
-    media.close();
-  }
-});
+    const { players, unmount } = renderPlaybackAccount("alice");
+    const player = players.get("alice")!;
+    try {
+      await act(async () => {
+        await player.playQueue([first, next, after]);
+      });
+      const current = media.created[0];
+      await vi.waitFor(() => expect(statusReads(requests)).toHaveLength(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80_000);
+      });
+      expect(statusReads(requests).length).toBeGreaterThan(10);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(11_000);
+      });
+      const reads = statusReads(requests);
+      expect(reads.every((read) => read.signal.aborted)).toBe(true);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(statusReads(requests)).toHaveLength(reads.length);
+      expect(submissions(requests)).toHaveLength(1);
+      expect(player.snapshot().current?.id).toBe(first.id);
+      expect(player.snapshot().playing).toBe(true);
+      await act(async () => {
+        media.end(current);
+      });
+      await vi.waitFor(() =>
+        expect(player.snapshot().current?.id).toBe(after.id),
+      );
+      expect(statusReads(requests)).toHaveLength(reads.length);
+      expect(
+        media.loaded.some((load) => load.source === audioPath(nextSource.id)),
+      ).toBe(false);
+    } finally {
+      unmount();
+      media.close();
+    }
+  },
+);
 
-test("three consecutive failed status reads stop polling, while an absent status keeps waiting", async () => {
+test("three consecutive failed status reads stop polling", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const media = browserPreparationMedia();
-  let mode: "error" | "absent" = "error";
   const { requests } = workflow({
     nextSources: () => [waitingSource],
     prepare: accepted,
-    poll: () =>
-      mode === "error"
-        ? Response.json({ error: "down" }, { status: 503 })
-        : Response.json({ error: "none" }, { status: 404 }),
+    poll: () => Response.json({ error: "down" }, { status: 503 }),
   });
   const { players, unmount } = renderPlaybackAccount("alice");
   const player = players.get("alice")!;
@@ -753,22 +765,6 @@ test("three consecutive failed status reads stop polling, while an absent status
   } finally {
     unmount();
     media.close();
-  }
-
-  mode = "absent";
-  const absent = browserPreparationMedia();
-  const second = renderPlaybackAccount("alice");
-  try {
-    await act(async () => {
-      await second.players.get("alice")!.playQueue([first, next]);
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    expect(statusReads(requests).length).toBeGreaterThanOrEqual(6);
-  } finally {
-    second.unmount();
-    absent.close();
   }
 });
 
