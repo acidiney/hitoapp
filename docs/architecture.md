@@ -1,6 +1,196 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, library-storage, and plugin services. HTTP adapters authenticate requests once and invoke those services. The core owns SQLite transactions, permissions, indexing, and synchronization so a desktop backend can reuse them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, collection, library-storage and plugin services. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
+
+Each statement here is one of four kinds, and the text says which:
+
+- **Current behavior**: in the code at this revision.
+- **Tested evidence**: a named test or a recorded run covers it. [Status](status.md) holds the records.
+- **Planned behavior**: described in the [release plan](release-plan.md), not built.
+- **External dependency**: owned by a provider, a library or the host. Hito cannot fix it.
+
+Nothing here describes a public release. The VPS install is a development deployment ([details](vps-deployment.md)).
+
+## Repository and crate dependencies
+
+Current behavior. The diagram shows normal (non-test) path dependencies, read from each `Cargo.toml`. Arrows point from the dependent crate to the crate it uses. Package names keep the `hito-` prefix, so `crates/core` is `hito-core`.
+
+```mermaid
+flowchart TB
+  subgraph apps
+    server[apps/server hito-server]
+    desktop[apps/desktop hito-desktop]
+  end
+  subgraph crates
+    core[crates/core hito-core]
+    playback[crates/playback hito-playback]
+    audio[crates/audio hito-audio]
+    sdk[crates/plugin-sdk hito-plugin-sdk]
+    mb[crates/metadata-musicbrainz]
+    remote[crates/remote-audio]
+    rd[crates/debrid/real-debrid]
+    ad[crates/debrid/all-debrid]
+    tb[crates/debrid/torbox]
+    pz[crates/debrid/premiumize]
+  end
+  subgraph plugins
+    pfolder[plugins/folder]
+    pspotify[plugins/spotify]
+    pyoutube[plugins/youtube]
+    pjamendo[plugins/jamendo]
+    prd[plugins/real-debrid]
+    pad[plugins/all-debrid]
+    ptb[plugins/torbox]
+    ppz[plugins/premiumize]
+  end
+  server --> core
+  server --> playback
+  server --> sdk
+  desktop --> core
+  desktop --> server
+  desktop --> playback
+  playback --> core
+  playback --> audio
+  core --> sdk
+  core --> mb
+  mb --> sdk
+  rd --> remote
+  ad --> remote
+  tb --> remote
+  pz --> remote
+  tb -. optional .-> audio
+  prd --> rd
+  pad --> ad
+  ptb --> tb
+  ppz --> pz
+  pfolder --> sdk
+  pspotify --> sdk
+  pyoutube --> sdk
+  pjamendo --> sdk
+  prd --> sdk
+  pad --> sdk
+  ptb --> sdk
+  ppz --> sdk
+```
+
+Five packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk`, `hito-community` and `hito-testkit`. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The dotted TorBox edge exists only under its `test-support` feature.
+
+`hito-testkit` is a dev-dependency (the debrid crates also pull it in through `test-support`). `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins use it. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. See [testing](testing.md) for how tests use these helpers.
+
+The web app in `apps/web` is not a Cargo member. Its TypeScript models come from the server's generated OpenAPI file, `docs/openapi.json`.
+
+## Runtime topology
+
+Current behavior. One server process hosts the HTTP adapter and the core services. Plugins are separate processes reached over HTTP. The desktop host embeds the same server router and core behind a private loopback address.
+
+```mermaid
+flowchart LR
+  Browser[Browser: React UI] -->|HTTPS, session cookie| Server[hito-server: Axum]
+  Desktop[Desktop: Tauri WebView] -->|private loopback| Embedded[Embedded hito-server router]
+  Desktop --> Native[hito-playback and hito-audio]
+  Server --> Core
+  Embedded --> Core
+  subgraph Core[hito-core capabilities]
+    Identity
+    Catalog
+    Collection
+    LibraryStorage
+    Plugins
+  end
+  Identity --> SQLite[(SQLite, WAL)]
+  Catalog --> SQLite
+  Collection --> SQLite
+  LibraryStorage --> SQLite
+  Plugins --> SQLite
+  LibraryStorage --> Files[Granted music folders]
+  Plugins -->|bounded HTTP, bearer token| Plug[Plugin processes]
+  Catalog -->|search, detail, sources, audio relay| Plug
+  Plug -->|provider APIs| Ext[External providers]
+  Catalog -. opt-in, planned .-> Community[Community service]
+```
+
+Rules that follow from the diagram:
+
+- Only core touches SQLite, SQL, migrations and the filesystem. The server maps typed requests to capability calls and applies transport policy.
+- Plugins hold provider network access. Core holds only the personal token for each installation, encrypted in a vault beside the database.
+- External providers are external dependencies. Their availability, rate limits and blocking policies are outside Hito. [YouTube on servers](plugin-youtube.md#server-side-limitation) is the clearest case.
+- The community service is a separate executable today and is not on the normal server path. Opt-in use is planned.
+
+The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The synchronization client remains unfinished.
+
+## Plugin protocol and the SDK
+
+Current behavior. `hito-plugin-sdk` is the only code core and plugins share. It defines the manifest, capability request and response types, size limits and validation. It is Apache-2.0 and has no database or application dependency.
+
+```mermaid
+flowchart LR
+  subgraph SDK[hito-plugin-sdk]
+    Manifest[Manifest and capabilities]
+    Types[Recording, source and search types with validate]
+    Curated[admit_curated_catalog]
+  end
+  Core[hito-core Plugins and Catalog] -->|reads types and limits| SDK
+  Plugin[Plugin executable] -->|implements| SDK
+  Core <-->|HTTP v1, bearer token, x-hito-plugin-protocol 1| Plugin
+  Curated -->|used at startup by| Plugin
+```
+
+Core reviews the manifest before use, pins its digest, then calls the capabilities the manifest declares: search, recording detail, sources, preparation, audio and others. Core validates every response with the SDK types before it stores or relays anything. A recording-detail response is limited to 32,768 bytes. See [plugins](plugins.md) for the protocol, review flow and recovery.
+
+### Curated catalog admission
+
+The Real-Debrid, All-Debrid, TorBox and Premiumize plugins serve an operator-supplied list of recordings. Each builds its catalog at startup through `admit_curated_catalog` in `crates/plugin-sdk/src/curated.rs`. The function:
+
+- accepts 1 to 128 entries and sorts them by recording ID;
+- validates each recording and its source ID and label;
+- rejects duplicate recording IDs and duplicate source IDs;
+- rejects any recording whose JSON exceeds 32,768 bytes;
+- rejects a catalog whose recordings together exceed 49,152 bytes.
+
+The byte count covers the public recording JSON only. Private source, label and binding bytes are not counted. Each plugin then validates its own private bindings. A failed admission stops startup before a listener opens. The startup sequence is in [plugins](plugins.md#curated-catalog-admission-at-startup). Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` and each plugin's contract tests.
+
+## Playback source resolution
+
+Current behavior. A listener asks Hito to find audio for a saved recording that has no ready source. The UI sends one request with a client-chosen `request_id`.
+
+```mermaid
+sequenceDiagram
+  participant UI as Browser or desktop UI
+  participant Route as server api/source_resolution
+  participant Owner as server source_resolution
+  participant Cat as core Catalog resolve_source_until
+  participant DB as SQLite
+  participant Plug as Plugin processes
+  UI->>Route: POST /api/v1/recordings/{id}/sources/resolve
+  Route->>Owner: run(operation)
+  Owner->>Cat: resolve with cancel signal
+  Cat->>Cat: per-account admission, 10 second deadline
+  Cat->>DB: claim or observe the attempt for request_id
+  Cat->>DB: check access, protected choice, ready source
+  alt protected choice or ready source
+    Cat-->>Route: protected_choice or ready
+  else search providers
+    loop up to 4 installations with search and sources
+      Cat->>Plug: search by musical query
+      Cat->>Plug: detail and sources for candidates
+      Cat->>Cat: accept only ready, evidence-backed matches
+    end
+    Cat->>DB: publish the accepted source or settle without one
+    Cat-->>Route: ready, no_suitable_source or provider_unavailable
+  end
+  Route-->>UI: outcome and current sources
+```
+
+What each piece owns:
+
+- `apps/server/src/source_resolution.rs` owns task lifetime. On the hosted server it runs the work in a joined task set, so shutdown waits for it. Embedded routers run it inline. A client disconnect sends the cancel signal.
+- `Catalog` owns the algorithm and the persisted attempt. A repeated `request_id` observes the first attempt instead of searching again. Every publication rechecks the account's access to the recording.
+- Outcomes are `ready`, `no_suitable_source`, `provider_unavailable`, `protected_choice` and `cancelled`. `provider_unavailable` records that a provider call failed or was busy, so a blocked extraction does not read as "nothing matched".
+- Resolution only attaches a source. Audio plays later through a separate relay that checks live authority again. See [plugins](plugins.md#audio-relay) and [automatic sources](automatic-sources.md).
+
+## Components
+
+The diagram below is the original capability map. Solid lines are current. Dashed lines are planned. [Status](status.md) records which parts exist and which are verified.
 
 ```mermaid
 flowchart LR
@@ -23,10 +213,6 @@ flowchart LR
   Catalog -->|private search, adoption and relay| Provider
   Catalog -. opt-in .-> Community[Planned community service]
 ```
-
-The solid lines describe the initial implementation. Dashed connections are planned boundaries. `docs/status.md` records which portions exist and which are verified.
-
-The [desktop host](desktop.md) embeds the same core and HTTP adapters with a standalone database and private loopback access. Its shared UI uses the native player contract; ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local/provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The authenticated native API exposes Rust-owned commands, paged queues, and separate structural/position observations. The desktop retains playback cleanup alongside HTTP/indexing before releasing its library claim. The synchronization client remains unfinished.
 
 ## Data ownership
 
@@ -70,7 +256,7 @@ Recording titles enter through the same collection transaction as other personal
 
 ## Boundary tests
 
-SQLite is a local dependency. Integration tests use a real temporary SQLite database and the public HTTP interface. They assert behavior, including denied access and repeated operations, without inspecting internal tables. Third-party provider fixtures belong at the external HTTP boundary. Browser tests use deterministic generated WAV files rather than a live catalog.
+SQLite is a local dependency. Integration tests use a real temporary SQLite database and the public HTTP or capability interface. They assert behavior, including denied access and repeated operations, without inspecting internal tables. Third-party provider fixtures sit at the external HTTP boundary. Browser tests use deterministic generated WAV files rather than a live catalog. [Testing](testing.md) describes the layers and shared helpers.
 
 ## Module rules
 
@@ -81,6 +267,8 @@ Add a module when it owns a rule or resource lifecycle. Avoid layers that merely
 Trusted startup configuration grants directories. The browser selects typed relative components within those grants. Core opens owned directory/file handles with cap-std; the server streams the authorized handle without reopening its path. Per-grant operation and walk permits remain held through abandoned filesystem calls. Enumeration reports successful completion separately from interruption, so an incomplete walk cannot mark previously verified files missing. See [music folders](music-folders.md) for deadlines, recovery, host setup, and verification limits.
 
 ## Browser ownership
+
+The web app is `apps/web/src/{app,shared,features,test}`. `app` holds the shell, entry point and the page registry, which collects `features/*/pages/*.tsx` with `import.meta.glob` and rejects duplicate page names. Each feature folder (`catalog`, `playback`, `plugins` and so on) has its own `api`, `hooks`, `components`, `pages`, `tests` and `fixtures` where it needs them. `shared` holds the typed `requestJson` client and cross-feature UI. `test` holds the shared vitest setup.
 
 ```mermaid
 flowchart TB

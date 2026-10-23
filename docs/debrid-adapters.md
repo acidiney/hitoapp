@@ -2,6 +2,10 @@
 
 The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open narrowly qualified WAV or explicitly declared MPEG-1 Layer III audio. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated plugin service and executable use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/debrid/all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate observation and narrowly qualified audio clients below.
 
+## Layout
+
+Each provider has a client crate and a plugin service. Clients live in `crates/debrid/<provider>` (`real-debrid`, `all-debrid`, `torbox`, `premiumize`) and share `crates/remote-audio`. Services live in `plugins/<provider>` and depend on their client and on `crates/plugin-sdk`. Client crates expose a `test-support` feature with fixtures for their protocol tests; see [testing](testing.md). Only the Real-Debrid client's name is used in the early sections below, because it was built first.
+
 ## Observation and ownership
 
 The caller supplies a provider access token separately from any Hito plugin-service credential. It also supplies an exact torrent ID, info hash, file ID, path and size. An observation must retain that binding. A changed file is rejected rather than substituted.
@@ -52,9 +56,11 @@ The current qualifier accepts a canonical 44-byte-header PCM16 WAV representatio
 
 Core accepts at most 32,768 serialized bytes from a recording-detail response. An aggregate catalog limit does not establish this smaller per-recording limit.
 
-Real-Debrid now rejects oversized recording metadata during configuration, before a router or listener can serve it. Exactly 32,768 bytes remain valid; the existing 49,152-byte aggregate limit still applies. The public HTTP regression uses SDK-valid attribution metadata at the exact limit and one byte above it. It verifies unchanged structured metadata, private headers, zero provider/media requests, joined cleanup and safe completion logs before checking rejection.
+All four curated services (Real-Debrid, All-Debrid, TorBox and Premiumize) now admit their catalogs through `admit_curated_catalog` in `hito-plugin-sdk`, so the limits are the same. A catalog has 1 to 128 entries. Each recording's JSON is at most 32,768 bytes, and all recordings together are at most 49,152 bytes. Admission runs when the service builds its configuration, before a router or listener exists. The [startup sequence](plugins.md#curated-catalog-admission-at-startup) is in the plugin guide.
 
-The regression and six selected catalog, authentication, audio and bootstrap cases pass, along with scoped strict checks and independent source review. An independent Docker execution of the retained regression binary also passes against 220 matching integrated dependency inputs. It runs no compiler. This qualifies Real-Debrid admission, not a new packaged image or live-provider playback. AllDebrid and TorBox equivalent admission checks remain open; Premiumize already enforces its individual limit.
+Two behavior changes came with the shared function. All-Debrid and TorBox now reject a recording over 32,768 bytes. Premiumize and TorBox aggregates no longer count private source, label and binding bytes.
+
+Tested evidence: the SDK's own rule tests, and a Real-Debrid HTTP regression that uses SDK-valid attribution metadata at exactly 32,768 bytes and one byte above. It checks unchanged structured metadata, private headers, zero provider and media requests, joined cleanup and safe completion logs. This qualifies catalog admission, not a new packaged image or live-provider playback.
 
 ## Real-Debrid MP3 relay
 

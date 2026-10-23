@@ -7,13 +7,81 @@ docker compose --profile tools build rust
 ./scripts/verify.sh
 ```
 
-A root `Makefile` wraps the same Docker Compose commands: `make fmt`, `make test-rust`, `make test-web`, `make lint`, `make contracts`, `make web-build`, `make e2e`, `make desktop`, `make setup-check` and `make verify`. `make verify` runs `scripts/verify.sh`. Set `COMPOSE_PROJECT=<name>` for an isolated Compose project and `COMPOSE_EXTRA='-f override.yaml'` to add Compose files.
+## Makefile targets
 
-Dockerfiles live in `docker/`; the root `compose.yaml` and the plugin Compose files select them with `dockerfile:` while keeping the repository root as the build context.
+The root `Makefile` is the single task entry. Each target wraps a documented Docker Compose command. `make help` prints the list.
+
+| Target | Runs |
+| --- | --- |
+| `make up` / `make down` | Build and start, or stop, the normal `server` service |
+| `make build-tools` | Build the Rust tools image |
+| `make fmt` | `cargo fmt --all --check` |
+| `make test-rust` | `cargo test --workspace --locked` with the debrid and plugin `test-support` features |
+| `make lint` | `cargo clippy --workspace --all-targets` with warnings denied |
+| `make test-web` | `npm test` (vitest) in `apps/web` |
+| `make web-build` | `npm run build` |
+| `make contracts` | `scripts/check-contracts.sh` |
+| `make setup-check` | `scripts/check-setup.sh` |
+| `make e2e` | Recreate the isolated `e2e-server`, run the Playwright `browser` service, stop the server |
+| `make desktop` | `scripts/check-desktop.sh` |
+| `make verify` | `scripts/verify.sh`, the full check |
+
+## Docker only
+
+Run application builds and tests through Docker Compose. Host tools may edit and inspect files. The `tools` profile provides the Rust and Node services. The `e2e` profile provides the isolated browser server. Never point first-run browser tests at the normal persistent server volume.
+
+Dockerfiles live in `docker/`. The root `compose.yaml` and the `compose.<plugin>.yaml` overlays select them with `dockerfile:` and keep the repository root as the build context.
+
+## Worktrees and isolated projects
+
+Give each source snapshot and worktree its own Compose project and its own Cargo target. Two source trees mounted at `/workspace` over one shared target can reuse stale artifacts, because cargo compares file timestamps.
+
+```sh
+make COMPOSE_PROJECT=hito-arch test-rust
+make COMPOSE_PROJECT=hito-arch COMPOSE_EXTRA='-f path/override.yaml' lint
+```
+
+`COMPOSE_PROJECT` sets `COMPOSE_PROJECT_NAME`. Compose prefixes named volumes with the project name, so `rust-target`, `cargo-registry` and `node-modules` become separate per project. `COMPOSE_EXTRA` appends extra Compose files.
+
+## Disk and CPU budget
+
+The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0` and `CARGO_BUILD_JOBS=2`. Do not turn debug information or incremental compilation back on.
+
+- Run compiler-heavy checks one at a time.
+- Keep at least 40 GiB free on the host.
+- Keep all Hito Cargo targets together within 10 GiB.
+- Check both before and during large builds. At either limit, stop starting builds and remove only inactive, regenerable Hito output.
+- Never run a global Docker prune. Never remove another project's artifacts or application data.
+
+## Test layout
+
+[Testing](testing.md) explains the strategy. In short:
+
+- `crates/testkit` (`hito-testkit`) holds helpers shared across crates: log capture, owned TLS, a plugin HTTP server and WAV helpers.
+- `hito-core`, `hito-audio` and the debrid crates have a `test-support` feature. It exposes a `test_support` module that integration tests import. No crate's tests read another crate's directory.
+- Each crate keeps its integration tests in its own `tests/` directory.
+- Web tests live next to the feature they cover, in `apps/web/src/features/<domain>/tests`, with fixtures in `fixtures`. Shared helpers and the vitest setup are in `apps/web/src/test`. Browser workflows are in `apps/web/e2e`.
+
+## Running one crate or one test
+
+Use the same Compose services. Plugin and debrid tests need their `test-support` features, which `make test-rust` enables.
+
+```sh
+docker compose --profile tools run --rm rust cargo test --locked -p hito-plugin-sdk
+docker compose --profile tools run --rm rust cargo test --locked -p hito-core --test <integration_test_file>
+docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-torbox --features test-support <test_name>
+docker compose --profile tools run --rm node npx vitest run src/features/catalog/tests/browsing.test.ts
+```
+
+## Known environment limits
+
+Two `hito-core` tag-metadata tests need 64 KiB pipes. The Docker Desktop VM denies root the pipe-size change they request, so they fail there. The tests are correct. They do not pass on that host, and the limit is not fixed by raising timeouts or ignoring them. Run them on a Linux Docker host to confirm. Every other Rust crate and the web suite pass in Docker Desktop.
+
+## Full verification and desktop checks
 
 The verification script checks formatting, Rust tests, Clippy, generated API contracts, browser unit tests, the production web build, dependency audit, and the isolated browser workflow. Its browser server uses temporary storage, separate from the normal server volume.
 
-Browser fixtures live in `fixtures/e2e-generated`, distinct from development music in `fixtures/generated`. The verification script generates them with `audio-fixtures.mjs --e2e`. Do not mount personal music into the browser test server. Rust indexing tests use owned temporary WAV fixtures and protocol-boundary media-tool scripts, with FFmpeg supplied by the tools image.
+Browser fixtures live in a generated `fixtures/e2e-generated` directory, distinct from development music in `fixtures/generated`. Neither is tracked. The verification script generates them with `audio-fixtures.mjs --e2e`. Do not mount personal music into the browser test server. Rust indexing tests use owned temporary WAV fixtures and protocol-boundary media-tool scripts, with FFmpeg supplied by the tools image.
 
 The standalone Tauri development host has a separate `desktop` Compose profile and Cargo target. Run `./scripts/check-desktop.sh` for GUI-feature checks and an isolated Linux WebView workflow. See [desktop ownership and remaining work](desktop.md).
 

@@ -2,6 +2,28 @@
 
 The separate YouTube HTTP service implements search, recording details, musical metadata, AAC/M4A sources and audio relay. Its manifest declares `search`, `metadata` and `sources`. Plugins return structured metadata and audio; Hito owns the interface. The verified image runs on the normal local Docker network. Address-only installation, discovery, saving, playback, reviewed attachment and one real automatic Spotify-to-YouTube target pass in WebKit against disposable libraries. Each listener connects personally; deployment did not authenticate or change a normal account.
 
+## Server-side limitation
+
+Current behavior, and an external dependency. On the VPS deployment, YouTube refuses to give audio to the service. Every player client that was tried returned a sign-in or bot-confirmation response (`LOGIN_REQUIRED`) from the datacenter IP address. Search and metadata work. Audio extraction does not.
+
+This is the supported position for server installs, not a defect waiting for a workaround. Hito will not add cookies, a signed-in account, a residential proxy or a relay through a personal computer to get around it. On a server, YouTube is a search and metadata source. Audio must come from another provider, such as a folder, Jamendo or a debrid service. When extraction fails, source resolution reports `provider_unavailable` instead of `no_suitable_source`, so the UI can say the provider is blocked ([how resolution works](architecture.md#playback-source-resolution)).
+
+Options considered, with evidence and decisions:
+
+| Option | Result or status | Decision |
+| --- | --- | --- |
+| Other yt-dlp player clients (`web_embedded`, `tv_downgraded`, `tv_samsung`, `mweb`, `visionos`) | Tested on the VPS. All returned the same sign-in or bot-confirmation failure before any formats appeared. | Not a fix. |
+| Newer extractor (official nightly `2026.10.10.233141`) | Tested in isolation with one client. Same error, same error-output hash. | Not deployed, no change. |
+| IPv6 egress | Tested. No playable metadata. | Not a fix. |
+| Anonymous Player tokens (Bgutil 2.0.2 provider and plugin) | Tested against a baseline on the same recording. The token was generated and sent. The player still returned `LOGIN_REQUIRED`. | Not a fix for this sample. |
+| Browser cookies or a signed-in YouTube account | Not tried. | Rejected by the project owner. |
+| Residential proxy | Not tried. | Rejected by the project owner. |
+| Relay extraction through the owner's Mac | Not tried. | Rejected by the project owner. |
+| Debrid services as a YouTube fetch path | Untested. It is not known whether any supported debrid provider will fetch YouTube links. | Open. Needs a test before any claim. |
+| Extraction on the listener's device in the desktop app | Proposed. Not implemented. The listener's own residential connection would make the request. | Planned idea, not a commitment. |
+
+The tests did not show that every anonymous method fails or that the VPS address is banned everywhere. They show that none of the methods tried works for the sampled recording. The full probe record is in [VPS deployment](vps-deployment.md#youtube-extraction-on-the-vps).
+
 ## Isolated Docker service
 
 Build and start the service in its own project:
