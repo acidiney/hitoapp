@@ -207,6 +207,73 @@ async fn a_provider_grant_dies_when_its_credential_is_cleared_and_never_revives(
 }
 
 #[tokio::test]
+async fn a_provider_grant_dies_when_its_service_is_withdrawn_and_never_revives() {
+    let f = AudioLibrary::start().await;
+    f.ready().await;
+    let subject = Subject {
+        hito: &f.hito,
+        actor: &f.actor,
+        recording: f.source.recording_id.clone(),
+        source: f.source.id.clone(),
+    };
+    let grant = subject.admitted().await;
+    f.hito
+        .plugins
+        .withdraw_service(&f.actor, &f.installation.service_id, 1)
+        .await
+        .unwrap();
+    assert_dead(&grant, "service withdrawal").await;
+}
+
+#[tokio::test]
+async fn a_provider_grant_dies_when_sources_is_withdrawn_and_reapproved() {
+    let f = AudioLibrary::start().await;
+    f.ready().await;
+    let subject = Subject {
+        hito: &f.hito,
+        actor: &f.actor,
+        recording: f.source.recording_id.clone(),
+        source: f.source.id.clone(),
+    };
+    let grant = subject.admitted().await;
+    let mut revision = 1;
+    for capabilities in [
+        serde_json::json!(["search"]),
+        serde_json::json!(["search", "sources"]),
+    ] {
+        let mut manifest = serde_json::to_value(&f.installation.manifest).unwrap();
+        manifest["capabilities"] = capabilities;
+        f.server.reply("v1/manifest", manifest).await;
+        let refresh = |accept| hito_core::RefreshPlugin {
+            revision,
+            credential: Default::default(),
+            accept_manifest_digest: accept,
+        };
+        let hito_core::PluginRefresh::ReviewRequired { digest, .. } = f
+            .hito
+            .plugins
+            .refresh(&f.actor, &f.installation.id, refresh(None))
+            .await
+            .unwrap()
+        else {
+            panic!("changed capabilities require review");
+        };
+        let hito_core::PluginRefresh::Updated { installation } = f
+            .hito
+            .plugins
+            .refresh(&f.actor, &f.installation.id, refresh(Some(digest)))
+            .await
+            .unwrap()
+        else {
+            panic!("reviewed manifest must update");
+        };
+        revision = installation.revision;
+    }
+    assert_dead(&grant, "Sources was withdrawn and reapproved").await;
+    subject.admitted().await;
+}
+
+#[tokio::test]
 async fn a_podcast_grant_dies_when_its_enclosure_is_replaced_and_never_revives() {
     let directory = tempfile::tempdir().unwrap();
     std::fs::create_dir(directory.path().join("music")).unwrap();
