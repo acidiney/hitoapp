@@ -30,6 +30,18 @@ Start the service with `--metadata-only` and it declares only `search` and `meta
 
 The VPS compose file sets this flag. The change removes a capability from the manifest, so an existing connection does not switch on its own. In Settings, Plugins, use Check connection, then Accept changes. Until then the old approval remains. Tests start the real binary with and without the flag and check the manifest, the 404 responses, and that only a search runs the extractor. The VPS deployment itself has not been updated or verified for this change.
 
+## Thumbnails as artwork
+
+Current behavior, tested against a local fixture only. The service declares `artwork` in both full and `--metadata-only` modes. `POST /v1/artwork` accepts a `recording` request and fetches `https://i.ytimg.com/vi/<video id>/hqdefault.jpg`, a fixed 480x360 JPEG. It does not start yt-dlp, so it needs no extractor slot and does not depend on the player API that refuses the VPS. Release and playlist requests answer 404.
+
+The fetch uses the same hardened client as audio. It is https only, sends no cookies or authorization, follows no redirects, times out after 8 seconds and reads at most 2 MiB. The service returns the image only if the response is `image/jpeg` with identity encoding, starts with a JPEG start marker, has a supported frame header of at most 1024x1024, and ends with the end marker. Hito's core re-checks and decodes it. WebP and other formats are never requested.
+
+Logs record one `youtube_artwork_complete` event with outcome, size and timing. They never include the video id, URL or path.
+
+Not verified live: whether i.ytimg.com serves thumbnails to the VPS address. Thumbnails are not audio, so the `LOGIN_REQUIRED` block is not expected to apply, but nobody has checked.
+
+Existing connections do not gain the capability on their own. In Settings, Plugins, use Check connection, then Accept changes. Until then, YouTube recordings keep the placeholder.
+
 ## Isolated Docker service
 
 Build and start the service in its own project:

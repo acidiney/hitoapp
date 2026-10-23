@@ -88,3 +88,7 @@ A scoped scan of 831 captured server-log lines found no owned fixture metadata, 
 Two independent core foundation review rounds found issues that received failing regressions and passing resolver checks. There is no third independent clean verdict. Host integration passed its second review. These checks do not establish platform or public-release acceptance.
 
 The normal deployed host currently retrieves recording covers; the collection source above is not deployed. A packaged live producer check decoded one Spotify recording cover and one playlist mosaic at 640 × 640. Follow covers, broader image compatibility, crash and disk-exhaustion behavior, the 100,000-track release gate and public-release deployment acceptance remain open. See [the complete release scope](release-plan.md).
+
+## YouTube thumbnails in source
+
+The YouTube plugin supplies a recording's `hqdefault.jpg` thumbnail through this same capability, in full and metadata-only modes. A saved YouTube recording becomes fetchable only after the listener approves the added capability (Check connection, then Accept changes). A core test confirms a YouTube-shaped manifest makes availability true and that one without `artwork` stays false. Live thumbnail retrieval from the VPS is unverified. See [YouTube plugin](plugin-youtube.md#thumbnails-as-artwork).

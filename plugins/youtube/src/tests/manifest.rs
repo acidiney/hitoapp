@@ -13,7 +13,7 @@ use tracing::instrument::WithSubscriber;
 use tracing_subscriber::prelude::*;
 
 #[tokio::test]
-async fn manifest_declares_search_sources_and_metadata_without_starting_the_executable() {
+async fn manifest_declares_search_sources_metadata_and_artwork_without_starting_the_executable() {
     let _ambient_no_subscriber_dispatch =
         tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
     let logs = LogCapture::unbounded();
@@ -74,7 +74,8 @@ async fn manifest_declares_search_sources_and_metadata_without_starting_the_exec
         BTreeSet::from([
             Capability::Search,
             Capability::Sources,
-            Capability::Metadata
+            Capability::Metadata,
+            Capability::Artwork
         ])
     );
     assert!(manifest.authorization.is_none());

@@ -8,6 +8,7 @@ use http_body_util::BodyExt;
 use std::{fs, os::unix::fs::PermissionsExt};
 use tower::ServiceExt;
 
+mod artwork;
 mod cancellation;
 #[cfg(target_os = "linux")]
 mod lifecycle;

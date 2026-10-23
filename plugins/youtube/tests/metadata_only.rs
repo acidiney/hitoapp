@@ -31,7 +31,11 @@ fn metadata_only_mode_drops_sources_and_never_starts_the_extractor_for_them() {
     manifest.validate().unwrap();
     assert_eq!(
         manifest.capabilities,
-        BTreeSet::from([Capability::Search, Capability::Metadata])
+        BTreeSet::from([
+            Capability::Search,
+            Capability::Metadata,
+            Capability::Artwork
+        ])
     );
 
     let recording = r#"{"recording_id":"HitoTone001"}"#;
@@ -46,6 +50,15 @@ fn metadata_only_mode_drops_sources_and_never_starts_the_extractor_for_them() {
         !directory.path().join("argv").exists(),
         "Refused routes must not start the extractor"
     );
+
+    let (status, _) = http(
+        host.address,
+        "POST",
+        "/v1/artwork",
+        r#"{"entity":"recording","provider_id":"not valid"}"#,
+    )
+    .unwrap();
+    assert_eq!(status, 400, "Artwork stays mounted without audio");
 
     let payload = r#"{"query":"owned tone","cursor":null,"limit":1}"#;
     let (status, body) = http(host.address, "POST", "/v1/search", payload).unwrap();
@@ -88,7 +101,8 @@ fn default_mode_keeps_sources_and_logs_its_mode() {
         BTreeSet::from([
             Capability::Search,
             Capability::Sources,
-            Capability::Metadata
+            Capability::Metadata,
+            Capability::Artwork
         ])
     );
     let (_, body) = http(host.address, "GET", "/v1/audio?source_id=short", "").unwrap();

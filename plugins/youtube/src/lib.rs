@@ -1,3 +1,4 @@
+mod artwork;
 mod extractor;
 mod media;
 mod process;
@@ -16,8 +17,8 @@ use axum::{
     routing::{get, post},
 };
 use hito_plugin_sdk::{
-    Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource, RecordingMetadata,
-    RecordingRequest, SearchPage, SearchRequest, SourcePage,
+    ArtworkRequest, Capability, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource,
+    RecordingMetadata, RecordingRequest, SearchPage, SearchRequest, SourcePage,
 };
 use std::{
     path::PathBuf,
@@ -41,6 +42,7 @@ struct HttpState {
     extractor: Arc<extractor::Extractor>,
     catalog: Arc<recording::Catalog>,
     media: Arc<media::Relay>,
+    artwork: artwork::Fetcher,
     audio: bool,
 }
 
@@ -74,12 +76,14 @@ impl Service {
     fn configured(config: Config, client: Result<media::Client, Error>, audio: bool) -> Self {
         let extractor = Arc::new(extractor::Extractor::new(config.executable));
         let catalog = Arc::new(recording::Catalog::new(extractor.clone()));
+        let artwork = artwork::Fetcher::new(client.clone());
         let media = Arc::new(media::Relay::new(catalog.clone(), client));
         Self {
             state: Arc::new(HttpState {
                 extractor,
                 catalog,
                 media,
+                artwork,
                 audio,
             }),
         }
@@ -90,7 +94,8 @@ impl Service {
             .route("/v1/manifest", get(manifest))
             .route("/v1/search", post(search))
             .route("/v1/recordings/detail", post(detail))
-            .route("/v1/recordings/metadata", post(metadata));
+            .route("/v1/recordings/metadata", post(metadata))
+            .route("/v1/artwork", post(artwork));
         let router = if self.state.audio {
             router
                 .route("/v1/sources", post(sources))
@@ -105,6 +110,7 @@ impl Service {
     }
 
     pub async fn shutdown(&self) -> Result<(), ShutdownError> {
+        self.state.artwork.shutdown();
         let (cleanup, ()) =
             tokio::join!(self.state.extractor.shutdown(), self.state.media.shutdown());
         cleanup.map_err(|_| ShutdownError::CleanupFailed)
@@ -120,6 +126,7 @@ async fn manifest(State(state): State<Arc<HttpState>>) -> Json<Manifest> {
         Capability::Search,
         Capability::Sources,
         Capability::Metadata,
+        Capability::Artwork,
     ]
     .into();
     if !state.audio {
@@ -189,6 +196,22 @@ async fn metadata(
     resolved.metadata().map(Json)
 }
 
+async fn artwork(
+    State(state): State<Arc<HttpState>>,
+    payload: Result<Json<ArtworkRequest>, JsonRejection>,
+) -> Result<Response, Error> {
+    let Json(request) = payload.map_err(|_| Error::InvalidArtworkRequest)?;
+    let image = state.artwork.fetch(request).await?;
+    Ok((
+        [
+            ("content-type", "image/jpeg"),
+            ("cache-control", "private, no-store"),
+        ],
+        image,
+    )
+        .into_response())
+}
+
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AudioQuery {
@@ -218,6 +241,7 @@ async fn observe(request: Request, next: Next) -> Response {
         "/v1/recordings/metadata" => "metadata",
         "/v1/sources" => "sources",
         "/v1/audio" => "audio",
+        "/v1/artwork" => "artwork",
         _ => "unknown",
     };
     let span = tracing::info_span!("youtube_request", request_id, operation);
@@ -240,6 +264,7 @@ pub(crate) enum Error {
     InvalidRequest,
     InvalidRecordingRequest,
     InvalidAudioRequest,
+    InvalidArtworkRequest,
     InvalidMedia,
     NotFound,
     Busy,
@@ -254,7 +279,9 @@ impl Error {
     pub(crate) fn outcome(self) -> &'static str {
         match self {
             Self::InvalidRequest => "invalid_request",
-            Self::InvalidRecordingRequest | Self::InvalidAudioRequest => "invalid_request",
+            Self::InvalidRecordingRequest
+            | Self::InvalidAudioRequest
+            | Self::InvalidArtworkRequest => "invalid_request",
             Self::InvalidMedia => "invalid_response",
             Self::NotFound => "not_found",
             Self::Busy => "capacity",
@@ -275,6 +302,9 @@ impl IntoResponse for Error {
                 (StatusCode::BAD_REQUEST, "The recording request is invalid")
             }
             Self::InvalidAudioRequest => (StatusCode::BAD_REQUEST, "The audio request is invalid"),
+            Self::InvalidArtworkRequest => {
+                (StatusCode::BAD_REQUEST, "The artwork request is invalid")
+            }
             Self::InvalidMedia => (
                 StatusCode::BAD_GATEWAY,
                 "The YouTube audio response is invalid",

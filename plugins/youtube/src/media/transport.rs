@@ -1,5 +1,5 @@
 mod body;
-pub(super) use body::Body;
+pub(crate) use body::Body;
 
 use super::range::Selection;
 use crate::Error;
@@ -67,6 +67,20 @@ impl Client {
         method: Method,
         selected: Option<Selection>,
     ) -> Result<Response<Body>, Error> {
+        self.send(url, method, "audio/mp4", selected).await
+    }
+
+    pub(crate) async fn image(&self, url: &Url) -> Result<Response<Body>, Error> {
+        self.send(url, Method::GET, "image/jpeg", None).await
+    }
+
+    async fn send(
+        &self,
+        url: &Url,
+        method: Method,
+        accept: &'static str,
+        selected: Option<Selection>,
+    ) -> Result<Response<Body>, Error> {
         let host = url.host_str().ok_or(Error::InvalidMedia)?;
         let name = ServerName::try_from(host.to_owned()).map_err(|_| Error::InvalidMedia)?;
         let connecting = async {
@@ -94,7 +108,7 @@ impl Client {
             .method(method)
             .uri(target)
             .header("host", host)
-            .header("accept", "audio/mp4")
+            .header("accept", accept)
             .header("accept-encoding", "identity")
             .header("connection", "close")
             .header("user-agent", concat!("Hito/", env!("CARGO_PKG_VERSION")));
