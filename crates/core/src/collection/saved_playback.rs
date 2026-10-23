@@ -14,32 +14,40 @@ impl Collection {
         actor: &Actor,
         recording_ids: &[Uuid],
     ) -> Result<Vec<RecordingProgress>> {
-        let started = Instant::now();
-        let result = tokio::time::timeout(
-            Duration::from_secs(1),
-            saved_progress(&self.store, actor, recording_ids),
-        )
-        .await
-        .unwrap_or(Err(Error::Upstream(
-            "Saved playback could not be checked in time",
-        )));
-        match &result {
-            Ok(saved) => tracing::debug!(
-                saved_count = saved.len(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Saved playback loaded"
-            ),
-            Err(error) => tracing::debug!(
-                error_code = error.code(),
-                elapsed_ms = started.elapsed().as_millis() as u64,
-                "Saved playback rejected"
-            ),
-        }
-        result
+        saved_progress(&self.store, actor, recording_ids).await
     }
 }
 
 pub(crate) async fn saved_progress(
+    store: &Store,
+    actor: &Actor,
+    recording_ids: &[Uuid],
+) -> Result<Vec<RecordingProgress>> {
+    let started = Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(1),
+        read_saved_progress(store, actor, recording_ids),
+    )
+    .await
+    .unwrap_or(Err(Error::Upstream(
+        "Saved playback could not be checked in time",
+    )));
+    match &result {
+        Ok(saved) => tracing::debug!(
+            saved_count = saved.len(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Saved playback loaded"
+        ),
+        Err(error) => tracing::debug!(
+            error_code = error.code(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Saved playback rejected"
+        ),
+    }
+    result
+}
+
+async fn read_saved_progress(
     store: &Store,
     actor: &Actor,
     recording_ids: &[Uuid],

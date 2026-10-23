@@ -24,6 +24,9 @@ mod audiobook_library_work;
 #[cfg(test)]
 #[path = "tests/saved_playback_work.rs"]
 mod saved_playback_work;
+#[cfg(test)]
+#[path = "tests/saved_progress_deadline.rs"]
+mod saved_progress_deadline;
 
 use crate::{HostDeviceId, store::Store};
 pub use audiobooks::{
