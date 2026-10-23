@@ -9,7 +9,7 @@ HITO_PACKAGED_INPUTS=<64-character-product-input-digest> \
 scripts/artwork/run-packaged.sh chromium
 ```
 
-Use `webkit` for the second engine. `compose.tools.yaml` defines the Node tools service without networking or temporary configuration files. The browser and server reuse the existing `hito-spotify-albums-tools_default` network. Each engine gets a fresh unprivileged server with a private tmpfs database, read-only synthetic music, no published ports, and no application volume. Only the runner's owned containers are removed.
+Use `webkit` for the second engine. `scripts/artwork/compose.tools.yaml` defines the Node tools service without networking or temporary configuration files. The browser and server reuse the existing `hito-spotify-albums-tools_default` network. Each engine gets a fresh unprivileged server with a private tmpfs database, read-only synthetic music, no published ports, and no application volume. Only the runner's owned containers are removed.
 
 The gate checks exact distinct recording, release, and playlist image bytes through the packaged server and real UI. Two independent editable copies retain duplicate entries, personal names and metadata, likes, and progress. Album and playlist navigation, private peer denial, provider revocation, logout, and retained-image retry must preserve the original audio/image files and the explicitly qualified collection/event state. The only final additions are the two deliberate cancellation-control imports.
 
