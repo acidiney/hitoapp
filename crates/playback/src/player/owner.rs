@@ -52,17 +52,17 @@ pub(super) async fn run(
                     owned.publish();
                 }
             },
-            event = async { media.as_mut().unwrap().next().await }, if media.is_some() => {
-                match event {
-                    super::media::Event::Loaded(key, loaded) => media.as_mut().unwrap().loaded(&key, loaded),
-                    super::media::Event::Command(command) => {
-                        if let Some((actor, action)) = media.as_ref().unwrap().request(command, &state)
-                            && let Some(sender) = host.upgrade()
-                            && sender.try_send(super::media::host_request(actor, action)).is_err()
-                        {
-                            tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
-                        }
+            command = async { media.as_mut().unwrap().next().await }, if media.is_some() => {
+                if let Some(actor) = state.owner.as_ref().map(|owned| owned.actor.clone())
+                    && let Some(sender) = host.upgrade()
+                    && sender.capacity() >= super::media::RESERVED_CLIENT_SLOTS
+                {
+                    let duration_ms = media.as_ref().unwrap().duration_ms();
+                    if sender.try_send(super::media::host_request(actor, command, duration_ms)).is_err() {
+                        tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
                     }
+                } else {
+                    tracing::debug!(event = "media_command_dropped", "System media command dropped while playback was busy");
                 }
             },
             report = loader.next() => { state.loaded(report); },
@@ -97,8 +97,7 @@ pub(super) async fn run(
                 let _ = request.reply.send(response);
             },
             request = requests.recv(), if pending.is_none() => {
-                let Some(mut request) = request else { break; };
-                super::media::stamp(&state, &mut request);
+                let Some(request) = request else { break; };
                 let services = services.clone();
                 let preflight = state.preflight(&request.actor, &request.action);
                 if preflight.as_ref().is_ok_and(|selection| selection.continuation.is_some()) {

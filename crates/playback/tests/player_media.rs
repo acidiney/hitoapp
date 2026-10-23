@@ -109,24 +109,33 @@ async fn authorized_metadata_publishes_once_for_a_selected_track_and_system_stop
         )
         .await
         .unwrap();
-    let Event::Track(track) = next(&mut events).await else {
-        panic!("metadata comes first");
+    let mut saw_playback = false;
+    let track = loop {
+        match next(&mut events).await {
+            Event::Track(track) => {
+                assert_eq!(track.title, recording.title);
+                if track.artwork.is_some() {
+                    break track;
+                }
+            }
+            Event::Playback(state) => {
+                assert_eq!(state, MediaPlayback::Paused { position_ms: 0 });
+                saw_playback = true;
+            }
+            Event::Clear => panic!("nothing was shown yet"),
+        }
     };
-    assert_eq!(track.title, recording.title);
     assert_eq!(track.artist, recording.artist);
     assert_eq!(track.album, recording.album.clone().unwrap_or_default());
     assert_eq!(track.duration_ms, Some(recording.duration_ms as u64));
-    assert!(track.artwork.is_some());
-    assert_eq!(
-        next(&mut events).await,
-        Event::Playback(MediaPlayback::Paused { position_ms: 0 })
-    );
+    if !saw_playback {
+        assert!(matches!(next(&mut events).await, Event::Playback(_)));
+    }
     quiet(&mut events).await;
 
     sender.try_send(MediaCommand::Next).unwrap();
     assert_eq!(next(&mut events).await, Event::Clear);
     assert!(matches!(next(&mut events).await, Event::Track(_)));
-    assert!(matches!(next(&mut events).await, Event::Playback(_)));
 
     let seen = player.inspect(&f.actor).await.unwrap().state.unwrap();
     player
@@ -276,5 +285,173 @@ async fn logout_clears_private_metadata_without_another_command() {
     assert_eq!(next(&mut events).await, Event::Clear);
     sender.try_send(MediaCommand::Next).unwrap();
     quiet(&mut events).await;
+    owner.close().await.unwrap();
+}
+
+struct Blocking {
+    gate: std::sync::mpsc::Receiver<()>,
+    seen: std::sync::mpsc::Sender<Event>,
+}
+impl MediaSink for Blocking {
+    fn set_track(&mut self, track: &MediaTrack) {
+        let _ = self.gate.recv();
+        let _ = self.seen.send(Event::Track(track.clone()));
+    }
+    fn set_playback(&mut self, playback: MediaPlayback) {
+        let _ = self.seen.send(Event::Playback(playback));
+    }
+    fn clear(&mut self) {
+        let _ = self.seen.send(Event::Clear);
+    }
+}
+
+#[tokio::test]
+async fn a_stalled_operating_system_call_never_blocks_client_commands_and_latest_state_wins() {
+    let f = fixture::LocalPlayback::start().await;
+    let (release, gate) = std::sync::mpsc::channel();
+    let (seen, observed) = std::sync::mpsc::channel();
+    let (_sender, commands) = media_commands();
+    let (player, owner) = Player::start_with_media(
+        f.services.clone(),
+        MediaIntegration::new(Blocking { gate, seen }, commands),
+    );
+    let lease = player
+        .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+        .await
+        .unwrap()
+        .lease;
+    let id = Uuid::parse_str(&f.recording).unwrap();
+    let mut revision = 0;
+    for (sequence, start) in [(1, 0), (2, 1), (3, 2)] {
+        revision = tokio::time::timeout(
+            Duration::from_secs(3),
+            player.submit(
+                &f.actor,
+                command(
+                    lease,
+                    sequence,
+                    revision,
+                    PlayerAction::Replace {
+                        recordings: vec![id; 3],
+                        start,
+                    },
+                ),
+            ),
+        )
+        .await
+        .expect("the owner keeps admitting while the system call is stalled")
+        .unwrap()
+        .revision;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+    for _ in 0..10 {
+        let _ = release.send(());
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let all: Vec<Event> = observed.try_iter().collect();
+    let tracks = all.iter().filter(|e| matches!(e, Event::Track(_))).count();
+    assert!((1..=3).contains(&tracks), "{tracks} tracks");
+    owner.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_burst_of_system_commands_leaves_client_capacity_and_is_rate_limited() {
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner, mut events, sender) = start(&f);
+    let lease = player
+        .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+        .await
+        .unwrap()
+        .lease;
+    let id = Uuid::parse_str(&f.recording).unwrap();
+    player
+        .submit(
+            &f.actor,
+            command(
+                lease,
+                1,
+                0,
+                PlayerAction::Replace {
+                    recordings: vec![id; 60],
+                    start: 0,
+                },
+            ),
+        )
+        .await
+        .unwrap();
+    for _ in 0..1000 {
+        let _ = sender.try_send(MediaCommand::Next);
+        tokio::task::yield_now().await;
+        player
+            .inspect(&f.actor)
+            .await
+            .expect("client requests are never refused as busy");
+    }
+    let index = player
+        .inspect(&f.actor)
+        .await
+        .unwrap()
+        .state
+        .unwrap()
+        .current_index
+        .unwrap();
+    assert!(
+        index <= 30,
+        "at most a rate-limited number of commands applied, got {index}"
+    );
+    while events.try_recv().is_ok() {}
+    owner.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_system_command_applies_to_the_state_at_admission_after_client_changes() {
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner, _events, sender) = start(&f);
+    let lease = player
+        .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+        .await
+        .unwrap()
+        .lease;
+    let id = Uuid::parse_str(&f.recording).unwrap();
+    let first = player
+        .submit(
+            &f.actor,
+            command(
+                lease,
+                1,
+                0,
+                PlayerAction::Replace {
+                    recordings: vec![id; 4],
+                    start: 0,
+                },
+            ),
+        )
+        .await
+        .unwrap();
+    player
+        .submit(
+            &f.actor,
+            command(lease, 2, first.revision, PlayerAction::Next {}),
+        )
+        .await
+        .unwrap();
+    sender.try_send(MediaCommand::Next).unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let index = player
+                .inspect(&f.actor)
+                .await
+                .unwrap()
+                .state
+                .unwrap()
+                .current_index;
+            if index == Some(2) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the system Next applies on top of the client's Next");
     owner.close().await.unwrap();
 }

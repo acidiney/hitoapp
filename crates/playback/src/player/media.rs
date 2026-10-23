@@ -1,27 +1,53 @@
-use super::{Action, PlayerAction, PlayerCommand, Request, ownership::State};
+use super::{Action, PlayerAction, PlayerCommand, PlayerError, Request, ownership::State};
 use crate::media::{
     MediaCommand, MediaIntegration, artwork,
     publisher::{Loaded, Observation, Publisher, TrackKey},
 };
 use hito_core::{Actor, Catalog};
-use std::{future::Future, pin::Pin, time::Duration};
-use tokio::sync::mpsc;
+use std::{
+    future::Future,
+    pin::Pin,
+    time::{Duration, Instant},
+};
+use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 const ARTWORK_TIMEOUT: Duration = Duration::from_secs(3);
+const MIN_COMMAND_GAP: Duration = Duration::from_millis(50);
+const RETRY_DELAYS: [Duration; 5] = [
+    Duration::from_millis(500),
+    Duration::from_secs(1),
+    Duration::from_secs(2),
+    Duration::from_secs(4),
+    Duration::from_secs(8),
+];
+/// Free request slots that must remain for clients before a system command is
+/// queued.
+pub(super) const RESERVED_CLIENT_SLOTS: usize = 16;
 
-type Loading = Pin<Box<dyn Future<Output = (TrackKey, Option<Loaded>)> + Send>>;
+enum Fetched {
+    Found(Loaded, Option<String>),
+    Gone,
+    Failed,
+}
+type TextLoading = Pin<Box<dyn Future<Output = (TrackKey, Fetched)> + Send>>;
+type ArtworkLoading =
+    Pin<Box<dyn Future<Output = (TrackKey, Option<artwork::MediaArtwork>)> + Send>>;
 
-pub(super) enum Event {
-    Loaded(TrackKey, Option<Loaded>),
-    Command(MediaCommand),
+struct Target {
+    actor: Actor,
+    attempt: usize,
 }
 
 pub(super) struct Driver {
     publisher: Publisher,
     commands: Option<mpsc::Receiver<MediaCommand>>,
     catalog: Catalog,
-    loading: Option<Loading>,
+    target: Option<Target>,
+    text: Option<TextLoading>,
+    artwork: Option<ArtworkLoading>,
+    pending: Option<MediaCommand>,
+    last_dispatch: Instant,
 }
 
 /// What a command needs to know about the current playback.
@@ -59,26 +85,38 @@ pub(super) fn action(command: MediaCommand, view: &View) -> Option<PlayerAction>
     }
 }
 
+/// Delay before the next attempt to load metadata for the same track, or
+/// `None` once attempts are exhausted.
+pub(super) fn retry_delay(attempt: usize) -> Option<Duration> {
+    RETRY_DELAYS.get(attempt).copied()
+}
+
 impl Driver {
     pub fn new(integration: MediaIntegration, catalog: Catalog) -> Self {
         Self {
             publisher: Publisher::new(integration.sink),
             commands: Some(integration.commands),
             catalog,
-            loading: None,
+            target: None,
+            text: None,
+            artwork: None,
+            pending: None,
+            last_dispatch: Instant::now() - MIN_COMMAND_GAP,
         }
+    }
+
+    pub fn duration_ms(&self) -> Option<u64> {
+        self.publisher.duration_ms()
     }
 
     pub fn sync(&mut self, state: &State) {
         let Some(owned) = state.owner.as_ref() else {
-            self.loading = None;
-            self.publisher.observe(None);
+            self.drop_track();
             return;
         };
         let snapshot = owned.queue.snapshot();
         let Some(current) = snapshot.current else {
-            self.loading = None;
-            self.publisher.observe(None);
+            self.drop_track();
             return;
         };
         let position = *owned.position.borrow();
@@ -108,25 +146,48 @@ impl Driver {
             },
         };
         if let Some(key) = self.publisher.observe(Some(&observation)) {
-            self.loading = Some(Box::pin(load(
+            self.artwork = None;
+            self.text = Some(Box::pin(fetch_text(
                 self.catalog.clone(),
                 owned.actor.clone(),
-                key,
+                key.clone(),
+                Duration::ZERO,
             )));
+            self.target = Some(Target {
+                actor: owned.actor.clone(),
+                attempt: 0,
+            });
         }
     }
 
-    pub async fn next(&mut self) -> Event {
+    fn drop_track(&mut self) {
+        self.publisher.observe(None);
+        self.target = None;
+        self.text = None;
+        self.artwork = None;
+    }
+
+    /// Completes loads and returns the next system command that is due. Only
+    /// the newest waiting command is kept, and commands are spaced apart.
+    pub async fn next(&mut self) -> MediaCommand {
         loop {
             tokio::select! {
                 biased;
-                (key, loaded) = async { self.loading.as_mut().unwrap().await }, if self.loading.is_some() => {
-                    self.loading = None;
-                    return Event::Loaded(key, loaded);
+                (key, fetched) = async { self.text.as_mut().unwrap().await }, if self.text.is_some() => {
+                    self.text = None;
+                    self.finish_text(key, fetched);
+                },
+                (key, artwork) = async { self.artwork.as_mut().unwrap().await }, if self.artwork.is_some() => {
+                    self.artwork = None;
+                    self.publisher.artwork(&key, artwork);
+                },
+                _ = tokio::time::sleep_until((self.last_dispatch + MIN_COMMAND_GAP).into()), if self.pending.is_some() => {
+                    self.last_dispatch = Instant::now();
+                    return self.pending.take().unwrap();
                 },
                 command = async { self.commands.as_mut().unwrap().recv().await }, if self.commands.is_some() => {
                     match command {
-                        Some(command) => return Event::Command(command),
+                        Some(command) => self.pending = Some(command),
                         None => self.commands = None,
                     }
                 },
@@ -135,103 +196,160 @@ impl Driver {
         }
     }
 
-    pub fn loaded(&mut self, key: &TrackKey, loaded: Option<Loaded>) {
-        self.publisher.loaded(key, loaded);
-    }
-
-    /// Resolves a system command against the current playback. The caller
-    /// submits the action as the owning account through the normal admission
-    /// path, so session and ordering checks are the ones every client gets.
-    pub fn request(&self, command: MediaCommand, state: &State) -> Option<(Actor, PlayerAction)> {
-        let owned = state.owner.as_ref()?;
-        let position = *owned.position.borrow();
-        let snapshot = owned.queue.snapshot();
-        let view = View {
-            has_current: snapshot.current.is_some(),
-            desired_playing: owned.desired_playing,
-            position_ms: position.position_ms,
-            duration_ms: self.publisher.duration_ms(),
+    fn finish_text(&mut self, key: TrackKey, fetched: Fetched) {
+        if !self.publisher.is_current(&key) {
+            return;
+        }
+        let Some(target) = self.target.as_mut() else {
+            return;
         };
-        action(command, &view).map(|action| (owned.actor.clone(), action))
+        match fetched {
+            Fetched::Found(loaded, release) => {
+                self.publisher.loaded(&key, Some(loaded));
+                self.artwork = Some(Box::pin(fetch_artwork(
+                    self.catalog.clone(),
+                    target.actor.clone(),
+                    key,
+                    release,
+                )));
+            }
+            Fetched::Gone => self.publisher.loaded(&key, None),
+            Fetched::Failed => {
+                let Some(delay) = retry_delay(target.attempt) else {
+                    self.publisher.loaded(&key, None);
+                    return;
+                };
+                target.attempt += 1;
+                self.text = Some(Box::pin(fetch_text(
+                    self.catalog.clone(),
+                    target.actor.clone(),
+                    key,
+                    delay,
+                )));
+            }
+        }
     }
 
     pub fn close(&mut self) {
-        self.loading = None;
-        self.publisher.clear();
+        self.drop_track();
+        self.pending = None;
     }
 }
 
-async fn load(catalog: Catalog, actor: Actor, key: TrackKey) -> (TrackKey, Option<Loaded>) {
-    let loaded = fetch(&catalog, &actor, &key).await;
-    (key, loaded)
+impl State {
+    /// Resolves a system command against the owner's state right now, which
+    /// is after the session check and in the same step that admits it. The
+    /// command takes the next sequence number and the current revision; the
+    /// caller restores the sequence counter so clients keep their own.
+    pub(super) fn resolve_host(
+        &self,
+        actor: &Actor,
+        command: MediaCommand,
+        duration_ms: Option<u64>,
+    ) -> Result<PlayerCommand, PlayerError> {
+        let owned = self
+            .owner
+            .as_ref()
+            .filter(|owned| owned.actor.same_session(actor))
+            .ok_or(PlayerError::Conflict)?;
+        let view = View {
+            has_current: owned.queue.snapshot().current.is_some(),
+            desired_playing: owned.desired_playing,
+            position_ms: owned.position.borrow().position_ms,
+            duration_ms,
+        };
+        let action = action(command, &view).ok_or(PlayerError::Invalid)?;
+        let command = PlayerCommand {
+            id: Uuid::new_v4(),
+            lease: owned.lease,
+            sequence: owned.sequence + 1,
+            revision: owned.queue.revision(),
+            action,
+        };
+        self.preflight(actor, &Action::Submit(command.clone()))?;
+        Ok(command)
+    }
 }
 
-async fn fetch(catalog: &Catalog, actor: &Actor, key: &TrackKey) -> Option<Loaded> {
-    let recordings = catalog
-        .recordings_by_ids(actor, &[key.recording])
-        .await
-        .inspect_err(|error| {
+pub(super) fn host_request(
+    actor: Actor,
+    command: MediaCommand,
+    duration_ms: Option<u64>,
+) -> Request {
+    let (reply, _) = oneshot::channel();
+    Request {
+        actor,
+        action: Action::Host {
+            command,
+            duration_ms,
+        },
+        reply,
+        span: tracing::Span::current(),
+        started: Instant::now(),
+    }
+}
+
+async fn fetch_text(
+    catalog: Catalog,
+    actor: Actor,
+    key: TrackKey,
+    delay: Duration,
+) -> (TrackKey, Fetched) {
+    if !delay.is_zero() {
+        tokio::time::sleep(delay).await;
+    }
+    let fetched = match catalog.recordings_by_ids(&actor, &[key.recording]).await {
+        Ok(recordings) => match recordings.into_iter().next() {
+            Some(recording) => Fetched::Found(
+                Loaded {
+                    title: recording.title,
+                    artist: recording.artist,
+                    album: recording.album.unwrap_or_default(),
+                    server_duration_ms: recording.duration_ms.max(0) as u64,
+                },
+                recording.release_id,
+            ),
+            None => Fetched::Gone,
+        },
+        Err(error) => {
             tracing::debug!(
                 event = "media_metadata_unavailable",
                 error_kind = error.code(),
                 "System media metadata unavailable"
             );
-        })
-        .ok()?;
-    let recording = recordings.into_iter().next()?;
-    let artwork = tokio::time::timeout(ARTWORK_TIMEOUT, async {
-        if let Some(release) = &recording.release_id
-            && let Ok(Some(found)) = catalog.release_artwork(actor, release).await
+            match error {
+                hito_core::Error::NotFound
+                | hito_core::Error::Forbidden
+                | hito_core::Error::Unauthorized => Fetched::Gone,
+                _ => Fetched::Failed,
+            }
+        }
+    };
+    (key, fetched)
+}
+
+async fn fetch_artwork(
+    catalog: Catalog,
+    actor: Actor,
+    key: TrackKey,
+    release: Option<String>,
+) -> (TrackKey, Option<artwork::MediaArtwork>) {
+    let found = tokio::time::timeout(ARTWORK_TIMEOUT, async {
+        if let Some(release) = &release
+            && let Ok(Some(found)) = catalog.release_artwork(&actor, release).await
             && let Some(bounded) = artwork::bound(found.bytes)
         {
             return Some(bounded);
         }
-        let found = catalog.artwork(actor, &recording.id).await.ok()??;
+        let found = catalog
+            .artwork(&actor, &key.recording.to_string())
+            .await
+            .ok()??;
         artwork::bound(found.bytes)
     })
     .await
     .unwrap_or(None);
-    Some(Loaded {
-        title: recording.title,
-        artist: recording.artist,
-        album: recording.album.unwrap_or_default(),
-        server_duration_ms: recording.duration_ms.max(0) as u64,
-        artwork,
-    })
-}
-
-/// Fills in the ordering fields of a system command from the owner's current
-/// state, so it never competes with a client's sequence numbers.
-pub(super) fn stamp(state: &State, request: &mut Request) {
-    let Action::Host(command) = &mut request.action else {
-        return;
-    };
-    if let Some(owned) = state
-        .owner
-        .as_ref()
-        .filter(|owned| owned.actor.same_session(&request.actor))
-    {
-        command.lease = owned.lease;
-        command.sequence = owned.sequence + 1;
-        command.revision = owned.queue.revision();
-    }
-}
-
-pub(super) fn host_request(actor: Actor, action: PlayerAction) -> Request {
-    let (reply, _) = tokio::sync::oneshot::channel();
-    Request {
-        actor,
-        action: Action::Host(PlayerCommand {
-            id: Uuid::new_v4(),
-            lease: Uuid::nil(),
-            sequence: 0,
-            revision: 0,
-            action,
-        }),
-        reply,
-        span: tracing::Span::current(),
-        started: std::time::Instant::now(),
-    }
+    (key, found)
 }
 
 #[cfg(test)]
@@ -314,6 +432,14 @@ mod tests {
         assert_eq!(seek(by(true, 500_000), &view), Some(200_000));
         view.duration_ms = None;
         assert_eq!(seek(MediaCommand::Seek { position_ms: 1 }, &view), None);
+    }
+
+    #[test]
+    fn metadata_loads_retry_with_growing_bounded_delays() {
+        let delays: Vec<_> = (0..6).map(retry_delay).collect();
+        assert_eq!(delays[0], Some(Duration::from_millis(500)));
+        assert!(delays[..5].windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(delays[5], None);
     }
 
     #[test]

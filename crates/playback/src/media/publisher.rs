@@ -27,7 +27,6 @@ pub(crate) struct Loaded {
     pub artist: String,
     pub album: String,
     pub server_duration_ms: u64,
-    pub artwork: Option<MediaArtwork>,
 }
 
 /// Prefers the recording's known duration only when the decoded or estimated
@@ -56,6 +55,7 @@ struct Anchor {
 struct Current {
     key: TrackKey,
     loaded: Option<Loaded>,
+    artwork: Option<Arc<MediaArtwork>>,
     latest: Option<LatestState>,
     shown_track: Option<MediaTrack>,
     shown_anchor: Option<Anchor>,
@@ -107,6 +107,7 @@ impl Publisher {
             self.current = Some(Current {
                 key,
                 loaded: None,
+                artwork: None,
                 latest: None,
                 shown_track: None,
                 shown_anchor: None,
@@ -133,6 +134,21 @@ impl Publisher {
         };
         current.loaded = loaded;
         self.publish();
+    }
+
+    pub fn artwork(&mut self, key: &TrackKey, artwork: Option<MediaArtwork>) {
+        let Some(current) = self.current.as_mut().filter(|current| &current.key == key) else {
+            tracing::debug!(event = "media_load_stale", "Stale media artwork ignored");
+            return;
+        };
+        current.artwork = artwork.map(Arc::new);
+        self.publish();
+    }
+
+    pub fn is_current(&self, key: &TrackKey) -> bool {
+        self.current
+            .as_ref()
+            .is_some_and(|current| &current.key == key)
     }
 
     pub fn duration_ms(&self) -> Option<u64> {
@@ -165,6 +181,11 @@ impl Publisher {
         };
         let unchanged = current.shown_track.as_ref().is_some_and(|shown| {
             shown.duration_ms.map(|ms| ms / 1000) == duration.map(|ms| ms / 1000)
+                && match (&shown.artwork, &current.artwork) {
+                    (Some(shown), Some(current)) => Arc::ptr_eq(shown, current),
+                    (None, None) => true,
+                    _ => false,
+                }
         });
         if !unchanged {
             let track = MediaTrack {
@@ -172,11 +193,7 @@ impl Publisher {
                 artist: loaded.artist.clone(),
                 album: loaded.album.clone(),
                 duration_ms: duration,
-                artwork: current
-                    .shown_track
-                    .as_ref()
-                    .and_then(|shown| shown.artwork.clone())
-                    .or_else(|| loaded.artwork.clone().map(Arc::new)),
+                artwork: current.artwork.clone(),
             };
             self.sink.set_track(&track);
             current.shown_track = Some(track);
@@ -260,7 +277,6 @@ mod tests {
             artist: "Artist".into(),
             album: "".into(),
             server_duration_ms,
-            artwork: None,
         }
     }
     fn track(title: &str, duration_ms: Option<u64>) -> Event {
@@ -423,6 +439,65 @@ mod tests {
         publisher.observe(None);
         assert!(fake.take().is_empty());
         assert_eq!(publisher.duration_ms(), None);
+    }
+
+    fn art(tag: u8) -> MediaArtwork {
+        MediaArtwork {
+            content_type: "image/png",
+            bytes: vec![tag],
+        }
+    }
+    fn key(entry: Uuid) -> TrackKey {
+        TrackKey {
+            account: "a".into(),
+            entry,
+            recording: entry,
+        }
+    }
+
+    #[test]
+    fn text_is_published_before_artwork_and_artwork_adds_one_update() {
+        let (mut publisher, fake) = setup();
+        begin(&mut publisher, &obs("a", ENTRY), "Song", 200_000);
+        assert_eq!(fake.take().len(), 2);
+        publisher.artwork(&key(ENTRY), Some(art(1)));
+        let events = fake.take();
+        assert_eq!(events.len(), 1);
+        assert!(matches!(&events[0], Event::Track(t) if t.title == "Song" && t.artwork.is_some()));
+        publisher.artwork(&key(ENTRY), Some(art(1)));
+        assert!(fake.take().len() <= 1);
+    }
+
+    #[test]
+    fn a_duration_only_republish_keeps_the_same_artwork_allocation() {
+        let (mut publisher, fake) = setup();
+        let mut observation = obs("a", ENTRY);
+        begin(&mut publisher, &observation, "Song", 220_000);
+        publisher.artwork(&key(ENTRY), Some(art(1)));
+        let first = fake.take().into_iter().find_map(|e| match e {
+            Event::Track(t) if t.artwork.is_some() => t.artwork,
+            _ => None,
+        });
+        observation.duration_ms = Some(215_300);
+        publisher.observe(Some(&observation));
+        let Event::Track(second) = fake.take().remove(0) else {
+            panic!("track")
+        };
+        assert!(Arc::ptr_eq(&first.unwrap(), &second.artwork.unwrap()));
+    }
+
+    #[test]
+    fn artwork_for_a_previous_track_or_after_a_clear_is_ignored() {
+        let (mut publisher, fake) = setup();
+        begin(&mut publisher, &obs("a", ENTRY), "Song", 1000);
+        publisher.observe(Some(&obs("a", OTHER)));
+        fake.take();
+        publisher.artwork(&key(ENTRY), Some(art(1)));
+        assert!(fake.take().is_empty());
+        assert!(publisher.is_current(&key(OTHER)));
+        assert!(!publisher.is_current(&key(ENTRY)));
+        publisher.observe(None);
+        assert!(!publisher.is_current(&key(OTHER)));
     }
 
     #[test]

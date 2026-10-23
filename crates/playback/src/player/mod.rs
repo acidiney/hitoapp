@@ -52,9 +52,12 @@ enum Action {
         id: Uuid,
         command: Option<PlayerCommand>,
     },
-    /// A command from the host's operating-system media controls. Lease,
-    /// sequence and revision are filled in by the owner when it is admitted.
-    Host(PlayerCommand),
+    /// A command from the host's operating-system media controls. The owner
+    /// resolves it against its state at admission, after the session check.
+    Host {
+        command: crate::MediaCommand,
+        duration_ms: Option<u64>,
+    },
     Queue {
         lease: Uuid,
         revision: u64,

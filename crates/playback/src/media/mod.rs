@@ -6,6 +6,7 @@
 
 pub(crate) mod artwork;
 pub(crate) mod publisher;
+mod threaded;
 
 pub use artwork::MediaArtwork;
 use std::sync::Arc;
@@ -57,7 +58,7 @@ pub struct MediaIntegration {
 impl MediaIntegration {
     pub fn new(sink: impl MediaSink, commands: mpsc::Receiver<MediaCommand>) -> Self {
         Self {
-            sink: Box::new(sink),
+            sink: Box::new(threaded::ThreadedSink::spawn(sink)),
             commands,
         }
     }

@@ -21,7 +21,8 @@ pub(super) struct AdmissionSelection {
 impl State {
     pub fn preflight(&self, actor: &Actor, action: &Action) -> Result<AdmissionSelection> {
         match action {
-            Action::Submit(command) | Action::Host(command) => {
+            Action::Host { .. } => Ok(AdmissionSelection::default()),
+            Action::Submit(command) => {
                 if self.owned(actor, command.lease)?.check(command)?.is_some() {
                     return Ok(AdmissionSelection::default());
                 }
@@ -104,9 +105,12 @@ impl State {
         recordings: Vec<Recording>,
         progress_ready: bool,
     ) -> Result<Response> {
-        let host = matches!(action, Action::Host(_));
+        let host = matches!(action, Action::Host { .. });
         let action = match action {
-            Action::Host(command) => Action::Submit(command),
+            Action::Host {
+                command,
+                duration_ms,
+            } => Action::Submit(self.resolve_host(actor, command, duration_ms)?),
             action => action,
         };
         match action {
@@ -317,7 +321,7 @@ impl State {
                     });
                 Ok(Response::Receipt(receipt))
             }
-            Action::PrepareAudiobook(_) | Action::CancelAudiobook { .. } | Action::Host(_) => {
+            Action::PrepareAudiobook(_) | Action::CancelAudiobook { .. } | Action::Host { .. } => {
                 Err(PlayerError::Invalid)
             }
         }
