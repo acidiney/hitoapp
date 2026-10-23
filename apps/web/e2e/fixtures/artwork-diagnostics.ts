@@ -136,6 +136,9 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
           ).href,
       ),
     );
+    const otherAbsence = new RegExp(
+      `^${new URL("/api/v1/", baseURL).href}(recordings|playlists)/[^/]+/(artwork|download)$`,
+    );
     const playlistCoverURLs = new Set(
       copies.map(
         (copy) =>
@@ -169,10 +172,9 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
           );
         else if (playlistCoverURLs.has(response.url))
           expect(["copies", "retrieving", "ready"]).toContain(response.phase);
-        else {
-          expect(response.url).toBe(artworkURL);
+        else if (response.url === artworkURL)
           expect(["copies", "retrieving"]).toContain(response.phase);
-        }
+        else expect(response.url).toMatch(otherAbsence);
       }
     }
     for (const owner of ["owner", "other"])

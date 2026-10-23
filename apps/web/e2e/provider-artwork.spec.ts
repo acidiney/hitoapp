@@ -46,7 +46,9 @@ test("existing independent playlist copies automatically retain private provider
     localStorage.setItem("hito-log-level", "debug"),
   );
   try {
-    await signIn(page);
+    const setup = await get<Schema["SetupStatus"]>(page, "/api/v1/setup");
+    if (setup.needs_setup) await signIn(page);
+    else await signIn(page, "admin", "docker browser test password");
     phase = "copies";
     await page.goto("/settings?section=plugins");
     await expect(
