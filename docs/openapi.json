@@ -15184,6 +15184,30 @@
           }
         }
       },
+      "PageComponent": {
+        "type": "string",
+        "enum": [
+          "LoginPage",
+          "CatalogPage",
+          "AlbumIndexPage",
+          "AlbumPage",
+          "ArtistIndexPage",
+          "ArtistIdentityGroupPage",
+          "ArtistPage",
+          "RecordingDetailsPage",
+          "AlbumDetailsPage",
+          "LikesPage",
+          "PlaylistIndexPage",
+          "PlaylistPage",
+          "AudiobookIndexPage",
+          "AudiobookPage",
+          "HistoryPage",
+          "SettingsPage",
+          "DiscoverPage",
+          "PodcastIndexPage",
+          "PodcastPage"
+        ]
+      },
       "Page_Artist": {
         "type": "object",
         "required": [

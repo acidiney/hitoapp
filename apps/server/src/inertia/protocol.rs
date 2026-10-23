@@ -1,3 +1,4 @@
+use super::props::PageComponent;
 use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
@@ -10,14 +11,14 @@ pub struct Protocol {
 }
 
 impl Protocol {
-    pub fn new(headers: &HeaderMap, component: &str) -> Self {
+    pub fn new(headers: &HeaderMap, component: PageComponent) -> Self {
         let inertia = headers
             .get("x-inertia")
             .is_some_and(|value| value == "true");
         let partial = inertia
             && headers
                 .get("x-inertia-partial-component")
-                .is_some_and(|value| value == component);
+                .is_some_and(|value| value == component.to_string().as_str());
         let keys = |header| {
             partial
                 .then(|| headers.get(header).and_then(|value| value.to_str().ok()))

@@ -24,6 +24,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 #[openapi(
     info(title = "Hito API", version = "1.0.0"),
     components(schemas(
+        PageComponent,
         SharedPageProps,
         LoginPageProps,
         CatalogPageProps,

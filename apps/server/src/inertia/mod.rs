@@ -12,7 +12,7 @@ use axum::{
 };
 use hito_core::{Search, Services};
 use page::Screen;
-use props::{LoginPageProps, PageProps};
+use props::{LoginPageProps, PageComponent, PageProps};
 use protocol::Protocol;
 use serde_json::json;
 
@@ -46,7 +46,7 @@ pub async fn page(
     let component = if actor.is_some() {
         screen.component()
     } else {
-        "LoginPage"
+        PageComponent::LoginPage
     };
     let protocol = Protocol::new(&headers, component);
     let clear_history = actor.is_none();
@@ -77,7 +77,7 @@ pub async fn page(
     };
     tracing::debug!(
         event = "inertia_page",
-        component = props.component(),
+        component = %props.component(),
         partial = headers.contains_key("x-inertia-partial-component"),
         "Page assembled"
     );

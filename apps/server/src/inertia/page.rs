@@ -66,26 +66,26 @@ impl<'a> Screen<'a> {
         }
     }
 
-    pub fn component(&self) -> &'static str {
+    pub fn component(&self) -> PageComponent {
         match self {
-            Self::Catalog => "CatalogPage",
-            Self::AlbumIndex => "AlbumIndexPage",
-            Self::Album(_) => "AlbumPage",
-            Self::AlbumDetails(_) => "AlbumDetailsPage",
-            Self::ArtistIndex => "ArtistIndexPage",
-            Self::ArtistIdentityGroup(_) => "ArtistIdentityGroupPage",
-            Self::Artist(_) => "ArtistPage",
-            Self::RecordingDetails(_) => "RecordingDetailsPage",
-            Self::Likes => "LikesPage",
-            Self::PlaylistIndex => "PlaylistIndexPage",
-            Self::Playlist(_) => "PlaylistPage",
-            Self::AudiobookIndex => "AudiobookIndexPage",
-            Self::Audiobook(_) => "AudiobookPage",
-            Self::History => "HistoryPage",
-            Self::Settings => "SettingsPage",
-            Self::Discover => "DiscoverPage",
-            Self::PodcastIndex => "PodcastIndexPage",
-            Self::Podcast(_) => "PodcastPage",
+            Self::Catalog => PageComponent::CatalogPage,
+            Self::AlbumIndex => PageComponent::AlbumIndexPage,
+            Self::Album(_) => PageComponent::AlbumPage,
+            Self::AlbumDetails(_) => PageComponent::AlbumDetailsPage,
+            Self::ArtistIndex => PageComponent::ArtistIndexPage,
+            Self::ArtistIdentityGroup(_) => PageComponent::ArtistIdentityGroupPage,
+            Self::Artist(_) => PageComponent::ArtistPage,
+            Self::RecordingDetails(_) => PageComponent::RecordingDetailsPage,
+            Self::Likes => PageComponent::LikesPage,
+            Self::PlaylistIndex => PageComponent::PlaylistIndexPage,
+            Self::Playlist(_) => PageComponent::PlaylistPage,
+            Self::AudiobookIndex => PageComponent::AudiobookIndexPage,
+            Self::Audiobook(_) => PageComponent::AudiobookPage,
+            Self::History => PageComponent::HistoryPage,
+            Self::Settings => PageComponent::SettingsPage,
+            Self::Discover => PageComponent::DiscoverPage,
+            Self::PodcastIndex => PageComponent::PodcastIndexPage,
+            Self::Podcast(_) => PageComponent::PodcastPage,
         }
     }
 

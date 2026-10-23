@@ -2636,6 +2636,8 @@ export interface components {
             personal: string | null;
             value: string | null;
         };
+        /** @enum {string} */
+        PageComponent: "LoginPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;

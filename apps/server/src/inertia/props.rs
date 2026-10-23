@@ -12,6 +12,35 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use utoipa::ToSchema;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+pub enum PageComponent {
+    LoginPage,
+    CatalogPage,
+    AlbumIndexPage,
+    AlbumPage,
+    ArtistIndexPage,
+    ArtistIdentityGroupPage,
+    ArtistPage,
+    RecordingDetailsPage,
+    AlbumDetailsPage,
+    LikesPage,
+    PlaylistIndexPage,
+    PlaylistPage,
+    AudiobookIndexPage,
+    AudiobookPage,
+    HistoryPage,
+    SettingsPage,
+    DiscoverPage,
+    PodcastIndexPage,
+    PodcastPage,
+}
+
+impl std::fmt::Display for PageComponent {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct SharedPageProps {
     pub errors: BTreeMap<String, String>,
@@ -242,27 +271,27 @@ pub enum PageProps {
 }
 
 impl PageProps {
-    pub fn component(&self) -> &'static str {
+    pub fn component(&self) -> PageComponent {
         match self {
-            Self::Login(_) => "LoginPage",
-            Self::Catalog(_) => "CatalogPage",
-            Self::AlbumIndex(_) => "AlbumIndexPage",
-            Self::Album(_) => "AlbumPage",
-            Self::ArtistIndex(_) => "ArtistIndexPage",
-            Self::ArtistIdentityGroup(_) => "ArtistIdentityGroupPage",
-            Self::Artist(_) => "ArtistPage",
-            Self::RecordingDetails(_) => "RecordingDetailsPage",
-            Self::AlbumDetails(_) => "AlbumDetailsPage",
-            Self::Likes(_) => "LikesPage",
-            Self::PlaylistIndex(_) => "PlaylistIndexPage",
-            Self::Playlist(_) => "PlaylistPage",
-            Self::AudiobookIndex(_) => "AudiobookIndexPage",
-            Self::Audiobook(_) => "AudiobookPage",
-            Self::History(_) => "HistoryPage",
-            Self::Settings(_) => "SettingsPage",
-            Self::Discover(_) => "DiscoverPage",
-            Self::PodcastIndex(_) => "PodcastIndexPage",
-            Self::Podcast(_) => "PodcastPage",
+            Self::Login(_) => PageComponent::LoginPage,
+            Self::Catalog(_) => PageComponent::CatalogPage,
+            Self::AlbumIndex(_) => PageComponent::AlbumIndexPage,
+            Self::Album(_) => PageComponent::AlbumPage,
+            Self::ArtistIndex(_) => PageComponent::ArtistIndexPage,
+            Self::ArtistIdentityGroup(_) => PageComponent::ArtistIdentityGroupPage,
+            Self::Artist(_) => PageComponent::ArtistPage,
+            Self::RecordingDetails(_) => PageComponent::RecordingDetailsPage,
+            Self::AlbumDetails(_) => PageComponent::AlbumDetailsPage,
+            Self::Likes(_) => PageComponent::LikesPage,
+            Self::PlaylistIndex(_) => PageComponent::PlaylistIndexPage,
+            Self::Playlist(_) => PageComponent::PlaylistPage,
+            Self::AudiobookIndex(_) => PageComponent::AudiobookIndexPage,
+            Self::Audiobook(_) => PageComponent::AudiobookPage,
+            Self::History(_) => PageComponent::HistoryPage,
+            Self::Settings(_) => PageComponent::SettingsPage,
+            Self::Discover(_) => PageComponent::DiscoverPage,
+            Self::PodcastIndex(_) => PageComponent::PodcastIndexPage,
+            Self::Podcast(_) => PageComponent::PodcastPage,
         }
     }
 }

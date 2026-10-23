@@ -1,22 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
+import type { components } from "../../generated";
 import { buildPages, pages, resolvePage } from "../pages";
 
-const contract = resolve(
-  import.meta.dirname,
-  "../../../../../apps/server/src/inertia/props.rs",
-);
+type PageComponent = components["schemas"]["PageComponent"];
 
-function serverComponents() {
-  if (!existsSync(contract))
-    throw new Error(
-      `The Inertia page names are read from ${contract}, which does not exist`,
-    );
-  const names = [
-    ...readFileSync(contract, "utf8").matchAll(/=> "([A-Za-z]+Page)"/g),
-  ].map((match) => match[1]);
-  return [...new Set(names)];
+const contract = resolve(import.meta.dirname, "../../../../../docs/openapi.json");
+
+function serverComponents(): PageComponent[] {
+  const document = JSON.parse(readFileSync(contract, "utf8"));
+  return document.components.schemas.PageComponent.enum;
 }
 
 test("the server emits the page components the registry knows", () => {
