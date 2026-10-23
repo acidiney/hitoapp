@@ -41,6 +41,7 @@ struct HttpState {
     extractor: Arc<extractor::Extractor>,
     catalog: Arc<recording::Catalog>,
     media: Arc<media::Relay>,
+    audio: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,15 +59,20 @@ impl std::error::Error for ShutdownError {}
 
 impl Service {
     pub fn new(config: Config) -> Self {
-        Self::configured(config, media::Client::new())
+        Self::configured(config, media::Client::new(), true)
+    }
+
+    /// Declares only search and metadata and leaves the sources and audio routes unmounted.
+    pub fn metadata_only(config: Config) -> Self {
+        Self::configured(config, media::Client::new(), false)
     }
 
     #[cfg(test)]
     fn with_media_client(config: Config, client: media::Client) -> Self {
-        Self::configured(config, Ok(client))
+        Self::configured(config, Ok(client), true)
     }
 
-    fn configured(config: Config, client: Result<media::Client, Error>) -> Self {
+    fn configured(config: Config, client: Result<media::Client, Error>, audio: bool) -> Self {
         let extractor = Arc::new(extractor::Extractor::new(config.executable));
         let catalog = Arc::new(recording::Catalog::new(extractor.clone()));
         let media = Arc::new(media::Relay::new(catalog.clone(), client));
@@ -75,18 +81,25 @@ impl Service {
                 extractor,
                 catalog,
                 media,
+                audio,
             }),
         }
     }
 
     pub fn router(&self) -> Router {
-        Router::new()
+        let router = Router::new()
             .route("/v1/manifest", get(manifest))
             .route("/v1/search", post(search))
             .route("/v1/recordings/detail", post(detail))
-            .route("/v1/recordings/metadata", post(metadata))
-            .route("/v1/sources", post(sources))
-            .route("/v1/audio", get(audio))
+            .route("/v1/recordings/metadata", post(metadata));
+        let router = if self.state.audio {
+            router
+                .route("/v1/sources", post(sources))
+                .route("/v1/audio", get(audio))
+        } else {
+            router
+        };
+        router
             .layer(DefaultBodyLimit::max(4096))
             .layer(from_fn(observe))
             .with_state(self.state.clone())
@@ -103,17 +116,21 @@ pub fn router(config: Config) -> Router {
     Service::new(config).router()
 }
 
-async fn manifest() -> Json<Manifest> {
+async fn manifest(State(state): State<Arc<HttpState>>) -> Json<Manifest> {
+    let mut capabilities: std::collections::BTreeSet<_> = [
+        Capability::Search,
+        Capability::Sources,
+        Capability::Metadata,
+    ]
+    .into();
+    if !state.audio {
+        capabilities.remove(&Capability::Sources);
+    }
     Json(Manifest {
         id: "org.hito.youtube".into(),
         name: "YouTube".into(),
         protocol_version: PROTOCOL_VERSION,
-        capabilities: [
-            Capability::Search,
-            Capability::Sources,
-            Capability::Metadata,
-        ]
-        .into(),
+        capabilities,
         authorization: None,
         content_policy: None,
     })

@@ -33,6 +33,7 @@ async fn run() -> Result<(), &'static str> {
     let signal = shutdown_signal().map_err(|_| "signal_setup_failed")?;
     let mut listen = SocketAddr::from(([127, 0, 0, 1], 8093));
     let mut executable = PathBuf::from("/opt/yt-dlp/yt-dlp");
+    let mut metadata_only = false;
     let mut arguments = std::env::args_os().skip(1);
     while let Some(argument) = arguments.next() {
         match argument.to_str() {
@@ -50,6 +51,7 @@ async fn run() -> Result<(), &'static str> {
                     .map(PathBuf::from)
                     .ok_or("missing_executable")?;
             }
+            Some("--metadata-only") => metadata_only = true,
             _ => return Err("invalid_arguments"),
         }
     }
@@ -59,7 +61,12 @@ async fn run() -> Result<(), &'static str> {
     let listener = tokio::net::TcpListener::bind(listen)
         .await
         .map_err(|_| "bind_failed")?;
-    let service = Service::new(Config { executable });
+    let config = Config { executable };
+    let service = if metadata_only {
+        Service::metadata_only(config)
+    } else {
+        Service::new(config)
+    };
     let router = service.router();
     let (drain, drained) = tokio::sync::oneshot::channel();
     let server = async move {
@@ -70,6 +77,14 @@ async fn run() -> Result<(), &'static str> {
             .await
     };
     tokio::pin!(server);
+    tracing::info!(
+        event = "youtube_service_mode",
+        mode = if metadata_only {
+            "metadata_only"
+        } else {
+            "full"
+        }
+    );
     tracing::info!(
         event = "youtube_service_ready",
         outcome = "ready",
