@@ -19,7 +19,7 @@ use snapshot::Snapshot;
 use std::{
     collections::BTreeSet,
     ffi::{CString, OsString},
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::SocketAddr,
     os::unix::{
         ffi::OsStrExt,
         fs::{PermissionsExt, symlink},
@@ -176,11 +176,7 @@ fn journal_paths_and_explicit_creation_fail_without_replacing_operator_state() {
 
 fn rejected(directory: &Path, arguments: &[OsString], reason: Option<&'static str>) -> Uuid {
     let before = Snapshot::capture(directory);
-    let reservation =
-        TcpListener::bind("127.0.0.1:0").expect("the owned rejection listener must reserve");
-    let address = reservation
-        .local_addr()
-        .expect("the owned rejection address must identify");
+    let address = process::free_address();
     let child = process::Host::start_with_arguments(directory, arguments, address);
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| child.rejected_and_join()));
     assert!(
@@ -189,8 +185,6 @@ fn rejected(directory: &Path, arguments: &[OsString], reason: Option<&'static st
     );
     let stopped = outcome.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
     assert!(stopped.status.code() == Some(1) && !stopped.signalled && stopped.stderr.is_empty());
-    assert!(reservation.local_addr().ok() == Some(address));
-    drop(reservation);
     closed(address);
     if let Some(reason) = reason {
         let events = logging::events(&stopped.stdout, directory);
@@ -354,7 +348,7 @@ fn link(path: &Path, directory: &Path) {
 
 fn closed(address: SocketAddr) {
     assert!(
-        TcpStream::connect_timeout(&address, Duration::from_millis(100)).is_err(),
+        process::refuses_connections(address),
         "rejected or joined bootstrap must not retain a listener"
     );
 }

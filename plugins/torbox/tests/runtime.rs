@@ -6,6 +6,7 @@ mod http;
 mod inputs;
 #[path = "runtime_support/logging.rs"]
 mod logging;
+#[allow(dead_code)]
 #[path = "runtime_support/process.rs"]
 mod process;
 

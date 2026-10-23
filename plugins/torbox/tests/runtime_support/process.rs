@@ -2,10 +2,14 @@ use super::inputs::Inputs;
 use std::{
     ffi::OsString,
     io::Read,
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::Path,
     process::{Child, Command, ExitStatus, Stdio},
+    sync::{
+        Mutex,
+        atomic::{AtomicU8, Ordering},
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -27,15 +31,30 @@ pub struct Stopped {
     pub stderr: Vec<u8>,
 }
 
+static NEXT_LOOPBACK_HOST: AtomicU8 = AtomicU8::new(0);
+static LISTENER_FORK_EXCLUSION: Mutex<()> = Mutex::new(());
+
+pub fn free_address() -> SocketAddr {
+    let _exclusive = LISTENER_FORK_EXCLUSION
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let process = std::process::id();
+    let host = NEXT_LOOPBACK_HOST.fetch_add(1, Ordering::Relaxed) % 254 + 1;
+    TcpListener::bind((
+        Ipv4Addr::new(127, (process >> 8) as u8, process as u8, host),
+        0,
+    ))
+    .and_then(|reservation| reservation.local_addr())
+        .unwrap_or_else(|_| panic!("an owned listen address must reserve"))
+}
+
+pub fn refuses_connections(address: SocketAddr) -> bool {
+    TcpStream::connect(address).is_err()
+}
+
 impl Host {
     pub fn start(directory: &Path, inputs: &Inputs, mode: &str) -> Self {
-        let reservation = TcpListener::bind("127.0.0.1:0")
-            .unwrap_or_else(|_| panic!("an owned listen address must reserve"));
-        let address = reservation
-            .local_addr()
-            .unwrap_or_else(|_| panic!("the owned listen address must identify"));
-        drop(reservation);
-        Self::start_with_arguments(directory, &inputs.arguments(mode), address)
+        Self::start_with_arguments(directory, &inputs.arguments(mode), free_address())
     }
 
     pub fn start_with_arguments(
@@ -43,6 +62,9 @@ impl Host {
         arguments: &[OsString],
         address: SocketAddr,
     ) -> Self {
+        let spawning = LISTENER_FORK_EXCLUSION
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut child = Command::new(env!("CARGO_BIN_EXE_hito-plugin-torbox"))
             .arg("--listen")
             .arg(address.to_string())
@@ -55,6 +77,7 @@ impl Host {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap_or_else(|_| panic!("the owned TorBox executable must spawn"));
+        drop(spawning);
         let descriptor = unsafe { libc::syscall(libc::SYS_pidfd_open, child.id(), 0) };
         if descriptor < 0 {
             let _ = child.kill();
