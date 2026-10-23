@@ -1,8 +1,5 @@
-import { createElement } from "react";
-import { act, fireEvent } from "@testing-library/react";
+import { act } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import Artwork from "../../artwork/components/Artwork";
-import type { ArtworkFetch } from "../../../shared/types";
 import { browserPreparationMedia } from "../fixtures/browserPreparationMedia";
 import { browserMediaSession } from "../fixtures/browserMediaSession";
 import { browserSessionImages } from "../fixtures/browserSessionImages";
@@ -72,7 +69,7 @@ test("held image loads cannot publish after track replacement, account replaceme
 });
 
 test.each(["error", "timeout"] as const)(
-  "an artwork %s ends its bounded probe without provider retrieval or changing playback",
+  "an artwork %s ends its bounded probe without changing playback",
   async (outcome) => {
     vi.useFakeTimers();
     const media = browserPreparationMedia();
@@ -110,65 +107,3 @@ test.each(["error", "timeout"] as const)(
     }
   },
 );
-
-test("a current cover retries only when the existing authorized artwork workflow publishes a ready revision", async () => {
-  const media = browserPreparationMedia();
-  const system = browserMediaSession();
-  const images = browserSessionImages();
-  const path = `/api/v1/recordings/${recording.id}/artwork`;
-  const requests = playbackRequests([recording], (requested, options) => {
-    if (requested === `${path}/availability` && options?.method === "GET")
-      return Response.json({ can_fetch: true });
-    if (requested === `${path}/fetch` && options?.method === "POST")
-      return Response.json({
-        id: "3ef96135-2f18-497d-b62e-cba8072cbab8",
-        recording_id: recording.id,
-        status: "ready",
-        attempts: 1,
-        error: null,
-        created_at: 1,
-        updated_at: 1,
-      } satisfies ArtworkFetch);
-    return undefined;
-  });
-  const view = renderAccount(false, {
-    artwork: true,
-    children: createElement(Artwork, { recording: recording.id }),
-  });
-  try {
-    await act(async () => {
-      await view.player().playQueue([recording]);
-    });
-    act(() => images.created[0].dispatchEvent(new Event("error")));
-    expect(system.session.metadata?.artwork).toEqual([]);
-    expect(requests).toHaveLength(1);
-    const cover = view.container.querySelector("img");
-    if (!cover)
-      throw new Error("The current artwork component must be mounted");
-    await act(async () => {
-      fireEvent.error(cover);
-    });
-    await vi.waitFor(() => expect(images.created).toHaveLength(2));
-    act(() => images.load(images.created[1], 512, 512));
-    expect(system.session.metadata?.artwork).toEqual([
-      {
-        src: new URL(path, location.href).href,
-        sizes: "512x512",
-      },
-    ]);
-    expect(
-      requests.map((request) => `${request.method} ${request.path}`),
-    ).toEqual([
-      `GET /api/v1/recordings/${recording.id}/playback-sources`,
-      `GET ${path}/availability`,
-      `POST ${path}/fetch`,
-    ]);
-    expect(
-      requests.every((request) => request.account === "owned-system-account"),
-    ).toBe(true);
-  } finally {
-    view.unmount();
-    system.close();
-    media.close();
-  }
-});

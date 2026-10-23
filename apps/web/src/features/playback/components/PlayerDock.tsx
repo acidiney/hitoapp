@@ -87,7 +87,7 @@ export default function PlayerDock({
             disabled={!current}
             onClick={(event) => openExpanded(event.currentTarget)}
           >
-            <Artwork recording={current?.id} />
+            <Artwork release={current?.release_id ?? undefined} recording={current?.id} />
           </button>
           <span>
             <strong>{current?.title ?? "Ready when you are"}</strong>

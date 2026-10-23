@@ -4,7 +4,9 @@ export type Track = Pick<
   Recording,
   "id" | "title" | "artist" | "album" | "duration_ms" | "available"
 > &
-  Partial<Pick<Recording, "inherited_title" | "inherited_artist">>;
+  Partial<
+    Pick<Recording, "inherited_title" | "inherited_artist" | "release_id">
+  >;
 
 export type PlaybackStart = { kind: "saved" | "position"; position: number };
 export type PlaybackQueueInput =

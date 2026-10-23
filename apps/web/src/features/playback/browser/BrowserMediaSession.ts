@@ -2,7 +2,10 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useArtwork } from "../../artwork/components/ArtworkProvider";
 import { log } from "../../../shared/log";
 import type { Player, Track } from "../model";
-import { probeSessionArtwork } from "./BrowserSessionArtwork";
+import {
+  probeSessionArtwork,
+  type SessionArtworkCandidate,
+} from "./BrowserSessionArtwork";
 
 const actions = [
   "play",
@@ -17,8 +20,12 @@ const actions = [
 
 export function useBrowserMediaSession(player: Player, account: string) {
   const queue = useSyncExternalStore(player.subscribe, player.queueSnapshot);
-  const recording = player.snapshot().current?.id;
-  const artwork = useArtwork("recording", recording);
+  const current = player.snapshot().current;
+  const recording = current?.id;
+  const release = current?.release_id ?? undefined;
+  const releaseArtwork = useArtwork("release", release);
+  const recordingArtwork = useArtwork("recording", recording);
+  const revision = `${releaseArtwork.revision}:${recordingArtwork.revision}`;
   const connection = useRef<ReturnType<typeof connectSession>>(undefined);
   useEffect(() => {
     const current = connectSession(player, account);
@@ -29,8 +36,20 @@ export function useBrowserMediaSession(player: Player, account: string) {
     };
   }, [account, player]);
   useEffect(() => {
-    connection.current?.refreshArtwork(recording, artwork.revision);
-  }, [account, player, queue.version, recording, artwork.revision]);
+    connection.current?.refreshArtwork(recording, release, revision, {
+      release: releaseArtwork.missing,
+      recording: recordingArtwork.missing,
+    });
+  }, [
+    account,
+    player,
+    queue.version,
+    recording,
+    release,
+    revision,
+    releaseArtwork.missing,
+    recordingArtwork.missing,
+  ]);
 }
 
 function connectSession(player: Player, account: string) {
@@ -41,7 +60,11 @@ function connectSession(player: Player, account: string) {
   let entry: string | null = null;
   let metadata: Track | null = null;
   let artworkRecording: string | null = null;
-  let artworkAttempt: { recording: string; revision: number } | null = null;
+  let artworkAttempt: {
+    recording: string;
+    release?: string;
+    revision: string;
+  } | null = null;
   let artwork: MediaImage[] = [];
   let stopArtwork = () => {};
   const registered = new Set<MediaSessionAction>();
@@ -219,7 +242,12 @@ function connectSession(player: Player, account: string) {
     publishPosition();
   }
 
-  function refreshArtwork(recording: string | undefined, revision: number) {
+  function refreshArtwork(
+    recording: string | undefined,
+    release: string | undefined,
+    revision: string,
+    missing: { release: () => void; recording: () => void },
+  ) {
     if (
       !active ||
       !recording ||
@@ -229,26 +257,38 @@ function connectSession(player: Player, account: string) {
       return;
     if (
       artworkAttempt?.recording === recording &&
+      artworkAttempt.release === release &&
       artworkAttempt.revision === revision
     )
       return;
-    const attempt = { recording, revision };
+    const attempt = { recording, release, revision };
     stopArtwork();
     artworkAttempt = attempt;
     artwork = [];
     metadata = null;
     publish();
-    stopArtwork = probeSessionArtwork(account, recording, (image) => {
-      if (
-        !active ||
-        artworkAttempt !== attempt ||
-        player.snapshot().current?.id !== recording
-      )
-        return;
-      artwork = [image];
-      metadata = null;
-      publish();
-    });
+    const candidates: SessionArtworkCandidate[] = [
+      ...(release ? [{ kind: "release" as const, id: release }] : []),
+      { kind: "recording", id: recording },
+    ];
+    const live = () =>
+      active &&
+      artworkAttempt === attempt &&
+      player.snapshot().current?.id === recording;
+    stopArtwork = probeSessionArtwork(
+      account,
+      recording,
+      candidates,
+      (image) => {
+        if (!live()) return;
+        artwork = [image];
+        metadata = null;
+        publish();
+      },
+      (candidate) => {
+        if (live()) missing[candidate.kind]();
+      },
+    );
   }
 
   const stopState = player.subscribe(publish);

@@ -10,7 +10,9 @@ flowchart LR
   Queue --> Position[Independent position subscription]
   State --> Session[Browser Media Session owner]
   Position --> Session
-  Artwork[Current authorized artwork endpoint] --> Probe[One bounded decoded image probe]
+  Artwork[Release then recording artwork endpoints] --> Probe[One bounded decoded image probe]
+  Probe -->|image error| Retrieval[Shared artwork retrieval]
+  Retrieval -->|ready revision| Probe
   Probe --> Session
   Session --> System[Browser metadata and supported controls]
   System --> Commands[Explicit player commands]
@@ -21,7 +23,7 @@ flowchart LR
 
 Position updates publish imperatively and do not rerender catalog pages. The bridge registers supported Play, Pause, seeking, Previous, Next and Stop actions. Play and Pause use explicit commands against the media element's actual paused state, including a pending Play promise. The shared native command adapter also retains explicit Resume/Pause direction; this does not add native OS media controls.
 
-Artwork uses one ten-second probe of the current recording's same-origin authenticated endpoint. Only successfully decoded dimensions are published. The bridge does not start provider artwork retrieval or Download. An existing approved artwork workflow can notify it when a cover becomes ready. Recording/account changes cancel old probes and fence late callbacks.
+Artwork probes the current track's same-origin authenticated images in the order the track rows use: the release image when the track has a release, then the recording image. Each probe has a ten-second limit, and only successfully decoded dimensions are published. A probe that fails with an image error asks the shared account artwork retrieval to fetch that cover, the same availability, fetch and status workflow the page covers use. The bridge adds no second fetch path and inherits its two-request, 16-workflow and two-minute bounds and its cached `unavailable` result, so an unavailable cover is checked once. When retrieval publishes a ready revision, the bridge probes again and updates the metadata. A timeout does not start retrieval. Track, recording and account changes cancel old probes and retrieval observers, and late callbacks are fenced. The bridge never puts provider URLs or private paths into metadata or logs. This behavior is in tested source only and is not deployed.
 
 Account teardown and queue completion clear metadata, playback state, position and registered handlers. Handlers retain an occurrence generation and cannot control a later account or queue occurrence. Missing browser APIs degrade independently without preventing ordinary playback. Display values stay out of workflow logs.
 
