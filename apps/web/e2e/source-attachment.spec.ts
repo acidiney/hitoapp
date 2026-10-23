@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { randomUUID } from "node:crypto";
 import {
   expect,
@@ -32,6 +33,7 @@ async function signIn(
   await page.goto("/library");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
+  await paceAuthAttempt();
   const setup = await page
     .getByRole("button", { name: "Create administrator", exact: true })
     .count();
@@ -728,14 +730,18 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       expect(observations).not.toContain(secret);
     expect(errors).toEqual([]);
     // Sign-in probing, absent covers, absent saved copies and the injected audio fault are HTTP diagnostics.
-    const expectedResponses = new Map([
+    const knownResponses = new Map([
       [new URL("/api/v1/me", baseURL).href, 401],
       [new URL(`/api/v1/recordings/${recording}/artwork`, baseURL).href, 404],
-      [new URL(`/api/v1/playlists/${copied}/artwork`, baseURL).href, 404],
-      [new URL(`/api/v1/playlists/${copied}/download`, baseURL).href, 404],
-      [new URL(`/api/v1/recordings/${recording}/download`, baseURL).href, 404],
       [new URL(`/api/v1/sources/${sources[0].id}/audio`, baseURL).href, 502],
     ]);
+    const absentCopy = new RegExp(
+      `^${new URL("/api/v1/", baseURL).href}(recordings|playlists)/[^/]+/(artwork|download)$`,
+    );
+    const expectedResponses = {
+      get: (url: string) =>
+        knownResponses.get(url) ?? (absentCopy.test(url) ? 404 : undefined),
+    };
     const messages = new Map([
       [
         401,

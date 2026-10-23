@@ -1,3 +1,4 @@
+import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
@@ -26,10 +27,30 @@ async function pluginSettings(page: Page): Promise<Schema["PluginSettings"]> {
   }
 }
 
+async function withdrawEveryService(page: Page) {
+  const headers = {
+    "x-hito-request": "1",
+    origin: new URL(page.url()).origin,
+  };
+  for (const service of (await pluginSettings(page)).services) {
+    const response = await page.request.delete(
+      `/api/v1/plugins/services/${service.id}`,
+      { headers, data: { revision: service.revision } },
+    );
+    expect(response.ok()).toBe(true);
+  }
+  await page.reload();
+  await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your plugins", exact: true }),
+  ).toBeVisible();
+}
+
 async function signIn(page: Page, username: string, password: string) {
   await page.goto("/settings");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
+  await paceAuthAttempt();
   const setup = await page
     .getByRole("button", { name: "Create administrator" })
     .count();
@@ -92,6 +113,7 @@ test("an administrator offers only an address before connecting with the plugin 
   });
   try {
     await signIn(page, "admin", "docker browser test password");
+    await withdrawEveryService(page);
     await page.getByText("Services for this server", { exact: true }).click();
     const serviceAddress = page.getByLabel("Service address", { exact: true });
     await expect(serviceAddress).toHaveJSProperty("required", true);
@@ -220,6 +242,7 @@ test("personal plugin connections review changes and remain private across accou
   const address = `http://127.0.0.1:${(service.address() as AddressInfo).port}/fixture/`;
   try {
     await signIn(page, "admin", "docker browser test password");
+    await withdrawEveryService(page);
     await page.getByText("Services for this server", { exact: true }).click();
     await page.getByText("Advanced settings", { exact: true }).click();
     await page
