@@ -297,6 +297,49 @@ The separate [Spotify plugin](plugin-spotify.md) is being built for public share
 
 The service is running in the local development deployment. Ten owned TCP tests cover the public manifest, complete pagination, pinned SDK pages, duplicates, unknown entries, malformed tracks, incomplete refreshes and private logs. Strict all-target Clippy passes. A release-image Chromium case connected the service with an empty token, imported a complete live playlist, and verified order, private ownership, disabled playback, retention after disconnection and editing. Follow and YouTube matching remain planned work. See [setup and limits](plugin-spotify.md).
 
+## Plugin crates and the SDK
+
+Plugin services live in `plugins/<name>`: `folder`, `spotify`, `youtube`, `jamendo`, `real-debrid`, `all-debrid`, `torbox` and `premiumize`. Each depends on `crates/plugin-sdk` (`hito-plugin-sdk`) and never on `hito-core`. The four debrid plugins also depend on their provider client in `crates/debrid/<provider>`. Dockerfiles are `docker/plugin-<name>.Dockerfile` and each service has a `compose.<name>.yaml` overlay at the repository root, except Premiumize, which has neither yet. The [architecture](architecture.md#repository-and-crate-dependencies) shows the dependency graph.
+
+The SDK owns the wire types, their `validate` functions and the size limits that core also applies. A plugin that returns data the SDK rejects fails in core, not in the browser.
+
+### Curated catalog admission at startup
+
+Current behavior. The Real-Debrid, All-Debrid, TorBox and Premiumize services each serve an operator-supplied list of recordings. They share one admission function, `admit_curated_catalog` in `crates/plugin-sdk/src/curated.rs`, so the rules are the same everywhere.
+
+```mermaid
+sequenceDiagram
+  participant Op as Operator configuration
+  participant Plug as Plugin Config or Catalog constructor
+  participant SDK as hito-plugin-sdk admit_curated_catalog
+  participant Run as Plugin runtime
+  Op->>Plug: recordings with source ID, label and private binding
+  Plug->>SDK: entries and a view of recording, source ID and label
+  SDK->>SDK: 1 to 128 entries, sort by recording ID
+  SDK->>SDK: validate each recording, source ID and label
+  SDK->>SDK: reject duplicate recording or source IDs
+  SDK->>SDK: each recording JSON at most 32768 bytes
+  SDK->>SDK: all recording JSON at most 49152 bytes
+  alt any rule fails
+    SDK-->>Plug: CuratedCatalogError
+    Plug-->>Run: fixed init error, startup stops
+  else admitted
+    SDK-->>Plug: sorted entries
+    Plug->>Plug: validate private bindings
+    Plug-->>Run: catalog ready
+    Run->>Run: build router, bind listener, serve
+  end
+```
+
+The size counts cover the serialized public recording only. Private source IDs, labels and provider bindings are not counted. The function reports a typed error and never includes catalog contents in it. Each plugin maps the error to a fixed startup reason (`InvalidCatalog`, or `InvalidConfiguration` in Premiumize), so logs show no operator data.
+
+Behavior changes from moving to the shared function:
+
+- All-Debrid and TorBox now reject a recording whose JSON exceeds 32,768 bytes. Earlier they accepted it.
+- Premiumize and TorBox aggregates no longer count private source, label and binding bytes.
+
+Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` covers the rules. Each plugin's contract tests start a service with a curated catalog. See [debrid adapters](debrid-adapters.md#curated-recording-detail-budgets) for the per-provider limits.
+
 ## Application API
 
 The actual routes and wire schemas generate [OpenAPI](openapi.json) and the web TypeScript contract. The table includes development source routes. Initial preview and digest-bearing installation are not yet on the normal server; authorization groundwork is described above.
