@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[allow(clippy::enum_variant_names)]
 pub enum PageComponent {
     LoginPage,
     CatalogPage,
