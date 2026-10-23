@@ -15,7 +15,7 @@ pub(super) struct Logs(Arc<Mutex<Captured>>);
 
 impl Logs {
     pub fn subscriber(&self) -> impl tracing::Subscriber + Send + Sync + 'static {
-        hito_core::test_support::tracing_anchor::ensure();
+        hito_core::test_support::tracing_anchor::anchor_callsite_interest();
         let writer = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace,hito_server=trace")

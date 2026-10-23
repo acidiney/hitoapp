@@ -43,6 +43,12 @@ async fn dropping_a_polled_lyric_request_with_parent_close_events_keeps_its_disp
     }
 }
 
+fn install_process_default_for_connection_workers(subscriber: &tracing::Dispatch) {
+    tracing::dispatcher::set_global_default(subscriber.clone()).expect(
+        "this binary owns the process default dispatcher, so it must contain exactly one test",
+    );
+}
+
 async fn drop_request(provider: &provider::Provider) {
     let library = Library::prepare(provider).await;
     let before = library.snapshot().await;
@@ -58,9 +64,7 @@ async fn drop_request(provider: &provider::Provider) {
         .unwrap();
     let capture = logs::Logs::default();
     let subscriber = tracing::Dispatch::new(capture.subscriber_with_close_events());
-    // The SQLite connection workers keep span handles on their own threads, where only the
-    // process default dispatcher is visible; span retirement is observable only through it.
-    tracing::dispatcher::set_global_default(subscriber.clone()).unwrap();
+    install_process_default_for_connection_workers(&subscriber);
     let decoy = logs::Logs::default();
     let decoy_subscriber = tracing::Dispatch::new(decoy.subscriber_with_close_events());
     let request = || ReadRecordingLyrics {

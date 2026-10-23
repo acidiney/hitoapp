@@ -4,6 +4,7 @@ use std::{
 };
 
 const MAX_BYTES: usize = 262_144;
+const SETTLE_YIELDS: usize = 256;
 
 #[derive(Default)]
 struct Captured {
@@ -22,7 +23,7 @@ impl Logs {
     + Send
     + Sync
     + 'static {
-        hito_core::test_support::tracing_anchor::ensure();
+        hito_core::test_support::tracing_anchor::anchor_callsite_interest();
         let writer = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace,hito_server=trace")
@@ -34,7 +35,7 @@ impl Logs {
     }
 
     pub fn subscriber_with_close_events(&self) -> impl tracing::Subscriber + Send + Sync + 'static {
-        hito_core::test_support::tracing_anchor::ensure();
+        hito_core::test_support::tracing_anchor::anchor_callsite_interest();
         let writer = self.clone();
         tracing_subscriber::fmt()
             .with_env_filter("off,hito_core=trace,hito_server=trace")
@@ -133,7 +134,7 @@ impl Logs {
                 })
                 .count()
         };
-        let count = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let first = tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 let count = closed();
                 if count > 0 {
@@ -144,6 +145,10 @@ impl Logs {
         })
         .await
         .unwrap_or(0);
+        for _ in 0..SETTLE_YIELDS {
+            tokio::task::yield_now().await;
+        }
+        let count = if first == 0 { 0 } else { closed() };
         assert_eq!(
             count, 1,
             "The owner must observe exactly one span retirement: span={name}"
