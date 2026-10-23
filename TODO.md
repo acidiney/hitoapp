@@ -1,12 +1,12 @@
 # Hito TODO
 
-Updated 2026-10-22. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
+Updated 2026-10-23. This is the remaining implementation work, not a list of features claimed complete. The full requirements and release gates are in [the release plan](docs/release-plan.md).
 
 Multiple music folders are implemented in administrator Settings, with independent scans and removal/reconnection. Development setup launchers use native folder choosers and generate read-only Docker mounts without requiring `HITO_MUSIC_FOLDER`. Their live platform acceptance is still pending. Recording identity is separate from tagged-file checksums. Track and album details now support private title and artist edits with local source provenance. The server/web build is running in Docker; most release features below remain unimplemented.
 
 Automatic audio resolution for imported playlists is deployed locally. Controlled browser workflows and one real Spotify-to-YouTube WebKit target pass without per-track URLs or manual matching. Existing YouTube connections must explicitly approve the added metadata capability. Manual source selection corrects a result; broader synchronization, matching, native and release acceptance remain open. See [current implementation, evidence and gaps](docs/automatic-sources.md). Visual polish remains after release functionality.
 
-- [ ] Restore real external playback on the development VPS. HTTPS and generated folder audio pass, but the same verified recording returns actual `LOGIN_REQUIRED` player responses with bot confirmation and no streaming data. A controlled automatic Player-token comparison still received the rejection after supplying a token. An autonomous server-side solution and actual audio playback remain unqualified. See [deployment evidence](docs/vps-deployment.md).
+- [ ] Restore real external YouTube playback on the development VPS. HTTPS and generated folder audio pass. From a datacenter IP, YouTube answers the same verified recording with `LOGIN_REQUIRED` and bot confirmation, and a Player-token comparison got the same rejection. Search and metadata work from servers. Cookies, signed-in accounts, residential proxies and relaying through your Mac were rejected, so the server cannot fetch audio on its own. `plugins/youtube` has an opt-in `--metadata-only` mode, set in `deploy/vps/compose.yaml` but not deployed. Deploying it needs an image rebuild, then Check connection and Accept changes. Extraction on the device in the desktop app is a proposed fix, not built. Debrid services as a YouTube fetch path are untested. See [options considered](docs/plugin-youtube.md#metadata-only-mode) and [deployment evidence](docs/vps-deployment.md).
   - [x] Distinguish provider failure and exhausted control capacity from successful searches with no suitable source. Preserve valid alternatives, immutable receipts, private state and browser queue/account boundaries without duplicate accepted requests. Seventeen core/HTTP cases, 24 frontend cases, independent repeats, affected strict checks, actual generated contracts and frontend types/build pass. See [source evidence](docs/automatic-sources.md#provider-failure-outcomes).
   - [ ] Qualify the combined packaged browser workflow and migration 0055 deployment. The source correction is integrated but not installed on the VPS or normal Mac server; the upstream YouTube block remains unresolved.
 
@@ -140,6 +140,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Implement, verify and deploy the shared preparation UI with source labels, current eligibility, exact-request retry, bounded cancellable polling and explicit Play after readiness. Its isolated Chromium workflow passes. See [UI evidence](docs/source-preparation.md#ui-verification).
 - [ ] Integrate deferred sources into playback at track boundaries.
 - [ ] Ship Real-Debrid, AllDebrid, Premiumize, and TorBox adapters with preparation progress.
+  - [x] Admit curated catalogs through one SDK function (`admit_curated_catalog`: 32,768 bytes per recording, 49,152 aggregate) in Real-Debrid, All-Debrid, Premiumize and TorBox. TorBox gained the per-recording guard. Live-provider acceptance and the remaining adapter work stay open. See [catalog admission](docs/debrid-adapters.md).
   - [x] Add a bounded Real-Debrid client for observing one previously selected torrent file. Seven owned protocol cases, strict crate Clippy, formatting and independent source reviews pass. Provider completion is metadata only; account provisioning, submission, audio qualification, a connectable service and the other three adapters remain open. See [evidence and limits](docs/debrid-adapters.md).
   - [x] Revalidate the exact completed file before unrestriction, return only a nonplayable receipt, and distinguish uncertain POST acknowledgements without automatic retries. The combined 13 protocol cases, strict crate Clippy, formatting and independent reviews pass, including aggregate deadline, cancellation and rejection checks. Media qualification, durable orchestration and a connectable service remain open.
   - [x] Qualify a narrowly supported bound WAV stream through approved HTTPS origins, owned public DNS and verified TLS. All 22 adapter cases, strict crate Clippy, formatting and fresh correctness/security/performance reviews pass. Actual fixture decoding, mixed A/AAAA rejection, certificate failures, cancellation and manual recovery are covered. A connectable service, broader codecs, seeking, durable orchestration and live-provider acceptance remain open.
@@ -275,7 +276,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Repeat the complete core suite with the qualified SQLite test profile; the directed upgrade pass is not a full-suite result.
 - [ ] Measure p95 local start, ready remote start, and available-source recovery against the release targets.
 - [ ] Exercise slow providers, expired links, failed seeks, interrupted transfers, server outages, and recovery.
-- [ ] Investigate the two intermittent lyric-log observations with missing events or span context. Preserve strict correlation/privacy assertions and establish the cause; later finite passing diagnostics do not resolve those observations. The separately reproduced dropped-future/span-retirement defect is fixed.
+- [ ] Investigate the two intermittent lyric-log observations with missing events or span context. Two shared causes were found later and fixed with regression tests: tracing-core caching callsite interest from the first thread's dispatcher (89689def, 001b04ee, baaca085; `crates/testkit/tests/callsite_interest.rs`), and span closes on sqlx worker threads outside scoped dispatchers (c034b585). These likely explain the observations, but no commit ties them to the two reports. Closing this needs a repeated lyric-log run, for example the `timed_lyrics` binaries many times under load, with no missing events or spans. Strict correlation and privacy assertions stay unchanged.
 - [ ] Verify backups/restoration, migrations, upgrades, installation, and approval-based updates.
   - [x] Rehearse stopped whole-volume restoration and migration-only upgrade from 0046 to 0048 on a separate clone, preserving all prior rows, schema history, keys, identity and file metadata without touching the normal volume. Runtime startup, normal publication, migration 0049 and platform upgrades remain open. See [scope and evidence](docs/database-maintenance.md#stopped-migration-0046-to-0048-rehearsal).
   - [x] Restore both off-host VPS archives into disposable stopped copies. Verify extracted bytes and metadata before SQLite opens, then preserve schema, typed values, row identifiers, all 54 migration checksums, keys and identity through the matching 54-to-54 CLI check. Originals remain unchanged and owned resources are removed. Parser, cleanup and process controls also pass an independent 33-case repeat. Restored runtime, login and upgrades remain open. See [scope and evidence](docs/vps-deployment.md#backups-and-remaining-acceptance).
@@ -290,6 +291,25 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Protect signing credentials, configure Apple notarization, and obtain Windows signing through SignPath or an agreed alternative.
 
 Mobile, browser offline operation, social/group listening, arbitrary plugin UI, advanced recommendations, and karaoke recording/scoring remain outside this release.
+
+## Architecture and maintainability
+
+Local development work, not a release. See [architecture](docs/architecture.md), [testing](docs/testing.md) and the [design proposals](docs/rfcs/README.md).
+
+- [x] Move the repository into `apps/`, `crates/`, `plugins/` and `docker/`, with a Makefile over the Compose tasks and a root npm workspace.
+- [x] Add `hito-testkit` and feature-gated `test_support` modules. No test includes files from another crate.
+- [x] Split the web app into feature folders with shared test isolation.
+- [x] Repair the red core and server suites and the browser e2e suite.
+- [x] Fix flaky tests at the root cause instead of retrying them.
+- [x] Rewrite the documentation around the crate graph, with diagrams.
+- [x] Implement RFC 0003, page read models in core.
+- [ ] Finish RFC 0002, the playback access boundary. In progress.
+- [ ] Decide RFC 0001, the provider source lifecycle as one module.
+- [ ] Decide RFC 0004, host identity versus sync client identity. It needs your decision on the wire renames.
+- [ ] Decide the product question: should PlaylistIndex show connected services only, or all services as Discover does?
+- [ ] Give browser e2e more sign-in headroom. The default run uses 9 of the 10 attempts allowed per minute.
+- [ ] Revisit the plugin compose overlays, which stay at the repository root on purpose.
+- [ ] Delete the leftover untracked `crates/hito-desktop/gen/` generated schemas. This is a user action.
 
 ## Verified foundation
 
