@@ -6,7 +6,6 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import type { components } from "../../src/generated";
-import { paceAuthAttempt } from "./auth-pacing";
 
 type Schema = components["schemas"];
 type SavedState = {
@@ -25,7 +24,6 @@ export async function signIn(page: Page, username?: string, password?: string) {
   expect(setupResponse.status()).toBe(200);
   const setup: Schema["SetupStatus"] = await setupResponse.json();
   expect(setup.needs_setup).toBe(firstRun);
-  await paceAuthAttempt();
   await page.goto("/playlists");
   await page.getByLabel("Username", { exact: true }).fill(username ?? "admin");
   await page

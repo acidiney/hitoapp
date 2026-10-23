@@ -1,4 +1,3 @@
-import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
@@ -8,16 +7,7 @@ async function signIn(page: Page, username: string, password: string) {
   await page.goto("/discover");
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await paceAuthAttempt();
-  const setup = await page
-    .getByRole("button", { name: "Create administrator", exact: true })
-    .count();
-  await page
-    .getByRole("button", {
-      name: setup ? "Create administrator" : "Sign in",
-      exact: true,
-    })
-    .click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
@@ -34,7 +24,6 @@ test("provider discovery saves, pages and plays privately with stale selection p
   page.on("pageerror", (error) => errors.push(error.message));
   let connection: Schema["PluginInstallation"] | null = null;
   try {
-    await signIn(page, "admin", "docker browser test password");
     await page.goto("/discover");
     await page
       .getByRole("link", { name: "Connect a music service", exact: true })
@@ -359,7 +348,10 @@ test("provider discovery saves, pages and plays privately with stale selection p
       },
     });
     expect(created.status()).toBe(201);
-    const other = await browser.newContext({ baseURL });
+    const other = await browser.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
+    });
     try {
       const listener = await other.newPage();
       listener.on("pageerror", (error) => errors.push(error.message));

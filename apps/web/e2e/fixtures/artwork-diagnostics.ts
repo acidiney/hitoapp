@@ -177,12 +177,15 @@ export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
         else expect(response.url).toMatch(otherAbsence);
       }
     }
-    for (const owner of ["owner", "other"])
+    for (const [owner, rejections] of [
+      ["owner", 0],
+      ["other", 1],
+    ] as const)
       expect(
         failedResponses.filter(
           (response) => response.owner === owner && response.status === 401,
         ),
-      ).toHaveLength(1);
+      ).toHaveLength(rejections);
     expect(
       failedResponses.some(
         (response) =>

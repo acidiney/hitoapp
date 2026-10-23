@@ -1,4 +1,3 @@
-import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
@@ -95,21 +94,7 @@ test("a committed but lost import retries its original body while preserving an 
   let connection: Schema["PluginInstallation"] | null = null;
   let copy: string | null = null;
   try {
-    await page.goto("/playlists");
-    await page.getByLabel("Username", { exact: true }).fill("admin");
-    await page
-      .getByLabel("Password", { exact: true })
-      .fill("docker browser test password");
-    await paceAuthAttempt();
-    const setup = await page
-      .getByRole("button", { name: "Create administrator", exact: true })
-      .count();
-    await page
-      .getByRole("button", {
-        name: setup ? "Create administrator" : "Sign in",
-        exact: true,
-      })
-      .click();
+    await page.goto("/library");
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();

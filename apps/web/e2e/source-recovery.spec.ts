@@ -1,4 +1,3 @@
-import { paceAuthAttempt } from "./fixtures/auth-pacing";
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
@@ -13,20 +12,6 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     await page.goto("/library");
-    await page.getByLabel("Username", { exact: true }).fill("admin");
-    await page
-      .getByLabel("Password", { exact: true })
-      .fill("docker browser test password");
-    await paceAuthAttempt();
-    const setup = await page
-      .getByRole("button", { name: "Create administrator", exact: true })
-      .count();
-    await page
-      .getByRole("button", {
-        name: setup ? "Create administrator" : "Sign in",
-        exact: true,
-      })
-      .click();
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
