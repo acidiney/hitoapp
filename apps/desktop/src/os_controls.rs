@@ -1,4 +1,4 @@
-use crate::system_media::{Controls, Metadata};
+use crate::system_media::{Controls, Create, Metadata};
 use hito_playback::{MediaCommand, MediaCommandSender};
 use souvlaki::{
     MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
@@ -20,18 +20,20 @@ pub type WindowHandle = Arc<OnceLock<usize>>;
 pub struct OsControls(MediaControls);
 
 impl OsControls {
-    pub fn create(commands: MediaCommandSender, window: &WindowHandle) -> Option<Self> {
+    pub fn create(commands: &MediaCommandSender, window: &WindowHandle) -> Create<Self> {
         let hwnd = window.get().map(|handle| *handle as *mut std::ffi::c_void);
         if cfg!(windows) && hwnd.is_none() {
-            return None;
+            return Create::Later;
         }
-        let mut controls = MediaControls::new(PlatformConfig {
+        let Ok(mut controls) = MediaControls::new(PlatformConfig {
             dbus_name: "hito",
             display_name: "Hito",
             hwnd,
-        })
-        .ok()?;
-        controls
+        }) else {
+            return Create::Failed;
+        };
+        let commands = commands.clone();
+        let attached = controls
             .attach(move |event| {
                 if let Some(command) = command(event)
                     && commands.try_send(command).is_err()
@@ -42,8 +44,12 @@ impl OsControls {
                     );
                 }
             })
-            .ok()?;
-        Some(Self(controls))
+            .is_ok();
+        if attached {
+            Create::Ready(Self(controls))
+        } else {
+            Create::Failed
+        }
     }
 }
 

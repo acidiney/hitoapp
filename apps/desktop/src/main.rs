@@ -47,7 +47,7 @@ fn main() {
             let handle = WindowHandle::default();
             let controls = {
                 let handle = handle.clone();
-                Lazy::new(move || OsControls::create(sender, &handle))
+                Lazy::new(move || OsControls::create(&sender, &handle))
             };
             let media = MediaIntegration::new(
                 SystemMedia::new(controls, data.join("media-artwork")),

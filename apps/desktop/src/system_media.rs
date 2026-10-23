@@ -1,7 +1,8 @@
-use hito_playback::{MediaPlayback, MediaSink, MediaTrack};
+use hito_playback::{MediaArtwork, MediaPlayback, MediaSink, MediaTrack};
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 use url::Url;
@@ -22,15 +23,24 @@ pub struct Metadata<'a> {
     pub cover_url: Option<&'a str>,
 }
 
-/// Builds the controls on first use. Failure is final and silent beyond one
-/// safe log event, so media keys never prevent playback.
+pub enum Create<C> {
+    Ready(C),
+    /// A prerequisite such as the window handle is missing. Try again at the
+    /// next update.
+    Later,
+    Failed,
+}
+
+/// Builds the controls on first use. A `Later` result is retried at the next
+/// update. A failure is final and logs one safe warning, so media keys never
+/// prevent playback.
 pub struct Lazy<C: Controls> {
-    init: Option<Box<dyn FnOnce() -> Option<C> + Send>>,
+    init: Option<Box<dyn FnMut() -> Create<C> + Send>>,
     controls: Option<C>,
 }
 
 impl<C: Controls> Lazy<C> {
-    pub fn new(init: impl FnOnce() -> Option<C> + Send + 'static) -> Self {
+    pub fn new(init: impl FnMut() -> Create<C> + Send + 'static) -> Self {
         Self {
             init: Some(Box::new(init)),
             controls: None,
@@ -38,13 +48,20 @@ impl<C: Controls> Lazy<C> {
     }
 
     fn get(&mut self) -> Option<&mut C> {
-        if let Some(init) = self.init.take() {
-            self.controls = init();
-            if self.controls.is_none() {
-                tracing::warn!(
-                    event = "desktop_system_media_unavailable",
-                    "Operating-system media controls are unavailable"
-                );
+        if let Some(init) = &mut self.init {
+            match init() {
+                Create::Ready(controls) => {
+                    self.controls = Some(controls);
+                    self.init = None;
+                }
+                Create::Later => {}
+                Create::Failed => {
+                    self.init = None;
+                    tracing::warn!(
+                        event = "desktop_system_media_unavailable",
+                        "Operating-system media controls are unavailable"
+                    );
+                }
             }
         }
         self.controls.as_mut()
@@ -76,6 +93,7 @@ impl<C: Controls> Controls for Lazy<C> {
 pub struct SystemMedia<C: Controls> {
     controls: C,
     artwork: ArtworkFile,
+    shown: Option<(Arc<MediaArtwork>, Url)>,
 }
 
 impl<C: Controls> SystemMedia<C> {
@@ -83,16 +101,27 @@ impl<C: Controls> SystemMedia<C> {
         Self {
             controls,
             artwork: ArtworkFile::new(artwork_directory),
+            shown: None,
         }
     }
 }
 
 impl<C: Controls> MediaSink for SystemMedia<C> {
     fn set_track(&mut self, track: &MediaTrack) {
-        let cover = track
-            .artwork
-            .as_ref()
-            .and_then(|artwork| self.artwork.write(artwork.content_type, &artwork.bytes));
+        let cover = track.artwork.as_ref().and_then(|artwork| {
+            if let Some((shown, url)) = &self.shown
+                && Arc::ptr_eq(shown, artwork)
+            {
+                return Some(url.clone());
+            }
+            let url = self.artwork.write(artwork.content_type, &artwork.bytes)?;
+            self.shown = Some((artwork.clone(), url.clone()));
+            Some(url)
+        });
+        if cover.is_none() {
+            self.shown = None;
+            self.artwork.remove();
+        }
         self.controls.metadata(&Metadata {
             title: &track.title,
             artist: Some(track.artist.as_str()).filter(|artist| !artist.is_empty()),
@@ -115,6 +144,7 @@ impl<C: Controls> MediaSink for SystemMedia<C> {
 
     fn clear(&mut self) {
         self.controls.reset();
+        self.shown = None;
         self.artwork.remove();
     }
 }
@@ -194,8 +224,7 @@ fn private_write(directory: &Path, path: &Path, bytes: &[u8]) -> std::io::Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hito_playback::MediaArtwork;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Mutex;
 
     #[derive(Debug, PartialEq)]
     enum Call {
@@ -320,17 +349,59 @@ mod tests {
     }
 
     #[test]
-    fn controls_are_built_once_on_first_use_and_failure_is_final() {
-        let built = Arc::new(Mutex::new(0));
-        let counter = built.clone();
+    fn a_republish_of_the_same_artwork_reuses_the_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let art = directory.path().join("art");
+        let fake = Fake::default();
+        let mut media = SystemMedia::new(fake.clone(), art.clone());
+        let shared = track(true);
+        media.set_track(&shared);
+        media.set_track(&shared);
+        let covers: Vec<_> = fake
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|call| match call {
+                Call::Metadata { cover, .. } => cover.clone(),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(covers.len(), 2);
+        assert_eq!(covers[0], covers[1]);
+        assert_eq!(fs::read_dir(&art).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn controls_wait_for_a_missing_window_and_failure_is_final() {
+        let attempts = Arc::new(Mutex::new(0));
+        let counter = attempts.clone();
         let mut lazy = Lazy::<Fake>::new(move || {
-            *counter.lock().unwrap() += 1;
-            None
+            let mut attempts = counter.lock().unwrap();
+            *attempts += 1;
+            match *attempts {
+                1 | 2 => Create::Later,
+                3 => Create::Ready(Fake::default()),
+                _ => Create::Failed,
+            }
         });
         lazy.reset();
-        assert_eq!(*built.lock().unwrap(), 0);
+        assert_eq!(*attempts.lock().unwrap(), 0);
         lazy.playback(true, Duration::ZERO);
         lazy.playback(true, Duration::ZERO);
-        assert_eq!(*built.lock().unwrap(), 1);
+        assert_eq!(*attempts.lock().unwrap(), 2);
+        lazy.playback(true, Duration::ZERO);
+        lazy.playback(true, Duration::ZERO);
+        assert_eq!(*attempts.lock().unwrap(), 3);
+
+        let failures = Arc::new(Mutex::new(0));
+        let counter = failures.clone();
+        let mut broken = Lazy::<Fake>::new(move || {
+            *counter.lock().unwrap() += 1;
+            Create::Failed
+        });
+        broken.playback(true, Duration::ZERO);
+        broken.playback(true, Duration::ZERO);
+        assert_eq!(*failures.lock().unwrap(), 1);
     }
 }

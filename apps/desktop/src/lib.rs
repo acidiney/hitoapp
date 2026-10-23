@@ -10,7 +10,7 @@ pub use host::LocalHost;
 #[cfg(feature = "gui")]
 pub use os_controls::{OsControls, WindowHandle};
 use std::path::PathBuf;
-pub use system_media::{Controls, Lazy, Metadata, SystemMedia};
+pub use system_media::{Controls, Create, Lazy, Metadata, SystemMedia};
 
 pub struct Paths {
     pub data: PathBuf,
