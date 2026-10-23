@@ -136,7 +136,7 @@ export class Playback implements Player {
           this.traversal.resetFailures();
           this.prepareNext();
         }
-        this.update({ position: media.currentTime });
+        this.update({ position: this.pendingSeek || media.currentTime });
         if (!this.observation.observe()) this.progressBlocked();
       },
       play: () => {
