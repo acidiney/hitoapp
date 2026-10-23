@@ -48,11 +48,16 @@ Every workflow logs structured events. Tests check that logs stay private. `hito
 
 Do not raise a timeout, add a sleep, retry or ignore a test to make it pass. A flaky test points to a root cause: a shared global, a race on cleanup, a clock dependency or an unowned resource. Find it and fix it.
 
-Examples of root-cause fixes already in the suite: tests that wait for a connection worker to release a tracing dispatcher instead of sleeping, and servers that drain stdout and stderr while waiting for a signal.
+Examples of root-cause fixes already in the suite:
 
-The web setup in `apps/web/src/test/setup.ts` resets timers, mocks, stubbed globals, local storage and session storage before and after every test. Vitest runs at most four workers. Do not rely on state left by another test.
+- Tests that wait for a connection worker to release a tracing dispatcher instead of sleeping.
+- Edition workflow tests whose spans close on sqlx worker threads. They capture closes through the process default dispatcher and await them.
+- TorBox bootstrap tests that no longer probe ports, because a concurrent fork or sibling process can hold a listener. They pick ports and listeners deterministically.
+- Servers that drain stdout and stderr while waiting for a signal.
 
-One class of failure is environmental, not flaky. Two `hito-core` tag tests need 64 KiB pipes that the Docker Desktop VM denies to root. See [known environment limits](development.md#known-environment-limits).
+The web setup in `apps/web/src/test/setup.ts` resets timers, mocks, stubbed globals, local storage and session storage before and after every test. Vitest runs at most four workers (a worker cap of 4). Do not rely on state left by another test.
+
+Docker Desktop has one known quirk that looks like flakiness. Two `hito-core` tag tests need a 64 KiB pipe, which the `rust` service gets through `SYS_RESOURCE`. See [Docker Desktop quirks](development.md#docker-desktop-quirks).
 
 ## Where shared helpers live
 

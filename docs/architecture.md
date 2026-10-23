@@ -147,7 +147,7 @@ The Real-Debrid, All-Debrid, TorBox and Premiumize plugins serve an operator-sup
 - rejects any recording whose JSON exceeds 32,768 bytes;
 - rejects a catalog whose recordings together exceed 49,152 bytes.
 
-The byte count covers the public recording JSON only. Private source, label and binding bytes are not counted. Each plugin then validates its own private bindings. A failed admission stops startup before a listener opens. The startup sequence is in [plugins](plugins.md#curated-catalog-admission-at-startup). Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` and each plugin's contract tests.
+The byte count covers the public recording JSON only. Private source, label and binding bytes are not counted. Each plugin then validates its own private bindings. A failed admission stops startup before a listener opens, and the plugin logs a safe rejection reason: the error variant name only, never recording content. The startup sequence is in [plugins](plugins.md#curated-catalog-admission-at-startup). Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` and each plugin's contract tests.
 
 ## Playback source resolution
 
@@ -287,6 +287,8 @@ flowchart TB
 The shell survives page navigation; audio belongs to the authenticated account. Generated application props select browser or native playback. Native mode creates no browser audio or duplicate progress writer. Its separate client owns command ordering and scoped observations while Rust retains queue/output ownership. Workflow hooks cancel stale requests. Queue and catalog rows do not subscribe to playback position ticks. Visible queue metadata is paged, canceled, and checked against its captured view before publication. A cross-tab session change disposes the application, cancels work, clears encrypted history, and loads current server state. Before mounting the interface, the browser checks that the server's current account matches its initial page data. See [native UI ownership and bounds](native-coordinator.md#shared-ui-integration).
 
 Rust routes and wire types generate `docs/openapi.json`; that schema generates the web's TypeScript models. Page schemas describe complete responses while Inertia partial requests omit unrequested fields before querying. CI compares regeneration with the checked-in files.
+
+Inertia page component names are a `PageComponent` enum in the server, and the OpenAPI contract publishes them. The web page registry test checks the registry against the generated contract, so the Rust enum is the single source of truth.
 
 ## Artwork and composition
 
