@@ -13,7 +13,7 @@ static CALLSITE_INTEREST_ANCHOR: OnceLock<tracing::Dispatch> = OnceLock::new();
 /// the dispatcher of whichever thread registers it first. A callsite first used on
 /// a thread without the capture would then be disabled for every capture. A second,
 /// permanent dispatcher keeps tracing-core on its all-dispatchers path.
-fn anchor_callsite_interest() {
+pub fn anchor_callsite_interest() {
     CALLSITE_INTEREST_ANCHOR
         .get_or_init(|| tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()));
 }

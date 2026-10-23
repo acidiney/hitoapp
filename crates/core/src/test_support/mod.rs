@@ -43,8 +43,6 @@ pub mod podcast_audio_service;
 pub mod provider_audio;
 #[cfg(feature = "test-support")]
 pub mod support;
-#[cfg(feature = "test-support")]
-pub mod tracing_anchor;
 
 #[cfg(feature = "test-support")]
 pub fn migrations() -> &'static sqlx::migrate::Migrator {

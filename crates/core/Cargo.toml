@@ -6,10 +6,11 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-test-support = ["dep:axum", "dep:tokio-util", "dep:tracing-subscriber"]
+test-support = ["dep:axum", "dep:hito-testkit", "dep:tokio-util", "dep:tracing-subscriber"]
 
 [dependencies]
 axum = { workspace = true, optional = true }
+hito-testkit = { path = "../testkit", optional = true }
 tokio-util = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
 tokio.workspace = true

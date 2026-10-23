@@ -1963,6 +1963,7 @@ dependencies = [
  "hito-core",
  "hito-metadata-musicbrainz",
  "hito-plugin-sdk",
+ "hito-testkit",
  "image",
  "libc",
  "lofty",

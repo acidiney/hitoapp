@@ -182,7 +182,7 @@ impl Host {
             ..Default::default()
         };
         let (stop, stopped) = oneshot::channel();
-        hito_core::test_support::tracing_anchor::anchor_callsite_interest();
+        hito_testkit::logs::anchor_callsite_interest();
         let subscriber = tracing_subscriber::registry().with(signals);
         let task = tokio::spawn(
             async move {
