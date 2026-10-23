@@ -114,3 +114,82 @@ async fn paged_recordings_include_only_the_current_users_like_state() {
         0
     );
 }
+
+#[tokio::test]
+async fn liked_recordings_list_only_the_callers_likes_whatever_the_search_asks() {
+    let (_dir, hito, actor, library) = catalog().await;
+    let bob = hito
+        .identity
+        .create_user(
+            &actor,
+            Credentials {
+                username: "likes-bob".into(),
+                password: "catalog likes bob password".into(),
+            },
+        )
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(&actor, &library, &bob.id, true)
+        .await
+        .unwrap();
+    let session = hito
+        .identity
+        .login(Credentials {
+            username: "likes-bob".into(),
+            password: "catalog likes bob password".into(),
+        })
+        .await
+        .unwrap();
+    let bob = hito.identity.authenticate(&session.token).await.unwrap();
+    let all = hito
+        .catalog
+        .recordings(&actor, Search::default())
+        .await
+        .unwrap();
+    let like = |index: usize| Action::LikeSet {
+        recording_id: Uuid::parse_str(&all.items[index].id).unwrap(),
+        liked: true,
+    };
+    synchronize(&hito, &actor, vec![like(1), like(3)]).await;
+    synchronize(&hito, &bob, vec![like(0)]).await;
+
+    for liked in [None, Some(true), Some(false)] {
+        let page = hito
+            .catalog
+            .liked_recordings(
+                &actor,
+                Search {
+                    liked,
+                    ..Search::default()
+                },
+            )
+            .await
+            .unwrap();
+        let ids: Vec<&str> = page.items.iter().map(|item| item.id.as_str()).collect();
+        assert_eq!(page.total, 2);
+        assert_eq!(ids, [all.items[1].id.as_str(), all.items[3].id.as_str()]);
+        assert!(page.items.iter().all(|item| item.liked));
+    }
+    let paged = hito
+        .catalog
+        .liked_recordings(
+            &actor,
+            Search {
+                offset: Some(1),
+                limit: Some(1),
+                ..Search::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(paged.total, 2);
+    assert_eq!(paged.items[0].id, all.items[3].id);
+    let bobs = hito
+        .catalog
+        .liked_recordings(&bob, Search::default())
+        .await
+        .unwrap();
+    assert_eq!(bobs.total, 1);
+    assert_eq!(bobs.items[0].id, all.items[0].id);
+}

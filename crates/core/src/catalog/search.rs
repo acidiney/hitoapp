@@ -15,6 +15,17 @@ impl Catalog {
         .await?)
     }
 
+    pub async fn liked_recordings(&self, actor: &Actor, search: Search) -> Result<Page<Recording>> {
+        self.recordings(
+            actor,
+            Search {
+                liked: Some(true),
+                ..search
+            },
+        )
+        .await
+    }
+
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), host_device = self.host.as_str()))]
     pub async fn recordings(&self, actor: &Actor, search: Search) -> Result<Page<Recording>> {
         let offset = search.offset.unwrap_or(0).max(0);

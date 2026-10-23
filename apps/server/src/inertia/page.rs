@@ -92,7 +92,7 @@ impl<'a> Screen<'a> {
         &self,
         services: &Services,
         actor: &Actor,
-        mut search: Search,
+        search: Search,
         pagination: super::ArtistPagination,
         fields: &Protocol,
         native_playback: bool,
@@ -265,16 +265,16 @@ impl<'a> Screen<'a> {
                 Ok(PageProps::Artist(ArtistPageProps { shared, detail }))
             }
             Self::Catalog | Self::Likes => {
-                if matches!(self, Self::Likes) {
-                    search.liked = Some(true);
-                }
                 let query = fields
                     .requested("query")
                     .then(|| search.q.clone().unwrap_or_default());
                 let recordings = if fields.requested("recordings") {
-                    Some(RecordingPage(
-                        services.catalog.recordings(actor, search).await?,
-                    ))
+                    let page = if matches!(self, Self::Likes) {
+                        services.catalog.liked_recordings(actor, search).await?
+                    } else {
+                        services.catalog.recordings(actor, search).await?
+                    };
+                    Some(RecordingPage(page))
                 } else {
                     None
                 };
