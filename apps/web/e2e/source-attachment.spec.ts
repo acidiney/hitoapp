@@ -564,6 +564,9 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     providers[first].failSource(providers[first].source);
     injectedFailure = true;
     const seek = page.getByRole("slider", { name: "Seek", exact: true });
+    await expect
+      .poll(async () => Number(await seek.getAttribute("max")))
+      .toBeGreaterThan(8);
     await seek.focus();
     await seek.press("PageUp");
     await seek.press("PageUp");
