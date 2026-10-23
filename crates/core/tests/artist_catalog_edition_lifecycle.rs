@@ -86,6 +86,9 @@ async fn exercise(
             .with_writer(move || writer.clone())
             .finish(),
     );
+    tracing::dispatcher::set_global_default(dispatch.clone()).expect(
+        "this binary owns the process default dispatcher, so it must contain exactly one test",
+    );
 
     let listing_gate = server.hold(CatalogEditionOperation::ReleaseGroupEditions);
     gates.push(listing_gate.clone());
@@ -399,6 +402,7 @@ async fn exercise(
             }
         }
     }
+    await_edition_span_closes(&captured, 5).await;
     assert_logs(&captured.text(), &private);
 }
 
@@ -439,6 +443,30 @@ async fn assert_no_downloads(library: &library::Library, actor: &Actor) {
             "Edition reads must preserve explicit-download absence"
         );
     }
+}
+
+async fn await_edition_span_closes(captured: &logs::CapturedLogs, expected: usize) {
+    let closed = || {
+        captured
+            .text()
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|event| {
+                event["fields"]["message"] == "close"
+                    && matches!(
+                        event["span"]["operation"].as_str(),
+                        Some("artist_release_group_editions" | "artist_edition_track_list")
+                    )
+            })
+            .count()
+    };
+    timeout(Duration::from_secs(5), async {
+        while closed() < expected {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("Every edition workflow span must close after its public call returns");
 }
 
 fn assert_logs(captured: &str, private: &[&str]) {
