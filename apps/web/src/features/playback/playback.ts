@@ -196,9 +196,8 @@ export class Playback implements Player {
     if (bound !== null && bound !== this.serverBound)
       log.debug("playback.duration_server_preferred", {
         recording_id: current?.id,
-        reason: "media_overlong",
-        count: Math.round(media.duration * 1000),
-        duration_ms: Math.round(bound * 1000),
+        media_duration_ms: Math.round(media.duration * 1000),
+        server_duration_ms: Math.round(bound * 1000),
       });
     this.serverBound = bound;
     return duration;

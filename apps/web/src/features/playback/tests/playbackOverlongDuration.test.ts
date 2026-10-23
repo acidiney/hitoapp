@@ -88,9 +88,8 @@ test("an overlong browser estimate yields to the server duration for timeline, s
       "playback.duration_server_preferred",
       {
         recording_id: "first",
-        reason: "media_overlong",
-        count: 440_000,
-        duration_ms: 220_000,
+        media_duration_ms: 440_000,
+        server_duration_ms: 220_000,
       },
     ],
   ]);

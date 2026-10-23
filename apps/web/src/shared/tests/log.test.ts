@@ -8,6 +8,9 @@ test("logs retain request correlation and discard sensitive or unknown fields", 
     request_id: "request-123",
     status: 401,
     content_revision: 3,
+    media_duration_ms: 440000,
+    server_duration_ms: 220000,
+    media_duration: 440,
     password: "secret",
     token: "bearer-secret",
     body: { username: "private-user" },
@@ -21,6 +24,8 @@ test("logs retain request correlation and discard sensitive or unknown fields", 
     request_id: "request-123",
     status: 401,
     content_revision: 3,
+    media_duration_ms: 440000,
+    server_duration_ms: 220000,
   });
 });
 
