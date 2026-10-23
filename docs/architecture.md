@@ -290,6 +290,8 @@ Rust routes and wire types generate `docs/openapi.json`; that schema generates t
 
 Inertia page component names are a `PageComponent` enum in the server, and the OpenAPI contract publishes them. The web page registry test checks the registry against the generated contract, so the Rust enum is the single source of truth.
 
+Inertia page assembly lives in `apps/server/src/inertia/pages/`, one module per screen group. The server decides only which props a partial reload asks for. Data decisions are named reads on the owning core capability, and each enforces the actor's session and library membership itself: `Podcasts::subscription` reads one subscription by identity (another account's reads as not found), `Podcasts::episodes_with_progress` returns an episode page with saved progress for exactly that page, `Plugins::connections` returns the offered services and the account's installations, and `Catalog::liked_recordings` lists the caller's likes. `Connections` names two different service rules: `connected_services()` (services with an installation, used by the playlist index) and `offered_services()` (every offered service, used by Discover). Whether the two should differ is an open product question.
+
 ## Artwork and composition
 
 The library page composes a recording spotlight, personal playlist shortcuts, and switchable grid/list results. The persistent shell owns the listening sidebar and player. Expanded playback uses a native modal dialog with an independent queue and transport controls; loading and failure status remain visible inside it. Closing restores the actual opener, or the queue button if that opener became disabled or hidden. Settings tabs mount only the selected account or library workflow.

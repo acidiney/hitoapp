@@ -1,8 +1,8 @@
 # RFC 0003: Inertia page assembly into core read models
 
-Status: Proposed
+Status: Implemented
 
-Scope: design only. No code changes come with this document.
+Scope: design. The Recommendation and Migration plan below were implemented; see What changed at the end.
 
 ## Problem
 
@@ -123,3 +123,15 @@ flowchart LR
     Pod2 --> Col2[saved progress join, private to core]
   end
 ```
+
+## What changed
+
+Implemented as Option A, then Option C, in separate commits:
+
+1. `Podcasts::subscription` replaces the list-and-scan. Another account's ID, an unknown ID and a malformed ID all read as not found.
+2. `Podcasts::episodes_with_progress` returns the episode page and saved progress for exactly that page. The progress query is a crate-private helper shared with `Collection::saved_playback`. A reload that asks only for `episodes` does not run it; a server test checks this through the debug log.
+3. `Plugins::connections` returns `Connections`. `connected_services()` keeps `PlaylistIndex` behaviour (installed services only) and `offered_services()` keeps `Discover` behaviour (all services). The difference is preserved, not decided; it is still an open question.
+4. `Catalog::liked_recordings` forces the liked filter, so the Likes page no longer mutates the caller's search. The JSON route keeps its `liked` query flag.
+5. `inertia/page.rs` (481 lines) is split into `inertia/pages/` (`mod.rs` routing and shared props, `catalog.rs`, `playlists.rs`, `audiobooks.rs`, `podcasts.rs`, `discover.rs`).
+
+`docs/openapi.json` and `apps/web/src/generated.ts` are unchanged. `docs/podcasts.md` (migration step 6) was not touched in this change.
