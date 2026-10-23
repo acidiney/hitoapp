@@ -25,7 +25,7 @@ LABEL org.opencontainers.image.revision="${HITO_REAL_DEBRID_SOURCE_ID}"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && groupadd --gid 10001 hito-plugin && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin hito-plugin && install -d -o 10001 -g 10001 -m 0700 /run/secrets
 COPY --from=plugin-build --chown=0:0 --chmod=0555 /hito-plugin-real-debrid /usr/local/bin/hito-plugin-real-debrid
 COPY --chown=0:0 --chmod=0444 LICENSE /usr/local/share/licenses/hito-plugin-real-debrid/LICENSE
-COPY --chown=0:0 --chmod=0444 crates/hito-plugin-sdk/LICENSE /usr/local/share/licenses/hito-plugin-sdk/LICENSE
+COPY --chown=0:0 --chmod=0444 crates/plugin-sdk/LICENSE /usr/local/share/licenses/hito-plugin-sdk/LICENSE
 USER 10001:10001
 EXPOSE 8096
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 CMD curl -fsS --noproxy '*' --max-time 2 --output /dev/null http://127.0.0.1:8096/v1/manifest || exit 1

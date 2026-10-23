@@ -10,7 +10,7 @@ default = []
 test-support = ["hito-remote-audio/test-support"]
 
 [dependencies]
-hito-remote-audio = { path = "../hito-remote-audio" }
+hito-remote-audio = { path = "../../remote-audio" }
 reqwest = { workspace = true, features = ["form"] }
 rustls.workspace = true
 serde.workspace = true
@@ -22,8 +22,8 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-hito-remote-audio = { path = "../hito-remote-audio", features = ["test-support"] }
-hito-audio = { path = "../hito-audio" }
-hito-testkit = { path = "../hito-testkit" }
+hito-remote-audio = { path = "../../remote-audio", features = ["test-support"] }
+hito-audio = { path = "../../audio" }
+hito-testkit = { path = "../../testkit" }
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }
 tokio-rustls = { version = "=0.26.6", default-features = false }

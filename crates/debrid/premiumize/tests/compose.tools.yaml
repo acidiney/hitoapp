@@ -14,7 +14,7 @@ services:
       CARGO_INCREMENTAL: "0"
       CARGO_TARGET_DIR: /build/premiumize-protocol-5726552
     volumes:
-      - ../../..:/workspace
+      - ../../../..:/workspace
       - cargo-registry:/usr/local/cargo/registry
       - cargo-git:/usr/local/cargo/git
       - rust-target:/build

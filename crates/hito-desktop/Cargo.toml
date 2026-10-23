@@ -11,9 +11,9 @@ device = ["hito-playback/device"]
 gui = ["dep:tauri", "dep:tauri-build", "device"]
 
 [dependencies]
-hito-core = { path = "../hito-core" }
+hito-core = { path = "../core" }
 hito-server = { path = "../hito-server" }
-hito-playback = { path = "../hito-playback" }
+hito-playback = { path = "../playback" }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -29,7 +29,7 @@ tauri = { version = "=2.12.4", optional = true }
 tauri-build = { version = "2.7.2", optional = true }
 
 [dev-dependencies]
-hito-audio = { path = "../hito-audio", features = ["test-support"] }
+hito-audio = { path = "../audio", features = ["test-support"] }
 tempfile.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true

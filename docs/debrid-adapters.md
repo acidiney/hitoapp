@@ -1,6 +1,6 @@
 # Debrid adapter development
 
-The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open narrowly qualified WAV or explicitly declared MPEG-1 Layer III audio. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated plugin service and executable use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/hito-debrid-all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate observation and narrowly qualified audio clients below.
+The first adapter foundation is `hito-debrid-real-debrid`. It reads progress for one already selected torrent file, requests unrestriction after freshly revalidating that file, and can open narrowly qualified WAV or explicitly declared MPEG-1 Layer III audio. Observation and unrestriction receipts remain metadata, not playable sources. A separate curated plugin service and executable use this adapter. Account delivery, broader media compatibility, submission, file selection and durable preparation remain unfinished; this is not a ready general-purpose Real-Debrid connection. The separate [AllDebrid library](../crates/debrid/all-debrid/README.md) supports bound-file observation, submission, unlock, delayed polling and narrowly qualified candidate audio. Its curated service, executable and restricted image have separate qualification below; application delivery remains unfinished. TorBox and Premiumize have separate observation and narrowly qualified audio clients below.
 
 ## Observation and ownership
 
@@ -83,7 +83,7 @@ flowchart LR
 
 The caller acquires the media permit before provider revalidation. It supplies the private target only after that revalidation succeeds. The shared body retains the permit through EOF, failure or drop. Provider API capacity remains separate.
 
-All 22 existing Real-Debrid adapter cases and six service cases pass after extraction, including an independent repeat. Strict all-target checks and formatting pass. A fresh source review confirms the moved destination, DNS, TLS, framing, length, cancellation and log rules; all 663 external lockfile package blocks remain byte-identical. The extraction preserves the current narrow WAV support. The later AllDebrid packet below uses this opener. Neither a connectable AllDebrid service nor normal-server deployment is claimed. See [the crate's contract](../crates/hito-remote-audio/README.md).
+All 22 existing Real-Debrid adapter cases and six service cases pass after extraction, including an independent repeat. Strict all-target checks and formatting pass. A fresh source review confirms the moved destination, DNS, TLS, framing, length, cancellation and log rules; all 663 external lockfile package blocks remain byte-identical. The extraction preserves the current narrow WAV support. The later AllDebrid packet below uses this opener. Neither a connectable AllDebrid service nor normal-server deployment is claimed. See [the crate's contract](../crates/remote-audio/README.md).
 
 ## AllDebrid candidate audio
 
@@ -222,7 +222,7 @@ The separate `hito-debrid-torbox` client observes one caller-configured torrent 
 
 Twelve public protocol cases, strict crate checks, formatting, independent source review and an independent repeat pass. They verify owned HTTPS requests, persisted binding preservation, changed or ambiguous identity, malformed responses, declared and streamed bounds, clone-shared admission and pacing, cancellation and deadline recovery. The strengthened cancellation case witnesses peer closure before fixture shutdown while another client remains alive. A targeted second review and the independent repeat include that stronger control; production code was unchanged by it.
 
-The observation client uses a fixed provider origin and sensitive bearer authorization with no redirects, proxy discovery or automatic retries. Logs contain static outcomes, private correlation IDs and timing. Candidate audio has separate qualification below. Submission, durable application preparation, plugin delivery and live-provider acceptance remain unfinished. See [the exact contract and reproducible checks](../crates/hito-debrid-torbox/README.md).
+The observation client uses a fixed provider origin and sensitive bearer authorization with no redirects, proxy discovery or automatic retries. Logs contain static outcomes, private correlation IDs and timing. Candidate audio has separate qualification below. Submission, durable application preparation, plugin delivery and live-provider acceptance remain unfinished. See [the exact contract and reproducible checks](../crates/debrid/torbox/README.md).
 
 ## TorBox candidate audio
 
@@ -266,7 +266,7 @@ The pinned Linux/arm64 container and explicit-volume Compose deployment now pass
 
 The TorBox client now separates exact file verification from the consuming generated-link request. `verify_bound_file` returns a move-only capability retaining the originating client, copied binding, actual control permit and original absolute deadline. Caller work does not reset that deadline. Expiry before dispatch sends no mutation; uncertain dispatched acknowledgements retain their existing classification without automatic retries. The existing eager API delegates through the same stages.
 
-This is a prerequisite for a service-owned durable intent journal. It does not persist receipts or candidates. Six new TLS cases and all 32 unchanged client/service cases, strict affected checks, formatting, three independent specialist reviews and an independent 38-case repeat pass. Source and binary hashes remain unchanged during the repeat, with zero containers left behind. Verification, caller delay and active-mint deadlines are measured; a dedicated held-pacing expiry case remains open. See [the client contract](../crates/hito-debrid-torbox/README.md#verified-preparation-before-minting).
+This is a prerequisite for a service-owned durable intent journal. It does not persist receipts or candidates. Six new TLS cases and all 32 unchanged client/service cases, strict affected checks, formatting, three independent specialist reviews and an independent 38-case repeat pass. Source and binary hashes remain unchanged during the repeat, with zero containers left behind. Verification, caller delay and active-mint deadlines are measured; a dedicated held-pacing expiry case remains open. See [the client contract](../crates/debrid/torbox/README.md#verified-preparation-before-minting).
 
 ### Authenticated candidate persistence
 
@@ -283,7 +283,7 @@ flowchart LR
 
 Three new public TLS workflows cover destroyed and recreated client owners, two complete WAV/PCM openings with one total mint, foreign-client and wrong-authority rejection, every context field, malformed envelopes and private structured completion logs. All 38 unchanged client/service cases also pass. Four affected strict-check modes, scoped formatting and independent source review pass. A separate 41-case repeat took 86.594 seconds with source and binaries read-only, 20 binary hash checks and no remaining containers. The integrated inputs match; only the existing TorBox client dependency block changes, preserving all 684 other lockfile blocks.
 
-This is a prerequisite for the service journal. It does not implement durable service intent, uncertainty history, restart recovery, an executable, live-provider compatibility or broader codecs. See [the client contract](../crates/hito-debrid-torbox/README.md#authenticated-candidate-persistence).
+This is a prerequisite for the service journal. It does not implement durable service intent, uncertainty history, restart recovery, an executable, live-provider compatibility or broader codecs. See [the client contract](../crates/debrid/torbox/README.md#authenticated-candidate-persistence).
 
 ## Premiumize observation
 
@@ -291,7 +291,7 @@ The separate `hito-debrid-premiumize` client observes one configured transfer by
 
 Thirteen public owned-HTTPS cases, strict default and test-support checks, formatting, fresh source review and an independent repeat pass. They cover typed errors, duplicate or changed transfers, documented phase/progress consistency, bounds, clone-shared admission/pacing, cancellation with actual peer closure and deadline recovery. The original tracer remains byte-identical. A provisional assumption that seeding progress must be one was removed after checking the provider contract; a seeding fraction of 0.5 is explicitly accepted. All existing dependency blocks are preserved.
 
-Bearer authentication supports the provider's documented API-key and access-token forms. Selected-file audio is qualified separately below. Credential enrollment, transfer creation, plugin delivery, application preparation and live-provider acceptance remain open. See [the exact contract and verification limits](../crates/hito-debrid-premiumize/README.md).
+Bearer authentication supports the provider's documented API-key and access-token forms. Selected-file audio is qualified separately below. Credential enrollment, transfer creation, plugin delivery, application preparation and live-provider acceptance remain open. See [the exact contract and verification limits](../crates/debrid/premiumize/README.md).
 
 ## Premiumize bound cloud-file audio
 

@@ -1,4 +1,4 @@
-name: hito-premiumize-audio
+name: hito-premiumize-file-observation
 services:
   rust:
     profiles: [tools]
@@ -12,9 +12,9 @@ services:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
-      CARGO_TARGET_DIR: /build/premiumize-audio-76c5999
+      CARGO_TARGET_DIR: /build/premiumize-file-observation-1723f10
     volumes:
-      - ../../..:/workspace
+      - ../../../..:/workspace
       - cargo-registry:/usr/local/cargo/registry
       - cargo-git:/usr/local/cargo/git
       - rust-target:/build

@@ -67,12 +67,12 @@ Remove and recreate `e2e-server` before rerunning its first-run test. Browser au
 
 | Directory                | Responsibility                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `crates/hito-core`       | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
+| `crates/core`       | Identity, library permissions, SQLite migrations, scan jobs, search, activity, and operation-based sync |
 | `crates/hito-server`     | Axum JSON API, Inertia adapter, browser security, file streaming, worker lifecycle                      |
 | `crates/hito-desktop`    | Standalone local backend, private WebView access, application storage and exit lifecycle                |
-| `crates/hito-audio`      | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
-| `crates/hito-playback`   | Authenticated queues, authorized native playback, revocation, and joined cleanup               |
-| `crates/hito-plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
+| `crates/audio`      | Owned-input decoding, optional native device output, transport controls and joined cleanup              |
+| `crates/playback`   | Authenticated queues, authorized native playback, revocation, and joined cleanup               |
+| `crates/plugin-sdk` | Apache-2.0 plugin manifest and capability contract                                                      |
 | `apps/web`               | Shared React UI with browser and native player implementations                                                     |
 | `scripts`                | Deterministic audio fixtures                                                                            |
 | `docs`                   | Architecture, API contracts, operations, release scope, and verification evidence                       |
@@ -81,4 +81,4 @@ See the actual [TODO checklist](TODO.md), [architecture](docs/architecture.md), 
 
 ## License
 
-Hito uses [AGPL-3.0-only](LICENSE). The independently reusable plugin SDK uses [Apache-2.0](crates/hito-plugin-sdk/LICENSE). No third-party audio or provider credentials are included.
+Hito uses [AGPL-3.0-only](LICENSE). The independently reusable plugin SDK uses [Apache-2.0](crates/plugin-sdk/LICENSE). No third-party audio or provider credentials are included.

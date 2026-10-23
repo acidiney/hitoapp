@@ -98,7 +98,7 @@ Run the isolated suite with the existing pinned tools image:
 
 ```sh
 docker compose -p hito-premiumize-audio \
-  -f crates/hito-debrid-premiumize/tests/audio.tools.yaml --profile tools \
+  -f crates/debrid/premiumize/tests/audio.tools.yaml --profile tools \
   run --rm --no-deps -T --pull never rust \
   cargo test --offline --locked -p hito-debrid-premiumize --features test-support
 ```

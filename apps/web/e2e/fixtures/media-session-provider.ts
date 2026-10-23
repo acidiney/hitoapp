@@ -72,7 +72,7 @@ export async function mediaSessionProvider() {
   }));
   const cover = await readFile(
     new URL(
-      "../../../../crates/hito-core/tests/fixtures/cover-a.png",
+      "../../../../crates/core/tests/fixtures/cover-a.png",
       import.meta.url,
     ),
   );

@@ -8,8 +8,8 @@ license.workspace = true
 [dependencies]
 axum.workspace = true
 futures-util.workspace = true
-hito-debrid-real-debrid = { path = "../hito-debrid-real-debrid" }
-hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+hito-debrid-real-debrid = { path = "../debrid/real-debrid" }
+hito-plugin-sdk = { path = "../plugin-sdk" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -25,9 +25,9 @@ zeroize.workspace = true
 libc = "0.2"
 
 [dev-dependencies]
-hito-audio = { path = "../hito-audio" }
-hito-debrid-real-debrid = { path = "../hito-debrid-real-debrid", features = ["test-support"] }
-hito-testkit = { path = "../hito-testkit" }
+hito-audio = { path = "../audio" }
+hito-debrid-real-debrid = { path = "../debrid/real-debrid", features = ["test-support"] }
+hito-testkit = { path = "../testkit" }
 hyper.workspace = true
 hyper-util.workspace = true
 rcgen = { version = "=0.14.10", default-features = false, features = ["ring"] }

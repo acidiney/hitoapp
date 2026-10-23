@@ -14,7 +14,7 @@ export async function artworkFixture() {
   const reference = `https://provider.invalid/private-artwork-playlist/${unique}`;
   const image = await readFile(
     new URL(
-      "../../../../crates/hito-core/tests/fixtures/cover-a.png",
+      "../../../../crates/core/tests/fixtures/cover-a.png",
       import.meta.url,
     ),
   );

@@ -8,7 +8,7 @@ license.workspace = true
 [dependencies]
 axum.workspace = true
 futures-util.workspace = true
-hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+hito-plugin-sdk = { path = "../plugin-sdk" }
 http-body-util.workspace = true
 hyper = { workspace = true, features = ["client"] }
 hyper-util.workspace = true
@@ -27,8 +27,8 @@ url.workspace = true
 nix = { version = "0.30.1", default-features = false, features = ["signal", "process"] }
 
 [dev-dependencies]
-hito-audio = { path = "../hito-audio" }
-hito-testkit = { path = "../hito-testkit" }
+hito-audio = { path = "../audio" }
+hito-testkit = { path = "../testkit" }
 reqwest = { workspace = true, features = ["stream"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

@@ -8,8 +8,8 @@ import type { components } from "../../src/generated";
 type Schema = components["schemas"];
 export type Entity = "recording" | "release" | "playlist";
 const images = {
-  recording: "crates/hito-core/tests/fixtures/cover-a.png",
-  release: "crates/hito-core/tests/fixtures/cover-b.png",
+  recording: "crates/core/tests/fixtures/cover-a.png",
+  release: "crates/core/tests/fixtures/cover-b.png",
   playlist: "crates/hito-plugin-spotify/src/tests/fixtures/artwork.png",
 } satisfies Record<Entity, string>;
 

@@ -29,7 +29,7 @@ LABEL org.opencontainers.image.revision="${HITO_ALL_DEBRID_SOURCE_ID}" \
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && groupadd --gid 10001 hito-plugin && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin hito-plugin && install -d -o 10001 -g 10001 -m 0700 /run/secrets
 COPY --from=plugin-build --chown=0:0 --chmod=0555 /hito-plugin-all-debrid /usr/local/bin/hito-plugin-all-debrid
 COPY --chown=0:0 --chmod=0444 LICENSE /usr/local/share/licenses/hito-plugin-all-debrid/LICENSE
-COPY --chown=0:0 --chmod=0444 crates/hito-plugin-sdk/LICENSE /usr/local/share/licenses/hito-plugin-sdk/LICENSE
+COPY --chown=0:0 --chmod=0444 crates/plugin-sdk/LICENSE /usr/local/share/licenses/hito-plugin-sdk/LICENSE
 USER 10001:10001
 EXPOSE 8097
 STOPSIGNAL SIGTERM

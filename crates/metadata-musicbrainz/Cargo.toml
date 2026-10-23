@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+hito-plugin-sdk = { path = "../plugin-sdk" }
 reqwest.workspace = true
 rustls.workspace = true
 serde.workspace = true

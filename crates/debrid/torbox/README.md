@@ -22,7 +22,7 @@ Run from the repository root with the existing pinned Rust tools image and dedic
 
 ```sh
 docker compose -p hito-torbox-protocol-checks \
-  -f compose.yaml -f crates/hito-debrid-torbox/tests/compose.tools.yaml \
+  -f compose.yaml -f crates/debrid/torbox/tests/compose.tools.yaml \
   --profile tools run --rm --no-deps -T --pull never rust \
   cargo test --offline --locked -p hito-debrid-torbox --features test-support
 ```
@@ -59,11 +59,11 @@ The shared opener copies no provider Authorization, Cookie or Referer headers in
 
 Ten audio protocol cases and the original twelve observation cases pass in isolated Docker Compose tools. The first audio tracer failed against the unsupported scaffold, then passed unchanged after implementation. Remaining audio controls passed on first observation, except one incorrect test oracle that initially expected misleading MIME to override valid WAV bytes. The shared byte-validation policy remained unchanged: the positive now consumes exact bytes through EOF and decodes every PCM sample; actual HTML/non-WAV, malformed WAV, framing, redirect and origin negatives still fail.
 
-The audio cases cover exact signed-query requests, fresh incomplete/changed-file denial before media, file ID zero, lost/malformed/oversized/cancelled/timed-out acknowledgments, no automatic retry, private correlated logs, shared active-body admission, body drop and cancellation during media qualification. Peer-closure witnesses complete before forced fixture shutdown while another client remains alive. Default and test-support configurations pass strict all-target Clippy and formatting. The separate service's reusable-audio qualification is recorded in [its README](../hito-plugin-torbox/README.md). Live-provider acceptance and application playback remain open.
+The audio cases cover exact signed-query requests, fresh incomplete/changed-file denial before media, file ID zero, lost/malformed/oversized/cancelled/timed-out acknowledgments, no automatic retry, private correlated logs, shared active-body admission, body drop and cancellation during media qualification. Peer-closure witnesses complete before forced fixture shutdown while another client remains alive. Default and test-support configurations pass strict all-target Clippy and formatting. The separate service's reusable-audio qualification is recorded in [its README](../../hito-plugin-torbox/README.md). Live-provider acceptance and application playback remain open.
 
 ```sh
 docker compose -p hito-torbox-audio-checks \
-  -f compose.yaml -f crates/hito-debrid-torbox/tests/audio.compose.tools.yaml \
+  -f compose.yaml -f crates/debrid/torbox/tests/audio.compose.tools.yaml \
   --profile tools run --rm --no-deps -T --pull never rust \
   cargo test --offline --locked -p hito-debrid-torbox --features test-support
 ```

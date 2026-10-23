@@ -39,7 +39,7 @@ The existing transport supplies the approved address and saved credentials. Play
 
 ### Provider JSON examples
 
-These illustrative bodies follow the [SDK wire types](../crates/hito-plugin-sdk/src/playlists.rs). Return uncompressed UTF-8 JSON with `Content-Type: application/json`; unknown fields are rejected. Both detail request kinds return the same detail shape:
+These illustrative bodies follow the [SDK wire types](../crates/plugin-sdk/src/playlists.rs). Return uncompressed UTF-8 JSON with `Content-Type: application/json`; unknown fields are rejected. Both detail request kinds return the same detail shape:
 
 ```json
 {

@@ -15,8 +15,8 @@ cap-fs-ext.workspace = true
 cap-std.workspace = true
 futures-util.workspace = true
 hmac = "=0.12.1"
-hito-debrid-torbox = { path = "../hito-debrid-torbox" }
-hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+hito-debrid-torbox = { path = "../debrid/torbox" }
+hito-plugin-sdk = { path = "../plugin-sdk" }
 hyper.workspace = true
 hyper-util.workspace = true
 libc = "=0.2.190"
@@ -33,8 +33,8 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
-hito-audio = { path = "../hito-audio" }
-hito-testkit = { path = "../hito-testkit" }
+hito-audio = { path = "../audio" }
+hito-testkit = { path = "../testkit" }
 reqwest.workspace = true
 rustls.workspace = true
 tempfile.workspace = true

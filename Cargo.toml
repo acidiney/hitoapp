@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/hito-core", "crates/hito-server", "crates/hito-plugin-sdk", "crates/hito-desktop", "crates/hito-audio", "crates/hito-playback", "crates/hito-plugin-folder", "crates/hito-plugin-spotify", "crates/hito-plugin-youtube", "crates/hito-plugin-jamendo", "crates/hito-community", "crates/hito-metadata-musicbrainz", "crates/hito-debrid-real-debrid", "crates/hito-plugin-real-debrid", "crates/hito-debrid-all-debrid", "crates/hito-remote-audio", "crates/hito-plugin-all-debrid", "crates/hito-debrid-torbox", "crates/hito-debrid-premiumize", "crates/hito-plugin-torbox", "crates/hito-plugin-premiumize", "crates/hito-testkit"]
+members = ["crates/core", "crates/hito-server", "crates/plugin-sdk", "crates/hito-desktop", "crates/audio", "crates/playback", "crates/hito-plugin-folder", "crates/hito-plugin-spotify", "crates/hito-plugin-youtube", "crates/hito-plugin-jamendo", "crates/hito-community", "crates/metadata-musicbrainz", "crates/debrid/real-debrid", "crates/hito-plugin-real-debrid", "crates/debrid/all-debrid", "crates/remote-audio", "crates/hito-plugin-all-debrid", "crates/debrid/torbox", "crates/debrid/premiumize", "crates/hito-plugin-torbox", "crates/hito-plugin-premiumize", "crates/testkit"]
 exclude = ["vendor/sqlx-sqlite"]
 resolver = "3"
 

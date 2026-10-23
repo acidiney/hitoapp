@@ -11,8 +11,8 @@ device = ["hito-audio/device"]
 schema = ["dep:utoipa"]
 
 [dependencies]
-hito-audio = { path = "../hito-audio" }
-hito-core = { path = "../hito-core" }
+hito-audio = { path = "../audio" }
+hito-core = { path = "../core" }
 tokio.workspace = true
 bytes.workspace = true
 tracing.workspace = true
@@ -23,10 +23,10 @@ rand.workspace = true
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
-hito-testkit = { path = "../hito-testkit" }
-hito-core = { path = "../hito-core", features = ["test-support"] }
-hito-audio = { path = "../hito-audio", features = ["test-support"] }
-hito-plugin-sdk = { path = "../hito-plugin-sdk" }
+hito-testkit = { path = "../testkit" }
+hito-core = { path = "../core", features = ["test-support"] }
+hito-audio = { path = "../audio", features = ["test-support"] }
+hito-plugin-sdk = { path = "../plugin-sdk" }
 futures-util.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
