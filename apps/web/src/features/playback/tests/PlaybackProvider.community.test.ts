@@ -99,7 +99,8 @@ test("browser community success requires five advancing ready seconds and exclud
   vi.spyOn(performance, "now").mockImplementation(() => now);
   const media = audiobookContinuationMedia();
   const claims: { path: string; options: RequestInit }[] = [];
-  playbackRequests([recording], (path, options) => {
+  const timed = { ...recording, duration_ms: 120_000 };
+  playbackRequests([timed], (path, options) => {
     if (!path.endsWith("/successful-playback")) return;
     claims.push({ path, options: options! });
     return Response.json("queued");
@@ -109,7 +110,7 @@ test("browser community success requires five advancing ready seconds and exclud
     await act(async () => {
       await view
         .player()
-        .playQueue([recording], 0, { kind: "saved", position: 30 });
+        .playQueue([timed], 0, { kind: "saved", position: 30 });
     });
     const audio = media.current();
     const observe = async (clock: number, position: number) => {

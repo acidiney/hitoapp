@@ -19,6 +19,8 @@ export type LogFields = {
   status?: number;
   content_revision?: number;
   duration_ms?: number;
+  media_duration_ms?: number;
+  server_duration_ms?: number;
   count?: number;
   index?: number;
   position_ms?: number;
@@ -59,6 +61,8 @@ const permitted = new Set([
   "status",
   "content_revision",
   "duration_ms",
+  "media_duration_ms",
+  "server_duration_ms",
   "count",
   "index",
   "position_ms",
