@@ -63,7 +63,7 @@ impl Catalog {
             revision,
             selection: None,
         };
-        receipts::save(&mut tx, actor, &digest, &receipt).await?;
+        receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         Ok(receipt)

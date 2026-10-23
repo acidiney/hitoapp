@@ -2,6 +2,7 @@ use super::super::{associations, authority::Credit, provider::Connection, review
 use super::receipts;
 use super::*;
 use crate::{Actor, Catalog, Error, identity::recording_access};
+use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
 
@@ -153,14 +154,39 @@ impl Catalog {
                 association_id: association.id.clone(),
             }),
         };
-        let order = receipts::save(&mut tx, actor, &digest, &receipt).await?;
-        sqlx::query("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,artist_operation_id,observation_id,selection_order)
-            VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,recording_id) DO UPDATE SET revision=excluded.revision,association_id=excluded.association_id,
-            group_id=excluded.group_id,artist_id=excluded.artist_id,artist_operation_id=excluded.artist_operation_id,observation_id=excluded.observation_id,retired=0,selected_at=unixepoch(),selection_order=excluded.selection_order")
-            .bind(actor.id()).bind(recording).bind(revision).bind(&association.id).bind(&group).bind(&credit.artist_id)
-            .bind(&credit.credit_operation).bind(&credit.observation_id).bind(order).execute(&mut *tx).await?;
+        let order = receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
+        store(
+            &mut tx,
+            actor,
+            recording,
+            revision,
+            &association.id,
+            &group,
+            &credit,
+            order,
+        )
+        .await?;
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         Ok(receipt)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn store(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    revision: i64,
+    association: &str,
+    group: &str,
+    credit: &Credit,
+    order: i64,
+) -> Result<()> {
+    sqlx::query("INSERT INTO recording_artist_identity_choices(user_id,recording_id,revision,association_id,group_id,artist_id,artist_operation_id,observation_id,selection_order)
+        VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,recording_id) DO UPDATE SET revision=excluded.revision,association_id=excluded.association_id,
+        group_id=excluded.group_id,artist_id=excluded.artist_id,artist_operation_id=excluded.artist_operation_id,observation_id=excluded.observation_id,retired=0,selected_at=unixepoch(),selection_order=excluded.selection_order")
+        .bind(actor.id()).bind(recording).bind(revision).bind(association).bind(group).bind(&credit.artist_id)
+        .bind(&credit.credit_operation).bind(&credit.observation_id).bind(order).execute(connection).await?;
+    Ok(())
 }

@@ -106,3 +106,24 @@ pub struct ArtistIdentityGroupBrowse {
     pub release_offset: Option<i64>,
     pub limit: Option<i64>,
 }
+
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ApplyArtistIdentityToCredit {
+    pub request_id: Uuid,
+    pub group_id: String,
+    pub after: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+pub struct ArtistIdentityCreditReceipt {
+    pub request_id: Uuid,
+    pub artist_id: String,
+    pub group_id: String,
+    pub applied: i64,
+    pub unchanged: i64,
+    pub skipped_different: i64,
+    pub skipped_unavailable: i64,
+    pub next_after: Option<String>,
+}

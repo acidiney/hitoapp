@@ -1,4 +1,5 @@
 mod choices;
+mod credit;
 mod groups;
 mod receipts;
 mod reset;

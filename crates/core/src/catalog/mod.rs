@@ -36,17 +36,17 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artist_catalog::{
-    ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
-    ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
-    ArtistIdentityChoiceReceipt, ArtistIdentityGroup, ArtistIdentityGroupBrowse,
-    ArtistIdentityGroupDetail, ArtistIdentityGroupLibrary, ArtistIdentityGroupMember,
-    ArtistIdentityGroupName, ArtistIdentityGroupQuery, ArtistIdentitySelection,
-    ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, AssociateRecordingArtist, ChooseRecordingArtistIdentity,
-    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadArtistDiscography,
-    ReadEditionTrackList, ReadReleaseGroupEditions, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity,
-    UpdateMetadataSettings,
+    ApplyArtistIdentityToCredit, ArtistAssociation, ArtistAssociationEvidence,
+    ArtistCandidatePreviewAvailability, ArtistCandidateSearchAvailability, ArtistCreditRole,
+    ArtistDiscographyAvailability, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
+    ArtistIdentityGroup, ArtistIdentityGroupBrowse, ArtistIdentityGroupDetail,
+    ArtistIdentityGroupLibrary, ArtistIdentityGroupMember, ArtistIdentityGroupName,
+    ArtistIdentityGroupQuery, ArtistIdentitySelection, ArtistProfileAvailability,
+    ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
+    AssociateRecordingArtist, ChooseRecordingArtistIdentity, EditionTrackListAvailability,
+    MetadataProvider, MetadataSettings, ReadArtistDiscography, ReadEditionTrackList,
+    ReadReleaseGroupEditions, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
+    ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
