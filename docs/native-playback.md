@@ -68,25 +68,30 @@ The playback owner can publish to the operating system's Now Playing surface thr
 ```mermaid
 flowchart LR
   State[Owner state and position watch] --> Driver[Media driver]
-  Driver -->|key change| Load[Recording and artwork load as the owning account]
-  Load --> Publisher[Publisher]
-  Driver --> Publisher
-  Publisher -->|track, state, clear| Sink[MediaSink]
-  Sink --> OS[Operating system]
+  Driver -->|key change| Text[Recording text as the owning account]
+  Text --> Publisher[Publisher]
+  Text -->|then| Art[Bounded artwork]
+  Art --> Publisher
+  Publisher -->|latest state wins| Thread[Sink thread]
+  Thread --> OS[Operating system]
   OS -->|MediaCommand| Driver
-  Driver -->|Host action| Admission[Normal admission and session check]
+  Driver -->|one pending command, 50 ms apart| Admission[Session check, then resolve and apply]
   Admission --> State
 ```
 
-The publisher keeps one current track keyed by account, queue entry and recording. A key change clears the sink at once and starts one metadata load. The load reads the recording through the owner's account session, then the release image, then the recording image. An image counts only if it is a PNG or JPEG of at most 2 MiB and 1024 by 1024 pixels, judged from the file header and not from the declared type. A slow image is dropped after three seconds. A result for an earlier key is ignored. A failed load publishes nothing.
+The publisher keeps one current track keyed by account, queue entry and recording. A key change clears the sink at once and starts a metadata load. Title, artist, album and duration are published as soon as the recording loads. Artwork loads afterwards and adds one more update. A failed load is retried for the same track after 0.5, 1, 2, 4 and 8 seconds, except when the recording is gone or the session is rejected. A result for an earlier track is ignored.
 
-Title, artist and album are published once per track. Playback state is republished on pause, resume, seek, speed change and track change. Position ticks never reach the sink, so the operating system extrapolates between updates. The duration is the decoded one unless it is more than 10 percent and 5 seconds longer than the recording's known duration, in which case the known one wins. This is the rule the browser player uses. If the decoded duration changes by a second or more after the first publish, the track is published again with it.
+Artwork comes from the release image, then the recording image, through the owner's account session. An image counts only if it is a PNG or JPEG of at most 2 MiB and 1024 by 1024 pixels, judged from the file header and not from the declared type. A slow image is dropped after three seconds.
+
+Playback state is republished on pause, resume, seek, speed change and track change. Position ticks never reach the sink, so the operating system extrapolates between updates. The duration is the decoded one unless it is more than 10 percent and 5 seconds longer than the recording's known duration, in which case the known one wins. This is the rule the browser player uses. If the decoded duration changes by a second or more after the first publish, the track is published again with it, reusing the same artwork.
+
+The sink runs on its own thread. Calls from the owner only update a small pending slot, so a stalled D-Bus or system call cannot hold up client commands. While the sink is busy, the newest track and state replace older ones, and a clear discards undelivered updates. When the owner closes, the thread gets a final clear and is not joined, so process exit can cut it short.
 
 The sink is cleared when the queue empties, the session is withdrawn (logout or a failed session check), another session claims the player, a system Stop arrives, and when the owner closes.
 
-System commands are Play, Pause, Toggle, Next, Previous, Stop, absolute Seek and relative seek. The owner turns each into an ordinary player action for the owning account and admits it through the same session check as an HTTP command. Stop maps to Clear, as in the browser. Seeks are clamped to the reconciled duration and ignored when none is known. These commands take their lease, sequence and revision from the owner at admission time, then restore the sequence counter, so a media key never makes a client's next command a conflict. When the request queue is full a system command is dropped.
+System commands are Play, Pause, Toggle, Next, Previous, Stop, absolute Seek and relative seek. The driver keeps only the newest waiting command and releases one every 50 milliseconds. It sends a command into the request queue only while at least 16 slots are free, so a burst of key events cannot make client commands busy. When the owner admits a command it checks the session first. Then, in one synchronous step, it turns the command into a player action using the state at that moment, gives it the next sequence number and the current revision, applies it, and puts the sequence counter back. A media key therefore never makes a client's next command a conflict, and a track that ended just before cannot make the command stale. Stop maps to Clear, as in the browser. Seeks are clamped to the reconciled duration and ignored when none is known.
 
-Current limits. The state shows paused for a moment while a track loads. The playback rate is passed to the sink, but the chosen OS crate has no rate field, so a sped-up track drifts on the operating system's clock until the next state change. No physical operating-system panel has been checked. See [the desktop host](desktop.md#system-media-controls).
+Current limits. The state shows paused for a moment while a track loads. If output underruns and then recovers while the state stays playing, the operating system's position is not re-anchored until the next state change. The playback rate is passed to the sink, but the chosen OS crate has no rate field, so a sped-up track drifts on the operating system's clock until then. No physical operating-system panel has been checked. See [the desktop host](desktop.md#system-media-controls).
 
 ## Verification and limits
 
