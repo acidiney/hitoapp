@@ -65,6 +65,8 @@ Duplicate occurrences and different components share one retrieval for each reco
 
 After an explicit artwork-capability approval is acknowledged, the UI clears that account's completed unavailable checks. Visible observers retry through the existing bounded workflow; other covers wait until viewed. Reviewing changes alone does not enable artwork. Ready covers, active jobs and terminal failures retain their state. This fix is deployed on the normal local server. A browser already running the earlier UI must reload once to receive the new code.
 
+The player dock, expanded Now Playing, listening panel, queue rows and the browser Media Session use the same release-then-recording order as track rows. A missing Media Session cover starts this same retrieval; see [browser Now Playing](browser-media-session.md).
+
 More than 128 simultaneous missing covers can leave placeholders until remount or an explicit retry. Large-library visibility and paging behavior still need release-load verification.
 
 ## Verified evidence and remaining work

@@ -42,7 +42,7 @@ const QueueTracks = memo(function QueueTracks({
                 className="queue-track"
                 onClick={() => void player.selectEntry(id)}
               >
-                <Artwork recording={track.id} />
+                <Artwork release={track.release_id ?? undefined} recording={track.id} />
                 <span>
                   <strong>{track.title}</strong>
                   <small>{track.artist}</small>
