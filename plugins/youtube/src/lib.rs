@@ -62,7 +62,6 @@ impl Service {
         Self::configured(config, media::Client::new(), true)
     }
 
-    /// Declares only search and metadata and leaves the sources and audio routes unmounted.
     pub fn metadata_only(config: Config) -> Self {
         Self::configured(config, media::Client::new(), false)
     }
