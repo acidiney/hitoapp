@@ -173,6 +173,46 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     await expect(notInEdition).toContainText(
       fixture.titles[albumEdition.bonus],
     );
+
+    await expect
+      .poll(async () => {
+        const detail = await page.request.get(`/api/v1/releases/${release}`);
+        return (await detail.json()).saved_edition?.state?.edition
+          ?.edition_id;
+      })
+      .toBe(albumEdition.standardId);
+    const catalogCalls = fixture.calls.length;
+    await page.reload();
+    await page
+      .getByRole("button", { name: "Show complete track list" })
+      .click();
+    const remembered = page.getByRole("region", {
+      name: "Album edition track list",
+    });
+    await expect(remembered.getByRole("listitem")).toHaveCount(3);
+    await expect(
+      page.getByRole("button", { name: "Change edition" }),
+    ).toBeVisible();
+    const reread = fixture.calls.slice(catalogCalls);
+    expect(reread.filter((call) => call.endsWith("track-list"))).toHaveLength(
+      1,
+    );
+    expect(
+      reread.filter((call) => /discography|profile|release-groups/.test(call)),
+    ).toEqual([]);
+
+    await page.getByRole("button", { name: "Forget edition" }).click();
+    await expect(
+      page.getByRole("button", { name: "Show complete track list" }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Show complete track list" }),
+    ).toBeVisible();
+    const cleared = await page.request.get(`/api/v1/releases/${release}`);
+    expect((await cleared.json()).saved_edition.state).toEqual({
+      status: "unset",
+    });
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
     const privateValues = [fixture.token, label, albumEdition.groupId];
