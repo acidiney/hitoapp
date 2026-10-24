@@ -156,7 +156,9 @@ fn fingerprint(root: &Root) -> u64 {
         seen += 1;
         let Ok(entry) = entry else { continue };
         let relative = parent.join(entry.file_name());
-        let Ok(kind) = entry.file_type() else { continue };
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
         if kind.is_dir() {
             if stack.len() < MAX_DEPTH
                 && seen < MAX_ENTRIES

@@ -1,6 +1,4 @@
-use super::{
-    WatchStatus, WatchedFolder, changes::Changes, request::ScanRequest,
-};
+use super::{WatchStatus, WatchedFolder, changes::Changes, request::ScanRequest};
 use crate::library_storage::{LibraryStorage, folder_types::Folder};
 use std::{sync::Arc, time::Duration};
 use tokio::{
@@ -78,11 +76,7 @@ impl LibraryStorage {
         );
     }
 
-    async fn quiet_period(
-        &self,
-        changes: &mut Changes,
-        stop: &mut watch::Receiver<bool>,
-    ) -> bool {
+    async fn quiet_period(&self, changes: &mut Changes, stop: &mut watch::Receiver<bool>) -> bool {
         let debounce = self.watching.debounce;
         let limit = Instant::now() + debounce * MAX_QUIET_WAITS;
         loop {
@@ -108,7 +102,10 @@ impl LibraryStorage {
     ) -> bool {
         loop {
             let started = Instant::now();
-            match self.request_watched_scan(&folder.id, folder.generation).await {
+            match self
+                .request_watched_scan(&folder.id, folder.generation)
+                .await
+            {
                 Ok(ScanRequest::Queued | ScanRequest::Covered) => {
                     changes.clear();
                     tracing::debug!(

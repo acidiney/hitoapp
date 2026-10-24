@@ -70,9 +70,9 @@ pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
 pub use library_storage::AudioFile;
 pub use library_storage::{
-    BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
-    FolderWatchSettings, LibraryStorage, MusicFolder, SharedDirectory, WatchBackend, WatchMode,
-    WatchStatus, WatchedFolder,
+    BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef,
+    FolderWatchSettings, Job, LibraryStorage, MusicFolder, SharedDirectory, WatchBackend,
+    WatchMode, WatchStatus, WatchedFolder,
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{

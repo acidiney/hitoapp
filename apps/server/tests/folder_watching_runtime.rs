@@ -3,9 +3,7 @@
 #[allow(dead_code)]
 mod support;
 
-use hito_core::{
-    CoreConfig, Credentials, FolderWatchSettings, HostDeviceId, Search, WatchMode,
-};
+use hito_core::{CoreConfig, Credentials, FolderWatchSettings, HostDeviceId, Search, WatchMode};
 use std::time::Duration;
 use tokio::{net::TcpListener, sync::oneshot};
 

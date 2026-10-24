@@ -76,7 +76,10 @@ mod tests {
 
     #[test]
     fn the_longest_mount_decides_the_volume_kind() {
-        assert_eq!(classify(MOUNTS, Path::new("/music/jazz")), Some("network_volume"));
+        assert_eq!(
+            classify(MOUNTS, Path::new("/music/jazz")),
+            Some("network_volume")
+        );
         assert_eq!(
             classify(MOUNTS, Path::new("/media/usb drive/set")),
             Some("removable_volume")

@@ -3,9 +3,9 @@ mod watching;
 
 use hito_core::{CommunityConfig, CommunityRankingConfig, CoreConfig, HostDeviceId, StorageConfig};
 use origins::{parse_additional_origins, validate_combined_origins};
-use watching::parse_folder_watching;
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
+use watching::parse_folder_watching;
 
 pub type RuntimeResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 

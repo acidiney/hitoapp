@@ -1,8 +1,8 @@
 #![cfg(unix)]
 use hito_core::test_support::{media_tool, support};
 use hito_core::{
-    Actor, ConnectFolder, CoreConfig, Credentials, DirectoryRef, FolderWatchSettings,
-    HostDeviceId, Search, Services, WatchBackend, WatchMode, WatchStatus,
+    Actor, ConnectFolder, CoreConfig, Credentials, DirectoryRef, FolderWatchSettings, HostDeviceId,
+    Search, Services, WatchBackend, WatchMode, WatchStatus,
 };
 use std::{
     path::PathBuf,
@@ -56,9 +56,7 @@ async fn start(mode: WatchMode, debounce_ms: u64, hold_inspection: bool) -> Harn
         config.media_tools.ffprobe = media_tool::script(
             &tools,
             "ffprobe",
-            &format!(
-                "while [ -e {hold} ]; do sleep 0.05; done\nexec /usr/bin/ffprobe \"$@\""
-            ),
+            &format!("while [ -e {hold} ]; do sleep 0.05; done\nexec /usr/bin/ffprobe \"$@\""),
         );
     }
     let services = hito_core::open(config).await.unwrap();
@@ -70,10 +68,26 @@ async fn start(mode: WatchMode, debounce_ms: u64, hold_inspection: bool) -> Harn
         })
         .await
         .unwrap();
-    let actor = services.identity.authenticate(&session.token).await.unwrap();
-    let library = services.catalog.libraries(&actor).await.unwrap().remove(0).id;
+    let actor = services
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
+    let library = services
+        .catalog
+        .libraries(&actor)
+        .await
+        .unwrap()
+        .remove(0)
+        .id;
     support::scan(&services, &actor, &library).await;
-    let folder = services.storage.folders(&actor, &library).await.unwrap().remove(0).id;
+    let folder = services
+        .storage
+        .folders(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0)
+        .id;
     let (stop, stopped) = watch::channel(false);
     let (publish, status) = watch::channel(WatchStatus::new());
     let storage = services.storage.clone();
@@ -176,7 +190,10 @@ impl Harness {
             .await
             .expect("Shutdown must join every watcher")
             .unwrap();
-        assert!(self.status.borrow().is_empty(), "Shutdown must retire every watcher");
+        assert!(
+            self.status.borrow().is_empty(),
+            "Shutdown must retire every watcher"
+        );
         self.worker.await.unwrap();
         drop(self.directory);
     }

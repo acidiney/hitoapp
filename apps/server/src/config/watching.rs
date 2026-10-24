@@ -49,7 +49,10 @@ mod tests {
 
     #[test]
     fn operators_can_disable_watching_or_force_polling() {
-        assert_eq!(parse_folder_watching(Some("off"), None).unwrap().mode, WatchMode::Off);
+        assert_eq!(
+            parse_folder_watching(Some("off"), None).unwrap().mode,
+            WatchMode::Off
+        );
         let settings = parse_folder_watching(Some("poll"), Some("120")).unwrap();
         assert_eq!(settings.mode, WatchMode::Poll);
         assert_eq!(settings.poll_interval, Duration::from_secs(120));
