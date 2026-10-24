@@ -15,7 +15,7 @@ The queue is the ordered list of entries a listener has chosen to play. Each ent
 
 ## Playing a whole result
 
-The Play button on the library, likes, search and album pages queues the whole result, not only the loaded page.
+The Play button on the library, likes, search, album, artist and chosen-artist pages queues the whole result, not only the loaded page.
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ flowchart LR
 - Replacing the queue, clearing it, closing the native session or switching accounts aborts the request in flight. A page that arrives late is dropped.
 - If a page fails, the entries already loaded keep playing and the player shows "The rest of the list could not be loaded."
 - With shuffle on, each batch is mixed uniformly into the part of the shuffle order that has not played yet. A shuffled playthrough therefore covers the whole result, not one page at a time. The first track is still the clicked or first one.
-- Playlists and history load all their entries with the page, so they already queue everything. Artist pages still queue only the loaded page. They need the same one-line listing wiring that the album page has.
+- Artist and chosen-artist pages page their tracks with `recording_offset` and queue the whole list the same way. Playlists and history load all their entries with the page, so they already queue everything.
 
 ## Large queues
 

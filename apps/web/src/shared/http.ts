@@ -68,6 +68,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action === "playlists.follow.status" ||
       options.action === "podcasts.status" ||
       options.action.startsWith("artwork.") ||
+      options.action.endsWith("tracks_page") ||
       options.action === "progress.save" ||
       options.action === "session.verify" ||
       options.action === "community.playback.report" ||

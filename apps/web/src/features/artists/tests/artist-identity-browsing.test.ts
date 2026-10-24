@@ -104,13 +104,17 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   expect(mutate).not.toHaveBeenCalled();
   expect(player.playQueue).not.toHaveBeenCalled();
   expect(player.subscribePosition).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Play this page" }));
+  fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
   expect(player.playQueue).toHaveBeenLastCalledWith(
     detail.detail.recordings.items.map(({ recording }) => ({
       ...recording,
       row_id: recording.id,
     })),
+    0,
+    undefined,
+    expect.objectContaining({ next: expect.any(Function) }),
   );
+  expect(player.playQueue.mock.lastCall![3].remaining()).toBe(1);
   fireEvent.click(
     within(rows[1]).getByRole("button", {
       name: `Play ${detail.detail.recordings.items[1].recording.title}`,
@@ -120,6 +124,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
     expect.any(Array),
     1,
     undefined,
+    expect.objectContaining({ next: expect.any(Function) }),
   );
   expect(detail).toEqual(before);
 });

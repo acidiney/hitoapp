@@ -8,6 +8,7 @@ import Pagination from "../../../shared/ui/Pagination";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
+import { artistTracksListing } from "../api/trackListings";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 
 export default function ArtistPage({
@@ -22,6 +23,7 @@ export default function ArtistPage({
     row_id: recording.id,
   }));
   const path = `/artists/${encodeURIComponent(artist.id)}`;
+  const listing = artistTracksListing(user.id, artist.id, recordings);
   return (
     <>
       <section className="collection-hero artist-hero">
@@ -78,9 +80,7 @@ export default function ArtistPage({
             <>
               <TrackToolbar
                 tracks={tracks}
-                label={
-                  recordings.total > recordings.limit ? "this page" : "tracks"
-                }
+                listing={listing}
                 description="Recording credits in your library"
               />
               <TrackTable
@@ -88,6 +88,7 @@ export default function ArtistPage({
                   kind: "recording",
                   track,
                 }))}
+                listing={listing}
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}

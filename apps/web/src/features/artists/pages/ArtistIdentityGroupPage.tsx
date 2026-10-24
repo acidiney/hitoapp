@@ -8,6 +8,7 @@ import Pagination from "../../../shared/ui/Pagination";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
+import { artistGroupTracksListing } from "../api/trackListings";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import ArtistGroupDiscography from "../components/ArtistGroupDiscography";
 
@@ -24,6 +25,7 @@ export default function ArtistIdentityGroupPage({
     row_id: recording.id,
   }));
   const path = `/artist-groups/${encodeURIComponent(group.id)}`;
+  const listing = artistGroupTracksListing(user.id, group.id, recordings);
   const { url } = usePage();
   const current = new URL(url, window.location.origin).searchParams;
   function libraryPath(library?: string) {
@@ -133,9 +135,7 @@ export default function ArtistIdentityGroupPage({
             <>
               <TrackToolbar
                 tracks={tracks}
-                label={
-                  recordings.total > recordings.limit ? "this page" : "tracks"
-                }
+                listing={listing}
                 description="Tracks with your chosen artist identity"
               />
               <TrackTable
@@ -143,6 +143,7 @@ export default function ArtistIdentityGroupPage({
                   kind: "recording",
                   track,
                 }))}
+                listing={listing}
                 offset={recordings.offset}
                 playlists={playlists}
                 mutate={mutate}

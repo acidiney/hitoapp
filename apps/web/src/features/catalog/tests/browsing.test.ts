@@ -283,10 +283,11 @@ test("albumless artist tracks play only their page and keep album pagination sep
   expect(
     screen.queryByRole("heading", { name: "Albums & appearances" }),
   ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Play this page" }));
+  fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
   expect(
     player.playQueue.mock.calls[0][0].map((item: { id: string }) => item.id),
   ).toEqual([track.id]);
+  expect(player.playQueue.mock.calls[0][3].remaining()).toBe(1);
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(navigation.get).toHaveBeenCalledWith("/artists/credit", {
     offset: "4",
