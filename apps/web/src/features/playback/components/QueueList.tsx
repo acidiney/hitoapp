@@ -19,6 +19,7 @@ const QueueList = memo(function QueueList() {
   const scroller = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
+  const refocus = useRef<{ entry: string; move: "up" | "down" } | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const latest = useRef({ view, queue, player });
   latest.current = { view, queue, player };
@@ -30,6 +31,29 @@ const QueueList = memo(function QueueList() {
     element.scrollTop = Math.max(0, (index - 1) * QUEUE_ROW);
     scrolled(element.scrollTop, element.clientHeight);
   }, [scrolled]);
+
+  useLayoutEffect(() => {
+    const target = refocus.current;
+    const list = scroller.current;
+    if (!target || !list) return;
+    const row = list.querySelector(`li[data-entry="${target.entry}"]`);
+    const control =
+      row?.querySelector<HTMLButtonElement>(`[data-move="${target.move}"]`) ??
+      null;
+    const other = row?.querySelector<HTMLButtonElement>(
+      `[data-move="${target.move === "up" ? "down" : "up"}"]`,
+    );
+    const next = control && !control.disabled ? control : other;
+    if (!next) return;
+    const active = document.activeElement;
+    const lost =
+      !active ||
+      active === document.body ||
+      (active instanceof HTMLButtonElement && active.disabled);
+    if (active === next) return;
+    if (lost) next.focus();
+    else refocus.current = null;
+  });
 
   const place = useCallback(
     async (entry: string, at: number, title: string, position: number) => {
@@ -44,6 +68,7 @@ const QueueList = memo(function QueueList() {
     (entry: string, index: number, step: -1 | 1) => {
       const title =
         latest.current.queue.entryAt(index)?.recording.title ?? "track";
+      refocus.current = { entry, move: step === -1 ? "up" : "down" };
       void place(
         entry,
         step === -1 ? index - 1 : index + 2,

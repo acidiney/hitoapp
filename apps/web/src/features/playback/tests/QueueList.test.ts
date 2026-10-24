@@ -181,3 +181,31 @@ test("entries still arriving are announced", async () => {
     expect(screen.getByText(/4,200 more tracks/)).not.toBeNull(),
   );
 });
+
+test("after a keyboard move the same control keeps focus on the moved row", async () => {
+  await listed(5, 4);
+  await waitFor(() => expect(rows()).toHaveLength(5));
+  const down = screen.getByRole("button", { name: "Move Track 1 down" });
+  down.focus();
+  fireEvent.click(down);
+  await waitFor(() => expect(titles()[2]).toBe("Track 1"));
+  await waitFor(() =>
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "Move Track 1 down",
+    ),
+  );
+  const up = screen.getByRole("button", { name: "Move Track 1 up" });
+  up.focus();
+  for (let step = 0; step < 2; step++) {
+    fireEvent.click(document.activeElement!);
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("aria-label")).toMatch(
+        /Move Track 1 (up|down)/,
+      ),
+    );
+  }
+  expect(titles()[0]).toBe("Track 1");
+  expect(document.activeElement?.getAttribute("aria-label")).toBe(
+    "Move Track 1 down",
+  );
+});

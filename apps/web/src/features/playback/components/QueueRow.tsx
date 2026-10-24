@@ -31,6 +31,7 @@ const QueueRow = memo(function QueueRow({
     <li
       className={current ? "current" : ""}
       data-index={index}
+      data-entry={id}
       data-drop={marker ?? undefined}
       aria-posinset={index + 1}
       aria-setsize={total}
@@ -55,6 +56,7 @@ const QueueRow = memo(function QueueRow({
       <span className="queue-order">
         <button
           className="icon-button"
+          data-move="up"
           aria-label={`Move ${track.title} up`}
           disabled={index === 0}
           onClick={() => move(id, index, -1)}
@@ -63,6 +65,7 @@ const QueueRow = memo(function QueueRow({
         </button>
         <button
           className="icon-button"
+          data-move="down"
           aria-label={`Move ${track.title} down`}
           disabled={index === total - 1}
           onClick={() => move(id, index, 1)}

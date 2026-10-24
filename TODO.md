@@ -107,6 +107,8 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Verify local audio opens, metadata, and ongoing reads on stalled or disconnected drives.
 - [ ] Verify metadata compatibility, including a bounded policy for compressed ID3 tags, which are currently unsupported.
 - [ ] Complete queue reordering and playback across catalog pages; verify very large queues against the performance gates.
+  - [x] Add reorder (drag, Move up/down), whole-result Play for library, likes, search and albums, and a windowed queue list in the browser and native players. Unit timings at 10,000 and 100,000 entries and a Chromium workflow pass. See [queue](docs/queue.md).
+  - [ ] Wire artist and artist-identity-group pages to the same listing, and measure queue scrolling and 500 page requests on real browsers and devices.
 - [ ] Verify that desktop works without a server and web explains unavailable connections.
 
 ## Synchronization and downloads

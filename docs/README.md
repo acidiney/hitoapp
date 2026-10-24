@@ -31,7 +31,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 
 ## Playback and sources
 
-- [Native playback](native-playback.md), [native coordinator](native-coordinator.md), [native audio engine](native-audio.md)
+- [Playback queue](queue.md), [native playback](native-playback.md), [native coordinator](native-coordinator.md), [native audio engine](native-audio.md)
 - [Browser media session](browser-media-session.md)
 - [Next-entry preparation](next-entry-preparation.md)
 - [Automatic sources](automatic-sources.md), [manual sources](manual-sources.md), [provider sources](provider-sources.md), [source preparation](source-preparation.md)

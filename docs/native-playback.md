@@ -93,6 +93,10 @@ System commands are Play, Pause, Toggle, Next, Previous, Stop, absolute Seek and
 
 Current limits. The state shows paused for a moment while a track loads. If output underruns and then recovers while the state stays playing, the operating system's position is not re-anchored until the next state change. The playback rate is passed to the sink, but the chosen OS crate has no rate field, so a sped-up track drifts on the operating system's clock until then. No physical operating-system panel has been checked. See [the desktop host](desktop.md#system-media-controls).
 
+## Queue editing
+
+The owner accepts `move`, `append` and `remove` commands on stable entry IDs and mixes appended entries into the unplayed part of a shuffle order. The page sends them through the paths described in [the queue](queue.md).
+
 ## Verification and limits
 
 After building the Docker Rust and desktop images, run:
