@@ -28,10 +28,10 @@ export function useCatalogTrackPlay(
   const [snapshot, setSnapshot] = useState<State | null>(null);
   const current = snapshot?.owner === owner ? snapshot : null;
 
-  async function play(providerRecording: string) {
+  async function play(occurrence: string, providerRecording: string) {
     const request = scope.capture();
     if (!request.active() || !adoption || owner.pending !== null) return;
-    owner.pending = providerRecording;
+    owner.pending = occurrence;
     const requestId = createUuid();
     const started = performance.now();
     let outcome = "cancelled";
@@ -45,7 +45,7 @@ export function useCatalogTrackPlay(
           ...change,
         });
     };
-    update({ pending: providerRecording });
+    update({ pending: occurrence });
     log.debug("catalog_track_play.started", { request_id: requestId });
     try {
       const prepared = player.prepareSelection();
@@ -71,7 +71,7 @@ export function useCatalogTrackPlay(
         outcome = "failed";
         update({
           pending: null,
-          failed: { id: providerRecording, message: errorMessage(error) },
+          failed: { id: occurrence, message: errorMessage(error) },
         });
       }
     } finally {

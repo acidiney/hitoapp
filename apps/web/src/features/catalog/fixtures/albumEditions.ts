@@ -149,6 +149,7 @@ export const mergedTrackList = {
     { occurrence_id: "occ-2-1", recording: firstLibraryRecording },
   ],
   library_only: [extraTrack],
+  attached_occurrences: [],
   adoption: {
     installation_id: installation.id,
     installation_revision: installation.revision,
@@ -161,4 +162,33 @@ export const unsavableTrackList = {
   matches: [],
   adoption: null,
   is_album_release: false,
+} satisfies Schema["AlbumEditionTrackListAvailability"];
+
+export const attachedTrackList = {
+  ...mergedTrackList,
+  attached_occurrences: ["occ-1-2"],
+} satisfies Schema["AlbumEditionTrackListAvailability"];
+
+export const repeatedCatalogTrackList = {
+  ...mergedTrackList,
+  matches: [],
+  edition: {
+    ...catalogTracks,
+    media: [
+      catalogTracks.media[0],
+      {
+        ...catalogTracks.media[1],
+        tracks: [
+          occurrence(
+            "occ-2-1",
+            1,
+            "audio",
+            "Catalog song again",
+            "provider:two",
+          ),
+          catalogTracks.media[1].tracks[1],
+        ],
+      },
+    ],
+  },
 } satisfies Schema["AlbumEditionTrackListAvailability"];

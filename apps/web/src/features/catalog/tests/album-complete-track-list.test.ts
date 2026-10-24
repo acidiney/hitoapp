@@ -13,6 +13,7 @@ import type { AlbumPageProps } from "../../../shared/types";
 import {
   albumDetail,
   albumId,
+  attachedTrackList,
   artistAssociation,
   artistReviewAccount,
   editionGroup,
@@ -22,6 +23,7 @@ import {
   installation,
   mergedTrackList,
   personalTitle,
+  repeatedCatalogTrackList,
   reviewedArtistProfile,
   savedRecording,
   standardEdition,
@@ -282,4 +284,48 @@ test("an album without a reviewed artist offers no complete track list", () => {
   expect(
     screen.queryByRole("button", { name: "Show complete track list" }),
   ).toBeNull();
+});
+
+test("a provider id attached to another recording is reported honestly and offers no Play", async () => {
+  const fetch = serve({ [comparison]: () => Response.json(attachedTrackList) });
+  render(page());
+  const region = await chooseEdition();
+  const row = rowWith(region, "Catalog only song");
+  expect(within(row).queryByRole("button")).toBeNull();
+  expect(row.textContent).toContain("Not in your library");
+  expect(row.textContent).toContain(
+    "Already attached as audio to another recording",
+  );
+  expect(fetch.mock.calls.some(([path]) => path === adoption)).toBe(false);
+});
+
+test("saving state and failures belong to the clicked occurrence, not to every row with the same provider id", async () => {
+  let fail!: (response: Response) => void;
+  const held = new Promise<Response>((resolve) => {
+    fail = resolve;
+  });
+  serve({
+    [comparison]: () => Response.json(repeatedCatalogTrackList),
+    [adoption]: () => held,
+  });
+  render(page());
+  const region = await chooseEdition();
+  const rows = within(region)
+    .getAllByRole("listitem")
+    .filter((item) => item.textContent?.includes("Not in your library"));
+  const [first, second] = rows.filter(
+    (item) =>
+      item.textContent?.includes("Catalog only song") ||
+      item.textContent?.includes("Catalog song again"),
+  );
+  fireEvent.click(within(first).getByRole("button", { name: /^Play / }));
+  await waitFor(() =>
+    expect(within(first).getByRole("button").textContent).toBe("Saving…"),
+  );
+  expect(within(second).getByRole("button").textContent).toBe("Play");
+  await act(async () =>
+    fail(Response.json({ error: "Provider refused" }, { status: 500 })),
+  );
+  await waitFor(() => expect(within(first).getByRole("alert")).toBeTruthy());
+  expect(within(second).queryByRole("alert")).toBeNull();
 });

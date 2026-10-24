@@ -12075,6 +12075,7 @@
               "edition",
               "matches",
               "library_only",
+              "attached_occurrences",
               "adoption",
               "is_album_release",
               "status"
@@ -12092,6 +12093,12 @@
               },
               "association_id": {
                 "type": "string"
+              },
+              "attached_occurrences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
               "edition": {
                 "$ref": "#/components/schemas/CatalogEditionTrackList"

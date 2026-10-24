@@ -45,8 +45,7 @@ export default function AlbumEditionTrackList({
     const library =
       linked.get(track.id) ??
       (track.recording_id ? catalog.saved.get(track.recording_id) : undefined);
-    const failure =
-      catalog.failed?.id === track.recording_id ? catalog.failed : null;
+    const failure = catalog.failed?.id === track.id ? catalog.failed : null;
     return (
       <li key={track.id}>
         <p>{track.number ?? "Track number not provided"}</p>
@@ -76,15 +75,17 @@ export default function AlbumEditionTrackList({
             <p>Not in your library</p>
             {track.recording_id == null ? (
               <p>No provider identity for this track</p>
+            ) : comparison?.attached_occurrences.includes(track.id) ? (
+              <p>Already attached as audio to another recording</p>
             ) : comparison?.adoption ? (
               <button
                 type="button"
                 className="button"
                 disabled={catalog.pending !== null}
                 aria-label={`Play ${track.title}`}
-                onClick={() => void catalog.play(track.recording_id!)}
+                onClick={() => void catalog.play(track.id, track.recording_id!)}
               >
-                {catalog.pending === track.recording_id ? "Saving…" : "Play"}
+                {catalog.pending === track.id ? "Saving…" : "Play"}
               </button>
             ) : (
               <p>No connected provider can save this track</p>

@@ -1883,6 +1883,7 @@ export interface components {
         AlbumEditionTrackListAvailability: {
             adoption: components["schemas"]["CatalogAdoption"] | null;
             association_id: string;
+            attached_occurrences: string[];
             edition: components["schemas"]["CatalogEditionTrackList"];
             is_album_release: boolean;
             library_only: components["schemas"]["ReleaseTrack"][];
