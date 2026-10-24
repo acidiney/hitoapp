@@ -94,6 +94,7 @@ async fn upgrade_preserves_private_episodes_and_backfills_stable_sources() {
         drop(services);
     }
 
+    let options = options.journal_mode(SqliteJournalMode::Wal);
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
     assert_version(&mut connection, collection_artwork_schema::latest_version()).await;
     latest.assert_preserved(&mut connection).await;
