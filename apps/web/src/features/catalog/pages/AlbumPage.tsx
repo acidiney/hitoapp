@@ -10,6 +10,7 @@ import TrackTable, {
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
+import { releaseTracksListing } from "../api/trackListings";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
 export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
@@ -19,6 +20,7 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
     ...track,
     row_id: track.entry_id,
   }));
+  const listing = releaseTracksListing(user.id, release.id, page);
   return (
     <>
       <section className="collection-hero album-hero">
@@ -54,7 +56,8 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
         <>
           <TrackToolbar
             tracks={tracks}
-            label={page.total > page.limit ? "this page" : "album"}
+            listing={listing}
+            label="album"
             description={
               page.items.some((track) => track.track_number != null)
                 ? "Ordered by disc and track tags"
@@ -66,6 +69,7 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
               kind: "recording",
               track,
             }))}
+            listing={listing}
             offset={page.offset}
             playlists={playlists}
             mutate={mutate}

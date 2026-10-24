@@ -8,6 +8,8 @@ import type { Playlist, PlaylistEntry } from "../../../shared/types";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
 import Artwork from "../../artwork/components/Artwork";
+import type { TrackListing } from "../api/trackListing";
+import { usePlayTracks } from "../hooks/usePlayTracks";
 
 export type TrackRow = Track & {
   row_id: string;
@@ -33,8 +35,10 @@ export default function TrackTable({
   playlists,
   playlist,
   mutate,
+  listing,
 }: {
   rows: TrackTableRow[];
+  listing?: TrackListing;
   offset?: number;
   playlists: Playlist[];
   playlist?: Playlist;
@@ -48,13 +52,14 @@ export default function TrackTable({
   const tracks = rows.flatMap((row) =>
     row.kind === "recording" ? [row.track] : [],
   );
+  const playTracks = usePlayTracks(tracks, listing);
   const queuePositions = new Map<string, number>(
     tracks.map((track, index) => [track.row_id, index]),
   );
   function play(track: TrackRow) {
     const index = queuePositions.get(track.row_id);
     if (index !== undefined)
-      void player.playQueue(tracks, index, track.playback_start);
+      void playTracks.playFrom(index, track.playback_start);
   }
   return (
     <div className="table-scroll">

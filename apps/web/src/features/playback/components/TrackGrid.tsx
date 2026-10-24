@@ -2,20 +2,23 @@ import { Play } from "lucide-react";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import type { Playlist } from "../../../shared/types";
 import type { TrackRow } from "./TrackTable";
-import { usePlayer } from "./PlaybackProvider";
+import type { TrackListing } from "../api/trackListing";
+import { usePlayTracks } from "../hooks/usePlayTracks";
 import Artwork from "../../artwork/components/Artwork";
 import TrackActions from "./TrackActions";
 
 export default function TrackGrid({
   tracks,
+  listing,
   playlists,
   mutate,
 }: {
   tracks: TrackRow[];
+  listing?: TrackListing;
   playlists: Playlist[];
   mutate: Mutate;
 }) {
-  const player = usePlayer();
+  const play = usePlayTracks(tracks, listing);
   return (
     <div className="track-grid">
       {tracks.map((track, index) => (
@@ -25,7 +28,7 @@ export default function TrackGrid({
             <button
               className="card-play"
               aria-label={`Play ${track.title}`}
-              onClick={() => void player.playQueue(tracks, index)}
+              onClick={() => void play.playFrom(index)}
             >
               <Play size={22} fill="currentColor" />
             </button>

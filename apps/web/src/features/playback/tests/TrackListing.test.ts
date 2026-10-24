@@ -1,0 +1,78 @@
+import { expect, test, vi } from "vitest";
+import { MAX_QUEUE_ENTRIES, type Track } from "../model";
+import { LISTING_PAGE, listingSupply } from "../api/trackListing";
+
+const track = (index: number): Track => ({
+  id: `r${index}`,
+  title: `Track ${index}`,
+  artist: "Fixture",
+  duration_ms: 1000,
+  available: true,
+});
+
+function listing(total: number, offset = 0) {
+  const fetch = vi.fn(
+    async (from: number, limit: number, signal: AbortSignal) => {
+      signal.throwIfAborted();
+      return {
+        total,
+        items: Array.from(
+          { length: Math.max(0, Math.min(limit, total - from)) },
+          (_, i) => track(from + i),
+        ),
+      };
+    },
+  );
+  return { total, offset, fetch };
+}
+
+test("pages are requested in order from the first unloaded position", async () => {
+  const source = listing(450);
+  const supply = listingSupply(source, 200);
+  expect(supply.remaining()).toBe(250);
+  const signal = new AbortController().signal;
+  expect(
+    (await supply.next(signal)).map((t) => ("id" in t ? t.id : ""))[0],
+  ).toBe("r200");
+  expect(supply.remaining()).toBe(50);
+  expect(await supply.next(signal)).toHaveLength(50);
+  expect(supply.remaining()).toBe(0);
+  expect(source.fetch.mock.calls.map((call) => [call[0], call[1]])).toEqual([
+    [200, LISTING_PAGE],
+    [400, LISTING_PAGE],
+  ]);
+});
+
+test("a server total that shrinks or grows is followed, and an empty page ends the list", async () => {
+  const source = {
+    total: 1000,
+    offset: 0,
+    fetch: vi
+      .fn()
+      .mockResolvedValueOnce({
+        total: 500,
+        items: Array.from({ length: 200 }, (_, i) => track(200 + i)),
+      })
+      .mockResolvedValueOnce({ total: 500, items: [] }),
+  };
+  const supply = listingSupply(source, 200);
+  const signal = new AbortController().signal;
+  await supply.next(signal);
+  expect(supply.remaining()).toBe(100);
+  expect(await supply.next(signal)).toEqual([]);
+  expect(supply.remaining()).toBe(0);
+});
+
+test("the supply never promises more than the queue limit", () => {
+  const supply = listingSupply(listing(MAX_QUEUE_ENTRIES + 50_000), 200);
+  expect(supply.remaining()).toBe(MAX_QUEUE_ENTRIES - 200);
+});
+
+test("an aborted fetch rejects and is not repeated", async () => {
+  const source = listing(400);
+  const supply = listingSupply(source, 200);
+  const controller = new AbortController();
+  controller.abort();
+  await expect(supply.next(controller.signal)).rejects.toBeTruthy();
+  expect(source.fetch).toHaveBeenCalledTimes(0);
+});

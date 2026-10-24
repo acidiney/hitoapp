@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Grid2X2, List } from "lucide-react";
 import TrackGrid from "../../playback/components/TrackGrid";
 import { log } from "../../../shared/log";
+import { recordingsListing } from "../api/trackListings";
 
 export default function CatalogResults({
   user,
@@ -36,12 +37,19 @@ export default function CatalogResults({
     ...track,
     row_id: track.id,
   }));
+  const listing = recordingsListing(
+    user.id,
+    recordings,
+    query ?? "",
+    path === "/likes",
+  );
   return (
     <>
       {tracks.length > 0 ? (
         <>
           <TrackToolbar
             tracks={tracks}
+            listing={listing}
             description={
               recordings.total > recordings.limit
                 ? `Showing ${recordings.offset + 1}–${recordings.offset + tracks.length}`
@@ -68,13 +76,19 @@ export default function CatalogResults({
             </div>
           </TrackToolbar>
           {view === "grid" ? (
-            <TrackGrid tracks={tracks} playlists={playlists} mutate={mutate} />
+            <TrackGrid
+              tracks={tracks}
+              listing={listing}
+              playlists={playlists}
+              mutate={mutate}
+            />
           ) : (
             <TrackTable
               rows={tracks.map<TrackTableRow>((track) => ({
                 kind: "recording",
                 track,
               }))}
+              listing={listing}
               offset={recordings.offset}
               playlists={playlists}
               mutate={mutate}
