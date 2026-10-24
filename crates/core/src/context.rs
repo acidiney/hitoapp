@@ -50,6 +50,7 @@ pub struct CoreConfig {
     pub podcast_network: crate::PodcastNetworkConfig,
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
+    pub folder_watching: crate::FolderWatchSettings,
 }
 
 impl CoreConfig {
@@ -62,6 +63,7 @@ impl CoreConfig {
             podcast_network: Default::default(),
             community: None,
             community_rankings: None,
+            folder_watching: Default::default(),
         }
     }
 
@@ -78,6 +80,7 @@ impl CoreConfig {
             podcast_network: Default::default(),
             community: None,
             community_rankings: None,
+            folder_watching: Default::default(),
         }
     }
 }

@@ -71,7 +71,8 @@ pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
 pub use library_storage::AudioFile;
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef, Job,
-    LibraryStorage, MusicFolder, SharedDirectory,
+    FolderWatchSettings, LibraryStorage, MusicFolder, SharedDirectory, WatchBackend, WatchMode,
+    WatchStatus, WatchedFolder,
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{
@@ -120,6 +121,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         host: config.host_device.clone(),
         directories,
         inspector: library_storage::FileInspector::new(config.media_tools),
+        watching: config.folder_watching,
     };
     storage.initialize().await?;
     let managed =

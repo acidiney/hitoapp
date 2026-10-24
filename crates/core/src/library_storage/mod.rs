@@ -19,6 +19,7 @@ mod scanner;
 mod service;
 mod types;
 mod walking;
+mod watching;
 mod worker;
 
 use crate::{HostDeviceId, store::Store};
@@ -33,6 +34,7 @@ pub(crate) use managed::managed_mime;
 pub(crate) use managed::{MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles};
 pub(crate) use root::Root;
 pub use types::Job;
+pub use watching::{FolderWatchSettings, WatchBackend, WatchMode, WatchStatus, WatchedFolder};
 
 #[derive(Clone)]
 pub struct LibraryStorage {
@@ -40,4 +42,5 @@ pub struct LibraryStorage {
     pub(crate) host: HostDeviceId,
     pub(crate) directories: Directories,
     pub(crate) inspector: FileInspector,
+    pub(crate) watching: FolderWatchSettings,
 }
