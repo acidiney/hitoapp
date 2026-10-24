@@ -9,14 +9,17 @@ pub(super) fn parse_folder_watching(
     mode: Option<&str>,
     poll_seconds: Option<&str>,
 ) -> RuntimeResult<FolderWatchSettings> {
-    let mut settings = FolderWatchSettings::default();
-    settings.mode = match mode.map(str::trim) {
+    let mode = match mode.map(str::trim) {
         None | Some("auto") => WatchMode::Auto,
         Some("poll") => WatchMode::Poll,
         Some("off") => WatchMode::Off,
         Some(_) => {
             return Err(invalid("HITO_FOLDER_WATCH must be auto, poll, or off"));
         }
+    };
+    let mut settings = FolderWatchSettings {
+        mode,
+        ..Default::default()
     };
     if let Some(value) = poll_seconds {
         let seconds = value
