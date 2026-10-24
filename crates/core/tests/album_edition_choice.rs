@@ -195,8 +195,7 @@ async fn invalid_choices_are_rejected_before_anything_is_saved() {
             .catalog
             .choose_album_edition(&album.actor, &album.release_id, request)
             .await
-            .err()
-            .expect("An invalid choice must fail");
+            .expect_err("An invalid choice must fail");
         assert_eq!(
             match error {
                 Error::NotFound => "not found",
