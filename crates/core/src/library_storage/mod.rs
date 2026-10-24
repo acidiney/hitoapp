@@ -34,9 +34,9 @@ pub(crate) use managed::managed_mime;
 pub(crate) use managed::{MAX_MANAGED_BYTES, ManagedAttempt, ManagedFileLocation, ManagedFiles};
 pub(crate) use root::Root;
 pub use types::Job;
-pub use watching::{
-    FolderWatchSettings, WatchBackend, WatchCounters, WatchMode, WatchStatus, WatchedFolder,
-};
+#[cfg(feature = "test-support")]
+pub use watching::WatchCounters;
+pub use watching::{FolderWatchSettings, WatchBackend, WatchMode, WatchStatus, WatchedFolder};
 
 #[derive(Clone)]
 pub struct LibraryStorage {

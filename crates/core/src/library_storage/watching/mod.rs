@@ -103,6 +103,7 @@ pub struct WatchedFolder {
     pub folder_id: String,
     pub generation: i64,
     pub backend: WatchBackend,
+    #[cfg_attr(not(feature = "test-support"), allow(dead_code))]
     pub(crate) counters: Arc<WatchCounters>,
 }
 
