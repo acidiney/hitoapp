@@ -4,7 +4,6 @@ import type { BrowserQueue } from "./BrowserQueue";
 export class PlaybackStore {
   state: PlaybackState = {
     current: null,
-    queue: [],
     index: -1,
     playing: false,
     loading: false,
@@ -54,13 +53,17 @@ export class PlaybackStore {
     this.listeners.forEach((listener) => listener());
   }
 
-  update(patch: Partial<PlaybackState>, queue: BrowserQueue) {
-    const { position, duration, ...structure } = patch;
+  update(
+    patch: Partial<PlaybackState> & { queueChanged?: true },
+    queue: BrowserQueue,
+  ) {
+    const { queueChanged, ...changes } = patch;
+    const { position, duration, ...structure } = changes;
     const moved =
       (position !== undefined && position !== this.position.position) ||
       (duration !== undefined && duration !== this.position.duration);
-    this.state = { ...this.state, ...patch };
-    if (patch.queue !== undefined || patch.index !== undefined) {
+    this.state = { ...this.state, ...changes };
+    if (queueChanged || patch.index !== undefined) {
       const current = queue.at(this.state.index)?.id;
       this.queueView = {
         version: this.queueView.version + 1,
@@ -77,7 +80,7 @@ export class PlaybackStore {
       };
       this.positionListeners.forEach((listener) => listener());
     }
-    if (Object.keys(structure).length)
+    if (queueChanged || Object.keys(structure).length)
       this.listeners.forEach((listener) => listener());
   }
 }

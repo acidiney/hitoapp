@@ -226,7 +226,7 @@ export class Playback implements Player {
   private prepareNext() {
     if (!this.lookahead || !this.state.playing || !this.activeSource) return;
     const index = this.traversal.completed(
-      this.queue.identities(),
+      this.queue.serials(),
       this.state.index,
       this.state.repeat,
     );
@@ -289,7 +289,7 @@ export class Playback implements Player {
     this.cancelAudiobook();
     const index = this.queue.indexOf(entry);
     if (index < 0) return;
-    this.traversal.reset(this.queue.identities(), entry);
+    this.traversal.reset(this.queue.serials(), this.queue.serialAt(index));
     this.update({ error: "" });
     await this.open(index);
   }
@@ -311,10 +311,9 @@ export class Playback implements Player {
     if (to === from) return;
     const current = this.state.index;
     this.queue.move(from, to);
-    this.traversal.moved(this.queue.identities(), from, to);
     log.info("queue.move", { action: "move", index: to });
     this.update({
-      queue: this.queue.recordings(),
+      queueChanged: true,
       index:
         from === current
           ? to
@@ -332,22 +331,21 @@ export class Playback implements Player {
       Math.max(0, MAX_QUEUE_ENTRIES - this.queue.length),
     );
     if (!accepted.length) return 0;
-    const start = this.queue.length;
-    const added = this.queue.append(accepted);
+    const first = this.queue.length;
+    this.queue.append(accepted);
     this.traversal.append(
-      added.map(({ id }) => id),
-      start,
-      this.queue.at(this.state.index)?.id,
+      this.queue.serials().slice(first),
+      this.queue.serialAt(this.state.index),
     );
     log.debug("queue.appended", { count: accepted.length });
-    this.update({ queue: this.queue.recordings() });
+    this.update({ queueChanged: true });
     this.prepareNext();
     return accepted.length;
   }
   positionSnapshot = this.store.positionSnapshot;
   subscribePosition = this.store.subscribePosition;
   subscribe = this.store.subscribe;
-  private update(patch: Partial<PlaybackState>) {
+  private update(patch: Partial<PlaybackState> & { queueChanged?: true }) {
     this.store.update(patch, this.queue);
   }
 
@@ -370,7 +368,7 @@ export class Playback implements Player {
     });
     this.queue.updateRecording(update);
     this.update({
-      queue: this.queue.recordings(),
+      queueChanged: true,
       current: this.state.current ? update(this.state.current) : null,
     });
   }
@@ -390,13 +388,13 @@ export class Playback implements Player {
     this.cancelLookahead();
     this.feed.cancel();
     this.queue.replace(queue);
-    this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
+    this.traversal.reset(this.queue.serials(), this.queue.serialAt(index));
     log.info("queue.play", {
       count: queue.length,
       index,
       position_ms: Math.floor(position * 1000),
     });
-    this.update({ queue: this.queue.recordings(), index, error: "" });
+    this.update({ queueChanged: true, index, error: "" });
     this.feed.start(more, async (batch) => this.appendBatch(batch));
     await this.open(index, position);
   }
@@ -448,7 +446,7 @@ export class Playback implements Player {
       this.feed.cancel();
       this.media.pause();
       this.queue.replace(continuation.queue);
-      this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
+      this.traversal.reset(this.queue.serials(), this.queue.serialAt(index));
     }
     const occurrence = this.queue.at(index);
     this.openingEntry = occurrence ?? null;
@@ -472,7 +470,7 @@ export class Playback implements Player {
     this.update({
       ...(continuation
         ? {
-            queue: this.queue.recordings(),
+            queueChanged: true,
             speed: continuation.speed,
             error: "",
           }
@@ -647,7 +645,7 @@ export class Playback implements Player {
       loading: false,
     });
     const next = this.traversal.next(
-      this.queue.identities(),
+      this.queue.serials(),
       this.state.index,
       this.state.repeat,
       "failed",
@@ -751,8 +749,8 @@ export class Playback implements Player {
     this.cancelLookahead();
     this.update({
       shuffle: this.traversal.toggle(
-        this.queue.identities(),
-        this.queue.at(this.state.index)?.id,
+        this.queue.serials(),
+        this.queue.serialAt(this.state.index),
       ),
     });
     this.prepareNext();
@@ -772,7 +770,7 @@ export class Playback implements Player {
       reason: ended ? "ended" : "requested",
     });
     const index = this.traversal.next(
-      this.queue.identities(),
+      this.queue.serials(),
       this.state.index,
       this.state.repeat,
       ended ? "completed" : "requested",
@@ -787,29 +785,28 @@ export class Playback implements Player {
     const next =
       index === this.state.index
         ? this.traversal.next(
-            this.queue.identities(),
+            this.queue.serials(),
             index,
             this.state.repeat,
             "requested",
           )
         : null;
-    const entry = this.queue.at(index)?.id;
-    if (!entry) return;
+    const serial = this.queue.serialAt(index);
+    if (serial === undefined) return;
     this.queue.remove(index);
-    const queue = this.queue.recordings();
-    this.traversal.remove(entry, this.queue.identities());
+    this.traversal.remove(serial);
     if (index === this.state.index) {
-      this.update({ queue });
+      this.update({ queueChanged: true });
       const successor =
         next === null || next === index
-          ? queue.length
+          ? this.queue.length
           : next > index
             ? next - 1
             : next;
       void this.open(successor);
     } else
       this.update({
-        queue,
+        queueChanged: true,
         index:
           index < this.state.index ? this.state.index - 1 : this.state.index,
       });
@@ -827,10 +824,11 @@ export class Playback implements Player {
     this.cancelLookahead();
     this.lookahead?.closeOpening();
     this.feed.cancel();
+    const count = this.queue.length;
     this.queue.clear();
-    this.traversal.reset(this.queue.identities());
+    this.traversal.reset(this.queue.serials());
     this.selection++;
-    log.info("queue.clear", { count: this.state.queue.length });
+    log.info("queue.clear", { count });
     this.generation++;
     this.sources?.close();
     this.sources = null;
@@ -840,7 +838,7 @@ export class Playback implements Player {
     this.media.load();
     this.update({
       current: null,
-      queue: [],
+      queueChanged: true,
       index: -1,
       playing: false,
       loading: false,

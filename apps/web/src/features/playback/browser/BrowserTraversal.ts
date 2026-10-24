@@ -1,57 +1,33 @@
 import type { PlaybackView } from "../model";
 
 export class BrowserTraversal {
-  private order: string[] | null = null;
-  private failed = new Set<string>();
-  private canonicalPositions = new Map<string, number>();
-  private shufflePositions = new Map<string, number>();
+  private order: number[] | null = null;
+  private failed = new Set<number>();
 
-  toggle(entries: readonly string[], current?: string) {
+  toggle(entries: readonly number[], current?: number) {
     this.order = this.order ? null : this.shuffled(entries, current);
-    this.reindexShuffle();
     return this.order !== null;
   }
 
-  reset(entries: readonly string[], current?: string) {
+  reset(entries: readonly number[], current?: number) {
     this.resetFailures();
-    this.canonicalPositions.clear();
-    entries.forEach((id, index) => this.canonicalPositions.set(id, index));
     if (this.order) this.order = this.shuffled(entries, current);
-    this.reindexShuffle();
   }
 
-  append(added: readonly string[], start: number, current?: string) {
-    added.forEach((id, index) =>
-      this.canonicalPositions.set(id, start + index),
-    );
-    if (!this.order) return;
-    const at = current ? (this.shufflePositions.get(current) ?? -1) : -1;
-    const tail = this.order.slice(at + 1);
-    const merged = interleave(tail, this.shuffled(added));
-    this.order.length = at + 1;
-    for (const id of merged) this.order.push(id);
-    for (let index = at + 1; index < this.order.length; index++)
-      this.shufflePositions.set(this.order[index], index);
+  append(added: readonly number[], current?: number) {
+    const order = this.order;
+    if (!order) return;
+    const from = current === undefined ? 0 : order.indexOf(current) + 1;
+    const tail = order.splice(from);
+    const mixed = interleave(tail, this.shuffled(added));
+    for (const id of mixed) order.push(id);
   }
 
-  moved(entries: readonly string[], from: number, to: number) {
-    const low = Math.min(from, to);
-    const high = Math.max(from, to);
-    for (let index = low; index <= high; index++)
-      this.canonicalPositions.set(entries[index], index);
-  }
-
-  remove(entry: string, entries: readonly string[]) {
+  remove(entry: number) {
     this.failed.delete(entry);
-    if (this.order) this.order = this.order.filter((id) => id !== entry);
-    this.canonicalPositions.clear();
-    entries.forEach((id, index) => this.canonicalPositions.set(id, index));
-    this.reindexShuffle();
-  }
-
-  private reindexShuffle() {
-    this.shufflePositions.clear();
-    this.order?.forEach((id, index) => this.shufflePositions.set(id, index));
+    if (!this.order) return;
+    const index = this.order.indexOf(entry);
+    if (index >= 0) this.order.splice(index, 1);
   }
 
   resetFailures() {
@@ -59,20 +35,20 @@ export class BrowserTraversal {
   }
 
   next(
-    entries: readonly string[],
+    entries: readonly number[],
     current: number,
     repeat: PlaybackView["repeat"],
     reason: "requested" | "completed" | "failed",
   ) {
     const entry = entries[current];
-    if (!entry) return null;
+    if (entry === undefined) return null;
     if (reason === "failed") this.failed.add(entry);
     if (reason === "requested") this.resetFailures();
     return this.successor(entries, current, repeat, reason === "completed");
   }
 
   completed(
-    entries: readonly string[],
+    entries: readonly number[],
     current: number,
     repeat: PlaybackView["repeat"],
   ) {
@@ -80,40 +56,41 @@ export class BrowserTraversal {
   }
 
   private successor(
-    entries: readonly string[],
+    entries: readonly number[],
     current: number,
     repeat: PlaybackView["repeat"],
     completed: boolean,
   ) {
     const entry = entries[current];
-    if (!entry) return null;
+    if (entry === undefined) return null;
     if (completed && repeat === "one") return current;
     const order = this.order ?? entries;
-    const index = this.order ? this.shufflePositions.get(entry) : current;
-    if (index === undefined) return null;
-    for (let next = index + 1; next < order.length; next++)
-      if (!this.failed.has(order[next]))
-        return this.canonicalPositions.get(order[next]) ?? null;
-    if (repeat === "all")
-      for (let next = 0; next <= index; next++)
+    const index = this.order ? this.order.indexOf(entry) : current;
+    if (index < 0) return null;
+    const found = (from: number, to: number) => {
+      for (let next = from; next < to; next++)
         if (!this.failed.has(order[next]))
-          return this.canonicalPositions.get(order[next]) ?? null;
-    return null;
+          return this.order ? entries.indexOf(order[next]) : next;
+      return null;
+    };
+    const following = found(index + 1, order.length);
+    if (following !== null) return following;
+    return repeat === "all" ? found(0, index + 1) : null;
   }
 
-  private shuffled(entries: readonly string[], current?: string) {
+  private shuffled(entries: readonly number[], current?: number) {
     const order = entries.filter((id) => id !== current);
     for (let index = order.length - 1; index > 0; index--) {
       const other = Math.floor(Math.random() * (index + 1));
       [order[index], order[other]] = [order[other], order[index]];
     }
-    if (current) order.unshift(current);
+    if (current !== undefined) order.unshift(current);
     return order;
   }
 }
 
-function interleave(first: string[], second: string[]) {
-  const merged: string[] = [];
+function interleave(first: number[], second: number[]) {
+  const merged: number[] = [];
   let a = 0;
   let b = 0;
   while (a < first.length || b < second.length) {

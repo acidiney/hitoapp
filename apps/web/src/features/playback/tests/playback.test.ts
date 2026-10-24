@@ -23,6 +23,13 @@ class Media extends EventTarget implements MediaPort {
   }
 }
 
+const listed = async (player: Playback) =>
+  (await player.queuePage(0, 100)).entries.map((entry) => entry.recording);
+const titles = async (player: Playback) =>
+  (await listed(player)).map((track) => track.title);
+const artists = async (player: Playback) =>
+  (await listed(player)).map((track) => track.artist);
+
 test("browser History retains its rendered saved cursor and current speed preference", async () => {
   for (const position of [0, 2.5]) {
     const media = new Media();
@@ -252,16 +259,10 @@ test("editing and resetting a queued title preserves playback and each release f
   player.seek(4);
   const source = audio.src;
   player.setRecordingField("same", "title", "Personal title", "Original title");
-  expect(player.snapshot().queue.map((track) => track.title)).toEqual([
-    "Personal title",
-    "Personal title",
-  ]);
+  expect(await titles(player)).toEqual(["Personal title", "Personal title"]);
   expect(player.snapshot().current?.title).toBe("Personal title");
   player.setRecordingField("same", "title", null, "Original title");
-  expect(player.snapshot().queue.map((track) => track.title)).toEqual([
-    "Original title",
-    "Encore",
-  ]);
+  expect(await titles(player)).toEqual(["Original title", "Encore"]);
   expect(player.snapshot().current?.title).toBe("Original title");
   expect(audio.src).toBe(source);
   expect(audio.currentTime).toBe(4);
@@ -317,18 +318,10 @@ test("performer edits and resets preserve audio and each appearance's credit", a
   player.speed(1.25);
   const source = media.src;
   player.setRecordingField("recording", "artist", "Personal", "Original");
-  expect(player.snapshot().queue.map((item) => item.artist)).toEqual([
-    "Personal",
-    "Personal",
-    "Unchanged",
-  ]);
+  expect(await artists(player)).toEqual(["Personal", "Personal", "Unchanged"]);
   expect(player.snapshot().current?.artist).toBe("Personal");
   player.setRecordingField("recording", "artist", null, "Original");
-  expect(player.snapshot().queue.map((item) => item.artist)).toEqual([
-    "Original",
-    "Guest",
-    "Unchanged",
-  ]);
+  expect(await artists(player)).toEqual(["Original", "Guest", "Unchanged"]);
   expect(player.snapshot().current?.artist).toBe("Original");
   expect(media.src).toBe(source);
   expect(media.currentTime).toBe(3);

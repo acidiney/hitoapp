@@ -15,13 +15,18 @@ function occurrence(value: PlaybackQueueInput): PlaybackOccurrence {
 
 export class BrowserQueue {
   private entries: PlaybackOccurrence[] = [];
-  private ids: string[] = [];
+  private numbers: number[] = [];
+  private serialOf = new Map<string, number>();
+  private issued = 0;
 
   get length() {
     return this.entries.length;
   }
-  identities(): readonly string[] {
-    return this.ids;
+  serials(): readonly number[] {
+    return this.numbers;
+  }
+  serialAt(index: number): number | undefined {
+    return this.numbers[index];
   }
   recordings(): Track[] {
     return this.entries.map(({ recording }) => recording);
@@ -30,28 +35,32 @@ export class BrowserQueue {
     return this.entries[index];
   }
   indexOf(id: string) {
-    return this.ids.indexOf(id);
+    const serial = this.serialOf.get(id);
+    return serial === undefined ? -1 : this.numbers.indexOf(serial);
   }
   page(offset: number, limit: number) {
     return this.entries.slice(offset, offset + limit);
   }
   replace(input: PlaybackQueueInput[]) {
-    this.entries = input.map(occurrence);
-    this.ids = this.entries.map(({ id }) => id);
+    this.entries = [];
+    this.numbers = [];
+    this.serialOf.clear();
+    this.append(input);
   }
   append(input: PlaybackQueueInput[]) {
     const added = input.map(occurrence);
     for (const entry of added) {
       this.entries.push(entry);
-      this.ids.push(entry.id);
+      this.numbers.push(++this.issued);
+      this.serialOf.set(entry.id, this.issued);
     }
     return added;
   }
   move(from: number, to: number) {
     const [entry] = this.entries.splice(from, 1);
     this.entries.splice(to, 0, entry);
-    this.ids.splice(from, 1);
-    this.ids.splice(to, 0, entry.id);
+    const [serial] = this.numbers.splice(from, 1);
+    this.numbers.splice(to, 0, serial);
   }
   updateRecording(update: (recording: Track) => Track) {
     this.entries = this.entries.map((entry) =>
@@ -62,11 +71,13 @@ export class BrowserQueue {
     );
   }
   remove(index: number) {
-    this.entries = this.entries.filter((_, position) => position !== index);
-    this.ids = this.entries.map(({ id }) => id);
+    const [entry] = this.entries.splice(index, 1);
+    this.numbers.splice(index, 1);
+    this.serialOf.delete(entry.id);
   }
   clear() {
     this.entries = [];
-    this.ids = [];
+    this.numbers = [];
+    this.serialOf.clear();
   }
 }

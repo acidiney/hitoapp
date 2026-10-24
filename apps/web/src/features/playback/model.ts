@@ -130,7 +130,6 @@ export interface MediaPort extends EventTarget {
 }
 
 export type PlaybackState = PlaybackView & {
-  queue: Track[];
   index: number;
   position: number;
   duration: number;
