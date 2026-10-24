@@ -140,7 +140,7 @@ impl Queue {
                         .and_then(|id| self.entries.iter().position(|entry| entry.id == id))
                         .unwrap_or(self.entries.len());
                     self.entries.insert(to, moved);
-                    self.reindex();
+                    self.reindex(from.min(to), from.max(to) + 1);
                     self.current = current.and_then(|id| self.positions.get(&id).copied());
                 }
             }
@@ -154,7 +154,8 @@ impl Queue {
                     current
                 };
                 self.entries.remove(index);
-                self.reindex();
+                self.positions.remove(&entry);
+                self.reindex(index, self.entries.len());
                 self.history.retain(|played| *played != entry);
                 self.traversal.remove(entry);
                 self.current = next.and_then(|id| self.positions.get(&id).copied());
@@ -178,7 +179,8 @@ impl Queue {
                 recording_id: entry.recording_id,
                 chapter: entry.chapter,
             }));
-        self.traversal.append(&self.entries[offset..]);
+        let current = self.current_entry();
+        self.traversal.append(&self.entries[offset..], current);
         for (index, entry) in self.entries[offset..].iter().enumerate() {
             self.positions.insert(entry.id, offset + index);
         }
@@ -196,7 +198,8 @@ impl Queue {
             })
             .collect();
         self.current = Some(start);
-        self.reindex();
+        self.positions.clear();
+        self.reindex(0, self.entries.len());
         self.traversal.replace(&self.entries, self.current_entry());
     }
 
@@ -234,13 +237,12 @@ impl Queue {
             .ok_or(PlayerError::NotFound)
     }
 
-    fn reindex(&mut self) {
-        self.positions.clear();
+    fn reindex(&mut self, start: usize, end: usize) {
         self.positions.extend(
-            self.entries
+            self.entries[start..end]
                 .iter()
                 .enumerate()
-                .map(|(index, entry)| (entry.id, index)),
+                .map(|(offset, entry)| (entry.id, start + offset)),
         );
     }
 

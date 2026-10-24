@@ -1,4 +1,5 @@
 use crate::{PlayerEntryRef, PlayerRepeat};
+use rand::Rng;
 use rand::seq::SliceRandom;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -110,17 +111,33 @@ impl Traversal {
         }
     }
 
-    pub fn append(&mut self, entries: &[PlayerEntryRef]) {
-        if let Some(order) = &mut self.order {
-            let mut added = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
-            added.shuffle(&mut rand::thread_rng());
-            self.positions.extend(
-                added
-                    .iter()
-                    .enumerate()
-                    .map(|(index, id)| (*id, order.len() + index)),
-            );
-            order.extend(added);
+    pub fn append(&mut self, entries: &[PlayerEntryRef], current: Option<Uuid>) {
+        let Some(order) = &mut self.order else {
+            return;
+        };
+        let from = current
+            .and_then(|id| self.positions.get(&id))
+            .map_or(0, |index| index + 1)
+            .min(order.len());
+        let mut rng = rand::thread_rng();
+        let mut added = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
+        added.shuffle(&mut rng);
+        let tail = order.split_off(from);
+        let (mut left, mut right) = (tail.len(), added.len());
+        let (mut tail, mut added) = (tail.into_iter(), added.into_iter());
+        order.reserve(left + right);
+        while left + right > 0 {
+            let next = if rng.gen_range(0..left + right) < left {
+                left -= 1;
+                tail.next()
+            } else {
+                right -= 1;
+                added.next()
+            };
+            order.extend(next);
+        }
+        for (index, id) in order.iter().enumerate().skip(from) {
+            self.positions.insert(*id, index);
         }
     }
 
@@ -157,5 +174,46 @@ impl Traversal {
                 })
                 .flatten()
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entries(count: usize) -> Vec<PlayerEntryRef> {
+        (0..count)
+            .map(|_| PlayerEntryRef {
+                id: Uuid::new_v4(),
+                recording_id: Uuid::new_v4(),
+                chapter: None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn appended_entries_mix_into_the_unplayed_part_of_a_shuffled_order() {
+        let first = entries(200);
+        let added = entries(200);
+        let all = first.iter().chain(&added).cloned().collect::<Vec<_>>();
+        let mut traversal = Traversal::default();
+        traversal.toggle_shuffle(&first, Some(first[0].id));
+        traversal.append(&added, Some(first[0].id));
+
+        let mut visited = vec![first[0].id];
+        let mut current = 0;
+        while let Some(next) = traversal.next(&all, Some(current), Advance::Completed) {
+            current = all.iter().position(|entry| entry.id == next).unwrap();
+            visited.push(next);
+        }
+
+        assert_eq!(visited.len(), 400);
+        assert_eq!(visited[0], first[0].id);
+        assert_eq!(visited.iter().collect::<HashSet<_>>().len(), 400);
+        let later = added.iter().map(|entry| entry.id).collect::<HashSet<_>>();
+        assert!(
+            visited[1..200].iter().any(|id| later.contains(id)),
+            "Entries appended later were all held back until the first batch finished"
+        );
     }
 }
