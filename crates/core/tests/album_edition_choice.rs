@@ -418,3 +418,81 @@ async fn a_link_that_can_no_longer_be_read_asks_for_a_new_choice_without_provide
     );
     assert!(server.finish().await);
 }
+
+#[tokio::test]
+async fn a_committed_command_replays_and_a_stale_row_clears_after_the_album_became_unreadable() {
+    let mut server = AlbumProvider::start().await;
+    let album = Album::prepare(&server).await;
+    let request = choose(&album, provider::EDITION_ID, 0);
+    let receipt = album
+        .hito
+        .catalog
+        .choose_album_edition(&album.actor, &album.release_id, request.clone())
+        .await
+        .unwrap();
+    album
+        .sql(
+            "DELETE FROM account_releases WHERE id = ?",
+            &[album.release_id.as_str()],
+        )
+        .await;
+    assert_eq!(
+        album
+            .hito
+            .catalog
+            .choose_album_edition(&album.actor, &album.release_id, request)
+            .await
+            .unwrap(),
+        receipt,
+        "A retry of an accepted command returns its receipt even when the album is gone"
+    );
+    assert!(matches!(
+        album
+            .hito
+            .catalog
+            .choose_album_edition(
+                &album.actor,
+                &album.release_id,
+                choose(&album, provider::STANDARD_ID, 1)
+            )
+            .await,
+        Err(Error::NotFound)
+    ));
+    let clear = ClearAlbumEdition {
+        request_id: Uuid::new_v4(),
+        expected_revision: 1,
+    };
+    let cleared = album
+        .hito
+        .catalog
+        .clear_album_edition(&album.actor, &album.release_id, clear.clone())
+        .await
+        .unwrap();
+    assert_eq!(cleared.revision, 2);
+    assert!(cleared.edition.is_none());
+    assert_eq!(
+        album
+            .hito
+            .catalog
+            .clear_album_edition(&album.actor, &album.release_id, clear)
+            .await
+            .unwrap(),
+        cleared
+    );
+    assert!(matches!(
+        album
+            .hito
+            .catalog
+            .clear_album_edition(
+                &album.actor,
+                &Uuid::new_v4().to_string(),
+                ClearAlbumEdition {
+                    request_id: Uuid::new_v4(),
+                    expected_revision: 0
+                }
+            )
+            .await,
+        Err(Error::NotFound)
+    ));
+    assert!(server.finish().await);
+}

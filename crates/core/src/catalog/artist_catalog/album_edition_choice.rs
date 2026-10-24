@@ -89,10 +89,10 @@ impl Catalog {
     ) -> Result<AlbumEditionChoice> {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
-        if !release_contains(&mut tx, actor, release, None).await? {
+        let (revision, saved) = stored(&mut tx, actor, release).await?;
+        if saved.is_none() && !release_contains(&mut tx, actor, release, None).await? {
             return Err(Error::NotFound);
         }
-        let (revision, saved) = stored(&mut tx, actor, release).await?;
         let state = match saved {
             None => AlbumEditionChoiceState::Unset,
             Some(saved) => {
@@ -201,11 +201,11 @@ impl Catalog {
         let digest = fingerprint("hito-album-edition-choose:v1", release, &request)?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
-        if !release_contains(&mut tx, actor, release, Some(&request.recording_id)).await? {
-            return Err(Error::NotFound);
-        }
         if let Some(receipt) = replay(&mut tx, actor, request.request_id, &digest).await? {
             return Ok(receipt);
+        }
+        if !release_contains(&mut tx, actor, release, Some(&request.recording_id)).await? {
+            return Err(Error::NotFound);
         }
         let (current, _) = stored(&mut tx, actor, release).await?;
         if current != request.expected_revision {
@@ -263,13 +263,13 @@ impl Catalog {
         let digest = fingerprint("hito-album-edition-clear:v1", release, &request)?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
-        if !release_contains(&mut tx, actor, release, None).await? {
-            return Err(Error::NotFound);
-        }
         if let Some(receipt) = replay(&mut tx, actor, request.request_id, &digest).await? {
             return Ok(receipt);
         }
         let (current, _) = stored(&mut tx, actor, release).await?;
+        if current == 0 && !release_contains(&mut tx, actor, release, None).await? {
+            return Err(Error::NotFound);
+        }
         if current != request.expected_revision {
             return Err(changed());
         }
