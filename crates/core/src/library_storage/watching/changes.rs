@@ -64,11 +64,9 @@ impl Changes {
             WatchMode::Poll => Some("operator_polling"),
             _ => {
                 let path = changes.root.path().to_owned();
-                tokio::task::spawn_blocking(move || {
-                    volume::unreliable_for_native_events(&path)
-                })
-                .await
-                .unwrap_or(None)
+                tokio::task::spawn_blocking(move || volume::unreliable_for_native_events(&path))
+                    .await
+                    .unwrap_or(None)
             }
         };
         let reason = match reason {
@@ -316,6 +314,9 @@ mod tests {
         release.send(()).unwrap();
         opening.await.unwrap();
         *snapshot::WALK_HOOK.lock().unwrap() = None;
-        assert!(available, "A poll walk must not take the scanner's walk slot");
+        assert!(
+            available,
+            "A poll walk must not take the scanner's walk slot"
+        );
     }
 }

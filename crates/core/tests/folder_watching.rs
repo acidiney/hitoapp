@@ -1,8 +1,8 @@
 #![cfg(unix)]
 use hito_core::test_support::support;
 use hito_core::{
-    Actor, ConnectFolder, CoreConfig, Credentials, DirectoryRef, FolderWatchSettings,
-    HostDeviceId, Search, Services, WatchBackend, WatchCounters, WatchMode, WatchStatus,
+    Actor, ConnectFolder, CoreConfig, Credentials, DirectoryRef, FolderWatchSettings, HostDeviceId,
+    Search, Services, WatchBackend, WatchCounters, WatchMode, WatchStatus,
 };
 use std::{
     os::unix::fs::PermissionsExt,
@@ -121,10 +121,26 @@ async fn prepare(options: Options) -> Harness {
         })
         .await
         .unwrap();
-    let actor = services.identity.authenticate(&session.token).await.unwrap();
-    let library = services.catalog.libraries(&actor).await.unwrap().remove(0).id;
+    let actor = services
+        .identity
+        .authenticate(&session.token)
+        .await
+        .unwrap();
+    let library = services
+        .catalog
+        .libraries(&actor)
+        .await
+        .unwrap()
+        .remove(0)
+        .id;
     support::scan(&services, &actor, &library).await;
-    let folder = services.storage.folders(&actor, &library).await.unwrap().remove(0).id;
+    let folder = services
+        .storage
+        .folders(&actor, &library)
+        .await
+        .unwrap()
+        .remove(0)
+        .id;
     let (stop, _) = watch::channel(false);
     let (publish, status) = watch::channel(WatchStatus::new());
     Harness {
@@ -273,7 +289,10 @@ impl Harness {
                 .expect("Shutdown must join every watcher")
                 .unwrap();
         }
-        assert!(self.status.borrow().is_empty(), "Shutdown must retire every watcher");
+        assert!(
+            self.status.borrow().is_empty(),
+            "Shutdown must retire every watcher"
+        );
         if let Some(worker) = self.worker.take() {
             worker.await.unwrap();
         }
@@ -327,7 +346,10 @@ async fn a_change_during_a_running_scan_queues_exactly_one_follow_up() {
     let before = counters.relevant();
     support::write_wav(&harness.music.join("third.wav"), 2);
     support::write_wav(&harness.music.join("fourth.wav"), 3);
-    until("the later changes to be seen", || counters.relevant() >= before + 4).await;
+    until("the later changes to be seen", || {
+        counters.relevant() >= before + 4
+    })
+    .await;
     std::fs::remove_file(harness.path("hold")).unwrap();
     harness.indexed(4).await;
     until("the follow-up to run", || harness.jobs() == 2).await;
@@ -380,7 +402,10 @@ async fn request_errors_back_off_and_recover() {
     set_admin(false).await;
     support::write_wav(&harness.music.join("second.wav"), 1);
     let counters = harness.counters();
-    until("the first failed request", || counters.request_errors() >= 1).await;
+    until("the first failed request", || {
+        counters.request_errors() >= 1
+    })
+    .await;
     tokio::time::sleep(Duration::from_millis(1500)).await;
     assert!(
         counters.request_errors() <= 2,

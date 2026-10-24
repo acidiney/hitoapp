@@ -69,7 +69,10 @@ mod tests {
 
     #[test]
     fn modes_ignore_case_and_empty_values_mean_unset() {
-        assert_eq!(parse_folder_watching(Some("POLL"), Some("")).unwrap().mode, WatchMode::Poll);
+        assert_eq!(
+            parse_folder_watching(Some("POLL"), Some("")).unwrap().mode,
+            WatchMode::Poll
+        );
         let settings = parse_folder_watching(Some(" "), Some(" ")).unwrap();
         assert_eq!(settings.mode, WatchMode::Auto);
         assert_eq!(settings.poll_interval, Duration::from_secs(30));
@@ -77,7 +80,12 @@ mod tests {
 
     #[test]
     fn a_disabled_watcher_does_not_validate_the_interval() {
-        assert_eq!(parse_folder_watching(Some("off"), Some("soon")).unwrap().mode, WatchMode::Off);
+        assert_eq!(
+            parse_folder_watching(Some("off"), Some("soon"))
+                .unwrap()
+                .mode,
+            WatchMode::Off
+        );
     }
 
     #[test]

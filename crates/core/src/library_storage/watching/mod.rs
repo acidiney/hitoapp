@@ -76,7 +76,16 @@ macro_rules! counter {
         }
     };
 }
-counter!(relevant, ignored, outside, polls, scans_requested, startup_scans, write_requests, request_errors);
+counter!(
+    relevant,
+    ignored,
+    outside,
+    polls,
+    scans_requested,
+    startup_scans,
+    write_requests,
+    request_errors
+);
 
 impl WatchCounters {
     pub(super) fn add(counter: &AtomicU64) {

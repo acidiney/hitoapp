@@ -34,7 +34,9 @@ pub(super) fn walk(root: &Root, mut visit: impl FnMut(Visit<'_>)) -> bool {
         }
         let Ok(entry) = entry else { continue };
         let relative = parent.join(entry.file_name());
-        let Ok(kind) = entry.file_type() else { continue };
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
         if kind.is_dir() {
             if stack.len() < MAX_DEPTH
                 && let Ok(children) = root.directory.read_dir(&relative)
