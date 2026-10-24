@@ -31,7 +31,15 @@ async fn an_account_compares_a_selected_edition_with_its_album_without_saving_ca
     assert!(joined, "The owned album provider must join shutdown");
 }
 
-async fn exercise(app: &Router, account: &Account, server: &AlbumProvider) {
+struct Prepared {
+    installation: Value,
+    saved: Vec<Value>,
+    release: String,
+    first: String,
+    association: String,
+}
+
+async fn prepare(app: &Router, account: &Account, server: &AlbumProvider) -> Prepared {
     let installation = account
         .connect(app, &server.url, "Owned album editions", None)
         .await;
@@ -84,7 +92,25 @@ async fn exercise(app: &Router, account: &Account, server: &AlbumProvider) {
         detail["catalog_anchor"],
         json!({"recording_id": first, "association_id": association})
     );
+    Prepared {
+        installation,
+        saved,
+        release,
+        first,
+        association,
+    }
+}
 
+async fn exercise(app: &Router, account: &Account, server: &AlbumProvider) {
+    let Prepared {
+        installation,
+        saved,
+        release,
+        first,
+        association,
+    } = prepare(app, account, server).await;
+    let installation_id = installation["id"].as_str().unwrap();
+    let album = format!("/api/v1/releases/{release}");
     let path = format!("/api/v1/albums/{release}/edition-track-list");
     let body = json!({
         "recording_id": first, "association_id": association,
@@ -195,4 +221,170 @@ fn assert_contract() {
         json!([{"session": []}, {"bearer": []}])
     );
     assert!(endpoint["responses"]["200"]["headers"]["Cache-Control"].is_object());
+}
+
+#[tokio::test]
+async fn an_account_remembers_the_edition_it_chose_for_an_album_until_it_clears_it() {
+    let (_directory, app) = support::app().await;
+    let account = Account::setup(&app).await;
+    let mut server = AlbumProvider::start().await;
+    let result = tokio::time::timeout(
+        Duration::from_secs(60),
+        AssertUnwindSafe(remember(&app, &account, &server)).catch_unwind(),
+    )
+    .await;
+    let joined = server.finish().await;
+    match result {
+        Ok(Ok(())) => {}
+        Ok(Err(panic)) => resume_unwind(panic),
+        Err(_) => panic!("The saved edition workflow must finish within its deadline"),
+    }
+    assert!(joined, "The owned album provider must join shutdown");
+}
+
+async fn remember(app: &Router, account: &Account, server: &AlbumProvider) {
+    let Prepared {
+        release,
+        first,
+        association,
+        ..
+    } = prepare(app, account, server).await;
+    let album = format!("/api/v1/releases/{release}");
+    let choose = format!("/api/v1/albums/{release}/edition");
+    let clear = format!("/api/v1/albums/{release}/edition/clear");
+    let read = format!("/api/v1/albums/{release}/edition/track-list");
+    assert_eq!(
+        account.get(app, &album).await["saved_edition"],
+        json!({"revision": 0, "state": {"status": "unset"}})
+    );
+    let request_id = Uuid::new_v4().to_string();
+    let body = json!({
+        "request_id": request_id, "expected_revision": 0,
+        "recording_id": first, "association_id": association,
+        "release_group_id": provider::GROUP_ID, "edition_id": provider::EDITION_ID
+    });
+    let requests_before = server.requests().len();
+
+    let mut anonymous = account.headers();
+    anonymous.remove("cookie");
+    let (status, _, _) = fixture::exchange(app, "PUT", &choose, body.clone(), anonymous).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let mut unguarded = account.headers();
+    unguarded.remove("x-hito-request");
+    let (status, _, _) = fixture::exchange(app, "PUT", &choose, body.clone(), unguarded).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let mut unknown = body.clone();
+    unknown["extra"] = json!(true);
+    let (status, _, _) = fixture::exchange(app, "PUT", &choose, unknown, account.headers()).await;
+    assert!(status.is_client_error());
+    let (status, _, _) = fixture::exchange(
+        app,
+        "PUT",
+        &format!("/api/v1/albums/{}/edition", Uuid::new_v4()),
+        body.clone(),
+        account.headers(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _, _) = fixture::exchange(
+        app,
+        "POST",
+        &format!("/api/v1/albums/{}/edition/track-list", Uuid::new_v4()),
+        Value::Null,
+        account.headers(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _, needs) =
+        fixture::exchange(app, "POST", &read, Value::Null, account.headers()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(needs, json!({"status": "needs_choice"}));
+    assert_eq!(server.requests().len(), requests_before);
+
+    let (status, _, receipt) =
+        fixture::exchange(app, "PUT", &choose, body.clone(), account.headers()).await;
+    assert_eq!(status, StatusCode::OK);
+    let expected = json!({
+        "request_id": request_id, "release_id": release, "revision": 1,
+        "edition": {
+            "recording_id": first, "association_id": association,
+            "release_group_id": provider::GROUP_ID, "edition_id": provider::EDITION_ID
+        }
+    });
+    assert_eq!(receipt, expected);
+    let (status, _, replay) =
+        fixture::exchange(app, "PUT", &choose, body.clone(), account.headers()).await;
+    assert_eq!((status, replay), (StatusCode::OK, expected.clone()));
+    let mut reused = body.clone();
+    reused["edition_id"] = json!(provider::STANDARD_ID);
+    let (status, _, _) = fixture::exchange(app, "PUT", &choose, reused, account.headers()).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let mut stale = body.clone();
+    stale["request_id"] = json!(Uuid::new_v4().to_string());
+    let (status, _, _) = fixture::exchange(app, "PUT", &choose, stale, account.headers()).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        server.requests().len(),
+        requests_before,
+        "Saving never calls the provider"
+    );
+
+    assert_eq!(
+        account.get(app, &album).await["saved_edition"],
+        json!({"revision": 1, "state": {"status": "ready", "edition": expected["edition"]}})
+    );
+    let (status, headers, merged) =
+        fixture::exchange(app, "POST", &read, Value::Null, account.headers()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers.get("cache-control").unwrap(), "private, no-store");
+    assert_eq!(merged["status"], "available");
+    assert_eq!(merged["edition"]["id"], provider::EDITION_ID);
+    assert_eq!(merged["matches"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        server.requests_to("v1/catalog/editions/track-list").len(),
+        1
+    );
+
+    let clear_body = json!({"request_id": Uuid::new_v4().to_string(), "expected_revision": 1});
+    let (status, _, cleared) =
+        fixture::exchange(app, "POST", &clear, clear_body.clone(), account.headers()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cleared["revision"], 2);
+    assert!(cleared["edition"].is_null());
+    let (status, _, replay) =
+        fixture::exchange(app, "POST", &clear, clear_body, account.headers()).await;
+    assert_eq!((status, replay), (StatusCode::OK, cleared));
+    assert_eq!(
+        account.get(app, &album).await["saved_edition"],
+        json!({"revision": 2, "state": {"status": "unset"}})
+    );
+    let (_, _, after) = fixture::exchange(app, "POST", &read, Value::Null, account.headers()).await;
+    assert_eq!(after, json!({"status": "needs_choice"}));
+    assert_eq!(server.unexpected(), 0);
+    assert_saved_contract();
+}
+
+fn assert_saved_contract() {
+    let contract = serde_json::to_value(hito_server::openapi()).unwrap();
+    let choose = &contract["paths"]["/api/v1/albums/{id}/edition"]["put"];
+    assert_eq!(choose["operationId"], "choose_album_edition");
+    assert_eq!(
+        choose["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/ChooseAlbumEdition"
+    );
+    assert_eq!(
+        choose["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/AlbumEditionChoiceReceipt"
+    );
+    let clear = &contract["paths"]["/api/v1/albums/{id}/edition/clear"]["post"];
+    assert_eq!(clear["operationId"], "clear_album_edition");
+    let read = &contract["paths"]["/api/v1/albums/{id}/edition/track-list"]["post"];
+    assert_eq!(read["operationId"], "saved_album_edition_track_list");
+    assert!(read["responses"]["200"]["headers"]["Cache-Control"].is_object());
+    for endpoint in [choose, clear, read] {
+        assert_eq!(
+            endpoint["security"],
+            json!([{"session": []}, {"bearer": []}])
+        );
+    }
 }

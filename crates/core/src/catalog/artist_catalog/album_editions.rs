@@ -59,7 +59,7 @@ pub enum AlbumEditionTrackListAvailability {
 }
 
 impl AlbumEditionTrackListAvailability {
-    fn outcome(&self) -> &'static str {
+    pub fn outcome(&self) -> &'static str {
         match self {
             Self::Available { .. } => "available",
             Self::Disabled => "disabled",

@@ -560,12 +560,20 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ),
         ("trigger", "artist_identity_receipt_immutable"),
         ("trigger", "artist_identity_receipt_retained"),
+        ("table", "album_edition_choices"),
+        ("index", "sqlite_autoindex_album_edition_choices_1"),
+        ("trigger", "album_edition_choice_scope_insert"),
+        ("trigger", "album_edition_choice_scope_update"),
+        ("table", "album_edition_choice_receipts"),
+        ("index", "sqlite_autoindex_album_edition_choice_receipts_1"),
+        ("trigger", "album_edition_receipt_immutable"),
+        ("trigger", "album_edition_receipt_retained"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference and artist identity objects may extend 0052"
+        "only the exact ranking preference, artist identity and album edition objects may extend 0052"
     );
     assert!(
         actual == expected,
@@ -595,6 +603,8 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         "account_artist_identity_groups",
         "recording_artist_identity_choices",
         "artist_identity_choice_receipts",
+        "album_edition_choices",
+        "album_edition_choice_receipts",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&mut *connection)
