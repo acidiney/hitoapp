@@ -17,7 +17,7 @@ pub(super) struct Visit<'a> {
 
 /// Visits supported audio files inside the granted root without following
 /// links. Returns true when the file cap stopped the walk early.
-pub(super) fn walk(root: &Root, mut visit: impl FnMut(Visit<'_>)) -> bool {
+pub(super) fn walk(root: &Root, max_files: u64, mut visit: impl FnMut(Visit<'_>)) -> bool {
     let Ok(entries) = root.directory.entries() else {
         return false;
     };
@@ -47,7 +47,7 @@ pub(super) fn walk(root: &Root, mut visit: impl FnMut(Visit<'_>)) -> bool {
             && supported(&relative)
             && let Ok(metadata) = entry.metadata()
         {
-            if files >= MAX_FILES {
+            if files >= max_files {
                 return true;
             }
             files += 1;
@@ -73,7 +73,7 @@ pub(super) struct Fingerprint {
 
 pub(super) fn fingerprint(root: &Root) -> Fingerprint {
     let mut total = 0u64;
-    let capped = walk(root, |file| {
+    let capped = walk(root, MAX_FILES, |file| {
         let mut hasher = DefaultHasher::new();
         (file.relative, file.size, file.modified_secs).hash(&mut hasher);
         total = total.wrapping_add(hasher.finish());

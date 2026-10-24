@@ -69,10 +69,12 @@ pub use downloads::{
 pub use error::{Error, Result};
 pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
 pub use library_storage::AudioFile;
+#[cfg(feature = "test-support")]
+pub use library_storage::WatchCounters;
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef,
     FolderWatchSettings, Job, LibraryStorage, MusicFolder, SharedDirectory, WatchBackend,
-    WatchCounters, WatchMode, WatchStatus, WatchedFolder,
+    WatchMode, WatchStatus, WatchedFolder,
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{

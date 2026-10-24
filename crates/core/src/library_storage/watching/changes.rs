@@ -157,9 +157,13 @@ impl Changes {
             let Some(current) = self.fingerprint().await else {
                 continue;
             };
-            if self.baseline.replace(current) != Some(current) {
-                WatchCounters::add(&self.counters.relevant);
-                return;
+            match self.baseline.replace(current) {
+                None => {}
+                Some(previous) if previous == current => {}
+                Some(_) => {
+                    WatchCounters::add(&self.counters.relevant);
+                    return;
+                }
             }
         }
     }
@@ -233,17 +237,52 @@ fn matters(path: &Path, is_dir: Option<bool>) -> bool {
             if supported(path) {
                 return true;
             }
-            let hidden = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with('.'));
-            match path.extension().and_then(|extension| extension.to_str()) {
-                _ if hidden => false,
-                None => true,
-                Some(extension) => !extension.chars().all(|c| c.is_ascii_alphabetic()),
-            }
+            !known_noise(path)
         }
     }
+}
+
+const NOISE_EXTENSIONS: [&str; 20] = [
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "txt",
+    "nfo",
+    "cue",
+    "log",
+    "m3u",
+    "m3u8",
+    "pdf",
+    "part",
+    "tmp",
+    "crdownload",
+    "db",
+    "ini",
+    "lrc",
+    "swp",
+];
+const NOISE_NAMES: [&str; 3] = [".DS_Store", "Thumbs.db", "desktop.ini"];
+
+/// A vanished path is noise only when its name says so; anything else might
+/// have been a directory full of music.
+fn known_noise(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    NOISE_NAMES.contains(&name)
+        || name.starts_with("._")
+        || path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| {
+                NOISE_EXTENSIONS
+                    .iter()
+                    .any(|noise| noise.eq_ignore_ascii_case(extension))
+            })
 }
 
 #[cfg(test)]
@@ -263,8 +302,43 @@ mod tests {
         assert!(yes("a/song.flac", None));
         assert!(yes("a/Album", None));
         assert!(yes("a/Vol. 2", None));
+        assert!(yes("a/Dr.Dre", None));
+        assert!(yes("a/.Hidden Album", None));
+        assert!(!yes("a/._song.mp3x", None));
         assert!(!yes("a/cover.jpg", None));
         assert!(!yes("a/.DS_Store", None));
+    }
+
+    #[tokio::test]
+    async fn a_failed_first_poll_takes_its_baseline_without_signalling() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("a.wav"), b"x").unwrap();
+        let slots = Arc::new(Semaphore::new(1));
+        let walks = Arc::new(Semaphore::new(1));
+        let root = Root::open(directory.path(), &slots, &walks, &[])
+            .await
+            .unwrap();
+        let closed = Arc::new(Semaphore::new(1));
+        closed.close();
+        let settings = FolderWatchSettings {
+            mode: WatchMode::Poll,
+            poll_interval: Duration::from_millis(10),
+            debounce: Duration::from_millis(10),
+        };
+        let mut changes =
+            Changes::open(root, &settings, "folder", closed, Default::default()).await;
+        assert!(changes.baseline.is_none());
+        changes.slots = Arc::new(Semaphore::new(1));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(300), changes.next())
+                .await
+                .is_err(),
+            "Taking the first baseline is not a change"
+        );
+        std::fs::write(directory.path().join("b.wav"), b"x").unwrap();
+        tokio::time::timeout(Duration::from_secs(5), changes.next())
+            .await
+            .expect("A later change must still be found");
     }
 
     #[tokio::test]

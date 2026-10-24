@@ -24,6 +24,7 @@ use tracing::{Instrument, instrument::WithSubscriber};
 const DISCOVERY_INTERVAL: Duration = Duration::from_secs(2);
 const MAX_RESPAWN_DELAY: Duration = Duration::from_secs(60);
 const WALK_PERMITS: usize = 2;
+const STABLE_RUN: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WatchMode {
@@ -67,8 +68,10 @@ pub struct WatchCounters {
     pub(super) startup_scans: AtomicU64,
     pub(super) write_requests: AtomicU64,
     pub(super) request_errors: AtomicU64,
+    pub(super) job_reads: AtomicU64,
 }
 
+#[cfg(feature = "test-support")]
 macro_rules! counter {
     ($($name:ident),*) => {
         impl WatchCounters {
@@ -76,6 +79,7 @@ macro_rules! counter {
         }
     };
 }
+#[cfg(feature = "test-support")]
 counter!(
     relevant,
     ignored,
@@ -84,7 +88,8 @@ counter!(
     scans_requested,
     startup_scans,
     write_requests,
-    request_errors
+    request_errors,
+    job_reads
 );
 
 impl WatchCounters {
@@ -98,7 +103,14 @@ pub struct WatchedFolder {
     pub folder_id: String,
     pub generation: i64,
     pub backend: WatchBackend,
-    pub counters: Arc<WatchCounters>,
+    pub(crate) counters: Arc<WatchCounters>,
+}
+
+#[cfg(feature = "test-support")]
+impl WatchedFolder {
+    pub fn counters(&self) -> Arc<WatchCounters> {
+        self.counters.clone()
+    }
 }
 
 pub type WatchStatus = BTreeMap<String, WatchedFolder>;
@@ -108,6 +120,7 @@ struct Running {
     stop: watch::Sender<bool>,
     task: JoinHandle<()>,
     reaped: bool,
+    started: Instant,
 }
 
 impl Running {
@@ -214,13 +227,21 @@ impl LibraryStorage {
                 continue;
             }
             watcher.reaped = true;
-            let result = (&mut watcher.task).await;
-            if !report(id, result) {
-                let failures = blocked.get(id).map_or(1, |(_, failures)| failures + 1);
-                let wait = Duration::from_secs(1u64 << failures.min(6)).min(MAX_RESPAWN_DELAY);
-                blocked.insert(id.clone(), (Instant::now() + wait, failures));
-                watcher.generation = -1;
-            }
+            let clean = report(id, (&mut watcher.task).await);
+            let failures = match blocked.get(id) {
+                Some((_, failures)) if watcher.started.elapsed() < STABLE_RUN => failures + 1,
+                _ => 1,
+            };
+            let wait = Duration::from_secs(1u64 << failures.min(6)).min(MAX_RESPAWN_DELAY);
+            blocked.insert(id.clone(), (Instant::now() + wait, failures));
+            tracing::info!(
+                event = "folder_watch_restart_scheduled",
+                folder_id = %id,
+                clean,
+                wait_ms = wait.as_millis() as u64,
+                "A music folder watcher ended while its folder is still connected"
+            );
+            watcher.generation = -1;
         }
         let stale: Vec<String> = running
             .iter()
@@ -265,6 +286,7 @@ impl LibraryStorage {
                     stop,
                     task,
                     reaped: false,
+                    started: Instant::now(),
                 },
             );
         }

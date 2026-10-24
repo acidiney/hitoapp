@@ -118,6 +118,9 @@ impl LibraryStorage {
                 break;
             }
         }
+        status.send_modify(|folders| {
+            folders.remove(&folder.id);
+        });
         tracing::info!(
             event = "folder_watch_stopped",
             folder_id = %folder.id,
@@ -207,7 +210,7 @@ impl LibraryStorage {
                 }
                 ScanRequest::Busy(job) => (job, true),
             };
-            match self.await_job(&job, stop).await {
+            match self.await_job(&job, counters, stop).await {
                 None => return false,
                 Some(_) if follow_up => {}
                 Some(JobEnd::Complete) => return true,
@@ -235,9 +238,15 @@ impl LibraryStorage {
         }
     }
 
-    async fn await_job(&self, job: &str, stop: &mut watch::Receiver<bool>) -> Option<JobEnd> {
+    async fn await_job(
+        &self,
+        job: &str,
+        counters: &WatchCounters,
+        stop: &mut watch::Receiver<bool>,
+    ) -> Option<JobEnd> {
         let mut delay = JOB_POLL_START;
         loop {
+            WatchCounters::add(&counters.job_reads);
             match self.job_end(job).await {
                 Ok(Some(end)) => return Some(end),
                 Ok(None) => {}

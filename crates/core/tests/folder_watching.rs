@@ -228,7 +228,7 @@ impl Harness {
     }
 
     fn counters(&self) -> Arc<WatchCounters> {
-        self.status.borrow()[&self.folder].counters.clone()
+        self.status.borrow()[&self.folder].counters()
     }
 
     fn jobs(&self) -> usize {
@@ -369,11 +369,11 @@ async fn waiting_for_a_running_scan_does_not_hammer_the_database() {
     harness.latest_job_is("running").await;
     let counters = harness.counters();
     support::write_wav(&harness.music.join("third.wav"), 2);
-    tokio::time::sleep(Duration::from_millis(1500)).await;
-    assert!(
-        counters.write_requests() <= 2,
-        "Waiting must use plain reads, saw {} write attempts",
-        counters.write_requests()
+    until("several plain waits", || counters.job_reads() >= 5).await;
+    assert_eq!(
+        counters.write_requests(),
+        1,
+        "Waiting must use plain reads, not write attempts"
     );
     std::fs::remove_file(harness.path("hold")).unwrap();
     harness.indexed(3).await;
@@ -406,11 +406,15 @@ async fn request_errors_back_off_and_recover() {
         counters.request_errors() >= 1
     })
     .await;
-    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let first = std::time::Instant::now();
+    until("the second failed request", || {
+        counters.request_errors() >= 2
+    })
+    .await;
     assert!(
-        counters.request_errors() <= 2,
-        "Failures must back off, saw {}",
-        counters.request_errors()
+        first.elapsed() >= Duration::from_millis(800),
+        "Failures must back off, retried after {:?}",
+        first.elapsed()
     );
     set_admin(true).await;
     harness.indexed(2).await;
@@ -589,5 +593,48 @@ async fn polling_does_not_follow_links_out_of_the_folder() {
     until("three more polls", || counters.polls() >= polls + 3).await;
     assert_eq!(counters.scans_requested(), 0);
     assert_eq!(harness.jobs(), 0);
+    harness.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_watcher_that_ends_while_its_folder_is_still_watchable_is_started_again() {
+    use sqlx::Connection;
+    let harness = start(Options::auto()).await;
+    let database = harness.path("hito.db");
+    let bind = |bound: bool| {
+        let database = database.clone();
+        async move {
+            let mut connection =
+                sqlx::SqliteConnection::connect(&format!("sqlite:{}", database.display()))
+                    .await
+                    .unwrap();
+            sqlx::query("UPDATE music_folders SET bound = ?")
+                .bind(bound)
+                .execute(&mut connection)
+                .await
+                .unwrap();
+        }
+    };
+    bind(false).await;
+    support::write_wav(&harness.music.join("second.wav"), 1);
+    harness.unwatched().await;
+    bind(true).await;
+    harness.watched().await;
+    support::write_wav(&harness.music.join("third.wav"), 2);
+    harness.indexed(3).await;
+    harness.shutdown().await;
+}
+
+#[tokio::test]
+async fn moving_a_dotted_directory_out_of_the_folder_retires_its_recordings() {
+    let harness = start(Options::auto()).await;
+    let album = harness.music.join("Dr.Dre");
+    std::fs::create_dir(&album).unwrap();
+    support::write_wav(&album.join("track.wav"), 1);
+    harness.indexed(2).await;
+    let outside = harness.path("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::rename(&album, outside.join("Dr.Dre")).unwrap();
+    harness.indexed(1).await;
     harness.shutdown().await;
 }
