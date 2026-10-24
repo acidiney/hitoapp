@@ -36,7 +36,7 @@ pub struct CatalogAdoption {
 pub enum AlbumEditionTrackListAvailability {
     Available {
         association_id: String,
-        edition: CatalogEditionTrackList,
+        edition: Box<CatalogEditionTrackList>,
         matches: Vec<CatalogTrackMatch>,
         library_only: Vec<ReleaseTrack>,
         #[schema(required = true)]
@@ -128,11 +128,9 @@ impl Catalog {
             )
             .await?;
         let (association, edition, playback_revision) = match read {
-            EditionRead::Available {
-                association,
-                edition,
-                playback_revision,
-            } => (association, edition, playback_revision),
+            EditionRead::Available(found) => {
+                (found.association, found.edition, found.playback_revision)
+            }
             EditionRead::Missing(status) => return Ok(status.into()),
         };
         let installation = match &association.provider {
@@ -186,7 +184,7 @@ impl Catalog {
             });
         Ok(AlbumEditionTrackListAvailability::Available {
             association_id: association.id,
-            edition,
+            edition: Box::new(edition),
             matches,
             library_only,
             adoption,

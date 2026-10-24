@@ -185,13 +185,9 @@ impl Catalog {
                 .read_edition(actor, recording, association, request)
                 .await?
             {
-                EditionRead::Available {
-                    association,
-                    edition,
-                    ..
-                } => EditionTrackListAvailability::Available {
-                    association_id: association.id,
-                    edition,
+                EditionRead::Available(found) => EditionTrackListAvailability::Available {
+                    association_id: found.association.id,
+                    edition: found.edition,
                 },
                 EditionRead::Missing(status) => status,
             },
@@ -256,19 +252,21 @@ impl Catalog {
         edition
             .validate_for(&provider_request)
             .map_err(|_| Error::Upstream("The provider returned an invalid edition track list"))?;
-        Ok(EditionRead::Available {
+        Ok(EditionRead::Available(Box::new(EditionFound {
             playback_revision: read.connection.saving_revision(),
             association: read.association,
             edition,
-        })
+        })))
     }
 }
 
+pub(super) struct EditionFound {
+    pub association: ArtistAssociation,
+    pub edition: CatalogEditionTrackList,
+    pub playback_revision: Option<i64>,
+}
+
 pub(super) enum EditionRead {
-    Available {
-        association: ArtistAssociation,
-        edition: CatalogEditionTrackList,
-        playback_revision: Option<i64>,
-    },
+    Available(Box<EditionFound>),
     Missing(EditionTrackListAvailability),
 }
