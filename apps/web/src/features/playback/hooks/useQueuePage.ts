@@ -10,16 +10,13 @@ type Result = {
   error?: string;
 };
 
-export function useQueuePage(player: Player, preview: boolean) {
+const PREVIEW_ENTRIES = 4;
+
+export function useQueuePage(player: Player) {
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
-  const [requested, setRequested] = useState(
-    () => Math.floor((view.currentIndex ?? 0) / 50) * 50,
-  );
-  const limit = preview ? 4 : 50;
+  const limit = PREVIEW_ENTRIES;
   const [attempt, setAttempt] = useState(0);
-  const offset = preview
-    ? Math.min(view.total, (view.currentIndex ?? -1) + 1)
-    : Math.min(requested, Math.floor(Math.max(0, view.total - 1) / 50) * 50);
+  const offset = Math.min(view.total, (view.currentIndex ?? -1) + 1);
   const latest = useRef({ player, view, offset, attempt });
   latest.current = { player, view, offset, attempt };
   const [result, setResult] = useState<Result>();
@@ -59,13 +56,9 @@ export function useQueuePage(player: Player, preview: boolean) {
       : undefined;
   return {
     view,
-    offset,
-    limit,
     page: current?.page,
     error: current?.error,
     loading: view.total > 0 && !current,
-    previous: () => setRequested(Math.max(0, offset - 50)),
-    next: () => setRequested(offset + 50),
     retry: () => setAttempt((value) => value + 1),
   };
 }

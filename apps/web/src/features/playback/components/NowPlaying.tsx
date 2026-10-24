@@ -2,7 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { ArrowDownLeft, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
 import Artwork from "../../artwork/components/Artwork";
-import QueueTracks from "./QueueTracks";
+import QueueList from "./QueueList";
 import PlaybackControls from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";
 
@@ -55,7 +55,7 @@ export default function NowPlaying({ close }: { close: () => void }) {
             <h2>Up next</h2>
             <ArrowDownLeft size={18} />
           </div>
-          <QueueTracks />
+          <QueueList />
         </aside>
       </div>
       <div className="now-playing-controls">

@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { X } from "lucide-react";
-import QueueTracks from "./QueueTracks";
+import QueueList from "./QueueList";
 
 const PlaybackQueue = memo(function PlaybackQueue({
   close,
@@ -19,7 +19,7 @@ const PlaybackQueue = memo(function PlaybackQueue({
           <X size={20} />
         </button>
       </div>
-      <QueueTracks />
+      <QueueList />
     </aside>
   );
 });

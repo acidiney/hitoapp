@@ -51,7 +51,7 @@ export default function ListeningPanel({
             View queue
           </button>
         </div>
-        <QueueTracks preview />
+        <QueueTracks />
       </section>
       <div className="listening-device">
         <Headphones size={18} />

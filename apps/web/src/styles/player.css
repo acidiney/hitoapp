@@ -204,6 +204,64 @@
 .queue-tracks .current strong {
   color: var(--primary);
 }
+.queue-window {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 70dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.queue-virtual {
+  position: relative;
+  overflow: hidden;
+}
+.queue-virtual > li {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  box-sizing: border-box;
+  padding: 0;
+  gap: 4px;
+  will-change: transform;
+}
+.queue-virtual > li[data-drop="before"] {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+.queue-virtual > li[data-drop="after"] {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+.queue-virtual .queue-track {
+  padding: 0;
+}
+.queue-window .queue-virtual .queue-track .artwork {
+  width: 40px;
+  height: 40px;
+}
+.queue-handle {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  padding: 12px 0;
+}
+.queue-order {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.queue-order .icon-button {
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0;
+}
+.queue-loading {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 0 8px;
+}
 .queue-empty {
   font-size: 12px;
   color: var(--muted);
@@ -223,18 +281,4 @@
   color: inherit;
   min-height: 44px;
   flex-shrink: 0;
-}
-.queue-pages {
-  gap: 8px;
-  justify-content: space-between;
-  margin-top: 16px;
-  flex-shrink: 0;
-}
-.queue-pages .icon-button {
-  min-width: 44px;
-  min-height: 44px;
-}
-.queue-pages span {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }

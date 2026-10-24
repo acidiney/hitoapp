@@ -12,7 +12,7 @@ import PlayerDock from "../components/PlayerDock";
 
 let player: Playback;
 vi.mock("../components/PlaybackProvider", () => ({ usePlayer: () => player }));
-test("position updates move the seek control without rendering a thousand queued rows", async () => {
+test("position updates move the seek control without rendering any of a thousand queued rows", async () => {
   const audio = document.createElement("audio");
   vi.spyOn(audio, "load").mockImplementation(() => {
     audio.playbackRate = audio.defaultPlaybackRate;
@@ -53,12 +53,20 @@ test("position updates move the seek control without rendering a thousand queued
   render(createElement(PlayerDock));
   fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
   const queue = screen.getByRole("complementary", { name: "Playback queue" });
-  await waitFor(() => expect(queue.querySelectorAll("li")).toHaveLength(50));
-  fireEvent.click(screen.getByRole("button", { name: "Next queue page" }));
   await waitFor(() =>
-    expect(queue.querySelector("li strong")?.textContent).toBe("Track 50"),
+    expect(queue.querySelectorAll("li").length).toBeGreaterThan(0),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Previous queue page" }));
+  expect(queue.querySelectorAll("li").length).toBeLessThanOrEqual(40);
+  const window = queue.querySelector(".queue-window")!;
+  Object.defineProperty(window, "scrollTop", {
+    value: 500 * 56,
+    configurable: true,
+  });
+  fireEvent.scroll(window);
+  await waitFor(() => expect(queue.textContent).toContain("Track 500"));
+  expect(queue.querySelectorAll("li").length).toBeLessThanOrEqual(40);
+  Object.defineProperty(window, "scrollTop", { value: 0, configurable: true });
+  fireEvent.scroll(window);
   await waitFor(() =>
     expect(queue.querySelector("li strong")?.textContent).toBe("Track 0"),
   );
