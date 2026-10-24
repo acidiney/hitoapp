@@ -22,6 +22,7 @@ export class PlaybackStore {
     total: 0,
     currentIndex: null,
     currentEntry: null,
+    pending: 0,
   };
   private position = { position: 0, duration: 0 };
   private listeners = new Set<() => void>();
@@ -43,6 +44,16 @@ export class PlaybackStore {
     };
   };
 
+  setPending(pending: number) {
+    if (pending === this.queueView.pending) return;
+    this.queueView = {
+      ...this.queueView,
+      version: this.queueView.version + 1,
+      pending,
+    };
+    this.listeners.forEach((listener) => listener());
+  }
+
   update(patch: Partial<PlaybackState>, queue: BrowserQueue) {
     const { position, duration, ...structure } = patch;
     const moved =
@@ -56,6 +67,7 @@ export class PlaybackStore {
         total: queue.length,
         currentIndex: current ? this.state.index : null,
         currentEntry: current ?? null,
+        pending: this.queueView.pending,
       };
     }
     if (moved) {

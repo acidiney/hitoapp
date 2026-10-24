@@ -56,6 +56,7 @@ export class NativePlayback implements Player {
     total: 0,
     currentIndex: null,
     currentEntry: null,
+    pending: 0,
   };
   private listeners = new Set<() => void>();
   private positionListeners = new Set<() => void>();
@@ -67,12 +68,14 @@ export class NativePlayback implements Player {
     () => this.session,
     () => this.wire,
     (error) => this.update({ error }),
+    (pending) => this.setPending(pending),
   );
   playQueue = this.intents.playQueue;
   continueAudiobook = this.intents.continueAudiobook;
   prepareSelection = this.intents.prepareSelection;
   selectEntry = this.intents.selectEntry;
   removeEntry = this.intents.removeEntry;
+  moveEntry = this.intents.moveEntry;
   toggle = this.intents.toggle;
   setPlaying = this.intents.setPlaying;
   retrySaved = this.intents.retrySaved;
@@ -160,6 +163,16 @@ export class NativePlayback implements Player {
     };
   }
 
+  private setPending(pending: number) {
+    if (pending === this.queueView.pending) return;
+    this.queueView = {
+      ...this.queueView,
+      version: this.queueView.version + 1,
+      pending,
+    };
+    this.listeners.forEach((listener) => listener());
+  }
+
   private observeState(value: Snapshot) {
     const old = this.wire;
     if (
@@ -181,6 +194,7 @@ export class NativePlayback implements Player {
         total: value.queue_len,
         currentIndex: value.current_index ?? null,
         currentEntry: value.current?.id ?? null,
+        pending: this.queueView.pending,
       };
       if (old?.selection !== value.selection)
         this.updatePosition({ position: 0, duration: 0 });
@@ -315,6 +329,7 @@ export class NativePlayback implements Player {
       total: 0,
       currentIndex: null,
       currentEntry: null,
+      pending: 0,
     };
     this.update({ ...emptyView(), connection: "disconnected" });
     this.updatePosition({ position: 0, duration: 0 });

@@ -1,31 +1,52 @@
 import { log } from "../../../shared/log";
 import { HttpError } from "../../../shared/http";
-import type {
-  PlaybackQueueInput,
-  PlaybackStart,
-  PreparedSelection,
+import {
+  MAX_QUEUE_ENTRIES,
+  type PlaybackQueueInput,
+  type PlaybackStart,
+  type PreparedSelection,
+  type QueueSupply,
 } from "../model";
+import { QueueFeed } from "../QueueFeed";
 import type { Action, Snapshot } from "./api";
 import type { NativeSession, QueueSelection } from "./Session";
 
 export class NativeCommands {
   private intention = 0;
+  private queueEpoch = 0;
+  private feed: QueueFeed;
   constructor(
     private session: () => NativeSession | null,
     private state: () => Snapshot | null,
     private report: (message: string) => void,
-  ) {}
+    pendingChanged: (pending: number) => void,
+  ) {
+    this.feed = new QueueFeed(
+      () => pendingChanged(this.feed.pending),
+      (message) => this.report(message),
+    );
+  }
+
+  private replaceQueue() {
+    this.feed.cancel();
+    return ++this.queueEpoch;
+  }
 
   playQueue = async (
     queue: PlaybackQueueInput[],
     index = 0,
     start?: PlaybackStart,
+    more?: QueueSupply,
   ) => {
     this.intention++;
-    await this.play(queue, index, start);
+    await this.play(queue, index, start, more);
+  };
+  moveEntry = (entry: string, before: string | null) => {
+    void this.run([{ kind: "move", entry, before }]);
   };
   continueAudiobook = async (audiobook: string, signal: AbortSignal) => {
     this.intention++;
+    this.replaceQueue();
     const session = this.session();
     if (!session) {
       this.report("Connect this window to control playback.");
@@ -54,7 +75,9 @@ export class NativeCommands {
     queue: PlaybackQueueInput[],
     index: number,
     start?: PlaybackStart,
+    more?: QueueSupply,
   ) {
+    const epoch = this.replaceQueue();
     const position = start?.kind === "saved" ? 0 : (start?.position ?? 0);
     if (
       !queue.length ||
@@ -100,7 +123,30 @@ export class NativeCommands {
             "recording" in entry ? entry.recording.id : entry.id,
           ),
         };
-    return this.run(selection);
+    const played = await this.run(selection);
+    if (played && more && epoch === this.queueEpoch)
+      this.feedQueue(more, epoch, queue.length);
+    return played;
+  }
+  private feedQueue(more: QueueSupply, epoch: number, loaded: number) {
+    let count = loaded;
+    this.feed.start(more, async (batch) => {
+      const session = this.session();
+      if (!session || epoch !== this.queueEpoch)
+        throw new DOMException("Superseded", "AbortError");
+      const accepted = batch.slice(0, Math.max(0, MAX_QUEUE_ENTRIES - count));
+      if (!accepted.length) return 0;
+      count += accepted.length;
+      await session.submit([
+        {
+          kind: "append",
+          recordings: accepted.map((entry) =>
+            "recording" in entry ? entry.recording.id : entry.id,
+          ),
+        },
+      ]);
+      return accepted.length;
+    });
   }
   prepareSelection = (): PreparedSelection => {
     this.session()?.cancelAudiobook();
@@ -109,7 +155,7 @@ export class NativeCommands {
       if (intention !== this.intention) return false;
       this.intention++;
       return "queue" in target
-        ? this.play(target.queue, target.index ?? 0, target.start)
+        ? this.play(target.queue, target.index ?? 0, target.start, target.more)
         : this.play([target], 0);
     };
   };
@@ -152,6 +198,7 @@ export class NativeCommands {
   };
   clear = () => {
     this.intention++;
+    this.replaceQueue();
     void this.run([{ kind: "clear" }]);
   };
   previous = async () => {
@@ -171,6 +218,7 @@ export class NativeCommands {
   invalidate() {
     this.session()?.cancelAudiobook();
     this.intention++;
+    this.replaceQueue();
   }
   private async run(actions: Action[] | QueueSelection) {
     const session = this.session();

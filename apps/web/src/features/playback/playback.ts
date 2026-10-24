@@ -1,12 +1,14 @@
-import type {
-  MediaPort,
-  PlaybackQueueInput,
-  PlaybackOccurrence,
-  PlaybackStart,
-  PlaybackState,
-  PreparedSelection,
-  Player,
-  Track,
+import {
+  MAX_QUEUE_ENTRIES,
+  type MediaPort,
+  type PlaybackQueueInput,
+  type QueueSupply,
+  type PlaybackOccurrence,
+  type PlaybackStart,
+  type PlaybackState,
+  type PreparedSelection,
+  type Player,
+  type Track,
 } from "./model";
 import type { AudiobookChapterAnchor } from "../../shared/types";
 export type { MediaPort, Track } from "./model";
@@ -34,6 +36,7 @@ import {
   type AudiobookPreparer,
 } from "./browser/BrowserAudiobookRun";
 import { PlaybackStore } from "./browser/PlaybackStore";
+import { QueueFeed } from "./QueueFeed";
 import type { AudiobookSelection } from "./browser/AudiobookContinuation";
 export type { Source } from "./api/playbackSources";
 
@@ -65,6 +68,10 @@ export class Playback implements Player {
   private stopListening: () => void = () => {};
   private stoppingForProgress = false;
   private audiobook: BrowserAudiobookRun;
+  private feed = new QueueFeed(
+    () => this.store.setPending(this.feed.pending),
+    (error) => this.update({ error }),
+  );
 
   constructor(
     private media: MediaPort,
@@ -291,6 +298,52 @@ export class Playback implements Player {
     const index = this.queue.indexOf(entry);
     if (index >= 0) this.remove(index);
   }
+  moveEntry(entry: string, before: string | null) {
+    this.cancelAudiobook();
+    const from = this.queue.indexOf(entry);
+    if (from < 0 || before === entry) return;
+    let to = this.queue.length - 1;
+    if (before !== null) {
+      const target = this.queue.indexOf(before);
+      if (target < 0) return;
+      to = target > from ? target - 1 : target;
+    }
+    if (to === from) return;
+    const current = this.state.index;
+    this.queue.move(from, to);
+    this.traversal.moved(this.queue.identities(), from, to);
+    log.info("queue.move", { action: "move", index: to });
+    this.update({
+      queue: this.queue.recordings(),
+      index:
+        from === current
+          ? to
+          : from < current && to >= current
+            ? current - 1
+            : from > current && to <= current
+              ? current + 1
+              : current,
+    });
+    this.prepareNext();
+  }
+  private appendBatch(batch: PlaybackQueueInput[]) {
+    const accepted = batch.slice(
+      0,
+      Math.max(0, MAX_QUEUE_ENTRIES - this.queue.length),
+    );
+    if (!accepted.length) return 0;
+    const start = this.queue.length;
+    const added = this.queue.append(accepted);
+    this.traversal.append(
+      added.map(({ id }) => id),
+      start,
+      this.queue.at(this.state.index)?.id,
+    );
+    log.debug("queue.appended", { count: accepted.length });
+    this.update({ queue: this.queue.recordings() });
+    this.prepareNext();
+    return accepted.length;
+  }
   positionSnapshot = this.store.positionSnapshot;
   subscribePosition = this.store.subscribePosition;
   subscribe = this.store.subscribe;
@@ -326,6 +379,7 @@ export class Playback implements Player {
     queue: PlaybackQueueInput[],
     index = 0,
     start?: PlaybackStart,
+    more?: QueueSupply,
   ) {
     this.cancelAudiobook();
     if (!this.persist())
@@ -334,6 +388,7 @@ export class Playback implements Player {
       );
     const position = start?.position ?? 0;
     this.cancelLookahead();
+    this.feed.cancel();
     this.queue.replace(queue);
     this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
     log.info("queue.play", {
@@ -342,6 +397,7 @@ export class Playback implements Player {
       position_ms: Math.floor(position * 1000),
     });
     this.update({ queue: this.queue.recordings(), index, error: "" });
+    this.feed.start(more, async (batch) => this.appendBatch(batch));
     await this.open(index, position);
   }
 
@@ -363,7 +419,12 @@ export class Playback implements Player {
         return false;
       }
       if ("queue" in target)
-        await this.playQueue(target.queue, target.index, target.start);
+        await this.playQueue(
+          target.queue,
+          target.index,
+          target.start,
+          target.more,
+        );
       else await this.playQueue([target]);
       return true;
     };
@@ -384,6 +445,7 @@ export class Playback implements Player {
     this.endGuard.cancel();
     this.serverBound = null;
     if (continuation) {
+      this.feed.cancel();
       this.media.pause();
       this.queue.replace(continuation.queue);
       this.traversal.reset(this.queue.identities(), this.queue.at(index)?.id);
@@ -764,6 +826,7 @@ export class Playback implements Player {
     this.serverBound = null;
     this.cancelLookahead();
     this.lookahead?.closeOpening();
+    this.feed.cancel();
     this.queue.clear();
     this.traversal.reset(this.queue.identities());
     this.selection++;

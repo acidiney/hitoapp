@@ -17,10 +17,16 @@ export type PlaybackOccurrence = {
   recording: Track;
   chapter?: AudiobookChapterAnchor | null;
 };
+export const MAX_QUEUE_ENTRIES = 100_000;
+export type QueueSupply = {
+  remaining(): number;
+  next(signal: AbortSignal): Promise<PlaybackQueueInput[]>;
+};
 export type PlaybackSelection = {
   queue: PlaybackQueueInput[];
   index?: number;
   start?: PlaybackStart;
+  more?: QueueSupply;
 };
 export type PreparedSelection = (
   selection: Track | PlaybackSelection,
@@ -47,6 +53,7 @@ export type QueueView = {
   total: number;
   currentIndex: number | null;
   currentEntry: string | null;
+  pending: number;
 };
 export type QueuePage = {
   version: number;
@@ -75,10 +82,12 @@ export interface Player {
   ): Promise<QueuePage>;
   selectEntry(entry: string): Promise<void>;
   removeEntry(entry: string): void;
+  moveEntry(entry: string, before: string | null): void;
   playQueue(
     queue: PlaybackQueueInput[],
     index?: number,
     start?: PlaybackStart,
+    more?: QueueSupply,
   ): Promise<void>;
   continueAudiobook(audiobook: string, signal: AbortSignal): Promise<boolean>;
   prepareSelection(): PreparedSelection;
