@@ -25,7 +25,7 @@ export type ArtistEditionContext = {
   profile: CatalogArtistProfile;
   group: CatalogReleaseGroup;
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition) => void;
+  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
 };
 type Owner = { pending: boolean };
 type State = {

@@ -32,6 +32,9 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
   );
   const read = comparison.comparison;
   useEffect(() => {
+    context.onAlbumEdition?.(null);
+  }, [workflow.chosen]);
+  useEffect(() => {
     if (read)
       context.onAlbumEdition?.({
         recording_id: context.recording,

@@ -37,7 +37,10 @@ export default function NowPlaying({ close }: { close: () => void }) {
       </header>
       <div className="now-playing-body">
         <section className="now-playing-focus">
-          <Artwork release={current?.release_id ?? undefined} recording={current?.id} />
+          <Artwork
+            release={current?.release_id ?? undefined}
+            recording={current?.id}
+          />
           <div className="now-playing-caption">
             <span>From your library</span>
             <h1>{current?.title ?? "Ready when you are"}</h1>

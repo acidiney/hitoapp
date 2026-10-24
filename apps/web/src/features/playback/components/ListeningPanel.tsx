@@ -35,7 +35,10 @@ export default function ListeningPanel({
         disabled={!current}
         aria-label="View now playing artwork"
       >
-        <Artwork release={current?.release_id ?? undefined} recording={current?.id} />
+        <Artwork
+          release={current?.release_id ?? undefined}
+          recording={current?.id}
+        />
       </button>
       <div className="listening-title">
         <h3>{current?.title ?? "Make yourself at home"}</h3>

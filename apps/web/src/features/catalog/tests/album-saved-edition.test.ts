@@ -234,14 +234,15 @@ test("a link that the server reports as stale while reading falls back to choosi
 
 test("a failed save is reported while the compared track list stays visible", async () => {
   serve({
-    [choose]: () => Response.json({ error: "Changed" }, { status: 409 }),
+    [choose]: () =>
+      Response.json({ error: "Album save refused" }, { status: 500 }),
   });
   render(page({ revision: 0, state: { status: "unset" } }));
   fireEvent.click(
     screen.getByRole("button", { name: "Show complete track list" }),
   );
   const region = await chooseFirstEdition();
-  const alert = await screen.findByText(/could not be remembered/);
+  const alert = await screen.findByText(/Album save refused/);
   expect(alert.getAttribute("role")).toBe("alert");
   expect(within(region).getByText("Catalog only song")).toBeTruthy();
 });
@@ -276,4 +277,31 @@ test("a later page of the album has no remembered edition to show", () => {
   expect(
     screen.queryByRole("button", { name: "Show complete track list" }),
   ).toBeNull();
+});
+
+test("a stale remembered edition can be forgotten even when the album has no reviewed artist", async () => {
+  const fetch = serve();
+  render(page(staleChoice, null));
+  expect(screen.getByText(/needs a reviewed artist/)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Show complete track list" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Forget edition" }));
+  await waitFor(() => expect(calls(fetch, clear)).toHaveLength(1));
+  expect(JSON.parse(calls(fetch, clear)[0][1]!.body as string)).toMatchObject({
+    expected_revision: 3,
+  });
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: "Forget edition" })).toBeNull(),
+  );
+});
+
+test("a link that turns stale while reading with no reviewed artist can still be forgotten", async () => {
+  serve({ [savedRead]: () => Response.json({ status: "needs_choice" }) });
+  render(page(readyChoice, null));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show complete track list" }),
+  );
+  await screen.findByText(/needs a reviewed artist/);
+  expect(screen.getByRole("button", { name: "Forget edition" })).toBeTruthy();
 });

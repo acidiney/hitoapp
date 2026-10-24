@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { errorMessage } from "../../../shared/format";
+import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import type {
   AlbumEditionChoice,
@@ -12,7 +13,17 @@ import { albumEditionChoiceApi } from "../api/albumEditionChoiceApi";
 
 const REQUEST_DEADLINE_MS = 15_000;
 const SAVE_FAILED =
-  "This edition could not be remembered. Reload the album and try again.";
+  "This edition could not be remembered. Try again or reload the album.";
+const CHANGED =
+  "The remembered edition changed elsewhere. It was reloaded. Try again.";
+
+type Command = {
+  action: string;
+  edition: SavedAlbumEdition | null;
+  send: (signal: AbortSignal) => Promise<AlbumEditionChoiceReceipt>;
+};
+type Intent = { edition: SavedAlbumEdition | null };
+type Outcome = "accepted" | "unknown" | "conflict" | "rejected" | "stopped";
 
 function fromReceipt(receipt: AlbumEditionChoiceReceipt): AlbumEditionChoice {
   return {
@@ -23,6 +34,15 @@ function fromReceipt(receipt: AlbumEditionChoiceReceipt): AlbumEditionChoice {
   };
 }
 
+function same(a: SavedAlbumEdition, b: SavedAlbumEdition) {
+  return (
+    a.recording_id === b.recording_id &&
+    a.association_id === b.association_id &&
+    a.release_group_id === b.release_group_id &&
+    a.edition_id === b.edition_id
+  );
+}
+
 export function useAlbumEditionChoice(
   account: string,
   release: string,
@@ -30,96 +50,191 @@ export function useAlbumEditionChoice(
 ) {
   const scope = useRequestScope(`${account}/${release}`);
   const [choice, setChoice] = useState(initial);
-  const [remembered, setRemembered] = useState(false);
+  const [remembered, setRemembered] = useState<SavedAlbumEdition | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const busy = useRef(false);
   const revision = useRef(initial.revision);
+  const saved = useRef(initial.state);
+  const wanted = useRef<SavedAlbumEdition | null>(null);
+  const unacknowledged = useRef<Command | null>(null);
+  const intent = useRef<Intent | null>(null);
 
-  async function run(
-    action: string,
-    send: (signal: AbortSignal) => Promise<AlbumEditionChoiceReceipt>,
-  ) {
-    if (busy.current) return false;
+  function apply(next: AlbumEditionChoice) {
+    revision.current = next.revision;
+    saved.current = next.state;
+    setChoice(next);
+  }
+
+  async function execute(command: Command): Promise<Outcome> {
     const request = scope.capture();
-    busy.current = true;
-    setPending(true);
-    setError("");
     const started = performance.now();
     const controller = new AbortController();
     const cancel = () => controller.abort();
     request.signal.addEventListener("abort", cancel, { once: true });
     const timer = setTimeout(() => controller.abort(), REQUEST_DEADLINE_MS);
-    let outcome = "accepted";
+    let outcome: Outcome = "accepted";
     try {
-      const receipt = await send(controller.signal);
-      if (!request.active()) return false;
-      revision.current = receipt.revision;
-      setChoice(fromReceipt(receipt));
-      return true;
+      const receipt = await command.send(controller.signal);
+      if (!request.active()) return (outcome = "stopped");
+      apply(fromReceipt(receipt));
+      unacknowledged.current = null;
+      return outcome;
     } catch (failure) {
-      outcome = request.active() ? "failed" : "cancelled";
-      if (request.active()) setError(errorMessage(failure));
-      return false;
+      if (!request.active()) return (outcome = "stopped");
+      if (failure instanceof HttpError) {
+        unacknowledged.current = null;
+        if (failure.status === 409) {
+          outcome = "conflict";
+          try {
+            apply(
+              await albumEditionChoiceApi.current(
+                account,
+                release,
+                controller.signal,
+              ),
+            );
+          } catch {
+            // the next attempt will report a stale revision again
+          }
+          setError(CHANGED);
+        } else {
+          outcome = "rejected";
+          setError(errorMessage(failure));
+        }
+      } else {
+        outcome = "unknown";
+        unacknowledged.current = command;
+        setError(`${errorMessage(failure)} Try again to confirm the change.`);
+      }
+      return outcome;
     } finally {
       clearTimeout(timer);
       request.signal.removeEventListener("abort", cancel);
-      busy.current = false;
-      if (request.active()) setPending(false);
-      const record = outcome === "failed" ? log.warn : log.debug;
-      record(`${action}.finished`, {
+      const record =
+        outcome === "accepted" || outcome === "stopped" ? log.debug : log.warn;
+      record(`${command.action}.finished`, {
         reason: outcome,
         duration_ms: Math.round(performance.now() - started),
       });
     }
   }
 
-  async function choose(edition: SavedAlbumEdition) {
-    const current = choice.state;
-    if (
-      current.status === "ready" &&
-      current.edition.association_id === edition.association_id &&
-      current.edition.recording_id === edition.recording_id &&
-      current.edition.release_group_id === edition.release_group_id &&
-      current.edition.edition_id === edition.edition_id
-    ) {
-      setRemembered(true);
-      return true;
-    }
-    const saved = await run("album_edition.choose", (signal) =>
-      albumEditionChoiceApi.choose(
-        account,
-        release,
-        {
+  async function drain(): Promise<boolean> {
+    if (busy.current) return false;
+    busy.current = true;
+    setPending(true);
+    setError("");
+    try {
+      for (;;) {
+        const lost = unacknowledged.current;
+        if (lost) {
+          if ((await execute(lost)) !== "accepted") return false;
+        }
+        const target = wanted.current;
+        if (!target) return true;
+        const state = saved.current;
+        if (state.status === "ready" && same(state.edition, target)) {
+          wanted.current = null;
+          setRemembered(target);
+          return true;
+        }
+        const body = {
           request_id: createUuid(),
           expected_revision: revision.current,
-          ...edition,
-        },
-        signal,
-      ),
-    );
-    if (saved) setRemembered(true);
-    else setError((message) => (message ? SAVE_FAILED : message));
-    return saved;
+        };
+        const outcome = await execute({
+          action: "album_edition.choose",
+          edition: target,
+          send: (signal) =>
+            albumEditionChoiceApi.choose(
+              account,
+              release,
+              { ...body, ...target },
+              signal,
+            ),
+        });
+        if (outcome === "accepted") {
+          if (wanted.current === target) {
+            wanted.current = null;
+            setRemembered(target);
+            return true;
+          }
+          continue;
+        }
+        if (outcome === "conflict" || outcome === "rejected")
+          setError((message) => message || SAVE_FAILED);
+        return false;
+      }
+    } finally {
+      busy.current = false;
+      if (scope.capture().active()) setPending(false);
+    }
+  }
+
+  function choose(edition: SavedAlbumEdition) {
+    intent.current = { edition };
+    wanted.current = edition;
+    setRemembered(null);
+    return drain();
   }
 
   async function forget() {
-    const cleared = await run("album_edition.clear", (signal) =>
-      albumEditionChoiceApi.clear(
-        account,
-        release,
-        { request_id: createUuid(), expected_revision: revision.current },
-        signal,
-      ),
-    );
-    if (cleared) setRemembered(false);
-    return cleared;
+    intent.current = { edition: null };
+    wanted.current = null;
+    setRemembered(null);
+    if (busy.current) return false;
+    busy.current = true;
+    setPending(true);
+    setError("");
+    try {
+      const lost = unacknowledged.current;
+      if (lost) {
+        const outcome = await execute(lost);
+        if (outcome !== "accepted") return false;
+      }
+      const body = {
+        request_id: createUuid(),
+        expected_revision: revision.current,
+      };
+      const outcome = await execute({
+        action: "album_edition.clear",
+        edition: null,
+        send: (signal) =>
+          albumEditionChoiceApi.clear(account, release, body, signal),
+      });
+      return outcome === "accepted";
+    } finally {
+      busy.current = false;
+      if (scope.capture().active()) setPending(false);
+    }
+  }
+
+  function retry() {
+    const last = intent.current;
+    if (!last) return Promise.resolve(false);
+    return last.edition ? choose(last.edition) : forget();
+  }
+
+  function reading() {
+    setRemembered(null);
   }
 
   function stale() {
-    setRemembered(false);
+    setRemembered(null);
+    saved.current = { status: "needs_choice" };
     setChoice((current) => ({ ...current, state: { status: "needs_choice" } }));
   }
 
-  return { choice, remembered, pending, error, choose, forget, stale };
+  return {
+    choice,
+    remembered,
+    pending,
+    error,
+    choose,
+    forget,
+    retry,
+    reading,
+    stale,
+  };
 }

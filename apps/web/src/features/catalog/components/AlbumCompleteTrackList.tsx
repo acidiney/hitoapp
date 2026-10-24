@@ -28,6 +28,7 @@ export default function AlbumCompleteTrackList({
   const [view, setView] = useState<View>("closed");
   const state = edition.choice.state;
   const ready = state.status === "ready" ? state.edition : null;
+  const linked = state.status !== "unset";
   const browseAnchor: AlbumCatalogAnchor | null =
     anchor ??
     (ready
@@ -56,9 +57,23 @@ export default function AlbumCompleteTrackList({
       {state.status === "needs_choice" && (
         <p>
           Your saved edition can no longer be used. Choose an edition again.
+          {browseAnchor === null &&
+            " Choosing again needs a reviewed artist for this album."}
         </p>
       )}
-      {edition.error && <p role="alert">{edition.error}</p>}
+      {edition.error && (
+        <>
+          <p role="alert">{edition.error}</p>
+          <button
+            type="button"
+            className="button"
+            disabled={edition.pending}
+            onClick={() => void edition.retry()}
+          >
+            Try saving again
+          </button>
+        </>
+      )}
       {view === "closed" && (browseAnchor || ready) && (
         <button type="button" className="button" onClick={open}>
           Show complete track list
@@ -72,7 +87,6 @@ export default function AlbumCompleteTrackList({
           canChange={browseAnchor !== null}
           stale={stale}
           change={() => setView("browse")}
-          forget={() => void forget()}
         />
       )}
       {view === "browse" && browseAnchor && (
@@ -80,11 +94,21 @@ export default function AlbumCompleteTrackList({
           account={account}
           release={release}
           anchor={browseAnchor}
-          remembered={edition.remembered}
-          remember={(chosen) => void edition.choose(chosen)}
-          forget={ready ? () => void forget() : null}
-          pending={edition.pending}
+          remembered={edition.remembered !== null}
+          remember={(chosen) =>
+            chosen ? void edition.choose(chosen) : edition.reading()
+          }
         />
+      )}
+      {linked && (
+        <button
+          type="button"
+          className="button"
+          disabled={edition.pending}
+          onClick={() => void forget()}
+        >
+          Forget edition
+        </button>
       )}
     </section>
   );
@@ -97,7 +121,6 @@ function SavedEdition({
   canChange,
   stale,
   change,
-  forget,
 }: {
   account: string;
   release: string;
@@ -105,7 +128,6 @@ function SavedEdition({
   canChange: boolean;
   stale: () => void;
   change: () => void;
-  forget: () => void;
 }) {
   const read = useSavedAlbumEditionRead(account, release, stale);
   return (
@@ -128,14 +150,6 @@ function SavedEdition({
           Change edition
         </button>
       )}
-      <button
-        type="button"
-        className="button"
-        disabled={pending}
-        onClick={forget}
-      >
-        Forget edition
-      </button>
     </>
   );
 }
@@ -146,16 +160,12 @@ function AlbumCatalogBrowser({
   anchor,
   remembered,
   remember,
-  forget,
-  pending,
 }: {
   account: string;
   release: string;
   anchor: AlbumCatalogAnchor;
   remembered: boolean;
-  remember: (edition: SavedAlbumEdition) => void;
-  forget: (() => void) | null;
-  pending: boolean;
+  remember: (edition: SavedAlbumEdition | null) => void;
 }) {
   const artist = useReviewedArtistProfile(account, anchor);
   return (
@@ -167,16 +177,6 @@ function AlbumCatalogBrowser({
         play a catalog track.
       </p>
       {remembered && <p role="status">This edition is remembered.</p>}
-      {forget && (
-        <button
-          type="button"
-          className="button"
-          disabled={pending}
-          onClick={forget}
-        >
-          Forget edition
-        </button>
-      )}
       {artist.pending && <p role="status">Loading the reviewed artist…</p>}
       {artist.error && (
         <>

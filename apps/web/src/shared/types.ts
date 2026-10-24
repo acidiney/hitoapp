@@ -64,6 +64,7 @@ export type AlbumCatalogAnchor = Schema["AlbumCatalogAnchor"];
 export type AlbumEditionChoice = Schema["AlbumEditionChoice"];
 export type AlbumEditionChoiceReceipt = Schema["AlbumEditionChoiceReceipt"];
 export type SavedAlbumEdition = Schema["SavedAlbumEdition"];
+export type ReleaseDetail = Schema["ReleaseDetail"];
 export type AlbumEditionTrackListAvailability =
   Schema["AlbumEditionTrackListAvailability"];
 export type ReadAlbumEditionTrackList = Schema["ReadAlbumEditionTrackList"];

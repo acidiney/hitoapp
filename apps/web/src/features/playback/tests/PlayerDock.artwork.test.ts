@@ -32,8 +32,8 @@ test("the dock cover tries the release image before the recording image", async 
       children: createElement(PlayerDock),
     }),
   );
-  expect(view.container.querySelector(".dock-artwork img")?.getAttribute("src")).toBe(
-    "/api/v1/releases/dock-release/artwork",
-  );
+  expect(
+    view.container.querySelector(".dock-artwork img")?.getAttribute("src"),
+  ).toBe("/api/v1/releases/dock-release/artwork");
   view.unmount();
 });

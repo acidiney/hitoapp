@@ -79,7 +79,7 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
       )}
       {detail.saved_edition &&
         (detail.catalog_anchor ||
-          detail.saved_edition.state.status === "ready") && (
+          detail.saved_edition.state.status !== "unset") && (
           <AlbumCompleteTrackList
             key={`${user.id}/${release.id}`}
             account={user.id}

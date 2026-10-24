@@ -29,7 +29,7 @@ export default function ArtistDiscography({
   profile: CatalogArtistProfile;
   browseOnMount?: boolean;
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition) => void;
+  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
 }) {
   const workflow = useArtistDiscography(
     account,

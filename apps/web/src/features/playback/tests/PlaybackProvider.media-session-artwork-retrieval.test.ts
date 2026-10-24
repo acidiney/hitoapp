@@ -33,9 +33,10 @@ function workflow(options: { canFetch?: boolean; hold?: Promise<void> } = {}) {
   const { canFetch = true, hold } = options;
   return (path: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
-    const match = /^\/api\/v1\/recordings\/([^/]+)\/artwork\/(availability|fetch)$/.exec(
-      path,
-    );
+    const match =
+      /^\/api\/v1\/recordings\/([^/]+)\/artwork\/(availability|fetch)$/.exec(
+        path,
+      );
     if (!match) {
       if (path.includes("/releases/"))
         return Response.json({ can_fetch: false });
@@ -58,10 +59,7 @@ function artworkRequests(requests: { path: string; method: string }[]) {
     .map((request) => `${request.method} ${request.path}`);
 }
 
-async function setup(
-  tracks = [recording, otherRecording],
-  reply = workflow(),
-) {
+async function setup(tracks = [recording, otherRecording], reply = workflow()) {
   const media = browserPreparationMedia();
   const system = browserMediaSession();
   const images = browserSessionImages();
@@ -126,9 +124,7 @@ test("a mounted artwork component and the media session share one fetch", async 
     });
     act(() => images.created[0].dispatchEvent(new Event("error")));
     await act(async () => {
-      view.container
-        .querySelector("img")
-        ?.dispatchEvent(new Event("error"));
+      view.container.querySelector("img")?.dispatchEvent(new Event("error"));
     });
     await vi.waitFor(() => expect(images.created).toHaveLength(2));
     expect(
@@ -230,8 +226,8 @@ test("an unavailable cover is checked once and never loops", async () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
     expect(
-      artworkRequests(test.requests).filter(
-        (request) => request.includes(recording.id),
+      artworkRequests(test.requests).filter((request) =>
+        request.includes(recording.id),
       ),
     ).toEqual([`GET ${recordingPath(recording.id)}/availability`]);
     expect(test.system.session.metadata?.artwork).toEqual([]);
