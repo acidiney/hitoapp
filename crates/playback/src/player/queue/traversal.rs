@@ -117,7 +117,7 @@ impl Traversal {
         };
         let from = current
             .and_then(|id| self.positions.get(&id))
-            .map_or(0, |index| index + 1)
+            .map_or(order.len(), |index| index + 2)
             .min(order.len());
         let mut rng = rand::thread_rng();
         let mut added = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
@@ -215,5 +215,43 @@ mod tests {
             visited[1..200].iter().any(|id| later.contains(id)),
             "Entries appended later were all held back until the first batch finished"
         );
+    }
+
+    #[test]
+    fn appending_never_changes_the_entry_that_plays_next() {
+        for _ in 0..50 {
+            let first = entries(30);
+            let mut traversal = Traversal::default();
+            traversal.toggle_shuffle(&first, Some(first[0].id));
+            let all = first.clone();
+            let before = traversal.next(&all, Some(0), Advance::Completed);
+            let mut known = first.clone();
+            for _ in 0..5 {
+                let added = entries(20);
+                known.extend(added.iter().copied());
+                traversal.append(&added, Some(first[0].id));
+            }
+            assert_eq!(traversal.next(&known, Some(0), Advance::Completed), before);
+        }
+    }
+
+    #[test]
+    fn entries_appended_after_the_queue_ended_follow_the_played_ones() {
+        for _ in 0..30 {
+            let first = entries(6);
+            let added = entries(6);
+            let mut traversal = Traversal::default();
+            traversal.toggle_shuffle(&first, Some(first[0].id));
+            traversal.append(&added, None);
+            let later = added.iter().map(|entry| entry.id).collect::<HashSet<_>>();
+            let all = first.iter().chain(&added).copied().collect::<Vec<_>>();
+            let mut current = 0;
+            let mut seen = Vec::new();
+            while let Some(next) = traversal.next(&all, Some(current), Advance::Completed) {
+                current = all.iter().position(|entry| entry.id == next).unwrap();
+                seen.push(next);
+            }
+            assert!(seen[5..].iter().all(|id| later.contains(id)));
+        }
     }
 }
