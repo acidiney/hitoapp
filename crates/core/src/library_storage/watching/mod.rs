@@ -4,7 +4,14 @@ mod request;
 mod volume;
 
 use super::{LibraryStorage, folder_types::Folder};
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::{Instrument, instrument::WithSubscriber};
 
@@ -40,11 +47,39 @@ pub enum WatchBackend {
     Polling,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, Default)]
+pub struct WatchCounters {
+    relevant: AtomicU64,
+    ignored: AtomicU64,
+    outside: AtomicU64,
+    polls: AtomicU64,
+    scans_requested: AtomicU64,
+    startup_scans: AtomicU64,
+    write_requests: AtomicU64,
+    request_errors: AtomicU64,
+}
+
+macro_rules! counter {
+    ($($name:ident),*) => {
+        impl WatchCounters {
+            $(pub fn $name(&self) -> u64 { self.$name.load(Ordering::SeqCst) })*
+        }
+    };
+}
+counter!(relevant, ignored, outside, polls, scans_requested, startup_scans, write_requests, request_errors);
+
+impl WatchCounters {
+    pub(super) fn bump(counter: &AtomicU64) {
+        counter.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct WatchedFolder {
     pub folder_id: String,
     pub generation: i64,
     pub backend: WatchBackend,
+    pub counters: Arc<WatchCounters>,
 }
 
 pub type WatchStatus = BTreeMap<String, WatchedFolder>;

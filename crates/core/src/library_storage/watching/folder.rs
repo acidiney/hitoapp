@@ -46,6 +46,7 @@ impl LibraryStorage {
                     folder_id: folder.id.clone(),
                     generation: folder.generation,
                     backend,
+                    counters: Default::default(),
                 },
             );
         });

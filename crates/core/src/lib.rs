@@ -72,7 +72,7 @@ pub use library_storage::AudioFile;
 pub use library_storage::{
     BrowseDirectories, ConnectFolder, DirectoryEntry, DirectoryPage, DirectoryRef,
     FolderWatchSettings, Job, LibraryStorage, MusicFolder, SharedDirectory, WatchBackend,
-    WatchMode, WatchStatus, WatchedFolder,
+    WatchCounters, WatchMode, WatchStatus, WatchedFolder,
 };
 pub use maintenance::{MigrationOutcome, migrate_existing};
 pub use metadata::{

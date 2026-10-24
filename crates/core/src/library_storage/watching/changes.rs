@@ -154,6 +154,10 @@ fn fingerprint(root: &Root) -> u64 {
             continue;
         };
         seen += 1;
+        #[cfg(test)]
+        if let Some(hook) = WALK_HOOK.lock().unwrap().clone() {
+            hook();
+        }
         let Ok(entry) = entry else { continue };
         let relative = parent.join(entry.file_name());
         let Ok(kind) = entry.file_type() else {
@@ -180,4 +184,57 @@ fn fingerprint(root: &Root) -> u64 {
         }
     }
     total
+}
+
+#[cfg(test)]
+pub(super) static WALK_HOOK: std::sync::Mutex<Option<Arc<dyn Fn() + Send + Sync>>> =
+    std::sync::Mutex::new(None);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::library_storage::walking::paths;
+    use std::sync::Mutex;
+    use tokio::sync::Semaphore;
+
+    #[tokio::test]
+    async fn polling_never_takes_the_walk_slot_a_scan_needs() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("a.wav"), b"x").unwrap();
+        let slots = Arc::new(Semaphore::new(1));
+        let walks = Arc::new(Semaphore::new(1));
+        let root = Root::open(directory.path(), &slots, &walks, &[])
+            .await
+            .unwrap();
+        let (entered, wait_entered) = std::sync::mpsc::channel::<()>();
+        let (release, wait_release) = std::sync::mpsc::channel::<()>();
+        let wait_release = Mutex::new(wait_release);
+        let entered = Mutex::new(entered);
+        let once = AtomicBool::new(false);
+        *WALK_HOOK.lock().unwrap() = Some(Arc::new(move || {
+            if !once.swap(true, Ordering::SeqCst) {
+                entered.lock().unwrap().send(()).unwrap();
+                wait_release.lock().unwrap().recv().unwrap();
+            }
+        }));
+        let settings = FolderWatchSettings {
+            mode: WatchMode::Poll,
+            poll_interval: Duration::from_millis(10),
+            debounce: Duration::from_millis(10),
+        };
+        let opening = tokio::spawn({
+            let root = root.clone();
+            async move { Changes::open(root, &settings, "folder").await }
+        });
+        tokio::task::spawn_blocking(move || wait_entered.recv().unwrap())
+            .await
+            .unwrap();
+        let scan_walk = paths(&root);
+        let available = scan_walk.is_ok();
+        drop(scan_walk);
+        release.send(()).unwrap();
+        opening.await.unwrap();
+        *WALK_HOOK.lock().unwrap() = None;
+        assert!(available, "A poll walk must not take the scanner's walk slot");
+    }
 }
