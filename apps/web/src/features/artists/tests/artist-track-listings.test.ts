@@ -18,7 +18,7 @@ const track = {
 };
 
 test("artist pages ask for later track pages with the track offset", async () => {
-  const fetch = vi.fn(async () =>
+  const fetch = vi.fn(async (_url: string) =>
     Response.json({ recordings: { total: 9, items: [track] } }),
   );
   vi.stubGlobal("fetch", fetch);
@@ -35,7 +35,7 @@ test("artist pages ask for later track pages with the track offset", async () =>
 
 test("chosen artist pages keep their library filter and unwrap members", async () => {
   window.history.replaceState(null, "", "/artist-groups/g?library=main");
-  const fetch = vi.fn(async () =>
+  const fetch = vi.fn(async (_url: string) =>
     Response.json({ recordings: { total: 5, items: [{ recording: track }] } }),
   );
   vi.stubGlobal("fetch", fetch);

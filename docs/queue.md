@@ -1,6 +1,6 @@
 # Playback queue
 
-The queue is the ordered list of entries a listener has chosen to play. Each entry has its own ID, so one recording can appear several times and each copy is edited on its own. In a browser, the Playback store in the page owns the queue. In the desktop app, the Rust player owns it and the page sends commands. Both expose the same `Player` interface to React.
+The queue is the ordered list of entries a listener plays. Each entry has its own ID, so a recording can appear twice and each copy is edited alone. In a browser, the Playback store in the page owns the queue. In the desktop app, the Rust player owns it and the page sends commands. Both expose the same `Player` interface to React.
 
 ## Operations
 
@@ -11,7 +11,7 @@ The queue is the ordered list of entries a listener has chosen to play. Each ent
 | Select, remove, clear | yes | `select`, `remove`, `clear` |
 | Move | `moveEntry(entry, before)` | `move` command with the same arguments |
 
-`moveEntry` takes the ID of the entry to move and the ID of the entry it should land before, or `null` for the end. It never restarts the playing track. The playing entry keeps its ID, and its index is recomputed. Shuffle order is stored by entry, so a move leaves it alone. After a move the browser asks for its next-entry preparation again. If the next entry is unchanged, the buffered audio stays. If it changed, the old preparation is cancelled and the new next entry is prepared. See [next-entry preparation](next-entry-preparation.md).
+`moveEntry` takes the ID of the entry to move and the ID of the entry it should land before, or `null` for the end. It never restarts the playing track. The playing entry keeps its ID and gets a new index. Shuffle order is stored by entry, so a move leaves it alone. After a move the browser re-checks which entry is next. If it is the same, the buffered audio stays. If not, the old preparation is cancelled and the new next entry is prepared. See [next-entry preparation](next-entry-preparation.md).
 
 ## Playing a whole result
 
@@ -27,12 +27,13 @@ flowchart LR
   Replace[New queue, clear or account change] -->|abort| Feed
 ```
 
-- The first page plays at once. The remaining pages arrive one request at a time, 200 entries each, through the existing paged JSON routes (`/recordings`, `/releases/{id}`).
+- The first page plays at once. The remaining pages arrive one request at a time, 200 entries each, through the existing paged JSON routes: `/recordings`, `/releases/{id}`, `/artists/{id}` and `/artist-identity-groups/{id}`.
 - Play on a page after the first starts at the beginning of the whole result. Clicking a row plays from that row to the end of the result. Entries before a clicked row on an earlier page are not queued.
 - The queue holds at most 100,000 entries, the same limit as the native owner. When a result is larger, the feed stops there and says so.
 - Replacing the queue, clearing it, closing the native session or switching accounts aborts the request in flight. A page that arrives late is dropped.
+- Page requests log at debug level, so a 100,000-entry feed does not write about 500 info lines.
 - If a page fails, the entries already loaded keep playing and the player shows "The rest of the list could not be loaded."
-- With shuffle on, each batch is mixed uniformly into the part of the shuffle order that has not played yet. A shuffled playthrough therefore covers the whole result, not one page at a time. The first track is still the clicked or first one.
+- With shuffle on, each batch is mixed uniformly into the part of the shuffle order that has not played yet. A shuffled playthrough therefore covers the whole result, not one page at a time. The first track is always the clicked or first one.
 - Artist and chosen-artist pages page their tracks with `recording_offset` and queue the whole list the same way. Playlists and history load all their entries with the page, so they already queue everything.
 
 ## Large queues
@@ -57,9 +58,9 @@ Browser numbers come from Vitest in Node (jsdom), no real network, on the develo
 | Native remove, average | 0.59 ms | 7.9 ms |
 | Native page of 50, average | 0.8 ms | 0.8 ms |
 
-A shuffled 100,000-entry result fed in 499 batches of 200 took 0.5 seconds in the browser test. The longest gap between two batches was 3.5 ms. These are unit timings. They do not include network time for 500 page requests, real layout, or scroll frame rates on a physical device. The Vitest suite asserts a loose 50 ms bound, not these numbers.
+A shuffled 100,000-entry result fed in 499 batches of 200 took 0.5 seconds in the browser test. The longest gap between two batches was 3.5 ms. These are unit timings. They leave out network time for 500 page requests, real layout and scroll frame rates on a device. The Vitest suite asserts a loose 50 ms bound, not these numbers.
 
-Moving and removing are still linear in queue size, because they shift an array. The constants are small enough that the cost does not show below 100,000 entries.
+Moving and removing are still linear in queue size, because they shift an array. The constants are small, so the cost does not show up in the table.
 
 ## Tests
 
