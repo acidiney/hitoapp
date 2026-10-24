@@ -1,7 +1,9 @@
 mod origins;
+mod watching;
 
 use hito_core::{CommunityConfig, CommunityRankingConfig, CoreConfig, HostDeviceId, StorageConfig};
 use origins::{parse_additional_origins, validate_combined_origins};
+use watching::parse_folder_watching;
 use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf};
 
@@ -96,6 +98,12 @@ impl RuntimeConfig {
             std::env::var("HITO_PUBLIC_ORIGIN").unwrap_or_else(|_| "http://localhost:8080".into());
         validate_combined_origins(&config.http.origin, &additional_origins)?;
         config.http.additional_origins = additional_origins;
+        config.core.folder_watching = parse_folder_watching(
+            std::env::var("HITO_FOLDER_WATCH").ok().as_deref(),
+            std::env::var("HITO_FOLDER_WATCH_POLL_SECONDS")
+                .ok()
+                .as_deref(),
+        )?;
         config.listen = std::env::var("HITO_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:8080".into())
             .parse()?;
@@ -159,6 +167,7 @@ impl RuntimeConfig {
                 podcast_network: Default::default(),
                 community: None,
                 community_rankings: None,
+                folder_watching: Default::default(),
             },
             http: Config {
                 origin: Config::default().origin,

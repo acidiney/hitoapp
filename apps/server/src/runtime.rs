@@ -94,6 +94,7 @@ async fn serve_owned(
 ) -> RuntimeResult<()> {
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
+    let watching = folder_watching_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
     let reports = community::worker(services.community, stopped.clone());
     let preparation_catalog = services.catalog;
@@ -134,9 +135,10 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), ()) = tokio::join!(
         http,
         indexing,
+        watching,
         artwork,
         follows,
         transfers,
@@ -183,6 +185,14 @@ async fn indexing_worker(
         }
     }
     tracing::info!(event = "worker_stopped", "Indexing worker stopped");
+}
+
+async fn folder_watching_worker(
+    storage: hito_core::LibraryStorage,
+    stopped: tokio::sync::watch::Receiver<bool>,
+) {
+    let (status, _) = tokio::sync::watch::channel(hito_core::WatchStatus::new());
+    storage.watch_folders(stopped, status).await;
 }
 
 async fn artwork_worker(
