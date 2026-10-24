@@ -42,6 +42,29 @@ Opening and browsing have deadlines. Per-grant limits isolate stalled locations.
 
 Pending legacy witnesses are checked before ordinary matching. Incomplete legacy discovery fails conservatively rather than guessing identity. Metadata follows a surviving verified source when its previous owner becomes unavailable.
 
+## Automatic rescans
+
+The server watches every connected, bound server folder and queues a scan when its supported audio files are added, removed, renamed or changed. It uses the same scan job, lease, generation and attempt-token checks as a manual rescan. There is no second scanner.
+
+```mermaid
+flowchart LR
+  Change[File change] --> Signal[Native events or polling]
+  Signal --> Quiet[Quiet period]
+  Quiet --> Request{Active job?}
+  Request -- none --> Queue[Queue scan]
+  Request -- queued --> Done[Already covered]
+  Request -- running --> Wait[Wait, then queue one follow-up]
+```
+
+- A burst of changes collapses into one scan. The quiet period restarts on each change and is capped at ten times its length.
+- A change during a running scan waits for that scan, then queues exactly one follow-up. A change while a scan is only queued adds nothing, because that scan has not started reading yet.
+- Native operating-system events are the default. Hito uses polling instead when the operator asks for it, when the folder sits on a network, virtual or removable volume (detected on Linux), or when the system refuses another watch (for example at the inotify limit). Polling compares file names, sizes and modification times at the poll interval. Each folder logs its choice once, with a reason code and no path.
+- Watching never follows symbolic links out of the folder. Events only trigger a scan; the scan itself still reads through the granted directory handle.
+- Disconnecting or removing a folder stops its watcher. Reconnecting starts a new watcher for the new generation. Shutdown stops and joins every watcher before the server exits. Files that changed while the server was stopped are not seen until the next manual or reconnect scan.
+- Operators set the behaviour with `HITO_FOLDER_WATCH` (`auto`, `poll` or `off`) and `HITO_FOLDER_WATCH_POLL_SECONDS`. See [operations](operations.md#music-scanning).
+
+Automated tests cover a new file, a removed file, a burst, a change during a running scan, disconnect and reconnect, the polling fallback, links leaving the folder, a disabled setting and shutdown. They ran on Linux inside Docker with temporary directories. Windows and macOS native watching, network volumes and removable drives are not yet tested. Native desktop folders (automatic discovery and native selection) are separate unfinished work.
+
 ## Evidence and limits
 
 `./scripts/verify.sh` covers core/HTTP tests, generated contracts, browser tests, setup generation, Compose interpolation, formatting, Clippy, web build, and dependency audit. The browser flow adds two folders and checks desktop/mobile layout, status, Escape, focus restoration, playback, and account isolation.

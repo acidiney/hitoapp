@@ -60,6 +60,8 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [ ] Add unlinking, merge splitting, undo, administrator promotion, and reconciliation after raw release retags.
 - [x] Add multiple server music folders, independent rescans, safe removal/reconnection, and administrator folder selection in Settings.
 - [ ] Add filesystem watching, automatic desktop Music-folder discovery, and native desktop folder selection.
+  - [x] Watch connected server music folders (native events with a polling fallback, debounce, one follow-up per running scan, operator setting `HITO_FOLDER_WATCH`) and queue incremental rescans through the existing scan path. Linux Docker tests cover it; macOS/Windows native watching and network volumes are untested. See [automatic rescans](docs/music-folders.md#automatic-rescans).
+  - [ ] Add automatic desktop Music-folder discovery and native desktop folder selection.
 - [x] Add account-owned HTTP plugin connections, encrypted optional bearer tokens, administrator-offered service addresses, manifest review, and local removal.
 - [ ] Complete provider-specific credential flows and shared provider defaults; add optional local PIN locks.
   - [ ] Implement and verify Windows ACL protection for credential keys and private administrator-token files, including creation, reopening, unsafe permissions, replacement and lost-key recovery. Verify the same ownership guarantees on macOS and Linux before enabling packaged credential storage.
