@@ -147,6 +147,7 @@ async fn exercise(app: &Router, account: &Account, server: &AlbumProvider) {
             ("occurrence:album/2/1", first.as_str()),
         ]
     );
+    assert_eq!(merged["attached_occurrences"], json!([]));
     assert_eq!(merged["library_only"].as_array().unwrap().len(), 1);
     assert_eq!(merged["library_only"][0]["id"], saved[2]["id"]);
     assert_eq!(merged["adoption"]["installation_id"], installation_id);

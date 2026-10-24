@@ -43,6 +43,7 @@ pub struct ReleaseDetail {
 }
 
 pub(super) const MAX_COMPARED_TRACKS: i64 = 1000;
+const MAX_ANCHOR_CANDIDATES: i64 = 16;
 
 const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
     OR EXISTS (SELECT 1 FROM provider_release_appearances appearance WHERE appearance.release_id = a.id))";
@@ -103,7 +104,8 @@ impl Catalog {
     #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), release_id))]
     pub async fn release(&self, actor: &Actor, id: &str, browse: Browse) -> Result<ReleaseDetail> {
         let (offset, limit) = browse.bounds();
-        self.release_page(actor, id, offset, limit).await
+        self.release_page(actor, id, offset, limit, offset == 0)
+            .await
     }
 
     pub(super) async fn release_for_comparison(
@@ -111,7 +113,9 @@ impl Catalog {
         actor: &Actor,
         id: &str,
     ) -> Result<ReleaseDetail> {
-        let detail = self.release_page(actor, id, 0, MAX_COMPARED_TRACKS).await?;
+        let detail = self
+            .release_page(actor, id, 0, MAX_COMPARED_TRACKS, false)
+            .await?;
         if detail.tracks.total > MAX_COMPARED_TRACKS {
             return Err(Error::Invalid(
                 "Albums with more than 1,000 tracks cannot be compared with a catalog edition"
@@ -127,6 +131,7 @@ impl Catalog {
         id: &str,
         offset: i64,
         limit: i64,
+        with_anchor: bool,
     ) -> Result<ReleaseDetail> {
         let mut summary = selected(actor, &Browse::default(), Some(id))?;
         summary.push(SUMMARY);
@@ -162,18 +167,26 @@ impl Catalog {
             .push_bind(offset);
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         let total = release.track_count;
-        let mut anchor = selected(actor, &Browse::default(), Some(&release.id))?;
-        anchor
-            .push(
-                "SELECT assoc.recording_id, assoc.id AS association_id FROM entries m
-                JOIN recording_artist_associations assoc ON assoc.recording_id = m.recording_id AND assoc.user_id = ",
-            )
-            .push_bind(actor.id().to_owned())
-            .push(" ORDER BY COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, assoc.created_at, assoc.id LIMIT 1");
-        let catalog_anchor = anchor
-            .build_query_as()
-            .fetch_optional(&self.store.pool)
-            .await?;
+        let catalog_anchor = if with_anchor {
+            let mut candidates = selected(actor, &Browse::default(), Some(&release.id))?;
+            candidates
+                .push(
+                    "SELECT assoc.recording_id, assoc.id AS association_id FROM entries m
+                    JOIN recording_artist_associations assoc ON assoc.recording_id = m.recording_id AND assoc.user_id = ",
+                )
+                .push_bind(actor.id().to_owned())
+                .push(" ORDER BY (assoc.artist_id IS ")
+                .push_bind(release.artist_id.clone())
+                .push(") DESC, COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, assoc.created_at, assoc.id LIMIT ")
+                .push_bind(MAX_ANCHOR_CANDIDATES);
+            let candidates = candidates
+                .build_query_as()
+                .fetch_all(&self.store.pool)
+                .await?;
+            self.first_readable_anchor(actor, candidates).await?
+        } else {
+            None
+        };
         tracing::debug!(total, offset, limit, "Album detail loaded");
         Ok(ReleaseDetail {
             catalog_anchor,

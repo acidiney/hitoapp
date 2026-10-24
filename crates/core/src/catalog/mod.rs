@@ -23,6 +23,9 @@ pub use source_choice::{
     ChooseSource, ResetSourceChoice, SourceChoice, SourceChoiceEntry, SourceChoiceMode,
     SourceChoiceReceipt, SourceChoiceResetReceipt,
 };
+#[cfg(test)]
+#[path = "tests/album_anchor_work.rs"]
+mod album_anchor_work;
 mod playback_sources;
 #[cfg(test)]
 #[path = "tests/release_query_work.rs"]

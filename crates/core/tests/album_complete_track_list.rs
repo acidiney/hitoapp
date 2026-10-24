@@ -1,172 +1,13 @@
+#[path = "fixtures/album_complete_library.rs"]
+mod library;
 use hito_core::test_support::album_edition_service::{self as provider, AlbumProvider};
 use hito_core::test_support::support;
 
 use hito_core::{
-    Action, Actor, AdoptProviderRecording, AlbumEditionTrackListAvailability, ArtistAssociation,
-    ArtistCreditRole, AssociateRecordingArtist, Browse, Credentials, Error, InstallPlugin,
-    MetadataProvider, OfferPluginService, PluginInstallation, ReadAlbumEditionTrackList, Search,
-    Services, UpdateMetadataSettings,
+    AlbumEditionTrackListAvailability, Browse, Credentials, Error, UpdateMetadataSettings,
 };
-use serde_json::{Value, json};
+use library::{Album, PERSONAL_TITLE};
 use uuid::Uuid;
-
-struct Album {
-    hito: Services,
-    actor: Actor,
-    installation: PluginInstallation,
-    association: ArtistAssociation,
-    release_id: String,
-    first: String,
-    second: String,
-    extra: String,
-    _directory: tempfile::TempDir,
-}
-
-const PERSONAL_TITLE: &str = "Private personal title";
-
-impl Album {
-    async fn prepare(server: &AlbumProvider) -> Self {
-        let (directory, hito, actor, _library, _music) = support::library("album-complete").await;
-        let service = hito
-            .plugins
-            .offer_service(
-                &actor,
-                OfferPluginService {
-                    name: "Owned album editions".into(),
-                    base_url: server.url.clone(),
-                },
-            )
-            .await
-            .unwrap();
-        let installation = hito
-            .plugins
-            .install(
-                &actor,
-                InstallPlugin {
-                    accept_manifest_digest: None,
-                    service_id: service.id,
-                    service_revision: service.revision,
-                    bearer_token: None,
-                },
-            )
-            .await
-            .unwrap();
-        let mut saved = Vec::new();
-        for id in [provider::FIRST, provider::SECOND, provider::EXTRA] {
-            saved.push(
-                hito.catalog
-                    .adopt_provider(
-                        &actor,
-                        &installation.id,
-                        AdoptProviderRecording {
-                            installation_revision: installation.revision,
-                            provider_recording_id: id.into(),
-                        },
-                    )
-                    .await
-                    .unwrap(),
-            );
-        }
-        let release_id = saved[0].release_id.clone().expect("a provider release");
-        assert!(
-            saved
-                .iter()
-                .all(|r| r.release_id.as_ref() == Some(&release_id))
-        );
-        support::synchronize(
-            &hito,
-            &actor,
-            vec![Action::RecordingTitleSet {
-                recording_id: Uuid::parse_str(&saved[1].id).unwrap(),
-                title: PERSONAL_TITLE.into(),
-            }],
-        )
-        .await;
-        let settings = hito.catalog.metadata_settings(&actor).await.unwrap();
-        let selected = MetadataProvider::HttpPlugin {
-            installation_id: installation.id.clone(),
-        };
-        let settings = hito
-            .catalog
-            .set_metadata_settings(
-                &actor,
-                UpdateMetadataSettings {
-                    revision: settings.revision,
-                    enabled: true,
-                    providers: vec![selected.clone()],
-                },
-            )
-            .await
-            .unwrap();
-        let artists = hito
-            .catalog
-            .artists(&actor, Browse::default())
-            .await
-            .unwrap();
-        assert_eq!(artists.total, 1);
-        let metadata = hito
-            .catalog
-            .recording_metadata(&actor, &saved[0].id, Default::default())
-            .await
-            .unwrap();
-        let association = hito
-            .catalog
-            .associate_recording_artist(
-                &actor,
-                &saved[0].id,
-                AssociateRecordingArtist {
-                    artist_id: artists.items[0].id.clone(),
-                    source_id: None,
-                    observation_id: metadata.selected_observation.unwrap().id,
-                    role: ArtistCreditRole::RecordingArtist,
-                    provider: selected,
-                    provider_artist_id: provider::ARTIST_ID.into(),
-                    policy_revision: settings.revision,
-                },
-            )
-            .await
-            .unwrap();
-        Self {
-            hito,
-            actor,
-            installation,
-            association,
-            release_id,
-            first: saved[0].id.clone(),
-            second: saved[1].id.clone(),
-            extra: saved[2].id.clone(),
-            _directory: directory,
-        }
-    }
-
-    fn request(&self, edition: &str) -> ReadAlbumEditionTrackList {
-        ReadAlbumEditionTrackList {
-            recording_id: self.first.clone(),
-            association_id: self.association.id.clone(),
-            release_group_id: provider::GROUP_ID.into(),
-            edition_id: edition.into(),
-        }
-    }
-
-    async fn read(&self, edition: &str) -> hito_core::Result<AlbumEditionTrackListAvailability> {
-        self.hito
-            .catalog
-            .album_edition_track_list_until(
-                &self.actor,
-                &self.release_id,
-                self.request(edition),
-                std::future::pending(),
-            )
-            .await
-    }
-
-    async fn library(&self) -> Value {
-        json!({
-            "recordings": self.hito.catalog.recordings(&self.actor, Search::default()).await.unwrap(),
-            "release": self.hito.catalog.release(&self.actor, &self.release_id, Browse::default()).await.unwrap(),
-        })
-    }
-}
 
 #[tokio::test]
 async fn a_selected_edition_merges_with_the_library_only_by_exact_provider_identity() {
@@ -180,6 +21,7 @@ async fn a_selected_edition_merges_with_the_library_only_by_exact_provider_ident
         edition,
         matches,
         library_only,
+        attached_occurrences,
         adoption,
         is_album_release,
     } = album.read(provider::EDITION_ID).await.unwrap()
@@ -227,6 +69,7 @@ async fn a_selected_edition_merges_with_the_library_only_by_exact_provider_ident
     assert_eq!(second.title, PERSONAL_TITLE, "Personal edits survive");
     assert_eq!(second.inherited_title, "Second provider title");
 
+    assert!(attached_occurrences.is_empty());
     assert_eq!(library_only.len(), 1);
     assert_eq!(library_only[0].recording.id, album.extra);
     assert_eq!(library_only[0].disc_number, Some(1));

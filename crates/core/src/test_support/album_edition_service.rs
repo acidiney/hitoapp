@@ -27,6 +27,8 @@ pub const FIRST: &str = "recording:album/first";
 pub const SECOND: &str = "recording:album/second";
 pub const EXTRA: &str = "recording:album/library-only";
 pub const BONUS: &str = "recording:album/bonus";
+pub const FEATURED: &str = "recording:album/featured-guest";
+pub const FEATURED_CREDIT: &str = "Featured guest performer";
 pub const TWIN: &str = "recording:album/same-title-other-recording";
 pub const FIRST_TITLE: &str = "Shared title";
 
@@ -125,15 +127,16 @@ impl Drop for AlbumProvider {
 }
 
 pub fn detail(id: &str) -> Option<Value> {
-    let (title, disc, track) = match id {
-        FIRST => (FIRST_TITLE, 1, 1),
-        SECOND => ("Second provider title", 1, 2),
-        EXTRA => ("Library only track", 1, 9),
-        BONUS => ("Bonus provider title", 2, 2),
+    let (title, disc, track, artist) = match id {
+        FIRST => (FIRST_TITLE, 1, 2, CREDIT),
+        SECOND => ("Second provider title", 1, 3, CREDIT),
+        EXTRA => ("Library only track", 1, 9, CREDIT),
+        FEATURED => ("Featured provider title", 1, 1, FEATURED_CREDIT),
+        BONUS => ("Bonus provider title", 2, 2, CREDIT),
         _ => return None,
     };
     Some(json!({
-        "id": id, "title": title, "artist": CREDIT, "duration_ms": 1000,
+        "id": id, "title": title, "artist": artist, "duration_ms": 1000,
         "release": {"id": EDITION_ID, "title": RELEASE_TITLE, "artist": CREDIT},
         "disc_number": disc, "track_number": track, "revision": "album-r1"
     }))

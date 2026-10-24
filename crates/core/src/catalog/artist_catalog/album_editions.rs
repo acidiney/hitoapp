@@ -1,5 +1,11 @@
-use super::{MetadataProvider, REQUEST_BUDGET, ReadEditionTrackList, editions::EditionRead};
-use crate::{Actor, Catalog, Error, Recording, ReleaseTrack, Result, catalog::recordings_on};
+use super::{
+    MetadataProvider, REQUEST_BUDGET, ReadEditionTrackList, associations, authority::Credit,
+    editions::EditionRead, policy, provider,
+};
+use crate::{
+    Actor, AlbumCatalogAnchor, Catalog, Error, Recording, ReleaseTrack, Result,
+    catalog::recordings_on,
+};
 use hito_plugin_sdk::CatalogEditionTrackList;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -39,6 +45,7 @@ pub enum AlbumEditionTrackListAvailability {
         edition: Box<CatalogEditionTrackList>,
         matches: Vec<CatalogTrackMatch>,
         library_only: Vec<ReleaseTrack>,
+        attached_occurrences: Vec<String>,
         #[schema(required = true)]
         adoption: Option<CatalogAdoption>,
         is_album_release: bool,
@@ -137,12 +144,12 @@ impl Catalog {
             MetadataProvider::HttpPlugin { installation_id } => Some(installation_id.as_str()),
             MetadataProvider::BuiltinMusicBrainz => None,
         };
-        let linked = match installation {
+        let (linked, bound) = match installation {
             Some(installation) => {
                 self.linked_recordings(actor, installation, &edition)
                     .await?
             }
-            None => HashMap::new(),
+            None => Default::default(),
         };
         let mut matches = Vec::new();
         for medium in &edition.media {
@@ -159,6 +166,17 @@ impl Catalog {
                 }
             }
         }
+        let attached_occurrences = edition
+            .media
+            .iter()
+            .flat_map(|medium| &medium.tracks)
+            .filter(|track| {
+                track.recording_id.as_ref().is_some_and(|provider_id| {
+                    bound.contains(provider_id) && !linked.contains_key(provider_id)
+                })
+            })
+            .map(|track| track.id.clone())
+            .collect();
         let linked_ids: HashSet<&str> = matches
             .iter()
             .map(|linked| linked.recording.id.as_str())
@@ -187,6 +205,7 @@ impl Catalog {
             edition: Box::new(edition),
             matches,
             library_only,
+            attached_occurrences,
             adoption,
             is_album_release,
         })
@@ -197,7 +216,7 @@ impl Catalog {
         actor: &Actor,
         installation: &str,
         edition: &CatalogEditionTrackList,
-    ) -> Result<HashMap<String, Recording>> {
+    ) -> Result<(HashMap<String, Recording>, HashSet<String>)> {
         let wanted: Vec<&str> = edition
             .media
             .iter()
@@ -207,7 +226,7 @@ impl Catalog {
             .into_iter()
             .collect();
         if wanted.is_empty() {
-            return Ok(HashMap::new());
+            return Ok(Default::default());
         }
         let wanted = serde_json::to_string(&wanted)
             .map_err(|_| Error::Internal("Catalog identities could not be encoded".into()))?;
@@ -221,23 +240,38 @@ impl Catalog {
             JOIN recordings r ON r.id = item.recording_id AND r.metadata_binding_id = item.id
             JOIN library_members member ON member.library_id = r.library_id AND member.user_id = ?",
         )
-        .bind(wanted)
+        .bind(&wanted)
         .bind(installation)
         .bind(actor.id())
         .bind(actor.id())
         .fetch_all(&mut *connection)
         .await?;
+        let bound: HashSet<String> = sqlx::query_scalar(
+            "SELECT DISTINCT item.provider_recording_id FROM json_each(?) wanted
+            JOIN provider_items item ON item.installation_id = ? AND item.provider_recording_id = wanted.value
+                AND item.retired = 0
+            JOIN plugin_installations installation ON installation.id = item.installation_id AND installation.user_id = ?",
+        )
+        .bind(&wanted)
+        .bind(installation)
+        .bind(actor.id())
+        .fetch_all(&mut *connection)
+        .await?
+        .into_iter()
+        .collect();
         let ids = rows
             .iter()
             .map(|(_, recording)| Uuid::parse_str(recording))
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|_| Error::Internal("A stored recording identity is invalid".into()))?;
         let recordings = recordings_on(&mut connection, &self.host, actor, &ids).await?;
-        Ok(rows
-            .into_iter()
-            .zip(recordings)
-            .map(|((provider_id, _), recording)| (provider_id, recording))
-            .collect())
+        Ok((
+            rows.into_iter()
+                .zip(recordings)
+                .map(|((provider_id, _), recording)| (provider_id, recording))
+                .collect(),
+            bound,
+        ))
     }
 
     async fn release_is_provider_edition(
@@ -260,5 +294,53 @@ impl Catalog {
             .is_some_and(|(kind, owner, id)| {
                 kind == "plugin" && owner == installation && id == edition
             }))
+    }
+}
+
+impl Catalog {
+    pub(crate) async fn first_readable_anchor(
+        &self,
+        actor: &Actor,
+        candidates: Vec<AlbumCatalogAnchor>,
+    ) -> Result<Option<AlbumCatalogAnchor>> {
+        if candidates.is_empty() {
+            return Ok(None);
+        }
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
+        let settings = policy::read(&mut tx, actor).await?;
+        if !settings.enabled {
+            return Ok(None);
+        }
+        for candidate in candidates {
+            let association = match associations::load(
+                &mut tx,
+                actor,
+                &candidate.recording_id,
+                &candidate.association_id,
+            )
+            .await
+            {
+                Ok(association) => association,
+                Err(Error::NotFound) => continue,
+                Err(error) => return Err(error),
+            };
+            if !policy::selected(&settings, &association.provider) {
+                continue;
+            }
+            if let MetadataProvider::HttpPlugin { installation_id } = &association.provider
+                && provider::catalog_revision(&mut tx, actor, installation_id)
+                    .await?
+                    .is_none()
+            {
+                continue;
+            }
+            match Credit::capture(&mut tx, actor, &candidate.recording_id).await {
+                Ok(credit) if credit.matches(&association) => return Ok(Some(candidate)),
+                Ok(_) | Err(Error::NotFound) => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(None)
     }
 }

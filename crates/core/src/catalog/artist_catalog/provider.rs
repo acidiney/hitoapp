@@ -37,11 +37,13 @@ impl Connection {
                 Ok(Self::Builtin(catalog.artist_catalog.builtin.clone()))
             }
             MetadataProvider::HttpPlugin { installation_id } => {
-                let revision: i64 = sqlx::query_scalar("SELECT installation.revision FROM plugin_installations installation
-                    JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
-                    WHERE installation.id=? AND installation.user_id=? AND installation.active=1
-                        AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value='catalog')")
-                    .bind(installation_id).bind(actor.id()).fetch_optional(&catalog.store.pool).await?.ok_or(Error::NotFound)?;
+                let revision = catalog_revision(
+                    &mut *catalog.store.pool.acquire().await?,
+                    actor,
+                    installation_id,
+                )
+                .await?
+                .ok_or(Error::NotFound)?;
                 let operation = catalog
                     .plugins
                     .operation(actor, installation_id, revision, &[Capability::Catalog])
@@ -210,6 +212,18 @@ impl Connection {
             Self::Http(operation) => operation.catalog_artist_discography(request).await,
         }
     }
+}
+
+pub(super) async fn catalog_revision(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    installation: &str,
+) -> Result<Option<i64>> {
+    Ok(sqlx::query_scalar("SELECT installation.revision FROM plugin_installations installation
+        JOIN plugin_services service ON service.id=installation.service_id AND service.active=1
+        WHERE installation.id=? AND installation.user_id=? AND installation.active=1
+            AND EXISTS(SELECT 1 FROM json_each(installation.manifest,'$.capabilities') WHERE value='catalog')")
+        .bind(installation).bind(actor.id()).fetch_optional(connection).await?)
 }
 
 pub(super) fn validate_artist_id(provider: &MetadataProvider, value: &str) -> Result<()> {
