@@ -121,7 +121,7 @@ fn walk(root: Root, sender: &Sender<Event>, progress: &watch::Sender<Instant>) -
     Ok(())
 }
 
-fn supported(path: &Path) -> bool {
+pub(super) fn supported(path: &Path) -> bool {
     let extension = path
         .extension()
         .and_then(|v| v.to_str())

@@ -150,7 +150,10 @@ impl Harness {
             .recordings(&self.actor, Search::default())
             .await
             .unwrap()
-            .total as usize
+            .items
+            .iter()
+            .filter(|recording| recording.available)
+            .count()
     }
 
     async fn indexed(&self, expected: usize) {
@@ -173,6 +176,7 @@ impl Harness {
             .await
             .expect("Shutdown must join every watcher")
             .unwrap();
+        assert!(self.status.borrow().is_empty(), "Shutdown must retire every watcher");
         self.worker.await.unwrap();
         drop(self.directory);
     }
@@ -181,6 +185,8 @@ impl Harness {
 #[tokio::test]
 async fn a_wav_added_to_a_connected_folder_is_indexed_without_a_manual_scan() {
     let harness = start(WatchMode::Auto, 50, false).await;
+    #[cfg(target_os = "linux")]
+    assert_eq!(harness.watched().await, WatchBackend::Native);
     assert_eq!(harness.recordings().await, 1);
     support::write_wav(&harness.music.join("second.wav"), 1);
     harness.indexed(2).await;
@@ -304,4 +310,28 @@ async fn disabled_watching_never_scans() {
     assert_eq!(harness.recordings().await, 1);
     assert_eq!(harness.jobs_run.load(Ordering::SeqCst), 0);
     harness.shutdown().await;
+}
+
+async fn changes_outside_the_granted_root_are_ignored(mode: WatchMode) {
+    let harness = start(mode, 50, false).await;
+    let outside = harness.directory.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::os::unix::fs::symlink(&outside, harness.music.join("linked")).unwrap();
+    harness.settle().await;
+    let before = harness.jobs_run.load(Ordering::SeqCst);
+    support::write_wav(&outside.join("elsewhere.wav"), 1);
+    harness.settle().await;
+    assert_eq!(harness.jobs_run.load(Ordering::SeqCst), before);
+    assert_eq!(harness.recordings().await, 1);
+    harness.shutdown().await;
+}
+
+#[tokio::test]
+async fn native_watching_does_not_follow_links_out_of_the_folder() {
+    changes_outside_the_granted_root_are_ignored(WatchMode::Auto).await;
+}
+
+#[tokio::test]
+async fn polling_does_not_follow_links_out_of_the_folder() {
+    changes_outside_the_granted_root_are_ignored(WatchMode::Poll).await;
 }

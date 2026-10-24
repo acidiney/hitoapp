@@ -30,6 +30,7 @@ zune-core = { version = "=0.5.3", features = ["std"] }
 zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
 cap-std.workspace = true
 cap-fs-ext.workspace = true
+notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }
 tracing.workspace = true
 utoipa.workspace = true
 tempfile.workspace = true
