@@ -1,4 +1,6 @@
-use super::{Browse, Catalog, Page, Recording, SourceAccess, push_source_access};
+use super::{
+    AlbumEditionChoice, Browse, Catalog, Page, Recording, SourceAccess, push_source_access,
+};
 use crate::{Actor, Error, Result, metadata};
 use serde::Serialize;
 use sqlx::{QueryBuilder, Sqlite};
@@ -40,6 +42,8 @@ pub struct ReleaseDetail {
     pub tracks: Page<ReleaseTrack>,
     #[schema(required = true)]
     pub catalog_anchor: Option<AlbumCatalogAnchor>,
+    #[schema(required = true)]
+    pub saved_edition: Option<AlbumEditionChoice>,
 }
 
 pub(super) const MAX_COMPARED_TRACKS: i64 = 1000;
@@ -167,6 +171,11 @@ impl Catalog {
             .push_bind(offset);
         let items = query.build_query_as().fetch_all(&self.store.pool).await?;
         let total = release.track_count;
+        let saved_edition = if with_anchor {
+            Some(self.saved_album_edition(actor, &release.id).await?)
+        } else {
+            None
+        };
         let catalog_anchor = if with_anchor {
             let mut candidates = selected(actor, &Browse::default(), Some(&release.id))?;
             candidates
@@ -190,6 +199,7 @@ impl Catalog {
         tracing::debug!(total, offset, limit, "Album detail loaded");
         Ok(ReleaseDetail {
             catalog_anchor,
+            saved_edition,
             release,
             tracks: Page {
                 items,
@@ -199,6 +209,27 @@ impl Catalog {
             },
         })
     }
+}
+
+pub(super) async fn release_contains(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    release: &str,
+    recording: Option<&str>,
+) -> Result<bool> {
+    let mut query = selected(actor, &Browse::default(), Some(release))?;
+    match recording {
+        Some(recording) => query
+            .push("SELECT 1 FROM entries m WHERE m.recording_id = ")
+            .push_bind(recording.to_owned()),
+        None => query.push("SELECT 1 FROM selected"),
+    };
+    query.push(" LIMIT 1");
+    Ok(query
+        .build_query_scalar::<i64>()
+        .fetch_optional(connection)
+        .await?
+        .is_some())
 }
 
 fn filter_artist(query: &mut QueryBuilder<'_, Sqlite>, browse: &Browse) {

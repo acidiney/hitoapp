@@ -1,3 +1,4 @@
+mod album_edition_choice;
 mod album_editions;
 mod associations;
 mod authority;
@@ -15,6 +16,10 @@ mod review;
 mod types;
 pub use identity::*;
 
+pub use album_edition_choice::{
+    AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState, ChooseAlbumEdition,
+    ClearAlbumEdition, SavedAlbumEdition,
+};
 pub use album_editions::{
     AlbumEditionTrackListAvailability, CatalogAdoption, CatalogTrackMatch,
     ReadAlbumEditionTrackList,

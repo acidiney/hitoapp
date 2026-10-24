@@ -1,6 +1,6 @@
 use super::{
-    MetadataProvider, REQUEST_BUDGET, ReadEditionTrackList, associations, authority::Credit,
-    editions::EditionRead, policy, provider,
+    ArtistAssociation, MetadataProvider, MetadataSettings, REQUEST_BUDGET, ReadEditionTrackList,
+    associations, authority::Credit, editions::EditionRead, policy, provider,
 };
 use crate::{
     Actor, AlbumCatalogAnchor, Catalog, Error, Recording, ReleaseTrack, Result,
@@ -8,6 +8,7 @@ use crate::{
 };
 use hito_plugin_sdk::CatalogEditionTrackList;
 use serde::{Deserialize, Serialize};
+use sqlx::SqliteConnection;
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
@@ -54,6 +55,7 @@ pub enum AlbumEditionTrackListAvailability {
     Unsupported,
     Unavailable,
     Cancelled,
+    NeedsChoice,
 }
 
 impl AlbumEditionTrackListAvailability {
@@ -64,6 +66,7 @@ impl AlbumEditionTrackListAvailability {
             Self::Unsupported => "unsupported",
             Self::Unavailable => "unavailable",
             Self::Cancelled => "cancelled",
+            Self::NeedsChoice => "needs_choice",
         }
     }
 }
@@ -77,13 +80,22 @@ impl Catalog {
         request: ReadAlbumEditionTrackList,
         cancelled: impl Future<Output = ()> + Send,
     ) -> Result<AlbumEditionTrackListAvailability> {
+        self.bounded_album_read(cancelled, self.read_album_edition(actor, release, request))
+            .await
+    }
+
+    pub(super) async fn bounded_album_read(
+        &self,
+        cancelled: impl Future<Output = ()> + Send,
+        read: impl Future<Output = Result<AlbumEditionTrackListAvailability>>,
+    ) -> Result<AlbumEditionTrackListAvailability> {
         let started = Instant::now();
         let deadline = tokio::time::Instant::now() + REQUEST_BUDGET;
         tokio::pin!(cancelled);
         let result = tokio::select! {
             biased;
             _ = &mut cancelled => Ok(AlbumEditionTrackListAvailability::Cancelled),
-            result = tokio::time::timeout_at(deadline, self.read_album_edition(actor, release, request)) => {
+            result = tokio::time::timeout_at(deadline, read) => {
                 result.unwrap_or(Ok(AlbumEditionTrackListAvailability::Unavailable))
             }
         };
@@ -108,7 +120,7 @@ impl Catalog {
         result
     }
 
-    async fn read_album_edition(
+    pub(super) async fn read_album_edition(
         &self,
         actor: &Actor,
         release: &str,
@@ -309,38 +321,54 @@ impl Catalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let settings = policy::read(&mut tx, actor).await?;
-        if !settings.enabled {
-            return Ok(None);
-        }
         for candidate in candidates {
-            let association = match associations::load(
+            if readable_association(
                 &mut tx,
                 actor,
+                &settings,
                 &candidate.recording_id,
                 &candidate.association_id,
             )
-            .await
+            .await?
+            .is_some()
             {
-                Ok(association) => association,
-                Err(Error::NotFound) => continue,
-                Err(error) => return Err(error),
-            };
-            if !policy::selected(&settings, &association.provider) {
-                continue;
-            }
-            if let MetadataProvider::HttpPlugin { installation_id } = &association.provider
-                && provider::catalog_revision(&mut tx, actor, installation_id)
-                    .await?
-                    .is_none()
-            {
-                continue;
-            }
-            match Credit::capture(&mut tx, actor, &candidate.recording_id).await {
-                Ok(credit) if credit.matches(&association) => return Ok(Some(candidate)),
-                Ok(_) | Err(Error::NotFound) => continue,
-                Err(error) => return Err(error),
+                return Ok(Some(candidate));
             }
         }
         Ok(None)
+    }
+}
+
+/// The reviewed association when the account can still use it now: metadata is
+/// enabled, its provider is selected and installed, and the credit is unchanged.
+pub(super) async fn readable_association(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    settings: &MetadataSettings,
+    recording: &str,
+    association: &str,
+) -> Result<Option<ArtistAssociation>> {
+    if !settings.enabled {
+        return Ok(None);
+    }
+    let association = match associations::load(connection, actor, recording, association).await {
+        Ok(association) => association,
+        Err(Error::NotFound) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if !policy::selected(settings, &association.provider) {
+        return Ok(None);
+    }
+    if let MetadataProvider::HttpPlugin { installation_id } = &association.provider
+        && provider::catalog_revision(connection, actor, installation_id)
+            .await?
+            .is_none()
+    {
+        return Ok(None);
+    }
+    match Credit::capture(connection, actor, recording).await {
+        Ok(credit) if credit.matches(&association) => Ok(Some(association)),
+        Ok(_) | Err(Error::NotFound) => Ok(None),
+        Err(error) => Err(error),
     }
 }

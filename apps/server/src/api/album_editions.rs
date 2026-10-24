@@ -41,6 +41,7 @@ pub async fn track_list(
             Ok(AlbumEditionTrackListAvailability::Unsupported) => "unsupported",
             Ok(AlbumEditionTrackListAvailability::Unavailable) => "unavailable",
             Ok(AlbumEditionTrackListAvailability::Cancelled) => "cancelled",
+            Ok(AlbumEditionTrackListAvailability::NeedsChoice) => "needs_choice",
             Err(error) => error.code(),
         },
         elapsed_ms = started.elapsed().as_millis() as u64,

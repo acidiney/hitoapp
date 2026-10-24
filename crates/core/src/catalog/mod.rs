@@ -39,6 +39,7 @@ mod types;
 
 use crate::{HostDeviceId, store::Store};
 pub use artist_catalog::{
+    AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState,
     AlbumEditionTrackListAvailability, ApplyArtistIdentityToCredit, ArtistAssociation,
     ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
@@ -47,11 +48,11 @@ pub use artist_catalog::{
     ArtistIdentityGroupMember, ArtistIdentityGroupName, ArtistIdentityGroupQuery,
     ArtistIdentitySelection, ArtistProfileAvailability, ArtistReviewConnection,
     ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption,
-    CatalogTrackMatch, ChooseRecordingArtistIdentity, EditionTrackListAvailability,
-    MetadataProvider, MetadataSettings, ReadAlbumEditionTrackList, ReadArtistDiscography,
-    ReadEditionTrackList, ReadReleaseGroupEditions, RecordingArtistIdentityChoice,
-    RecordingArtistIdentityState, ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity,
-    UpdateMetadataSettings,
+    CatalogTrackMatch, ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition,
+    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadAlbumEditionTrackList,
+    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
+    RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
+    ResetRecordingArtistIdentity, SavedAlbumEdition, UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
