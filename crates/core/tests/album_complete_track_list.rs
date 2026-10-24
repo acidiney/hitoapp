@@ -1,4 +1,5 @@
 #[path = "fixtures/album_complete_library.rs"]
+#[allow(dead_code)]
 mod library;
 use hito_core::test_support::album_edition_service::{self as provider, AlbumProvider};
 use hito_core::test_support::support;

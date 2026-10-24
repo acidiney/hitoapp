@@ -1,4 +1,5 @@
 #[path = "fixtures/album_complete_library.rs"]
+#[allow(dead_code)]
 mod library;
 use hito_core::test_support::album_edition_service::{self as provider, AlbumProvider};
 use hito_core::test_support::support;
@@ -7,7 +8,6 @@ use hito_core::{Action, AlbumEditionTrackListAvailability, Browse, UpdateMetadat
 use library::Album;
 use uuid::Uuid;
 
-const MAIN_FIRST: &str = "occurrence:album/1/1";
 const MAIN_SECOND: &str = "occurrence:album/1/2";
 const BONUS_DISC: &str = "occurrence:album/2/2";
 
