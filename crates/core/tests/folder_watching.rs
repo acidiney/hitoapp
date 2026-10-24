@@ -323,10 +323,11 @@ async fn a_change_during_a_running_scan_queues_exactly_one_follow_up() {
     std::fs::write(harness.path("hold"), b"").unwrap();
     support::write_wav(&harness.music.join("second.wav"), 1);
     harness.latest_job_is("running").await;
+    let counters = harness.counters();
+    let before = counters.relevant();
     support::write_wav(&harness.music.join("third.wav"), 2);
     support::write_wav(&harness.music.join("fourth.wav"), 3);
-    let counters = harness.counters();
-    until("the later changes to be seen", || counters.relevant() >= 2).await;
+    until("the later changes to be seen", || counters.relevant() >= before + 4).await;
     std::fs::remove_file(harness.path("hold")).unwrap();
     harness.indexed(4).await;
     until("the follow-up to run", || harness.jobs() == 2).await;

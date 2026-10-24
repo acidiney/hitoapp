@@ -1,11 +1,18 @@
+use super::WatchCounters;
 use crate::{LibraryStorage, Result};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ScanRequest {
-    Queued,
-    Covered,
-    Busy,
+    Queued(String),
+    Covered(String),
+    Busy(String),
     Superseded,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum JobEnd {
+    Complete,
+    Failed,
 }
 
 impl LibraryStorage {
@@ -13,7 +20,12 @@ impl LibraryStorage {
         &self,
         folder: &str,
         generation: i64,
+        counters: &WatchCounters,
     ) -> Result<ScanRequest> {
+        if let Some(request) = self.active_scan(folder, generation).await? {
+            return Ok(request);
+        }
+        WatchCounters::add(&counters.write_requests);
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         let library: Option<String> = sqlx::query_scalar(
             "SELECT library_id FROM music_folders
@@ -27,20 +39,20 @@ impl LibraryStorage {
         let Some(library) = library else {
             return Ok(ScanRequest::Superseded);
         };
-        let active: Option<(String, bool)> = sqlx::query_as(
-            "SELECT state, lease_until IS NULL OR lease_until < unixepoch() FROM jobs
+        let active: Option<(String, String, bool)> = sqlx::query_as(
+            "SELECT id, state, lease_until IS NULL OR lease_until < unixepoch() FROM jobs
              WHERE folder_id = ? AND folder_generation = ? AND state IN ('queued','running') LIMIT 1",
         )
         .bind(folder)
         .bind(generation)
         .fetch_optional(&mut *tx)
         .await?;
-        match active {
-            Some((state, expired)) if state == "queued" || expired => {
-                return Ok(ScanRequest::Covered);
-            }
-            Some(_) => return Ok(ScanRequest::Busy),
-            None => {}
+        if let Some((id, state, expired)) = active {
+            return Ok(if state == "queued" || expired {
+                ScanRequest::Covered(id)
+            } else {
+                ScanRequest::Busy(id)
+            });
         }
         let owner: String = sqlx::query_scalar(
             "SELECT m.user_id FROM library_members m JOIN users u ON u.id = m.user_id
@@ -50,11 +62,12 @@ impl LibraryStorage {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(crate::Error::NotFound)?;
+        let id = uuid::Uuid::new_v4().to_string();
         sqlx::query(
             "INSERT INTO jobs(id, user_id, library_id, folder_id, folder_generation, kind)
              VALUES (?, ?, ?, ?, ?, 'scan')",
         )
-        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&id)
         .bind(owner)
         .bind(library)
         .bind(folder)
@@ -62,6 +75,39 @@ impl LibraryStorage {
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;
-        Ok(ScanRequest::Queued)
+        Ok(ScanRequest::Queued(id))
+    }
+
+    async fn active_scan(&self, folder: &str, generation: i64) -> Result<Option<ScanRequest>> {
+        let active: Option<(String, String, bool)> = sqlx::query_as(
+            "SELECT j.id, j.state, j.lease_until IS NULL OR j.lease_until < unixepoch()
+             FROM jobs j JOIN music_folders f ON f.id = j.folder_id
+             WHERE j.folder_id = ? AND j.folder_generation = ? AND j.state IN ('queued','running')
+               AND f.generation = ? AND f.connected = 1 AND f.bound = 1 LIMIT 1",
+        )
+        .bind(folder)
+        .bind(generation)
+        .bind(generation)
+        .fetch_optional(&self.store.pool)
+        .await?;
+        Ok(active.map(|(id, state, expired)| {
+            if state == "queued" || expired {
+                ScanRequest::Covered(id)
+            } else {
+                ScanRequest::Busy(id)
+            }
+        }))
+    }
+
+    pub(super) async fn job_end(&self, job: &str) -> Result<Option<JobEnd>> {
+        let state: Option<String> = sqlx::query_scalar("SELECT state FROM jobs WHERE id = ?")
+            .bind(job)
+            .fetch_optional(&self.store.pool)
+            .await?;
+        Ok(match state.as_deref() {
+            Some("queued" | "running") => None,
+            Some("failed") => Some(JobEnd::Failed),
+            _ => Some(JobEnd::Complete),
+        })
     }
 }

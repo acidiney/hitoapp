@@ -9,7 +9,12 @@ pub(super) fn parse_folder_watching(
     mode: Option<&str>,
     poll_seconds: Option<&str>,
 ) -> RuntimeResult<FolderWatchSettings> {
-    let mode = match mode.map(str::trim) {
+    let text = |value: Option<&str>| {
+        value
+            .map(|value| value.trim().to_ascii_lowercase())
+            .filter(|value| !value.is_empty())
+    };
+    let mode = match text(mode).as_deref() {
         None | Some("auto") => WatchMode::Auto,
         Some("poll") => WatchMode::Poll,
         Some("off") => WatchMode::Off,
@@ -21,9 +26,10 @@ pub(super) fn parse_folder_watching(
         mode,
         ..Default::default()
     };
-    if let Some(value) = poll_seconds {
+    if mode != WatchMode::Off
+        && let Some(value) = text(poll_seconds)
+    {
         let seconds = value
-            .trim()
             .parse::<u64>()
             .ok()
             .filter(|seconds| (MIN_POLL_SECONDS..=MAX_POLL_SECONDS).contains(seconds))

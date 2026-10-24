@@ -31,6 +31,8 @@ services:
       HITO_STORAGE_MANIFEST: /run/hito/storage.json
       HITO_LOG_FORMAT: json
       RUST_LOG: info
+      HITO_FOLDER_WATCH: poll
+      HITO_FOLDER_WATCH_POLL_SECONDS: "300"
     volumes:
       - hito-data:/data
       - type: bind

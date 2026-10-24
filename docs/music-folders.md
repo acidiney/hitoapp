@@ -48,22 +48,30 @@ The server watches every connected, bound server folder and queues a scan when i
 
 ```mermaid
 flowchart LR
+  Start[Watcher starts] --> Compare[Compare names, sizes and times with the last scan]
+  Compare -- changed --> Quiet
   Change[File change] --> Signal[Native events or polling]
   Signal --> Quiet[Quiet period]
   Quiet --> Request{Active job?}
   Request -- none --> Queue[Queue scan]
-  Request -- queued --> Done[Already covered]
-  Request -- running --> Wait[Wait, then queue one follow-up]
+  Request -- queued --> Wait[Wait for it]
+  Request -- running --> Wait
+  Wait -- finished --> Request
+  Wait -- failed --> Retry[Queue again after a delay]
 ```
 
+- Only audio and directory changes count. Native events for cover art, partial downloads (`.part`), hidden files such as `.DS_Store` and other non-audio files are ignored. A removed or renamed path counts unless it is clearly one of those. Renaming `track.part` to `track.mp3` counts. Polling compares only supported audio files, so it follows the same rule.
 - A burst of changes collapses into one scan. The quiet period restarts on each change and is capped at ten times its length.
-- A change during a running scan waits for that scan, then queues exactly one follow-up. A change while a scan is only queued adds nothing, because that scan has not started reading yet.
-- Native operating-system events are the default. Hito uses polling instead when the operator asks for it, when the folder sits on a network, virtual or removable volume (detected on Linux), or when the system refuses another watch (for example at the inotify limit). Polling compares file names, sizes and modification times at the poll interval. Each folder logs its choice once, with a reason code and no path.
-- Watching never follows symbolic links out of the folder. Events only trigger a scan; the scan itself still reads through the granted directory handle.
-- Disconnecting or removing a folder stops its watcher. Reconnecting starts a new watcher for the new generation. Shutdown stops and joins every watcher before the server exits. Files that changed while the server was stopped are not seen until the next manual or reconnect scan.
+- A change during a running scan waits for that scan, then queues exactly one follow-up. A change while a scan is only queued adds nothing, because that scan has not started reading yet. Waiting uses plain reads with a short back-off, not write transactions.
+- If a watched scan fails, Hito queues it again after one second, doubling the delay up to five attempts. Failed requests, such as a library with no administrator, back off from one to 30 seconds and log once.
+- When a watcher starts (server start, reconnect), it compares file names, sizes and modification times with what the last scan indexed. It queues one scan only when a file was added, removed, resized or modified since that scan. It never reads file contents. A file copied in with an old modification time while the server was stopped is not found this way; run a manual rescan.
+- Native operating-system events are the default. Hito polls instead when the operator asks for it, when the folder sits on a network, virtual or removable volume (detected on Linux), or when the system refuses another watch (for example at the inotify limit). Polling compares file names, sizes and modification times. Its walk never uses the scanner's walk slot, so a poll cannot make a scan fail. The wait grows to ten times the last walk when walks are slow. Polling and the start-up comparison read at most 500,000 audio files per folder and log when they stop at that cap.
+- Each folder logs its backend choice once, with a reason code and no path.
+- Watching never follows symbolic links out of the folder. Events outside the granted root are discarded. Events only trigger a scan; the scan itself still reads through the granted directory handle.
+- Disconnecting or removing a folder stops its watcher. Reconnecting starts a new watcher for the new generation. Shutdown stops and joins every Hito watcher task before the server exits. The `notify` library's own event thread is only signalled to end when its watcher is dropped, and is not joined.
 - Operators set the behaviour with `HITO_FOLDER_WATCH` (`auto`, `poll` or `off`) and `HITO_FOLDER_WATCH_POLL_SECONDS`. See [operations](operations.md#music-scanning).
 
-Automated tests cover a new file, a removed file, a burst, a change during a running scan, disconnect and reconnect, the polling fallback, links leaving the folder, a disabled setting and shutdown. They ran on Linux inside Docker with temporary directories. Windows and macOS native watching, network volumes and removable drives are not yet tested. Native desktop folders (automatic discovery and native selection) are separate unfinished work.
+Automated tests cover a new file, a removed file, a burst, a change during a running scan, a failed scan, ignored non-audio changes, a rename into audio, disconnect and reconnect, start-up comparison (changed, removed and unchanged), request back-off, the polling fallback, links leaving the folder, a disabled setting and shutdown. A unit test shows that a poll walk leaves the scanner's walk slot free. They ran on Linux inside Docker with temporary directories. Windows and macOS native watching, network volumes and removable drives are not yet tested. Native desktop folders (automatic discovery and native selection) are separate unfinished work.
 
 ## Evidence and limits
 
