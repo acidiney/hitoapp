@@ -240,3 +240,34 @@ test("a paged album queues all of its tracks in tag order", async () => {
     "/api/v1/releases/album?offset=400&limit=200",
   ]);
 });
+
+test("leaving the page cancels the fetch for the first page of the result", async () => {
+  const held = deferred<Response>();
+  const signals: AbortSignal[] = [];
+  respond = async (_url, signal) => {
+    signals.push(signal);
+    return held.promise;
+  };
+  const view = render(library(450, 200));
+  fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
+  await vi.waitFor(() => expect(signals).toHaveLength(1));
+  view.unmount();
+  expect(signals[0].aborted).toBe(true);
+  held.resolve(pageOf("/x?offset=0&limit=200", 450));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(player.queueSnapshot().total).toBe(0);
+});
+
+test("when the first page cannot be fetched the loaded page plays and the listener is told the queue is partial", async () => {
+  respond = async (url) =>
+    url.includes("offset=0")
+      ? new Response("{}", { status: 500 })
+      : pageOf(url, 450);
+  render(library(450, 200));
+  fireEvent.click(screen.getByRole("button", { name: "Play tracks" }));
+  await vi.waitFor(() =>
+    expect(player.snapshot().error).toMatch(/Only this page was queued/),
+  );
+  expect(player.queueSnapshot().total).toBe(200);
+  expect(player.snapshot().current?.title).toBe("Track 200");
+});

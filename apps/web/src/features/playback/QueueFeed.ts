@@ -1,10 +1,55 @@
 import { log } from "../../shared/log";
+import { HttpError } from "../../shared/http";
 import type { PlaybackQueueInput, QueueSupply } from "./model";
 
 type Append = (
   batch: PlaybackQueueInput[],
   signal: AbortSignal,
 ) => Promise<number>;
+
+export class QueueStop extends Error {}
+
+const BACKOFF_MS = [500, 1000, 2000];
+const MAX_WAIT_MS = 10_000;
+const RETRIED = [429, 502, 503, 504];
+
+function pause(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+async function page(supply: QueueSupply, signal: AbortSignal) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await supply.next(signal);
+    } catch (error) {
+      const retriable =
+        error instanceof HttpError
+          ? RETRIED.includes(error.status)
+          : error instanceof TypeError;
+      if (signal.aborted || !retriable || attempt === BACKOFF_MS.length)
+        throw error;
+      const asked = error instanceof HttpError ? error.retryAfter : undefined;
+      await pause(
+        Math.min(
+          MAX_WAIT_MS,
+          asked !== undefined ? asked * 1000 : BACKOFF_MS[attempt],
+        ),
+        signal,
+      );
+      if (signal.aborted) throw error;
+    }
+  }
+}
 
 export class QueueFeed {
   private run: { controller: AbortController; supply: QueueSupply } | null =
@@ -42,7 +87,7 @@ export class QueueFeed {
     let message = "";
     try {
       while (!signal.aborted && run.supply.remaining() > 0) {
-        const batch = await run.supply.next(signal);
+        const batch = await page(run.supply, signal);
         if (signal.aborted || !batch.length) break;
         const accepted = await append(batch, signal);
         if (signal.aborted) return;
@@ -53,10 +98,17 @@ export class QueueFeed {
         }
         this.changed();
       }
-    } catch {
+    } catch (error) {
       if (signal.aborted) return;
       message =
-        "The rest of the list could not be loaded. Play it again to retry.";
+        error instanceof QueueStop
+          ? error.message
+          : "The rest of the list could not be loaded. Play it again to retry.";
+      log.warn("queue.feed_failed", {
+        count: pages,
+        reason: error instanceof Error ? error.name : "unknown",
+        ...(error instanceof HttpError ? { status: error.status } : {}),
+      });
     }
     if (this.run !== run) return;
     this.run = null;

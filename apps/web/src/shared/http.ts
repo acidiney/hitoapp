@@ -15,6 +15,7 @@ export class HttpError extends Error {
     readonly status: number,
     message: string,
     readonly code?: string,
+    readonly retryAfter?: number,
   ) {
     super(message);
     this.name = "HttpError";
@@ -104,7 +105,13 @@ export async function request(path: string, options: RequestOptions) {
     typeof data.code === "string"
       ? data.code
       : undefined;
-  throw new HttpError(response.status, message, code);
+  const wait = Number(response.headers.get("retry-after"));
+  throw new HttpError(
+    response.status,
+    message,
+    code,
+    Number.isFinite(wait) && wait >= 0 ? wait : undefined,
+  );
 }
 
 export async function requestJson<T>(

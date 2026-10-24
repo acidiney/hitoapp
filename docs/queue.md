@@ -32,8 +32,11 @@ flowchart LR
 - The queue holds at most 100,000 entries, the same limit as the native owner. When a result is larger, the feed stops there and says so.
 - Replacing the queue, clearing it, closing the native session or switching accounts aborts the request in flight. A page that arrives late is dropped.
 - Page requests log at debug level, so a 100,000-entry feed does not write about 500 info lines.
-- If a page fails, the entries already loaded keep playing and the player shows "The rest of the list could not be loaded."
-- With shuffle on, each batch is mixed uniformly into the part of the shuffle order that has not played yet. A shuffled playthrough therefore covers the whole result, not one page at a time. The first track is always the clicked or first one.
+- A page that fails with a network error, 429, 502, 503 or 504 is retried up to three times, after 0.5, 1 and 2 seconds or the server's `Retry-After` (at most 10 seconds). Other errors stop the feed at once. Either way the entries already loaded keep playing and the player shows "The rest of the list could not be loaded. Play it again to retry." The log records the page count, error class and HTTP status, never titles or bodies.
+- Pages use offsets, so the feed remembers the total the list had when Play was pressed. If a later page reports a different total, the feed stops with "The list changed while loading. Play it again to include the rest." rather than skip or repeat tracks.
+- If the page before the first one cannot be fetched, the loaded page plays and the player says "Only this page was queued."
+- Native appends are not retried by the feed. The session already retries busy (429) and server errors, and treats a conflict (409) as lost ownership. A move whose target was removed reports "That track was removed before it could be moved." 
+- With shuffle on, each batch is mixed uniformly into the part of the shuffle order after the next entry. The next entry never changes, so a prepared next track is not thrown away 500 times during a large feed. After the queue has ended, new entries mix only with each other. A shuffled playthrough therefore covers the whole result, not one page at a time. The first track is always the clicked or first one.
 - Artist and chosen-artist pages page their tracks with `recording_offset` and queue the whole list the same way. Playlists and history load all their entries with the page, so they already queue everything.
 
 ## Large queues

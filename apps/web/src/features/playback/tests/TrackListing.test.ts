@@ -43,23 +43,34 @@ test("pages are requested in order from the first unloaded position", async () =
   ]);
 });
 
-test("a server total that shrinks or grows is followed, and an empty page ends the list", async () => {
+test("a list whose total changes mid-load stops with an explanation instead of skipping or repeating", async () => {
+  for (const changed of [500, 1500]) {
+    const source = {
+      total: 1000,
+      offset: 0,
+      fetch: vi.fn().mockResolvedValue({
+        total: changed,
+        items: Array.from({ length: 200 }, (_, i) => track(200 + i)),
+      }),
+    };
+    const supply = listingSupply(source, 200);
+    await expect(
+      supply.next(new AbortController().signal),
+    ).rejects.toMatchObject({
+      message:
+        "The list changed while loading. Play it again to include the rest.",
+    });
+  }
+});
+
+test("an empty page ends the list", async () => {
   const source = {
     total: 1000,
     offset: 0,
-    fetch: vi
-      .fn()
-      .mockResolvedValueOnce({
-        total: 500,
-        items: Array.from({ length: 200 }, (_, i) => track(200 + i)),
-      })
-      .mockResolvedValueOnce({ total: 500, items: [] }),
+    fetch: vi.fn().mockResolvedValue({ total: 1000, items: [] }),
   };
   const supply = listingSupply(source, 200);
-  const signal = new AbortController().signal;
-  await supply.next(signal);
-  expect(supply.remaining()).toBe(100);
-  expect(await supply.next(signal)).toEqual([]);
+  expect(await supply.next(new AbortController().signal)).toEqual([]);
   expect(supply.remaining()).toBe(0);
 });
 

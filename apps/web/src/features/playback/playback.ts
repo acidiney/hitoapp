@@ -299,7 +299,6 @@ export class Playback implements Player {
     if (index >= 0) this.remove(index);
   }
   moveEntry(entry: string, before: string | null) {
-    this.cancelAudiobook();
     const from = this.queue.indexOf(entry);
     if (from < 0 || before === entry) return;
     let to = this.queue.length - 1;
@@ -309,6 +308,7 @@ export class Playback implements Player {
       to = target > from ? target - 1 : target;
     }
     if (to === from) return;
+    this.cancelAudiobook();
     const current = this.state.index;
     this.queue.move(from, to);
     log.info("queue.move", { action: "move", index: to });

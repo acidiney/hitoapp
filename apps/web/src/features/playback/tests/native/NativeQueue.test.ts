@@ -147,3 +147,52 @@ test("a failed page leaves the loaded queue and reports the rest as not loaded",
     player.close();
   }
 });
+
+test("a move whose target vanished and a conflicting session each get their own message", async () => {
+  for (const [status, message] of [
+    [404, /removed/i],
+    [409, /ownership changed/i],
+  ] as const) {
+    const service = nativeService();
+    const player = new NativePlayback("alice");
+    try {
+      await player.reconnect();
+      service.command = async () =>
+        new Response(JSON.stringify({ error: "private detail" }), { status });
+      player.moveEntry("entry-3", "entry-1");
+      await vi.waitFor(() => expect(player.snapshot().error).toMatch(message));
+      expect(player.snapshot().error).not.toContain("private detail");
+    } finally {
+      player.close();
+    }
+  }
+});
+
+test("a rejected append stops the feed with the session-ownership message and is not repeated", async () => {
+  const service = nativeService();
+  const player = new NativePlayback("alice");
+  try {
+    await player.reconnect();
+    const more = supply(450, 200, 50);
+    const accept = service.command;
+    service.command = async (command) =>
+      command.action.kind === "append"
+        ? new Response("{}", { status: 409 })
+        : accept(command);
+    await player.playQueue(
+      Array.from({ length: 50 }, (_, i) => track(i)),
+      0,
+      undefined,
+      more.value,
+    );
+    await vi.waitFor(() =>
+      expect(player.snapshot().error).toMatch(/ownership changed/i),
+    );
+    expect(
+      service.commands.filter((c) => c.action.kind === "append"),
+    ).toHaveLength(1);
+    expect(player.queueSnapshot().pending).toBe(0);
+  } finally {
+    player.close();
+  }
+});

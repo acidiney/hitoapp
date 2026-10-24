@@ -1,3 +1,4 @@
+import { QueueStop } from "../QueueFeed";
 import { MAX_QUEUE_ENTRIES, type QueueSupply, type Track } from "../model";
 
 export const LISTING_PAGE = 200;
@@ -29,7 +30,10 @@ export function listingSupply(
         end = next;
         return [];
       }
-      end = Math.min(page.total, from + MAX_QUEUE_ENTRIES - queued);
+      if (page.total !== listing.total)
+        throw new QueueStop(
+          "The list changed while loading. Play it again to include the rest.",
+        );
       next += page.items.length;
       return page.items;
     },

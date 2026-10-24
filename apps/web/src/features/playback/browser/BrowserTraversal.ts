@@ -17,7 +17,8 @@ export class BrowserTraversal {
   append(added: readonly number[], current?: number) {
     const order = this.order;
     if (!order) return;
-    const from = current === undefined ? 0 : order.indexOf(current) + 1;
+    const at = current === undefined ? -1 : order.indexOf(current);
+    const from = at < 0 ? order.length : at + 2;
     const tail = order.splice(from);
     const mixed = interleave(tail, this.shuffled(added));
     for (const id of mixed) order.push(id);

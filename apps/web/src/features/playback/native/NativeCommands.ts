@@ -42,7 +42,22 @@ export class NativeCommands {
     await this.play(queue, index, start, more);
   };
   moveEntry = (entry: string, before: string | null) => {
-    void this.run([{ kind: "move", entry, before }]);
+    const session = this.session();
+    if (!session) {
+      this.report("Connect this window to control playback.");
+      return;
+    }
+    void session.submit([{ kind: "move", entry, before }]).catch((error) => {
+      if (this.session() !== session) return;
+      log.warn("native.move_failed", {
+        reason: error instanceof HttpError ? String(error.status) : "failed",
+      });
+      this.report(
+        error instanceof HttpError && error.status === 404
+          ? "That track was removed before it could be moved."
+          : "The playback command failed. Try again.",
+      );
+    });
   };
   continueAudiobook = async (audiobook: string, signal: AbortSignal) => {
     this.intention++;
@@ -136,7 +151,6 @@ export class NativeCommands {
         throw new DOMException("Superseded", "AbortError");
       const accepted = batch.slice(0, Math.max(0, MAX_QUEUE_ENTRIES - count));
       if (!accepted.length) return 0;
-      count += accepted.length;
       await session.submit([
         {
           kind: "append",
@@ -145,6 +159,9 @@ export class NativeCommands {
           ),
         },
       ]);
+      if (epoch !== this.queueEpoch)
+        throw new DOMException("Superseded", "AbortError");
+      count += accepted.length;
       return accepted.length;
     });
   }
