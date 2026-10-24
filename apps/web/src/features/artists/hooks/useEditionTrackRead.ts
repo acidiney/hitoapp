@@ -15,7 +15,12 @@ const MAX_OCCURRENCES = 4_096;
 type Owner = { pending: boolean };
 type Available = { association_id: string; edition: CatalogEditionTrackList };
 type Missing = {
-  status: "disabled" | "unsupported" | "unavailable" | "cancelled";
+  status:
+    | "disabled"
+    | "unsupported"
+    | "unavailable"
+    | "cancelled"
+    | "needs_choice";
 };
 export type EditionRead<T extends Available> =
   | ({ status: "available" } & T)
@@ -41,6 +46,8 @@ function unavailable(status: Missing["status"]) {
       return "This edition's track list is unavailable. Try again.";
     case "cancelled":
       return "The edition track list request was cancelled.";
+    case "needs_choice":
+      return "Choose this edition again.";
   }
 }
 

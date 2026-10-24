@@ -129,6 +129,7 @@ test("album covers retrieve exact release artwork, retry failures and reject an 
           },
           tracks: { items: [], total: 0, offset: 0, limit: 60 },
           catalog_anchor: null,
+          saved_edition: null,
         },
       } satisfies AlbumPageProps),
     });

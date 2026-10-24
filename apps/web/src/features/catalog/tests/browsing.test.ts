@@ -73,6 +73,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
           ],
         },
         catalog_anchor: null,
+        saved_edition: null,
       },
     }),
   );
@@ -176,6 +177,7 @@ test("an album with unknown credit keeps its card and detail links without inven
         release,
         tracks: { total: 2, offset: 0, limit: 60, items: tracks },
         catalog_anchor: null,
+        saved_edition: null,
       },
     }),
   );

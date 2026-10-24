@@ -77,14 +77,17 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
           text="Return to the previous page to listen to this album."
         />
       )}
-      {detail.catalog_anchor && (
-        <AlbumCompleteTrackList
-          key={`${user.id}/${release.id}`}
-          account={user.id}
-          release={release.id}
-          anchor={detail.catalog_anchor}
-        />
-      )}
+      {detail.saved_edition &&
+        (detail.catalog_anchor ||
+          detail.saved_edition.state.status === "ready") && (
+          <AlbumCompleteTrackList
+            key={`${user.id}/${release.id}`}
+            account={user.id}
+            release={release.id}
+            anchor={detail.catalog_anchor}
+            saved={detail.saved_edition}
+          />
+        )}
       <Pagination
         page={page}
         query=""

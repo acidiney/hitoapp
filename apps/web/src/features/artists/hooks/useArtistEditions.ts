@@ -9,6 +9,7 @@ import type {
   CatalogEditionSummary,
   CatalogReleaseGroup,
   ReleaseGroupEditionsAvailability,
+  SavedAlbumEdition,
 } from "../../../shared/types";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
@@ -24,6 +25,7 @@ export type ArtistEditionContext = {
   profile: CatalogArtistProfile;
   group: CatalogReleaseGroup;
   release?: string;
+  onAlbumEdition?: (edition: SavedAlbumEdition) => void;
 };
 type Owner = { pending: boolean };
 type State = {

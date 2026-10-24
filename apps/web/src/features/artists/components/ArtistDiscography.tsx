@@ -2,6 +2,7 @@ import { useArtistDiscography } from "../hooks/useArtistDiscography";
 import type {
   ArtistAssociation,
   CatalogArtistProfile,
+  SavedAlbumEdition,
 } from "../../../shared/types";
 import ArtistEditions from "./ArtistEditions";
 
@@ -20,6 +21,7 @@ export default function ArtistDiscography({
   profile,
   browseOnMount = false,
   release,
+  onAlbumEdition,
 }: {
   account: string;
   recording: string;
@@ -27,6 +29,7 @@ export default function ArtistDiscography({
   profile: CatalogArtistProfile;
   browseOnMount?: boolean;
   release?: string;
+  onAlbumEdition?: (edition: SavedAlbumEdition) => void;
 }) {
   const workflow = useArtistDiscography(
     account,
@@ -79,6 +82,7 @@ export default function ArtistDiscography({
               profile={profile}
               group={group}
               release={release}
+              onAlbumEdition={onAlbumEdition}
             />
           </li>
         ))}

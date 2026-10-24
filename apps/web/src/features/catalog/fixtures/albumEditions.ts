@@ -92,7 +92,33 @@ export const albumDetail = {
     recording_id: firstLibraryRecording.id,
     association_id: artistAssociation.id,
   },
+  saved_edition: { revision: 0, state: { status: "unset" } },
 } satisfies Schema["ReleaseDetail"];
+
+export const savedEdition = {
+  recording_id: firstLibraryRecording.id,
+  association_id: artistAssociation.id,
+  release_group_id: editionGroup.id,
+  edition_id: standardEdition.id,
+} satisfies Schema["SavedAlbumEdition"];
+
+export const readyChoice = {
+  revision: 3,
+  state: { status: "ready", edition: savedEdition },
+} satisfies Schema["AlbumEditionChoice"];
+
+export const staleChoice = {
+  revision: 3,
+  state: { status: "needs_choice" },
+} satisfies Schema["AlbumEditionChoice"];
+
+export const choiceReceipt = (revision: number, edition = savedEdition) =>
+  ({
+    request_id: "00000000-0000-4000-8000-000000000001",
+    release_id: albumId,
+    revision,
+    edition,
+  }) satisfies Schema["AlbumEditionChoiceReceipt"];
 
 const occurrence = (
   id: string,

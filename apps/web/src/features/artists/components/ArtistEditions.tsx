@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useArtistEditions,
   type ArtistEditionContext,
@@ -30,6 +30,16 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
     context.release ?? "",
     context.release === undefined ? null : workflow.chosen,
   );
+  const read = comparison.comparison;
+  useEffect(() => {
+    if (read)
+      context.onAlbumEdition?.({
+        recording_id: context.recording,
+        association_id: read.association_id,
+        release_group_id: read.edition.release_group_id,
+        edition_id: read.edition.id,
+      });
+  }, [read]);
   if (!workflow.opened)
     return (
       <button

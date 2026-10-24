@@ -12,7 +12,29 @@ const statuses: Record<AlbumEditionTrackListAvailability["status"], true> = {
   unsupported: true,
   unavailable: true,
   cancelled: true,
+  needs_choice: true,
 };
+
+export async function availability(
+  response: Response,
+): Promise<AlbumEditionTrackListAvailability> {
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(INVALID_RESPONSE);
+    throw error;
+  }
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    !("status" in value) ||
+    typeof value.status !== "string" ||
+    !Object.hasOwn(statuses, value.status)
+  )
+    throw new Error(INVALID_RESPONSE);
+  return value as AlbumEditionTrackListAvailability;
+}
 
 export const albumEditionApi = {
   async tracks(
@@ -31,21 +53,6 @@ export const albumEditionApi = {
         signal,
       },
     );
-    let value: unknown;
-    try {
-      value = await response.json();
-    } catch (error) {
-      if (error instanceof SyntaxError) throw new Error(INVALID_RESPONSE);
-      throw error;
-    }
-    if (
-      value === null ||
-      typeof value !== "object" ||
-      !("status" in value) ||
-      typeof value.status !== "string" ||
-      !Object.hasOwn(statuses, value.status)
-    )
-      throw new Error(INVALID_RESPONSE);
-    return value as AlbumEditionTrackListAvailability;
+    return availability(response);
   },
 };
