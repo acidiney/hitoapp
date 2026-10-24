@@ -78,7 +78,26 @@ Rows follow the provider's disc and track order, including repeated recordings, 
 
 Play on a catalog-only row saves that one recording through the provider that served the edition, using the existing metadata and source adoption, and then starts playback. The normal playback owner finds audio, including automatic resolution through other approved providers. Reading the list saves nothing, creates no download and starts no audio. The album's own table keeps working during a provider outage, and the section shows that the list is unavailable with an explicit retry. Leaving the page cancels a pending read or save.
 
-Limits. The album must have at most 1,000 tracks to be compared. The edition is chosen again on each visit, because Hito does not yet store which edition an album belongs to. When the album was saved from the chosen edition's own provider release, the list says so. Live-provider acceptance is still open.
+### Remembered edition
+
+After a successful read, **Choose edition** also remembers the choice for this album and this account. On later visits the album page shows **Show complete track list** and reads that edition directly. There is no discography or edition browsing. The list has **Change edition**, which opens the browser again, and **Forget edition**, which clears the choice. Loading the page still makes no catalog request, and the saved read happens only when the user clicks.
+
+```mermaid
+flowchart LR
+  Choose[Choose edition and read succeeds] --> Save[PUT /api/v1/albums/id/edition]
+  Save --> Link[(album_edition_choices, one row per account and release)]
+  Link --> Detail[Album page: saved_edition on the first page]
+  Detail --> Saved[POST /api/v1/albums/id/edition/track-list]
+  Saved --> Read[Same reviewed edition read as a fresh choice]
+```
+
+The link stores the account, the library release ID, the reviewed anchor recording and artist association (which fixes the provider installation), the release-group ID and the edition ID. Each change increments a revision. Setting and clearing take the revision the client last saw and a request ID. A conflicting revision is rejected, repeating a request ID with the same contents returns the first receipt, and reusing it with different contents is a conflict. Receipts are immutable and kept.
+
+The page reports one of three states. Unset means no edition is remembered. Ready means the link is usable now. Needs choice means a link exists but cannot be read: metadata providers are disabled, the provider is no longer selected or installed, the artist credit changed, or the anchor recording left the album. A needs-choice link makes no provider request and leaks nothing but its revision. The row is kept, so re-enabling the provider makes it ready again. The user chooses again to replace it. Only the owning account sees or changes a link. Another account gets not found. Later pages of a long album carry no saved edition.
+
+Logs record outcomes, counts and timings, never edition, release-group or provider identifiers.
+
+Limits. The album must have at most 1,000 tracks to be compared. The server cannot check that a chosen edition still exists at the provider when it saves the link, so the web app saves only after a successful read. If the provider later drops the edition, the list reports unavailable and the user can change or forget it. When the album was saved from the chosen edition's own provider release, the list says so. Live-provider acceptance is still open.
 
 ## Ownership and indexing
 

@@ -41,3 +41,11 @@ The audit preserved all 106 prior application tables, 12 prior views and 12,572 
 Non-SQLite files, keys and host identity retained their exact contents, owners, modes and timestamps. Original database permissions were preserved rather than normalized; private audit copies use mode 0600. Source hashes and result hashes bind each accepted stage to the reviewed audit. All five owned containers exited with code zero, no out-of-memory termination or active clone writer remained, and the clone and private evidence were retained.
 
 This establishes the stopped clone's restoration and migration-only preservation. Full runtime startup, active work, normal deployment, migration 0049 and packaged platform upgrades remain separate gates.
+
+## Migration 0056, remembered album editions
+
+Migration 0056 is purely additive. It creates `album_edition_choices` (one row per account and release, with revision, reviewed association, provider installation, release-group ID and edition ID), `album_edition_choice_receipts`, two scope triggers that require the account's own association, and two triggers that keep receipts immutable and retained. It adds 8 schema objects (2 tables, 2 implicit indexes, 4 triggers) and touches no existing table, row, index or trigger. Both new tables start empty.
+
+An upgrade test builds a populated migration-55 database, snapshots every table with its rowids, applies 0056, and requires the snapshot, the prior schema text, foreign keys and integrity to stay exact. It names the 8 added objects exactly and exercises the new constraints. The migration-only server tests name the same objects, and the schema snapshot bound is now 546 objects (it was 540, with 538 present before 0056).
+
+Before upgrading a deployment, stop writers and take the whole-volume backup described above. Running `hito-server migrate --expect-version 55` then applies only 0056. Restoring the backup is the rollback, since the migration is not reversible in place. Nothing here has been run against the VPS volume.
