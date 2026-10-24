@@ -52,6 +52,131 @@
         ]
       }
     },
+    "/api/v1/albums/{id}/edition": {
+      "put": {
+        "operationId": "choose_album_edition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseAlbumEdition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumEditionChoiceReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/albums/{id}/edition-track-list": {
       "post": {
         "operationId": "album_edition_track_list",
@@ -157,6 +282,227 @@
             }
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/albums/{id}/edition/clear": {
+      "post": {
+        "operationId": "clear_album_edition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearAlbumEdition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumEditionChoiceReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/albums/{id}/edition/track-list": {
+      "post": {
+        "operationId": "saved_album_edition_track_list",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumEditionTrackListAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
             "content": {
               "application/json": {
                 "schema": {
@@ -12066,6 +12412,104 @@
           }
         ]
       },
+      "AlbumEditionChoice": {
+        "type": "object",
+        "required": [
+          "revision",
+          "state"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "state": {
+            "$ref": "#/components/schemas/AlbumEditionChoiceState"
+          }
+        }
+      },
+      "AlbumEditionChoiceReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "release_id",
+          "revision",
+          "edition"
+        ],
+        "properties": {
+          "edition": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SavedAlbumEdition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AlbumEditionChoiceState": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unset"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "edition",
+              "status"
+            ],
+            "properties": {
+              "edition": {
+                "$ref": "#/components/schemas/SavedAlbumEdition"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "needs_choice"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "AlbumEditionTrackListAvailability": {
         "oneOf": [
           {
@@ -12178,6 +12622,20 @@
                 "type": "string",
                 "enum": [
                   "cancelled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "needs_choice"
                 ]
               }
             }
@@ -14021,6 +14479,40 @@
         },
         "additionalProperties": false
       },
+      "ChooseAlbumEdition": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision",
+          "recording_id",
+          "association_id",
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "edition_id": {
+            "type": "string"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "ChooseRecordingArtistIdentity": {
         "type": "object",
         "required": [
@@ -14060,6 +14552,24 @@
             "format": "uuid"
           },
           "source_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClearAlbumEdition": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
             "type": "string",
             "format": "uuid"
           }
@@ -18834,7 +19344,8 @@
         "required": [
           "release",
           "tracks",
-          "catalog_anchor"
+          "catalog_anchor",
+          "saved_edition"
         ],
         "properties": {
           "catalog_anchor": {
@@ -18849,6 +19360,16 @@
           },
           "release": {
             "$ref": "#/components/schemas/Release"
+          },
+          "saved_edition": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumEditionChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "tracks": {
             "$ref": "#/components/schemas/Page_ReleaseTrack"
@@ -19089,6 +19610,29 @@
           }
         },
         "additionalProperties": false
+      },
+      "SavedAlbumEdition": {
+        "type": "object",
+        "required": [
+          "recording_id",
+          "association_id",
+          "release_group_id",
+          "edition_id"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "edition_id": {
+            "type": "string"
+          },
+          "recording_id": {
+            "type": "string"
+          },
+          "release_group_id": {
+            "type": "string"
+          }
+        }
       },
       "SavedPlaybackRequest": {
         "type": "object",
