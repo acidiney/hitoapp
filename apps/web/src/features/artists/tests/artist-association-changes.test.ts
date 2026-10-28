@@ -20,11 +20,18 @@ import {
 
 type Schema = components["schemas"];
 
-function owned(options: { failFirstUnlink?: boolean } = {}) {
+function owned(
+  options: {
+    failFirstUnlink?: boolean;
+    startUnlinked?: boolean;
+    rejectNext?: number;
+  } = {},
+) {
   const base = `/api/v1/recordings/${artistReviewDetail.recording_id}`;
   const associations = `${base}/artist-associations`;
-  let linked = true;
-  let revision = 1;
+  let linked = !options.startUnlinked;
+  let revision = options.startUnlinked ? 2 : 0;
+  let rejectNext = options.rejectNext ?? 0;
   let failures = options.failFirstUnlink ? 1 : 0;
   const bodies: Record<string, unknown>[] = [];
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
@@ -41,7 +48,10 @@ function owned(options: { failFirstUnlink?: boolean } = {}) {
       return Response.json({
         recording_id: artistReviewDetail.recording_id,
         revision,
-        undo: null,
+        undo:
+          revision === 0
+            ? null
+            : { association_id: artistAssociation.id, linked: !linked },
       } satisfies Schema["ArtistAssociationChanges"]);
     if (method === "POST" && path.startsWith(`${associations}/`)) {
       const body = JSON.parse(options?.body as string);
@@ -49,6 +59,11 @@ function owned(options: { failFirstUnlink?: boolean } = {}) {
       if (path.endsWith("/unlink") && failures > 0) {
         failures -= 1;
         throw new TypeError("network lost");
+      }
+      if (rejectNext > 0) {
+        rejectNext -= 1;
+        revision += 5;
+        return Response.json({ code: "conflict" }, { status: 409 });
       }
       expect(body.expected_revision).toBe(revision);
       revision += 1;
@@ -77,7 +92,17 @@ async function open() {
   fireEvent.click(
     screen.getByRole("button", { name: "Find artist information" }),
   );
-  return screen.findByRole("region", { name: "Saved artist reviews" });
+  const saved = await screen.findByRole("region", {
+    name: "Saved artist reviews",
+  });
+  await waitFor(() =>
+    expect(
+      within(saved)
+        .getAllByRole("button", { name: /Unlink saved artist review/ })
+        .every((button) => !(button as HTMLButtonElement).disabled),
+    ).toBe(true),
+  );
+  return saved;
 }
 
 test("unlinking a saved artist review removes it and undo restores it without provider requests", async () => {
@@ -97,7 +122,7 @@ test("unlinking a saved artist review removes it and undo restores it without pr
   expect(bodies).toHaveLength(1);
   expect(bodies[0]).toEqual({
     request_id: expect.any(String),
-    expected_revision: 1,
+    expected_revision: 0,
     association_id: artistAssociation.id,
   } satisfies Schema["UnlinkRecordingArtist"] & Record<string, unknown>);
   expect(
@@ -108,7 +133,7 @@ test("unlinking a saved artist review removes it and undo restores it without pr
   await screen.findByRole("button", { name: "View saved artist review 1" });
   expect(bodies[1]).toEqual({
     request_id: expect.any(String),
-    expected_revision: 2,
+    expected_revision: 1,
   } satisfies Schema["UndoRecordingArtistChange"]);
   expect(bodies[1].request_id).not.toBe(bodies[0].request_id);
   expect(
@@ -139,4 +164,29 @@ test("a lost unlink acknowledgement is recovered by retrying the exact same requ
   );
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toEqual(bodies[0]);
+});
+
+test("a stale undo is rejected, the server state is reread and the next undo works", async () => {
+  const { bodies } = owned({ startUnlinked: true, rejectNext: 1 });
+  render(
+    createElement(ArtistReview, {
+      account: artistReviewAccount,
+      detail: artistReviewDetail,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find artist information" }),
+  );
+  const undo = await screen.findByRole("button", {
+    name: "Undo last artist review change",
+  });
+  fireEvent.click(undo);
+  await screen.findByRole("alert");
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Undo last artist review change",
+    }),
+  );
+  await screen.findByRole("button", { name: "View saved artist review 1" });
+  expect(bodies.map((body) => body.expected_revision)).toEqual([2, 7]);
 });

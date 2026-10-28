@@ -5,6 +5,7 @@ import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
 import type { components } from "../../../generated";
 import {
+  noAssociationChanges,
   artistAssociation,
   artistPreview,
   artistQuery,
@@ -33,6 +34,8 @@ test("artist information is searched and previewed before its exact selected ide
   let persisted = false;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-association-changes`)
+      return Response.json(noAssociationChanges);
     if (method === "GET" && path === `${base}/artist-identity`)
       return Response.json(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -98,6 +101,7 @@ test("artist information is searched and previewed before its exact selected ide
       "/api/v1/plugins",
       associations,
       `${base}/artist-identity`,
+      `${base}/artist-association-changes`,
     ].sort(),
   );
   fireEvent.change(provider, {
@@ -108,7 +112,7 @@ test("artist information is searched and previewed before its exact selected ide
   }) as HTMLInputElement;
   expect(query.value).toBe(artistReviewDetail.artist.value);
   fireEvent.change(query, { target: { value: artistQuery } });
-  expect(fetch).toHaveBeenCalledTimes(4);
+  expect(fetch).toHaveBeenCalledTimes(5);
   expect(persisted).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Search artists" }));
   const results = await screen.findByRole("list", {
@@ -204,7 +208,7 @@ test("artist information is searched and previewed before its exact selected ide
     `${review}/confirm`,
   ]);
   expect(JSON.parse(writes()[3][1]?.body as string)).toEqual(artistSelection);
-  expect(fetch.mock.calls.map(([path]) => path)).toHaveLength(9);
+  expect(fetch.mock.calls.map(([path]) => path)).toHaveLength(10);
   expect(fetch.mock.calls.at(-1)?.[0]).toBe(
     `${associations}/${artistAssociation.id}/profile`,
   );

@@ -24,6 +24,7 @@ import {
   artistSearchResult,
   artistSelection,
   secondCatalog,
+  noAssociationChanges,
 } from "../fixtures/artistReview";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
@@ -54,6 +55,8 @@ test("track details offers lazy artist review without replacing unsaved personal
   };
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-association-changes`)
+      return Response.json(noAssociationChanges);
     if (method === "GET" && path === `${base}/artist-identity`)
       return reply(unselectedArtistIdentity);
     if (method === "GET" && path === `${base}/download`)
@@ -132,7 +135,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       target: { value: secondCatalog.installation.id },
     });
     fireEvent.change(query, { target: { value: artistQuery } });
-    expect(fetch).toHaveBeenCalledTimes(6);
+    expect(fetch).toHaveBeenCalledTimes(7);
     expect(screen.getByRole("region", { name: "Your track details" })).toBe(
       editor,
     );
@@ -199,6 +202,7 @@ test("track details offers lazy artist review without replacing unsaved personal
       "/api/v1/plugins",
       associations,
       `${base}/artist-identity`,
+      `${base}/artist-association-changes`,
       `${review}/context`,
       `${review}/search`,
       `${review}/preview`,

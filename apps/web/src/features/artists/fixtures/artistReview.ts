@@ -128,3 +128,8 @@ export const reviewedArtistProfile = {
   association_id: artistAssociation.id,
   profile: artistPreview.profile,
 } satisfies Schema["ArtistProfileAvailability"];
+export const noAssociationChanges = {
+  recording_id: artistReviewDetail.recording_id,
+  revision: 0,
+  undo: null,
+} satisfies Schema["ArtistAssociationChanges"];

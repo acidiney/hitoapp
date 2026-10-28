@@ -16,6 +16,7 @@ import {
   artistSearchResult,
   firstCatalog,
   secondCatalog,
+  noAssociationChanges,
 } from "../fixtures/artistReview";
 import { reference } from "../../metadata/fixtures/metadataPreferences";
 
@@ -52,6 +53,10 @@ function publicHttp() {
       this.reply("/api/v1/metadata/settings", artistReviewSettings);
       this.reply("/api/v1/plugins", artistReviewConnections);
       this.reply(`${base(recording)}/artist-associations`, associations);
+      this.reply(`${base(recording)}/artist-association-changes`, {
+        ...noAssociationChanges,
+        recording_id: recording,
+      });
       this.reply(`${base(recording)}/artist-identity`, {
         ...unselectedArtistIdentity,
         recording_id: recording,
@@ -181,7 +186,7 @@ test("editing a query or provider retires held artist responses and a current re
     expect(searchSignal?.aborted).toBe(false);
     fireEvent.change(query, { target: { value: artistQuery } });
     expect(searchSignal?.aborted).toBe(true);
-    expect(http.fetch).toHaveBeenCalledTimes(6);
+    expect(http.fetch).toHaveBeenCalledTimes(7);
     http.search(artistReviewContext, artistQuery);
     submitSearch();
     await screen.findByRole("list", { name: "Artist search results" });
@@ -204,7 +209,7 @@ test("editing a query or provider retires held artist responses and a current re
       target: { value: firstCatalog.installation.id },
     });
     expect(previewSignal?.aborted).toBe(true);
-    expect(http.fetch).toHaveBeenCalledTimes(9);
+    expect(http.fetch).toHaveBeenCalledTimes(10);
     expect(
       screen.queryByRole("list", { name: "Artist search results" }),
     ).toBeNull();
@@ -266,7 +271,7 @@ test("editing a query or provider retires held artist responses and a current re
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(
         artistReviewAccount,
       );
-    expect(http.fetch).toHaveBeenCalledTimes(12);
+    expect(http.fetch).toHaveBeenCalledTimes(13);
     expect(
       screen.queryByText("Artist review saved.", { exact: true }),
     ).toBeNull();
@@ -398,6 +403,7 @@ test.each(["account", "recording", "artist operation"] as const)(
         "/api/v1/plugins",
         `${base(detail.recording_id)}/artist-associations`,
         `${base(detail.recording_id)}/artist-identity`,
+        `${base(detail.recording_id)}/artist-association-changes`,
         `${base(detail.recording_id)}/artist-review/context`,
         `${base(detail.recording_id)}/artist-review/search`,
         `${base(detail.recording_id)}/artist-review/preview`,
@@ -408,10 +414,10 @@ test.each(["account", "recording", "artist operation"] as const)(
         );
         expect(options?.credentials).toBe("same-origin");
       }
-      expect(JSON.parse(currentCalls[4][1]?.body as string)).toEqual({
+      expect(JSON.parse(currentCalls[5][1]?.body as string)).toEqual({
         provider: context.provider,
       });
-      expect(JSON.parse(currentCalls[5][1]?.body as string)).toEqual({
+      expect(JSON.parse(currentCalls[6][1]?.body as string)).toEqual({
         context,
         search: {
           query: detail.artist.value,
@@ -420,7 +426,7 @@ test.each(["account", "recording", "artist operation"] as const)(
           snapshot: null,
         },
       } satisfies Schema["SearchArtistCandidates"]);
-      expect(JSON.parse(currentCalls[6][1]?.body as string)).toEqual({
+      expect(JSON.parse(currentCalls[7][1]?.body as string)).toEqual({
         context,
         provider_artist_id: artistPreview.profile.artist.id,
       });

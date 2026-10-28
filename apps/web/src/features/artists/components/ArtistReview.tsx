@@ -1,10 +1,10 @@
 import type { FormEvent } from "react";
+import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
+import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import { useArtistReview } from "../hooks/useArtistReview";
 import ArtistDiscography from "./ArtistDiscography";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
-import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
-import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import type {
   ArtistSearchCandidate,
   CatalogArtistProfile,
@@ -41,8 +41,11 @@ export default function ArtistReview({
   );
   const changes = useArtistAssociationChanges(
     account,
-    detail.recording_id,
-    workflow.refreshAssociations,
+    detail,
+    workflow.loaded,
+    async () => {
+      await Promise.all([workflow.refreshAssociations(), identity.refresh()]);
+    },
   );
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
@@ -183,6 +186,7 @@ export default function ArtistReview({
       <SavedArtistReviews
         associations={workflow.associations}
         disabled={workflow.pending !== null || !workflow.enabled}
+        ready={changes.ready}
         canUndo={changes.canUndo}
         retrying={changes.retrying}
         error={changes.error}

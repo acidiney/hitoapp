@@ -387,12 +387,22 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
   }
 
   async function refreshAssociations() {
-    await run(
-      "refresh",
-      { profile: null },
-      (signal) => artistReviewApi.associations(account, recording, signal),
-      (associations) => ({ associations }),
+    const request = scope.capture();
+    if (!request.active()) return;
+    const associations = await artistReviewApi.associations(
+      account,
+      recording,
+      request.signal,
     );
+    if (!request.active()) return;
+    setSnapshot((value) => {
+      if (value.owner !== owner) return value;
+      const shown = value.profile;
+      const removed =
+        shown?.status === "available" &&
+        !associations.some((item) => item.id === shown.association_id);
+      return { ...value, associations, profile: removed ? null : shown };
+    });
   }
 
   async function confirm() {

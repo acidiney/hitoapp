@@ -3,6 +3,7 @@ import type { ArtistAssociation } from "../../../shared/types";
 export default function SavedArtistReviews({
   associations,
   disabled,
+  ready,
   canUndo,
   retrying,
   error,
@@ -13,6 +14,7 @@ export default function SavedArtistReviews({
 }: {
   associations: ArtistAssociation[];
   disabled: boolean;
+  ready: boolean;
   canUndo: boolean;
   retrying: boolean;
   error: string;
@@ -39,7 +41,7 @@ export default function SavedArtistReviews({
             <button
               type="button"
               className="button"
-              disabled={disabled || retrying}
+              disabled={disabled || !ready || retrying}
               onClick={() => onUnlink(association)}
             >
               Unlink saved artist review {index + 1}
@@ -49,12 +51,22 @@ export default function SavedArtistReviews({
       </ul>
       {error && <p role="alert">{error}</p>}
       {retrying && (
-        <button type="button" className="button" onClick={onRetry}>
+        <button
+          type="button"
+          className="button"
+          disabled={disabled}
+          onClick={onRetry}
+        >
           Retry the same artist review change request
         </button>
       )}
       {canUndo && (
-        <button type="button" className="button" onClick={onUndo}>
+        <button
+          type="button"
+          className="button"
+          disabled={disabled}
+          onClick={onUndo}
+        >
           Undo last artist review change
         </button>
       )}

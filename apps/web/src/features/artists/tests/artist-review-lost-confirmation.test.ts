@@ -4,6 +4,7 @@ import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
 import {
+  noAssociationChanges,
   artistAssociation,
   artistPreview,
   artistQuery,
@@ -36,6 +37,8 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
   let confirmations = 0;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
+    if (method === "GET" && path === `${base}/artist-association-changes`)
+      return Response.json(noAssociationChanges);
     if (method === "GET" && path === `${base}/artist-identity`)
       return reply(unselectedArtistIdentity);
     if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -108,7 +111,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     });
     expect(committed).toBe(true);
     expect(confirmations).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(8);
+    expect(fetch).toHaveBeenCalledTimes(9);
     expect(
       screen.queryByText("Artist review saved.", { exact: true }),
     ).toBeNull();
@@ -128,7 +131,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     expect(retired.every(([, options]) => options?.signal?.aborted)).toBe(true);
 
     returned = render(component());
-    expect(fetch).toHaveBeenCalledTimes(8);
+    expect(fetch).toHaveBeenCalledTimes(9);
     expect(
       screen.getByRole("button", { name: "Find artist information" }),
     ).toBeTruthy();
@@ -150,7 +153,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
     });
     expect(within(saved).getAllByRole("listitem")).toHaveLength(1);
     expect(confirmations).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(12);
+    expect(fetch).toHaveBeenCalledTimes(14);
     expect(fetch.mock.calls.some(([path]) => path === profilePath)).toBe(false);
     expect(
       screen.queryByRole("region", { name: "Reviewed artist profile" }),
@@ -183,6 +186,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
       "/api/v1/plugins",
       associations,
       `${base}/artist-identity`,
+      `${base}/artist-association-changes`,
       `${review}/context`,
       `${review}/search`,
       `${review}/preview`,
@@ -191,6 +195,7 @@ test("a lost confirmation acknowledgement is recovered by an explicit authoritat
       "/api/v1/plugins",
       associations,
       `${base}/artist-identity`,
+      `${base}/artist-association-changes`,
       profilePath,
     ]);
     expect(

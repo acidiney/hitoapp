@@ -20,6 +20,7 @@ import {
   artistSearch,
   artistSearchResult,
   secondCatalog,
+  noAssociationChanges,
 } from "../fixtures/artistReview";
 
 type Schema = components["schemas"];
@@ -62,6 +63,8 @@ test.each(["credited artist", "same-name artist operation"] as const)(
     };
     const fetch = vi.fn(async (path: string, options?: RequestInit) => {
       const method = options?.method ?? "GET";
+      if (method === "GET" && path === `${base}/artist-association-changes`)
+        return Response.json(noAssociationChanges);
       if (method === "GET" && path === `${base}/artist-identity`)
         return reply(unselectedArtistIdentity);
       if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -116,6 +119,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
         "/api/v1/plugins",
         associations,
         `${base}/artist-identity`,
+        `${base}/artist-association-changes`,
         `${review}/context`,
       ]);
       const alert = screen.getByRole("alert");
@@ -148,7 +152,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
       expect(retired.every(([, options]) => options?.signal?.aborted)).toBe(
         true,
       );
-      expect(fetch).toHaveBeenCalledTimes(5);
+      expect(fetch).toHaveBeenCalledTimes(6);
       expect(screen.queryByRole("alert")).toBeNull();
       expect(
         screen.getByRole("button", { name: "Find artist information" }),
@@ -168,13 +172,14 @@ test.each(["credited artist", "same-name artist operation"] as const)(
         "/api/v1/plugins",
         associations,
         `${base}/artist-identity`,
+        `${base}/artist-association-changes`,
         `${review}/context`,
         `${review}/search`,
       ]);
-      expect(JSON.parse(currentCalls[4][1]?.body as string)).toEqual({
+      expect(JSON.parse(currentCalls[5][1]?.body as string)).toEqual({
         provider: context.provider,
       });
-      expect(JSON.parse(currentCalls[5][1]?.body as string)).toEqual({
+      expect(JSON.parse(currentCalls[6][1]?.body as string)).toEqual({
         context,
         search: artistSearch,
       } satisfies Schema["SearchArtistCandidates"]);

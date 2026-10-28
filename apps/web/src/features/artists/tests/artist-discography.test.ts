@@ -18,6 +18,7 @@ import {
   artistReviewDetail,
   artistReviewSettings,
   reviewedArtistProfile,
+  noAssociationChanges,
 } from "../fixtures/artistReview";
 import {
   discographyCredit,
@@ -58,6 +59,12 @@ test("a saved artist review browses paged catalog groups without adopting albums
         `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`
     )
       return reply(unselectedArtistIdentity);
+    if (
+      method === "GET" &&
+      path ===
+        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-association-changes`
+    )
+      return reply(noAssociationChanges);
     if (method === "GET" && path === "/api/v1/metadata/settings")
       return reply(artistReviewSettings);
     if (method === "GET" && path === "/api/v1/plugins")
@@ -98,6 +105,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
         "/api/v1/plugins",
         associations,
         `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
+        `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-association-changes`,
       ].sort(),
     );
     expect(posts()).toHaveLength(0);
@@ -113,7 +121,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
     await act(async () => {
       await Promise.resolve();
     });
-    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).toHaveBeenCalledTimes(6);
     expect(posts()).toHaveLength(0);
     fireEvent.click(
       within(profile).getByRole("button", { name: "Browse discography" }),
@@ -198,6 +206,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
       "/api/v1/plugins",
       associations,
       `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-identity`,
+      `/api/v1/recordings/${artistReviewDetail.recording_id}/artist-association-changes`,
       profilePath,
       discographyPath,
       discographyPath,

@@ -7,24 +7,25 @@ import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import type {
   ArtistAssociation,
   ArtistAssociationChangeReceipt,
+  ArtistAssociationChanges,
+  RecordingMetadata,
   UndoRecordingArtistChange,
   UnlinkRecordingArtist,
 } from "../../../shared/types";
 
 type Kind = "unlink" | "undo";
 type Attempt =
-  | { kind: "unlink"; body: UnlinkRecordingArtist }
-  | { kind: "undo"; body: UndoRecordingArtistChange };
-type Undo = { revision: number; association_id: string };
+  | { kind: "unlink"; body: UnlinkRecordingArtist; association: string }
+  | { kind: "undo"; body: UndoRecordingArtistChange; association: string };
 type Owner = {
   controller: AbortController | null;
   attempt: Attempt | null;
-  undo: Undo | null;
+  state: ArtistAssociationChanges | null;
 };
 type View = {
   owner: Owner;
   pending: Kind | null;
-  undo: Undo | null;
+  state: ArtistAssociationChanges | null;
   retrying: boolean;
   error: string;
 };
@@ -32,7 +33,13 @@ type View = {
 const deadlineMs = 15000;
 
 function empty(owner: Owner): View {
-  return { owner, pending: null, undo: null, retrying: false, error: "" };
+  return {
+    owner,
+    pending: null,
+    state: owner.state,
+    retrying: false,
+    error: "",
+  };
 }
 
 function validReceipt(
@@ -40,39 +47,58 @@ function validReceipt(
   recording: string,
   attempt: Attempt,
 ) {
-  const body = attempt.body;
   return (
-    receipt?.request_id === body.request_id &&
+    receipt?.request_id === attempt.body.request_id &&
     receipt.recording_id === recording &&
-    receipt.revision === body.expected_revision + 1 &&
-    typeof receipt.association_id === "string" &&
-    (attempt.kind === "unlink"
-      ? receipt.association_id === attempt.body.association_id &&
-        receipt.linked === false
-      : typeof receipt.linked === "boolean")
+    receipt.revision === attempt.body.expected_revision + 1 &&
+    receipt.association_id === attempt.association &&
+    (attempt.kind === "unlink" ? receipt.linked === false : true)
   );
 }
 
 export function useArtistAssociationChanges(
   account: string,
-  recording: string,
+  detail: RecordingMetadata,
+  opened: boolean,
   onChanged: () => Promise<void>,
 ) {
-  const scope = useRequestScope(JSON.stringify([account, recording]));
+  const recording = detail.recording_id;
+  const scope = useRequestScope(
+    JSON.stringify([
+      account,
+      recording,
+      detail.selected_observation?.id,
+      detail.artist.operation_id,
+      detail.artist.value,
+    ]),
+  );
   const owner = useMemo<Owner>(
-    () => ({ controller: null, attempt: null, undo: null }),
+    () => ({ controller: null, attempt: null, state: null }),
     [scope],
   );
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 
+  async function readState(signal: AbortSignal) {
+    const state = await artistAssociationApi.changes(account, recording, signal);
+    signal.throwIfAborted();
+    if (state.recording_id !== recording || !Number.isSafeInteger(state.revision))
+      throw new Error("Invalid artist review change state");
+    owner.state = state;
+    setSnapshot((value) => ({
+      ...(value.owner === owner ? value : empty(owner)),
+      state,
+    }));
+  }
+
   async function perform(kind: Kind, association?: ArtistAssociation) {
     const captured = scope.capture();
-    if (!captured.active() || owner.controller) return;
+    const state = owner.state;
+    if (!captured.active() || owner.controller || !state) return;
     if (
       !owner.attempt &&
       (kind === "undo"
-        ? !owner.undo
+        ? !state.undo
         : !association ||
           association.account_id !== account ||
           association.recording_id !== recording)
@@ -98,26 +124,22 @@ export function useArtistAssociationChanges(
     try {
       if (!owner.attempt) {
         if (kind === "unlink" && association) {
-          const state = await artistAssociationApi.changes(
-            account,
-            recording,
-            signal,
-          );
-          signal.throwIfAborted();
           owner.attempt = {
             kind,
+            association: association.id,
             body: Object.freeze({
               request_id: requestId,
               expected_revision: state.revision,
               association_id: association.id,
             }),
           };
-        } else if (owner.undo) {
+        } else if (state.undo) {
           owner.attempt = {
             kind: "undo",
+            association: state.undo.association_id,
             body: Object.freeze({
               request_id: requestId,
-              expected_revision: owner.undo.revision,
+              expected_revision: state.revision,
             }),
           };
         }
@@ -142,35 +164,34 @@ export function useArtistAssociationChanges(
       if (!validReceipt(receipt, recording, attempt))
         throw new Error("Invalid artist review change receipt");
       owner.attempt = null;
-      owner.undo = {
-        revision: receipt.revision,
-        association_id: receipt.association_id,
-      };
-      await onChanged();
+      await Promise.allSettled([readState(signal), onChanged()]);
       if (!active()) return;
       reason = "accepted";
       setSnapshot((value) => ({
         ...(value.owner === owner ? value : empty(owner)),
-        undo: owner.undo,
         retrying: false,
         error: "",
       }));
     } catch (error) {
       if (active() && (!signal.aborted || expired)) {
-        if (
+        const rejected =
           error instanceof HttpError &&
           error.status >= 400 &&
-          error.status < 500
-        )
+          error.status < 500;
+        if (rejected) {
           owner.attempt = null;
+          await Promise.allSettled([
+            readState(captured.signal),
+            onChanged(),
+          ]);
+        }
         reason = expired ? "deadline" : "failed";
         setSnapshot((value) => ({
           ...(value.owner === owner ? value : empty(owner)),
-          undo: owner.undo,
           retrying: owner.attempt !== null,
           error: owner.attempt
             ? "Hito could not confirm the artist review change. Retry the same request to recover its result."
-            : "Hito could not change the saved artist reviews. Reload them and try again.",
+            : "Hito could not change the saved artist reviews. They were reloaded; try again.",
         }));
       }
     } finally {
@@ -197,12 +218,20 @@ export function useArtistAssociationChanges(
     }
   }
 
+  useEffect(() => {
+    if (!opened) return;
+    const captured = scope.capture();
+    void readState(captured.signal).catch(() => {});
+  }, [opened, owner, scope]);
+
   useEffect(() => () => owner.controller?.abort(), [owner]);
 
   return {
-    pending: current.pending,
+    ready: current.state !== null,
     canUndo:
-      current.undo !== null && current.pending === null && !current.retrying,
+      current.state?.undo != null &&
+      current.pending === null &&
+      !current.retrying,
     retrying: current.retrying,
     error: current.error,
     unlink: (association: ArtistAssociation) => perform("unlink", association),
