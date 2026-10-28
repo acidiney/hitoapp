@@ -87,9 +87,9 @@ impl LibraryStorage {
         tracing::Span::current().record("library_id", library);
         drop(connection);
         let root = self.directories.open_selected(&request.directory).await?;
-        let grant = self
-            .directories
-            .grants
+        let grants = self.directories.grants();
+        let grant = grants
+            .list
             .iter()
             .find(|grant| grant.id == request.directory.directory_id)
             .ok_or(Error::NotFound)?;

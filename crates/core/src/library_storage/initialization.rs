@@ -11,6 +11,7 @@ impl LibraryStorage {
         .bind(self.host.as_str())
         .fetch_all(&mut *tx)
         .await?;
+        let grants = self.directories.grants();
         let mut counts = HashMap::new();
         for folder in &folders {
             *counts.entry(&folder.library_id).or_insert(0usize) += 1;
@@ -19,18 +20,18 @@ impl LibraryStorage {
             let grant = folder
                 .directory_id
                 .as_ref()
-                .and_then(|id| self.directories.grants.iter().find(|grant| &grant.id == id))
+                .and_then(|id| grants.list.iter().find(|grant| &grant.id == id))
                 .or_else(|| {
                     if folder.directory_id.is_none() {
-                        self.directories
-                            .grants
+                        grants
+                            .list
                             .iter()
                             .find(|grant| grant.root.to_string_lossy() == folder.root_path)
                             .or_else(|| {
                                 if self.directories.legacy.is_some()
                                     && counts.get(&folder.library_id) == Some(&1)
                                 {
-                                    self.directories.grants.first()
+                                    grants.list.first()
                                 } else {
                                     None
                                 }

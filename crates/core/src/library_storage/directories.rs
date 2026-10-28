@@ -4,18 +4,25 @@ use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 use tokio::sync::Semaphore;
 use utoipa::ToSchema;
 
+const MAX_GRANTS: usize = 64;
+
 #[derive(Clone)]
 pub(crate) struct Directories {
-    pub(super) grants: Arc<[SharedDirectoryConfig]>,
+    state: Arc<RwLock<Arc<Grants>>>,
     pub(super) legacy: Option<PathBuf>,
-    slots: Arc<BTreeMap<String, GrantSlots>>,
 }
 
+pub(super) struct Grants {
+    pub(super) list: Vec<SharedDirectoryConfig>,
+    slots: BTreeMap<String, GrantSlots>,
+}
+
+#[derive(Clone)]
 struct GrantSlots {
     operations: Arc<Semaphore>,
     walks: Arc<Semaphore>,
@@ -41,7 +48,7 @@ impl Directories {
             ),
             StorageConfig::SharedDirectories(grants) => (grants, None),
         };
-        if grants.len() > 64 {
+        if grants.len() > MAX_GRANTS {
             return Err(Error::Invalid("Share at most 64 music directories".into()));
         }
         let mut ids = BTreeSet::new();
@@ -67,23 +74,38 @@ impl Directories {
                 ));
             }
         }
-        let slots = grants
-            .iter()
-            .map(|grant| {
-                (
-                    grant.id.clone(),
-                    GrantSlots {
-                        operations: Arc::new(Semaphore::new(1)),
-                        walks: Arc::new(Semaphore::new(1)),
-                    },
-                )
-            })
-            .collect();
         Ok(Self {
-            grants: grants.into(),
+            state: Arc::new(RwLock::new(Arc::new(Grants::new(grants)))),
             legacy,
-            slots: Arc::new(slots),
         })
+    }
+
+    pub(super) fn grants(&self) -> Arc<Grants> {
+        self.state
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    pub(super) fn add(&self, grant: SharedDirectoryConfig) -> Result<()> {
+        let mut state = self
+            .state
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if state.list.iter().any(|existing| existing.id == grant.id) {
+            return Ok(());
+        }
+        if state.list.len() >= MAX_GRANTS {
+            return Err(Error::Invalid("Share at most 64 music directories".into()));
+        }
+        let mut next = Grants {
+            list: state.list.clone(),
+            slots: state.slots.clone(),
+        };
+        next.slots.insert(grant.id.clone(), GrantSlots::new());
+        next.list.push(grant);
+        *state = Arc::new(next);
+        Ok(())
     }
 
     pub(super) async fn open(&self, id: &str) -> Result<Root> {
@@ -96,12 +118,13 @@ impl Directories {
 
     pub(crate) async fn open_selected(&self, selection: &DirectoryRef) -> Result<Root> {
         validate(selection)?;
-        let grant = self
-            .grants
+        let grants = self.grants();
+        let grant = grants
+            .list
             .iter()
             .find(|grant| grant.id == selection.directory_id)
             .ok_or(Error::NotFound)?;
-        let slots = self.slots.get(&grant.id).ok_or(Error::NotFound)?;
+        let slots = grants.slots.get(&grant.id).ok_or(Error::NotFound)?;
         Root::open(
             &grant.root,
             &slots.operations,
@@ -159,7 +182,7 @@ impl LibraryStorage {
     pub async fn shared_directories(&self, actor: &Actor) -> Result<Vec<SharedDirectory>> {
         actor.require_admin()?;
         let mut pending = tokio::task::JoinSet::new();
-        for (index, grant) in self.directories.grants.iter().cloned().enumerate() {
+        for (index, grant) in self.directories.grants().list.iter().cloned().enumerate() {
             let directories = self.directories.clone();
             pending.spawn(async move {
                 (
@@ -186,5 +209,24 @@ impl LibraryStorage {
             "Shared directory status checked"
         );
         Ok(result)
+    }
+}
+
+impl GrantSlots {
+    fn new() -> Self {
+        Self {
+            operations: Arc::new(Semaphore::new(1)),
+            walks: Arc::new(Semaphore::new(1)),
+        }
+    }
+}
+
+impl Grants {
+    fn new(list: Vec<SharedDirectoryConfig>) -> Self {
+        let slots = list
+            .iter()
+            .map(|grant| (grant.id.clone(), GrantSlots::new()))
+            .collect();
+        Self { list, slots }
     }
 }

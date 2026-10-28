@@ -8,6 +8,7 @@ use crate::{
     inertia::{self, props::*},
     security, telemetry,
 };
+use api::host_folders::{HostFolderAccess, HostFolders};
 use axum::{Extension, Router, middleware, routing::get};
 use hito_core::Services;
 use std::sync::Arc;
@@ -161,6 +162,8 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(storage::directories))
         .routes(routes!(storage::browse))
         .routes(routes!(storage::folders, storage::connect))
+        .routes(routes!(api::host_folders::offer))
+        .routes(routes!(api::host_folders::choose))
         .routes(routes!(storage::remove))
         .routes(routes!(storage::scan))
         .routes(routes!(collection::playlists))
@@ -207,7 +210,7 @@ pub fn router(services: Services) -> Router {
 }
 
 pub fn router_with_config(services: Services, config: Config) -> Router {
-    application(services, config, None)
+    application(services, config, None, None)
 }
 
 pub fn router_with_player(
@@ -215,13 +218,23 @@ pub fn router_with_player(
     config: Config,
     player: hito_playback::Player,
 ) -> Router {
-    application(services, config, Some(player))
+    application(services, config, Some(player), None)
+}
+
+pub fn router_with_host(
+    services: Services,
+    config: Config,
+    player: Option<hito_playback::Player>,
+    folders: Arc<dyn HostFolders>,
+) -> Router {
+    application(services, config, player, Some(folders))
 }
 
 fn application(
     services: Services,
     config: Config,
     player: Option<hito_playback::Player>,
+    folders: Option<Arc<dyn HostFolders>>,
 ) -> Router {
     let (api, document) = api_routes().split_for_parts();
     Router::new()
@@ -253,6 +266,7 @@ fn application(
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))
         .layer(Extension(player::Playback::new(player)))
+        .layer(Extension(HostFolderAccess(folders)))
         .layer(middleware::from_fn_with_state(
             security::Security::new(config),
             security::browser_security,

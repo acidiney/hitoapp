@@ -14,6 +14,7 @@ pub mod collection;
 pub mod collection_artwork;
 pub mod community;
 pub mod downloads;
+pub mod host_folders;
 pub mod identity;
 pub mod jobs;
 pub mod lyrics;

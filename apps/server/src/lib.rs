@@ -14,7 +14,8 @@ mod source_resolution;
 mod storage_manifest;
 mod telemetry;
 
+pub use api::host_folders::HostFolders;
 pub use config::{Config, RuntimeConfig};
-pub use routes::{openapi, router, router_with_config, router_with_player};
+pub use routes::{openapi, router, router_with_config, router_with_host, router_with_player};
 pub use runtime::{run, serve};
 pub use telemetry::application_log;
