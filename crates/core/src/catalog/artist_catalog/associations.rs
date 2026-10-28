@@ -26,6 +26,8 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
     FROM recording_artist_association_changes change
     WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1),1)=1";
 
+const MATCHED: &str = "(SELECT matched.evidence_kind FROM artist_association_matches matched WHERE matched.association_id=assoc.id) AS matched";
+
 #[derive(sqlx::FromRow)]
 struct Stored {
     id: String,
@@ -39,6 +41,7 @@ struct Stored {
     plugin_installation_id: Option<String>,
     provider_artist_id: String,
     revision: i64,
+    matched: Option<String>,
 }
 
 impl Stored {
@@ -65,7 +68,15 @@ impl Stored {
             role: ArtistCreditRole::RecordingArtist,
             provider,
             provider_artist_id: self.provider_artist_id,
-            evidence: ArtistAssociationEvidence::UserConfirmed,
+            evidence: match self.matched.as_deref() {
+                None => ArtistAssociationEvidence::UserConfirmed,
+                Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
+                Some(_) => {
+                    return Err(Error::Internal(
+                        "Stored artist association provenance is invalid".into(),
+                    ));
+                }
+            },
             revision: self.revision,
         })
     }
@@ -84,7 +95,7 @@ impl Catalog {
             actor.check_session_on(&mut tx).await?;
             recording_access(&mut tx, actor, recording).await?;
             let rows: Vec<Stored> = sqlx::query_as(&format!(
-                "SELECT assoc.* FROM recording_artist_associations assoc
+                "SELECT assoc.*, {MATCHED} FROM recording_artist_associations assoc
                 WHERE assoc.user_id=? AND assoc.recording_id=? AND {LINKED} ORDER BY assoc.created_at,assoc.id LIMIT ?"
             ))
             .bind(actor.id())
@@ -255,7 +266,7 @@ pub(super) async fn load(
     association: &str,
 ) -> Result<ArtistAssociation> {
     let row: Stored = sqlx::query_as(&format!(
-        "SELECT assoc.* FROM recording_artist_associations assoc
+        "SELECT assoc.*, {MATCHED} FROM recording_artist_associations assoc
         WHERE assoc.id=? AND assoc.user_id=? AND assoc.recording_id=? AND {LINKED}"
     ))
     .bind(association)

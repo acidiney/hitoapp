@@ -9,6 +9,7 @@ mod discography;
 mod discovery;
 mod editions;
 pub(crate) mod identity;
+mod matching;
 mod policy;
 mod preview;
 mod profile;
@@ -18,6 +19,7 @@ mod review;
 mod shared_corrections;
 mod types;
 pub use identity::*;
+pub use matching::*;
 
 pub use album_edition_choice::{
     AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState, ChooseAlbumEdition,

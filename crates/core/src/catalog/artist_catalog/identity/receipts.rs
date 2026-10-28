@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-pub(super) fn fingerprint(
+pub(in crate::catalog::artist_catalog) fn fingerprint(
     command: &str,
     recording: &str,
     request: &impl Serialize,
@@ -14,7 +14,7 @@ pub(super) fn fingerprint(
     Ok(format!("{:x}", Sha256::digest(encoded)))
 }
 
-pub(super) async fn replay<T: DeserializeOwned>(
+pub(in crate::catalog::artist_catalog) async fn replay<T: DeserializeOwned>(
     connection: &mut SqliteConnection,
     actor: &Actor,
     request_id: Uuid,
@@ -44,7 +44,7 @@ pub(super) async fn replay<T: DeserializeOwned>(
     Ok(Some(receipt))
 }
 
-pub(super) async fn save(
+pub(in crate::catalog::artist_catalog) async fn save(
     connection: &mut SqliteConnection,
     actor: &Actor,
     digest: &str,

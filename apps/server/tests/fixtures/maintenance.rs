@@ -648,12 +648,18 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ),
         ("trigger", "shared_artist_correction_receipt_immutable"),
         ("trigger", "shared_artist_correction_receipt_retained"),
+        ("table", "artist_association_matches"),
+        ("index", "sqlite_autoindex_artist_association_matches_1"),
+        ("trigger", "artist_association_match_immutable"),
+        ("trigger", "artist_association_match_retained"),
+        ("table", "artist_match_dismissals"),
+        ("index", "sqlite_autoindex_artist_match_dismissals_1"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference, artist identity, album edition, artist association, PIN lock and artist correction objects may extend 0052"
+        "only the exact ranking preference, artist identity, album edition, artist association, PIN lock, artist correction and artist matching objects may extend 0052"
     );
     assert!(
         actual == expected,

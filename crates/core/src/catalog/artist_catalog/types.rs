@@ -40,6 +40,7 @@ pub enum ArtistCreditRole {
 #[serde(rename_all = "snake_case")]
 pub enum ArtistAssociationEvidence {
     UserConfirmed,
+    MatchedFileTagArtistId,
 }
 
 #[derive(Deserialize, ToSchema)]

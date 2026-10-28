@@ -150,9 +150,14 @@ impl Catalog {
             Error::Conflict("Artist identity choice revision is exhausted".into())
         })?;
         let (kind, installation) = super::super::authority::provider_columns(&association.provider);
-        let group:String=sqlx::query_scalar("INSERT INTO account_artist_identity_groups(id,user_id,provider_kind,plugin_installation_id,provider_artist_id)
-            VALUES(?,?,?,?,?) ON CONFLICT(user_id,provider_key,provider_artist_id) DO UPDATE SET provider_artist_id=excluded.provider_artist_id RETURNING id")
-            .bind(Uuid::new_v4().to_string()).bind(actor.id()).bind(kind).bind(installation).bind(&association.provider_artist_id).fetch_one(&mut *tx).await?;
+        let group = ensure_group(
+            &mut tx,
+            actor,
+            kind,
+            installation,
+            &association.provider_artist_id,
+        )
+        .await?;
         let receipt = ArtistIdentityChoiceReceipt {
             request_id: request.request_id,
             recording_id: recording.into(),
@@ -180,8 +185,20 @@ impl Catalog {
     }
 }
 
+pub(in crate::catalog::artist_catalog) async fn ensure_group(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    kind: &str,
+    installation: Option<&str>,
+    provider_artist_id: &str,
+) -> Result<String> {
+    Ok(sqlx::query_scalar("INSERT INTO account_artist_identity_groups(id,user_id,provider_kind,plugin_installation_id,provider_artist_id)
+        VALUES(?,?,?,?,?) ON CONFLICT(user_id,provider_key,provider_artist_id) DO UPDATE SET provider_artist_id=excluded.provider_artist_id RETURNING id")
+        .bind(Uuid::new_v4().to_string()).bind(actor.id()).bind(kind).bind(installation).bind(provider_artist_id).fetch_one(connection).await?)
+}
+
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn store(
+pub(in crate::catalog::artist_catalog) async fn store(
     connection: &mut SqliteConnection,
     actor: &Actor,
     recording: &str,
