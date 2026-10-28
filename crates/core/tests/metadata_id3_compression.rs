@@ -342,7 +342,7 @@ async fn many_expensive_failing_frames_stay_bounded_and_the_file_stays_indexed()
         frames.push(Frame {
             id: "TIT2",
             payload: Vec::new(),
-            storage: Storage::CompressedBytes(vec![0x78, 0x9c, 7].repeat(6000), 1024 * 1024),
+            storage: Storage::CompressedBytes([0x78, 0x9c, 7].repeat(6000), 1024 * 1024),
             unsynchronised: false,
         });
     }
