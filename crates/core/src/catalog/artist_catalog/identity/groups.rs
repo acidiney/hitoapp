@@ -224,7 +224,7 @@ fn bounds(offset: Option<i64>, limit: Option<i64>) -> (i64, i64) {
 }
 
 /// Current choices whose reviewed association is still linked for the account, including shared corrections.
-pub(super) fn current_choices() -> String {
+pub(in crate::catalog::artist_catalog) fn current_choices() -> String {
     format!(
         "FROM recording_artist_identity_choices choice
         JOIN recordings r ON r.id=choice.recording_id
@@ -269,7 +269,7 @@ pub(crate) fn push_unrepresented_credit(query: &mut QueryBuilder<'static, Sqlite
     ));
 }
 
-pub(super) fn visible(
+pub(in crate::catalog::artist_catalog) fn visible(
     actor: &Actor,
     library: Option<&str>,
     group: Option<&str>,

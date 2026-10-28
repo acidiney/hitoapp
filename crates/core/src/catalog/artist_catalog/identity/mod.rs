@@ -2,7 +2,7 @@ mod change_state;
 mod changes;
 pub(in crate::catalog::artist_catalog) mod choices;
 mod credit;
-mod groups;
+pub(in crate::catalog::artist_catalog) mod groups;
 pub(in crate::catalog::artist_catalog) mod receipts;
 mod reset;
 mod split;

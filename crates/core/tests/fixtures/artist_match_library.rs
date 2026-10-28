@@ -31,12 +31,18 @@ pub struct Library {
     _directory: tempfile::TempDir,
 }
 
-pub fn tagged(path: &std::path::Path, offset: i16, title: &str, artist: &str, mbid: Option<&str>) {
+pub fn tagged(
+    path: &std::path::Path,
+    offset: i16,
+    (title, album): (&str, &str),
+    artist: &str,
+    mbid: Option<&str>,
+) {
     support::write_wav(path, offset);
     let mut tag = Tag::new(TagType::Id3v2);
     tag.set_title(title.into());
     tag.set_artist(artist.into());
-    tag.set_album(format!("Album of {title}"));
+    tag.set_album(album.into());
     if let Some(mbid) = mbid {
         tag.insert_text(ItemKey::MusicBrainzArtistId, mbid.into());
     }
@@ -46,14 +52,38 @@ pub fn tagged(path: &std::path::Path, offset: i16, title: &str, artist: &str, mb
 impl Library {
     pub async fn prepare() -> Self {
         let (directory, hito, actor, library, music) = support::library("artist-match").await;
-        tagged(&music.join("a.wav"), 1, "Song A", CREDIT, Some(M1));
-        tagged(&music.join("b.wav"), 2, "Song B", SPELLED, Some(M1));
-        tagged(&music.join("n.wav"), 3, "Song N", CREDIT, Some(M2));
-        tagged(&music.join("p.wav"), 4, "Song P", CREDIT, None);
+        tagged(
+            &music.join("a.wav"),
+            1,
+            ("Song A", "Album A"),
+            CREDIT,
+            Some(M1),
+        );
+        tagged(
+            &music.join("b.wav"),
+            2,
+            ("Song B", "Album B"),
+            SPELLED,
+            Some(M1),
+        );
+        tagged(
+            &music.join("n.wav"),
+            3,
+            ("Song N", "Album N"),
+            CREDIT,
+            Some(M2),
+        );
+        tagged(
+            &music.join("p.wav"),
+            4,
+            ("song a ", "Album A"),
+            CREDIT,
+            None,
+        );
         tagged(
             &music.join("m.wav"),
             5,
-            "Song M",
+            ("Song M", "Album M"),
             "Duo",
             Some(&format!("{M1};{M2}")),
         );
@@ -105,7 +135,7 @@ impl Library {
             a: ids["Song A"].clone(),
             b: ids["Song B"].clone(),
             namesake: ids["Song N"].clone(),
-            plain: ids["Song P"].clone(),
+            plain: ids["song a "].clone(),
             multi: ids["Song M"].clone(),
             imported,
             hito,

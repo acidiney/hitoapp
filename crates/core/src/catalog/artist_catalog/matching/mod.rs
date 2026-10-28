@@ -1,3 +1,4 @@
+mod suggestions;
 mod tags;
 mod types;
 
