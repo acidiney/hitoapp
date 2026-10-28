@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { storageApi } from "../api/storageApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
@@ -14,10 +14,10 @@ function covered(suggestion: DirectoryRef, folders: MusicFolder[]) {
   const wanted = suggestion.components ?? [];
   return folders.some((folder) => {
     const have = folder.directory?.components ?? [];
-    return (
-      folder.directory?.directory_id === suggestion.directory_id &&
-      have.every((part, index) => part === wanted[index])
-    );
+    if (folder.directory?.directory_id !== suggestion.directory_id)
+      return false;
+    const shared = Math.min(have.length, wanted.length);
+    return have.slice(0, shared).every((part, index) => part === wanted[index]);
   });
 }
 
@@ -31,8 +31,10 @@ export function useHostFolders(
   const [dismissed, dismiss] = useState(false);
   const [choosing, setChoosing] = useState(false);
   const [error, setError] = useState("");
+  const lifetime = useRef(new AbortController());
   useEffect(() => {
     const controller = new AbortController();
+    lifetime.current = controller;
     storageApi
       .hostOffer(account, controller.signal)
       .then((value) => {
@@ -51,22 +53,21 @@ export function useHostFolders(
       ? offer.suggestion
       : null;
   async function choose() {
+    const signal = lifetime.current.signal;
     setChoosing(true);
     setError("");
     try {
-      const choice = await storageApi.chooseHostFolder(
-        account,
-        new AbortController().signal,
-      );
+      const choice = await storageApi.chooseHostFolder(account, signal);
+      if (signal.aborted) return;
       log.info("folders.host_chosen", {
         account_id: account,
         action: choice.directory ? "chosen" : "cancelled",
       });
       if (choice.directory) await connect(choice.directory);
     } catch (failure) {
-      setError(errorMessage(failure));
+      if (!signal.aborted) setError(errorMessage(failure));
     } finally {
-      setChoosing(false);
+      if (!signal.aborted) setChoosing(false);
     }
   }
   return {
@@ -77,7 +78,7 @@ export function useHostFolders(
     choose,
     dismiss: () => dismiss(true),
     accept: async () => {
-      if (suggestion && (await connect(suggestion))) dismiss(true);
+      if (suggestion && !choosing && (await connect(suggestion))) dismiss(true);
     },
   };
 }

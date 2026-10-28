@@ -37,7 +37,7 @@ The standalone desktop app runs the same Settings screen against its bundled loc
 - **Proposal.** In **Settings → Library**, Hito offers "Add your Music folder?" when the computer has a readable Music folder that is not already connected. Nothing is added until you choose **Use Music folder**. **Not now** hides the offer until the page is opened again. New installations reach this screen from the empty library's **Add music folder** button.
 - **Choose folder…** opens the operating system's folder chooser. A cancelled chooser changes nothing. A chosen folder is connected through the same add-folder command as the in-app browser, so scans, overlap checks, removal and recovery are unchanged.
 
-The Music folder is the standard one for the platform: the Windows Music known folder, `~/Music` on macOS, and the XDG user-directory setting on Linux. An absolute `XDG_MUSIC_DIR` environment value takes priority, and `~/Music` is the last fallback. A missing, non-directory or unreadable folder is not proposed.
+The Music folder is the standard one for the platform: the Windows Music known folder, `~/Music` on macOS, and the XDG user-directory setting on Linux. An absolute `XDG_MUSIC_DIR` environment value that names an existing directory takes priority, and `~/Music` is the last fallback. A missing, non-directory or unreadable folder is not proposed.
 
 ```mermaid
 flowchart LR
@@ -53,11 +53,17 @@ flowchart LR
   Find --> Ref
 ```
 
-The desktop shell only supplies a folder path from inside the application process. The web page never sends or receives a path; it receives a shared-directory reference like the browser flow. Core checks that the signed-in account is an administrator. It checks that the folder exists and can be read. If an existing grant contains the folder, it reuses that grant. Otherwise it adds a grant whose label is the folder's name and whose ID is derived from the path. At the next start, core restores the grant from the connected folder record. Grants do not exist in browser deployments because only the desktop shell can supply a path. Logs record only whether a folder was chosen or cancelled, never the path.
+The desktop shell only supplies a folder path from inside the application process. The web page never sends or receives a path; it receives a shared-directory reference like the browser flow. Core checks that the signed-in account is an administrator and that the folder exists and can be read. If an existing grant contains the folder, it reuses that grant. Otherwise it adds a grant whose label is the folder's name and whose ID is derived from the path. Paths that are not valid text are refused. Logs record only whether a folder was chosen or cancelled, never the path.
 
-Limits: choosing a folder that contains an already connected folder from a different grant is not rejected, so the same files could be indexed twice until one folder is removed. Only one native chooser is open at a time. Closing the window while the chooser is open leaves it to the operating system.
+Core refuses, with a conflict message, a new grant for the filesystem root, the user's home folder itself, and any folder that equals or contains the Hito data directory (database and credentials). It also refuses a folder that contains a connected folder, or sits inside a connected folder of another grant, because the same files would be indexed twice. Choosing the same folder again is allowed. A second chooser request while one dialog is open is answered with a conflict ("A folder chooser is already open"). A cancelled chooser is not an error.
 
-Linux Docker tests cover the Music-folder lookup (override, fallback, missing, file and unreadable cases), the core grant mapping and restart, the HTTP routes and the desktop host with a fake chooser, and the web flow with the chooser stubbed. The real chooser on macOS, Windows and Linux (including GTK, window parenting and sandboxed paths) is device verification work and is not tested here.
+At the next start, core restores a host grant only for folders that are still connected. It re-resolves the stored path, requires the identifier to match that path, and applies the same refusals. Removing a folder therefore stops its grant from coming back after a restart; until then the grant stays listed in memory. If more grants exist than the 64-grant limit, extra host grants are skipped with a counted warning and startup continues. Grants that fail these checks are skipped the same way.
+
+The private database can authorise host folders on the desktop: anyone who can edit it can add a connected-folder row that restores a grant for any readable folder that passes the checks above. The desktop database is private to the user's account, so this does not widen their own access. Do not share it.
+
+Limits: the 5-second lookup for a slow or stalled path abandons the wait, but the operating system call keeps running on a background thread until it returns. Only one native chooser is open at a time, and closing the window while it is open leaves it to the operating system.
+
+Linux Docker tests cover the Music-folder lookup (override, fallback, missing, file and unreadable cases), the core grant mapping, refusals, overlap and restart, the HTTP routes (including a busy chooser and the cross-site request guard) and the desktop host with a fake chooser, and the web flow with the chooser stubbed. The real chooser on macOS, Windows and Linux (including GTK, window parenting and sandboxed paths) is device verification work and is not tested here.
 
 ## Removal and recovery
 

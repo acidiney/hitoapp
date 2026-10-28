@@ -44,7 +44,7 @@ const connected: MusicFolder = {
 };
 
 function show() {
-  render(
+  return render(
     createElement(NoticeProvider, null, createElement(LibrarySettings, props)),
   );
 }
@@ -193,4 +193,85 @@ test("a failed offer lookup leaves the browser behaviour", async () => {
   show();
   await screen.findByRole("button", { name: "Add music folder" });
   expect(screen.queryByRole("button", { name: "Choose folder…" })).toBeNull();
+});
+
+test("a suggestion that contains a connected folder is not proposed", async () => {
+  vi.mocked(storageApi.hostOffer).mockResolvedValue({
+    picker: true,
+    suggestion: music,
+  });
+  vi.mocked(storageApi.folders).mockResolvedValue([
+    {
+      ...connected,
+      directory: { directory_id: "legacy-music", components: ["Jazz"] },
+    },
+  ]);
+  show();
+  await screen.findByRole("button", { name: "Choose folder…" });
+  expect(
+    screen.queryByRole("heading", { name: "Add your Music folder?" }),
+  ).toBeNull();
+});
+
+test("the proposal cannot be accepted while the chooser is open", async () => {
+  vi.mocked(storageApi.hostOffer).mockResolvedValue({
+    picker: true,
+    suggestion: music,
+  });
+  vi.mocked(storageApi.chooseHostFolder).mockReturnValue(
+    new Promise(() => undefined),
+  );
+  show();
+  await screen.findByRole("heading", { name: "Add your Music folder?" });
+  fireEvent.click(screen.getByRole("button", { name: "Choose folder…" }));
+  await screen.findByRole("button", { name: "Waiting for your choice…" });
+  expect(
+    screen
+      .getByRole("button", { name: "Use Music folder" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});
+
+test("a choice finishing after the page is closed connects nothing", async () => {
+  let finish: (choice: { directory: DirectoryRef | null }) => void = () => {};
+  vi.mocked(storageApi.hostOffer).mockResolvedValue({
+    picker: true,
+    suggestion: null,
+  });
+  vi.mocked(storageApi.chooseHostFolder).mockImplementation(
+    (_account, signal) => {
+      expect(signal.aborted).toBe(false);
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  );
+  const view = show();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose folder…" }),
+  );
+  await waitFor(() => expect(storageApi.chooseHostFolder).toHaveBeenCalled());
+  const signal = vi.mocked(storageApi.chooseHostFolder).mock.calls[0][1];
+  view.unmount();
+  expect(signal.aborted).toBe(true);
+  finish({ directory: { directory_id: "host-1", components: [] } });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(storageApi.connect).not.toHaveBeenCalled();
+});
+
+test("a busy chooser is explained", async () => {
+  vi.mocked(storageApi.hostOffer).mockResolvedValue({
+    picker: true,
+    suggestion: null,
+  });
+  vi.mocked(storageApi.chooseHostFolder).mockRejectedValue(
+    new Error("A folder chooser is already open"),
+  );
+  show();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Choose folder…" }),
+  );
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "already open",
+  );
 });

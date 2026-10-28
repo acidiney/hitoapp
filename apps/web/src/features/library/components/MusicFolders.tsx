@@ -90,7 +90,7 @@ export default function MusicFolders({
             </button>
             <button
               className="button primary"
-              disabled={!!folders.pending}
+              disabled={!!folders.pending || host.choosing}
               onClick={() => void host.accept()}
             >
               Use Music folder
