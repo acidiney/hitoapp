@@ -1,4 +1,5 @@
-use crate::{Error, Paths, Result, access::Access, storage};
+use crate::{Error, FolderPicker, Paths, Result, access::Access, folders, storage};
+use std::sync::Arc;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tracing::{Instrument, instrument::WithSubscriber};
 use url::Url;
@@ -22,7 +23,17 @@ impl LocalHost {
         paths: Paths,
         media: Option<hito_playback::MediaIntegration>,
     ) -> Result<Self> {
+        Self::start_with_folders(paths, media, None).await
+    }
+
+    #[tracing::instrument(level = "info", skip_all, err(Debug))]
+    pub async fn start_with_folders(
+        paths: Paths,
+        media: Option<hito_playback::MediaIntegration>,
+        picker: Option<Arc<dyn FolderPicker>>,
+    ) -> Result<Self> {
         let lock = storage::claim(&paths.data)?;
+        let folders = picker.map(|picker| folders::host(paths.music.clone(), picker));
         let mut config = hito_server::RuntimeConfig::load(
             paths.data.join("hito.db"),
             paths.music,
@@ -56,11 +67,13 @@ impl LocalHost {
             Some(media) => hito_playback::Player::start_with_media(services.clone(), media),
             None => hito_playback::Player::start(services.clone()),
         };
-        let app = access.protect(hito_server::router_with_player(
-            services.clone(),
-            config.http,
-            player,
-        ));
+        let router = match folders {
+            Some(folders) => {
+                hito_server::router_with_host(services.clone(), config.http, Some(player), folders)
+            }
+            None => hito_server::router_with_player(services.clone(), config.http, player),
+        };
+        let app = access.protect(router);
         let (stop, stopped) = oneshot::channel();
         let serving = tokio::spawn(
             crate::backend::run(listener, app, services, owner, stopped, lock)

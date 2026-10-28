@@ -1,12 +1,18 @@
 mod access;
 mod backend;
+mod folders;
 mod host;
+#[cfg(feature = "gui")]
+mod native_picker;
 #[cfg(feature = "gui")]
 mod os_controls;
 mod storage;
 mod system_media;
 
+pub use folders::{FolderPicker, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
+#[cfg(feature = "gui")]
+pub use native_picker::NativePicker;
 #[cfg(feature = "gui")]
 pub use os_controls::{OsControls, WindowHandle};
 use std::path::PathBuf;

@@ -3,7 +3,10 @@
 mod exit;
 
 use exit::{Decision, Lifecycle};
-use hito_desktop::{Lazy, LocalHost, OsControls, Paths, SystemMedia, WindowHandle};
+use hito_desktop::{
+    Lazy, LocalHost, MusicLookup, NativePicker, OsControls, Paths, SystemMedia, WindowHandle,
+    music_folder,
+};
 use hito_playback::{MediaIntegration, media_commands};
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, webview::NewWindowResponse};
@@ -30,12 +33,15 @@ fn main() {
         .try_init();
     tracing::info!(event = "desktop_starting", "Starting Hito desktop");
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let data = app.path().app_local_data_dir()?;
-            let music = app
-                .path()
-                .audio_dir()
-                .or_else(|_| app.path().home_dir().map(|home| home.join("Music")))?;
+            let music = music_folder(MusicLookup {
+                xdg_override: std::env::var_os("XDG_MUSIC_DIR"),
+                os_music: app.path().audio_dir().ok(),
+                home: app.path().home_dir().ok(),
+            })
+            .ok_or("The operating system did not report a Music folder")?;
             let web = app.path().resource_dir()?.join("web");
             #[cfg(debug_assertions)]
             let web = if web.join("assets/app.js").is_file() {
@@ -53,13 +59,14 @@ fn main() {
                 SystemMedia::new(controls, data.join("media-artwork")),
                 commands,
             );
-            let host = tauri::async_runtime::block_on(LocalHost::start_with_media(
+            let host = tauri::async_runtime::block_on(LocalHost::start_with_folders(
                 Paths {
                     data: data.clone(),
                     music,
                     web,
                 },
                 Some(media),
+                Some(std::sync::Arc::new(NativePicker::new(app.handle().clone()))),
             ))?;
             let entry = host.entry_url();
             let origin = entry.origin();
