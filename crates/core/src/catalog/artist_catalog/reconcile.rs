@@ -36,9 +36,12 @@ pub(crate) async fn retire_stale(
     let items = splits.build().execute(&mut **tx).await?.rows_affected();
     let mut shared = targets();
     shared.push(
-        "UPDATE shared_artist_correction_subjects SET retired_reason='tags_changed'
+        "UPDATE shared_artist_correction_subjects SET retired_reason=CASE
+            WHEN raw_artist IS NOT (SELECT artist FROM recordings r WHERE r.id=shared_artist_correction_subjects.recording_id)
+            THEN 'tags_changed' ELSE 'observation_changed' END
          WHERE retired_reason IS NULL AND recording_id IN (SELECT recording_id FROM targets)
-            AND raw_artist IS NOT (SELECT artist FROM recordings r WHERE r.id=shared_artist_correction_subjects.recording_id)",
+            AND (raw_artist IS NOT (SELECT artist FROM recordings r WHERE r.id=shared_artist_correction_subjects.recording_id)
+                OR observation_id IS NOT (SELECT metadata_observation_id FROM recordings r WHERE r.id=shared_artist_correction_subjects.recording_id))",
     );
     let shared_retired = shared.build().execute(&mut **tx).await?.rows_affected();
     if retired + items + shared_retired > 0 {

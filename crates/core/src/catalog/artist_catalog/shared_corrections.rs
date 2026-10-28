@@ -269,7 +269,7 @@ async fn already_shared(connection: &mut SqliteConnection, subjects: &[Subject])
     for subject in subjects {
         let shared: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM shared_artist_correction_subjects subject
-             WHERE subject.recording_id=? AND subject.observation_id=? AND subject.provider_artist_id=?
+             WHERE subject.retired_reason IS NULL AND subject.recording_id=? AND subject.observation_id=? AND subject.provider_artist_id=?
                 AND (SELECT state.applied FROM shared_artist_correction_states state
                      WHERE state.correction_seq=subject.correction_seq ORDER BY state.revision DESC LIMIT 1)=1)",
         )
@@ -410,15 +410,21 @@ impl Catalog {
         .fetch_one(&mut *tx)
         .await?;
         for subject in &source.subjects {
+            let raw: Option<String> =
+                sqlx::query_scalar("SELECT artist FROM recordings WHERE id=?")
+                    .bind(&subject.recording)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+            let raw = raw.ok_or(Error::NotFound)?;
             sqlx::query(
                 "INSERT INTO shared_artist_correction_subjects(correction_seq,recording_id,observation_id,provider_artist_id,raw_artist)
-                 VALUES(?,?,?,?,(SELECT artist FROM recordings WHERE id=?))",
+                 VALUES(?,?,?,?,?)",
             )
             .bind(seq)
             .bind(&subject.recording)
             .bind(&subject.observation)
             .bind(&subject.artist)
-            .bind(&subject.recording)
+            .bind(raw)
             .execute(&mut *tx)
             .await?;
         }
@@ -472,6 +478,26 @@ impl Catalog {
         let (seq, current, applied, recordings) = row.ok_or(Error::NotFound)?;
         if current != request.expected_revision {
             return Err(stale());
+        }
+        if !applied {
+            let blocked: bool = sqlx::query_scalar(
+                "SELECT NOT EXISTS(SELECT 1 FROM shared_artist_correction_subjects mine
+                    WHERE mine.correction_seq=? AND mine.retired_reason IS NULL
+                        AND NOT EXISTS (SELECT 1 FROM shared_artist_correction_subjects other
+                            WHERE other.correction_seq<>mine.correction_seq AND other.retired_reason IS NULL
+                                AND other.recording_id=mine.recording_id AND other.observation_id=mine.observation_id
+                                AND other.provider_artist_id=mine.provider_artist_id
+                                AND (SELECT state.applied FROM shared_artist_correction_states state
+                                     WHERE state.correction_seq=other.correction_seq ORDER BY state.revision DESC LIMIT 1)=1))",
+            )
+            .bind(seq)
+            .fetch_one(&mut *tx)
+            .await?;
+            if blocked {
+                return Err(Error::Conflict(
+                    "Every recording of this correction is retired or already shared".into(),
+                ));
+            }
         }
         sqlx::query("INSERT INTO shared_artist_correction_states(correction_seq,revision,applied,changed_by) VALUES(?,?,?,?)")
             .bind(seq)

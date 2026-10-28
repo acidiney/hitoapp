@@ -115,7 +115,7 @@ CREATE TABLE shared_artist_correction_subjects (
     observation_id TEXT NOT NULL REFERENCES metadata_observations(id),
     provider_artist_id TEXT NOT NULL CHECK(length(CAST(provider_artist_id AS BLOB)) BETWEEN 1 AND 256),
     raw_artist TEXT NOT NULL,
-    retired_reason TEXT CHECK(retired_reason IN ('tags_changed')),
+    retired_reason TEXT CHECK(retired_reason IN ('tags_changed','observation_changed')),
     PRIMARY KEY(recording_id,observation_id,provider_artist_id,correction_seq)
 );
 CREATE INDEX shared_artist_correction_subject_correction ON shared_artist_correction_subjects(correction_seq,recording_id);
