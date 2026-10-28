@@ -323,7 +323,7 @@ The full scope remains in [release-plan.md](release-plan.md). The checklist in [
 
 - Completing folder-registry and playlist-copy public-release acceptance, including broader recovery/codec/upgrade fixtures, full native/GUI and platform checks, and official playlist-provider authorization/live checks. Local development deployment and the release-image browser workflows pass.
 - Integrate persistent download references with Follow. Optional Spotify account authorization and remaining YouTube codec/browser acceptance are separate external-provider work.
-- MusicBrainz/provider matching and optional enrichment, uncertain-match review, appearance corrections, unlinking/splitting/undo and administrator promotion.
+- MusicBrainz/provider matching and optional enrichment, uncertain-match review, appearance corrections, merge splitting, administrator promotion and general correction undo. Personal unlinking and latest-change undo for reviewed artist-catalog associations pass core, upgrade, HTTP and DOM tests (migration 0057, not deployed).
 - Durable offline replicas, standalone import preview, reconnect/account isolation, device-local availability and concurrent edit/delete handling.
 - Playlist downloads, followed-download/shared-copy references, broader transfer/crash recovery, disk exhaustion and a separate temporary cache. Explicit provider-track downloads are deployed with the evidence and limits above.
 - Source ranking/preferences/overrides, direct fallback, conversion/bitrate settings, debrid preparation, gapless playback and complete source recovery.
