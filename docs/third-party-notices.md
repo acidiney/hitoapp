@@ -28,3 +28,7 @@ The `hito-desktop` `gui` feature uses `souvlaki` 0.8.3 (MIT, [repository](https:
 ## Compressed ID3 frames
 
 `hito-core` uses `flate2` 1.1.10 ([repository](https://github.com/rust-lang/flate2-rs)) to inflate zlib-compressed ID3v2 text frames. It is licensed MIT or Apache-2.0, which is compatible with AGPL-3.0-only. It was already in `Cargo.lock` through other crates, so this adds no new locked package. Its pure Rust backend is used. Hito does not modify it. Public packaging must still carry its license texts.
+
+## Desktop folder dialog
+
+The `hito-desktop` `gui` feature uses `tauri-plugin-dialog` 2.8.4 ([repository](https://github.com/tauri-apps/plugins-workspace), Apache-2.0 or MIT) only through its Rust API to open the operating system's folder chooser. It adds `rfd` 0.17.2 (MIT, [repository](https://github.com/PolyMeilex/rfd)), `tauri-plugin` 2.7.2 and `tauri-plugin-fs` 2.7.1 (both Apache-2.0 or MIT) to `Cargo.lock`. The `gtk3` feature reuses the GTK crates already locked for Tauri on Linux; Hito disables the plugin's default features and does not enable the XDG portal. All are compatible with AGPL-3.0-only. Hito does not modify them. The plugin exposes no JavaScript permissions to the web page. Public packaging must still carry their license texts.

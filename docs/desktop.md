@@ -1,6 +1,6 @@
 # Standalone desktop host
 
-The first development host runs the shared Hito UI in Tauri with its own Rust backend, SQLite library, and native playback. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. The shared player uses authenticated native commands and observations; Rust retains queue, sources, output, and progress ownership. Offline synchronization, downloads, native folder selection, installers, and platform acceptance remain unfinished.
+The first development host runs the shared Hito UI in Tauri with its own Rust backend, SQLite library, and native playback. It does not need a separately running Hito server or `HITO_MUSIC_FOLDER`. The shared player uses authenticated native commands and observations; Rust retains queue, sources, output, and progress ownership. Offline synchronization, downloads, installers, and platform acceptance remain unfinished.
 
 ```mermaid
 flowchart LR
@@ -18,7 +18,7 @@ flowchart LR
 
 ## Ownership
 
-`hito-desktop` owns application paths, the library lock, private window bootstrap, and local backend lifetime. Tauri chooses the application data directory and the operating system's Music directory. The Music directory is currently a trusted browsing grant. Users still connect it through Settings before scanning. Automatic connection/scanning and selecting additional directories through a native file dialog are separate remaining work.
+`hito-desktop` owns application paths, the library lock, private window bootstrap, and local backend lifetime. Tauri chooses the application data directory. The operating system's Music directory is the trusted browsing grant, and a user confirms it in Settings before anything is scanned. See [desktop folders](music-folders.md#desktop-music-folder-and-native-chooser) for proposals and the native chooser. Automatic scanning without confirmation is not planned.
 
 `hito-server::serve` takes an already bound listener, composed router, storage capability, and shutdown future. It does not install a global tracing subscriber. Desktop and server startup each configure their own logging. Core retains all SQLite, account, file-authorization, indexing, and collection rules.
 
