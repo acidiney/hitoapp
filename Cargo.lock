@@ -2058,6 +2058,7 @@ dependencies = [
  "cap-std",
  "chacha20poly1305",
  "chrono",
+ "flate2",
  "futures-util",
  "hito-core",
  "hito-metadata-musicbrainz",

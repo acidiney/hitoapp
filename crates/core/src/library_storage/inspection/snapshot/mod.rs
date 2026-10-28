@@ -1,4 +1,5 @@
 mod file;
+mod id3;
 
 use super::ownership::Scope;
 use crate::{Error, Result, library_storage::root::Root};

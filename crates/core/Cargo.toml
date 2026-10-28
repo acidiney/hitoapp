@@ -24,6 +24,7 @@ base64.workspace = true
 argon2.workspace = true
 rand.workspace = true
 lofty.workspace = true
+flate2 = "1"
 image.workspace = true
 png = "0.18.1"
 zune-core = { version = "=0.5.3", features = ["std"] }

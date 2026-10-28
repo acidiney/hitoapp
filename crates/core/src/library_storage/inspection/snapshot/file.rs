@@ -83,7 +83,7 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
     let directory = Arc::new(directory.tempdir().map_err(|_| unreadable())?);
     let media_path = directory.path().join("media");
     let mut output = OpenOptions::new();
-    output.write(true).create_new(true);
+    output.read(true).write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -92,7 +92,18 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
     let mut output = output.open(&media_path).map_err(|_| unreadable())?;
     let checksum = transfer(&mut file, initial.size, Some(&mut output), control)?;
     output.flush().map_err(|_| unreadable())?;
+    let tags = super::id3::neutralise(&mut output, control)?;
     drop(output);
+    if tags.decompressed > 0 || tags.ignored() > 0 {
+        tracing::debug!(
+            event = "id3_compressed_frames",
+            decompressed = tags.decompressed,
+            ignored_over_limit = tags.ignored_over_limit,
+            ignored_invalid = tags.ignored_invalid,
+            ignored_unsupported = tags.ignored_unsupported,
+            "Compressed ID3 frames normalised in the private media copy"
+        );
+    }
     verify_unchanged(root, &path, &file, &initial)?;
     control.check()?;
     Ok(Prepared {
