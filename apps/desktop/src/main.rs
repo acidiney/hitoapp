@@ -42,13 +42,14 @@ fn main() {
                 home: app.path().home_dir().ok(),
             })
             .ok_or("The operating system did not report a Music folder")?;
-            let web = app.path().resource_dir()?.join("web");
+            let bundled = app.path().resource_dir().map(|dir| dir.join("web"));
             #[cfg(debug_assertions)]
-            let web = if web.join("assets/app.js").is_file() {
-                web
-            } else {
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist")
+            let web = match bundled {
+                Ok(web) if web.join("assets/app.js").is_file() => web,
+                _ => std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist"),
             };
+            #[cfg(not(debug_assertions))]
+            let web = bundled?;
             let (sender, commands) = media_commands();
             let handle = WindowHandle::default();
             let controls = {
