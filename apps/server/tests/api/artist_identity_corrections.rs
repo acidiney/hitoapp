@@ -247,7 +247,7 @@ async fn exercise(library: &Library) {
             Value::Null,
         )
         .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     let undo_shared = "/api/v1/artist-corrections/missing/undo";
     let request = json!({"request_id": Uuid::new_v4(), "expected_revision": 1});
     assert_eq!(

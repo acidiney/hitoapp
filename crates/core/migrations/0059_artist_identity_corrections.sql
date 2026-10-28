@@ -1,5 +1,5 @@
 CREATE TABLE recording_artist_association_change_order (
-    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    seq INTEGER PRIMARY KEY,
     user_id TEXT NOT NULL,
     recording_id TEXT NOT NULL,
     revision INTEGER NOT NULL,
