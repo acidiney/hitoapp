@@ -1,6 +1,6 @@
 # Reviewed artist profiles in core
 
-The core catalog supports account metadata settings, reviewed recording-credit associations and provider artist-profile reads. This is a source foundation. Server routes, settings controls, artist-page rendering, automatic matching, caching and discography traversal are still unfinished. The running server does not use this host yet.
+The core catalog supports account metadata settings, reviewed recording-credit associations and provider artist-profile reads. This is a source foundation. Server routes, settings controls, artist-page rendering, provider-backed matching (see [artist matching](artist-matching.md) for the file-tag matching that exists), caching and discography traversal are still unfinished. The running server does not use this host yet.
 
 ## Identity and provenance
 

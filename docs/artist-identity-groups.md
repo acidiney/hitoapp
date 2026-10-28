@@ -2,7 +2,7 @@
 
 Hito can retain an explicit performer identity choice for each recording and account. Choices group local and imported recordings only when the user has reviewed the same exact artist identity through the same provider installation. Equal artist names do not establish identity.
 
-Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index lists a library-credit card only while some of its content is not covered by a chosen group. Recording and source identities remain unchanged. Packaged Chromium acceptance passes; WebKit, automatic matching and deployment remain unfinished.
+Core, authenticated HTTP routes, shared recording-detail controls and chosen-artist pages are implemented. The Artists index lists a library-credit card only while some of its content is not covered by a chosen group. Recording and source identities remain unchanged. Packaged Chromium acceptance passes; WebKit and deployment remain unfinished. Verified matching from embedded file-tag identifiers and ranked suggestions for uncertain cases are described in [artist matching](artist-matching.md); provider-backed matching remains open.
 
 ## Ownership
 
