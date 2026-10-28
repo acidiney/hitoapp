@@ -24,3 +24,7 @@ The `hito-desktop` `gui` feature uses `souvlaki` 0.8.3 (MIT, [repository](https:
 ## Filesystem watching
 
 `hito-core` uses `notify` 8.2.0 ([repository](https://github.com/notify-rs/notify)) for native folder change events, without its optional crossbeam channel. It is licensed CC0-1.0, which is compatible with AGPL-3.0-only. Its locked dependencies added to `Cargo.lock` are `notify-types` (MIT or Apache-2.0), `inotify` and `inotify-sys` (ISC) on Linux, and `kqueue`, `kqueue-sys` and `fsevent-sys` (MIT) on BSD and macOS. Already locked crates (`mio`, `walkdir`, `bitflags`, `libc`, `log`, `windows-sys`) are reused. Hito does not modify them. Public packaging must still carry their license texts.
+
+## Compressed ID3 frames
+
+`hito-core` uses `flate2` 1.1.10 ([repository](https://github.com/rust-lang/flate2-rs)) to inflate zlib-compressed ID3v2 text frames. It is licensed MIT or Apache-2.0, which is compatible with AGPL-3.0-only. It was already in `Cargo.lock` through other crates, so this adds no new locked package. Its pure Rust backend is used. Hito does not modify it. Public packaging must still carry its license texts.

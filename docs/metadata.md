@@ -55,6 +55,31 @@ On the next scan, unchanged version-2 files refresh metadata while retaining com
 
 This source slice is not yet deployed to the normal local server. Public fixtures verify raw assertions, tag-only changes, a truthful version-2 upgrade without redecoding, 70 KiB and 1 MiB optional values, shared deadlines, diagnostics combined with overflow, a proven natural failed exit, cancellation and private log values. The frozen full core run passes 316 distinct cases with one usual filesystem-fault case ignored; the later 1 MiB case passes separately. The server passes 144 distinct cases. Strict workspace Clippy, formatting, generated contracts and frontend checks pass. These Linux fixtures do not establish every container/tag format or other platform's process behavior.
 
+## Compressed ID3 tags and tag compatibility
+
+FFprobe reads tags from a private copy of each file. Before it runs, Hito looks at ID3v2.3 and v2.4 tags at the start of the file and in RIFF (WAV) and AIFF ID3 chunks. Only tags that contain at least one compressed frame are rewritten, in place and at the same length. Other files are untouched.
+
+Behavior before this change, measured with FFmpeg 5.1 in the Docker image:
+
+| Case | Result |
+| --- | --- |
+| v2.4 compressed text frame | Read correctly |
+| v2.3 compressed text frame | Flag not recognized. The field fell back to the filename or showed garbage |
+| Corrupt zlib stream, or a stream larger than FFprobe's 16 MiB allocation limit, in v2.4 | FFprobe printed an error and the whole file was not indexed, although the scan finished |
+| v2.3 tag with whole-tag unsynchronisation and a compressed frame | Other frames in the tag were lost as well |
+
+Current policy:
+
+- Only compressed `T***` text frames are inflated. Other compressed frames, including pictures, are dropped from the private copy. Frames that also carry grouping or encryption flags are dropped.
+- A frame is dropped, never fatal, when its declared size is zero or above 1 MiB, when the tag's inflated total passes 4 MiB, when a frame above 4 KiB expands more than 100 times, when the stream is invalid or its length differs from the declared size, or when the plain result does not fit in the original tag. Reading stops at 16 MiB of tag, the snapshot deadline applies, and decompression never allocates beyond the declared and capped size.
+- Dropped frames leave the field to the filename or unknown-value fallback, so observation provenance still shows the field as not found in tags. Personal edits and pins are unchanged.
+- Per file, one debug event `id3_compressed_frames` records counts of inflated and dropped frames by reason. It contains no values or paths.
+- In WAV files that hold both a `LIST`/`INFO` chunk and an ID3 chunk, FFmpeg ignores the ID3 tag. Hito renames the INFO list in the private copy so the ID3 tag wins. Its fields are fuller (album artist, disc). Fields missing from the ID3 tag are not filled from INFO.
+
+Unchanged files keep their earlier observation until they change; there is no forced rescan. Embedded artwork still uses a separate reader that does not decompress ID3 frames.
+
+Tests build tags byte by byte and scan them through the public capability. They cover compressed title, artist and album in v2.3 and v2.4, on MP3 and WAV, per-frame and whole-tag unsynchronisation, corrupt streams, oversize and highly expanding frames, false declared sizes, non-text compressed frames, privacy of logs and personal edits. A compatibility test writes the title, artist, album, album artist, disc and track with Lofty, FFmpeg or hand-built bytes and reads them back for these dialects: ID3v1, ID3v2.3, ID3v2.4, AAC with ID3, FLAC, Ogg Vorbis and Opus comments, M4A/MP4 atoms, WAV `LIST`/`INFO` and ID3 chunks, AIFF ID3 and WMA. ID3v1 and INFO carry no album artist or disc. FFmpeg ignores an ID3v1 tag when any ID3v2 tag exists, even an encoder-only one. ID3 tags appended at the end of a file are not read. These are Linux Docker results with FFmpeg 5.1 and do not cover other FFmpeg versions.
+
 ## Ownership and data flow
 
 ```mermaid
