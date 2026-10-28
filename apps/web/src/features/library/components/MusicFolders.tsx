@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Folder, FolderPlus, FolderSync, Trash2 } from "lucide-react";
+import {
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  FolderSync,
+  Trash2,
+} from "lucide-react";
 import type { Library, MusicFolder } from "../../../shared/types";
+import { useHostFolders } from "../hooks/useHostFolders";
 import { useMusicFolders } from "../hooks/useMusicFolders";
 import FolderPicker from "./FolderPicker";
 
@@ -26,6 +33,12 @@ export default function MusicFolders({
   library: Library;
 }) {
   const folders = useMusicFolders(account, library.id);
+  const host = useHostFolders(
+    account,
+    folders.folders,
+    !folders.loading,
+    folders.connect,
+  );
   const [picking, pick] = useState(false);
   const [removing, remove] = useState<string | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
@@ -42,16 +55,54 @@ export default function MusicFolders({
           <h3>Music folders</h3>
           <p>{library.name} · Read-only access</p>
         </div>
-        <button
-          ref={addButton}
-          className="button primary"
-          disabled={!!folders.pending}
-          onClick={() => pick(true)}
-        >
-          <FolderPlus size={18} />
-          Add music folder
-        </button>
+        <div className="music-folders-add">
+          {host.picker && (
+            <button
+              className="button"
+              disabled={!!folders.pending || host.choosing}
+              onClick={() => void host.choose()}
+            >
+              <FolderOpen size={18} />
+              {host.choosing ? "Waiting for your choice…" : "Choose folder…"}
+            </button>
+          )}
+          <button
+            ref={addButton}
+            className="button primary"
+            disabled={!!folders.pending}
+            onClick={() => pick(true)}
+          >
+            <FolderPlus size={18} />
+            Add music folder
+          </button>
+        </div>
       </div>
+      {host.suggestion && (
+        <div className="music-folder-proposal">
+          <h3>Add your Music folder?</h3>
+          <p>
+            Hito found the Music folder on this computer. It only reads your
+            files and never changes them.
+          </p>
+          <div>
+            <button className="button" onClick={host.dismiss}>
+              Not now
+            </button>
+            <button
+              className="button primary"
+              disabled={!!folders.pending}
+              onClick={() => void host.accept()}
+            >
+              Use Music folder
+            </button>
+          </div>
+        </div>
+      )}
+      {host.error && (
+        <p className="form-error" role="alert">
+          {host.error}
+        </p>
+      )}
       {folders.loading && <p role="status">Loading music folders…</p>}
       {!folders.loading && !folders.folders.length && (
         <div className="music-folders-empty">
@@ -160,10 +211,12 @@ export default function MusicFolders({
           </button>
         </div>
       )}
-      <p className="folder-host-help">
-        Looking for a folder on another drive? Open Hito Setup on the server
-        computer to share it, then choose it here.
-      </p>
+      {!host.picker && (
+        <p className="folder-host-help">
+          Looking for a folder on another drive? Open Hito Setup on the server
+          computer to share it, then choose it here.
+        </p>
+      )}
       {picking && (
         <FolderPicker
           account={account}

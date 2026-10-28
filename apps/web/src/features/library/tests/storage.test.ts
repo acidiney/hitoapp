@@ -10,6 +10,8 @@ vi.mock("../api/storageApi", () => ({
   storageApi: {
     directories: vi.fn(),
     browse: vi.fn(),
+    hostOffer: vi.fn(),
+    chooseHostFolder: vi.fn(),
     folders: vi.fn(),
     connect: vi.fn(),
     remove: vi.fn(),
@@ -45,6 +47,10 @@ beforeEach(() => {
     this.removeAttribute("open");
   };
   vi.mocked(storageApi.folders).mockResolvedValue([]);
+  vi.mocked(storageApi.hostOffer).mockResolvedValue({
+    picker: false,
+    suggestion: null,
+  });
   vi.mocked(storageApi.directories).mockResolvedValue([
     { id: "music", name: "My music", available: true },
   ]);

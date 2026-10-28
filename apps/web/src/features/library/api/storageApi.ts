@@ -2,6 +2,8 @@ import { request, requestJson } from "../../../shared/http";
 import type {
   DirectoryPage,
   DirectoryRef,
+  HostFolderChoice,
+  HostFolderOffer,
   Job,
   MusicFolder,
   SharedDirectory,
@@ -30,6 +32,27 @@ export const storageApi = {
       method: "POST",
       account,
       body: { directory, offset },
+      signal,
+    });
+  },
+  async hostOffer(
+    account: string,
+    signal: AbortSignal,
+  ): Promise<HostFolderOffer> {
+    return requestJson<HostFolderOffer>("/host/folders", {
+      action: "folders.host_offer",
+      account,
+      signal,
+    });
+  },
+  async chooseHostFolder(
+    account: string,
+    signal: AbortSignal,
+  ): Promise<HostFolderChoice> {
+    return requestJson<HostFolderChoice>("/host/folders/choose", {
+      action: "folders.host_choose",
+      method: "POST",
+      account,
       signal,
     });
   },

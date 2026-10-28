@@ -225,3 +225,25 @@
     gap: 16px;
   }
 }
+.music-folders-add {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.music-folder-proposal {
+  padding: 24px;
+  margin: 0 0 16px;
+  background: #1c1c1c;
+  border-radius: 12px;
+}
+.music-folder-proposal h3 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+.music-folder-proposal > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
