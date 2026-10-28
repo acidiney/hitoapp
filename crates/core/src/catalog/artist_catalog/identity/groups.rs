@@ -1,4 +1,5 @@
 use super::*;
+use crate::catalog::artist_catalog::LINKED;
 use crate::{
     Actor, Catalog, Error, MetadataProvider, Page,
     catalog::{
@@ -222,7 +223,10 @@ fn bounds(offset: Option<i64>, limit: Option<i64>) -> (i64, i64) {
     )
 }
 
-const CURRENT_CHOICES: &str = "FROM recording_artist_identity_choices choice
+/// Current choices whose reviewed association is still linked for the account, including shared corrections.
+pub(super) fn current_choices() -> String {
+    format!(
+        "FROM recording_artist_identity_choices choice
         JOIN recordings r ON r.id=choice.recording_id
         JOIN library_members access ON access.library_id=r.library_id AND access.user_id=choice.user_id
         JOIN account_recording_credits credit ON credit.recording_id=r.id AND credit.user_id=choice.user_id AND credit.artist_id=choice.artist_id
@@ -230,12 +234,16 @@ const CURRENT_CHOICES: &str = "FROM recording_artist_identity_choices choice
         LEFT JOIN personal_recording_metadata personal ON personal.recording_id=r.id AND personal.user_id=choice.user_id
         WHERE choice.retired=0 AND choice.association_id IS NOT NULL
             AND r.metadata_observation_id=choice.observation_id AND personal.artist_operation_id IS choice.artist_operation_id
-            AND choice.user_id=";
+            AND EXISTS (SELECT 1 FROM recording_artist_associations assoc WHERE assoc.id=choice.association_id AND {LINKED})
+            AND choice.user_id="
+    )
+}
 
 /// Starts a query with the actor's current chosen recordings as one materialized set.
 pub(crate) fn chosen_recordings_cte(actor: &Actor) -> QueryBuilder<'static, Sqlite> {
     let mut query = QueryBuilder::new(format!(
-        "WITH chosen AS MATERIALIZED (SELECT choice.recording_id,choice.artist_id {CURRENT_CHOICES}"
+        "WITH chosen AS MATERIALIZED (SELECT choice.recording_id,choice.artist_id {}",
+        current_choices()
     ));
     query.push_bind(actor.id().to_owned()).push(")");
     query
@@ -271,7 +279,7 @@ pub(super) fn visible(
         SELECT choice.group_id,choice.recording_id,choice.revision,choice.association_id,choice.artist_id,
             choice.selection_order,r.library_id,artist.name,artist.rowid AS artist_rowid,choice.user_id ",
     );
-    query.push(CURRENT_CHOICES);
+    query.push(current_choices());
     query.push_bind(actor.id().to_owned());
     if let Some(library) = library {
         query

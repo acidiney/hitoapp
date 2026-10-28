@@ -61,7 +61,7 @@ pub(super) async fn state(database: &Path) -> State {
             .await
             .unwrap();
     assert!(
-        schema.len() <= 560,
+        schema.len() <= 588,
         "owned schema snapshot bound exceeded: objects={} tables={} indexes={} triggers={} views={}",
         schema.len(),
         schema.iter().filter(|object| object.0 == "table").count(),

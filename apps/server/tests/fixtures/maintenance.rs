@@ -588,12 +588,40 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "sqlite_autoindex_account_pin_locks_1"),
         ("table", "session_locks"),
         ("index", "sqlite_autoindex_session_locks_1"),
+        ("table", "artist_identity_changes"),
+        ("index", "sqlite_autoindex_artist_identity_changes_1"),
+        ("index", "sqlite_autoindex_artist_identity_changes_2"),
+        ("trigger", "artist_identity_change_immutable"),
+        ("trigger", "artist_identity_change_retained"),
+        ("table", "artist_identity_change_items"),
+        ("index", "artist_identity_change_item_recording"),
+        ("trigger", "artist_identity_change_item_immutable"),
+        ("trigger", "artist_identity_change_item_retained"),
+        ("table", "artist_association_change_retirements"),
+        ("trigger", "artist_association_change_retirement_immutable"),
+        ("trigger", "artist_association_change_retirement_retained"),
+        ("table", "shared_artist_corrections"),
+        ("index", "sqlite_autoindex_shared_artist_corrections_1"),
+        ("trigger", "shared_artist_correction_immutable"),
+        ("trigger", "shared_artist_correction_retained"),
+        ("trigger", "shared_artist_correction_administrator"),
+        ("table", "shared_artist_correction_subjects"),
+        ("index", "shared_artist_correction_subject_correction"),
+        ("trigger", "shared_artist_correction_subject_immutable"),
+        ("trigger", "shared_artist_correction_subject_retained"),
+        ("table", "shared_artist_correction_states"),
+        ("trigger", "shared_artist_correction_state_immutable"),
+        ("trigger", "shared_artist_correction_state_retained"),
+        ("trigger", "shared_artist_correction_state_administrator"),
+        ("table", "shared_artist_correction_receipts"),
+        ("trigger", "shared_artist_correction_receipt_immutable"),
+        ("trigger", "shared_artist_correction_receipt_retained"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference, artist identity, album edition, artist association and PIN lock objects may extend 0052"
+        "only the exact ranking preference, artist identity, album edition, artist association, PIN lock and artist correction objects may extend 0052"
     );
     assert!(
         actual == expected,

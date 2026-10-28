@@ -1,14 +1,21 @@
+mod changes;
 mod choices;
 mod credit;
 mod groups;
 mod receipts;
 mod reset;
+mod split;
 mod types;
 
 #[cfg(test)]
 #[path = "tests/retirement_work.rs"]
 mod retirement_work;
 
+pub use changes::{
+    ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
+    ArtistIdentityGroupChanges, SplitArtistIdentityGroup, SplitDestination,
+    UndoArtistIdentityChange,
+};
 pub(crate) use groups::{chosen_recordings_cte, push_unrepresented_credit};
 pub use types::*;
 

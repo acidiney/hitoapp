@@ -10,7 +10,18 @@ use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
 
-pub(crate) const LINKED: &str = "COALESCE((SELECT change.linked FROM recording_artist_association_changes change
+/// An association is linked unless the account's latest personal change unlinked it, or an
+/// applied shared correction postdates that change and names the same recording, observation and
+/// built-in artist. A personal change recorded after a shared correction always wins.
+pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND assoc.provider_kind='builtin_musicbrainz'
+        AND EXISTS (SELECT 1 FROM shared_artist_correction_subjects subject
+            JOIN shared_artist_corrections correction ON correction.seq=subject.correction_seq
+            WHERE subject.recording_id=assoc.recording_id AND subject.observation_id=assoc.observation_id
+                AND subject.provider_artist_id=assoc.provider_artist_id AND change.rowid<=correction.change_floor
+                AND (SELECT state.applied FROM shared_artist_correction_states state
+                    WHERE state.correction_seq=correction.seq ORDER BY state.revision DESC LIMIT 1)=1)
+        THEN 0 ELSE change.linked END
+    FROM recording_artist_association_changes change
     WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1),1)=1";
 
 #[derive(sqlx::FromRow)]

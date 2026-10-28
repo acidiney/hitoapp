@@ -39,7 +39,7 @@ async fn pin_locks_are_added_without_touching_existing_accounts_or_sessions() {
         .await
         .unwrap();
     assert_eq!(sessions, 1);
-    schema::assert_current(&mut connection).await;
+    schema::assert_version(&mut connection, 58).await;
     pin_schema::assert_empty(&mut connection).await;
 
     for invalid in [
