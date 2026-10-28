@@ -239,7 +239,11 @@ export function useArtistCreditIdentity(
         error: "",
       })),
     cancel: () =>
-      show((value) => ({ ...value, step: "choosing", selected: null })),
+      show((value) => ({
+        ...value,
+        step: value.groups.length ? "choosing" : "closed",
+        selected: null,
+      })),
     apply,
     retry: () => (view.selected ? continueApply(view.selected) : undefined),
   };

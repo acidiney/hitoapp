@@ -33,6 +33,12 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
+function expectOnlyMatching(fetch: { mock: { calls: unknown[][] } }) {
+  expect(
+    fetch.mock.calls.every(([path]) => path === "/api/v1/artist-matching"),
+    "Browsing may only run the silent tag-matching pass, never provider work",
+  ).toBe(true);
+}
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
@@ -99,7 +105,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
       [parameter]: 2,
     });
   }
-  expect(fetch).not.toHaveBeenCalled();
+  expectOnlyMatching(fetch);
   expect(audio).not.toHaveBeenCalled();
   expect(mutate).not.toHaveBeenCalled();
   expect(player.playQueue).not.toHaveBeenCalled();
@@ -172,7 +178,7 @@ test("chosen artists stay beside the library credits they leave listed and page 
     offset: 2,
     group_offset: "0",
   });
-  expect(fetch).not.toHaveBeenCalled();
+  expectOnlyMatching(fetch);
   expect(index).toEqual(before);
 });
 

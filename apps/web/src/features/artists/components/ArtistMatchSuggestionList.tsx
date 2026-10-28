@@ -1,0 +1,78 @@
+import type {
+  ArtistMatchSuggestion,
+  ArtistIdentityGroup,
+} from "../../../shared/types";
+
+function plural(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function evidence(item: ArtistMatchSuggestion) {
+  const parts = ["same name"];
+  if (item.shared_albums > 0)
+    parts.push(plural(item.shared_albums, "shared album", "shared albums"));
+  if (item.same_length_tracks > 0)
+    parts.push(
+      plural(
+        item.same_length_tracks,
+        "track with the same title and length",
+        "tracks with the same title and length",
+      ),
+    );
+  return parts.length === 1 ? "same name only" : parts.join(", ");
+}
+
+export default function ArtistMatchSuggestionList({
+  items,
+  dismissed,
+  busy,
+  onChoose,
+  onDismiss,
+}: {
+  items: ArtistMatchSuggestion[];
+  dismissed: number;
+  busy: boolean;
+  onChoose: (group: ArtistIdentityGroup) => void;
+  onDismiss: (group: string) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-label="Suggested artists for this credit" aria-busy={busy}>
+      <h3>Looks like an artist you reviewed</h3>
+      <p>
+        These are suggestions only. Nothing changes until you review and
+        confirm.
+        {dismissed > 0
+          ? ` ${plural(dismissed, "suggestion is", "suggestions are")} dismissed.`
+          : ""}
+      </p>
+      <ul>
+        {items.map((item) => (
+          <li key={item.group.id}>
+            {item.group.name.value} ·{" "}
+            {plural(item.undecided_tracks, "track", "tracks")} here would use it
+            · {evidence(item)}{" "}
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              aria-label={`Review suggested artist: ${item.group.name.value}`}
+              onClick={() => onChoose(item.group)}
+            >
+              Review suggestion
+            </button>{" "}
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              aria-label={`Dismiss suggested artist: ${item.group.name.value}`}
+              onClick={() => onDismiss(item.group.id)}
+            >
+              Not the same artist
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

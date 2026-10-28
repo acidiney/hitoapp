@@ -46,6 +46,12 @@ export type ArtistIdentityGroup = Schema["ArtistIdentityGroup"];
 export type ArtistIdentityGroupList = Schema["ArtistIdentityGroupPage"];
 export type ApplyArtistIdentityToCredit = Schema["ApplyArtistIdentityToCredit"];
 export type ArtistIdentityCreditReceipt = Schema["ArtistIdentityCreditReceipt"];
+export type MatchArtistsFromTags = Schema["MatchArtistsFromTags"];
+export type ArtistMatchReceipt = Schema["ArtistMatchReceipt"];
+export type ArtistMatchSuggestion = Schema["ArtistMatchSuggestion"];
+export type ArtistMatchSuggestions = Schema["ArtistMatchSuggestions"];
+export type DismissArtistMatchSuggestion =
+  Schema["DismissArtistMatchSuggestion"];
 export type ArtistIdentityGroupChanges = Schema["ArtistIdentityGroupChanges"];
 export type ArtistIdentityChangeReceipt = Schema["ArtistIdentityChangeReceipt"];
 export type SplitArtistIdentityGroup = Schema["SplitArtistIdentityGroup"];

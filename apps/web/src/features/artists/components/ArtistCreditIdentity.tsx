@@ -1,5 +1,8 @@
 import { Link } from "@inertiajs/react";
+import { useEffect } from "react";
 import { useArtistCreditIdentity } from "../hooks/useArtistCreditIdentity";
+import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
+import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
@@ -13,6 +16,11 @@ export default function ArtistCreditIdentity({
   artist: { id: string; name: string };
 }) {
   const identity = useArtistCreditIdentity(account, artist);
+  const suggested = useArtistMatchSuggestions(account, artist.id);
+  const { refresh } = suggested;
+  useEffect(() => {
+    if (identity.totals) void refresh();
+  }, [identity.totals, refresh]);
   const busy = identity.step === "loading" || identity.step === "applying";
   return (
     <section aria-label="Artist identity for this credit" aria-busy={busy}>
@@ -21,6 +29,16 @@ export default function ArtistCreditIdentity({
         Use an artist you already reviewed for another track. Equal names alone
         never merge artists.
       </p>
+      {(identity.step === "closed" || identity.step === "choosing") &&
+        suggested.suggestions && (
+          <ArtistMatchSuggestionList
+            items={suggested.suggestions.items}
+            dismissed={suggested.suggestions.dismissed}
+            busy={suggested.busy}
+            onChoose={identity.choose}
+            onDismiss={(group) => void suggested.dismiss(group)}
+          />
+        )}
       {identity.step === "closed" && (
         <button type="button" className="button" onClick={identity.find}>
           Find reviewed artists for this credit

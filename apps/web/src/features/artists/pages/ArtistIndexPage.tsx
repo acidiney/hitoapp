@@ -4,13 +4,16 @@ import Artwork from "../../artwork/components/Artwork";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
+import { useAutomaticArtistMatching } from "../hooks/useAutomaticArtistMatching";
 
 export default function ArtistIndexPage({
+  user,
   artists,
   identity_groups,
   libraries,
   query,
 }: ArtistIndexPageProps) {
+  useAutomaticArtistMatching(user.id);
   const { url } = usePage();
   const current = new URL(url, window.location.origin).searchParams;
   const filters = new URLSearchParams();
