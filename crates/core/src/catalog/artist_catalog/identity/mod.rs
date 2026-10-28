@@ -1,3 +1,4 @@
+mod change_state;
 mod changes;
 mod choices;
 mod credit;
@@ -11,11 +12,11 @@ mod types;
 #[path = "tests/retirement_work.rs"]
 mod retirement_work;
 
-pub(crate) use changes::split_change;
+pub(crate) use change_state::split_change;
+pub use change_state::{ArtistIdentityChangeSummary, ArtistIdentityGroupChanges};
 pub use changes::{
-    ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
-    ArtistIdentityGroupChanges, SplitArtistIdentityGroup, SplitDestination,
-    UndoArtistIdentityChange,
+    ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, SplitArtistIdentityGroup,
+    SplitDestination, UndoArtistIdentityChange,
 };
 pub(crate) use groups::{chosen_recordings_cte, push_unrepresented_credit};
 pub use types::*;
