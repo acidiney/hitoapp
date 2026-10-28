@@ -1,7 +1,6 @@
 #[path = "fixtures/collection_artwork_schema.rs"]
 mod schema;
 
-use schema::correction_schema;
 use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 
 async fn rejected(connection: &mut SqliteConnection, statements: &[&str]) {
@@ -41,6 +40,29 @@ async fn artist_corrections_are_added_without_touching_existing_accounts_or_revi
     .execute(&mut connection)
     .await
     .unwrap();
+    let trigger: String = sqlx::query_scalar(
+        "SELECT sql FROM sqlite_schema WHERE name='recording_artist_association_change_scope'",
+    )
+    .fetch_one(&mut connection)
+    .await
+    .unwrap();
+    sqlx::query("PRAGMA foreign_keys=OFF")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "DROP TRIGGER recording_artist_association_change_scope;
+         INSERT INTO recording_artist_association_changes(user_id,recording_id,revision,association_id,linked) VALUES('plain-user','r2',1,'x',1);
+         INSERT INTO recording_artist_association_changes(user_id,recording_id,revision,association_id,linked) VALUES('legacy-admin','r1',1,'y',1);
+         INSERT INTO recording_artist_association_changes(user_id,recording_id,revision,association_id,linked) VALUES('plain-user','r2',2,'x',0);",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    sqlx::query(&trigger)
+        .execute(&mut connection)
+        .await
+        .unwrap();
     let before = schema::schema(&mut connection).await;
     connection.close().await.unwrap();
 
@@ -58,8 +80,30 @@ async fn artist_corrections_are_added_without_touching_existing_accounts_or_revi
         users,
         vec![("legacy-admin".into(), true), ("plain-user".into(), false)]
     );
-    schema::assert_current(&mut connection).await;
-    correction_schema::assert_empty(&mut connection).await;
+    let ordered: Vec<(i64, String, String, i64)> = sqlx::query_as(
+        "SELECT seq,user_id,recording_id,revision FROM recording_artist_association_change_order ORDER BY seq",
+    )
+    .fetch_all(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(
+        ordered,
+        vec![
+            (1, "plain-user".into(), "r2".into(), 1),
+            (2, "legacy-admin".into(), "r1".into(), 1),
+            (3, "plain-user".into(), "r2".into(), 2),
+        ],
+        "Existing association changes are given a stable order from their stored row order"
+    );
+    sqlx::query("DELETE FROM recording_artist_association_change_order")
+        .execute(&mut connection)
+        .await
+        .unwrap_err();
+    let mut reference = schema::reference_59().await;
+    assert!(
+        schema::schema(&mut connection).await == schema::schema(&mut reference).await,
+        "the migrated schema must match the declared 0059 schema exactly"
+    );
     connection.close().await.unwrap();
 
     let mut connection = SqliteConnection::connect_with(&options).await.unwrap();

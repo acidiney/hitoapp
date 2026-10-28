@@ -1,3 +1,23 @@
+CREATE TABLE recording_artist_association_change_order (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    recording_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    UNIQUE(user_id,recording_id,revision),
+    FOREIGN KEY(user_id,recording_id,revision) REFERENCES recording_artist_association_changes(user_id,recording_id,revision)
+);
+INSERT INTO recording_artist_association_change_order(user_id,recording_id,revision)
+    SELECT user_id,recording_id,revision FROM recording_artist_association_changes ORDER BY rowid;
+CREATE TRIGGER recording_artist_association_change_ordered AFTER INSERT ON recording_artist_association_changes BEGIN
+    INSERT INTO recording_artist_association_change_order(user_id,recording_id,revision)
+    VALUES(new.user_id,new.recording_id,new.revision);
+END;
+CREATE TRIGGER recording_artist_association_change_order_immutable BEFORE UPDATE ON recording_artist_association_change_order BEGIN
+    SELECT RAISE(ABORT,'Artist association change order is immutable');
+END;
+CREATE TRIGGER recording_artist_association_change_order_retained BEFORE DELETE ON recording_artist_association_change_order BEGIN
+    SELECT RAISE(ABORT,'Artist association change order must be retained');
+END;
 CREATE INDEX recording_artist_association_recording ON recording_artist_associations(recording_id,user_id);
 CREATE TABLE artist_identity_changes (
     id TEXT PRIMARY KEY,

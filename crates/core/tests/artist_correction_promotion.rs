@@ -673,3 +673,76 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
     })
     .await;
 }
+
+async fn rewrite(library: &library::Library, statements: &[&str]) {
+    use sqlx::{Connection, sqlite::SqliteConnectOptions};
+    let mut connection = sqlx::SqliteConnection::connect_with(
+        &SqliteConnectOptions::new()
+            .filename(library.database())
+            .foreign_keys(false),
+    )
+    .await
+    .unwrap();
+    for statement in statements {
+        sqlx::query(statement)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
+    connection.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn precedence_survives_renumbered_rowids_and_vacuum() {
+    run(|library| {
+        Box::pin(async move {
+            let (actor, local) = (&library.actor, &library.local);
+            let (peer, second) = (&library.peer, account(library, "ordering-peer").await);
+            let mine = link(library, actor, local, M1).await;
+            link(library, peer, local, M1).await;
+            link(library, &second, local, M1).await;
+            unlink(library, local, &mine.id).await;
+            library
+                .hito
+                .catalog
+                .promote_artist_correction(actor, promote(0, unlinked(local, &mine.id)))
+                .await
+                .unwrap();
+            link(library, &second, local, M1).await;
+            assert_eq!(listed(library, peer, local).await, 0);
+            assert_eq!(listed(library, &second, local).await, 1);
+
+            use sqlx::{Connection, sqlite::SqliteConnectOptions};
+            let mut connection = sqlx::SqliteConnection::connect_with(
+                &SqliteConnectOptions::new().filename(library.database()),
+            )
+            .await
+            .unwrap();
+            let trigger: String = sqlx::query_scalar(
+                "SELECT sql FROM sqlite_schema WHERE name='recording_artist_association_change_immutable'",
+            )
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+            connection.close().await.unwrap();
+            rewrite(
+                library,
+                &[
+                    "DROP TRIGGER recording_artist_association_change_immutable",
+                    "UPDATE recording_artist_association_changes SET rowid = -rowid",
+                    &trigger,
+                    "VACUUM",
+                ],
+            )
+            .await;
+            assert_eq!(listed(library, peer, local).await, 0, "The shared unlink still applies");
+            assert_eq!(
+                listed(library, &second, local).await,
+                1,
+                "A later personal review still wins after the rows are renumbered"
+            );
+            assert_eq!(listed(library, actor, local).await, 0);
+        })
+    })
+    .await;
+}

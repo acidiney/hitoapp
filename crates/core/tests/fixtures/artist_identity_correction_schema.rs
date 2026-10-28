@@ -1,6 +1,7 @@
 use sqlx::SqliteConnection;
 
 pub const TABLES: &[&str] = &[
+    "recording_artist_association_change_order",
     "artist_identity_changes",
     "artist_identity_change_items",
     "artist_association_change_retirements",
@@ -11,6 +12,20 @@ pub const TABLES: &[&str] = &[
 ];
 
 pub const ADDED: &[(&str, &str)] = &[
+    ("table", "recording_artist_association_change_order"),
+    (
+        "index",
+        "sqlite_autoindex_recording_artist_association_change_order_1",
+    ),
+    ("trigger", "recording_artist_association_change_ordered"),
+    (
+        "trigger",
+        "recording_artist_association_change_order_immutable",
+    ),
+    (
+        "trigger",
+        "recording_artist_association_change_order_retained",
+    ),
     ("index", "recording_artist_association_recording"),
     ("table", "artist_identity_changes"),
     ("index", "sqlite_autoindex_artist_identity_changes_1"),

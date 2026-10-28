@@ -17,7 +17,9 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
         AND EXISTS (SELECT 1 FROM shared_artist_correction_subjects subject
             JOIN shared_artist_corrections correction ON correction.seq=subject.correction_seq
             WHERE subject.recording_id=assoc.recording_id AND subject.observation_id=assoc.observation_id
-                AND subject.provider_artist_id=assoc.provider_artist_id AND change.rowid<=correction.change_floor
+                AND subject.provider_artist_id=assoc.provider_artist_id AND (SELECT ordered.seq FROM recording_artist_association_change_order ordered
+                    WHERE ordered.user_id=change.user_id AND ordered.recording_id=change.recording_id
+                        AND ordered.revision=change.revision)<=correction.change_floor
                 AND (SELECT state.applied FROM shared_artist_correction_states state
                     WHERE state.correction_seq=correction.seq ORDER BY state.revision DESC LIMIT 1)=1)
         THEN 0 ELSE change.linked END

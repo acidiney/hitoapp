@@ -400,7 +400,7 @@ impl Catalog {
         let id = Uuid::new_v4().to_string();
         let seq: i64 = sqlx::query_scalar(
             "INSERT INTO shared_artist_corrections(id,promoted_by,source_kind,source_change_id,source_association_id,change_floor)
-             VALUES(?,?,?,?,?,(SELECT COALESCE(max(rowid),0) FROM recording_artist_association_changes)) RETURNING seq",
+             VALUES(?,?,?,?,?,(SELECT COALESCE(max(seq),0) FROM recording_artist_association_change_order)) RETURNING seq",
         )
         .bind(&id)
         .bind(actor.id())

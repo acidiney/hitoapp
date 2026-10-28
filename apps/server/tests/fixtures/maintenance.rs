@@ -588,6 +588,20 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "sqlite_autoindex_account_pin_locks_1"),
         ("table", "session_locks"),
         ("index", "sqlite_autoindex_session_locks_1"),
+        ("table", "recording_artist_association_change_order"),
+        (
+            "index",
+            "sqlite_autoindex_recording_artist_association_change_order_1",
+        ),
+        ("trigger", "recording_artist_association_change_ordered"),
+        (
+            "trigger",
+            "recording_artist_association_change_order_immutable",
+        ),
+        (
+            "trigger",
+            "recording_artist_association_change_order_retained",
+        ),
         ("index", "recording_artist_association_recording"),
         ("table", "artist_identity_changes"),
         ("index", "sqlite_autoindex_artist_identity_changes_1"),
