@@ -35,7 +35,7 @@ CREATE TABLE artist_identity_change_items (
     to_order INTEGER,
     retired_reason TEXT CHECK(retired_reason IN ('credit_changed')),
     PRIMARY KEY(change_id,recording_id)
-) WITHOUT ROWID;
+);
 CREATE INDEX artist_identity_change_item_recording ON artist_identity_change_items(recording_id,retired_reason);
 CREATE TRIGGER artist_identity_change_item_immutable BEFORE UPDATE ON artist_identity_change_items
 WHEN old.retired_reason IS NOT NULL OR new.retired_reason IS NULL
@@ -59,7 +59,7 @@ CREATE TABLE artist_association_change_retirements (
     reason TEXT NOT NULL CHECK(reason IN ('credit_changed')),
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY(user_id,association_id)
-) WITHOUT ROWID;
+);
 CREATE TRIGGER artist_association_change_retirement_immutable BEFORE UPDATE ON artist_association_change_retirements BEGIN
     SELECT RAISE(ABORT,'Artist association retirements are immutable');
 END;
@@ -96,7 +96,7 @@ CREATE TABLE shared_artist_correction_subjects (
     raw_artist TEXT NOT NULL,
     retired_reason TEXT CHECK(retired_reason IN ('tags_changed')),
     PRIMARY KEY(recording_id,observation_id,provider_artist_id,correction_seq)
-) WITHOUT ROWID;
+);
 CREATE INDEX shared_artist_correction_subject_correction ON shared_artist_correction_subjects(correction_seq,recording_id);
 CREATE TRIGGER shared_artist_correction_subject_immutable BEFORE UPDATE ON shared_artist_correction_subjects
 WHEN old.retired_reason IS NOT NULL OR new.retired_reason IS NULL
@@ -116,7 +116,7 @@ CREATE TABLE shared_artist_correction_states (
     changed_by TEXT NOT NULL REFERENCES users(id),
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY(correction_seq,revision)
-) WITHOUT ROWID;
+);
 CREATE TRIGGER shared_artist_correction_state_immutable BEFORE UPDATE ON shared_artist_correction_states BEGIN
     SELECT RAISE(ABORT,'Shared artist correction states are immutable');
 END;
@@ -133,7 +133,7 @@ CREATE TABLE shared_artist_correction_receipts (
     request_digest TEXT NOT NULL,
     receipt TEXT NOT NULL CHECK(json_valid(receipt) AND length(CAST(receipt AS BLOB))<=4096),
     PRIMARY KEY(user_id,request_id)
-) WITHOUT ROWID;
+);
 CREATE TRIGGER shared_artist_correction_receipt_immutable BEFORE UPDATE ON shared_artist_correction_receipts BEGIN
     SELECT RAISE(ABORT,'Shared artist correction receipts are immutable');
 END;

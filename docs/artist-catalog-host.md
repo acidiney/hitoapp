@@ -51,7 +51,53 @@ flowchart LR
 
 Both commands carry a request ID and the revision the client last read. A repeated request with the same contents returns its stored receipt; the same ID with different contents, or an old revision, is a conflict. Receipts are retained like the artist identity and album edition receipts. The workflows are `GET /api/v1/recordings/{id}/artist-association-changes`, `POST /api/v1/recordings/{id}/artist-associations/unlink` and `POST /api/v1/recordings/{id}/artist-associations/undo`, using the shared account and JSON extractors. Logs record the operation, a safe outcome, the revision number and timing only.
 
-Migration 0057 adds the history and receipt tables. It is not deployed. In the artist information panel each saved review has an unlink button. When it opens, the panel reads the change state from the server, so undo is offered for the latest change even from an earlier visit, and a rejected or stale request reloads that state. Unlinking does not yet cover merge splitting or reconciliation after raw release retags.
+Migration 0057 adds the history and receipt tables. It is not deployed. In the artist information panel each saved review has an unlink button. When it opens, the panel reads the change state from the server, so undo is offered for the latest change even from an earlier visit, and a rejected or stale request reloads that state. Splitting merged artists, sharing corrections with every account and retag reconciliation follow below.
+
+## Splitting a merged artist
+
+Two library credits that share a chosen artist (an identity group) appear as one artist. When that merge is wrong, the account can split it again. A split moves some of the group's current tracks to a different identity and changes nothing else: recordings, sources, playlist entries, likes, progress and personal edits keep their identifiers and values. Only the account's artist choice for each moved track changes.
+
+A split names tracks, albums or both. An album stands for the group's tracks that appear on it; tracks of that album held by other artists stay where they are. One split moves at most 100 tracks and has one destination:
+
+- **Library credit.** Each track returns to the library credit it was tagged with and the credit reappears in the Artists list, exactly as if the choice had been reset.
+- **Another reviewed artist.** Each track must already have a current, linked review of that exact provider artist (the same provider connection and identifier) and the provider must still be selected and approved. The split creates the destination group when it does not exist yet. It never creates an artist identity from a name, and the destination artist must be reviewed first with the existing artist information panel.
+
+If any selected track cannot move, the whole split is rejected and nothing changes. Moves make no provider request.
+
+```mermaid
+flowchart LR
+    Group[Chosen artist group] -->|split: tracks or albums| Check{Revision, receipt, destination review}
+    Check -->|stale or unreviewed| Reject[Conflict, nothing changes]
+    Check -->|accepted| History[(Append change with before and after of each track)]
+    History --> Choices[Account choices of the moved tracks]
+    Choices --> Dest[Library credit or reviewed artist group]
+    History -->|undo| Choices
+```
+
+Each accepted split or undo appends a row to the group's change history with a per-group revision, and stores the choice each track had before and after. Undo restores the "before" choice of the latest change, including the original ordering used for the group's label. It is refused when any track changed since, for example after a reset or another split. As with association links, undoing an undo repeats the change, and only the latest change can be undone. Requests carry a request ID and the revision the client last read and share the account's artist identity receipt namespace. Routes are `GET /api/v1/artist-identity-groups/{id}/changes`, `POST /api/v1/artist-identity-groups/{id}/split` and `POST /api/v1/artist-identity-groups/{id}/undo`. On a chosen artist page the **Correct this artist** panel lists the tracks and albums of the current page, a destination and the latest change with Undo. It reads nothing until it is opened.
+
+## Sharing corrections with every account
+
+An administrator can promote their own correction so it applies to all accounts: the latest built-in MusicBrainz unlink of a recording, or the latest split of a built-in MusicBrainz artist group. A promotion records the affected recordings (each with the recording, its metadata observation and the provider artist) as a numbered shared correction with its own receipt and state history. A shared correction says "this recording is not that artist" and hides the matching reviewed association from every account that has one; the choices that used it read as needing review, as after a personal unlink. It does not move anyone's tracks to a destination: a split's destination is personal because other accounts have not reviewed it.
+
+Promotion works only for the built-in provider. HTTP provider connections belong to one account, so their identifiers cannot mean the same artist to another account. This is the conservative choice and is rejected with a clear error. Only administrators can promote, list or withdraw shared corrections, and non-administrators cannot see them. Promoting what is already shared is a conflict.
+
+**Personal choices still win.** A shared correction hides an association only if the account's latest decision about it was made before the promotion. A review, relink or undo the account makes afterwards is a deliberate personal decision and stays in force, including after the correction is withdrawn and restored. The comparison uses the order of rows in the append-only personal change history, not clocks. An administrator's own earlier unlink stays in force when the shared correction is withdrawn.
+
+Withdrawing a correction is its undo: it appends a new state, and undoing the withdrawal shares it again. Routes are `GET /api/v1/artist-corrections`, `POST /api/v1/artist-corrections/promote` and `POST /api/v1/artist-corrections/{id}/undo`. The saved-review panel and the chosen artist page offer **Apply for everyone** and **Withdraw** only to administrators and only when the server reports the latest change as shareable or shared.
+
+## Reconciliation after retags
+
+When a rescan or a personal edit changes the credit of a recording, existing corrections are checked in the same transaction that refreshes the account credits:
+
+- A personal choice that used the old credit is retired, as before.
+- A personal unlink whose association belongs to a credit the recording no longer has is marked **retired**. It keeps hiding that association, because Hito never relinks something the user rejected, and the recording's change state lists it as no longer applying.
+- A split item is marked retired when the recording's credit is no longer the credit the split was made for. Retired items are skipped by undo; a change with no remaining items cannot be undone. The group page says how many tracks no longer apply.
+- A shared correction subject is marked retired when the recording's raw artist tag differs from the tag when it was shared, so the administrator's list shows how many recordings no longer match.
+
+Corrections whose credit is unchanged stay active. Retirement is final: returning to the earlier tags does not revive a retired correction, matching the rule for chosen artists. Reconciliation never creates artists, groups or associations, so a retag cannot produce duplicate identities. Corrections refer to recording credits, never to albums: a split that selected an album was already expanded to its tracks, and group album lists are derived from the tracks. A retag that changes only album or album-artist tags therefore leaves corrections active. As before, a changed metadata observation retires the account's artist choices, which then need review.
+
+Migration 0059 adds the split history, retirement and shared correction tables. It is not deployed.
 
 ## Settings and provider access
 

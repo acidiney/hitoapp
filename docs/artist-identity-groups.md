@@ -21,6 +21,8 @@ flowchart LR
     Credits --> Retire[Retire changed choices]
 ```
 
+A wrongly merged group can be split again with undo, and an administrator can share a built-in correction with every account; see [splitting](artist-catalog-host.md#splitting-a-merged-artist).
+
 Core owns the transaction, identity keys, receipts, authorization and pagination. HTTP authenticates and maps typed requests and results. Providers supply structured artist identities through the existing review contract. Group reads, accepted-request replay and reset do not contact a provider.
 
 A group key contains the account, provider kind, HTTP installation identity when applicable, and exact provider artist identifier. Two installations returning the same identifier remain separate. An explicitly chosen group does not merge recordings, playable sources, releases, playlists or album-artist credits.
