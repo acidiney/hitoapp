@@ -2289,6 +2289,9 @@ export interface components {
             retired: components["schemas"]["ArtistAssociationRetirement"][];
             /** Format: int64 */
             revision: number;
+            /** @description An administrator can share the latest unlink, a built-in artist review, with every account. */
+            shareable: boolean;
+            shared?: components["schemas"]["SharedCorrectionRef"] | null;
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
@@ -2400,8 +2403,7 @@ export interface components {
             revision: number;
             /** @description An administrator can apply this split for every account. */
             shareable: boolean;
-            /** @description An applied shared correction was made from this change. */
-            shared: boolean;
+            shared?: components["schemas"]["SharedCorrectionRef"] | null;
             undoable: boolean;
         };
         ArtistIdentityChoiceReceipt: {
@@ -4112,6 +4114,11 @@ export interface components {
         };
         /** @enum {string} */
         SharedCorrectionKind: "unlink" | "split";
+        SharedCorrectionRef: {
+            id: string;
+            /** Format: int64 */
+            revision: number;
+        };
         SharedDirectory: {
             available: boolean;
             id: string;

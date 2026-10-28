@@ -239,6 +239,26 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 Err(Error::Forbidden)
             ));
             unlink(library, local, &mine.id).await;
+            let offered = library
+                .hito
+                .catalog
+                .recording_artist_association_changes(actor, local)
+                .await
+                .unwrap();
+            assert!(
+                offered.shareable && offered.shared.is_none(),
+                "The administrator can share a built-in unlink"
+            );
+            assert!(
+                !library
+                    .hito
+                    .catalog
+                    .recording_artist_association_changes(peer, local)
+                    .await
+                    .unwrap()
+                    .shareable,
+                "Other accounts are not offered the action"
+            );
             assert!(matches!(
                 library
                     .hito
@@ -310,6 +330,17 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
 
             assert_eq!(listed(library, peer, local).await, 0);
             assert_eq!(listed(library, &second, local).await, 0);
+            let offered = library
+                .hito
+                .catalog
+                .recording_artist_association_changes(actor, local)
+                .await
+                .unwrap();
+            assert!(!offered.shareable);
+            assert_eq!(
+                offered.shared.map(|shared| (shared.id, shared.revision)),
+                Some((receipt.correction_id.clone(), 1))
+            );
             let list = library
                 .hito
                 .catalog
@@ -579,7 +610,12 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
                 .unwrap()
                 .latest
                 .unwrap();
-            assert!(latest.shared && !latest.shareable);
+            let shared = latest.shared.clone().unwrap();
+            assert_eq!(
+                (shared.id.as_str(), shared.revision),
+                (receipt.correction_id.as_str(), 1)
+            );
+            assert!(!latest.shareable);
             assert!(matches!(
                 library
                     .hito

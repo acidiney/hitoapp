@@ -1,6 +1,7 @@
 use super::{
     MAX_ASSOCIATIONS,
     associations::{self, LINKED},
+    shared_corrections::{SharedCorrectionRef, applied_for_association},
 };
 use crate::{Actor, Catalog, Error, Result, identity::recording_access};
 use serde::{Deserialize, Serialize};
@@ -60,6 +61,10 @@ pub struct ArtistAssociationChanges {
     pub undo: Option<ArtistAssociationUndo>,
     /// Unlinks that no longer apply to the recording's current credit; they keep hiding their association.
     pub retired: Vec<ArtistAssociationRetirement>,
+    /// An administrator can share the latest unlink, a built-in artist review, with every account.
+    pub shareable: bool,
+    /// The applied shared correction made from the latest unlink; only administrators see it.
+    pub shared: Option<SharedCorrectionRef>,
 }
 
 const MAX_CHANGES: i64 = 1024;
@@ -100,8 +105,23 @@ impl Catalog {
         .bind(recording)
         .fetch_all(&mut *tx)
         .await?;
+        let (shareable, shared) = match &latest {
+            Some(latest) if !latest.linked && actor.require_admin().is_ok() => {
+                let builtin: bool = sqlx::query_scalar(
+                    "SELECT provider_kind='builtin_musicbrainz' FROM recording_artist_associations WHERE id=?",
+                )
+                .bind(&latest.association_id)
+                .fetch_one(&mut *tx)
+                .await?;
+                let shared = applied_for_association(&mut tx, &latest.association_id).await?;
+                (builtin && shared.is_none(), shared)
+            }
+            _ => (false, None),
+        };
         tx.commit().await?;
         Ok(ArtistAssociationChanges {
+            shareable,
+            shared,
             retired: retired
                 .into_iter()
                 .map(|(association_id,)| ArtistAssociationRetirement {

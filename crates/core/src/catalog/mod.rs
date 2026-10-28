@@ -57,9 +57,9 @@ pub use artist_catalog::{
     ReadReleaseGroupEditions, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
     ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, SavedAlbumEdition,
     SharedArtistCorrection, SharedArtistCorrectionReceipt, SharedArtistCorrections,
-    SharedCorrectionKind, SplitArtistIdentityGroup, SplitDestination, UndoArtistIdentityChange,
-    UndoRecordingArtistChange, UndoSharedArtistCorrection, UnlinkRecordingArtist,
-    UpdateMetadataSettings,
+    SharedCorrectionKind, SharedCorrectionRef, SplitArtistIdentityGroup, SplitDestination,
+    UndoArtistIdentityChange, UndoRecordingArtistChange, UndoSharedArtistCorrection,
+    UnlinkRecordingArtist, UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{

@@ -255,7 +255,7 @@ async fn a_split_moves_chosen_recordings_to_a_reviewed_artist_and_undo_restores_
             let latest = state.latest.unwrap();
             assert_eq!(state.revision, 1);
             assert_eq!((latest.recordings, latest.retired), (1, 0));
-            assert!(latest.undoable && !latest.shareable && !latest.shared);
+            assert!(latest.undoable && !latest.shareable && latest.shared.is_none());
 
             let replay = SplitArtistIdentityGroup {
                 request_id: Uuid::new_v4(),

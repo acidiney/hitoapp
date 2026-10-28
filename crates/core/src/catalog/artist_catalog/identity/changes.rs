@@ -1,5 +1,8 @@
 use super::{receipts, split::group_key};
-use crate::{Actor, Catalog, Error, MetadataProvider, Result};
+use crate::{
+    Actor, Catalog, Error, MetadataProvider, Result,
+    catalog::artist_catalog::shared_corrections::{SharedCorrectionRef, applied_for_change},
+};
 use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 use std::time::Instant;
@@ -76,8 +79,8 @@ pub struct ArtistIdentityChangeSummary {
     pub undoable: bool,
     /// An administrator can apply this split for every account.
     pub shareable: bool,
-    /// An applied shared correction was made from this change.
-    pub shared: bool,
+    /// The applied shared correction made from this change; only administrators see it.
+    pub shared: Option<SharedCorrectionRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
@@ -377,15 +380,12 @@ impl Catalog {
                 .bind(&latest.id)
                 .fetch_one(&mut *tx)
                 .await?;
-                let shared: bool = sqlx::query_scalar(
-                    "SELECT EXISTS(SELECT 1 FROM shared_artist_corrections correction
-                     WHERE correction.source_change_id=? AND
-                        (SELECT state.applied FROM shared_artist_correction_states state
-                         WHERE state.correction_seq=correction.seq ORDER BY state.revision DESC LIMIT 1)=1)",
-                )
-                .bind(&latest.id)
-                .fetch_one(&mut *tx)
-                .await?;
+                let admin = actor.require_admin().is_ok();
+                let shared = if admin {
+                    applied_for_change(&mut tx, &latest.id).await?
+                } else {
+                    None
+                };
                 let split = latest.kind == "split";
                 Some(ArtistIdentityChangeSummary {
                     revision: latest.revision,
@@ -398,11 +398,7 @@ impl Catalog {
                     retired,
                     destination_group_id: latest.destination_group_id,
                     undoable: active > 0,
-                    shareable: split
-                        && active > 0
-                        && !shared
-                        && key.is_builtin()
-                        && actor.require_admin().is_ok(),
+                    shareable: split && active > 0 && shared.is_none() && key.is_builtin() && admin,
                     shared,
                 })
             }

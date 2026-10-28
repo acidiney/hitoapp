@@ -70,6 +70,45 @@ pub struct SharedArtistCorrections {
     pub items: Vec<SharedArtistCorrection>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct SharedCorrectionRef {
+    pub id: String,
+    pub revision: i64,
+}
+
+/// The applied shared correction made from a split, if any.
+pub(crate) async fn applied_for_change(
+    connection: &mut SqliteConnection,
+    change: &str,
+) -> Result<Option<SharedCorrectionRef>> {
+    applied(connection, "correction.source_change_id", change).await
+}
+
+/// The applied shared correction made from an unlink, if any.
+pub(crate) async fn applied_for_association(
+    connection: &mut SqliteConnection,
+    association: &str,
+) -> Result<Option<SharedCorrectionRef>> {
+    applied(connection, "correction.source_association_id", association).await
+}
+
+async fn applied(
+    connection: &mut SqliteConnection,
+    column: &str,
+    value: &str,
+) -> Result<Option<SharedCorrectionRef>> {
+    let row: Option<(String, i64)> = sqlx::query_as(&format!(
+        "SELECT correction.id,state.revision FROM shared_artist_corrections correction
+         JOIN shared_artist_correction_states state ON state.correction_seq=correction.seq
+            AND state.revision=(SELECT max(revision) FROM shared_artist_correction_states WHERE correction_seq=correction.seq)
+         WHERE {column}=? AND state.applied=1 ORDER BY correction.seq DESC LIMIT 1"
+    ))
+    .bind(value)
+    .fetch_optional(connection)
+    .await?;
+    Ok(row.map(|(id, revision)| SharedCorrectionRef { id, revision }))
+}
+
 struct Subject {
     recording: String,
     observation: String,

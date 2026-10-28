@@ -14297,7 +14297,8 @@
         "required": [
           "recording_id",
           "revision",
-          "retired"
+          "retired",
+          "shareable"
         ],
         "properties": {
           "recording_id": {
@@ -14313,6 +14314,21 @@
           "revision": {
             "type": "integer",
             "format": "int64"
+          },
+          "shareable": {
+            "type": "boolean",
+            "description": "An administrator can share the latest unlink, a built-in artist review, with every account."
+          },
+          "shared": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SharedCorrectionRef",
+                "description": "The applied shared correction made from the latest unlink; only administrators see it."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "undo": {
             "oneOf": [
@@ -14735,8 +14751,7 @@
           "recordings",
           "retired",
           "undoable",
-          "shareable",
-          "shared"
+          "shareable"
         ],
         "properties": {
           "destination_group_id": {
@@ -14766,8 +14781,15 @@
             "description": "An administrator can apply this split for every account."
           },
           "shared": {
-            "type": "boolean",
-            "description": "An applied shared correction was made from this change."
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SharedCorrectionRef",
+                "description": "The applied shared correction made from this change; only administrators see it."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "undoable": {
             "type": "boolean"
@@ -21686,6 +21708,22 @@
           "unlink",
           "split"
         ]
+      },
+      "SharedCorrectionRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "SharedDirectory": {
         "type": "object",

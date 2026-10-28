@@ -36,7 +36,7 @@ pub(crate) use associations::LINKED;
 pub use shared_corrections::{
     PromoteArtistCorrection, PromotionSource, SharedArtistCorrection,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
-    UndoSharedArtistCorrection,
+    SharedCorrectionRef, UndoSharedArtistCorrection,
 };
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
