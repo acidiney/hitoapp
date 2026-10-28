@@ -211,3 +211,70 @@ async fn accepting_a_suggestion_uses_the_reviewed_path_and_ends_the_suggestion()
     );
     library.origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn tracks_the_apply_would_keep_are_not_counted_as_undecided() {
+    let library = Library::prepare().await;
+    library.run().await;
+    let g1 = group(&library, M1).await;
+    let credit = library.credit(CREDIT).await.unwrap().id;
+    let settings = library
+        .hito
+        .catalog
+        .metadata_settings(&library.actor)
+        .await
+        .unwrap();
+    let observation = library
+        .hito
+        .catalog
+        .recording_metadata(&library.actor, &library.plain, Default::default())
+        .await
+        .unwrap()
+        .selected_observation
+        .unwrap();
+    let association = library
+        .hito
+        .catalog
+        .associate_recording_artist(
+            &library.actor,
+            &library.plain,
+            hito_core::AssociateRecordingArtist {
+                artist_id: credit.clone(),
+                source_id: observation.source_id.clone(),
+                observation_id: observation.id.clone(),
+                role: hito_core::ArtistCreditRole::RecordingArtist,
+                provider: hito_core::MetadataProvider::BuiltinMusicBrainz,
+                provider_artist_id: M1.into(),
+                policy_revision: settings.revision,
+            },
+        )
+        .await
+        .unwrap();
+    let revision = library
+        .hito
+        .catalog
+        .recording_artist_association_changes(&library.actor, &library.plain)
+        .await
+        .unwrap()
+        .revision;
+    library
+        .hito
+        .catalog
+        .unlink_recording_artist(
+            &library.actor,
+            &library.plain,
+            hito_core::UnlinkRecordingArtist {
+                request_id: Uuid::new_v4(),
+                expected_revision: revision,
+                association_id: Uuid::parse_str(&association.id).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+    let found = suggestions(&library, &credit).await;
+    assert!(
+        found.items.iter().all(|item| item.group.id != g1),
+        "Applying would skip the unlinked track, so nothing is left to suggest for this artist"
+    );
+    library.origin.shutdown().await;
+}

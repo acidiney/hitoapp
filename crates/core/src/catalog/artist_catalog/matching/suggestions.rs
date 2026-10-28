@@ -1,7 +1,7 @@
 use super::{ArtistMatchSuggestion, ArtistMatchSuggestions, DismissArtistMatchSuggestion};
 use crate::catalog::artist_catalog::{
-    ArtistIdentityGroup, ArtistIdentityGroupQuery, REQUEST_BUDGET,
-    identity::groups::{current_choices, visible},
+    LINKED, REQUEST_BUDGET,
+    identity::groups::{current_choices, group_summary},
 };
 use crate::{Actor, Catalog, Error, Result};
 use sqlx::{QueryBuilder, Sqlite, SqliteConnection};
@@ -9,8 +9,8 @@ use std::{collections::HashSet, time::Instant};
 use uuid::Uuid;
 
 const MAX_GROUPS: i64 = 50;
-const MAX_CREDIT_RECORDINGS: i64 = 1000;
-const MAX_GROUP_RECORDINGS: i64 = 2000;
+const MAX_CREDIT_RECORDINGS: i64 = 500;
+const MAX_GROUP_RECORDINGS: i64 = 500;
 const LENGTH_TOLERANCE_MS: i64 = 3000;
 const MAX_ID_LENGTH: usize = 64;
 
@@ -33,8 +33,8 @@ impl Catalog {
         let started = Instant::now();
         let result = tokio::time::timeout(REQUEST_BUDGET, self.read_suggestions(actor, artist))
             .await
-            .unwrap_or(Err(Error::Upstream(
-                "Artist suggestions exceeded the time limit",
+            .unwrap_or(Err(Error::Conflict(
+                "Artist suggestions took too long. Try again.".into(),
             )));
         tracing::debug!(
             outcome = result.as_ref().map_or_else(|e| e.code(), |_| "success"),
@@ -107,23 +107,17 @@ impl Catalog {
             actor.check_session_on(&mut connection).await?;
             credit_name(&mut connection, actor, artist).await?
         };
-        let found = match self
-            .artist_identity_groups(
-                actor,
-                ArtistIdentityGroupQuery {
-                    q: Some(name.clone()),
-                    limit: Some(MAX_GROUPS),
-                    ..Default::default()
-                },
-            )
-            .await
-        {
-            Ok(page) => page.items,
-            Err(Error::Invalid(_)) => Vec::new(),
-            Err(error) => return Err(error),
-        };
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
+        let mut candidates = QueryBuilder::<Sqlite>::new("SELECT DISTINCT choice.group_id ");
+        candidates.push(current_choices());
+        candidates
+            .push_bind(actor.id().to_owned())
+            .push(" AND lower(trim(artist.name))=")
+            .push_bind(name.trim().to_lowercase())
+            .push(" ORDER BY choice.group_id LIMIT ")
+            .push_bind(MAX_GROUPS);
+        let found: Vec<String> = candidates.build_query_scalar().fetch_all(&mut *tx).await?;
         let dismissed: HashSet<String> = sqlx::query_scalar::<_, String>(
             "SELECT group_id FROM artist_match_dismissals WHERE user_id=? AND artist_id=?",
         )
@@ -133,20 +127,21 @@ impl Catalog {
         .await?
         .into_iter()
         .collect();
+        let base = undecided_tracks(&mut tx, actor, artist).await?;
         let mut items = Vec::new();
         let mut hidden = 0;
-        for group in found {
-            if !carries_name(&mut tx, actor, &group, &name).await? {
-                continue;
-            }
-            let facts = facts(&mut tx, actor, artist, &group.id).await?;
+        for id in found {
+            let facts = facts(&mut tx, actor, &base, &id).await?;
             if facts.undecided_tracks == 0 {
                 continue;
             }
-            if dismissed.contains(&group.id) {
+            if dismissed.contains(&id) {
                 hidden += 1;
                 continue;
             }
+            let Some(group) = group_summary(&mut tx, actor, &id).await? else {
+                continue;
+            };
             items.push(ArtistMatchSuggestion {
                 group,
                 shared_albums: facts.shared_albums,
@@ -189,34 +184,12 @@ async fn credit_name(
     .ok_or(Error::NotFound)
 }
 
-fn comparable(name: &str) -> String {
-    name.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
-}
-
-async fn carries_name(
-    connection: &mut SqliteConnection,
-    actor: &Actor,
-    group: &ArtistIdentityGroup,
-    name: &str,
-) -> Result<bool> {
-    let mut query = visible(actor, None, Some(&group.id));
-    query.push("SELECT DISTINCT name FROM visible LIMIT 200");
-    let names: Vec<String> = query.build_query_scalar().fetch_all(connection).await?;
-    let wanted = comparable(name);
-    Ok(names
-        .iter()
-        .any(|candidate| comparable(candidate) == wanted))
-}
-
-async fn facts(
+/// The credit's tracks with no current artist choice, read once for every candidate group.
+async fn undecided_tracks(
     connection: &mut SqliteConnection,
     actor: &Actor,
     artist: &str,
-    group: &str,
-) -> Result<Facts> {
+) -> Result<String> {
     let user = actor.id().to_owned();
     let mut query: QueryBuilder<'static, Sqlite> = QueryBuilder::new(
         "WITH credit_rec AS MATERIALIZED (
@@ -228,22 +201,47 @@ async fn facts(
     query
         .push_bind(user.clone())
         .push(" AND rc.artist_id=")
-        .push_bind(artist.to_owned());
-    query
+        .push_bind(artist.to_owned())
         .push(" ORDER BY rc.recording_id LIMIT ")
         .push_bind(MAX_CREDIT_RECORDINGS);
-    query.push("), member AS MATERIALIZED (SELECT choice.recording_id AS id ");
+    query.push("), decided AS MATERIALIZED (SELECT choice.recording_id AS id ");
+    query.push(current_choices());
+    query.push_bind(user);
+    query.push(
+        " AND choice.recording_id IN (SELECT id FROM credit_rec))
+        SELECT json_group_array(id) FROM credit_rec WHERE id NOT IN (SELECT id FROM decided)",
+    );
+    Ok(query.build_query_scalar().fetch_one(connection).await?)
+}
+
+async fn facts(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    undecided: &str,
+    group: &str,
+) -> Result<Facts> {
+    let user = actor.id().to_owned();
+    let mut query: QueryBuilder<'static, Sqlite> =
+        QueryBuilder::new("WITH member AS MATERIALIZED (SELECT choice.recording_id AS id ");
     query.push(current_choices());
     query
         .push_bind(user.clone())
         .push(" AND choice.group_id=")
-        .push_bind(group.to_owned());
-    query.push(" LIMIT ").push_bind(MAX_GROUP_RECORDINGS);
-    query.push("), decided AS MATERIALIZED (SELECT choice.recording_id AS id ");
-    query.push(current_choices());
+        .push_bind(group.to_owned())
+        .push(" LIMIT ")
+        .push_bind(MAX_GROUP_RECORDINGS);
+    query.push("), undecided AS (SELECT item.value AS id FROM json_each(");
+    query.push_bind(undecided.to_owned());
+    query.push(") item WHERE NOT EXISTS (SELECT 1 FROM recording_artist_associations assoc
+                JOIN account_artist_identity_groups kept ON kept.user_id=assoc.user_id AND kept.id=");
+    query.push_bind(group.to_owned());
+    query.push(
+        " AND kept.provider_key=assoc.provider_key AND kept.provider_artist_id=assoc.provider_artist_id
+                WHERE assoc.user_id=",
+    );
     query.push_bind(user.clone());
-    query.push(" AND choice.recording_id IN (SELECT id FROM credit_rec)),
-        undecided AS (SELECT id FROM credit_rec WHERE id NOT IN (SELECT id FROM decided)),
+    query.push(format!(
+        " AND assoc.recording_id=item.value AND NOT ({LINKED}))),
         scope AS (SELECT id FROM undecided UNION SELECT id FROM member),
         appear AS (
             SELECT source.recording_id,meta.release_id FROM sources source
@@ -254,7 +252,8 @@ async fn facts(
             WHERE p.recording_id IN (SELECT id FROM scope)),
         titles AS (
             SELECT DISTINCT appear.recording_id,lower(trim(release.title)) AS title
-            FROM appear JOIN account_releases release ON release.id=appear.release_id AND release.user_id=");
+            FROM appear JOIN account_releases release ON release.id=appear.release_id AND release.user_id="
+    ));
     query.push_bind(user);
     query.push(")
         SELECT

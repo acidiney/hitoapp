@@ -57,6 +57,18 @@ impl Summary {
     }
 }
 
+/// Reads one group's summary when it still has a current, accessible member.
+pub(in crate::catalog::artist_catalog) async fn group_summary(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    group: &str,
+) -> Result<Option<ArtistIdentityGroup>> {
+    let mut query = visible(actor, None, Some(group));
+    query.push("SELECT * FROM summary");
+    let row: Option<Summary> = query.build_query_as().fetch_optional(connection).await?;
+    row.map(Summary::project).transpose()
+}
+
 impl Catalog {
     #[tracing::instrument(level="debug", skip_all, fields(operation="artist_identity_groups", request_id=%Uuid::new_v4()))]
     pub async fn artist_identity_groups(
