@@ -327,6 +327,7 @@ Local development work, not a release. See [architecture](docs/architecture.md),
 - [ ] Decide RFC 0004, host identity versus sync client identity. It needs your decision on the wire renames.
 - [ ] Decide the product question: should PlaylistIndex show connected services only, or all services as Discover does?
 - [ ] Give browser e2e more sign-in headroom. The default run uses 9 of the 10 attempts allowed per minute.
+- [ ] Find the cause of a rare `source-recovery.spec.ts` failure: after source recovery and a forward seek, `currentTime` stayed 0 (expected above 8). Seen once in about 12 fresh-server runs on 2026-10-28; the other runs and two full suites passed. `--repeat-each` on one server is not a valid reproduction because spec state carries over.
 - [ ] Revisit the plugin compose overlays, which stay at the repository root on purpose.
 - [ ] Delete the leftover untracked `crates/hito-desktop/gen/` generated schemas. This is a user action.
 
