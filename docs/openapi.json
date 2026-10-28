@@ -955,6 +955,297 @@
         ]
       }
     },
+    "/api/v1/artist-corrections": {
+      "get": {
+        "operationId": "shared_artist_corrections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedArtistCorrections"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-corrections/promote": {
+      "post": {
+        "operationId": "promote_artist_correction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteArtistCorrection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedArtistCorrectionReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-corrections/{id}/undo": {
+      "post": {
+        "operationId": "undo_shared_artist_correction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoSharedArtistCorrection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedArtistCorrectionReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artist-identity-groups": {
       "get": {
         "operationId": "artist_identity_groups",
@@ -1155,6 +1446,326 @@
             }
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-identity-groups/{id}/changes": {
+      "get": {
+        "operationId": "artist_identity_group_changes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistIdentityGroupChanges"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-identity-groups/{id}/split": {
+      "post": {
+        "operationId": "split_artist_identity_group",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitArtistIdentityGroup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistIdentityChangeReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artist-identity-groups/{id}/undo": {
+      "post": {
+        "operationId": "undo_artist_identity_change",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UndoArtistIdentityChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistIdentityChangeReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
             "content": {
               "application/json": {
                 "schema": {
@@ -13685,11 +14296,19 @@
         "type": "object",
         "required": [
           "recording_id",
-          "revision"
+          "revision",
+          "retired"
         ],
         "properties": {
           "recording_id": {
             "type": "string"
+          },
+          "retired": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistAssociationRetirement"
+            },
+            "description": "Unlinks that no longer apply to the recording's current credit; they keep hiding their association."
           },
           "revision": {
             "type": "integer",
@@ -13712,6 +14331,21 @@
         "enum": [
           "user_confirmed"
         ]
+      },
+      "ArtistAssociationRetirement": {
+        "type": "object",
+        "required": [
+          "association_id",
+          "reason"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ArtistCorrectionRetirement"
+          }
+        }
       },
       "ArtistAssociationUndo": {
         "type": "object",
@@ -13892,6 +14526,12 @@
           }
         ]
       },
+      "ArtistCorrectionRetirement": {
+        "type": "string",
+        "enum": [
+          "credit_changed"
+        ]
+      },
       "ArtistCreditRole": {
         "type": "string",
         "enum": [
@@ -14044,6 +14684,96 @@
         },
         "additionalProperties": false
       },
+      "ArtistIdentityChangeKind": {
+        "type": "string",
+        "enum": [
+          "split",
+          "undo"
+        ]
+      },
+      "ArtistIdentityChangeReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "group_id",
+          "revision",
+          "kind",
+          "recordings"
+        ],
+        "properties": {
+          "destination_group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ArtistIdentityChangeKind"
+          },
+          "recordings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ArtistIdentityChangeSummary": {
+        "type": "object",
+        "required": [
+          "revision",
+          "kind",
+          "recordings",
+          "retired",
+          "undoable",
+          "shareable",
+          "shared"
+        ],
+        "properties": {
+          "destination_group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ArtistIdentityChangeKind"
+          },
+          "recordings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retired": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Items whose recording no longer carries the credit the change was made for."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "shareable": {
+            "type": "boolean",
+            "description": "An administrator can apply this split for every account."
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "An applied shared correction was made from this change."
+          },
+          "undoable": {
+            "type": "boolean"
+          }
+        }
+      },
       "ArtistIdentityChoiceReceipt": {
         "type": "object",
         "required": [
@@ -14154,6 +14884,32 @@
             "format": "int64"
           },
           "release_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ArtistIdentityGroupChanges": {
+        "type": "object",
+        "required": [
+          "group_id",
+          "revision"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
+          },
+          "latest": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ArtistIdentityChangeSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
             "type": "integer",
             "format": "int64"
           }
@@ -19618,6 +20374,80 @@
         },
         "additionalProperties": false
       },
+      "PromoteArtistCorrection": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision",
+          "source"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromotionSource"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PromotionSource": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "The administrator's own unlink of one built-in artist review.",
+            "required": [
+              "recording_id",
+              "association_id",
+              "kind"
+            ],
+            "properties": {
+              "association_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "unlink"
+                ]
+              },
+              "recording_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The administrator's latest split of one built-in artist identity group.",
+            "required": [
+              "group_id",
+              "revision",
+              "kind"
+            ],
+            "properties": {
+              "group_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "split"
+                ]
+              },
+              "revision": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        ]
+      },
       "ProviderCandidate": {
         "type": "object",
         "required": [
@@ -20762,6 +21592,101 @@
           }
         }
       },
+      "SharedArtistCorrection": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "recordings",
+          "retired",
+          "applied",
+          "revision",
+          "promoted_by_me"
+        ],
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SharedCorrectionKind"
+          },
+          "promoted_by_me": {
+            "type": "boolean"
+          },
+          "recordings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "retired": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings whose tags changed after the correction was shared."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SharedArtistCorrectionReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "correction_id",
+          "revision",
+          "applied",
+          "recordings"
+        ],
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "correction_id": {
+            "type": "string"
+          },
+          "recordings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SharedArtistCorrections": {
+        "type": "object",
+        "required": [
+          "revision",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedArtistCorrection"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SharedCorrectionKind": {
+        "type": "string",
+        "enum": [
+          "unlink",
+          "split"
+        ]
+      },
       "SharedDirectory": {
         "type": "object",
         "required": [
@@ -21123,6 +22048,84 @@
           "cancelled"
         ]
       },
+      "SplitArtistIdentityGroup": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision",
+          "destination"
+        ],
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/SplitDestination"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recordings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "releases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SplitDestination": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Each recording returns to the library credit it was tagged with.",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "credit"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Each recording moves to an exact artist identity it already reviewed.",
+            "required": [
+              "provider",
+              "provider_artist_id",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "identity"
+                ]
+              },
+              "provider": {
+                "$ref": "#/components/schemas/MetadataProvider"
+              },
+              "provider_artist_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "SubscribePodcast": {
         "type": "object",
         "required": [
@@ -21399,7 +22402,43 @@
         },
         "additionalProperties": false
       },
+      "UndoArtistIdentityChange": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "UndoRecordingArtistChange": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UndoSharedArtistCorrection": {
         "type": "object",
         "required": [
           "request_id",

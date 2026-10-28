@@ -164,6 +164,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["shared_artist_corrections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-corrections/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["promote_artist_correction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-corrections/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo_shared_artist_correction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artist-identity-groups": {
         parameters: {
             query?: never;
@@ -190,6 +238,54 @@ export interface paths {
         get: operations["artist_identity_group"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-identity-groups/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_identity_group_changes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-identity-groups/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["split_artist_identity_group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artist-identity-groups/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo_artist_identity_change"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2189,12 +2285,18 @@ export interface components {
         };
         ArtistAssociationChanges: {
             recording_id: string;
+            /** @description Unlinks that no longer apply to the recording's current credit; they keep hiding their association. */
+            retired: components["schemas"]["ArtistAssociationRetirement"][];
             /** Format: int64 */
             revision: number;
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
         ArtistAssociationEvidence: "user_confirmed";
+        ArtistAssociationRetirement: {
+            association_id: string;
+            reason: components["schemas"]["ArtistCorrectionRetirement"];
+        };
         ArtistAssociationUndo: {
             association_id: string;
             linked: boolean;
@@ -2236,6 +2338,8 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
+        ArtistCorrectionRetirement: "credit_changed";
+        /** @enum {string} */
         ArtistCreditRole: "recording_artist";
         ArtistDetail: {
             artist: components["schemas"]["Artist"];
@@ -2268,6 +2372,37 @@ export interface components {
             snapshot?: string | null;
             /** Format: int32 */
             total_count?: number | null;
+        };
+        /** @enum {string} */
+        ArtistIdentityChangeKind: "split" | "undo";
+        ArtistIdentityChangeReceipt: {
+            destination_group_id?: string | null;
+            group_id: string;
+            kind: components["schemas"]["ArtistIdentityChangeKind"];
+            /** Format: int64 */
+            recordings: number;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        ArtistIdentityChangeSummary: {
+            destination_group_id?: string | null;
+            kind: components["schemas"]["ArtistIdentityChangeKind"];
+            /** Format: int64 */
+            recordings: number;
+            /**
+             * Format: int64
+             * @description Items whose recording no longer carries the credit the change was made for.
+             */
+            retired: number;
+            /** Format: int64 */
+            revision: number;
+            /** @description An administrator can apply this split for every account. */
+            shareable: boolean;
+            /** @description An applied shared correction was made from this change. */
+            shared: boolean;
+            undoable: boolean;
         };
         ArtistIdentityChoiceReceipt: {
             recording_id: string;
@@ -2303,6 +2438,12 @@ export interface components {
             recording_count: number;
             /** Format: int64 */
             release_count: number;
+        };
+        ArtistIdentityGroupChanges: {
+            group_id: string;
+            latest?: components["schemas"]["ArtistIdentityChangeSummary"] | null;
+            /** Format: int64 */
+            revision: number;
         };
         ArtistIdentityGroupDetail: {
             group: components["schemas"]["ArtistIdentityGroup"];
@@ -3641,6 +3782,26 @@ export interface components {
             /** Format: int64 */
             service_revision: number;
         };
+        PromoteArtistCorrection: {
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+            source: components["schemas"]["PromotionSource"];
+        };
+        PromotionSource: {
+            /** Format: uuid */
+            association_id: string;
+            /** @enum {string} */
+            kind: "unlink";
+            recording_id: string;
+        } | {
+            group_id: string;
+            /** @enum {string} */
+            kind: "split";
+            /** Format: int64 */
+            revision: number;
+        };
         ProviderCandidate: {
             installation_id: string;
             /** Format: int64 */
@@ -3919,6 +4080,38 @@ export interface components {
         SetupStatus: {
             needs_setup: boolean;
         };
+        SharedArtistCorrection: {
+            applied: boolean;
+            id: string;
+            kind: components["schemas"]["SharedCorrectionKind"];
+            promoted_by_me: boolean;
+            /** Format: int64 */
+            recordings: number;
+            /**
+             * Format: int64
+             * @description Recordings whose tags changed after the correction was shared.
+             */
+            retired: number;
+            /** Format: int64 */
+            revision: number;
+        };
+        SharedArtistCorrectionReceipt: {
+            applied: boolean;
+            correction_id: string;
+            /** Format: int64 */
+            recordings: number;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        SharedArtistCorrections: {
+            items: components["schemas"]["SharedArtistCorrection"][];
+            /** Format: int64 */
+            revision: number;
+        };
+        /** @enum {string} */
+        SharedCorrectionKind: "unlink" | "split";
         SharedDirectory: {
             available: boolean;
             id: string;
@@ -4016,6 +4209,24 @@ export interface components {
         };
         /** @enum {string} */
         SourceResolutionOutcome: "ready" | "no_suitable_source" | "provider_unavailable" | "protected_choice" | "cancelled";
+        SplitArtistIdentityGroup: {
+            destination: components["schemas"]["SplitDestination"];
+            /** Format: int64 */
+            expected_revision: number;
+            recordings?: string[];
+            releases?: string[];
+            /** Format: uuid */
+            request_id: string;
+        };
+        SplitDestination: {
+            /** @enum {string} */
+            kind: "credit";
+        } | {
+            /** @enum {string} */
+            kind: "identity";
+            provider: components["schemas"]["MetadataProvider"];
+            provider_artist_id: string;
+        };
         SubscribePodcast: {
             feed_url: string;
             /** Format: uuid */
@@ -4080,7 +4291,19 @@ export interface components {
             rendition_label?: string | null;
             revision?: string | null;
         };
+        UndoArtistIdentityChange: {
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+        };
         UndoRecordingArtistChange: {
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            request_id: string;
+        };
+        UndoSharedArtistCorrection: {
             /** Format: int64 */
             expected_revision: number;
             /** Format: uuid */
@@ -4881,6 +5104,241 @@ export interface operations {
             };
         };
     };
+    shared_artist_corrections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedArtistCorrections"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    promote_artist_correction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteArtistCorrection"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedArtistCorrectionReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    undo_shared_artist_correction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoSharedArtistCorrection"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedArtistCorrectionReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     artist_identity_groups: {
         parameters: {
             query?: {
@@ -4995,6 +5453,253 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_identity_group_changes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityGroupChanges"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    split_artist_identity_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitArtistIdentityGroup"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityChangeReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    undo_artist_identity_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoArtistIdentityChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistIdentityChangeReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -104,6 +104,8 @@ mod artist_editions;
 mod artist_identity;
 #[path = "api/artist_identity_access.rs"]
 mod artist_identity_access;
+#[path = "api/artist_identity_corrections.rs"]
+mod artist_identity_corrections;
 #[path = "api/artist_identity_credit.rs"]
 mod artist_identity_credit;
 #[path = "fixtures/artist_identity.rs"]
