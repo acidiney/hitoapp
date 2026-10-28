@@ -86,6 +86,7 @@ function page(
   return createElement(AlbumPage, {
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     user: { id: artistReviewAccount, username: "Listener", admin: false },
     libraries: [],
     playlists: [],

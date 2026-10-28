@@ -29,6 +29,7 @@ test("History row playback carries saved intent while toolbar playback starts no
     libraries: [],
     playlists: [],
     native_playback: true,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     activity: {
       history: [
         {

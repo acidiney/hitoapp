@@ -1,6 +1,6 @@
 import { createUuid } from "../../shared/uuid";
 import { router } from "@inertiajs/react";
-import { HttpError, requestJson } from "../../shared/http";
+import { HttpError, lockedEvent, requestJson } from "../../shared/http";
 import { log } from "../../shared/log";
 
 const revisionKey = "hito-session-revision";
@@ -37,6 +37,7 @@ export function installSessionBoundary(
   dispose: () => void,
 ) {
   const initialAccount = account(props);
+  const lockedPage = props.locked === true;
   const initialRevision = revision();
   const verification = new AbortController();
   let invalidated = false;
@@ -63,7 +64,11 @@ export function installSessionBoundary(
   const observedAccount = (props: { [key: string]: unknown }) => {
     if (Object.hasOwn(props, "user") && account(props) !== initialAccount)
       invalidate("account_changed");
+    else if (props.locked === true && !lockedPage) invalidate("locked");
   };
+  function locked() {
+    if (!lockedPage) invalidate("locked");
+  }
   const stopBeforeUpdate = router.on("beforeUpdate", (event) =>
     observedAccount(event.detail.page.props),
   );
@@ -74,6 +79,7 @@ export function installSessionBoundary(
     channel = new BroadcastChannel(revisionKey);
     channel.onmessage = () => invalidate("session_changed");
   }
+  window.addEventListener(lockedEvent, locked);
   window.addEventListener("storage", storage);
   window.addEventListener("focus", checkRevision);
   window.addEventListener("pageshow", restored);
@@ -84,6 +90,7 @@ export function installSessionBoundary(
     stopNavigate();
     channel?.close();
     channel = undefined;
+    window.removeEventListener(lockedEvent, locked);
     window.removeEventListener("storage", storage);
     window.removeEventListener("focus", checkRevision);
     window.removeEventListener("pageshow", restored);
@@ -102,7 +109,13 @@ export function installSessionBoundary(
         currentAccount = account({ user });
         if (!currentAccount) throw new Error("Invalid session response");
       } catch (error) {
-        if (!(error instanceof HttpError && error.status === 401)) throw error;
+        if (
+          !(
+            error instanceof HttpError &&
+            (error.status === 401 || error.status === 423)
+          )
+        )
+          throw error;
         status = error.status;
       }
       log.debug("session.verified", { status });

@@ -233,6 +233,7 @@ test("group detail stays within Artists navigation", () => {
       createElement(Sidebar, {
         user: index.user,
         playlists: index.playlists,
+        lock: { pin_enabled: false, idle_minutes: 0, locked: false },
         path: `/artist-groups/${group.id}`,
       }),
     ),

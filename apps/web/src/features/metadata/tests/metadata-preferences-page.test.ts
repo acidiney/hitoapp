@@ -24,6 +24,7 @@ const props: SettingsPageProps = {
   user: { id: "alice", username: "Alice", admin: true },
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   libraries: [],
   playlists: [],
 };

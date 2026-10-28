@@ -7,7 +7,7 @@ type PageComponent = ComponentType<any> & {
 type PageModules = Record<string, { default?: PageComponent }>;
 
 const layout = (page: ReactNode) => <Shell>{page}</Shell>;
-const unframed = new Set(["LoginPage"]);
+const unframed = new Set(["LoginPage", "LockPage"]);
 
 export function buildPages(modules: PageModules) {
   const pages: Record<string, PageComponent> = {};

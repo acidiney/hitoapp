@@ -12,7 +12,7 @@ import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider"
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();
-  const { user, playlists } = page.props;
+  const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
@@ -27,7 +27,12 @@ export default function Shell({ children }: { children: ReactNode }) {
           <div
             className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
           >
-            <Sidebar user={user} playlists={playlists} path={url.pathname} />
+            <Sidebar
+              user={user}
+              playlists={playlists}
+              lock={lock}
+              path={url.pathname}
+            />
             <div className="workspace">
               {page.component !== "DiscoverPage" && (
                 <LibrarySearch

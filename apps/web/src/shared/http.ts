@@ -10,6 +10,8 @@ type RequestOptions = {
   errorBody?: boolean;
 };
 
+export const lockedEvent = "hito-session-locked";
+
 export class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -72,6 +74,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action.endsWith("tracks_page") ||
       options.action === "progress.save" ||
       options.action === "session.verify" ||
+      options.action === "lock.state" ||
       options.action === "community.playback.report" ||
       options.action.startsWith("native.")
         ? log.debug
@@ -79,12 +82,14 @@ export async function request(path: string, options: RequestOptions) {
     accepted("http.response", result);
     return response;
   }
+  if (response.status === 423) window.dispatchEvent(new Event(lockedEvent));
   if (
     (["downloads.status", "source_preparation.status"].includes(
       options.action,
     ) &&
       response.status === 404) ||
-    (options.action === "session.verify" && response.status === 401)
+    (options.action === "session.verify" &&
+      [401, 423].includes(response.status))
   )
     log.debug("http.response", result);
   else log.warn("http.failed", result);

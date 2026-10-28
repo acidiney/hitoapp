@@ -68,6 +68,7 @@ function podcastPageFixture() {
     user: { id: "alice", username: "Alice", admin: false },
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     libraries: [],
     playlists: [{ id: "owned-playlist", name: "My episodes", kind: "local" }],
     subscription: {

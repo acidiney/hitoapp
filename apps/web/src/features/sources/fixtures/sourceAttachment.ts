@@ -53,6 +53,7 @@ export const sourceAttachmentPage: RecordingDetailsPageProps = {
   user: copiedPlaylistPage.user,
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   libraries: [],
   playlists: [copiedPlaylistPage.detail.playlist],
   detail: {

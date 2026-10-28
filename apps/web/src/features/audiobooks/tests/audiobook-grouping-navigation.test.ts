@@ -265,6 +265,7 @@ function page(
   const props: AudiobookPageProps = {
     errors: index.errors,
     native_playback: index.native_playback,
+    lock: index.lock,
     user: index.user,
     libraries: index.libraries,
     playlists: index.playlists,

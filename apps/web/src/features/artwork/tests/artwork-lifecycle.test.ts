@@ -15,6 +15,7 @@ vi.mock("@inertiajs/react", () => ({
       native_playback: false,
       libraries: [],
       playlists: [],
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     },
   }),
   router: { get: vi.fn(), clearHistory: vi.fn() },

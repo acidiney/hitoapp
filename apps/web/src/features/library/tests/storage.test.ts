@@ -21,6 +21,7 @@ vi.mock("../api/storageApi", () => ({
 const props: SettingsPageProps = {
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   user: { id: "admin", username: "Admin", admin: true },
   libraries: [{ id: "library", name: "Home library" }],
   playlists: [],

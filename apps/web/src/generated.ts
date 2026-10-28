@@ -4,6 +4,70 @@
  */
 
 export interface paths {
+    "/api/v1/account/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["lock_status"];
+        put?: never;
+        post: operations["lock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_pin"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/pin/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["remove_pin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity": {
         parameters: {
             query?: never;
@@ -2652,7 +2716,7 @@ export interface components {
             status: "cancelled";
         };
         /** @enum {string} */
-        ErrorCode: "operation_rejected";
+        ErrorCode: "operation_rejected" | "locked";
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
@@ -2800,6 +2864,20 @@ export interface components {
             name: string;
             personal?: boolean;
         };
+        LockPageProps: {
+            account_id: string;
+            errors: {
+                [key: string]: string;
+            };
+            locked: boolean;
+            username: string;
+        };
+        LockStatus: {
+            /** Format: int32 */
+            idle_minutes: number;
+            locked: boolean;
+            pin_enabled: boolean;
+        };
         LoginPageProps: {
             errors: {
                 [key: string]: string;
@@ -2925,7 +3003,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
+        PageComponent: "LoginPage" | "LockPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -3775,6 +3853,9 @@ export interface components {
             /** Format: int64 */
             track_number?: number | null;
         };
+        RemovePin: {
+            password: string;
+        };
         ResetRecordingArtistIdentity: {
             /** Format: int64 */
             expected_revision: number;
@@ -3812,6 +3893,12 @@ export interface components {
             context: components["schemas"]["ArtistReviewContext"];
             provider_artist_id: string;
         };
+        SetPin: {
+            /** Format: int32 */
+            idle_minutes: number;
+            password: string;
+            pin?: string | null;
+        };
         SettingsPageProps: components["schemas"]["SharedPageProps"];
         SetupStatus: {
             needs_setup: boolean;
@@ -3826,6 +3913,7 @@ export interface components {
                 [key: string]: string;
             };
             libraries: components["schemas"]["Library"][];
+            lock: components["schemas"]["LockStatus"];
             native_playback: boolean;
             playlists: components["schemas"]["Playlist"][];
             user: components["schemas"]["User"];
@@ -3990,6 +4078,9 @@ export interface components {
             /** Format: uuid */
             request_id: string;
         };
+        Unlock: {
+            pin: string;
+        };
         UnsubscribePodcast: {
             /** Format: uuid */
             request_id: string;
@@ -4025,6 +4116,313 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    lock_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    lock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    set_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPin"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockStatus"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemovePin"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockStatus"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Unlock"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockStatus"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     activity: {
         parameters: {
             query?: never;

@@ -47,6 +47,7 @@ function wrapper({ children }: { children: ReactNode }) {
 const shared = {
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   user: { id: "alice", username: "Alice", admin: true },
   libraries: [],
   playlists: [],

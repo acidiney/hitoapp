@@ -42,6 +42,7 @@ function page(component: string, url: string): Page {
       native_playback: false,
       libraries: [],
       playlists: [],
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
       activity: { history: [recording] },
       query: "",
       recordings: { items: [], total: 0, offset: 0, limit: 60 },

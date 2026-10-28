@@ -141,3 +141,21 @@
   display: flex;
   gap: 8px;
 }
+
+.pin-form fieldset {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pin-form input,
+.pin-form select {
+  width: 100%;
+}
+.pin-form fieldset > div {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}

@@ -74,6 +74,7 @@ test("Podcast unsubscribe recovers its exact receipt after status omits the subs
     user: { id: "alice", username: "Alice", admin: false },
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     libraries: [],
     playlists: [
       { id: "owned-playlist", name: "Retained episodes", kind: "local" },

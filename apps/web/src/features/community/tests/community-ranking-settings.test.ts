@@ -89,6 +89,7 @@ test("Privacy saves source rankings independently and requires review after a st
     errors: {},
     libraries: [],
     playlists: [],
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     native_playback: false,
   };
   const view = render(createElement(SettingsPage, props));

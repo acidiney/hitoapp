@@ -25,6 +25,7 @@ const page = vi.hoisted(() => ({
     native_playback: false,
     libraries: [],
     playlists: [],
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   },
 }));
 

@@ -33,6 +33,7 @@ const connection: PluginInstallation = {
 const props: DiscoverPageProps = {
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   user: { id: "alice", username: "Alice", admin: false },
   libraries: [],
   playlists: [],

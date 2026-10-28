@@ -7,6 +7,7 @@ import PluginSettings from "../../plugins/components/PluginSettings";
 import MetadataPreferences from "../../metadata/components/MetadataPreferences";
 import CommunitySettings from "../../community/components/CommunitySettings";
 import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
+import ScreenLockSettings from "../../session/components/ScreenLockSettings";
 import PageHeading from "../../../shared/ui/PageHeading";
 import { log } from "../../../shared/log";
 
@@ -98,6 +99,11 @@ export default function SettingsPage(props: SettingsPageProps) {
               <CommunityRankingSettings
                 key={`community-rankings:${props.user.id}`}
                 account={props.user.id}
+              />
+              <ScreenLockSettings
+                key={`screen-lock:${props.user.id}:${props.lock.pin_enabled}`}
+                account={props.user.id}
+                lock={props.lock}
               />
             </>
           )}

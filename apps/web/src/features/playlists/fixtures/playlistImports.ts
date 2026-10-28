@@ -28,6 +28,7 @@ export const playlistImportPage: PlaylistIndexPageProps = {
   user: { id: "alice", username: "Alice", admin: false },
   errors: {},
   native_playback: false,
+  lock: { pin_enabled: false, idle_minutes: 0, locked: false },
   libraries: [],
   playlists: [],
   connections: [

@@ -213,6 +213,7 @@ test("a paged album queues all of its tracks in tag order", async () => {
   const props = {
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     user,
     libraries: [],
     playlists: [],

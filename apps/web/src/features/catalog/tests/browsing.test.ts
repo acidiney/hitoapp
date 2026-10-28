@@ -43,6 +43,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
     createElement(AlbumPage, {
       errors: {},
       native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
       user: { id: "account", username: "Listener", admin: false },
       libraries: [],
       playlists: [],
@@ -170,6 +171,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     createElement(AlbumPage, {
       errors: {},
       native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
       user: { id: "account", username: "Listener", admin: false },
       libraries: [],
       playlists: [],
@@ -260,6 +262,7 @@ test("albumless artist tracks play only their page and keep album pagination sep
     createElement(ArtistPage, {
       errors: {},
       native_playback: false,
+      lock: { pin_enabled: false, idle_minutes: 0, locked: false },
       user: { id: "account", username: "Listener", admin: false },
       libraries: [],
       playlists: [],

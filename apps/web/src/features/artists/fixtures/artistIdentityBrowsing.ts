@@ -17,6 +17,7 @@ export function artistIdentityBrowsing() {
   const index = {
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     user: sourceAttachmentPage.user,
     playlists: sourceAttachmentPage.playlists,
     libraries: [
@@ -82,6 +83,7 @@ export function artistIdentityBrowsing() {
   const detail = {
     errors: index.errors,
     native_playback: index.native_playback,
+    lock: index.lock,
     user: index.user,
     playlists: index.playlists,
     libraries: index.libraries,

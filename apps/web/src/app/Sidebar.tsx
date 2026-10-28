@@ -8,6 +8,7 @@ import {
   Library,
   Compass,
   ListMusic,
+  Lock,
   LogOut,
   Settings,
   Plus,
@@ -15,8 +16,10 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useSignOut } from "../features/session/hooks/useSignOut";
+import { useLockSession } from "../features/session/hooks/useLockSession";
+import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
-import type { Playlist, User } from "../shared/types";
+import type { LockStatus, Playlist, User } from "../shared/types";
 import { log } from "../shared/log";
 
 const navigation = [
@@ -48,14 +51,18 @@ const navigation = [
 export default function Sidebar({
   user,
   playlists,
+  lock,
   path,
 }: {
   user: User;
   playlists: Playlist[];
+  lock: LockStatus;
   path: string;
 }) {
   const player = usePlayer();
   const { busy, signOut } = useSignOut(user.id, () => player.clear());
+  const locking = useLockSession(user.id, () => player.clear());
+  useIdleLock(user.id, lock, () => player.clear());
   return (
     <aside className="sidebar">
       <Link href="/library" className="brand">
@@ -114,6 +121,16 @@ export default function Sidebar({
           {user.username}
           <small>{user.admin ? "Administrator" : "Listener"}</small>
         </span>
+        {lock.pin_enabled && (
+          <button
+            className="icon-button"
+            aria-label="Lock"
+            disabled={locking.busy}
+            onClick={() => void locking.lock()}
+          >
+            <Lock size={17} />
+          </button>
+        )}
         <button
           className="icon-button"
           aria-label="Sign out"

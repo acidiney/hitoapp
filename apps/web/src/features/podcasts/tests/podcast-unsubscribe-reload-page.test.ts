@@ -47,6 +47,7 @@ test("Podcast unsubscribe cancels its already-issued Like reload before sending 
     user: { id: "alice", username: "Alice", admin: false },
     errors: {},
     native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
     libraries: [],
     playlists: [],
     subscription: {
