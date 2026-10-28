@@ -5,6 +5,7 @@ import AccountSettings from "../../accounts/components/AccountSettings";
 import LibrarySettings from "../../library/components/LibrarySettings";
 import PluginSettings from "../../plugins/components/PluginSettings";
 import MetadataPreferences from "../../metadata/components/MetadataPreferences";
+import SharedCorrectionsSettings from "../../artists/components/SharedCorrectionsSettings";
 import CommunitySettings from "../../community/components/CommunitySettings";
 import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
 import ScreenLockSettings from "../../session/components/ScreenLockSettings";
@@ -108,11 +109,19 @@ export default function SettingsPage(props: SettingsPageProps) {
             </>
           )}
           {selected === "accounts" && props.user.admin && (
-            <AccountSettings
-              key={props.user.id}
-              account={props.user.id}
-              library={props.libraries.find((library) => !library.personal)?.id}
-            />
+            <>
+              <AccountSettings
+                key={props.user.id}
+                account={props.user.id}
+                library={
+                  props.libraries.find((library) => !library.personal)?.id
+                }
+              />
+              <SharedCorrectionsSettings
+                key={`shared-corrections:${props.user.id}`}
+                account={props.user.id}
+              />
+            </>
           )}
         </div>
       </div>

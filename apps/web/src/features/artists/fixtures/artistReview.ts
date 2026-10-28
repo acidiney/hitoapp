@@ -133,5 +133,6 @@ export const noAssociationChanges = {
   revision: 0,
   undo: null,
   retired: [],
+  shared_hidden: 0,
   shareable: false,
 } satisfies Schema["ArtistAssociationChanges"];

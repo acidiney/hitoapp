@@ -958,6 +958,26 @@
     "/api/v1/artist-corrections": {
       "get": {
         "operationId": "shared_artist_corrections",
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -14298,6 +14318,7 @@
           "recording_id",
           "revision",
           "retired",
+          "shared_hidden",
           "shareable"
         ],
         "properties": {
@@ -14329,6 +14350,11 @@
                 "type": "null"
               }
             ]
+          },
+          "shared_hidden": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Saved reviews of this recording that an administrator's shared correction hides for this account."
           },
           "undo": {
             "oneOf": [
@@ -21687,7 +21713,10 @@
         "type": "object",
         "required": [
           "revision",
-          "items"
+          "items",
+          "total",
+          "offset",
+          "limit"
         ],
         "properties": {
           "items": {
@@ -21696,7 +21725,19 @@
               "$ref": "#/components/schemas/SharedArtistCorrection"
             }
           },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
           "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
             "type": "integer",
             "format": "int64"
           }

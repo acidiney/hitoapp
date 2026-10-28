@@ -2292,6 +2292,11 @@ export interface components {
             /** @description An administrator can share the latest unlink, a built-in artist review, with every account. */
             shareable: boolean;
             shared?: components["schemas"]["SharedCorrectionRef"] | null;
+            /**
+             * Format: int64
+             * @description Saved reviews of this recording that an administrator's shared correction hides for this account.
+             */
+            shared_hidden: number;
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
@@ -4110,7 +4115,13 @@ export interface components {
         SharedArtistCorrections: {
             items: components["schemas"]["SharedArtistCorrection"][];
             /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
             revision: number;
+            /** Format: int64 */
+            total: number;
         };
         /** @enum {string} */
         SharedCorrectionKind: "unlink" | "split";
@@ -5113,7 +5124,10 @@ export interface operations {
     };
     shared_artist_corrections: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;

@@ -20,9 +20,16 @@ export const artistCorrectionApi = {
       { action: "artist_identity.changes", account, signal },
     );
   },
-  groups(account: string, signal: AbortSignal) {
+  groups(
+    account: string,
+    signal: AbortSignal,
+    search = "",
+    offset = 0,
+  ) {
+    const query = new URLSearchParams({ limit: "20", offset: String(offset) });
+    if (search) query.set("q", search);
     return requestJson<ArtistIdentityGroupList>(
-      "/artist-identity-groups?limit=50",
+      `/artist-identity-groups?${query}`,
       { action: "artist_identity.groups", account, signal },
     );
   },
@@ -60,12 +67,11 @@ export const artistCorrectionApi = {
       },
     );
   },
-  shared(account: string, signal: AbortSignal) {
-    return requestJson<SharedArtistCorrections>("/artist-corrections", {
-      action: "artist_correction.list",
-      account,
-      signal,
-    });
+  shared(account: string, signal: AbortSignal, offset = 0, limit = 25) {
+    return requestJson<SharedArtistCorrections>(
+      `/artist-corrections?offset=${offset}&limit=${limit}`,
+      { action: "artist_correction.list", account, signal },
+    );
   },
   promote(
     account: string,

@@ -16,6 +16,7 @@ export default function ArtistIdentityCorrections({
   const [recordings, setRecordings] = useState<string[]>([]);
   const [releases, setReleases] = useState<string[]>([]);
   const [destination, setDestination] = useState("credit");
+  const [search, setSearch] = useState("");
   const corrections = useArtistIdentityCorrections(
     account,
     detail.group.id,
@@ -95,6 +96,26 @@ export default function ArtistIdentityCorrections({
           ))}
         </fieldset>
       )}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          corrections.findGroups(search.trim());
+        }}
+      >
+        <label>
+          Find destination artist{" "}
+          <input
+            type="search"
+            value={search}
+            maxLength={200}
+            disabled={busy}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>{" "}
+        <button type="submit" className="button" disabled={busy}>
+          Search artists
+        </button>
+      </form>
       <label>
         Move to{" "}
         <select
@@ -111,6 +132,26 @@ export default function ArtistIdentityCorrections({
           ))}
         </select>
       </label>
+      {corrections.groupTotal > 20 && (
+        <nav aria-label="Destination artist pages">
+          <button
+            type="button"
+            className="button"
+            disabled={corrections.groupPage.offset === 0}
+            onClick={() => corrections.moveGroupPage(-1)}
+          >
+            Earlier artists
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={corrections.groupPage.offset + 20 >= corrections.groupTotal}
+            onClick={() => corrections.moveGroupPage(1)}
+          >
+            More artists
+          </button>
+        </nav>
+      )}
       <button
         type="button"
         className="button"

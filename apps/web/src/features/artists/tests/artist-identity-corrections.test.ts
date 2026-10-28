@@ -59,6 +59,7 @@ function owned(
   let corrections = 0;
   let lost = options.lostFirst ?? false;
   const bodies: { path: string; body: Record<string, unknown> }[] = [];
+  const searches: string[] = [];
   const fetch = vi.fn(async (path: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
     const base = `/api/v1/artist-identity-groups/${group.id}`;
@@ -68,18 +69,23 @@ function owned(
         revision,
         latest,
       } satisfies Schema["ArtistIdentityGroupChanges"]);
-    if (method === "GET" && path === "/api/v1/artist-identity-groups?limit=50")
+    if (method === "GET" && path.startsWith("/api/v1/artist-identity-groups?")) {
+      searches.push(path);
       return Response.json({
         items: [group, other],
         total: 2,
-        limit: 50,
+        limit: 20,
         offset: 0,
       } satisfies Schema["ArtistIdentityGroupPage"]);
-    if (method === "GET" && path === "/api/v1/artist-corrections") {
+    }
+    if (method === "GET" && path.startsWith("/api/v1/artist-corrections?")) {
       expect(admin).toBe(true);
       return Response.json({
         revision: corrections,
         items: [],
+        total: 0,
+        offset: 0,
+        limit: 25,
       } satisfies Schema["SharedArtistCorrections"]);
     }
     if (method === "POST") {
@@ -152,7 +158,7 @@ function owned(
     throw new Error(`Unexpected request ${method} ${path}`);
   });
   vi.stubGlobal("fetch", fetch);
-  return { props, group, other, fetch, bodies };
+  return { props, group, other, fetch, bodies, searches };
 }
 
 async function open(props: ReturnType<typeof page>["props"]) {
@@ -272,4 +278,18 @@ test("only an administrator can share a split and withdraw the shared correction
     request_id: expect.any(String),
     expected_revision: 1,
   });
+});
+
+test("the destination list is searched on the server and paged instead of loading every artist", async () => {
+  const { props, searches } = owned(false);
+  await open(props);
+  expect(searches).toEqual(["/api/v1/artist-identity-groups?limit=20&offset=0"]);
+  fireEvent.change(screen.getByLabelText("Find destination artist"), {
+    target: { value: "Other chosen" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Search artists" }));
+  await waitFor(() => expect(searches).toHaveLength(2));
+  expect(searches[1]).toBe(
+    "/api/v1/artist-identity-groups?limit=20&offset=0&q=Other+chosen",
+  );
 });

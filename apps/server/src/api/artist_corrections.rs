@@ -1,20 +1,22 @@
 use crate::{
     auth::Account,
     error::{ApiResult, ErrorResponse},
-    extract::JsonBody,
+    extract::{JsonBody, QueryParams},
 };
 use axum::{
     Json,
     extract::{Path, State},
 };
 use hito_core::{
-    PromoteArtistCorrection, Services, SharedArtistCorrectionReceipt, SharedArtistCorrections,
+    PromoteArtistCorrection, Services, SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt,
+    SharedArtistCorrections,
     UndoSharedArtistCorrection,
 };
 use std::time::Instant;
 use uuid::Uuid;
 
 #[utoipa::path(get, path = "/api/v1/artist-corrections", operation_id = "shared_artist_corrections",
+    params(("offset" = Option<i64>, Query), ("limit" = Option<i64>, Query)),
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = SharedArtistCorrections), (status = 401, body = ErrorResponse),
     (status = 403, body = ErrorResponse), (status = 500, body = ErrorResponse),
@@ -23,9 +25,13 @@ use uuid::Uuid;
 pub async fn list(
     State(services): State<Services>,
     Account(actor): Account,
+    QueryParams(query): QueryParams<SharedArtistCorrectionQuery>,
 ) -> ApiResult<Json<SharedArtistCorrections>> {
     let started = Instant::now();
-    let result = services.catalog.shared_artist_corrections(&actor).await;
+    let result = services
+        .catalog
+        .shared_artist_corrections_page(&actor, query)
+        .await;
     tracing::debug!(
         outcome = result
             .as_ref()

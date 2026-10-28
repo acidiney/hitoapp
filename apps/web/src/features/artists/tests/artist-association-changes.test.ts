@@ -53,6 +53,7 @@ function owned(
             ? null
             : { association_id: artistAssociation.id, linked: !linked },
         retired: [],
+        shared_hidden: 0,
         shareable: false,
       } satisfies Schema["ArtistAssociationChanges"]);
     if (method === "POST" && path.startsWith(`${associations}/`)) {
@@ -216,13 +217,20 @@ test("an administrator can share the latest built-in unlink and sees retired unl
           retired: [
             { association_id: "older-association", reason: "credit_changed" },
           ],
+          shared_hidden: 2,
           shareable: bodies.length === 0,
           shared: bodies.length
             ? { id: "shared-unlink", revision: 1 }
             : null,
         } satisfies Schema["ArtistAssociationChanges"]);
-      if (method === "GET" && path === "/api/v1/artist-corrections")
-        return Response.json({ revision: 4, items: [] });
+      if (method === "GET" && path.startsWith("/api/v1/artist-corrections?"))
+        return Response.json({
+          revision: 4,
+          items: [],
+          total: 0,
+          offset: 0,
+          limit: 25,
+        } satisfies Schema["SharedArtistCorrections"]);
       if (method === "POST") {
         const body = JSON.parse(options?.body as string);
         bodies.push({ path, body });
@@ -265,4 +273,5 @@ test("an administrator can share the latest built-in unlink and sees retired unl
     },
   ]);
   expect(screen.getByText(/1 unlink no longer applies/)).toBeTruthy();
+  expect(screen.getByText(/2 saved reviews are hidden by a correction an administrator shared/)).toBeTruthy();
 });

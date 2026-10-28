@@ -229,7 +229,20 @@ async fn exercise(library: &Library) {
         .owner
         .get(&library.app, "/api/v1/artist-corrections")
         .await;
-    assert_eq!(list, json!({"revision": 0, "items": []}));
+    assert_eq!(
+        list,
+        json!({"revision": 0, "items": [], "total": 0, "offset": 0, "limit": 25})
+    );
+    let paged = library
+        .owner
+        .get(&library.app, "/api/v1/artist-corrections?offset=3&limit=1")
+        .await;
+    assert_eq!((&paged["offset"], &paged["limit"]), (&json!(3), &json!(1)));
+    let (status, _) = library
+        .owner
+        .request(&library.app, "GET", "/api/v1/artist-corrections?limit=x", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     let undo_shared = "/api/v1/artist-corrections/missing/undo";
     let request = json!({"request_id": Uuid::new_v4(), "expected_revision": 1});
     assert_eq!(

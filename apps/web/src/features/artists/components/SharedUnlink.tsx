@@ -13,6 +13,7 @@ export default function SharedUnlink({
     (!state.shareable &&
       !state.shared &&
       state.retired.length === 0 &&
+      state.shared_hidden === 0 &&
       !sharing.notice &&
       !sharing.error)
   )
@@ -26,6 +27,14 @@ export default function SharedUnlink({
           {state.retired.length === 1 ? "unlink no longer applies" : "unlinks no longer apply"}{" "}
           because the file&apos;s artist tag changed. They keep hiding their
           reviews.
+        </p>
+      )}
+      {state.shared_hidden > 0 && (
+        <p>
+          {state.shared_hidden}{" "}
+          {state.shared_hidden === 1 ? "saved review is" : "saved reviews are"}{" "}
+          hidden by a correction an administrator shared with every account.
+          Review the artist again to keep your own choice.
         </p>
       )}
       {state.shareable && (

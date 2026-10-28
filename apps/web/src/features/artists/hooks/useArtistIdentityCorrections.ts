@@ -20,6 +20,7 @@ type State = {
   key: string;
   changes: ArtistIdentityGroupChanges | null;
   groups: ArtistIdentityGroup[];
+  groupTotal: number;
   shared: SharedArtistCorrections | null;
   loadError: string;
 };
@@ -34,24 +35,38 @@ export function useArtistIdentityCorrections(
   const key = JSON.stringify([account, group, admin]);
   const scope = useRequestScope(key);
   const [snapshot, setSnapshot] = useState<State>(() => blank(key));
+  const [destination, setDestination] = useState({ query: "", offset: 0 });
   const state = snapshot.key === key ? snapshot : blank(key);
 
   async function load(signal: AbortSignal) {
-    const [changes, groups, shared] = await Promise.all([
+    const [changes, shared] = await Promise.all([
       artistCorrectionApi.changes(account, group, signal),
-      artistCorrectionApi.groups(account, signal),
       admin ? artistCorrectionApi.shared(account, signal) : null,
     ]);
     signal.throwIfAborted();
     if (changes.group_id !== group || !Number.isSafeInteger(changes.revision))
       throw new Error("Invalid artist identity change state");
-    setSnapshot({
-      key,
+    setSnapshot((value) => ({
+      ...(value.key === key ? value : blank(key)),
       changes,
-      groups: groups.items.filter((item) => item.id !== group),
       shared,
       loadError: "",
-    });
+    }));
+  }
+
+  async function loadGroups(signal: AbortSignal) {
+    const groups = await artistCorrectionApi.groups(
+      account,
+      signal,
+      destination.query,
+      destination.offset,
+    );
+    signal.throwIfAborted();
+    setSnapshot((value) => ({
+      ...(value.key === key ? value : blank(key)),
+      groups: groups.items.filter((item) => item.id !== group),
+      groupTotal: groups.total,
+    }));
   }
 
   useEffect(() => {
@@ -69,6 +84,18 @@ export function useArtistIdentityCorrections(
     });
   }, [opened, scope]);
 
+  useEffect(() => {
+    if (!opened) return;
+    const captured = scope.capture();
+    loadGroups(captured.signal).catch(() => {
+      if (captured.active())
+        setSnapshot((value) => ({
+          ...(value.key === key ? value : blank(key)),
+          loadError: "Hito could not read this artist's corrections.",
+        }));
+    });
+  }, [opened, scope, destination]);
+
   const command = useRetainedCommand(key, load, onChanged);
   const { changes, shared } = state;
   const latest = changes?.latest;
@@ -77,6 +104,14 @@ export function useArtistIdentityCorrections(
   return {
     changes,
     groups: state.groups,
+    groupTotal: state.groupTotal,
+    groupPage: destination,
+    findGroups: (query: string) => setDestination({ query, offset: 0 }),
+    moveGroupPage: (step: number) =>
+      setDestination((value) => ({
+        ...value,
+        offset: Math.max(0, value.offset + step * 20),
+      })),
     shared,
     pending: command.pending,
     retrying: command.retrying,
@@ -152,5 +187,12 @@ export function useArtistIdentityCorrections(
 }
 
 function blank(key: string): State {
-  return { key, changes: null, groups: [], shared: null, loadError: "" };
+  return {
+    key,
+    changes: null,
+    groups: [],
+    groupTotal: 0,
+    shared: null,
+    loadError: "",
+  };
 }

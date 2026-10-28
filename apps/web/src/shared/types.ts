@@ -53,6 +53,7 @@ export type SplitDestination = Schema["SplitDestination"];
 export type UndoArtistIdentityChange = Schema["UndoArtistIdentityChange"];
 export type PromoteArtistCorrection = Schema["PromoteArtistCorrection"];
 export type SharedArtistCorrections = Schema["SharedArtistCorrections"];
+export type SharedArtistCorrection = Schema["SharedArtistCorrection"];
 export type SharedArtistCorrectionReceipt =
   Schema["SharedArtistCorrectionReceipt"];
 export type UndoSharedArtistCorrection = Schema["UndoSharedArtistCorrection"];
