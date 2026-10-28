@@ -28,6 +28,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         PageComponent,
         SharedPageProps,
         LoginPageProps,
+        LockPageProps,
         CatalogPageProps,
         AlbumIndexPageProps,
         AlbumPageProps,
@@ -68,6 +69,11 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::login))
         .routes(routes!(identity::logout))
         .routes(routes!(identity::me))
+        .routes(routes!(identity::lock_status))
+        .routes(routes!(identity::lock))
+        .routes(routes!(identity::unlock))
+        .routes(routes!(identity::set_pin))
+        .routes(routes!(identity::remove_pin))
         .routes(routes!(identity::users, identity::create_user))
         .routes(routes!(identity::grant_access, identity::revoke_access))
         .routes(routes!(

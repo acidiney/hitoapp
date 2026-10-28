@@ -6,6 +6,9 @@ use hito_core::test_support::content_service as provider_fixture;
 #[path = "api/identity.rs"]
 mod identity;
 
+#[path = "api/pin_locks.rs"]
+mod pin_locks;
+
 #[path = "api/providers.rs"]
 mod providers;
 

@@ -2,7 +2,7 @@ use crate::api::artist_identity_groups::ArtistIdentityGroupPage;
 use crate::api::browsing::{ArtistPage, ReleasePage};
 use crate::api::catalog::RecordingPage;
 use hito_core::{
-    Activity, AudiobookDetail, AudiobookPagination, Library, Playlist, PlaylistDetail,
+    Activity, AudiobookDetail, AudiobookPagination, Library, LockStatus, Playlist, PlaylistDetail,
     PodcastEpisodePage, PodcastSubscription, RecordingProgress, User,
 };
 use hito_core::{
@@ -16,6 +16,7 @@ use utoipa::ToSchema;
 #[allow(clippy::enum_variant_names)]
 pub enum PageComponent {
     LoginPage,
+    LockPage,
     CatalogPage,
     AlbumIndexPage,
     AlbumPage,
@@ -57,6 +58,17 @@ pub struct SharedPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub playlists: Option<Vec<Playlist>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub lock: Option<LockStatus>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct LockPageProps {
+    pub errors: BTreeMap<String, String>,
+    pub locked: bool,
+    pub username: String,
+    pub account_id: String,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -251,6 +263,7 @@ pub struct PodcastPageProps {
 #[serde(untagged)]
 pub enum PageProps {
     Login(LoginPageProps),
+    Lock(LockPageProps),
     Catalog(CatalogPageProps),
     AlbumIndex(AlbumIndexPageProps),
     Album(AlbumPageProps),
@@ -275,6 +288,7 @@ impl PageProps {
     pub fn component(&self) -> PageComponent {
         match self {
             Self::Login(_) => PageComponent::LoginPage,
+            Self::Lock(_) => PageComponent::LockPage,
             Self::Catalog(_) => PageComponent::CatalogPage,
             Self::AlbumIndex(_) => PageComponent::AlbumIndexPage,
             Self::Album(_) => PageComponent::AlbumPage,

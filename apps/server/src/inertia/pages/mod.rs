@@ -183,8 +183,14 @@ async fn shared(
     } else {
         None
     };
+    let lock = if fields.requested("lock") {
+        Some(services.identity.lock_status(actor).await?)
+    } else {
+        None
+    };
     Ok(SharedPageProps {
         errors: Default::default(),
+        lock,
         native_playback: None,
         user: fields.requested("user").then(|| actor.user().clone()),
         libraries,

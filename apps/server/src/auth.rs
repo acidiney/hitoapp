@@ -7,8 +7,19 @@ use hito_core::{Actor, Error, Services};
 
 pub struct Account(pub Actor);
 pub struct OptionalAccount(pub Option<Actor>);
+pub struct LockableAccount(pub Actor);
 
 impl FromRequestParts<Services> for Account {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(parts: &mut Parts, services: &Services) -> ApiResult<Self> {
+        let LockableAccount(actor) = LockableAccount::from_request_parts(parts, services).await?;
+        actor.require_unlocked()?;
+        Ok(Self(actor))
+    }
+}
+
+impl FromRequestParts<Services> for LockableAccount {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, services: &Services) -> ApiResult<Self> {

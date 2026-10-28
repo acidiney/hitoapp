@@ -12,7 +12,7 @@ use axum::{
 };
 use hito_core::{Search, Services};
 use pages::Screen;
-use props::{LoginPageProps, PageComponent, PageProps};
+use props::{LockPageProps, LoginPageProps, PageComponent, PageProps};
 use protocol::Protocol;
 use serde_json::json;
 
@@ -43,7 +43,10 @@ pub async fn page(
         return Ok(response);
     }
     let screen = Screen::from_path(uri.path());
-    let component = if actor.is_some() {
+    let locked = actor.as_ref().is_some_and(|actor| actor.is_locked());
+    let component = if locked {
+        PageComponent::LockPage
+    } else if actor.is_some() {
         screen.component()
     } else {
         PageComponent::LoginPage
@@ -51,6 +54,12 @@ pub async fn page(
     let protocol = Protocol::new(&headers, component);
     let clear_history = actor.is_none();
     let props = match actor {
+        Some(actor) if actor.is_locked() => PageProps::Lock(LockPageProps {
+            errors: Default::default(),
+            locked: true,
+            username: actor.user().username.clone(),
+            account_id: actor.user().id.clone(),
+        }),
         Some(actor) => {
             screen
                 .props(

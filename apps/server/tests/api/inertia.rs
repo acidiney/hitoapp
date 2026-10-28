@@ -144,6 +144,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
     let shared = vec![
         "errors",
         "libraries",
+        "lock",
         "native_playback",
         "playlists",
         "user",
@@ -155,6 +156,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             vec![
                 "errors",
                 "libraries",
+                "lock",
                 "native_playback",
                 "playlists",
                 "query",
@@ -168,6 +170,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
             vec![
                 "errors",
                 "libraries",
+                "lock",
                 "native_playback",
                 "playlists",
                 "query",
@@ -182,6 +185,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
                 "connections",
                 "errors",
                 "libraries",
+                "lock",
                 "native_playback",
                 "playlists",
                 "service_names",
@@ -195,6 +199,7 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
                 "activity",
                 "errors",
                 "libraries",
+                "lock",
                 "native_playback",
                 "playlists",
                 "user",

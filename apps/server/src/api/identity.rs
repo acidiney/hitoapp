@@ -1,6 +1,6 @@
 use crate::{
     Config,
-    auth::Account,
+    auth::{Account, LockableAccount},
     error::{ApiResult, ErrorResponse},
     extract::JsonBody,
     security,
@@ -11,7 +11,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use hito_core::{AuthSession, Credentials, Services, User};
+use hito_core::{AuthSession, Credentials, LockStatus, RemovePin, Services, SetPin, Unlock, User};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -67,7 +67,7 @@ pub async fn login(
 ))]
 pub async fn logout(
     State(services): State<Services>,
-    Account(_actor): Account,
+    LockableAccount(_actor): LockableAccount,
     Extension(config): Extension<Config>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
@@ -85,6 +85,69 @@ pub async fn logout(
 ))]
 pub async fn me(Account(actor): Account) -> Json<User> {
     Json(actor.user().clone())
+}
+
+#[utoipa::path(get, path = "/api/v1/account/lock", security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+))]
+pub async fn lock_status(
+    State(services): State<Services>,
+    LockableAccount(actor): LockableAccount,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.lock_status(&actor).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/account/lock", security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 422, body = ErrorResponse),
+))]
+pub async fn lock(
+    State(services): State<Services>,
+    LockableAccount(actor): LockableAccount,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.lock(&actor).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/account/unlock", request_body = Unlock,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse),
+))]
+pub async fn unlock(
+    State(services): State<Services>,
+    LockableAccount(actor): LockableAccount,
+    JsonBody(request): JsonBody<Unlock>,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.unlock(&actor, request).await?))
+}
+
+#[utoipa::path(put, path = "/api/v1/account/pin", request_body = SetPin,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse),
+))]
+pub async fn set_pin(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<SetPin>,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.set_pin(&actor, request).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/account/pin/remove", request_body = RemovePin,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse),
+))]
+pub async fn remove_pin(
+    State(services): State<Services>,
+    Account(actor): Account,
+    JsonBody(request): JsonBody<RemovePin>,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.remove_pin(&actor, request).await?))
 }
 
 #[utoipa::path(get, path = "/api/v1/users", security(("session" = []), ("bearer" = [])), responses(

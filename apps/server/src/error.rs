@@ -17,6 +17,7 @@ pub struct ErrorResponse {
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     OperationRejected,
+    Locked,
 }
 
 pub struct ApiError(pub hito_core::Error);
@@ -35,6 +36,7 @@ impl IntoResponse for ApiError {
             Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::Forbidden => StatusCode::FORBIDDEN,
+            Error::Locked => StatusCode::LOCKED,
             Error::NotFound => StatusCode::NOT_FOUND,
             Error::Conflict(_) | Error::ProviderBusy(_) | Error::OperationRejected(_) => {
                 StatusCode::CONFLICT
@@ -42,8 +44,11 @@ impl IntoResponse for ApiError {
             Error::Upstream(_) => StatusCode::BAD_GATEWAY,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        let code =
-            matches!(&self.0, Error::OperationRejected(_)).then_some(ErrorCode::OperationRejected);
+        let code = match &self.0 {
+            Error::OperationRejected(_) => Some(ErrorCode::OperationRejected),
+            Error::Locked => Some(ErrorCode::Locked),
+            _ => None,
+        };
         let error = if let Error::Upstream(message) = &self.0 {
             tracing::warn!(
                 event = "upstream_failed",
