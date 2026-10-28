@@ -1,6 +1,10 @@
 use sqlx::SqliteConnection;
 
-pub const TABLES: &[&str] = &["artist_association_matches", "artist_match_dismissals"];
+pub const TABLES: &[&str] = &[
+    "artist_association_matches",
+    "artist_match_dismissals",
+    "artist_match_checks",
+];
 
 pub const ADDED: &[(&str, &str)] = &[
     ("table", "artist_association_matches"),
@@ -9,6 +13,8 @@ pub const ADDED: &[(&str, &str)] = &[
     ("trigger", "artist_association_match_retained"),
     ("table", "artist_match_dismissals"),
     ("index", "sqlite_autoindex_artist_match_dismissals_1"),
+    ("table", "artist_match_checks"),
+    ("index", "sqlite_autoindex_artist_match_checks_1"),
 ];
 
 pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {

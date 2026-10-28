@@ -1,6 +1,6 @@
 use hito_core::test_support::{playlist_service as provider, support};
 use hito_core::{
-    Actor, ArtistMatchReceipt, Browse, ImportProviderPlaylist, MatchArtistsFromTags,
+    Actor, ArtistMatchReceipt, Browse, Credentials, ImportProviderPlaylist, MatchArtistsFromTags,
     MetadataHistoryQuery, Services,
 };
 use lofty::{
@@ -8,6 +8,7 @@ use lofty::{
     tag::{Tag, TagType},
 };
 use serde_json::{Value, json};
+use sqlx::Connection;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -19,6 +20,7 @@ pub const M2: &str = "22222222-2222-4222-8222-222222222222";
 pub struct Library {
     pub hito: Services,
     pub actor: Actor,
+    pub peer: Actor,
     pub library: String,
     pub a: String,
     pub b: String,
@@ -98,6 +100,30 @@ impl Library {
         {
             ids.insert(item.title.clone(), item.id.clone());
         }
+        let user = hito
+            .identity
+            .create_user(
+                &actor,
+                Credentials {
+                    username: "peer".into(),
+                    password: "owned matching peer password".into(),
+                },
+            )
+            .await
+            .unwrap();
+        hito.identity
+            .set_library_access(&actor, &library, &user.id, true)
+            .await
+            .unwrap();
+        let session = hito
+            .identity
+            .login(Credentials {
+                username: "peer".into(),
+                password: "owned matching peer password".into(),
+            })
+            .await
+            .unwrap();
+        let peer = hito.identity.authenticate(&session.token).await.unwrap();
         let origin = provider::ProviderServer::start().await;
         let installation = provider::connect(&hito, &actor, &origin, &["playlists"]).await;
         provider::playlist(
@@ -140,11 +166,25 @@ impl Library {
             imported,
             hito,
             actor,
+            peer,
             library,
             origin,
             music,
             _directory: directory,
         }
+    }
+
+    pub async fn rows(&self, table: &str) -> i64 {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=ro",
+            self._directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+            .fetch_one(&mut connection)
+            .await
+            .unwrap()
     }
 
     pub fn all(&self) -> [&String; 6] {
@@ -159,10 +199,14 @@ impl Library {
     }
 
     pub async fn run(&self) -> ArtistMatchReceipt {
+        self.run_as(&self.actor).await
+    }
+
+    pub async fn run_as(&self, actor: &Actor) -> ArtistMatchReceipt {
         self.hito
             .catalog
             .match_artists_from_tags(
-                &self.actor,
+                actor,
                 MatchArtistsFromTags {
                     request_id: Uuid::new_v4(),
                     after: None,

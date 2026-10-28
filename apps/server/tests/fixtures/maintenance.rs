@@ -654,6 +654,8 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("trigger", "artist_association_match_retained"),
         ("table", "artist_match_dismissals"),
         ("index", "sqlite_autoindex_artist_match_dismissals_1"),
+        ("table", "artist_match_checks"),
+        ("index", "sqlite_autoindex_artist_match_checks_1"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();

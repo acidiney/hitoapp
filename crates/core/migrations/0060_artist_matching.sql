@@ -18,3 +18,10 @@ CREATE TABLE artist_match_dismissals (
     PRIMARY KEY(user_id,artist_id,group_id),
     FOREIGN KEY(user_id,group_id) REFERENCES account_artist_identity_groups(user_id,id)
 );
+CREATE TABLE artist_match_checks (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    recording_id TEXT NOT NULL,
+    observation_id TEXT NOT NULL,
+    artist_operation_id TEXT,
+    PRIMARY KEY(user_id,recording_id)
+);
