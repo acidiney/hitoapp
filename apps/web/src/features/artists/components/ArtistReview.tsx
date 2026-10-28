@@ -2,6 +2,8 @@ import type { FormEvent } from "react";
 import { useArtistReview } from "../hooks/useArtistReview";
 import ArtistDiscography from "./ArtistDiscography";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
+import SavedArtistReviews from "./SavedArtistReviews";
+import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
 import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import type {
   ArtistSearchCandidate,
@@ -36,6 +38,11 @@ export default function ArtistReview({
     detail,
     workflow.loaded,
     association,
+  );
+  const changes = useArtistAssociationChanges(
+    account,
+    detail.recording_id,
+    workflow.refreshAssociations,
   );
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
@@ -173,25 +180,17 @@ export default function ArtistReview({
         </section>
       )}
       {workflow.saved && <p role="status">Artist review saved.</p>}
-      {workflow.associations.length > 0 && (
-        <section aria-label="Saved artist reviews">
-          <h3>Saved artist reviews</h3>
-          <ul>
-            {workflow.associations.map((association, index) => (
-              <li key={association.id}>
-                <button
-                  type="button"
-                  className="button"
-                  disabled={workflow.pending !== null || !workflow.enabled}
-                  onClick={() => void workflow.loadProfile(association)}
-                >
-                  View saved artist review {index + 1}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <SavedArtistReviews
+        associations={workflow.associations}
+        disabled={workflow.pending !== null || !workflow.enabled}
+        canUndo={changes.canUndo}
+        retrying={changes.retrying}
+        error={changes.error}
+        onView={(association) => void workflow.loadProfile(association)}
+        onUnlink={(association) => void changes.unlink(association)}
+        onUndo={() => void changes.undo()}
+        onRetry={() => void changes.retry()}
+      />
       {workflow.pending === "profile" && (
         <p role="status">Loading reviewed artist profile…</p>
       )}

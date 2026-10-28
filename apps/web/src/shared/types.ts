@@ -29,6 +29,11 @@ export type CommunityReportAdmission = Schema["CommunityReportAdmission"];
 export type UpdateCommunityPreferences = Schema["UpdateCommunityPreferences"];
 export type MetadataProvider = Schema["MetadataProvider"];
 export type ArtistAssociation = Schema["ArtistAssociation"];
+export type ArtistAssociationChanges = Schema["ArtistAssociationChanges"];
+export type ArtistAssociationChangeReceipt =
+  Schema["ArtistAssociationChangeReceipt"];
+export type UnlinkRecordingArtist = Schema["UnlinkRecordingArtist"];
+export type UndoRecordingArtistChange = Schema["UndoRecordingArtistChange"];
 export type RecordingArtistIdentityChoice =
   Schema["RecordingArtistIdentityChoice"];
 export type ChooseRecordingArtistIdentity =

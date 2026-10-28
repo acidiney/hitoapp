@@ -25,7 +25,7 @@ type Preview = Extract<
   ArtistCandidatePreviewAvailability,
   { status: "available" }
 >;
-type Phase = "load" | "search" | "preview" | "confirm" | "profile";
+type Phase = "load" | "search" | "preview" | "confirm" | "profile" | "refresh";
 type Owner = {
   generation: number;
   controller: AbortController | null;
@@ -386,6 +386,15 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
     );
   }
 
+  async function refreshAssociations() {
+    await run(
+      "refresh",
+      { profile: null },
+      (signal) => artistReviewApi.associations(account, recording, signal),
+      (associations) => ({ associations }),
+    );
+  }
+
   async function confirm() {
     const request = scope.capture();
     const preview = current.preview;
@@ -440,6 +449,7 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
     previewCandidate,
     confirm,
     loadProfile,
+    refreshAssociations,
     choose: (key: string) => {
       if (current.providers.some((item) => item.key === key && item.available))
         edit({ selected: key });
