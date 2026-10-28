@@ -68,6 +68,7 @@ export default function ScreenLockSettings({
             value={settings.password}
             onChange={(event) => settings.setPassword(event.target.value)}
           />
+          {settings.message && <p role="status">{settings.message}</p>}
           {settings.error && (
             <p className="form-error" role="alert">
               {settings.error}

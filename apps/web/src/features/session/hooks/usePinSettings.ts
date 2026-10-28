@@ -1,22 +1,22 @@
 import { useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
-import { useNotice } from "../../../shared/ui/Notices";
 import type { LockStatus } from "../../../shared/types";
 import { lockApi } from "../api/lockApi";
 
 export function usePinSettings(account: string, initial: LockStatus) {
-  const notice = useNotice();
   const [status, setStatus] = useState(initial);
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
   const [idleMinutes, setIdleMinutes] = useState(initial.idle_minutes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   async function run(change: () => Promise<LockStatus>, saved: string) {
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const next = await change();
       setStatus(next);
@@ -24,7 +24,7 @@ export function usePinSettings(account: string, initial: LockStatus) {
       setPin("");
       setPassword("");
       router.reload({ only: ["lock"] });
-      notice(saved);
+      setMessage(saved);
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -59,6 +59,7 @@ export function usePinSettings(account: string, initial: LockStatus) {
     setIdleMinutes,
     busy,
     error,
+    message,
     save,
     remove,
   };
