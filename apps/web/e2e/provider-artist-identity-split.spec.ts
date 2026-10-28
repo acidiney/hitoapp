@@ -113,6 +113,14 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     );
     expect(await (await page.request.get("/api/v1/recordings")).json()).toEqual(tracksBefore);
     expect(calls.filter((path) => !path.includes("/artist-identity-groups/"))).toEqual([]);
+    await page.goto("/settings");
+    await page.getByRole("tab", { name: "Accounts", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Shared artist corrections", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("No corrections are shared with every account."),
+    ).toBeVisible();
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
   } finally {
