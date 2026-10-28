@@ -67,6 +67,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
     - [ ] Windows (Music known folder, window parenting) and Linux (GTK chooser, `user-dirs.dirs`) are deferred to community testing once the project is open source.
 - [x] Add account-owned HTTP plugin connections, encrypted optional bearer tokens, administrator-offered service addresses, manifest review, and local removal.
 - [ ] Complete provider-specific credential flows and shared provider defaults; add optional local PIN locks.
+  - [x] Add an optional 4-8 digit PIN per account (password required to set, change or remove), manual and idle session locking enforced by the shared HTTP extractor, a server-rendered lock screen and a five-wrong-PIN sign-out. Core, HTTP, upgrade (0058), web and browser cases cover isolation, logs and web playback stopping. See [screen lock](docs/screen-lock.md).
   - [ ] Implement and verify Windows ACL protection for credential keys and private administrator-token files, including creation, reopening, unsafe permissions, replacement and lost-key recovery. Verify the same ownership guarantees on macOS and Linux before enabling packaged credential storage.
 
 ## Playback and desktop

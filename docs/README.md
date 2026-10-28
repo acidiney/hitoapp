@@ -42,6 +42,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 - [Playlist import](playlist-import.md), [playlist follow](playlist-follow.md), [playlist metadata refresh](playlist-metadata-refresh.md)
 - [Audiobooks](audiobooks.md)
 - [Podcasts](podcasts.md)
+- [Screen lock and optional PIN](screen-lock.md)
 
 ## Plugins and providers
 

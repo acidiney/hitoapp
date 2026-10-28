@@ -10,6 +10,7 @@ Responses include a generated `X-Request-Id` for correlation. Errors use an `err
 | --- | --- |
 | First-run status / create administrator | `GET` / `POST /setup` |
 | Sessions | `POST /login`, `POST /logout`, `GET /me` |
+| Screen lock and optional PIN ([details](screen-lock.md)) | `GET` / `POST /account/lock`, `POST /account/unlock`, `PUT /account/pin`, `POST /account/pin/remove` |
 | Administrator account management | `GET` / `POST /users` |
 | Accessible libraries | `GET /libraries` |
 | Grant / revoke library membership | `PUT` / `DELETE /libraries/{id}/members/{user}` |
