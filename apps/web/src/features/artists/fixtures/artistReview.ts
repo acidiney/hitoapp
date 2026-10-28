@@ -132,4 +132,6 @@ export const noAssociationChanges = {
   recording_id: artistReviewDetail.recording_id,
   revision: 0,
   undo: null,
+  retired: [],
+  shareable: false,
 } satisfies Schema["ArtistAssociationChanges"];

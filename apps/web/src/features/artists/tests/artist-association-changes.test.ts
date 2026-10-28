@@ -52,6 +52,8 @@ function owned(
           revision === 0
             ? null
             : { association_id: artistAssociation.id, linked: !linked },
+        retired: [],
+        shareable: false,
       } satisfies Schema["ArtistAssociationChanges"]);
     if (method === "POST" && path.startsWith(`${associations}/`)) {
       const body = JSON.parse(options?.body as string);
@@ -189,4 +191,78 @@ test("a stale undo is rejected, the server state is reread and the next undo wor
   );
   await screen.findByRole("button", { name: "View saved artist review 1" });
   expect(bodies.map((body) => body.expected_revision)).toEqual([2, 7]);
+});
+
+test("an administrator can share the latest built-in unlink and sees retired unlinks", async () => {
+  const base = `/api/v1/recordings/${artistReviewDetail.recording_id}`;
+  const bodies: { path: string; body: Record<string, unknown> }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      const method = options?.method ?? "GET";
+      if (method === "GET" && path === `${base}/artist-identity`)
+        return Response.json(unselectedArtistIdentity);
+      if (method === "GET" && path === "/api/v1/metadata/settings")
+        return Response.json(artistReviewSettings);
+      if (method === "GET" && path === "/api/v1/plugins")
+        return Response.json(artistReviewConnections);
+      if (method === "GET" && path === `${base}/artist-associations`)
+        return Response.json([]);
+      if (method === "GET" && path === `${base}/artist-association-changes`)
+        return Response.json({
+          recording_id: artistReviewDetail.recording_id,
+          revision: 2,
+          undo: { association_id: artistAssociation.id, linked: true },
+          retired: [
+            { association_id: "older-association", reason: "credit_changed" },
+          ],
+          shareable: bodies.length === 0,
+          shared: bodies.length
+            ? { id: "shared-unlink", revision: 1 }
+            : null,
+        } satisfies Schema["ArtistAssociationChanges"]);
+      if (method === "GET" && path === "/api/v1/artist-corrections")
+        return Response.json({ revision: 4, items: [] });
+      if (method === "POST") {
+        const body = JSON.parse(options?.body as string);
+        bodies.push({ path, body });
+        return Response.json({
+          request_id: body.request_id,
+          correction_id: "shared-unlink",
+          revision: 1,
+          applied: true,
+          recordings: 1,
+        } satisfies Schema["SharedArtistCorrectionReceipt"]);
+      }
+      throw new Error(`Unexpected request ${method} ${path}`);
+    }),
+  );
+  render(
+    createElement(ArtistReview, {
+      account: artistReviewAccount,
+      detail: artistReviewDetail,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find artist information" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Apply this unlink for everyone" }),
+  );
+  await screen.findByRole("button", { name: "Withdraw the shared unlink" });
+  expect(bodies).toEqual([
+    {
+      path: "/api/v1/artist-corrections/promote",
+      body: {
+        request_id: expect.any(String),
+        expected_revision: 4,
+        source: {
+          kind: "unlink",
+          recording_id: artistReviewDetail.recording_id,
+          association_id: artistAssociation.id,
+        },
+      },
+    },
+  ]);
+  expect(screen.getByText(/1 unlink no longer applies/)).toBeTruthy();
 });

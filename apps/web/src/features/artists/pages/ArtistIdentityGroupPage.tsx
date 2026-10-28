@@ -11,6 +11,7 @@ import TrackTable, {
 import { artistGroupTracksListing } from "../api/trackListings";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import ArtistGroupDiscography from "../components/ArtistGroupDiscography";
+import ArtistIdentityCorrections from "../components/ArtistIdentityCorrections";
 
 export default function ArtistIdentityGroupPage({
   user,
@@ -56,6 +57,11 @@ export default function ArtistIdentityGroupPage({
         </div>
       </section>
       <ArtistGroupDiscography account={user.id} group={group} />
+      <ArtistIdentityCorrections
+        account={user.id}
+        admin={user.admin}
+        detail={detail}
+      />
       <section aria-labelledby="group-libraries-title">
         <h2 className="discography-heading" id="group-libraries-title">
           Libraries

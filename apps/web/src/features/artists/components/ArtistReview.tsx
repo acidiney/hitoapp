@@ -2,9 +2,11 @@ import type { FormEvent } from "react";
 import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
 import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
 import { useArtistReview } from "../hooks/useArtistReview";
+import { useSharedUnlink } from "../hooks/useSharedUnlink";
 import ArtistDiscography from "./ArtistDiscography";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
+import SharedUnlink from "./SharedUnlink";
 import type {
   ArtistSearchCandidate,
   CatalogArtistProfile,
@@ -46,6 +48,13 @@ export default function ArtistReview({
     async () => {
       await Promise.all([workflow.refreshAssociations(), identity.refresh()]);
     },
+  );
+  const sharing = useSharedUnlink(
+    account,
+    detail.recording_id,
+    changes.state,
+    changes.reload,
+    () => void workflow.refreshAssociations(),
   );
   const locked =
     workflow.pending === "confirm" || workflow.pending === "profile";
@@ -195,6 +204,7 @@ export default function ArtistReview({
         onUndo={() => void changes.undo()}
         onRetry={() => void changes.retry()}
       />
+      <SharedUnlink state={changes.state} sharing={sharing} />
       {workflow.pending === "profile" && (
         <p role="status">Loading reviewed artist profile…</p>
       )}

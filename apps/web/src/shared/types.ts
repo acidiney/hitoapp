@@ -46,6 +46,16 @@ export type ArtistIdentityGroup = Schema["ArtistIdentityGroup"];
 export type ArtistIdentityGroupList = Schema["ArtistIdentityGroupPage"];
 export type ApplyArtistIdentityToCredit = Schema["ApplyArtistIdentityToCredit"];
 export type ArtistIdentityCreditReceipt = Schema["ArtistIdentityCreditReceipt"];
+export type ArtistIdentityGroupChanges = Schema["ArtistIdentityGroupChanges"];
+export type ArtistIdentityChangeReceipt = Schema["ArtistIdentityChangeReceipt"];
+export type SplitArtistIdentityGroup = Schema["SplitArtistIdentityGroup"];
+export type SplitDestination = Schema["SplitDestination"];
+export type UndoArtistIdentityChange = Schema["UndoArtistIdentityChange"];
+export type PromoteArtistCorrection = Schema["PromoteArtistCorrection"];
+export type SharedArtistCorrections = Schema["SharedArtistCorrections"];
+export type SharedArtistCorrectionReceipt =
+  Schema["SharedArtistCorrectionReceipt"];
+export type UndoSharedArtistCorrection = Schema["UndoSharedArtistCorrection"];
 export type ArtistReviewContext = Schema["ArtistReviewContext"];
 export type ArtistSearchCandidate = Schema["ArtistSearchCandidate"];
 export type CatalogArtistProfile = Schema["CatalogArtistProfile"];

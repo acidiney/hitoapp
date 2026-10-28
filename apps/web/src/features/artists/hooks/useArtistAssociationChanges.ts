@@ -227,6 +227,8 @@ export function useArtistAssociationChanges(
   useEffect(() => () => owner.controller?.abort(), [owner]);
 
   return {
+    state: current.state,
+    reload: readState,
     ready: current.state !== null,
     canUndo:
       current.state?.undo != null &&
