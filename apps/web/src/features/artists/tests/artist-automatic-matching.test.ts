@@ -30,7 +30,7 @@ function receipt(
 
 beforeEach(() => {
   reload.mockReset();
-  sessionStorage.clear();
+  localStorage.clear();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -61,9 +61,7 @@ test("an idle pass is silent and a recent pass is not repeated", async () => {
   const first = render(createElement(Probe));
   await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   await waitFor(() =>
-    expect(
-      sessionStorage.getItem(`hito:artist-match:${account}`),
-    ).not.toBeNull(),
+    expect(localStorage.getItem(`hito:artist-match:${account}`)).not.toBeNull(),
   );
   expect(reload).not.toHaveBeenCalled();
   first.unmount();
@@ -72,7 +70,7 @@ test("an idle pass is silent and a recent pass is not repeated", async () => {
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
-test("a failing server never disturbs the page and the pass is cancelled on leaving", async () => {
+test("a pass that is cancelled or fails still starts the pause, and nothing disturbs the page", async () => {
   const signals: AbortSignal[] = [];
   vi.stubGlobal(
     "fetch",
@@ -90,5 +88,8 @@ test("a failing server never disturbs the page and the pass is cancelled on leav
   view.unmount();
   expect(signals[0].aborted).toBe(true);
   expect(reload).not.toHaveBeenCalled();
-  expect(sessionStorage.getItem(`hito:artist-match:${account}`)).toBeNull();
+  expect(
+    localStorage.getItem(`hito:artist-match:${account}`),
+    "The pause starts with the pass, so a cancelled or failing pass is not retried by every tab",
+  ).not.toBeNull();
 });

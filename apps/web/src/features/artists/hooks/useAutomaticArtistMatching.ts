@@ -10,7 +10,7 @@ const PAUSE_MS = 10 * 60 * 1000;
 
 function recentlyChecked(account: string) {
   try {
-    const at = Number(sessionStorage.getItem(`hito:artist-match:${account}`));
+    const at = Number(localStorage.getItem(`hito:artist-match:${account}`));
     return Number.isFinite(at) && at > 0 && Date.now() - at < PAUSE_MS;
   } catch {
     return false;
@@ -19,9 +19,9 @@ function recentlyChecked(account: string) {
 
 function remember(account: string) {
   try {
-    sessionStorage.setItem(`hito:artist-match:${account}`, String(Date.now()));
+    localStorage.setItem(`hito:artist-match:${account}`, String(Date.now()));
   } catch {
-    // Remembering is a convenience; the pass is idempotent.
+    // The pause is a convenience shared by tabs; the pass is idempotent.
   }
 }
 
@@ -32,6 +32,7 @@ function remember(account: string) {
 export function useAutomaticArtistMatching(account: string) {
   useEffect(() => {
     if (recentlyChecked(account)) return;
+    remember(account);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DEADLINE_MS);
     const started = performance.now();
@@ -50,7 +51,6 @@ export function useAutomaticArtistMatching(account: string) {
           if (after && receipt.next_after <= after) break;
           after = receipt.next_after;
         }
-        remember(account);
         log.info("artist_matching.finished", {
           count: matched,
           duration_ms: Math.round(performance.now() - started),

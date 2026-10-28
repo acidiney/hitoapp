@@ -34,10 +34,14 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", props, children),
 }));
 function expectOnlyMatching(fetch: { mock: { calls: unknown[][] } }) {
-  expect(
-    fetch.mock.calls.every(([path]) => path === "/api/v1/artist-matching"),
-    "Browsing may only run the silent tag-matching pass, never provider work",
-  ).toBe(true);
+  const calls = fetch.mock.calls;
+  expect(calls.length, "at most one silent matching pass").toBeLessThanOrEqual(
+    1,
+  );
+  for (const [path, options] of calls) {
+    expect(path).toBe("/api/v1/artist-matching");
+    expect((options as RequestInit | undefined)?.method).toBe("POST");
+  }
 }
 afterEach(() => {
   cleanup();
