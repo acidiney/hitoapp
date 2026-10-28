@@ -13,6 +13,7 @@ mod policy;
 mod preview;
 mod profile;
 mod provider;
+pub(crate) mod reconcile;
 mod review;
 mod shared_corrections;
 mod types;
@@ -27,8 +28,9 @@ pub use album_editions::{
     ReadAlbumEditionTrackList,
 };
 pub use association_changes::{
-    ArtistAssociationChangeReceipt, ArtistAssociationChanges, ArtistAssociationUndo,
-    UndoRecordingArtistChange, UnlinkRecordingArtist,
+    ArtistAssociationChangeReceipt, ArtistAssociationChanges, ArtistAssociationRetirement,
+    ArtistAssociationUndo, ArtistCorrectionRetirement, UndoRecordingArtistChange,
+    UnlinkRecordingArtist,
 };
 pub(crate) use associations::LINKED;
 pub use shared_corrections::{

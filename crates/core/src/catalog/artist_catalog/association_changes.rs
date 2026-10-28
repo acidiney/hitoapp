@@ -40,11 +40,26 @@ pub struct ArtistAssociationUndo {
     pub linked: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtistCorrectionRetirement {
+    /// The recording was retagged, so the credit the correction was made for is gone.
+    CreditChanged,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct ArtistAssociationRetirement {
+    pub association_id: String,
+    pub reason: ArtistCorrectionRetirement,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
 pub struct ArtistAssociationChanges {
     pub recording_id: String,
     pub revision: i64,
     pub undo: Option<ArtistAssociationUndo>,
+    /// Unlinks that no longer apply to the recording's current credit; they keep hiding their association.
+    pub retired: Vec<ArtistAssociationRetirement>,
 }
 
 const MAX_CHANGES: i64 = 1024;
@@ -76,8 +91,24 @@ impl Catalog {
         actor.check_session_on(&mut tx).await?;
         recording_access(&mut tx, actor, recording).await?;
         let latest = latest(&mut tx, actor, recording).await?;
+        let retired: Vec<(String,)> = sqlx::query_as(
+            "SELECT retirement.association_id FROM artist_association_change_retirements retirement
+             JOIN recording_artist_associations assoc ON assoc.id=retirement.association_id
+             WHERE retirement.user_id=? AND assoc.recording_id=? ORDER BY assoc.created_at,assoc.id LIMIT 128",
+        )
+        .bind(actor.id())
+        .bind(recording)
+        .fetch_all(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(ArtistAssociationChanges {
+            retired: retired
+                .into_iter()
+                .map(|(association_id,)| ArtistAssociationRetirement {
+                    association_id,
+                    reason: ArtistCorrectionRetirement::CreditChanged,
+                })
+                .collect(),
             recording_id: recording.into(),
             revision: latest.as_ref().map_or(0, |latest| latest.revision),
             undo: latest.map(|latest| ArtistAssociationUndo {
