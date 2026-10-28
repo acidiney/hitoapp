@@ -69,7 +69,7 @@ async fn album_edition_choices_are_added_without_touching_existing_data() {
     added.sort_unstable();
     declared.sort_unstable();
     assert_eq!(added, declared);
-    schema::assert_current(&mut connection).await;
+    schema::assert_version(&mut connection, 56).await;
     guards(&mut connection).await;
     snapshot::assert_preserved(&mut connection, &before).await;
     connection.close().await.unwrap();

@@ -1,3 +1,4 @@
+use super::artist_catalog;
 use super::{
     AlbumEditionChoice, Browse, Catalog, Page, Recording, SourceAccess, push_source_access,
 };
@@ -184,6 +185,8 @@ impl Catalog {
                     JOIN recording_artist_associations assoc ON assoc.recording_id = m.recording_id AND assoc.user_id = ",
                 )
                 .push_bind(actor.id().to_owned())
+                .push(" AND ")
+                .push(artist_catalog::LINKED)
                 .push(" ORDER BY (assoc.artist_id IS ")
                 .push_bind(release.artist_id.clone())
                 .push(") DESC, COALESCE(m.disc_number, 1), m.track_number IS NULL, m.track_number, assoc.created_at, assoc.id LIMIT ")

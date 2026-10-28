@@ -568,12 +568,28 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "sqlite_autoindex_album_edition_choice_receipts_1"),
         ("trigger", "album_edition_receipt_immutable"),
         ("trigger", "album_edition_receipt_retained"),
+        ("table", "recording_artist_association_changes"),
+        (
+            "index",
+            "sqlite_autoindex_recording_artist_association_changes_1",
+        ),
+        ("index", "recording_artist_association_change_association"),
+        ("trigger", "recording_artist_association_change_scope"),
+        ("trigger", "recording_artist_association_change_immutable"),
+        ("trigger", "recording_artist_association_change_retained"),
+        ("table", "recording_artist_association_receipts"),
+        (
+            "index",
+            "sqlite_autoindex_recording_artist_association_receipts_1",
+        ),
+        ("trigger", "recording_artist_association_receipt_immutable"),
+        ("trigger", "recording_artist_association_receipt_retained"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference, artist identity and album edition objects may extend 0052"
+        "only the exact ranking preference, artist identity, album edition and artist association objects may extend 0052"
     );
     assert!(
         actual == expected,
@@ -605,6 +621,8 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         "artist_identity_choice_receipts",
         "album_edition_choices",
         "album_edition_choice_receipts",
+        "recording_artist_association_changes",
+        "recording_artist_association_receipts",
     ] {
         let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {}", quoted(table)))
             .fetch_one(&mut *connection)

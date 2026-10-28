@@ -1,6 +1,6 @@
 use super::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, AssociateRecordingArtist,
-    MAX_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET,
+    MAX_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET, association_changes,
     authority::{self, Credit},
     policy, provider,
 };
@@ -8,6 +8,9 @@ use crate::{Actor, Catalog, Error, Result, identity::recording_access};
 use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
+
+pub(crate) const LINKED: &str = "COALESCE((SELECT change.linked FROM recording_artist_association_changes change
+    WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1),1)=1";
 
 #[derive(sqlx::FromRow)]
 struct Stored {
@@ -66,10 +69,10 @@ impl Catalog {
             let mut tx = self.store.pool.begin().await?;
             actor.check_session_on(&mut tx).await?;
             recording_access(&mut tx, actor, recording).await?;
-            let rows: Vec<Stored> = sqlx::query_as(
-                "SELECT * FROM recording_artist_associations
-                WHERE user_id=? AND recording_id=? ORDER BY created_at,id LIMIT ?",
-            )
+            let rows: Vec<Stored> = sqlx::query_as(&format!(
+                "SELECT assoc.* FROM recording_artist_associations assoc
+                WHERE assoc.user_id=? AND assoc.recording_id=? AND {LINKED} ORDER BY assoc.created_at,assoc.id LIMIT ?"
+            ))
             .bind(actor.id())
             .bind(recording)
             .bind(MAX_ASSOCIATIONS)
@@ -178,6 +181,9 @@ pub(super) async fn retain(
     .fetch_optional(&mut *connection)
     .await?;
     let id = if let Some(existing) = existing {
+        if !association_changes::is_linked(connection, &existing).await? {
+            association_changes::append(connection, actor, recording, &existing, true).await?;
+        }
         existing
     } else {
         let count: i64 = sqlx::query_scalar(
@@ -199,6 +205,7 @@ pub(super) async fn retain(
             .bind(&id).bind(actor.id()).bind(library).bind(recording).bind(&request.artist_id)
             .bind(&request.source_id).bind(&request.observation_id).bind(kind).bind(installation)
             .bind(&request.provider_artist_id).execute(&mut *connection).await?;
+        association_changes::append(connection, actor, recording, &id, true).await?;
         id
     };
     load(connection, actor, recording, &id).await
@@ -210,9 +217,10 @@ pub(super) async fn load(
     recording: &str,
     association: &str,
 ) -> Result<ArtistAssociation> {
-    let row: Stored = sqlx::query_as(
-        "SELECT * FROM recording_artist_associations WHERE id=? AND user_id=? AND recording_id=?",
-    )
+    let row: Stored = sqlx::query_as(&format!(
+        "SELECT assoc.* FROM recording_artist_associations assoc
+        WHERE assoc.id=? AND assoc.user_id=? AND assoc.recording_id=? AND {LINKED}"
+    ))
     .bind(association)
     .bind(actor.id())
     .bind(recording)

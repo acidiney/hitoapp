@@ -1,6 +1,8 @@
 use super::{
     ArtistAssociation, ArtistReviewContext, ArtistReviewMetadataBinding, MetadataProvider,
-    associations, continuation, policy, provider::Connection,
+    associations::{self, LINKED},
+    continuation, policy,
+    provider::Connection,
 };
 use crate::{Actor, Catalog, Error, Result, identity::recording_access};
 use sqlx::SqliteConnection;
@@ -194,10 +196,10 @@ impl Credit {
         if policy.revision != policy_revision || !policy::selected(&policy, &association.provider) {
             return Err(policy::changed());
         }
-        let retained: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM recording_artist_associations
-            WHERE id=? AND user_id=? AND recording_id=? AND revision=?)",
-        )
+        let retained: bool = sqlx::query_scalar(&format!(
+            "SELECT EXISTS(SELECT 1 FROM recording_artist_associations assoc
+            WHERE assoc.id=? AND assoc.user_id=? AND assoc.recording_id=? AND assoc.revision=? AND {LINKED})"
+        ))
         .bind(&association.id)
         .bind(actor.id())
         .bind(&association.recording_id)

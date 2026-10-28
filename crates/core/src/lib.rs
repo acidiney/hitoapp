@@ -22,7 +22,8 @@ pub mod test_support;
 pub use catalog::{
     AdoptProviderRecording, AlbumCatalogAnchor, AlbumEditionChoice, AlbumEditionChoiceReceipt,
     AlbumEditionChoiceState, AlbumEditionTrackListAvailability, ApplyArtistIdentityToCredit,
-    Artist, ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
+    Artist, ArtistAssociation, ArtistAssociationChangeReceipt, ArtistAssociationChanges,
+    ArtistAssociationEvidence, ArtistAssociationUndo, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDetail,
     ArtistDiscographyAvailability, ArtistIdentityChoiceReceipt, ArtistIdentityCreditReceipt,
     ArtistIdentityGroup, ArtistIdentityGroupBrowse, ArtistIdentityGroupDetail,
@@ -41,7 +42,8 @@ pub use catalog::{
     ResetRecordingArtistIdentity, ResetSourceChoice, ResolveSource, SavedAlbumEdition, Search,
     Source, SourceChoice, SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt,
     SourceChoiceResetReceipt, SourcePreparationPhase, SourcePreparationReceipt,
-    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UpdateMetadataSettings,
+    SourcePreparationStatus, SourceResolution, SourceResolutionOutcome, UndoRecordingArtistChange,
+    UnlinkRecordingArtist, UpdateMetadataSettings,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

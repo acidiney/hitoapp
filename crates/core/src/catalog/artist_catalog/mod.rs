@@ -1,5 +1,6 @@
 mod album_edition_choice;
 mod album_editions;
+mod association_changes;
 mod associations;
 mod authority;
 mod confirmation;
@@ -24,6 +25,11 @@ pub use album_editions::{
     AlbumEditionTrackListAvailability, CatalogAdoption, CatalogTrackMatch,
     ReadAlbumEditionTrackList,
 };
+pub use association_changes::{
+    ArtistAssociationChangeReceipt, ArtistAssociationChanges, ArtistAssociationUndo,
+    UndoRecordingArtistChange, UnlinkRecordingArtist,
+};
+pub(crate) use associations::LINKED;
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
