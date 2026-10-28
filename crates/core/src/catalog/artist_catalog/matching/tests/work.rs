@@ -35,7 +35,7 @@ async fn a_second_pass_over_ambiguous_and_untagged_recordings_does_no_rework() {
     }
     support::scan(&hito, &actor, &library).await;
     let meter = WorkMeter::install(&hito.catalog.store.pool).await;
-    let mut run = async || {
+    let run = async || {
         let (receipt, work) = meter
             .measure(hito.catalog.match_artists_from_tags(
                 &actor,

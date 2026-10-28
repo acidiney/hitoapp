@@ -44,7 +44,7 @@ struct Pending {
 }
 
 enum Planned {
-    Match(Pending),
+    Match(Box<Pending>),
     Declined { remember: bool },
 }
 
@@ -155,7 +155,7 @@ impl Catalog {
                     .await?
                     {
                         Planned::Match(item) => {
-                            pending.push(item);
+                            pending.push(*item);
                             false
                         }
                         Planned::Declined { remember } => {
@@ -312,14 +312,14 @@ async fn plan(
     match associations::retain(&mut attempt, actor, recording, &credit.library_id, &request).await {
         Ok(association) => {
             attempt.commit().await?;
-            Ok(Planned::Match(Pending {
+            Ok(Planned::Match(Box::new(Pending {
                 recording: recording.into(),
                 artist: artist.into(),
                 association: association.id,
                 created: existing.is_none(),
                 revision,
                 credit,
-            }))
+            })))
         }
         Err(Error::Conflict(_) | Error::NotFound) => {
             attempt.rollback().await?;
