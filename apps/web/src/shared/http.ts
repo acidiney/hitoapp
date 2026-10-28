@@ -75,6 +75,7 @@ export async function request(path: string, options: RequestOptions) {
       options.action === "progress.save" ||
       options.action === "session.verify" ||
       options.action === "lock.state" ||
+      options.action === "lock.activity" ||
       options.action === "community.playback.report" ||
       options.action.startsWith("native.")
         ? log.debug

@@ -103,6 +103,11 @@ impl Fixture {
             .map(|_| ())
     }
 
+    async fn activity(&self, session: &AuthSession) {
+        let actor = self.actor(session).await;
+        self.hito.identity.record_activity(&actor).await.unwrap();
+    }
+
     async fn age_sessions(&self, seconds: i64) {
         let mut connection = SqliteConnection::connect_with(
             &SqliteConnectOptions::new().filename(self.directory.path().join("hito.db")),
@@ -424,4 +429,95 @@ async fn lock_workflows_log_outcomes_without_pins_hashes_or_tokens() {
     ] {
         assert!(!text.contains(secret), "logs must not contain {secret}");
     }
+}
+
+#[tokio::test]
+async fn background_requests_do_not_keep_a_session_awake_but_the_activity_signal_does() {
+    let fixture = Fixture::new().await;
+    fixture.set_pin(&fixture.admin, "1357", 5).await;
+    fixture.age_sessions(3 * 60).await;
+    for _ in 0..3 {
+        assert!(!fixture.locked(&fixture.admin).await);
+        let actor = fixture.actor(&fixture.admin).await;
+        fixture.hito.identity.check_session(&actor).await.unwrap();
+    }
+    fixture.age_sessions(3 * 60).await;
+    assert!(
+        fixture.locked(&fixture.admin).await,
+        "background requests never refresh the idle clock"
+    );
+    fixture.unlock(&fixture.admin, "1357").await.unwrap();
+
+    fixture.age_sessions(4 * 60).await;
+    fixture.activity(&fixture.admin).await;
+    fixture.age_sessions(4 * 60).await;
+    assert!(!fixture.locked(&fixture.admin).await);
+    fixture.age_sessions(2 * 60).await;
+    assert!(fixture.locked(&fixture.admin).await);
+    fixture.activity(&fixture.admin).await;
+    assert!(
+        fixture.locked(&fixture.admin).await,
+        "activity cannot revive a locked session"
+    );
+}
+
+#[tokio::test]
+async fn unlock_pins_that_are_not_four_to_eight_digits_count_without_hashing() {
+    let fixture = Fixture::new().await;
+    fixture.set_pin(&fixture.admin, "4321", 0).await;
+    let actor = fixture.actor(&fixture.admin).await;
+    fixture.hito.identity.lock(&actor).await.unwrap();
+    for pin in ["", "12", "12a4", "１２３４", &"9".repeat(5000)] {
+        assert!(matches!(
+            fixture.unlock(&fixture.admin, pin).await,
+            Err(Error::Invalid(_)) | Err(Error::Unauthorized)
+        ));
+    }
+    assert!(
+        matches!(
+            fixture
+                .hito
+                .identity
+                .authenticate(&fixture.admin.token)
+                .await,
+            Err(Error::Unauthorized)
+        ),
+        "five malformed attempts used the five allowed"
+    );
+}
+
+#[tokio::test]
+async fn parallel_wrong_guesses_verify_at_most_five_pins_and_end_the_session() {
+    let fixture = Fixture::new().await;
+    fixture.set_pin(&fixture.admin, "4321", 0).await;
+    let actor = fixture.actor(&fixture.admin).await;
+    fixture.hito.identity.lock(&actor).await.unwrap();
+    let identity = fixture.hito.identity.clone();
+    let attempts = (0..12).map(|_| {
+        let identity = identity.clone();
+        let actor = actor.clone();
+        tokio::spawn(async move { identity.unlock(&actor, Unlock { pin: "0000".into() }).await })
+    });
+    let mut rejected = 0;
+    let mut ended = 0;
+    for attempt in attempts {
+        match attempt.await.unwrap() {
+            Err(Error::Invalid(_)) => rejected += 1,
+            Err(Error::Unauthorized) => ended += 1,
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+    assert_eq!(rejected, 4, "only four wrong PINs are reported as rejected");
+    assert_eq!(
+        ended, 8,
+        "the fifth wrong PIN and every later attempt end or find the session ended"
+    );
+    assert!(matches!(
+        fixture
+            .hito
+            .identity
+            .authenticate(&fixture.admin.token)
+            .await,
+        Err(Error::Unauthorized)
+    ));
 }

@@ -52,7 +52,7 @@ pub async fn page(
         PageComponent::LoginPage
     };
     let protocol = Protocol::new(&headers, component);
-    let clear_history = actor.is_none();
+    let clear_history = actor.is_none() || locked;
     let props = match actor {
         Some(actor) if actor.is_locked() => PageProps::Lock(LockPageProps {
             errors: Default::default(),

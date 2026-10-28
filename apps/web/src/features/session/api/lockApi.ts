@@ -11,6 +11,14 @@ export const lockApi = {
       cache: "no-store",
     });
   },
+  activity(account: string, signal?: AbortSignal): Promise<LockStatus> {
+    return requestJson<LockStatus>("/account/activity", {
+      action: "lock.activity",
+      method: "POST",
+      account,
+      signal,
+    });
+  },
   async lock(account: string): Promise<LockStatus> {
     const status = await requestJson<LockStatus>("/account/lock", {
       action: "lock.lock",

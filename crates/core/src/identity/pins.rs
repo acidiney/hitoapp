@@ -1,4 +1,4 @@
-use super::{Actor, Identity, LockStatus, RemovePin, SetPin, credentials};
+use super::{Actor, Identity, LockStatus, RemovePin, SetPin, credentials, locks::is_pin};
 use crate::{Error, Result};
 
 const IDLE_CHOICES: [u32; 4] = [0, 5, 15, 60];
@@ -12,14 +12,14 @@ impl Identity {
                 "Choose to lock never, or after 5, 15 or 60 minutes".into(),
             ));
         }
+        if let Some(pin) = &request.pin {
+            validate_pin(pin)?;
+        }
+        self.confirm_password(actor, request.password).await?;
         let new_hash = match &request.pin {
-            Some(pin) => {
-                validate_pin(pin)?;
-                Some(credentials::hash(pin.clone()).await?)
-            }
+            Some(pin) => Some(credentials::hash(pin.clone()).await?),
             None => None,
         };
-        self.confirm_password(actor, request.password).await?;
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         let changed_pin = new_hash.is_some();
@@ -111,7 +111,7 @@ impl Identity {
 }
 
 fn validate_pin(pin: &str) -> Result<()> {
-    if (4..=8).contains(&pin.len()) && pin.bytes().all(|byte| byte.is_ascii_digit()) {
+    if is_pin(pin) {
         Ok(())
     } else {
         Err(Error::Invalid("Use 4 to 8 digits for the PIN".into()))

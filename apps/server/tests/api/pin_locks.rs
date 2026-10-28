@@ -202,7 +202,7 @@ async fn the_correct_pin_restores_the_same_session_and_wrong_pins_are_limited() 
         Some(&token),
     )
     .await;
-    for _ in 0..4 {
+    for _ in 0..3 {
         let (state, body) = call(
             &app,
             "POST",
@@ -264,17 +264,6 @@ async fn the_correct_pin_restores_the_same_session_and_wrong_pins_are_limited() 
         .await,
         StatusCode::UNAUTHORIZED,
         "the fifth wrong PIN ends the session"
-    );
-    assert_eq!(
-        status(
-            &app,
-            &token,
-            "POST",
-            "/api/v1/account/unlock",
-            json!({"pin": "4321"})
-        )
-        .await,
-        StatusCode::UNAUTHORIZED
     );
     assert_eq!(
         status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
@@ -354,5 +343,151 @@ async fn idle_sessions_lock_when_the_account_chose_an_idle_period() {
     assert_eq!(
         page(&app, &token, "/library").await["component"],
         "LockPage"
+    );
+}
+
+async fn age(dir: &std::path::Path, seconds: i64) {
+    let mut connection =
+        SqliteConnection::connect_with(&SqliteConnectOptions::new().filename(dir.join("hito.db")))
+            .await
+            .unwrap();
+    sqlx::query("UPDATE session_locks SET active_at = active_at - ?")
+        .bind(seconds)
+        .execute(&mut connection)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn background_requests_do_not_defer_the_idle_lock_but_the_activity_signal_does() {
+    let (dir, app) = app().await;
+    let token = admin(&app).await;
+    set_pin(&app, &token, "1234", 5).await;
+    age(dir.path(), 3 * 60).await;
+    assert_eq!(
+        status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
+        StatusCode::OK
+    );
+    age(dir.path(), 3 * 60).await;
+    assert_eq!(
+        status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
+        StatusCode::LOCKED
+    );
+    call(
+        &app,
+        "POST",
+        "/api/v1/account/unlock",
+        json!({"pin": "1234"}),
+        Some(&token),
+    )
+    .await;
+
+    age(dir.path(), 4 * 60).await;
+    let (state, lock) = call(
+        &app,
+        "POST",
+        "/api/v1/account/activity",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(
+        (state, lock["locked"].as_bool()),
+        (StatusCode::OK, Some(false))
+    );
+    age(dir.path(), 4 * 60).await;
+    assert_eq!(
+        status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
+        StatusCode::OK
+    );
+    age(dir.path(), 2 * 60).await;
+    assert_eq!(
+        status(
+            &app,
+            &token,
+            "POST",
+            "/api/v1/account/activity",
+            Value::Null
+        )
+        .await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
+        StatusCode::LOCKED,
+        "activity cannot revive an expired session"
+    );
+}
+
+#[tokio::test]
+async fn the_lock_screen_clears_cached_page_history() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    set_pin(&app, &token, "1234", 0).await;
+    assert_eq!(page(&app, &token, "/library").await["clearHistory"], false);
+    call(
+        &app,
+        "POST",
+        "/api/v1/account/lock",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(page(&app, &token, "/library").await["clearHistory"], true);
+}
+
+#[tokio::test]
+async fn pin_routes_are_throttled_per_address() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    let mut statuses = Vec::new();
+    for _ in 0..12 {
+        statuses.push(
+            call(
+                &app,
+                "POST",
+                "/api/v1/account/pin/remove",
+                json!({"password": "not the password"}),
+                Some(&token),
+            )
+            .await
+            .0,
+        );
+    }
+    assert!(
+        statuses[..10]
+            .iter()
+            .all(|s| *s == StatusCode::UNPROCESSABLE_ENTITY)
+    );
+    assert!(
+        statuses[10..]
+            .iter()
+            .all(|s| *s == StatusCode::TOO_MANY_REQUESTS)
+    );
+    assert_eq!(
+        status(
+            &app,
+            &token,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password":"x","pin":"1234","idle_minutes":0})
+        )
+        .await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        status(
+            &app,
+            &token,
+            "POST",
+            "/api/v1/account/unlock",
+            json!({"pin":"1234"})
+        )
+        .await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        status(&app, &token, "GET", "/api/v1/me", Value::Null).await,
+        StatusCode::OK
     );
 }

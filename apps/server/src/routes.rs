@@ -72,6 +72,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(identity::lock_status))
         .routes(routes!(identity::lock))
         .routes(routes!(identity::unlock))
+        .routes(routes!(identity::record_activity))
         .routes(routes!(identity::set_pin))
         .routes(routes!(identity::remove_pin))
         .routes(routes!(identity::users, identity::create_user))

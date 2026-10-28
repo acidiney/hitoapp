@@ -2,7 +2,6 @@ use super::{Actor, Identity, LockStatus, Unlock, credentials};
 use crate::{Error, Result};
 
 const MAX_WRONG_PINS: i64 = 5;
-const ACTIVITY_REFRESH_SECONDS: i64 = 30;
 
 const STATUS: &str = "SELECT p.idle_minutes, COALESCE(l.locked, 0)
     FROM account_pin_locks p LEFT JOIN session_locks l ON l.token_hash = ?
@@ -16,7 +15,9 @@ impl Identity {
 
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn lock(&self, actor: &Actor) -> Result<LockStatus> {
-        actor.check_session(&self.store).await?;
+        actor
+            .check_session_exists_on(&mut *self.store.pool.acquire().await?)
+            .await?;
         let enabled: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM account_pin_locks WHERE user_id = ?)")
                 .bind(actor.id())
@@ -37,7 +38,7 @@ impl Identity {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn unlock(&self, actor: &Actor, request: Unlock) -> Result<LockStatus> {
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        actor.check_session_on(&mut tx).await?;
+        actor.check_session_exists_on(&mut tx).await?;
         let row: Option<(String, bool, i64)> = sqlx::query_as(
             "SELECT p.pin_hash, COALESCE(l.locked, 0), COALESCE(l.failures, 0)
              FROM account_pin_locks p LEFT JOIN session_locks l ON l.token_hash = ?
@@ -62,7 +63,7 @@ impl Identity {
             .await?;
         tx.commit().await?;
 
-        if credentials::verify(request.pin, hash).await? {
+        if is_pin(&request.pin) && credentials::verify(request.pin, hash).await? {
             sqlx::query(
                 "UPDATE session_locks SET locked = 0, failures = 0, active_at = unixepoch()
                  WHERE token_hash = ?",
@@ -112,16 +113,26 @@ impl Identity {
             tracing::info!(event = "session_locked", reason = "idle", "Session locked");
             return Ok(true);
         }
-        if locked.is_none() || quiet_seconds >= ACTIVITY_REFRESH_SECONDS {
+        if locked.is_none() {
+            sqlx::query("INSERT OR IGNORE INTO session_locks(token_hash) VALUES (?)")
+                .bind(session_hash)
+                .execute(&self.store.pool)
+                .await?;
+        }
+        Ok(false)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
+    pub async fn record_activity(&self, actor: &Actor) -> Result<LockStatus> {
+        if !actor.locked {
             sqlx::query(
-                "INSERT INTO session_locks(token_hash) VALUES (?)
-                 ON CONFLICT(token_hash) DO UPDATE SET active_at = unixepoch() WHERE locked = 0",
+                "UPDATE session_locks SET active_at = unixepoch() WHERE token_hash = ? AND locked = 0",
             )
-            .bind(session_hash)
+            .bind(&actor.session_hash)
             .execute(&self.store.pool)
             .await?;
         }
-        Ok(false)
+        self.status(actor.id(), &actor.session_hash).await
     }
 
     async fn mark_locked(&self, session_hash: &str) -> Result<()> {
@@ -167,4 +178,8 @@ impl Identity {
             },
         })
     }
+}
+
+pub(super) fn is_pin(value: &str) -> bool {
+    (4..=8).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_digit())
 }

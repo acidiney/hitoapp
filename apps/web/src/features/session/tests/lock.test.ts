@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
+import { router } from "@inertiajs/react";
 import Sidebar from "../../../app/Sidebar";
 import LockPage from "../pages/LockPage";
 import ScreenLockSettings from "../components/ScreenLockSettings";
@@ -26,6 +27,7 @@ vi.mock("@inertiajs/react", () => ({
 vi.mock("../api/lockApi", () => ({
   lockApi: {
     state: vi.fn(),
+    activity: vi.fn(),
     lock: vi.fn(),
     unlock: vi.fn(),
     setPin: vi.fn(),
@@ -80,6 +82,7 @@ test("locking stops playback for the account before the lock screen replaces the
   fireEvent.click(screen.getByRole("button", { name: "Lock" }));
   await waitFor(() => expect(reload).toHaveBeenCalled());
   expect(order).toEqual(["stop", "lock"]);
+  expect(router.clearHistory).toHaveBeenCalled();
   expect(lockApi.lock).toHaveBeenCalledWith("alice-id");
 });
 
@@ -98,6 +101,7 @@ test("the lock screen shows only the account name and unlocks with the PIN", asy
   fireEvent.change(screen.getByLabelText("PIN"), { target: { value: "1234" } });
   fireEvent.submit(screen.getByRole("button", { name: "Unlock" }));
   await waitFor(() => expect(reload).toHaveBeenCalled());
+  expect(router.clearHistory).toHaveBeenCalled();
   expect(lockApi.unlock).toHaveBeenCalledWith("alice-id", "1234");
 });
 
@@ -207,18 +211,33 @@ test("an idle page checks the lock after the chosen period and stops playback", 
   await act(() => vi.advanceTimersByTimeAsync(2 * 60_000));
   expect(lockApi.state).toHaveBeenCalledWith("alice-id", expect.anything());
   expect(onLocked).toHaveBeenCalled();
+  expect(router.clearHistory).toHaveBeenCalled();
   expect(reload).toHaveBeenCalled();
 });
 
-test("input keeps the page awake", async () => {
+test("input keeps the page awake by sending the activity signal, at most every 30 seconds", async () => {
   vi.useFakeTimers();
-  vi.mocked(lockApi.state).mockResolvedValue(unlocked);
+  vi.mocked(lockApi.activity).mockResolvedValue(unlocked);
   renderHook(() => useIdleLock("alice-id", unlocked, vi.fn()));
   for (let minute = 0; minute < 8; minute++) {
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     fireEvent.keyDown(document, { key: "a" });
+    fireEvent.keyDown(document, { key: "b" });
   }
+  expect(lockApi.activity).toHaveBeenCalledTimes(8);
+  expect(lockApi.state).not.toHaveBeenCalled();
   expect(reload).not.toHaveBeenCalled();
+});
+
+test("an activity answer that reports a lock stops playback and reloads", async () => {
+  vi.useFakeTimers();
+  const onLocked = vi.fn();
+  vi.mocked(lockApi.activity).mockResolvedValue(locked);
+  renderHook(() => useIdleLock("alice-id", unlocked, onLocked));
+  fireEvent.keyDown(document, { key: "a" });
+  await act(() => vi.advanceTimersByTimeAsync(0));
+  expect(onLocked).toHaveBeenCalled();
+  expect(reload).toHaveBeenCalled();
 });
 
 test("accounts without an idle period never check the lock", async () => {

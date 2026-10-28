@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { lockApi } from "../api/lockApi";
@@ -15,6 +16,7 @@ export function useUnlock(account: string) {
     try {
       await lockApi.unlock(account, pin);
       notifySessionChanged();
+      router.clearHistory();
       window.location.reload();
     } catch (error) {
       if (error instanceof HttpError && error.status === 401) {

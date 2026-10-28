@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { useNotice } from "../../../shared/ui/Notices";
 import { lockApi } from "../api/lockApi";
@@ -13,6 +14,7 @@ export function useLockSession(account: string, stopPlayback: () => void) {
     try {
       await lockApi.lock(account);
       notifySessionChanged();
+      router.clearHistory();
       window.location.reload();
     } catch (error) {
       notice(errorMessage(error));

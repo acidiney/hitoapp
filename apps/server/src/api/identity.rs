@@ -108,6 +108,16 @@ pub async fn lock(
     Ok(Json(services.identity.lock(&actor).await?))
 }
 
+#[utoipa::path(post, path = "/api/v1/account/activity", security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+))]
+pub async fn record_activity(
+    State(services): State<Services>,
+    LockableAccount(actor): LockableAccount,
+) -> ApiResult<Json<LockStatus>> {
+    Ok(Json(services.identity.record_activity(&actor).await?))
+}
+
 #[utoipa::path(post, path = "/api/v1/account/unlock", request_body = Unlock,
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = LockStatus), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),

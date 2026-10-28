@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { router } from "@inertiajs/react";
 import type { LockStatus } from "../../../shared/types";
 import { lockApi } from "../api/lockApi";
 
@@ -19,21 +20,23 @@ export function useIdleLock(
     let lastBeat = 0;
     let stopped = false;
     const controller = new AbortController();
-    async function poll() {
+    function lockedNow() {
+      if (stopped) return;
+      stopped = true;
+      lockedRef.current();
+      router.clearHistory();
+      window.location.reload();
+    }
+    async function report(request: Promise<LockStatus>) {
       try {
-        const status = await lockApi.state(account, controller.signal);
-        if (status.locked && !stopped) {
-          stopped = true;
-          lockedRef.current();
-          window.location.reload();
-        }
+        if ((await request).locked) lockedNow();
       } catch {}
     }
     function arm() {
       clearTimeout(timer);
       timer = setTimeout(
         () => {
-          void poll().then(() => {
+          void report(lockApi.state(account, controller.signal)).then(() => {
             if (!stopped) arm();
           });
         },
@@ -46,7 +49,7 @@ export function useIdleLock(
       const now = Date.now();
       if (now - lastBeat >= heartbeatMs) {
         lastBeat = now;
-        void poll();
+        void report(lockApi.activity(account, controller.signal));
       }
     }
     for (const name of inputEvents)
