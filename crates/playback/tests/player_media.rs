@@ -288,6 +288,55 @@ async fn logout_clears_private_metadata_without_another_command() {
     owner.close().await.unwrap();
 }
 
+#[tokio::test]
+async fn locking_the_session_clears_private_metadata_and_refuses_media_keys() {
+    let f = fixture::LocalPlayback::start().await;
+    let (player, owner, mut events, sender) = start(&f);
+    let lease = player
+        .claim(&f.actor, player.inspect(&f.actor).await.unwrap().epoch)
+        .await
+        .unwrap()
+        .lease;
+    player
+        .submit(
+            &f.actor,
+            command(
+                lease,
+                1,
+                0,
+                PlayerAction::Replace {
+                    recordings: vec![Uuid::parse_str(&f.recording).unwrap()],
+                    start: 0,
+                },
+            ),
+        )
+        .await
+        .unwrap();
+    assert!(matches!(next(&mut events).await, Event::Track(_)));
+    assert!(matches!(next(&mut events).await, Event::Playback(_)));
+    f.services
+        .identity
+        .set_pin(
+            &f.actor,
+            hito_core::SetPin {
+                password: "indexing test password".into(),
+                pin: Some("1234".into()),
+                idle_minutes: 0,
+            },
+        )
+        .await
+        .unwrap();
+    f.services.identity.lock(&f.actor).await.unwrap();
+    assert_eq!(next(&mut events).await, Event::Clear);
+    sender.try_send(MediaCommand::Next).unwrap();
+    quiet(&mut events).await;
+    assert!(matches!(
+        player.inspect(&f.actor).await,
+        Err(hito_playback::PlayerError::Unauthorized)
+    ));
+    owner.close().await.unwrap();
+}
+
 struct Blocking {
     gate: std::sync::mpsc::Receiver<()>,
     seen: std::sync::mpsc::Sender<Event>,

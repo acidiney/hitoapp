@@ -14,6 +14,7 @@ pub struct Actor {
     pub(super) user: User,
     pub(super) session_hash: String,
     pub(super) locked: bool,
+    pub(super) background: bool,
 }
 
 impl std::fmt::Debug for Actor {

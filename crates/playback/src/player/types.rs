@@ -36,7 +36,7 @@ impl From<hito_core::Error> for PlayerError {
             "Playback authority check failed"
         );
         match error {
-            hito_core::Error::Unauthorized => Self::Unauthorized,
+            hito_core::Error::Unauthorized | hito_core::Error::Locked => Self::Unauthorized,
             hito_core::Error::NotFound | hito_core::Error::Forbidden => Self::NotFound,
             hito_core::Error::Invalid(_) => Self::Invalid,
             _ => Self::Unavailable,

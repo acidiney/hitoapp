@@ -70,6 +70,7 @@ impl Identity {
             user,
             session_hash,
             locked,
+            background: false,
         })
     }
 
@@ -108,6 +109,7 @@ impl Actor {
             user,
             session_hash: session_hash.to_owned(),
             locked,
+            background: true,
         })
     }
 
@@ -117,6 +119,29 @@ impl Actor {
     }
 
     pub(crate) async fn check_session_on(
+        &self,
+        connection: &mut sqlx::SqliteConnection,
+    ) -> Result<()> {
+        let (valid, locked): (bool, bool) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ?1 AND user_id = ?2 AND expires_at > unixepoch()),
+                    EXISTS(SELECT 1 FROM account_pin_locks p LEFT JOIN session_locks l ON l.token_hash = ?1
+                           WHERE p.user_id = ?2 AND (COALESCE(l.locked, 0) = 1
+                               OR (p.idle_minutes > 0 AND unixepoch() - COALESCE(l.active_at, unixepoch()) > p.idle_minutes * 60)))",
+        )
+        .bind(&self.session_hash)
+        .bind(self.id())
+        .fetch_one(connection)
+        .await?;
+        if !valid {
+            Err(Error::Unauthorized)
+        } else if locked && !self.background {
+            Err(Error::Locked)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) async fn check_session_exists_on(
         &self,
         connection: &mut sqlx::SqliteConnection,
     ) -> Result<()> {
