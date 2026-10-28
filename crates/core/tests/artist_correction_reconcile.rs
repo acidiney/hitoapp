@@ -618,3 +618,118 @@ async fn an_unchanged_artist_with_a_new_metadata_observation_retires_the_shared_
     })
     .await;
 }
+
+#[tokio::test]
+async fn shared_corrections_are_listed_newest_first_in_bounded_pages_without_private_values() {
+    run(|library| {
+        Box::pin(async move {
+            let actor = &library.actor;
+            let local = &tagged(library).await;
+            let mine = link(library, local, M1).await;
+            unlink(library, local, &mine.id).await;
+            let first = share_unlink(library, local, &mine.id).await.unwrap();
+            toggle(library, &first.correction_id, 1).await.unwrap();
+            let second = share_unlink(library, local, &mine.id).await.unwrap();
+            let page = |offset, limit| hito_core::SharedArtistCorrectionQuery {
+                offset: Some(offset),
+                limit: Some(limit),
+            };
+            let newest = library
+                .hito
+                .catalog
+                .shared_artist_corrections_page(actor, page(0, 1))
+                .await
+                .unwrap();
+            assert_eq!(
+                (
+                    newest.total,
+                    newest.offset,
+                    newest.limit,
+                    newest.items.len()
+                ),
+                (2, 0, 1, 1)
+            );
+            assert_eq!(newest.items[0].id, second.correction_id);
+            let older = library
+                .hito
+                .catalog
+                .shared_artist_corrections_page(actor, page(1, 1))
+                .await
+                .unwrap();
+            assert_eq!(older.items[0].id, first.correction_id);
+            assert!(!older.items[0].applied && older.items[0].revision == 2);
+            let clamped = library
+                .hito
+                .catalog
+                .shared_artist_corrections_page(actor, page(0, 5000))
+                .await
+                .unwrap();
+            assert_eq!((clamped.limit, clamped.items.len()), (100, 2));
+            let past = library
+                .hito
+                .catalog
+                .shared_artist_corrections_page(actor, page(9, 10))
+                .await
+                .unwrap();
+            assert!(past.items.is_empty() && past.total == 2);
+            assert!(matches!(
+                library
+                    .hito
+                    .catalog
+                    .shared_artist_corrections_page(&library.peer, page(0, 1))
+                    .await,
+                Err(Error::Forbidden)
+            ));
+            let json = serde_json::to_string(&clamped).unwrap();
+            assert!(!json.contains(&actor.user().id) && !json.contains(TAGGED));
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn accounts_are_told_when_a_shared_correction_hides_their_saved_review() {
+    run(|library| {
+        Box::pin(async move {
+            let actor = &library.actor;
+            let local = &tagged(library).await;
+            let peer = peer_account(library).await;
+            peer_link(library, &peer, local).await;
+            let mine = link(library, local, M1).await;
+            unlink(library, local, &mine.id).await;
+            let own = |actor: Actor| {
+                let library = &library;
+                let local = local.clone();
+                async move {
+                    library
+                        .hito
+                        .catalog
+                        .recording_artist_association_changes(&actor, &local)
+                        .await
+                        .unwrap()
+                }
+            };
+            assert_eq!(own(peer.clone()).await.shared_hidden, 0);
+            let receipt = share_unlink(library, local, &mine.id).await.unwrap();
+            let state = own(peer.clone()).await;
+            assert_eq!(
+                state.shared_hidden, 1,
+                "The account can see that a shared correction hides a review"
+            );
+            let text = serde_json::to_string(&state).unwrap();
+            assert!(
+                !text.contains(&actor.user().id),
+                "No administrator identity is exposed"
+            );
+            peer_link(library, &peer, local).await;
+            assert_eq!(
+                own(peer.clone()).await.shared_hidden,
+                0,
+                "A personal review made afterwards wins"
+            );
+            toggle(library, &receipt.correction_id, 1).await.unwrap();
+            assert_eq!(own(peer).await.shared_hidden, 0);
+        })
+    })
+    .await;
+}

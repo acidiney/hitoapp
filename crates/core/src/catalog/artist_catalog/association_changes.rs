@@ -61,6 +61,8 @@ pub struct ArtistAssociationChanges {
     pub undo: Option<ArtistAssociationUndo>,
     /// Unlinks that no longer apply to the recording's current credit; they keep hiding their association.
     pub retired: Vec<ArtistAssociationRetirement>,
+    /// Saved reviews of this recording that an administrator's shared correction hides for this account.
+    pub shared_hidden: i64,
     /// An administrator can share the latest unlink, a built-in artist review, with every account.
     pub shareable: bool,
     /// The applied shared correction made from the latest unlink; only administrators see it.
@@ -118,8 +120,21 @@ impl Catalog {
             }
             _ => (false, None),
         };
+        let shared_hidden: i64 = sqlx::query_scalar(&format!(
+            "SELECT count(*) FROM recording_artist_associations assoc
+             WHERE assoc.user_id=? AND assoc.recording_id=?
+                AND COALESCE((SELECT change.linked FROM recording_artist_association_changes change
+                    WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id
+                    ORDER BY change.revision DESC LIMIT 1),1)=1
+                AND NOT ({LINKED})"
+        ))
+        .bind(actor.id())
+        .bind(recording)
+        .fetch_one(&mut *tx)
+        .await?;
         tx.commit().await?;
         Ok(ArtistAssociationChanges {
+            shared_hidden,
             shareable,
             shared,
             retired: retired

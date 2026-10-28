@@ -34,7 +34,7 @@ pub use association_changes::{
 };
 pub(crate) use associations::LINKED;
 pub use shared_corrections::{
-    PromoteArtistCorrection, PromotionSource, SharedArtistCorrection,
+    PromoteArtistCorrection, PromotionSource, SharedArtistCorrection, SharedArtistCorrectionQuery,
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
     SharedCorrectionRef, UndoSharedArtistCorrection,
 };

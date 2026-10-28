@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 const MAX_LISTED: i64 = 100;
+const DEFAULT_LISTED: i64 = 25;
 
 #[derive(Clone, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -68,6 +69,15 @@ pub struct SharedArtistCorrection {
 pub struct SharedArtistCorrections {
     pub revision: i64,
     pub items: Vec<SharedArtistCorrection>,
+    pub total: i64,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, ToSchema)]
+pub struct SharedArtistCorrectionQuery {
+    pub offset: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
@@ -286,12 +296,23 @@ async fn already_shared(connection: &mut SqliteConnection, subjects: &[Subject])
 }
 
 impl Catalog {
-    #[tracing::instrument(level = "debug", skip_all, fields(operation = "shared_artist_corrections_read", request_id = %Uuid::new_v4()))]
     pub async fn shared_artist_corrections(
         &self,
         actor: &Actor,
     ) -> Result<SharedArtistCorrections> {
+        self.shared_artist_corrections_page(actor, SharedArtistCorrectionQuery::default())
+            .await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(operation = "shared_artist_corrections_read", request_id = %Uuid::new_v4()))]
+    pub async fn shared_artist_corrections_page(
+        &self,
+        actor: &Actor,
+        query: SharedArtistCorrectionQuery,
+    ) -> Result<SharedArtistCorrections> {
         actor.require_admin()?;
+        let offset = query.offset.unwrap_or(0).max(0);
+        let limit = query.limit.unwrap_or(DEFAULT_LISTED).clamp(1, MAX_LISTED);
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let current = revision(&mut tx).await?;
@@ -303,11 +324,15 @@ impl Catalog {
              FROM shared_artist_corrections correction
              JOIN shared_artist_correction_states state ON state.correction_seq=correction.seq
                 AND state.revision=(SELECT max(revision) FROM shared_artist_correction_states WHERE correction_seq=correction.seq)
-             ORDER BY correction.seq DESC LIMIT ?",
+             ORDER BY correction.seq DESC LIMIT ? OFFSET ?",
         )
-        .bind(MAX_LISTED)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&mut *tx)
         .await?;
+        let total: i64 = sqlx::query_scalar("SELECT count(*) FROM shared_artist_corrections")
+            .fetch_one(&mut *tx)
+            .await?;
         tx.commit().await?;
         let items = rows
             .into_iter()
@@ -330,6 +355,9 @@ impl Catalog {
         Ok(SharedArtistCorrections {
             revision: current,
             items,
+            total,
+            offset,
+            limit,
         })
     }
 
