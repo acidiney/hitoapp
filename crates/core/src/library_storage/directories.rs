@@ -92,8 +92,14 @@ impl Directories {
             .state
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if state.list.iter().any(|existing| existing.id == grant.id) {
-            return Ok(());
+        if let Some(existing) = state.list.iter().find(|existing| existing.id == grant.id) {
+            return if existing.root == grant.root {
+                Ok(())
+            } else {
+                Err(Error::Conflict(
+                    "A different shared directory already uses this identifier".into(),
+                ))
+            };
         }
         if state.list.len() >= MAX_GRANTS {
             return Err(Error::Invalid("Share at most 64 music directories".into()));
@@ -228,5 +234,30 @@ impl Grants {
             .map(|grant| (grant.id.clone(), GrantSlots::new()))
             .collect();
         Self { list, slots }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn grant(root: &str) -> SharedDirectoryConfig {
+        SharedDirectoryConfig {
+            id: "host-1".into(),
+            name: "Host".into(),
+            root: root.into(),
+        }
+    }
+
+    #[test]
+    fn an_identifier_cannot_be_reused_for_a_different_root() {
+        let directories = Directories::new(StorageConfig::SharedDirectories(vec![])).unwrap();
+        directories.add(grant("/a")).unwrap();
+        directories.add(grant("/a")).unwrap();
+        assert!(matches!(
+            directories.add(grant("/b")),
+            Err(Error::Conflict(_))
+        ));
+        assert_eq!(directories.grants().list.len(), 1);
     }
 }

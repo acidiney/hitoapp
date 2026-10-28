@@ -1,6 +1,11 @@
-use super::{LibraryStorage, folder_types::Folder, folders, host_directories::host_grant};
+use super::{
+    LibraryStorage,
+    folder_types::Folder,
+    folders,
+    host_directories::{Guard, host_grant},
+};
 use crate::Result;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 impl LibraryStorage {
     pub(crate) async fn initialize(&self) -> Result<()> {
@@ -11,11 +16,30 @@ impl LibraryStorage {
         .bind(self.host.as_str())
         .fetch_all(&mut *tx)
         .await?;
-        for folder in &folders {
-            let grant = host_grant(PathBuf::from(&folder.root_path));
-            if folder.directory_id.as_deref() == Some(grant.id.as_str()) {
-                self.directories.add(grant)?;
+        let guard = Guard::load(&self.data_dir).await;
+        let mut skipped = 0usize;
+        for folder in folders.iter().filter(|folder| folder.connected) {
+            let Some(id) = folder
+                .directory_id
+                .as_deref()
+                .filter(|id| id.starts_with("host-"))
+            else {
+                continue;
+            };
+            let restored = match tokio::fs::canonicalize(&folder.root_path).await {
+                Ok(root)
+                    if root.to_str() == Some(folder.root_path.as_str()) && !guard.denies(&root) =>
+                {
+                    host_grant(root).ok().filter(|grant| grant.id == id)
+                }
+                _ => None,
+            };
+            if restored.is_none_or(|grant| self.directories.add(grant).is_err()) {
+                skipped += 1;
             }
+        }
+        if skipped > 0 {
+            tracing::warn!(skipped, "Host folder grants were not restored");
         }
         let grants = self.directories.grants();
         let mut counts = HashMap::new();

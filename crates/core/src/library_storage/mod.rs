@@ -44,6 +44,7 @@ pub struct LibraryStorage {
     pub(crate) store: Store,
     pub(crate) host: HostDeviceId,
     pub(crate) directories: Directories,
+    pub(crate) data_dir: std::path::PathBuf,
     pub(crate) inspector: FileInspector,
     pub(crate) watching: FolderWatchSettings,
 }

@@ -124,6 +124,11 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         store: store.clone(),
         host: config.host_device.clone(),
         directories,
+        data_dir: config
+            .database
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map_or_else(|| ".".into(), std::path::Path::to_path_buf),
         inspector: library_storage::FileInspector::new(config.media_tools),
         watching: config.folder_watching,
     };
