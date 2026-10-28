@@ -11,6 +11,7 @@ mod types;
 #[path = "tests/retirement_work.rs"]
 mod retirement_work;
 
+pub(crate) use changes::split_change;
 pub use changes::{
     ArtistIdentityChangeKind, ArtistIdentityChangeReceipt, ArtistIdentityChangeSummary,
     ArtistIdentityGroupChanges, SplitArtistIdentityGroup, SplitDestination,

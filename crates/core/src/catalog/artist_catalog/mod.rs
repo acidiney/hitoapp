@@ -14,6 +14,7 @@ mod preview;
 mod profile;
 mod provider;
 mod review;
+mod shared_corrections;
 mod types;
 pub use identity::*;
 
@@ -30,6 +31,11 @@ pub use association_changes::{
     UndoRecordingArtistChange, UnlinkRecordingArtist,
 };
 pub(crate) use associations::LINKED;
+pub use shared_corrections::{
+    PromoteArtistCorrection, PromotionSource, SharedArtistCorrection,
+    SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
+    UndoSharedArtistCorrection,
+};
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,

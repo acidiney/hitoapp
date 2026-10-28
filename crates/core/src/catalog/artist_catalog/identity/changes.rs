@@ -301,6 +301,40 @@ pub(super) async fn insert_change(
     Ok(())
 }
 
+pub(crate) struct SplitChange {
+    pub id: String,
+    pub revision: i64,
+    pub kind: String,
+    pub builtin: bool,
+    pub provider_artist_id: String,
+    pub observations: Vec<(String, String)>,
+}
+
+/// The latest change of a group with the observation each moved recording was reviewed under.
+pub(crate) async fn split_change(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    group: &str,
+) -> Result<SplitChange> {
+    let key = group_key(connection, actor, group).await?;
+    let latest = latest(connection, actor, group)
+        .await?
+        .ok_or_else(|| Error::Conflict("There is no artist identity change to share".into()))?;
+    let observations = items(connection, &latest.id)
+        .await?
+        .into_iter()
+        .filter_map(|item| Some((item.recording_id, item.from_observation_id?)))
+        .collect();
+    Ok(SplitChange {
+        builtin: key.is_builtin(),
+        provider_artist_id: key.provider_artist_id,
+        id: latest.id,
+        revision: latest.revision,
+        kind: latest.kind,
+        observations,
+    })
+}
+
 pub(super) fn stale() -> Error {
     Error::Conflict("The artist identity changes moved on. Review their current revision".into())
 }

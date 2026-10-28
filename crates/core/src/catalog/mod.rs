@@ -51,11 +51,13 @@ pub use artist_catalog::{
     ArtistIdentitySelection, ArtistProfileAvailability, ArtistReviewConnection,
     ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist, CatalogAdoption,
     CatalogTrackMatch, ChooseAlbumEdition, ChooseRecordingArtistIdentity, ClearAlbumEdition,
-    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadAlbumEditionTrackList,
-    ReadArtistDiscography, ReadEditionTrackList, ReadReleaseGroupEditions,
-    RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
-    ResetRecordingArtistIdentity, SavedAlbumEdition, SplitArtistIdentityGroup, SplitDestination,
-    UndoArtistIdentityChange, UndoRecordingArtistChange, UnlinkRecordingArtist,
+    EditionTrackListAvailability, MetadataProvider, MetadataSettings, PromoteArtistCorrection,
+    PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography, ReadEditionTrackList,
+    ReadReleaseGroupEditions, RecordingArtistIdentityChoice, RecordingArtistIdentityState,
+    ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity, SavedAlbumEdition,
+    SharedArtistCorrection, SharedArtistCorrectionReceipt, SharedArtistCorrections,
+    SharedCorrectionKind, SplitArtistIdentityGroup, SplitDestination, UndoArtistIdentityChange,
+    UndoRecordingArtistChange, UndoSharedArtistCorrection, UnlinkRecordingArtist,
     UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
