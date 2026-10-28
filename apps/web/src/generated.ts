@@ -292,6 +292,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-matching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["match_artists_from_tags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artists": {
         parameters: {
             query?: never;
@@ -334,6 +350,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["apply_artist_identity_to_credit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artists/{id}/match-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_match_suggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artists/{id}/match-suggestions/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dismiss_artist_match_suggestion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2300,7 +2348,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];
@@ -2476,6 +2524,44 @@ export interface components {
             artists: components["schemas"]["ArtistPage"];
             identity_groups: components["schemas"]["ArtistIdentityGroupPage"];
             query: string;
+        };
+        ArtistMatchReceipt: {
+            /** Format: int64 */
+            matched: number;
+            next_after?: string | null;
+            /** Format: uuid */
+            request_id: string;
+            /** Format: int64 */
+            skipped_ambiguous: number;
+            /** Format: int64 */
+            skipped_declined: number;
+        };
+        ArtistMatchSuggestion: {
+            group: components["schemas"]["ArtistIdentityGroup"];
+            /**
+             * Format: int64
+             * @description Tracks of the credit that match a chosen track by title and length (within three seconds).
+             */
+            same_length_tracks: number;
+            /**
+             * Format: int64
+             * @description Distinct release titles the credit shares with the chosen artist's releases.
+             */
+            shared_albums: number;
+            /**
+             * Format: int64
+             * @description Tracks of the credit that have no current artist choice and would be updated.
+             */
+            undecided_tracks: number;
+        };
+        ArtistMatchSuggestions: {
+            artist_id: string;
+            /**
+             * Format: int64
+             * @description Suggestions the account dismissed for this credit; they are not listed.
+             */
+            dismissed: number;
+            items: components["schemas"]["ArtistMatchSuggestion"][];
         };
         ArtistPage: components["schemas"]["Page_Artist"];
         ArtistPageProps: components["schemas"]["SharedPageProps"] & {
@@ -2834,6 +2920,9 @@ export interface components {
                 [key: string]: string;
             };
         };
+        DismissArtistMatchSuggestion: {
+            group_id: string;
+        };
         DownloadReceipt: {
             intent_id: string;
             recording_id: string;
@@ -3077,6 +3166,13 @@ export interface components {
             name: string;
             /** Format: int32 */
             protocol_version: number;
+        };
+        MatchArtistsFromTags: {
+            after?: string | null;
+            /** Format: int64 */
+            limit?: number | null;
+            /** Format: uuid */
+            request_id: string;
         };
         MetadataObservation: {
             album: string | null;
@@ -5746,6 +5842,85 @@ export interface operations {
             };
         };
     };
+    match_artists_from_tags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchArtistsFromTags"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistMatchReceipt"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     artists: {
         parameters: {
             query?: {
@@ -5963,6 +6138,140 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    artist_match_suggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistMatchSuggestions"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismiss_artist_match_suggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissArtistMatchSuggestion"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistMatchSuggestions"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

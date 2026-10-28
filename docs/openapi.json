@@ -1823,6 +1823,103 @@
         ]
       }
     },
+    "/api/v1/artist-matching": {
+      "post": {
+        "operationId": "match_artists_from_tags",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchArtistsFromTags"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistMatchReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artists": {
       "get": {
         "operationId": "artists",
@@ -2140,6 +2237,183 @@
             }
           },
           "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artists/{id}/match-suggestions": {
+      "get": {
+        "operationId": "artist_match_suggestions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistMatchSuggestions"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/artists/{id}/match-suggestions/dismiss": {
+      "post": {
+        "operationId": "dismiss_artist_match_suggestion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissArtistMatchSuggestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistMatchSuggestions"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
             "content": {
               "application/json": {
                 "schema": {
@@ -14371,7 +14645,8 @@
       "ArtistAssociationEvidence": {
         "type": "string",
         "enum": [
-          "user_confirmed"
+          "user_confirmed",
+          "matched_file_tag_artist_id"
         ]
       },
       "ArtistAssociationRetirement": {
@@ -15070,6 +15345,92 @@
             }
           }
         ]
+      },
+      "ArtistMatchReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "matched",
+          "skipped_ambiguous",
+          "skipped_declined"
+        ],
+        "properties": {
+          "matched": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "next_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "skipped_ambiguous": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skipped_declined": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ArtistMatchSuggestion": {
+        "type": "object",
+        "required": [
+          "group",
+          "shared_albums",
+          "same_length_tracks",
+          "undecided_tracks"
+        ],
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/ArtistIdentityGroup"
+          },
+          "same_length_tracks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tracks of the credit that match a chosen track by title and length (within three seconds)."
+          },
+          "shared_albums": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct release titles the credit shares with the chosen artist's releases."
+          },
+          "undecided_tracks": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tracks of the credit that have no current artist choice and would be updated."
+          }
+        }
+      },
+      "ArtistMatchSuggestions": {
+        "type": "object",
+        "required": [
+          "artist_id",
+          "items",
+          "dismissed"
+        ],
+        "properties": {
+          "artist_id": {
+            "type": "string"
+          },
+          "dismissed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Suggestions the account dismissed for this credit; they are not listed."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtistMatchSuggestion"
+            }
+          }
+        }
       },
       "ArtistPage": {
         "$ref": "#/components/schemas/Page_Artist"
@@ -16611,6 +16972,18 @@
           }
         ]
       },
+      "DismissArtistMatchSuggestion": {
+        "type": "object",
+        "required": [
+          "group_id"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "DownloadReceipt": {
         "type": "object",
         "required": [
@@ -17615,6 +17988,32 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "MatchArtistsFromTags": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
