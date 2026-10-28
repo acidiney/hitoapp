@@ -13,7 +13,7 @@ pub(crate) async fn retire_stale(
     let mut unlinks = targets();
     unlinks.push(
         "INSERT OR IGNORE INTO artist_association_change_retirements(user_id,association_id,reason)
-         SELECT assoc.user_id,assoc.id,'credit_changed' FROM recording_artist_associations assoc
+         SELECT assoc.user_id,assoc.id,'credit_changed' FROM recording_artist_associations assoc INDEXED BY recording_artist_association_recording
          WHERE assoc.recording_id IN (SELECT recording_id FROM targets)
             AND (SELECT change.linked FROM recording_artist_association_changes change
                  WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id

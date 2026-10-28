@@ -1,3 +1,4 @@
+CREATE INDEX recording_artist_association_recording ON recording_artist_associations(recording_id,user_id);
 CREATE TABLE artist_identity_changes (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),

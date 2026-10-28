@@ -11,6 +11,7 @@ pub const TABLES: &[&str] = &[
 ];
 
 pub const ADDED: &[(&str, &str)] = &[
+    ("index", "recording_artist_association_recording"),
     ("table", "artist_identity_changes"),
     ("index", "sqlite_autoindex_artist_identity_changes_1"),
     ("index", "sqlite_autoindex_artist_identity_changes_2"),

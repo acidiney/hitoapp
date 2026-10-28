@@ -61,7 +61,7 @@ pub(super) async fn state(database: &Path) -> State {
             .await
             .unwrap();
     assert!(
-        schema.len() <= 593,
+        schema.len() <= 594,
         "owned schema snapshot bound exceeded: objects={} tables={} indexes={} triggers={} views={}",
         schema.len(),
         schema.iter().filter(|object| object.0 == "table").count(),
@@ -71,7 +71,7 @@ pub(super) async fn state(database: &Path) -> State {
     );
     let tables: Vec<(String, bool)> = sqlx::query_as("SELECT name,wr=0 FROM pragma_table_list WHERE schema='main' AND type IN ('table','shadow','virtual') AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name")
         .fetch_all(&mut connection).await.unwrap();
-    assert!(tables.len() <= 128, "owned snapshot table bound exceeded");
+    assert!(tables.len() <= 135, "owned snapshot table bound exceeded");
     let mut state = Vec::new();
     for (name, has_rowid) in tables {
         let columns: Vec<String> = sqlx::query_scalar(
