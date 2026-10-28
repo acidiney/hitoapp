@@ -240,7 +240,12 @@ async fn exercise(library: &Library) {
     assert_eq!((&paged["offset"], &paged["limit"]), (&json!(3), &json!(1)));
     let (status, _) = library
         .owner
-        .request(&library.app, "GET", "/api/v1/artist-corrections?limit=x", Value::Null)
+        .request(
+            &library.app,
+            "GET",
+            "/api/v1/artist-corrections?limit=x",
+            Value::Null,
+        )
         .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     let undo_shared = "/api/v1/artist-corrections/missing/undo";

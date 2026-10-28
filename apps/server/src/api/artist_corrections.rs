@@ -9,8 +9,7 @@ use axum::{
 };
 use hito_core::{
     PromoteArtistCorrection, Services, SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt,
-    SharedArtistCorrections,
-    UndoSharedArtistCorrection,
+    SharedArtistCorrections, UndoSharedArtistCorrection,
 };
 use std::time::Instant;
 use uuid::Uuid;

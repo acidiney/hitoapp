@@ -132,3 +132,73 @@ async fn measure(
     assert_eq!(count, unrelated);
     work
 }
+
+const BROWSED: i64 = 2_000;
+
+#[tokio::test]
+async fn browsing_chosen_artists_with_many_shared_corrections_stays_in_proportion() {
+    let (fixture, hito, actor) = fixture::Fixture::prepare().await;
+    fixture.select(&hito, &actor).await;
+    fixture::grow(&hito.catalog.store.pool, &fixture.recording, 1, BROWSED + 1).await;
+    sqlx::query(
+        "INSERT INTO recording_artist_association_changes(user_id,recording_id,revision,association_id,linked)
+         SELECT user_id,recording_id,1,id,1 FROM recording_artist_associations assoc
+         WHERE NOT EXISTS (SELECT 1 FROM recording_artist_association_changes c WHERE c.association_id=assoc.id)",
+    )
+    .execute(&hito.catalog.store.pool)
+    .await
+    .unwrap();
+    sqlx::query("ANALYZE")
+        .execute(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    let plain = browse_work(&hito, &actor).await;
+    sqlx::query(
+        "INSERT INTO shared_artist_corrections(id,promoted_by,source_kind,source_association_id,change_floor)
+         VALUES('work-correction',?,'unlink',?,0)",
+    )
+    .bind(actor.user().id.as_str())
+    .bind(&fixture.association)
+    .execute(&hito.catalog.store.pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO shared_artist_correction_states(correction_seq,revision,applied,changed_by) VALUES(1,1,1,?)")
+        .bind(actor.user().id.as_str())
+        .execute(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    let inserted = sqlx::query(
+        "INSERT INTO shared_artist_correction_subjects(correction_seq,recording_id,observation_id,provider_artist_id,raw_artist)
+         SELECT 1,r.id,r.metadata_observation_id,'unrelated-provider-artist','Unrelated' FROM recordings r
+         WHERE r.id LIKE 'a5100000-%'",
+    )
+    .execute(&hito.catalog.store.pool)
+    .await
+    .unwrap()
+    .rows_affected();
+    assert_eq!(inserted as i64, BROWSED);
+    sqlx::query("ANALYZE")
+        .execute(&hito.catalog.store.pool)
+        .await
+        .unwrap();
+    let shared = browse_work(&hito, &actor).await;
+    eprintln!("Chosen artist browse VM_steps plain={plain} with_shared_corrections={shared}");
+    assert!(
+        shared < plain + plain / 4,
+        "Browsing used {shared} VM steps with {BROWSED} shared correction subjects against {plain} without"
+    );
+}
+
+async fn browse_work(hito: &Services, actor: &Actor) -> u64 {
+    let meter = WorkMeter::install(&hito.catalog.store.pool).await;
+    let (groups, work) = meter
+        .measure(
+            hito.catalog
+                .artist_identity_groups(actor, Default::default()),
+        )
+        .await;
+    meter.remove(&hito.catalog.store.pool).await;
+    let groups = groups.unwrap_or_else(|error| panic!("browse failed: {}", error.code()));
+    assert!(groups.total >= 1);
+    work
+}
