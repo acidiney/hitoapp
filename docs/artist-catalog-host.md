@@ -24,7 +24,7 @@ flowchart LR
 
 The association keeps `user_confirmed` provenance. A valid external profile confirms its provider identifier, not the identity of a local performer. Raw MusicBrainz tags and equal names do not create associations automatically. Reviewing an edited credit produces distinct evidence while retaining earlier reviews. Repeating an unchanged review returns the same association.
 
-There are at most 32 retained associations per account and recording. Evidence is immutable and an unlinked association still occupies one of the 32 slots. Replacement selection and administrator promotion still need separate workflows. Historical evidence can remain readable even when its credit is no longer current, but it cannot authorize a current profile response.
+Evidence is immutable. At most 32 associations per recording can be linked at once, and at most 128 rows (linked or unlinked) are retained per account and recording. Replacement selection and administrator promotion still need separate workflows. Historical evidence can remain readable even when its credit is no longer current, but it cannot authorize a current profile response.
 
 ## Unlinking and undo
 
@@ -34,7 +34,9 @@ Association rows never change. Each link, unlink and undo appends a row to a pri
 
 Reviewing the same provider artist again after an unlink links the same retained evidence again. Repeating a review that is already current is not a change and creates no history.
 
-Undo reverses only the latest change: undoing a new link removes it, undoing an unlink restores it, and undoing the undo repeats the change. Undo with nothing in the history is rejected.
+Undo reverses only the latest change: undoing a new link removes it, undoing an unlink restores it, and undoing the undo repeats the change. Undo with nothing in the history is rejected, and so is any change beyond 1,024 history revisions for one recording. Restoring or relinking needs room under the 32 linked associations.
+
+An explicit unlink wins over bulk work: applying a chosen artist to every recording with the same credit skips recordings whose matching association was unlinked and counts them with the other skipped recordings. Only a direct review of that artist links it again. A saved artist identity choice that used an unlinked association reads as unselected, and the panel refreshes it after each change.
 
 ```mermaid
 flowchart LR
@@ -49,7 +51,7 @@ flowchart LR
 
 Both commands carry a request ID and the revision the client last read. A repeated request with the same contents returns its stored receipt; the same ID with different contents, or an old revision, is a conflict. Receipts are retained like the artist identity and album edition receipts. The workflows are `GET /api/v1/recordings/{id}/artist-association-changes`, `POST /api/v1/recordings/{id}/artist-associations/unlink` and `POST /api/v1/recordings/{id}/artist-associations/undo`, using the shared account and JSON extractors. Logs record the operation, a safe outcome, the revision number and timing only.
 
-Migration 0057 adds the history and receipt tables. It is not deployed. In the artist information panel each saved review has an unlink button, and an undo button appears after a change made in that view. Reopening the page does not offer to undo an earlier visit's change yet, because the panel does not read the change history when it opens. Unlinking does not yet cover merge splitting or reconciliation after raw release retags.
+Migration 0057 adds the history and receipt tables. It is not deployed. In the artist information panel each saved review has an unlink button. When it opens, the panel reads the change state from the server, so undo is offered for the latest change even from an earlier visit, and a rejected or stale request reloads that state. Unlinking does not yet cover merge splitting or reconciliation after raw release retags.
 
 ## Settings and provider access
 
