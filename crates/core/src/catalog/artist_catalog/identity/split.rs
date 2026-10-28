@@ -317,11 +317,13 @@ impl Catalog {
         changes::insert_change(
             &mut tx,
             actor,
-            group,
-            revision,
-            ArtistIdentityChangeKind::Split,
-            destination.as_deref(),
-            order,
+            changes::NewChange {
+                group,
+                revision,
+                kind: ArtistIdentityChangeKind::Split,
+                destination: destination.as_deref(),
+                order,
+            },
             &items,
         )
         .await?;

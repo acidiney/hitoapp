@@ -252,14 +252,18 @@ pub(super) async fn write_choice(
     Ok(())
 }
 
+pub(super) struct NewChange<'a> {
+    pub group: &'a str,
+    pub revision: i64,
+    pub kind: ArtistIdentityChangeKind,
+    pub destination: Option<&'a str>,
+    pub order: i64,
+}
+
 pub(super) async fn insert_change(
     connection: &mut SqliteConnection,
     actor: &Actor,
-    group: &str,
-    revision: i64,
-    kind: ArtistIdentityChangeKind,
-    destination: Option<&str>,
-    order: i64,
+    change: NewChange<'_>,
     items: &[Item],
 ) -> Result<()> {
     let id = Uuid::new_v4().to_string();
@@ -269,11 +273,11 @@ pub(super) async fn insert_change(
     )
     .bind(&id)
     .bind(actor.id())
-    .bind(group)
-    .bind(revision)
-    .bind(kind.column())
-    .bind(destination)
-    .bind(order)
+    .bind(change.group)
+    .bind(change.revision)
+    .bind(change.kind.column())
+    .bind(change.destination)
+    .bind(change.order)
     .execute(&mut *connection)
     .await?;
     for item in items {
@@ -509,11 +513,13 @@ impl Catalog {
         insert_change(
             &mut tx,
             actor,
-            group,
-            revision,
-            ArtistIdentityChangeKind::Undo,
-            None,
-            order,
+            NewChange {
+                group,
+                revision,
+                kind: ArtistIdentityChangeKind::Undo,
+                destination: None,
+                order,
+            },
             &reversed,
         )
         .await?;
