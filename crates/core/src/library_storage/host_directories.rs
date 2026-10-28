@@ -54,13 +54,9 @@ impl LibraryStorage {
         let (reference, granted) = match located {
             Located::Inside(reference) => (reference, false),
             Located::Outside(root) => {
-                let id = format!("host-{}", &digest(&root)[..16]);
-                let name = label(&root);
-                self.directories.add(SharedDirectoryConfig {
-                    id: id.clone(),
-                    name,
-                    root,
-                })?;
+                let grant = host_grant(root);
+                let id = grant.id.clone();
+                self.directories.add(grant)?;
                 (
                     DirectoryRef {
                         directory_id: id,
@@ -99,6 +95,14 @@ fn locate_blocking(path: &Path, grants: &[SharedDirectoryConfig]) -> Result<Loca
         }
     }
     Ok(Located::Outside(canonical))
+}
+
+pub(super) fn host_grant(root: PathBuf) -> SharedDirectoryConfig {
+    SharedDirectoryConfig {
+        id: format!("host-{}", &digest(&root)[..16]),
+        name: label(&root),
+        root,
+    }
 }
 
 fn digest(root: &Path) -> String {

@@ -1,6 +1,6 @@
-use super::{LibraryStorage, folder_types::Folder, folders};
+use super::{LibraryStorage, folder_types::Folder, folders, host_directories::host_grant};
 use crate::Result;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 impl LibraryStorage {
     pub(crate) async fn initialize(&self) -> Result<()> {
@@ -11,6 +11,12 @@ impl LibraryStorage {
         .bind(self.host.as_str())
         .fetch_all(&mut *tx)
         .await?;
+        for folder in &folders {
+            let grant = host_grant(PathBuf::from(&folder.root_path));
+            if folder.directory_id.as_deref() == Some(grant.id.as_str()) {
+                self.directories.add(grant)?;
+            }
+        }
         let grants = self.directories.grants();
         let mut counts = HashMap::new();
         for folder in &folders {

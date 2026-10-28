@@ -124,3 +124,44 @@ async fn listeners_cannot_grant_host_directories() {
         Err(Error::Forbidden)
     ));
 }
+
+#[tokio::test]
+async fn a_granted_host_directory_and_its_folder_survive_a_restart() {
+    use hito_core::{CoreConfig, HostDeviceId};
+    let (dir, services, admin, library, music) = support::library("server").await;
+    let outside = dir.path().join("Archive");
+    std::fs::create_dir_all(&outside).unwrap();
+    let reference = services
+        .storage
+        .grant_host_directory(&admin, &outside)
+        .await
+        .unwrap();
+    services
+        .storage
+        .connect_folder(
+            &admin,
+            &library,
+            ConnectFolder {
+                directory: reference.clone(),
+                name: None,
+            },
+        )
+        .await
+        .unwrap();
+    drop(services);
+    let restarted = hito_core::open(CoreConfig::new(
+        dir.path().join("hito.db"),
+        music,
+        HostDeviceId::new("server").unwrap(),
+    ))
+    .await
+    .unwrap();
+    let shared = restarted.storage.shared_directories(&admin).await.unwrap();
+    assert!(
+        shared
+            .iter()
+            .any(|share| share.id == reference.directory_id && share.available)
+    );
+    let folders = restarted.storage.folders(&admin, &library).await.unwrap();
+    assert!(folders.iter().any(|folder| folder.available));
+}
