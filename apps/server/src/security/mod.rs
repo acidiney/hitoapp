@@ -22,6 +22,7 @@ use std::{
 pub struct Security {
     config: Config,
     attempts: Arc<AuthLimiter>,
+    pin_attempts: Arc<AuthLimiter>,
     auth_slots: Arc<tokio::sync::Semaphore>,
 }
 
@@ -30,6 +31,7 @@ impl Security {
         Self {
             config,
             attempts: Arc::default(),
+            pin_attempts: Arc::default(),
             auth_slots: Arc::new(tokio::sync::Semaphore::new(4)),
         }
     }
@@ -54,15 +56,29 @@ pub async fn browser_security(
             "Request origin could not be verified",
         );
     }
-    let auth = request.method() == "POST"
-        && ["/api/v1/setup", "/api/v1/login"].contains(&request.uri().path());
-    let _permit = if auth {
+    let path = request.uri().path();
+    let limiter =
+        if request.method() == "POST" && ["/api/v1/setup", "/api/v1/login"].contains(&path) {
+            Some(&security.attempts)
+        } else if ["PUT", "POST"].contains(&request.method().as_str())
+            && [
+                "/api/v1/account/pin",
+                "/api/v1/account/pin/remove",
+                "/api/v1/account/unlock",
+            ]
+            .contains(&path)
+        {
+            Some(&security.pin_attempts)
+        } else {
+            None
+        };
+    let _permit = if let Some(limiter) = limiter {
         let ip = request
             .extensions()
             .get::<ConnectInfo<SocketAddr>>()
             .map(|value| value.0.ip())
             .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
-        if !security.attempts.allow(ip) {
+        if !limiter.allow(ip) {
             tracing::warn!(event = "auth_rate_limited", "Sign-in rate limit exceeded");
             return rate_limit::response();
         }

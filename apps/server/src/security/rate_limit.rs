@@ -49,7 +49,7 @@ pub fn response() -> Response {
         StatusCode::TOO_MANY_REQUESTS,
         [("retry-after", "60")],
         Json(ErrorResponse {
-            error: "Too many sign-in attempts. Try again in a minute.".into(),
+            error: "Too many attempts. Try again in a minute.".into(),
             code: None,
         }),
     )
