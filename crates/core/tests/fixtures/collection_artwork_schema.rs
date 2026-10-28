@@ -9,6 +9,8 @@ pub mod album_schema;
 pub mod changes_schema;
 #[path = "artist_identity_selection_schema.rs"]
 pub mod identity_schema;
+#[path = "pin_lock_schema.rs"]
+pub mod pin_schema;
 
 pub type SchemaObject = (String, String, String, Option<String>);
 type Column = (i64, String, String, i64, Option<String>, i64, i64);
@@ -296,6 +298,10 @@ pub async fn reference_57() -> SqliteConnection {
     changes_schema::reference(reference_56().await).await
 }
 
+pub async fn reference_58() -> SqliteConnection {
+    pin_schema::reference(reference_57().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -308,6 +314,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         55 => reference_55().await,
         56 => reference_56().await,
         57 => reference_57().await,
+        58 => reference_58().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -342,7 +349,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 57),
-    ) {
+    )
+    .chain(pin_schema::TABLES.iter().copied().filter(|_| version >= 58))
+    {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();
         let expected: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
@@ -383,6 +392,9 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
     if version >= 57 {
         changes_schema::assert_empty(connection).await;
     }
+    if version >= 58 {
+        pin_schema::assert_empty(connection).await;
+    }
     let invented: i64 = sqlx::query_scalar("SELECT count(*) FROM artwork_fetches WHERE entity_kind!='recording'
         OR release_id IS NOT NULL OR provider_release_id IS NOT NULL OR playlist_id IS NOT NULL
         OR provider_playlist_id IS NOT NULL OR playlist_provider IS NOT NULL OR playlist_snapshot IS NOT NULL
@@ -399,7 +411,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .unwrap();
     assert_eq!(receipt, (version, version));
     let migrations = sqlx::migrate!("./migrations");
-    for version in [50, 51, 52, 53, 54, 55, 56, 57]
+    for version in [50, 51, 52, 53, 54, 55, 56, 57, 58]
         .into_iter()
         .filter(|candidate| *candidate <= version)
     {

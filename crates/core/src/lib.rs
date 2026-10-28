@@ -69,7 +69,9 @@ pub use downloads::{
     PlaylistDownloadQuery, PlaylistDownloadReceipt, PlaylistDownloadStatus,
 };
 pub use error::{Error, Result};
-pub use identity::{Actor, AuthSession, Credentials, Identity, Library, User};
+pub use identity::{
+    Actor, AuthSession, Credentials, Identity, Library, LockStatus, RemovePin, SetPin, Unlock, User,
+};
 pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]
 pub use library_storage::WatchCounters;

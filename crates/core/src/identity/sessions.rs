@@ -56,7 +56,7 @@ impl Identity {
     #[tracing::instrument(level = "debug", skip_all, err(Debug))]
     pub async fn authenticate(&self, token: &str) -> Result<Actor> {
         let session_hash = token_hash(token);
-        let user = sqlx::query_as(
+        let user: User = sqlx::query_as(
             "SELECT u.id, u.username, u.admin
              FROM users u JOIN sessions s ON s.user_id = u.id
              WHERE s.token_hash = ? AND s.expires_at > unixepoch()",
@@ -65,7 +65,12 @@ impl Identity {
         .fetch_optional(&self.store.pool)
         .await?
         .ok_or(Error::Unauthorized)?;
-        Ok(Actor { user, session_hash })
+        let locked = self.session_locked(&user.id, &session_hash).await?;
+        Ok(Actor {
+            user,
+            session_hash,
+            locked,
+        })
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
@@ -91,12 +96,18 @@ impl Actor {
         )
         .bind(account)
         .bind(session_hash)
-        .fetch_optional(connection)
+        .fetch_optional(&mut *connection)
         .await?
         .ok_or(Error::Unauthorized)?;
+        let locked = sqlx::query_scalar("SELECT locked FROM session_locks WHERE token_hash = ?")
+            .bind(session_hash)
+            .fetch_optional(connection)
+            .await?
+            .unwrap_or(false);
         Ok(Self {
             user,
             session_hash: session_hash.to_owned(),
+            locked,
         })
     }
 

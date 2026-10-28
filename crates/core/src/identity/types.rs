@@ -13,6 +13,7 @@ pub struct User {
 pub struct Actor {
     pub(super) user: User,
     pub(super) session_hash: String,
+    pub(super) locked: bool,
 }
 
 impl std::fmt::Debug for Actor {
@@ -26,6 +27,18 @@ impl std::fmt::Debug for Actor {
 impl Actor {
     pub fn same_session(&self, other: &Self) -> bool {
         self.user.id == other.user.id && self.session_hash == other.session_hash
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.locked
+    }
+
+    pub fn require_unlocked(&self) -> Result<()> {
+        if self.locked {
+            Err(Error::Locked)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn user(&self) -> &User {
@@ -68,4 +81,32 @@ pub struct Library {
     pub name: String,
     #[serde(default)]
     pub personal: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, ToSchema)]
+pub struct LockStatus {
+    pub pin_enabled: bool,
+    pub idle_minutes: u32,
+    pub locked: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SetPin {
+    pub password: String,
+    #[serde(default)]
+    pub pin: Option<String>,
+    pub idle_minutes: u32,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RemovePin {
+    pub password: String,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Unlock {
+    pub pin: String,
 }

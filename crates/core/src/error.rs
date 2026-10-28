@@ -8,6 +8,8 @@ pub enum Error {
     Forbidden,
     #[error("Resource not found")]
     NotFound,
+    #[error("Enter your PIN to unlock this session")]
+    Locked,
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
@@ -33,6 +35,7 @@ impl Error {
             Self::Unauthorized => "unauthorized",
             Self::Forbidden => "forbidden",
             Self::NotFound => "not_found",
+            Self::Locked => "locked",
             Self::Conflict(_) => "conflict",
             Self::ProviderBusy(_) => "provider_busy",
             Self::OperationRejected(_) => "operation_rejected",

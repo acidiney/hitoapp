@@ -76,7 +76,7 @@ async fn artist_association_changes_are_added_without_touching_existing_data() {
     added.sort_unstable();
     declared.sort_unstable();
     assert_eq!(added, declared);
-    schema::assert_current(&mut connection).await;
+    schema::assert_version(&mut connection, 57).await;
     assert_legacy_association_is_linked(&mut connection).await;
     guards(&mut connection).await;
     snapshot::assert_preserved(&mut connection, &before).await;
