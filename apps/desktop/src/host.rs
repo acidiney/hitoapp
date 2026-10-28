@@ -15,15 +15,7 @@ pub struct LocalHost {
 impl LocalHost {
     #[tracing::instrument(level = "info", skip_all, err(Debug))]
     pub async fn start(paths: Paths) -> Result<Self> {
-        Self::start_with_media(paths, None).await
-    }
-
-    #[tracing::instrument(level = "info", skip_all, err(Debug))]
-    pub async fn start_with_media(
-        paths: Paths,
-        media: Option<hito_playback::MediaIntegration>,
-    ) -> Result<Self> {
-        Self::start_with_folders(paths, media, None).await
+        Self::start_with_folders(paths, None, None).await
     }
 
     #[tracing::instrument(level = "info", skip_all, err(Debug))]

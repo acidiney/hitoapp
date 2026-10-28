@@ -1,4 +1,5 @@
 use futures_util::future::BoxFuture;
+pub use hito_server::HostChoice;
 use hito_server::HostFolders;
 use std::{
     ffi::OsString,
@@ -7,7 +8,7 @@ use std::{
 };
 
 pub trait FolderPicker: Send + Sync + 'static {
-    fn pick(&self) -> BoxFuture<'_, Option<PathBuf>>;
+    fn pick(&self) -> BoxFuture<'_, HostChoice>;
 }
 
 pub struct MusicLookup {
@@ -20,7 +21,7 @@ pub fn music_folder(lookup: MusicLookup) -> Option<PathBuf> {
     lookup
         .xdg_override
         .map(PathBuf::from)
-        .filter(|path| path.is_absolute())
+        .filter(|path| path.is_absolute() && path.is_dir())
         .or(lookup.os_music)
         .or_else(|| lookup.home.map(|home| home.join("Music")))
 }
@@ -54,7 +55,7 @@ impl HostFolders for Desktop {
         })
     }
 
-    fn choose(&self) -> BoxFuture<'_, Option<PathBuf>> {
+    fn choose(&self) -> BoxFuture<'_, HostChoice> {
         self.picker.pick()
     }
 }

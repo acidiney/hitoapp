@@ -9,9 +9,15 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Arc};
 use utoipa::ToSchema;
 
+pub enum HostChoice {
+    Chosen(PathBuf),
+    Cancelled,
+    Busy,
+}
+
 pub trait HostFolders: Send + Sync + 'static {
     fn suggestion(&self) -> BoxFuture<'_, Option<PathBuf>>;
-    fn choose(&self) -> BoxFuture<'_, Option<PathBuf>>;
+    fn choose(&self) -> BoxFuture<'_, HostChoice>;
 }
 
 #[derive(Clone)]
@@ -55,7 +61,7 @@ pub async fn offer(
 
 #[utoipa::path(post, path = "/api/v1/host/folders/choose", security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = HostFolderChoice), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
-    (status = 404, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse), (status = 422, body = ErrorResponse),
 ))]
 pub async fn choose(
     axum::extract::State(services): axum::extract::State<Services>,
@@ -65,8 +71,13 @@ pub async fn choose(
     let host = host.0.ok_or(Error::NotFound)?;
     services.storage.find_host_directory(&actor, None).await?;
     let directory = match host.choose().await {
-        Some(path) => Some(services.storage.grant_host_directory(&actor, &path).await?),
-        None => None,
+        HostChoice::Chosen(path) => {
+            Some(services.storage.grant_host_directory(&actor, &path).await?)
+        }
+        HostChoice::Cancelled => None,
+        HostChoice::Busy => {
+            return Err(Error::Conflict("A folder chooser is already open".into()).into());
+        }
     };
     tracing::info!(
         event = "host_folder_chosen",

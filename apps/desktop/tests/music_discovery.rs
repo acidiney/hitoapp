@@ -10,13 +10,27 @@ fn lookup(xdg: Option<&str>, os: Option<&str>, home: Option<&str>) -> MusicLooku
 }
 
 #[test]
-fn an_absolute_xdg_override_wins_over_the_operating_system_folder() {
+fn an_existing_absolute_xdg_override_wins_over_the_operating_system_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let songs = dir.path().join("Songs");
+    std::fs::create_dir(&songs).unwrap();
     let found = music_folder(lookup(
-        Some("/data/Songs"),
+        songs.to_str(),
         Some("/home/a/Music"),
         Some("/home/a"),
     ));
-    assert_eq!(found, Some(PathBuf::from("/data/Songs")));
+    assert_eq!(found, Some(songs));
+}
+
+#[test]
+fn an_override_that_is_missing_or_not_a_directory_is_ignored() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("file");
+    std::fs::write(&file, b"x").unwrap();
+    for value in [dir.path().join("missing"), file] {
+        let found = music_folder(lookup(value.to_str(), Some("/home/a/Music"), None));
+        assert_eq!(found, Some(PathBuf::from("/home/a/Music")));
+    }
 }
 
 #[test]

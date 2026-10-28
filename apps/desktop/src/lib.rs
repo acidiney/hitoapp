@@ -9,7 +9,7 @@ mod os_controls;
 mod storage;
 mod system_media;
 
-pub use folders::{FolderPicker, MusicLookup, music_folder, proposal};
+pub use folders::{FolderPicker, HostChoice, MusicLookup, music_folder, proposal};
 pub use host::LocalHost;
 #[cfg(feature = "gui")]
 pub use native_picker::NativePicker;

@@ -64,7 +64,7 @@ The desktop host shows the playing track in the operating system's Now Playing s
 
 Privacy. On Linux, MPRIS publishes the title, artist, album, duration, position and the `file:` artwork path on the user's D-Bus session bus, and any local client on that bus can read them and send transport commands. The 0700 directory and 0600 file do not hide the path from those clients, and a client running as the same user can read the file. The 0700 and 0600 modes also do nothing on Windows, where the artwork file relies on the ACL of the application data directory. macOS keeps the data in the system's Now Playing store. Do not treat the track metadata as private from other software running as the same user.
 
-Tauri's setup creates the command channel and passes the sink to `LocalHost::start_with_media`. Hosts without a sink, including every test host, use `LocalHost::start` and behave as before.
+Tauri's setup creates the command channel and passes the sink to `LocalHost::start_with_folders`. Hosts without a sink, including every test host, use `LocalHost::start` and behave as before.
 
 Linux Docker builds and unit tests cover the sink, the artwork file handling and the command mapping. Nothing here has run against a real macOS panel, Windows overlay or MPRIS client. The device checklist is in [the backlog](../TODO.md).
 

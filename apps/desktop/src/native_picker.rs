@@ -1,11 +1,8 @@
-use crate::FolderPicker;
+use crate::{FolderPicker, HostChoice};
 use futures_util::future::BoxFuture;
-use std::{
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
@@ -25,14 +22,14 @@ impl NativePicker {
 }
 
 impl FolderPicker for NativePicker {
-    fn pick(&self) -> BoxFuture<'_, Option<PathBuf>> {
+    fn pick(&self) -> BoxFuture<'_, HostChoice> {
         Box::pin(async move {
             if self.open.swap(true, Ordering::AcqRel) {
                 tracing::debug!(
                     event = "desktop_folder_dialog_busy",
                     "Folder dialog already open"
                 );
-                return None;
+                return HostChoice::Busy;
             }
             let (sender, receiver) = tokio::sync::oneshot::channel();
             let open = self.open.clone();
@@ -54,7 +51,7 @@ impl FolderPicker for NativePicker {
                 chosen = picked.is_some(),
                 "Folder dialog closed"
             );
-            picked
+            picked.map_or(HostChoice::Cancelled, HostChoice::Chosen)
         })
     }
 }

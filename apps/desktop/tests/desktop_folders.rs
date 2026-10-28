@@ -1,5 +1,5 @@
 use futures_util::future::BoxFuture;
-use hito_desktop::{FolderPicker, LocalHost, Paths};
+use hito_desktop::{FolderPicker, HostChoice, LocalHost, Paths};
 use reqwest::{Client, StatusCode};
 use serde_json::{Value, json};
 use std::{
@@ -10,8 +10,13 @@ use std::{
 struct Fake(Mutex<Option<PathBuf>>);
 
 impl FolderPicker for Fake {
-    fn pick(&self) -> BoxFuture<'_, Option<PathBuf>> {
-        Box::pin(async { self.0.lock().unwrap().take() })
+    fn pick(&self) -> BoxFuture<'_, HostChoice> {
+        Box::pin(async {
+            match self.0.lock().unwrap().take() {
+                Some(path) => HostChoice::Chosen(path),
+                None => HostChoice::Cancelled,
+            }
+        })
     }
 }
 

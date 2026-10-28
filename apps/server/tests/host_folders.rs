@@ -4,7 +4,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use futures_util::future::BoxFuture;
-use hito_server::HostFolders;
+use hito_server::{HostChoice, HostFolders};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::{
@@ -16,14 +16,21 @@ use tower::ServiceExt;
 struct Fake {
     suggestion: Option<PathBuf>,
     chosen: Mutex<Option<PathBuf>>,
+    busy: bool,
 }
 
 impl HostFolders for Fake {
     fn suggestion(&self) -> BoxFuture<'_, Option<PathBuf>> {
         Box::pin(async { self.suggestion.clone() })
     }
-    fn choose(&self) -> BoxFuture<'_, Option<PathBuf>> {
-        Box::pin(async { self.chosen.lock().unwrap().take() })
+    fn choose(&self) -> BoxFuture<'_, HostChoice> {
+        Box::pin(async {
+            match self.chosen.lock().unwrap().take() {
+                Some(path) => HostChoice::Chosen(path),
+                None if self.busy => HostChoice::Busy,
+                None => HostChoice::Cancelled,
+            }
+        })
     }
 }
 
@@ -118,6 +125,7 @@ async fn desktop_hosts_suggest_a_granted_folder_and_grant_a_chosen_one() {
     let host = Arc::new(Fake {
         suggestion: None,
         chosen: Mutex::new(Some(outside)),
+        busy: false,
     });
     let (_dir, _music, app, token) = setup(Some(host)).await;
     let (_, offer) = call(
@@ -173,6 +181,7 @@ async fn cancelling_the_picker_changes_nothing_and_a_suggestion_never_grants() {
     let host = Arc::new(Fake {
         suggestion: Some(elsewhere),
         chosen: Mutex::new(None),
+        busy: false,
     });
     let (_dir, _music, app, token) = setup(Some(host)).await;
     let (_, offer) = call(
@@ -220,6 +229,7 @@ async fn a_suggestion_inside_a_grant_is_offered_as_a_reference() {
     let host = Arc::new(Fake {
         suggestion: Some(music),
         chosen: Mutex::new(None),
+        busy: false,
     });
     let app = hito_server::router_with_host(services, hito_server::Config::default(), None, host);
     let token = call(
@@ -253,6 +263,7 @@ async fn listeners_and_anonymous_callers_are_refused() {
     let host = Arc::new(Fake {
         suggestion: None,
         chosen: Mutex::new(None),
+        busy: false,
     });
     let (_dir, _music, app, admin) = setup(Some(host)).await;
     call(
@@ -287,4 +298,59 @@ async fn listeners_and_anonymous_callers_are_refused() {
             StatusCode::FORBIDDEN
         );
     }
+}
+
+#[tokio::test]
+async fn a_second_chooser_reports_busy_as_a_conflict() {
+    let host = Arc::new(Fake {
+        suggestion: None,
+        chosen: Mutex::new(None),
+        busy: true,
+    });
+    let (_dir, _music, app, token) = setup(Some(host)).await;
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/host/folders/choose",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(body.to_string().contains("already open"));
+}
+
+#[tokio::test]
+async fn choosing_requires_the_request_marker_header() {
+    let host = Arc::new(Fake {
+        suggestion: None,
+        chosen: Mutex::new(None),
+        busy: false,
+    });
+    let (_dir, _music, app, token) = setup(Some(host)).await;
+    let post = |marker: bool, origin: Option<&str>| {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/host/folders/choose")
+            .header("cookie", format!("hito_session={token}"));
+        if marker {
+            request = request.header("x-hito-request", "1");
+        }
+        if let Some(origin) = origin {
+            request = request.header("origin", origin);
+        }
+        app.clone().oneshot(request.body(Body::empty()).unwrap())
+    };
+    assert_eq!(
+        post(false, None).await.unwrap().status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        post(true, Some("https://evil.invalid"))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(post(true, None).await.unwrap().status(), StatusCode::OK);
 }
