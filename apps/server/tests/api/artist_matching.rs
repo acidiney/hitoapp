@@ -201,3 +201,194 @@ async fn http_matching_applies_embedded_ids_and_serves_ranked_dismissable_sugges
         "Another account has no access to these recordings"
     );
 }
+
+async fn scanned() -> (tempfile::TempDir, axum::Router, String, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    tagged(&music.join("a.wav"), 1, "Song A", "Album A", Some(M1));
+    tagged(&music.join("b.wav"), 2, "Song B", "Album B", Some(M1));
+    tagged(&music.join("p.wav"), 3, "Song P", "Album A", None);
+    let hito = services(dir.path(), &music).await;
+    let app = hito_server::router(hito.clone());
+    let token = admin(&app).await;
+    let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, Some(&token)).await;
+    let library = libraries[0]["id"].as_str().unwrap().to_owned();
+    call(
+        &app,
+        "POST",
+        &format!("/api/v1/libraries/{library}/scan"),
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    hito.storage.run_next_job().await.unwrap();
+    (dir, app, token, library)
+}
+
+async fn member(app: &axum::Router, admin: &str, library: &str) -> String {
+    let (status, user) = call(
+        app,
+        "POST",
+        "/api/v1/users",
+        json!({"username": "member", "password": "owned matching member password"}),
+        Some(admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = call(
+        app,
+        "PUT",
+        &format!(
+            "/api/v1/libraries/{library}/members/{}",
+            user["id"].as_str().unwrap()
+        ),
+        Value::Null,
+        Some(admin),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, session) = call(
+        app,
+        "POST",
+        "/api/v1/login",
+        json!({"username": "member", "password": "owned matching member password"}),
+        None,
+    )
+    .await;
+    session["token"].as_str().unwrap().to_owned()
+}
+
+async fn credit_and_group(app: &axum::Router, token: &str) -> (String, String) {
+    let (_, credits) = call(app, "GET", "/api/v1/artists", Value::Null, Some(token)).await;
+    let credit = credits["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|artist| artist["name"] == "C4 Pedro")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (_, groups) = call(
+        app,
+        "GET",
+        "/api/v1/artist-identity-groups",
+        Value::Null,
+        Some(token),
+    )
+    .await;
+    (
+        credit,
+        groups["items"][0]["id"].as_str().unwrap().to_owned(),
+    )
+}
+
+#[tokio::test]
+async fn members_of_one_shared_library_match_and_dismiss_separately() {
+    let (_dir, app, admin_token, library) = scanned().await;
+    let member_token = member(&app, &admin_token, &library).await;
+    for token in [&admin_token, &member_token] {
+        let (status, receipt) = call(
+            &app,
+            "POST",
+            "/api/v1/artist-matching",
+            json!({"request_id": Uuid::new_v4()}),
+            Some(token),
+        )
+        .await;
+        assert_eq!((status, &receipt["matched"]), (StatusCode::OK, &json!(2)));
+    }
+    let (admin_credit, admin_group) = credit_and_group(&app, &admin_token).await;
+    let (member_credit, member_group) = credit_and_group(&app, &member_token).await;
+    assert_ne!(
+        admin_group, member_group,
+        "Each account owns its chosen artist"
+    );
+
+    let dismiss = format!("/api/v1/artists/{admin_credit}/match-suggestions/dismiss");
+    let (status, after) = call(
+        &app,
+        "POST",
+        &dismiss,
+        json!({"group_id": admin_group}),
+        Some(&admin_token),
+    )
+    .await;
+    assert_eq!((status, &after["dismissed"]), (StatusCode::OK, &json!(1)));
+    let (_, own) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/artists/{member_credit}/match-suggestions"),
+        Value::Null,
+        Some(&member_token),
+    )
+    .await;
+    assert_eq!(own["dismissed"], 0, "A dismissal belongs to one account");
+    assert_eq!(own["items"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            &dismiss,
+            json!({"group_id": member_group}),
+            Some(&admin_token)
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND,
+        "Another account's chosen artist cannot be dismissed"
+    );
+}
+
+#[tokio::test]
+async fn a_locked_session_cannot_use_the_matching_routes() {
+    let (_dir, app, token, _) = scanned().await;
+    let (_, credits) = call(&app, "GET", "/api/v1/artists", Value::Null, Some(&token)).await;
+    let credit = credits["items"][0]["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        call(
+            &app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": "administrator test password", "pin": "1234", "idle_minutes": 0}),
+            Some(&token),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/account/lock",
+            Value::Null,
+            Some(&token)
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    for (method, path, body) in [
+        (
+            "POST",
+            "/api/v1/artist-matching".to_owned(),
+            json!({"request_id": Uuid::new_v4()}),
+        ),
+        (
+            "GET",
+            format!("/api/v1/artists/{credit}/match-suggestions"),
+            Value::Null,
+        ),
+        (
+            "POST",
+            format!("/api/v1/artists/{credit}/match-suggestions/dismiss"),
+            json!({"group_id": "any"}),
+        ),
+    ] {
+        let (status, body) = call(&app, method, &path, body, Some(&token)).await;
+        assert_eq!(status, StatusCode::LOCKED, "{path}");
+        assert_eq!(body["code"], "locked", "{path}");
+    }
+}
