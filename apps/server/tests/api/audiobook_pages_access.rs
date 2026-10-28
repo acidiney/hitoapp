@@ -111,12 +111,13 @@ async fn audiobook_pages_authorize_the_book_before_selecting_partial_shared_prop
     assert!(
         index.body["props"]
             == json!({
-                "errors": {}, "native_playback": false, "user": user,
-                "libraries": retained["owner"]["libraries"],
-                "playlists": expected_playlists, "books": [],
-                "book_pagination": {"limit": 60, "next_cursor": null, "previous_cursor": null},
-                "grouping_playlists": expected_playlists.as_array().unwrap().iter().filter(|playlist| playlist["kind"] == "local").collect::<Vec<_>>(),
-            }),
+                    "errors": {}, "native_playback": false, "user": user,
+            "lock": {"pin_enabled": false, "idle_minutes": 0, "locked": false},
+                    "libraries": retained["owner"]["libraries"],
+                    "playlists": expected_playlists, "books": [],
+                    "book_pagination": {"limit": 60, "next_cursor": null, "previous_cursor": null},
+                    "grouping_playlists": expected_playlists.as_array().unwrap().iter().filter(|playlist| playlist["kind"] == "local").collect::<Vec<_>>(),
+                }),
         "Deleting the backing playlist must remove the book from the owner's exact private index without exposing the peer's book or resurrecting its chapters"
     );
 

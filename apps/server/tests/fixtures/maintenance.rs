@@ -584,12 +584,16 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ),
         ("trigger", "recording_artist_association_receipt_immutable"),
         ("trigger", "recording_artist_association_receipt_retained"),
+        ("table", "account_pin_locks"),
+        ("index", "sqlite_autoindex_account_pin_locks_1"),
+        ("table", "session_locks"),
+        ("index", "sqlite_autoindex_session_locks_1"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference, artist identity, album edition and artist association objects may extend 0052"
+        "only the exact ranking preference, artist identity, album edition, artist association and PIN lock objects may extend 0052"
     );
     assert!(
         actual == expected,

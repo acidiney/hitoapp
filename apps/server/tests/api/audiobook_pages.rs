@@ -32,6 +32,7 @@ async fn authenticated_audiobook_pages_retain_private_books_chapter_occurrences_
         .await;
     let shared = json!({
         "errors": {}, "native_playback": false, "user": user,
+        "lock": {"pin_enabled": false, "idle_minutes": 0, "locked": false},
         "libraries": before["owner"]["libraries"], "playlists": before["owner"]["playlists"],
     });
     let index = library.owner.page(&library.app, "/audiobooks").await;
