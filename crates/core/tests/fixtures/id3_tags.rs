@@ -93,7 +93,7 @@ fn syncsafe(value: u32) -> [u8; 4] {
     ]
 }
 
-fn encode_frame(version: Version, frame: &Frame) -> Vec<u8> {
+fn encode_frame(version: Version, frame: &Frame, header_unsynchronised: bool) -> Vec<u8> {
     let (mut body, compressed, declared) = match &frame.storage {
         Storage::Plain => (frame.payload.clone(), false, 0),
         Storage::Zlib => (zlib(&frame.payload), true, frame.payload.len() as u32),
@@ -122,6 +122,9 @@ fn encode_frame(version: Version, frame: &Frame) -> Vec<u8> {
             }
         }
     }
+    if header_unsynchronised {
+        body = unsynchronise(&body);
+    }
     let size = (prefix.len() + body.len()) as u32;
     let mut bytes = frame.id.as_bytes().to_vec();
     match version {
@@ -134,26 +137,59 @@ fn encode_frame(version: Version, frame: &Frame) -> Vec<u8> {
     bytes
 }
 
+#[derive(Clone, Copy, Default)]
+pub struct Layout {
+    pub unsynchronised: bool,
+    pub extended_header: bool,
+    pub footer: bool,
+}
+
 pub fn tag(version: Version, whole_tag_unsynchronised: bool, frames: &[Frame]) -> Vec<u8> {
-    let mut body: Vec<u8> = frames
-        .iter()
-        .flat_map(|frame| encode_frame(version, frame))
-        .collect();
+    tag_with(
+        version,
+        Layout {
+            unsynchronised: whole_tag_unsynchronised,
+            ..Layout::default()
+        },
+        frames,
+    )
+}
+
+pub fn tag_with(version: Version, layout: Layout, frames: &[Frame]) -> Vec<u8> {
+    let header_unsynchronised = layout.unsynchronised && version == Version::V24;
+    let mut body = Vec::new();
+    if layout.extended_header {
+        body.extend_from_slice(&match version {
+            Version::V23 => vec![0, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+            Version::V24 => vec![0, 0, 0, 6, 1, 0],
+        });
+    }
+    for frame in frames {
+        body.extend(encode_frame(version, frame, header_unsynchronised));
+    }
     let mut flags = 0;
-    if whole_tag_unsynchronised {
-        assert!(
-            version == Version::V23,
-            "tag unsynchronisation is exercised for 2.3"
-        );
-        body = unsynchronise(&body);
+    if layout.unsynchronised {
+        if version == Version::V23 {
+            body = unsynchronise(&body);
+        }
         flags |= 0x80;
     }
-    let mut bytes = b"ID3".to_vec();
-    bytes.push(if version == Version::V23 { 3 } else { 4 });
-    bytes.push(0);
-    bytes.push(flags);
-    bytes.extend_from_slice(&syncsafe(body.len() as u32));
+    if layout.extended_header {
+        flags |= 0x40;
+    }
+    if layout.footer {
+        assert!(version == Version::V24);
+        flags |= 0x10;
+    }
+    let version_byte = if version == Version::V23 { 3 } else { 4 };
+    let size = syncsafe(body.len() as u32);
+    let mut bytes = vec![b'I', b'D', b'3', version_byte, 0, flags];
+    bytes.extend_from_slice(&size);
     bytes.extend(body);
+    if layout.footer {
+        bytes.extend_from_slice(&[b'3', b'D', b'I', version_byte, 0, flags]);
+        bytes.extend_from_slice(&size);
+    }
     bytes
 }
 
@@ -194,4 +230,17 @@ pub fn write_mp3_with_tag(scratch: &Path, path: &Path, tag: &[u8]) {
     let mut bytes = tag.to_vec();
     bytes.extend(std::fs::read(plain).unwrap());
     std::fs::write(path, bytes).unwrap();
+}
+
+pub fn append_aiff_id3_chunk(path: &Path, tag: &[u8]) {
+    let mut aiff = std::fs::read(path).unwrap();
+    aiff.extend_from_slice(b"ID3 ");
+    aiff.extend_from_slice(&(tag.len() as u32).to_be_bytes());
+    aiff.extend_from_slice(tag);
+    if tag.len() % 2 == 1 {
+        aiff.push(0);
+    }
+    let form = (aiff.len() - 8) as u32;
+    aiff[4..8].copy_from_slice(&form.to_be_bytes());
+    std::fs::write(path, aiff).unwrap();
 }

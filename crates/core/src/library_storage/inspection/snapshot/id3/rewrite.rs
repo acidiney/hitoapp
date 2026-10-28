@@ -1,9 +1,11 @@
-use super::inflate;
+use super::{super::Control, inflate};
+use std::borrow::Cow;
 
 const MAX_FRAME_BYTES: usize = 1024 * 1024;
 const MAX_TOTAL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_RATIO: usize = 100;
 const RATIO_FREE_BYTES: usize = 4096;
+const MAX_FRAMES: usize = 8192;
 const FRAME_HEADER: usize = 10;
 
 #[derive(Default)]
@@ -12,6 +14,8 @@ pub(in crate::library_storage::inspection) struct Report {
     pub ignored_over_limit: u32,
     pub ignored_invalid: u32,
     pub ignored_unsupported: u32,
+    pub io_failed: u32,
+    pub(super) charged: usize,
 }
 
 impl Report {
@@ -29,7 +33,7 @@ enum Version {
 struct Frame<'a> {
     id: [u8; 4],
     flags: [u8; 2],
-    body: &'a [u8],
+    body: Cow<'a, [u8]>,
 }
 
 enum Ignored {
@@ -42,49 +46,68 @@ pub(super) fn span(header: &[u8; 10]) -> Option<u64> {
     if &header[..3] != b"ID3" || !matches!(header[3], 3 | 4) {
         return None;
     }
-    Some(u64::from(syncsafe(&header[6..10])?) + 10)
+    let footer = if header[3] == 4 && header[5] & 0x10 != 0 {
+        10
+    } else {
+        0
+    };
+    Some(u64::from(syncsafe(&header[6..10])?) + 10 + footer)
 }
 
 /// Returns the replacement for a tag that contains compressed frames, with the
 /// same length as the original, or `None` when the tag should stay untouched.
-pub(super) fn normalise(tag: &[u8], report: &mut Report) -> Option<Vec<u8>> {
+pub(super) fn normalise(
+    tag: &[u8],
+    report: &mut Report,
+    control: &Control,
+) -> crate::Result<Option<Vec<u8>>> {
     let version = if tag[3] == 3 {
         Version::V23
     } else {
         Version::V24
     };
     let flags = tag[5];
-    if flags & 0x10 != 0 {
-        return None;
-    }
-    let mut body = tag[10..].to_vec();
-    if flags & 0x80 != 0 && version == Version::V23 {
-        body = deunsynchronise(&body);
+    let footer = if version == Version::V24 && flags & 0x10 != 0 {
+        10
+    } else {
+        0
+    };
+    let Some(end) = tag.len().checked_sub(footer).filter(|end| *end >= 10) else {
+        return Ok(None);
+    };
+    let mut body = Cow::Borrowed(&tag[10..end]);
+    let tag_unsynchronised = flags & 0x80 != 0;
+    if tag_unsynchronised && version == Version::V23 {
+        body = Cow::Owned(deunsynchronise(&body));
     }
     if flags & 0x40 != 0 {
-        body = body.get(extended_header(version, &body)?..)?.to_vec();
+        let Some(skip) = extended_header(version, &body) else {
+            return Ok(None);
+        };
+        body = Cow::Owned(body[skip..].to_vec());
     }
-    let frames = frames(version, &body);
+    let Some(frames) = frames(version, &body, tag_unsynchronised) else {
+        return Ok(None);
+    };
     if !frames.iter().any(|frame| compressed(version, frame)) {
-        return None;
+        return Ok(None);
     }
-    let capacity = tag.len() - 10;
+    let capacity = tag.len() - 10 - footer;
     let mut used: usize = frames
         .iter()
         .filter(|frame| !compressed(version, frame))
         .map(|frame| FRAME_HEADER + frame.body.len())
         .sum();
-    let mut total = 0;
     let mut output = Vec::with_capacity(capacity);
     for frame in &frames {
+        control.check()?;
         if !compressed(version, frame) {
-            push(&mut output, version, frame.id, frame.flags, frame.body);
+            push(&mut output, version, frame.id, frame.flags, &frame.body);
             continue;
         }
-        match decompress(version, frame, total) {
+        match decompress(version, frame, report) {
             Ok(text) if used + FRAME_HEADER + text.len() <= capacity => {
                 used += FRAME_HEADER + text.len();
-                total += text.len();
                 report.decompressed += 1;
                 push(&mut output, version, frame.id, [0, 0], &text);
             }
@@ -95,12 +118,17 @@ pub(super) fn normalise(tag: &[u8], report: &mut Report) -> Option<Vec<u8>> {
     }
     output.resize(capacity, 0);
     let mut replacement = tag[..10].to_vec();
-    replacement[5] = flags & 0x0f;
+    replacement[5] = flags & 0x1f;
     replacement.extend(output);
-    Some(replacement)
+    if footer > 0 {
+        let mut trailer = tag[end..].to_vec();
+        trailer[5] = replacement[5];
+        replacement.extend(trailer);
+    }
+    Ok(Some(replacement))
 }
 
-fn frames(version: Version, body: &[u8]) -> Vec<Frame<'_>> {
+fn frames(version: Version, body: &[u8], tag_unsynchronised: bool) -> Option<Vec<Frame<'_>>> {
     let mut frames = Vec::new();
     let mut offset = 0;
     while offset + FRAME_HEADER <= body.len() {
@@ -125,14 +153,35 @@ fn frames(version: Version, body: &[u8]) -> Vec<Frame<'_>> {
         let Some(end) = start.checked_add(size).filter(|end| *end <= body.len()) else {
             break;
         };
-        frames.push(Frame {
+        offset = end;
+        if size == 0 {
+            continue;
+        }
+        if frames.len() == MAX_FRAMES {
+            return None;
+        }
+        let mut frame = Frame {
             id,
             flags: [header[8], header[9]],
-            body: &body[start..end],
-        });
-        offset = end;
+            body: Cow::Borrowed(&body[start..end]),
+        };
+        if version == Version::V24 && tag_unsynchronised {
+            frame.body = Cow::Owned(deunsynchronise_frame(frame.flags[1], &frame.body));
+            frame.flags[1] &= !0x02;
+        }
+        frames.push(frame);
     }
-    frames
+    Some(frames)
+}
+
+fn deunsynchronise_frame(flags: u8, body: &[u8]) -> Vec<u8> {
+    let prefix = usize::from(flags & 0x40 != 0)
+        + usize::from(flags & 0x04 != 0)
+        + if flags & 0x01 != 0 { 4 } else { 0 };
+    let (head, data) = body.split_at(prefix.min(body.len()));
+    let mut output = head.to_vec();
+    output.extend(deunsynchronise(data));
+    output
 }
 
 fn compressed(version: Version, frame: &Frame) -> bool {
@@ -142,7 +191,7 @@ fn compressed(version: Version, frame: &Frame) -> bool {
     }
 }
 
-fn decompress(version: Version, frame: &Frame, total: usize) -> Result<Vec<u8>, Ignored> {
+fn decompress(version: Version, frame: &Frame, report: &mut Report) -> Result<Vec<u8>, Ignored> {
     let flags = frame.flags[1];
     let extra = match version {
         Version::V23 => flags & 0x60,
@@ -163,16 +212,17 @@ fn decompress(version: Version, frame: &Frame, total: usize) -> Result<Vec<u8>, 
         return Err(Ignored::Invalid);
     }
     let compressed = if version == Version::V24 && flags & 0x02 != 0 {
-        deunsynchronise(rest)
+        Cow::Owned(deunsynchronise(rest))
     } else {
-        rest.to_vec()
+        Cow::Borrowed(rest)
     };
     if declared > MAX_FRAME_BYTES
-        || total + declared > MAX_TOTAL_BYTES
+        || report.charged + declared > MAX_TOTAL_BYTES
         || (declared > RATIO_FREE_BYTES && declared > compressed.len() * MAX_RATIO)
     {
         return Err(Ignored::OverLimit);
     }
+    report.charged += declared;
     inflate(&compressed, declared).ok_or(Ignored::Invalid)
 }
 

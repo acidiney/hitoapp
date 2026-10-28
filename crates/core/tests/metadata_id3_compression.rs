@@ -4,7 +4,10 @@ use hito_core::test_support::support;
 mod id3;
 
 use hito_core::{Action, MetadataHistoryQuery, Search};
-use id3::{Frame, Storage, Version, append_wav_id3_chunk, tag, write_mp3_with_tag};
+use id3::{
+    Frame, Layout, Storage, Version, append_aiff_id3_chunk, append_wav_id3_chunk, tag, tag_with,
+    utf16_payload, write_mp3_with_tag,
+};
 use std::path::Path;
 
 #[derive(Debug, PartialEq)]
@@ -19,6 +22,7 @@ struct Observed {
 enum Carrier {
     Mp3,
     Wav,
+    Aiff,
 }
 
 const FILE_NAME: &str = "private-file-name";
@@ -30,6 +34,20 @@ fn place(carrier: &Carrier, scratch: &Path, music: &Path, tag: &[u8]) {
             let path = music.join(format!("{FILE_NAME}.wav"));
             support::write_wav(&path, 0);
             append_wav_id3_chunk(&path, tag);
+        }
+        Carrier::Aiff => {
+            let source = scratch.join("aiff-source.wav");
+            support::write_wav(&source, 0);
+            let path = music.join(format!("{FILE_NAME}.aiff"));
+            let status = std::process::Command::new("ffmpeg")
+                .args(["-nostdin", "-v", "error", "-y", "-i"])
+                .arg(&source)
+                .args(["-c:a", "pcm_s16be"])
+                .arg(&path)
+                .status()
+                .unwrap();
+            assert!(status.success());
+            append_aiff_id3_chunk(&path, tag);
         }
     }
 }
@@ -252,4 +270,82 @@ async fn an_ignored_frame_keeps_filename_provenance_and_personal_edits() {
         .unwrap();
     assert_eq!(detail.title.inherited, "Compressed title");
     assert_eq!(detail.title.value, "Personal title");
+}
+
+#[tokio::test]
+async fn compressed_frames_are_read_from_an_aiff_id3_chunk() {
+    for version in [Version::V23, Version::V24] {
+        let observed = scanned(Carrier::Aiff, tag(version, false, &compressed_set())).await;
+        assert_eq!(observed, compressed_expectation());
+    }
+}
+
+#[tokio::test]
+async fn extended_headers_are_removed_around_compressed_frames() {
+    for version in [Version::V23, Version::V24] {
+        let layout = Layout {
+            extended_header: true,
+            ..Layout::default()
+        };
+        let observed = scanned(Carrier::Mp3, tag_with(version, layout, &compressed_set())).await;
+        assert_eq!(observed, compressed_expectation());
+    }
+}
+
+fn mixed_set() -> Vec<Frame> {
+    vec![
+        Frame::compressed_text("TIT2", "Compressed title"),
+        Frame::plain("TPE1", utf16_payload("Plain artist \u{c9}toile")),
+        Frame::compressed_text("TALB", "Compressed album"),
+    ]
+}
+
+#[tokio::test]
+async fn id3v24_tag_level_unsynchronisation_applies_to_every_frame() {
+    let layout = Layout {
+        unsynchronised: true,
+        ..Layout::default()
+    };
+    for carrier in carriers() {
+        let observed = scanned(carrier, tag_with(Version::V24, layout, &mixed_set())).await;
+        assert_eq!(observed.title, "Compressed title");
+        assert_eq!(observed.artist, "Plain artist \u{c9}toile");
+        assert_eq!(observed.album, "Compressed album");
+    }
+}
+
+#[tokio::test]
+async fn a_footer_does_not_stop_the_walk_over_stacked_tags() {
+    let layout = Layout {
+        footer: true,
+        ..Layout::default()
+    };
+    let mut bytes = tag_with(
+        Version::V24,
+        layout,
+        &[Frame::compressed_text("TIT2", "Compressed title")],
+    );
+    bytes.extend(tag(
+        Version::V24,
+        false,
+        &[Frame::compressed_text("TALB", "Compressed album")],
+    ));
+    let observed = scanned(Carrier::Mp3, bytes).await;
+    assert_eq!(observed.title, "Compressed title");
+    assert_eq!(observed.album, "Compressed album");
+}
+
+#[tokio::test]
+async fn many_expensive_failing_frames_stay_bounded_and_the_file_stays_indexed() {
+    let mut frames = vec![Frame::text("TPE1", "Plain artist")];
+    for _ in 0..200 {
+        frames.push(Frame {
+            id: "TIT2",
+            payload: Vec::new(),
+            storage: Storage::CompressedBytes(vec![0x78, 0x9c, 7].repeat(6000), 1024 * 1024),
+            unsynchronised: false,
+        });
+    }
+    let observed = scanned(Carrier::Mp3, tag(Version::V24, false, &frames)).await;
+    assert_eq!(observed, plain_artist_with_filename_title());
 }

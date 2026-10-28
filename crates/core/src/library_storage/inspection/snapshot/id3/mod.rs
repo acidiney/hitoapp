@@ -1,12 +1,14 @@
-use super::{Control, unreadable};
+use super::Control;
 use crate::Result;
 use flate2::read::ZlibDecoder;
 use std::{
     fs::File,
-    io::{Read, Seek, SeekFrom, Write},
+    io::{self, Read, Seek, SeekFrom, Write},
 };
 
 mod rewrite;
+#[cfg(test)]
+mod tests;
 
 pub(super) use rewrite::Report;
 
@@ -35,29 +37,49 @@ impl Endian {
 /// `id3 ` and `LIST`/`INFO` chunks to `JUNK`, because FFmpeg ignores the ID3
 /// tag when an INFO list exists. The ID3 tag therefore takes precedence.
 pub(super) fn neutralise(file: &mut File, control: &Control) -> Result<Report> {
-    let length = file.metadata().map_err(|_| unreadable())?.len();
     let mut report = Report::default();
+    scan(file, control, &mut report)?;
+    Ok(report)
+}
+
+fn scan(file: &mut File, control: &Control, report: &mut Report) -> Result<()> {
+    let Some(length) = attempt(file.metadata().map(|m| m.len()), report) else {
+        return Ok(());
+    };
     let mut head = [0u8; 12];
-    let read = read_at(file, 0, &mut head)?;
+    let Some(read) = attempt(read_at(file, 0, &mut head), report) else {
+        return Ok(());
+    };
     if read >= 10 && head.starts_with(b"ID3") {
         let mut offset = 0;
         for _ in 0..MAX_STACKED_TAGS {
             control.check()?;
-            let Some(span) = tag_at(file, offset, length - offset, &mut report)? else {
+            let Some(span) = tag_at(file, offset, length - offset, control, report)? else {
                 break;
             };
             offset += span;
             let mut next = [0u8; 3];
-            if read_at(file, offset, &mut next)? < 3 || &next != b"ID3" {
-                break;
+            match attempt(read_at(file, offset, &mut next), report) {
+                Some(3) if &next == b"ID3" => {}
+                _ => break,
             }
         }
     } else if read == 12 && &head[8..12] == b"WAVE" && head.starts_with(b"RIFF") {
-        chunk_tags(file, length, Endian::Little, control, &mut report)?;
+        chunk_tags(file, length, Endian::Little, control, report)?;
     } else if read == 12 && head.starts_with(b"FORM") && matches!(&head[8..12], b"AIFF" | b"AIFC") {
-        chunk_tags(file, length, Endian::Big, control, &mut report)?;
+        chunk_tags(file, length, Endian::Big, control, report)?;
     }
-    Ok(report)
+    Ok(())
+}
+
+fn attempt<T>(result: io::Result<T>, report: &mut Report) -> Option<T> {
+    match result {
+        Ok(value) => Some(value),
+        Err(_) => {
+            report.io_failed += 1;
+            None
+        }
+    }
 }
 
 fn chunk_tags(
@@ -73,8 +95,12 @@ fn chunk_tags(
     for _ in 0..MAX_CHUNKS {
         control.check()?;
         let mut header = [0u8; 8];
-        if offset + 8 > length || read_at(file, offset, &mut header)? < 8 {
+        if offset + 8 > length {
             break;
+        }
+        match attempt(read_at(file, offset, &mut header), report) {
+            Some(8) => {}
+            _ => break,
         }
         let size = endian.u32([header[4], header[5], header[6], header[7]]);
         let body = offset + 8;
@@ -83,13 +109,15 @@ fn chunk_tags(
         }
         match &header[..4] {
             b"id3 " | b"ID3 " => {
-                if tag_at(file, body, size, report)?.is_some() {
+                if tag_at(file, body, size, control, report)?.is_some() {
                     id3_chunks.push(offset);
                 }
             }
             b"LIST" => {
                 let mut form = [0u8; 4];
-                if read_at(file, body, &mut form)? == 4 && &form == b"INFO" {
+                if matches!(attempt(read_at(file, body, &mut form), report), Some(4))
+                    && &form == b"INFO"
+                {
                     info_lists.push(offset);
                 }
             }
@@ -103,7 +131,7 @@ fn chunk_tags(
             .map(|offset| (offset, b"id3 "))
             .chain(info_lists.into_iter().map(|offset| (offset, b"JUNK")))
         {
-            write_at(file, offset, name)?;
+            attempt(write_at(file, offset, name), report);
         }
     }
     Ok(())
@@ -113,11 +141,16 @@ fn tag_at(
     file: &mut File,
     offset: u64,
     available: u64,
+    control: &Control,
     report: &mut Report,
 ) -> Result<Option<u64>> {
     let mut header = [0u8; 10];
-    if available < 10 || read_at(file, offset, &mut header)? < 10 {
+    if available < 10 {
         return Ok(None);
+    }
+    match attempt(read_at(file, offset, &mut header), report) {
+        Some(10) => {}
+        _ => return Ok(None),
     }
     let Some(span) = rewrite::span(&header) else {
         return Ok(None);
@@ -126,34 +159,42 @@ fn tag_at(
         return Ok(None);
     }
     let mut tag = vec![0u8; span as usize];
-    if read_at(file, offset, &mut tag)? < tag.len() {
-        return Ok(None);
+    match attempt(read_at(file, offset, &mut tag), report) {
+        Some(read) if read == tag.len() => {}
+        _ => return Ok(None),
     }
-    if let Some(replacement) = rewrite::normalise(&tag, report) {
+    if let Some(replacement) = rewrite::normalise(&tag, report, control)? {
         debug_assert_eq!(replacement.len(), tag.len());
-        file.seek(SeekFrom::Start(offset))
-            .map_err(|_| unreadable())?;
-        file.write_all(&replacement).map_err(|_| unreadable())?;
+        if attempt(write_at(file, offset, &replacement), report).is_none()
+            && attempt(write_at(file, offset, &tag), report).is_none()
+        {
+            let mut current = vec![0u8; tag.len()];
+            let intact = read_at(file, offset, &mut current).is_ok_and(|read| read == tag.len())
+                && current == tag;
+            if !intact {
+                return Err(crate::Error::Internal(
+                    "Media file could not be verified".into(),
+                ));
+            }
+        }
     }
     Ok(Some(span))
 }
 
-fn write_at(file: &mut File, offset: u64, bytes: &[u8; 4]) -> Result<()> {
-    file.seek(SeekFrom::Start(offset))
-        .map_err(|_| unreadable())?;
-    file.write_all(bytes).map_err(|_| unreadable())
+fn write_at(file: &mut File, offset: u64, bytes: &[u8]) -> io::Result<()> {
+    file.seek(SeekFrom::Start(offset))?;
+    file.write_all(bytes)
 }
 
-fn read_at(file: &mut File, offset: u64, buffer: &mut [u8]) -> Result<usize> {
-    file.seek(SeekFrom::Start(offset))
-        .map_err(|_| unreadable())?;
+fn read_at(file: &mut File, offset: u64, buffer: &mut [u8]) -> io::Result<usize> {
+    file.seek(SeekFrom::Start(offset))?;
     let mut filled = 0;
     while filled < buffer.len() {
         match file.read(&mut buffer[filled..]) {
             Ok(0) => break,
             Ok(count) => filled += count,
-            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
-            Err(_) => return Err(unreadable()),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
         }
     }
     Ok(filled)

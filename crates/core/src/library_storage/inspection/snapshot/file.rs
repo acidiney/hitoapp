@@ -94,13 +94,14 @@ pub(super) fn read(root: &Root, path: &Path, mode: Mode, control: &Control) -> R
     output.flush().map_err(|_| unreadable())?;
     let tags = super::id3::neutralise(&mut output, control)?;
     drop(output);
-    if tags.decompressed > 0 || tags.ignored() > 0 {
+    if tags.decompressed > 0 || tags.ignored() > 0 || tags.io_failed > 0 {
         tracing::debug!(
             event = "id3_compressed_frames",
             decompressed = tags.decompressed,
             ignored_over_limit = tags.ignored_over_limit,
             ignored_invalid = tags.ignored_invalid,
             ignored_unsupported = tags.ignored_unsupported,
+            io_failed = tags.io_failed,
             "Compressed ID3 frames normalised in the private media copy"
         );
     }
