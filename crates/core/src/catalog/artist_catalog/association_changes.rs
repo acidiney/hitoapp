@@ -1,4 +1,7 @@
-use super::associations::{self, LINKED};
+use super::{
+    MAX_ASSOCIATIONS,
+    associations::{self, LINKED},
+};
 use crate::{Actor, Catalog, Error, Result, identity::recording_access};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -43,6 +46,8 @@ pub struct ArtistAssociationChanges {
     pub revision: i64,
     pub undo: Option<ArtistAssociationUndo>,
 }
+
+const MAX_CHANGES: i64 = 1024;
 
 struct Latest {
     revision: i64,
@@ -180,6 +185,9 @@ impl Catalog {
         let latest = latest.ok_or_else(|| {
             Error::Conflict("There is no saved artist review change to undo".into())
         })?;
+        if !latest.linked {
+            ensure_room(&mut tx, actor, recording).await?;
+        }
         let receipt = apply(
             &mut tx,
             actor,
@@ -238,6 +246,11 @@ pub(super) async fn append(
     .bind(recording)
     .fetch_one(&mut *connection)
     .await?;
+    if revision > MAX_CHANGES {
+        return Err(Error::Conflict(
+            "This recording has too many saved artist review changes".into(),
+        ));
+    }
     sqlx::query(
         "INSERT INTO recording_artist_association_changes(user_id,recording_id,revision,association_id,linked)
          VALUES(?,?,?,?,?)",
@@ -261,6 +274,27 @@ pub(super) async fn append(
         .await?;
     }
     Ok(revision)
+}
+
+pub(super) async fn ensure_room(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+) -> Result<()> {
+    let linked: i64 = sqlx::query_scalar(&format!(
+        "SELECT count(*) FROM recording_artist_associations assoc
+         WHERE assoc.user_id=? AND assoc.recording_id=? AND {LINKED}"
+    ))
+    .bind(actor.id())
+    .bind(recording)
+    .fetch_one(connection)
+    .await?;
+    if linked >= MAX_ASSOCIATIONS {
+        return Err(Error::Conflict(
+            "This recording already has 32 linked artist associations".into(),
+        ));
+    }
+    Ok(())
 }
 
 pub(super) async fn is_linked(

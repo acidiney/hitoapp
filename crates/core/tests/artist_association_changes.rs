@@ -394,13 +394,13 @@ async fn unlinking_keeps_other_associations_and_the_retention_cap() {
                 .unwrap();
             assert_eq!(listed(library).await.len(), 31);
             assert!(!listed(library).await.contains(&first.id));
-            assert!(
-                matches!(
-                    associate(library, &first.provider, "artist-overflow").await,
-                    Err(Error::Conflict(_))
-                ),
-                "an unlinked association still occupies its retained slot"
-            );
+            associate(library, &first.provider, "artist-overflow")
+                .await
+                .unwrap();
+            assert!(matches!(
+                associate(library, &first.provider, "artist-second-overflow").await,
+                Err(Error::Conflict(_))
+            ));
             assert!(!matches!(
                 profile(library, &ids[1]).await,
                 Err(Error::NotFound)
@@ -497,8 +497,45 @@ async fn unlinking_a_chosen_association_sends_the_identity_choice_back_to_review
                 .unwrap();
             assert!(matches!(
                 choice.state,
-                RecordingArtistIdentityState::NeedsReview(_)
+                RecordingArtistIdentityState::Unselected
             ));
+        }
+        .boxed()
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn total_retained_rows_and_change_history_are_bounded() {
+    with_provider(|library, server| {
+        async move {
+            let first = library
+                .review_artist(&server.url, provider::ARTIST_ID)
+                .await;
+            for index in 1..128 {
+                let association = associate(library, &first.provider, &format!("bounded-{index}"))
+                    .await
+                    .unwrap();
+                let revision = revision(library).await;
+                unlink(library, Uuid::new_v4(), revision, &association.id)
+                    .await
+                    .unwrap();
+            }
+            assert!(listed(library).await == vec![first.id.clone()]);
+            assert!(matches!(
+                associate(library, &first.provider, "bounded-overflow").await,
+                Err(Error::Conflict(_))
+            ));
+            let mut accepted = revision(library).await;
+            while accepted < 1024 {
+                undo(library, Uuid::new_v4(), accepted).await.unwrap();
+                accepted += 1;
+            }
+            assert!(matches!(
+                undo(library, Uuid::new_v4(), accepted).await,
+                Err(Error::Conflict(_))
+            ));
+            assert_eq!(revision(library).await, 1024);
         }
         .boxed()
     })

@@ -46,6 +46,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 const REQUEST_BUDGET: Duration = Duration::from_secs(15);
 const MAX_ASSOCIATIONS: i64 = 32;
+const MAX_RETAINED_ASSOCIATIONS: i64 = 128;
 
 #[derive(Clone)]
 pub(crate) struct Host {

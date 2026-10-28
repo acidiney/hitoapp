@@ -38,13 +38,21 @@ impl Catalog {
             .bind(actor.id()).bind(recording).fetch_optional(&mut *tx).await?;
         let (revision, state) = match row {
             Some((revision, Some(group_id), Some(association_id), retired)) => {
+                let linked =
+                    match associations::load(&mut tx, actor, recording, &association_id).await {
+                        Ok(_) => true,
+                        Err(Error::NotFound) => false,
+                        Err(error) => return Err(error),
+                    };
                 let selection = ArtistIdentitySelection {
                     group_id,
                     association_id,
                 };
                 (
                     revision,
-                    if retired {
+                    if !linked {
+                        RecordingArtistIdentityState::Unselected
+                    } else if retired {
                         RecordingArtistIdentityState::NeedsReview(selection)
                     } else {
                         RecordingArtistIdentityState::Selected(selection)

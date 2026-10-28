@@ -239,6 +239,10 @@ async fn plan(
         provider_artist_id: template.provider_artist_id.clone(),
         policy_revision: template.policy_revision,
     };
+    if associations::unlinked_match(tx, actor, &recording, &request).await? {
+        outcome.skipped_different += 1;
+        return Ok(None);
+    }
     match associations::retain(tx, actor, &recording, &credit.library_id, &request).await {
         Ok(association) => Ok(Some(Pending {
             recording,

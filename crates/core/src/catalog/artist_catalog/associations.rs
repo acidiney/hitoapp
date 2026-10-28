@@ -1,6 +1,7 @@
 use super::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCreditRole, AssociateRecordingArtist,
-    MAX_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET, association_changes,
+    MAX_ASSOCIATIONS, MAX_RETAINED_ASSOCIATIONS, MetadataProvider, REQUEST_BUDGET,
+    association_changes,
     authority::{self, Credit},
     policy, provider,
 };
@@ -157,15 +158,14 @@ impl Catalog {
     }
 }
 
-pub(super) async fn retain(
+pub(super) async fn existing(
     connection: &mut SqliteConnection,
     actor: &Actor,
     recording: &str,
-    library: &str,
     request: &AssociateRecordingArtist,
-) -> Result<ArtistAssociation> {
+) -> Result<Option<String>> {
     let (kind, installation) = authority::provider_columns(&request.provider);
-    let existing: Option<String> = sqlx::query_scalar(
+    Ok(sqlx::query_scalar(
         "SELECT id FROM recording_artist_associations
             WHERE user_id=? AND recording_id=? AND artist_id=? AND source_id IS ? AND observation_id=?
                 AND provider_kind=? AND plugin_installation_id IS ? AND provider_artist_id=?",
@@ -178,24 +178,48 @@ pub(super) async fn retain(
     .bind(kind)
     .bind(installation)
     .bind(&request.provider_artist_id)
-    .fetch_optional(&mut *connection)
-    .await?;
-    let id = if let Some(existing) = existing {
+    .fetch_optional(connection)
+    .await?)
+}
+
+pub(super) async fn unlinked_match(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    request: &AssociateRecordingArtist,
+) -> Result<bool> {
+    match existing(connection, actor, recording, request).await? {
+        Some(id) => Ok(!association_changes::is_linked(connection, &id).await?),
+        None => Ok(false),
+    }
+}
+
+pub(super) async fn retain(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: &str,
+    library: &str,
+    request: &AssociateRecordingArtist,
+) -> Result<ArtistAssociation> {
+    let (kind, installation) = authority::provider_columns(&request.provider);
+    let id = if let Some(existing) = existing(connection, actor, recording, request).await? {
         if !association_changes::is_linked(connection, &existing).await? {
+            association_changes::ensure_room(connection, actor, recording).await?;
             association_changes::append(connection, actor, recording, &existing, true).await?;
         }
         existing
     } else {
-        let count: i64 = sqlx::query_scalar(
+        association_changes::ensure_room(connection, actor, recording).await?;
+        let retained: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM recording_artist_associations WHERE user_id=? AND recording_id=?",
         )
         .bind(actor.id())
         .bind(recording)
         .fetch_one(&mut *connection)
         .await?;
-        if count >= MAX_ASSOCIATIONS {
+        if retained >= MAX_RETAINED_ASSOCIATIONS {
             return Err(Error::Conflict(
-                "This recording already has 32 retained artist associations".into(),
+                "This recording has retained too many artist associations".into(),
             ));
         }
         let id = Uuid::new_v4().to_string();

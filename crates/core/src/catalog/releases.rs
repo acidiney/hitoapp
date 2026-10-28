@@ -1,6 +1,6 @@
-use super::artist_catalog;
 use super::{
-    AlbumEditionChoice, Browse, Catalog, Page, Recording, SourceAccess, push_source_access,
+    AlbumEditionChoice, Browse, Catalog, Page, Recording, SourceAccess, artist_catalog,
+    push_source_access,
 };
 use crate::{Actor, Error, Result, metadata};
 use serde::Serialize;

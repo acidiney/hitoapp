@@ -39,6 +39,7 @@ async fn artist_association_changes_are_added_without_touching_existing_data() {
     .await
     .unwrap();
     through(&all, 56).run(&mut connection).await.unwrap();
+    seed_legacy_association(&mut connection).await;
     assert_integrity(&mut connection).await;
     let before = snapshot::capture(&mut connection, 56).await;
     let before_schema = schema_of(&mut connection).await;
@@ -76,6 +77,7 @@ async fn artist_association_changes_are_added_without_touching_existing_data() {
     declared.sort_unstable();
     assert_eq!(added, declared);
     schema::assert_current(&mut connection).await;
+    assert_legacy_association_is_linked(&mut connection).await;
     guards(&mut connection).await;
     snapshot::assert_preserved(&mut connection, &before).await;
     connection.close().await.unwrap();
@@ -155,11 +157,10 @@ async fn guards(connection: &mut SqliteConnection) {
         CHANGE.replace("'evidence-recording'", "'migration-recording'"),
         CHANGE.replace("'change-association'", "'absent-association'"),
     ] {
-        let rejected = message(&mut transaction, &foreign).await;
-        assert!(
-            rejected.contains("Artist association changes require")
-                || rejected.contains("FOREIGN KEY"),
-            "a change must use the account's own association: {rejected}"
+        assert_eq!(
+            message(&mut transaction, &foreign).await,
+            "Artist association changes require the account's own association",
+            "a change must use the account's own association"
         );
     }
     for invalid in [
@@ -212,4 +213,40 @@ async fn guards(connection: &mut SqliteConnection) {
         "Artist association receipts must be retained"
     );
     transaction.rollback().await.unwrap();
+}
+
+async fn seed_legacy_association(connection: &mut SqliteConnection) {
+    let trigger: String = sqlx::query_scalar(
+        "SELECT sql FROM sqlite_schema WHERE type='trigger' AND name='recording_artist_association_scope'",
+    )
+    .fetch_one(&mut *connection)
+    .await
+    .unwrap();
+    let mut transaction = connection.begin().await.unwrap();
+    sqlx::query("DROP TRIGGER recording_artist_association_scope")
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO account_artists(user_id,id,library_id,name) VALUES('migration-owner','legacy-artist','migration-library','Legacy artist')")
+        .execute(&mut *transaction).await.unwrap();
+    sqlx::query("INSERT INTO recording_artist_associations(id,user_id,library_id,recording_id,artist_id,observation_id,role,provider_kind,plugin_installation_id,provider_artist_id,evidence)
+        VALUES('legacy-association','migration-owner','migration-library','evidence-recording','legacy-artist','evidence-primary-observation','recording_artist','http_plugin','migration-installation','legacy','user_confirmed')")
+        .execute(&mut *transaction).await.unwrap();
+    sqlx::query(&trigger)
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    transaction.commit().await.unwrap();
+}
+
+async fn assert_legacy_association_is_linked(connection: &mut SqliteConnection) {
+    let linked: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM recording_artist_associations assoc
+         WHERE assoc.id='legacy-association' AND COALESCE((SELECT change.linked FROM recording_artist_association_changes change
+            WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1),1)=1",
+    )
+    .fetch_one(connection)
+    .await
+    .unwrap();
+    assert_eq!(linked, 1, "associations from before 0057 stay linked");
 }
