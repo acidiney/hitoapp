@@ -535,3 +535,62 @@ async fn invalid_conflicting_and_foreign_splits_change_nothing() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn undo_is_refused_when_an_association_it_would_restore_was_unlinked_since() {
+    run(|library| {
+        Box::pin(async move {
+            let alpha = merged(library).await;
+            review(library, &library.namesake, catalog::BETA).await;
+            let associations = library
+                .hito
+                .catalog
+                .recording_artist_associations(&library.actor, &library.namesake)
+                .await
+                .unwrap();
+            let original = associations
+                .iter()
+                .find(|association| association.provider_artist_id == catalog::ALPHA)
+                .unwrap()
+                .id
+                .clone();
+            let moved = split(
+                library,
+                &library.actor,
+                &alpha,
+                request(0, &[&library.namesake], beta(library)),
+            )
+            .await
+            .unwrap();
+            library
+                .hito
+                .catalog
+                .unlink_recording_artist(
+                    &library.actor,
+                    &library.namesake,
+                    hito_core::UnlinkRecordingArtist {
+                        request_id: Uuid::new_v4(),
+                        expected_revision: library
+                            .hito
+                            .catalog
+                            .recording_artist_association_changes(&library.actor, &library.namesake)
+                            .await
+                            .unwrap()
+                            .revision,
+                        association_id: Uuid::parse_str(&original).unwrap(),
+                    },
+                )
+                .await
+                .unwrap();
+            assert!(
+                matches!(
+                    undo(library, &alpha, moved.revision).await,
+                    Err(Error::Conflict(_))
+                ),
+                "Undo must not restore a choice that points at an unlinked review"
+            );
+            assert_eq!(members(library, &alpha).await, 2);
+        })
+    })
+    .await;
+}

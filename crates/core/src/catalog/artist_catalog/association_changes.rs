@@ -237,6 +237,14 @@ impl Catalog {
             Error::Conflict("There is no saved artist review change to undo".into())
         })?;
         if !latest.linked {
+            if applied_for_association(&mut tx, &latest.association_id)
+                .await?
+                .is_some()
+            {
+                return Err(Error::Conflict(
+                    "Withdraw the shared correction made from this unlink before undoing it".into(),
+                ));
+            }
             ensure_room(&mut tx, actor, recording).await?;
         }
         let receipt = apply(

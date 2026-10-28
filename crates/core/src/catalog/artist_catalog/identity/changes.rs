@@ -1,4 +1,5 @@
 use super::{receipts, split::group_key};
+use crate::catalog::artist_catalog::association_changes::is_linked;
 use crate::{
     Actor, Catalog, Error, MetadataProvider, Result,
     catalog::artist_catalog::shared_corrections::{SharedCorrectionRef, applied_for_change},
@@ -462,6 +463,11 @@ impl Catalog {
         let latest = latest(&mut tx, actor, group)
             .await?
             .ok_or_else(|| Error::Conflict("There is no artist identity change to undo".into()))?;
+        if latest.kind == "split" && applied_for_change(&mut tx, &latest.id).await?.is_some() {
+            return Err(Error::Conflict(
+                "Withdraw the shared correction made from this split before undoing it".into(),
+            ));
+        }
         let reversed: Vec<Item> = items(&mut tx, &latest.id)
             .await?
             .iter()
@@ -473,6 +479,13 @@ impl Catalog {
             ));
         }
         for item in &reversed {
+            if let Some(association) = &item.to_association_id
+                && !is_linked(&mut tx, association).await?
+            {
+                return Err(Error::Conflict(
+                    "A review this change would restore was unlinked since. Review it again".into(),
+                ));
+            }
             let current: Option<(i64, bool, Option<String>)> = sqlx::query_as(
                 "SELECT revision,retired,association_id FROM recording_artist_identity_choices
                  WHERE user_id=? AND recording_id=?",

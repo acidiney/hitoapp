@@ -445,23 +445,44 @@ async fn an_administrator_can_share_an_unlink_while_personal_reviews_still_win()
                 before,
                 "Recordings, sources and personal state are unchanged"
             );
+            let undo_own = || UndoRecordingArtistChange {
+                request_id: Uuid::new_v4(),
+                expected_revision: 2,
+            };
+            assert!(
+                matches!(
+                    library
+                        .hito
+                        .catalog
+                        .undo_recording_artist_change(actor, local, undo_own())
+                        .await,
+                    Err(Error::Conflict(_))
+                ),
+                "An unlink that is shared cannot be undone until the shared correction is withdrawn"
+            );
             library
                 .hito
                 .catalog
-                .undo_recording_artist_change(
+                .undo_shared_artist_correction(
                     actor,
-                    local,
-                    UndoRecordingArtistChange {
+                    &receipt.correction_id,
+                    UndoSharedArtistCorrection {
                         request_id: Uuid::new_v4(),
-                        expected_revision: 2,
+                        expected_revision: 3,
                     },
                 )
+                .await
+                .unwrap();
+            library
+                .hito
+                .catalog
+                .undo_recording_artist_change(actor, local, undo_own())
                 .await
                 .unwrap();
             assert_eq!(
                 listed(library, actor, local).await,
                 1,
-                "Undoing the administrator's own unlink is a personal override and wins"
+                "After withdrawing, undoing the administrator's own unlink restores it"
             );
 
             let http = {
@@ -651,6 +672,24 @@ async fn an_administrator_can_share_a_split_and_withdraw_it() {
                 Err(Error::Conflict(_))
             ));
 
+            assert!(
+                matches!(
+                    library
+                        .hito
+                        .catalog
+                        .undo_artist_identity_change(
+                            actor,
+                            &first,
+                            hito_core::UndoArtistIdentityChange {
+                                request_id: Uuid::new_v4(),
+                                expected_revision: moved.revision,
+                            },
+                        )
+                        .await,
+                    Err(Error::Conflict(_))
+                ),
+                "A split that is shared cannot be undone until the shared correction is withdrawn"
+            );
             library
                 .hito
                 .catalog
