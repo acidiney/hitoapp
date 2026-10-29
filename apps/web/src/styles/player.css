@@ -28,6 +28,7 @@
 .now-playing strong {
   display: block;
   font-size: 15px;
+  line-height: 1.4;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -67,6 +68,10 @@
   border-radius: 50%;
   color: var(--ink);
 }
+.transport-buttons .transport-optional {
+  min-width: 40px;
+  min-height: 40px;
+}
 .transport-buttons .icon-button[aria-label="Shuffle"],
 .transport-buttons .icon-button[aria-label^="Repeat"] {
   color: var(--muted);
@@ -92,6 +97,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: -4px;
 }
 .seek input {
   flex: 1;
@@ -112,8 +118,10 @@
   color: var(--muted);
 }
 .player-tools select {
+  appearance: none;
   min-height: 40px;
-  padding: 0 10px;
+  padding: 0 14px;
+  text-align: center;
   border-radius: 10px;
   border: 1px solid var(--line);
   font-family: var(--font-mono);
@@ -122,14 +130,21 @@
 }
 .player-tools .icon-button {
   border: 1px solid var(--line);
+  background: var(--surface);
   color: var(--ink);
+}
+.player-tools .icon-button:hover:not(:disabled) {
+  background: var(--subtle);
+}
+.player-tools .queue-button {
+  gap: 8px;
+  padding: 0 12px;
 }
 .queue-label {
   font-size: 13px;
-  padding-right: 4px;
 }
 .volume {
-  width: 65px;
+  width: 72px;
 }
 .playback-status {
   position: absolute;

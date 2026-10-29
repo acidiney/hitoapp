@@ -3,10 +3,6 @@
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
   min-height: 100dvh;
   padding-bottom: var(--player);
-  padding-right: var(--listening);
-}
-.wide-workspace {
-  --listening: 0px;
 }
 .sidebar {
   position: fixed;
@@ -88,7 +84,7 @@
   color: var(--muted);
 }
 .sidebar-playlists {
-  margin: 20px 0 16px;
+  margin: 24px 0 16px;
   display: grid;
 }
 .sidebar-section-heading {
@@ -116,11 +112,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 12px;
   border-radius: 10px;
   font-size: 14px;
-  color: var(--ink);
+  color: var(--ink-soft);
 }
 .sidebar-playlists > a:hover {
   background: var(--subtle);
@@ -199,20 +195,20 @@
   background: var(--bg);
 }
 .topbar {
-  min-height: 80px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 0 32px;
+  padding: 0 48px;
 }
 .search {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 640px;
-  min-height: 48px;
+  max-width: 380px;
+  min-height: 44px;
   border: 1px solid var(--control-border);
   border-radius: 12px;
   background: var(--surface);
@@ -249,7 +245,7 @@
 .library-sections {
   display: flex;
   gap: 6px;
-  padding: 0 32px;
+  padding: 0 48px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -274,7 +270,7 @@
   font-weight: 700;
 }
 main#main {
-  padding: 26px 32px 48px;
+  padding: 28px 48px 40px;
   outline: none;
   max-width: 1700px;
   margin: 0 auto;
@@ -284,9 +280,10 @@ main#main {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 .page-heading .muted {
-  margin-top: 10px;
+  margin-top: 14px;
   font-size: 15px;
+  color: var(--ink-soft);
 }

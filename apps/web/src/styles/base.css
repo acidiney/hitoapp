@@ -5,9 +5,11 @@
   --subtle: #eeeeea;
   --line: #e6e5e1;
   --line-strong: #d6d5d0;
+  --line-soft: #efeeea;
   --control-off: #8a8984;
   --control-border: #8a8984;
   --ink: #141414;
+  --ink-soft: #3d3c39;
   --on-ink: #ffffff;
   --ink-hover: #3a3a37;
   --action-hover: #1f38e0;
@@ -30,7 +32,6 @@
   --panel: var(--surface);
   --hover: var(--subtle);
   --sidebar: 248px;
-  --listening: 292px;
   --player: 88px;
   --tabs: 0px;
   font-family: var(--font-sans);
@@ -47,9 +48,11 @@
     --subtle: #262624;
     --line: #2e2e2b;
     --line-strong: #3d3d39;
+    --line-soft: #242422;
     --control-off: #75746e;
     --control-border: #75746e;
     --ink: #f2f1ed;
+    --ink-soft: #cfcec8;
     --on-ink: #111110;
     --ink-hover: #ffffff;
     --action-hover: #8fa1ff;
@@ -127,12 +130,61 @@ input::placeholder {
   outline-offset: 2px;
 }
 input[type="range"] {
+  --fill: 0%;
+  appearance: none;
   border: 0;
   background: transparent;
   accent-color: var(--ink);
   padding: 0;
   height: 18px;
   cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--ink) var(--fill),
+    var(--line) var(--fill)
+  );
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0;
+}
+input[type="range"]:is(:hover, :focus-visible)::-webkit-slider-thumb,
+input[type="range"]:is(:hover, :focus-visible)::-moz-range-thumb {
+  opacity: 1;
+}
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 h1,
 h2,

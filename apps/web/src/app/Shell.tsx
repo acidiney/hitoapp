@@ -13,7 +13,12 @@ import { PlaybackProvider } from "../features/playback/components/PlaybackProvid
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
-const OWN_SEARCH = new Set(["HomePage", "SearchPage", "DiscoverPage"]);
+const OWN_SEARCH = new Set([
+  "HomePage",
+  "SearchPage",
+  "DiscoverPage",
+  "SettingsPage",
+]);
 
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();
@@ -60,7 +65,7 @@ export default function Shell({ children }: { children: ReactNode }) {
               </main>
             </div>
           </div>
-          <PlayerDock showListeningPanel={page.component !== "SettingsPage"} />
+          <PlayerDock />
         </PlaybackProvider>
       </ArtworkProvider>
     </NoticeProvider>

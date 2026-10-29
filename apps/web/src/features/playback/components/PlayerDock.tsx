@@ -4,24 +4,20 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
 } from "react";
-import { ListOrdered, Maximize2, Volume2 } from "lucide-react";
+import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
 import { coverIdentity } from "../../artwork/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
 import PlaybackQueue from "./PlaybackQueue";
 import Artwork from "../../artwork/components/Artwork";
-import ListeningPanel from "./ListeningPanel";
 import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 
-export default function PlayerDock({
-  showListeningPanel = false,
-}: {
-  showListeningPanel?: boolean;
-}) {
+export default function PlayerDock() {
   const player = usePlayer();
   const current = useSyncExternalStore(
     player.subscribe,
@@ -31,6 +27,10 @@ export default function PlayerDock({
     const state = player.snapshot();
     return state.connection === "ready" && state.controlsAvailable !== false;
   });
+  const queueTotal = useSyncExternalStore(
+    player.subscribe,
+    () => player.queueSnapshot().total,
+  );
   const [queueOpen, setQueueOpen] = useState(false);
   const volume = useSyncExternalStore(
     player.subscribe,
@@ -69,12 +69,6 @@ export default function PlayerDock({
   }
   return (
     <>
-      {showListeningPanel && !queueOpen && (
-        <ListeningPanel
-          expand={openExpanded}
-          openQueue={() => showQueue(true)}
-        />
-      )}
       {expanded && <NowPlaying close={closeExpanded} />}
       {queueOpen && <PlaybackQueue close={closeQueue} />}
       <footer className="player" aria-label="Audio player" hidden={expanded}>
@@ -109,6 +103,7 @@ export default function PlayerDock({
             min="0"
             max="1"
             step="0.05"
+            style={{ "--fill": `${volume * 100}%` } as CSSProperties}
             value={volume}
             onChange={(event) => player.volume(+event.target.value)}
           />
@@ -118,7 +113,7 @@ export default function PlayerDock({
             disabled={!current}
             onClick={(event) => openExpanded(event.currentTarget)}
           >
-            <Maximize2 size={17} />
+            <ChevronUp size={16} />
           </button>
           <button
             ref={queueButton}
@@ -127,8 +122,10 @@ export default function PlayerDock({
             aria-expanded={queueOpen}
             onClick={() => showQueue(!queueOpen)}
           >
-            <ListOrdered size={18} />
-            <span className="queue-label">Queue</span>
+            <ListOrdered size={16} />
+            <span className="queue-label">
+              Queue{queueTotal > 0 && ` · ${queueTotal}`}
+            </span>
           </button>
         </div>
         <PlaybackStatus />

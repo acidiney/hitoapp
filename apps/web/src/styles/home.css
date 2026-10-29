@@ -140,7 +140,7 @@
 }
 .unheard-why {
   font-size: 14px;
-  color: var(--muted);
+  color: var(--ink-soft);
 }
 .unheard-what {
   font-weight: 700;
@@ -149,6 +149,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.unheard-actions .button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
 }
 .home-hint {
   color: var(--muted);

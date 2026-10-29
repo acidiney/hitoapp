@@ -69,16 +69,11 @@ afterEach(() => {
   else Reflect.deleteProperty(prototype, "close");
 });
 
-test.each([
-  "Expand player",
-  "Open now playing",
-  "Expand now playing",
-  "View now playing artwork",
-])(
+test.each(["Expand player", "Open now playing"])(
   "closing now playing restores its actual %s opener after the footer returns",
   async (label) => {
     await act(async () => {
-      render(createElement(PlayerDock, { showListeningPanel: true }));
+      render(createElement(PlayerDock));
     });
     const opener = screen.getByRole("button", { name: label });
     opener.focus();

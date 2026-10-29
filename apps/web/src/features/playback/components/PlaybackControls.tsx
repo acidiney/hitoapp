@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type CSSProperties } from "react";
 import {
   Pause,
   Play,
@@ -40,7 +40,7 @@ export default function PlaybackControls() {
           aria-pressed={state.shuffle}
           onClick={() => player.shuffle()}
         >
-          <Shuffle size={17} />
+          <Shuffle size={16} />
         </button>
         <button
           className="icon-button transport-optional"
@@ -57,7 +57,7 @@ export default function PlaybackControls() {
           aria-label="Previous track"
           onClick={() => void player.previous()}
         >
-          <SkipBack size={19} />
+          <SkipBack size={18} fill="currentColor" />
         </button>
         <button
           className="play-button"
@@ -69,7 +69,7 @@ export default function PlaybackControls() {
           aria-label={playing ? "Pause" : "Play"}
           onClick={() => void player.toggle()}
         >
-          {playing ? <Pause size={21} /> : <Play size={21} />}
+          {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
         </button>
         <button
           className="icon-button"
@@ -77,7 +77,7 @@ export default function PlaybackControls() {
           aria-label="Next track"
           onClick={() => void player.next()}
         >
-          <SkipForward size={19} />
+          <SkipForward size={18} fill="currentColor" />
         </button>
         <button
           className={`icon-button transport-optional ${state.repeat !== "off" ? "selected" : ""}`}
@@ -92,7 +92,7 @@ export default function PlaybackControls() {
           aria-label={`Repeat: ${state.repeat}`}
           onClick={() => player.repeat()}
         >
-          <Repeat size={17} />
+          <Repeat size={16} />
           {state.repeat === "one" && <sup>1</sup>}
         </button>
       </div>
@@ -104,6 +104,11 @@ export default function PlaybackControls() {
           min="0"
           max={position.duration || 1}
           step="0.1"
+          style={
+            {
+              "--fill": `${position.duration ? Math.min(100, (position.position / position.duration) * 100) : 0}%`,
+            } as CSSProperties
+          }
           value={Math.min(position.position, position.duration || 0)}
           disabled={!selected || state.connection !== "ready"}
           onChange={(event) => player.seek(+event.target.value)}
