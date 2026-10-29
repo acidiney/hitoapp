@@ -80,24 +80,29 @@ Play on a catalog-only row saves that one recording through the provider that se
 
 ### Finding audio for tracks the catalog provider cannot save
 
-A catalog-only row offers **Play** only when the provider that served the edition can also save recordings and identifies the track. Every other audio row (the built-in MusicBrainz provider, a catalog-only plugin, or a track without a provider identity) offers **Find audio and play**. The action asks the account's own approved connections that offer both search and sources, then saves and plays only a match. It never uses names to link a row to a library recording.
+A catalog-only row offers **Play** only when the provider that served the edition can also save recordings and identifies the track. Every other audio row (the built-in MusicBrainz provider, a catalog-only plugin, or a track without a provider identity) offers **Find audio and play**. The action asks the account's own approved connections that offer both search and sources, saves the one recording that passes the automatic source policy, and plays it. It never uses names to link a row to a library recording.
 
 ```mermaid
 flowchart LR
   Click[Find audio and play on one row] --> Route[POST /api/v1/albums/id/edition-track-audio]
-  Route --> Reread[Core re-reads the edition and takes the row's title, credit, duration and album]
+  Route --> Admit[Per-account source-resolution capacity]
+  Admit --> Reread[Re-read the edition for the row's title, credit, duration and album]
   Reread --> Search[Up to 4 approved search and source connections, 3 detailed candidates each]
   Search --> Policy{Automatic source policy accepts?}
-  Policy -->|Yes| Found[Found: installation, revision, provider recording ID]
   Policy -->|No| None[No match, nothing saved]
-  Found --> Adopt[Existing adopt, then the normal player]
+  Policy -->|Yes| Save[Save in the same call, only if the provider still returns the accepted details and sources]
+  Save --> Play[Recording returned, normal player]
 ```
 
 The request names the album, the anchor recording, the reviewed association, the release group, the edition and the occurrence. It carries no title, artist or duration, so the evidence always comes from a fresh provider read under the same authority checks as the track list. Only audio rows of that edition qualify; unknown occurrences and pregap or data rows return not found.
 
-The match uses the same policy as automatic source resolution: equal normalized title and a known equal artist, durations within two percent (three to ten seconds), matching version qualifiers such as live or remix, a ready source and, for connections with the metadata capability, complete musical metadata. A candidate that fails any rule is dropped. If nothing passes, the answer is no match and the library is unchanged. A candidate already bound to another library recording is returned as is; the existing save returns that recording and creates no duplicate.
+The match uses the same policy as automatic source resolution: equal normalized title and a known equal artist, durations within two percent (three to ten seconds), matching version qualifiers such as live or remix, a ready source and, for connections with the metadata capability, complete musical metadata. The server enforces this, not the web app. The save is part of the same call: it fetches the provider's recording again and saves it only if the details and the ready-source list equal what the policy accepted. A provider that changes its answer in between gets the `changed` outcome and nothing is saved. A candidate already saved in the library returns that same recording, so repeating the search creates no duplicate. The general save route used by Discover is unchanged and is the user's own explicit choice.
 
-Outcomes: found, no match, no providers (nothing connected can search and supply audio), unavailable (a provider failed or the 15-second budget ended), cancelled, disabled, unsupported and needs choice. Unavailable and no match are shown on the row with the button still enabled, so the user can retry. The album table and library rows stay playable throughout. Finding audio saves nothing; the web app then saves the found provider recording with the existing save and starts playback through the normal owner. The saved recording is the audio provider's own recording. The catalog row is not linked to it after a reload, so a later visit shows the row as catalog-only again and finding audio returns the same saved recording.
+A catalog row with an unknown or collective credit (such as Various Artists), or without a length of at least one second, cannot be searched and reports `insufficient_evidence` instead of a failed match. A joined credit such as "A feat. B" is compared as that whole text, so it matches only a provider artist spelled the same way.
+
+The route takes the same per-account capacity as source resolution, so one account cannot start parallel searches and a search cannot starve playback resolution. A second request while one runs gets `busy` without any provider call.
+
+Outcomes: `saved`, `no_match`, `insufficient_evidence`, `no_providers`, `busy`, `changed`, `unavailable` (a provider failed or the 15-second budget ended), `cancelled`, `disabled`, `unsupported` and `needs_choice`. Failures are shown on the row with the button still enabled, so the user can retry, and the album table and library rows stay playable. The web app keeps found recordings per album, edition and occurrence, and switching edition cancels a pending search. The saved recording is the audio provider's own recording. The catalog row is not linked to it after a reload, so a later visit shows the row as catalog-only again and finding audio returns the same saved recording.
 
 Logs record the outcome, connection and candidate counts and timings only.
 
