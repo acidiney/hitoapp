@@ -98,7 +98,7 @@ test("a phone shows a three-tab bar with the mini player above it", async ({
   expect(Math.round(player!.y + player!.height)).toBeLessThanOrEqual(
     Math.round(bar!.y) + 1,
   );
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
   await expect(
     page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();
@@ -106,7 +106,7 @@ test("a phone shows a three-tab bar with the mini player above it", async ({
     .getByRole("link", { name: "Account and settings" })
     .boundingBox();
   const searchBox = await page.locator(".search").boundingBox();
-  expect(account!.y + account!.height).toBeLessThanOrEqual(searchBox!.y);
+  expect(account!.x).toBeGreaterThanOrEqual(searchBox!.x + searchBox!.width);
   for (const link of await navigation.getByRole("link").all()) {
     const box = await link.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
