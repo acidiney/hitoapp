@@ -294,6 +294,7 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [x] Phase 1, foundation: tokens (light and dark), bundled Geist fonts, shared primitives, new sidebar and phone tab bar, restyled player bar and mini player. Pages are restyled, not rebuilt; Início points at Discover until Home exists. See [status](docs/status.md#web-redesign-phase-1).
   - [ ] Phase 2: Biblioteca with filters (albums, artists, playlists, podcasts, audiobooks, likes, history) replacing the section strip, and the settings navigation.
   - [ ] Phase 3: real Home, Artist, Album and Playlist screens on the shared components, using the cover colour.
+  - [ ] Translate the interface (the prototype uses Portuguese; the app is English for now) as a separate i18n item: extract labels, choose the locale from the account or browser, keep ⌘K and other platform hints.
   - [ ] Phase 4: A tocar, Fila, Contas and invites, sign-in and account creation, the states board, and phone versions of the remaining screens.
 - [ ] Regenerate Hito's logo and wordmark with a new visual direction, replace the current orange waveform across the app, and verify readability at small sizes and as an application icon.
 

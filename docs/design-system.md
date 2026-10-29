@@ -7,11 +7,13 @@
 | Colour tokens, light and dark | Implemented in `apps/web/src/styles/base.css`; dark follows `prefers-color-scheme`. Old palette variables are aliases of the new tokens. |
 | Geist and Geist Mono | Implemented, bundled locally with `@fontsource-variable` (OFL-1.1, see [third-party notices](third-party-notices.md)). No CDN. |
 | Primitives in `apps/web/src/shared/ui` | Button, SegmentedControl, FilterPills, Switch, AvailabilityLabel, HealthDot, ListRow, SettingsCard, SectionWarning, FallbackCover, BrandMark. Not yet used by the old pages, which keep their class names. |
-| Shell | Sidebar with the mark, Início / Pesquisar (⌘K or Ctrl+K) / Biblioteca, playlists, account link, lock and sign-out. Below 768 px the navigation becomes a three-tab bottom bar. |
-| Player bar | Restyled (cover, title and artist, library ring, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
+| Shell | Sidebar with the mark, Home / Search (⌘K on Apple systems, Ctrl+K elsewhere) / Library, playlists, and an account bar (account and settings link, lock, sign-out) that sits at the bottom of the sidebar on desktop and in a header on phones. Below 768 px the navigation becomes a three-tab bottom bar. |
+| Player bar | Restyled (cover, title and artist, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
 | Home, Biblioteca filters, Settings navigation, Contas, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phases 2 and later). |
 
-Route mapping in phase 1: there is no Home page yet, so Início opens `/discover`, the closest existing page, until the real Home is built. Pesquisar focuses the library search field (or opens `/library` when the page has none). Biblioteca opens `/library`; albums, artists, playlists, podcasts, audiobooks, likes and history stay at their routes and are reachable from the "Library sections" strip shown on those pages. Settings open from the avatar.
+**Language.** The prototype labels are Portuguese, but the app stays English for now (Home, Search, Library, "Account and settings"). Translation is a separate i18n item in the [TODO](../TODO.md).
+
+Route mapping in phase 1: there is no Home page yet, so Home opens `/discover`, the closest existing page, until the real Home is built. Search is a button that focuses the library search field, or opens `/library` and focuses the field on arrival when the page has none. Library opens `/library`; albums, artists, playlists, podcasts, audiobooks, likes and history stay at their routes and are reachable from the "Library sections" strip shown on those pages. Settings open from the avatar.
 
 **Fallback cover rule (implemented).** `FallbackCover` takes its colours and shape from a 32-bit FNV-1a hash of the release id (the recording id when there is no release). The hash picks one of eight fixed palette entries (`coverPalette.ts`) and one of three shapes (circle, band, plain), so the same id looks the same on every visit and device. Real artwork always wins; the fallback shows only when no artwork loads.
 
@@ -39,6 +41,8 @@ The mark is the three availability states in a row, followed by the word "hito":
 The same three rings appear wherever availability is shown, so the brand and the core product idea are the same thing.
 
 ## Colour
+
+The table lists the base tokens. The app also defines `control-border` and `control-off` (3:1 on the page and surface, for input borders and a switch that is off), and `ink-hover` and `action-hover` for button hover. Cover colours come with an inset edge so dark covers show on a dark page.
 
 | Token | Value | Use |
 | --- | --- | --- |
@@ -93,4 +97,4 @@ Account creation is never linked from the sign-in screen. It is reachable only t
 - Dark mode screens.
 - Rebuilding each screen with the shared components (phases 2 and later); the speed control is still a native select and the player bar has no queue count.
 - The cover colour for headers (computed from real artwork on the server) is not built.
-- No source or provider label is available for the playing track, so the player bar shows only the library ring.
+- No source or provider label is available for the playing track, so the player bar shows none until the track carries a source.
