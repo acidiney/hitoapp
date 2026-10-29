@@ -2,6 +2,8 @@ mod capability;
 mod convert;
 mod decoding;
 mod error;
+#[cfg(any(feature = "device", test))]
+mod negotiate;
 mod resample;
 
 pub use capability::{MAX_SPEED, MIN_SPEED, SpeedCapability};
