@@ -170,6 +170,26 @@ async fn http_similar_artists_use_the_chosen_plugin_and_link_exact_chosen_artist
         call(&app, "POST", &missing, body, token).await.0,
         StatusCode::NOT_FOUND
     );
+    let before = server.requests().len();
+    let (status, _) = call(
+        &app,
+        "PUT",
+        "/api/v1/account/pin",
+        json!({"password": "administrator test password", "pin": "1234", "idle_minutes": 0}),
+        token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = call(&app, "POST", "/api/v1/account/lock", Value::Null, token).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, locked) = call(&app, "POST", &path, json!({"limit": 5}), token).await;
+    assert_eq!(status, StatusCode::LOCKED);
+    assert_eq!(locked["code"], "locked");
+    assert_eq!(
+        server.requests().len(),
+        before,
+        "a locked session never reaches the plugin"
+    );
     assert_eq!(server.unexpected(), 0);
     assert!(server.finish().await);
 }

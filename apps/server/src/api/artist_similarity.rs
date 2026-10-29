@@ -20,7 +20,7 @@ use uuid::Uuid;
     (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
     (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
     (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
-    (status = 500, body = ErrorResponse), (status = 502, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse), (status = 502, body = ErrorResponse),
 ))]
 #[tracing::instrument(level = "debug", skip_all, fields(operation = "http_recording_similar_artists", request_id = %Uuid::new_v4()))]
 pub async fn read(
