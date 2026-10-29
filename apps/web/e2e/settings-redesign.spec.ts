@@ -40,15 +40,10 @@ test("settings deep links, legacy aliases and the grouped navigation work for an
   await expect(
     page.getByRole("heading", { name: "About", level: 2 }),
   ).toBeFocused();
-});
 
-test("a phone drills from the settings list into a section and back", async ({
-  page,
-}) => {
-  await enterAdmin(page);
+  // phone drill-down
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings");
-  const nav = page.getByRole("navigation", { name: "Settings sections" });
   await expect(nav).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
   await expect(
