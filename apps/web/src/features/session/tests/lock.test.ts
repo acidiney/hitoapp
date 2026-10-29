@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import Sidebar from "../../../app/Sidebar";
+import AccountMenu from "../../../app/AccountMenu";
 import LockPage from "../pages/LockPage";
 import ScreenLockSettings from "../components/ScreenLockSettings";
 import { useIdleLock } from "../hooks/useIdleLock";
@@ -60,7 +60,7 @@ function sidebar(lock: typeof unlocked) {
     createElement(
       NoticeProvider,
       null,
-      createElement(Sidebar, { user, playlists: [], path: "/library", lock }),
+      createElement(AccountMenu, { user, path: "/library", lock }),
     ),
   );
   return clear;

@@ -1,31 +1,21 @@
 import { Link } from "@inertiajs/react";
-import { Home, Library, Lock, LogOut, Plus, Search } from "lucide-react";
-import { useSignOut } from "../features/session/hooks/useSignOut";
-import { useLockSession } from "../features/session/hooks/useLockSession";
-import { useIdleLock } from "../features/session/hooks/useIdleLock";
-import { usePlayer } from "../features/playback/components/PlaybackProvider";
+import { Home, Library, Plus, Search } from "lucide-react";
 import BrandMark from "../shared/ui/BrandMark";
 import { coverStyle } from "../shared/ui/coverPalette";
-import type { LockStatus, Playlist, User } from "../shared/types";
+import type { Playlist } from "../shared/types";
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
-import { focusShellSearch } from "./LibrarySearch";
+import { isApplePlatform, openSearch, shortcutLabel } from "./searchShortcut";
+
+const shortcut = shortcutLabel(isApplePlatform());
 
 export default function Sidebar({
-  user,
   playlists,
-  lock,
   path,
 }: {
-  user: User;
   playlists: Playlist[];
-  lock: LockStatus;
   path: string;
 }) {
-  const player = usePlayer();
-  const { busy, signOut } = useSignOut(user.id, () => player.clear());
-  const locking = useLockSession(user.id, () => player.clear());
-  useIdleLock(user.id, lock, () => player.clear());
   const destination = currentDestination(path);
   const mark = (route: string) => () =>
     log.info("navigation.requested", { route });
@@ -42,26 +32,25 @@ export default function Sidebar({
           onClick={mark("/discover")}
         >
           <Home size={18} aria-hidden="true" />
-          Início
+          Home
         </Link>
-        <Link
-          href="/library"
-          onClick={(event) => {
-            if (focusShellSearch()) event.preventDefault();
-            else mark("/library")();
-          }}
+        <button
+          type="button"
+          aria-label="Open search"
+          aria-keyshortcuts={shortcut.keys}
+          onClick={openSearch}
         >
           <Search size={18} aria-hidden="true" />
-          Pesquisar
-          <kbd>⌘K</kbd>
-        </Link>
+          Search
+          <kbd aria-hidden="true">{shortcut.text}</kbd>
+        </button>
         <Link
           href="/library"
           aria-current={destination === "library" ? "page" : undefined}
           onClick={mark("/library")}
         >
           <Library size={18} aria-hidden="true" />
-          Biblioteca
+          Library
         </Link>
       </nav>
       <div className="sidebar-playlists">
@@ -84,39 +73,6 @@ export default function Sidebar({
         {playlists.length === 0 && (
           <span className="muted">Keep a collection of your own.</span>
         )}
-      </div>
-      <div className="account">
-        <Link
-          href="/settings"
-          className="account-link"
-          aria-label="Conta e definições"
-          aria-current={destination === "settings" ? "page" : undefined}
-          onClick={mark("/settings")}
-        >
-          <span className="avatar">{user.username[0]?.toUpperCase()}</span>
-          <span>
-            {user.username}
-            <small>{user.admin ? "Administrator" : "Conta e definições"}</small>
-          </span>
-        </Link>
-        {lock.pin_enabled && (
-          <button
-            className="icon-button"
-            aria-label="Lock"
-            disabled={locking.busy}
-            onClick={() => void locking.lock()}
-          >
-            <Lock size={17} />
-          </button>
-        )}
-        <button
-          className="icon-button"
-          aria-label="Sign out"
-          disabled={busy}
-          onClick={() => void signOut()}
-        >
-          <LogOut size={17} />
-        </button>
       </div>
     </aside>
   );

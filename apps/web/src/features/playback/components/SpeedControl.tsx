@@ -15,6 +15,7 @@ export default function SpeedControl({ available }: { available: boolean }) {
   );
   return (
     <select
+      className="speed-select"
       aria-label="Playback speed"
       value={speed}
       disabled={!player.supports.speed || !available}

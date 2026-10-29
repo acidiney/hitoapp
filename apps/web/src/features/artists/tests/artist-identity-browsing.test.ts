@@ -243,9 +243,7 @@ test("group detail stays within Artists navigation", () => {
       NoticeProvider,
       null,
       createElement(Sidebar, {
-        user: index.user,
         playlists: index.playlists,
-        lock: { pin_enabled: false, idle_minutes: 0, locked: false },
         path,
       }),
       createElement(LibrarySections, { path }),
@@ -266,7 +264,7 @@ test("group detail stays within Artists navigation", () => {
   ).toBeNull();
   expect(
     within(screen.getByRole("navigation", { name: "Main navigation" }))
-      .getByRole("link", { name: "Biblioteca" })
+      .getByRole("link", { name: "Library" })
       .getAttribute("aria-current"),
   ).toBe("page");
 });

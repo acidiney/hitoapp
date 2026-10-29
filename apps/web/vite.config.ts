@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { assetFileNames } from "./vite.assets";
 export default defineConfig({
   plugins: [react()],
   build: {
@@ -7,7 +8,7 @@ export default defineConfig({
       input: "src/app/main.tsx",
       output: {
         entryFileNames: "assets/app.js",
-        assetFileNames: "assets/app.[ext]",
+        assetFileNames,
         chunkFileNames: "assets/[name]-[hash].js",
       },
     },

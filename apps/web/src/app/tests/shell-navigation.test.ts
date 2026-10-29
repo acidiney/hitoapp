@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import Sidebar from "../Sidebar";
+import AccountMenu from "../AccountMenu";
 import LibrarySections from "../LibrarySections";
 import { NoticeProvider } from "../../shared/ui/Notices";
 import { usePlayer } from "../../features/playback/components/PlaybackProvider";
@@ -14,6 +15,11 @@ vi.mock("@inertiajs/react", () => ({
 vi.mock("../../features/playback/components/PlaybackProvider", () => ({
   usePlayer: vi.fn(),
 }));
+vi.mock("../searchShortcut", () => ({
+  openSearch: vi.fn(),
+  shortcutLabel: () => ({ text: "⌘K", keys: "Meta+K" }),
+  isApplePlatform: () => true,
+}));
 
 const user = { id: "alice-id", username: "alice", admin: false };
 const lock = { pin_enabled: true, idle_minutes: 0, locked: false };
@@ -23,50 +29,61 @@ const playlists = [
 ];
 
 function sidebar(path: string) {
-  vi.mocked(usePlayer).mockReturnValue({ clear: vi.fn() } as never);
   render(
     createElement(
       NoticeProvider,
       null,
-      createElement(Sidebar, {
-        user,
-        playlists: playlists as never,
-        lock,
-        path,
-      }),
+      createElement(Sidebar, { playlists: playlists as never, path }),
     ),
   );
   return screen.getByRole("navigation", { name: "Main navigation" });
 }
 
-test("the main navigation has exactly three destinations with their routes", () => {
+function account(path: string, pin = true) {
+  vi.mocked(usePlayer).mockReturnValue({ clear: vi.fn() } as never);
+  render(
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(AccountMenu, {
+        user,
+        lock: { ...lock, pin_enabled: pin },
+        path,
+      }),
+    ),
+  );
+}
+
+test("the main navigation offers Home and Library links and a Search button", () => {
   const navigation = sidebar("/library");
   const links = within(navigation).getAllByRole("link");
-  expect(links.map((link) => link.textContent)).toEqual([
-    "Início",
-    expect.stringContaining("Pesquisar"),
-    "Biblioteca",
-  ]);
+  expect(links.map((link) => link.textContent)).toEqual(["Home", "Library"]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
     "/discover",
     "/library",
-    "/library",
   ]);
+  const search = within(navigation).getByRole("button", {
+    name: "Open search",
+  });
+  expect(search.textContent).toContain("Search");
+  expect(search.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
+  expect(search.querySelector("kbd")?.getAttribute("aria-hidden")).toBe("true");
+  expect(search.querySelector("kbd")?.textContent).toBe("⌘K");
 });
 
 test.each([
-  ["/library", "Biblioteca"],
-  ["/", "Biblioteca"],
-  ["/albums", "Biblioteca"],
-  ["/artists", "Biblioteca"],
-  ["/artist-groups/g1", "Biblioteca"],
-  ["/playlists/p1", "Biblioteca"],
-  ["/podcasts", "Biblioteca"],
-  ["/audiobooks", "Biblioteca"],
-  ["/likes", "Biblioteca"],
-  ["/history", "Biblioteca"],
-  ["/recordings/r1", "Biblioteca"],
-  ["/discover", "Início"],
+  ["/library", "Library"],
+  ["/", "Library"],
+  ["/albums", "Library"],
+  ["/artists", "Library"],
+  ["/artist-groups/g1", "Library"],
+  ["/playlists/p1", "Library"],
+  ["/podcasts", "Library"],
+  ["/audiobooks", "Library"],
+  ["/likes", "Library"],
+  ["/history", "Library"],
+  ["/recordings/r1", "Library"],
+  ["/discover", "Home"],
 ])("%s marks %s as the current destination", (path, current) => {
   const navigation = sidebar(path);
   const marked = within(navigation)
@@ -75,9 +92,17 @@ test.each([
   expect(marked.map((link) => link.textContent)).toEqual([current]);
 });
 
-test("search shows the keyboard hint and the mark names the product", () => {
+test("the Search button asks the shell to open search", async () => {
+  const { openSearch } = await import("../searchShortcut");
   const navigation = sidebar("/library");
-  expect(within(navigation).getByText("⌘K")).toBeTruthy();
+  fireEvent.click(
+    within(navigation).getByRole("button", { name: "Open search" }),
+  );
+  expect(openSearch).toHaveBeenCalled();
+});
+
+test("the mark names the product", () => {
+  sidebar("/library");
   expect(screen.getByRole("link", { name: /hito/ })).toBeTruthy();
 });
 
@@ -97,36 +122,31 @@ test("playlists are listed with a create link", () => {
 });
 
 test("the avatar opens account and settings while lock and sign out stay reachable", () => {
-  sidebar("/library");
+  account("/library");
   expect(
     screen
-      .getByRole("link", { name: "Conta e definições" })
+      .getByRole("link", { name: "Account and settings" })
       .getAttribute("href"),
   ).toBe("/settings");
   expect(screen.getByRole("button", { name: "Lock" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
 });
 
+test("lock is offered only with a PIN", () => {
+  account("/library", false);
+  expect(screen.queryByRole("button", { name: "Lock" })).toBeNull();
+});
+
 test("the settings link is current on settings pages", () => {
-  sidebar("/settings");
+  account("/settings");
   expect(
     screen
-      .getByRole("link", { name: "Conta e definições" })
+      .getByRole("link", { name: "Account and settings" })
       .getAttribute("aria-current"),
   ).toBe("page");
 });
 
-test("search focuses the search field on pages that have one", () => {
-  const input = document.createElement("input");
-  input.id = "shell-search";
-  document.body.append(input);
-  const navigation = sidebar("/library");
-  fireEvent.click(within(navigation).getByRole("link", { name: /Pesquisar/ }));
-  expect(document.activeElement).toBe(input);
-  input.remove();
-});
-
-test("library sections keep every collection page reachable from Biblioteca", () => {
+test("library sections keep every collection page reachable from Library", () => {
   render(createElement(LibrarySections, { path: "/artist-groups/g1" }));
   const navigation = screen.getByRole("navigation", {
     name: "Library sections",

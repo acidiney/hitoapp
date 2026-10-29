@@ -6,7 +6,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ListOrdered, Maximize2, Volume2 } from "lucide-react";
-import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import { coverIdentity } from "../../artwork/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
@@ -98,12 +97,11 @@ export default function PlayerDock({
               {current?.artist ?? "Choose a track from your library"}
             </small>
           </span>
-          {current && <AvailabilityLabel state="library" />}
         </div>
         <PlaybackControls />
         <div className="player-tools">
           <SpeedControl available={controlsAvailable} />
-          <Volume2 size={18} />
+          <Volume2 className="volume-icon" size={18} />
           <input
             className="volume"
             aria-label="Volume"
@@ -124,7 +122,7 @@ export default function PlayerDock({
           </button>
           <button
             ref={queueButton}
-            className={`icon-button ${queueOpen ? "selected" : ""}`}
+            className={`icon-button queue-button ${queueOpen ? "selected" : ""}`}
             aria-label="Open queue"
             aria-expanded={queueOpen}
             onClick={() => showQueue(!queueOpen)}

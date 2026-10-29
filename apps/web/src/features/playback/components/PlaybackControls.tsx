@@ -27,7 +27,7 @@ export default function PlaybackControls() {
     <div className="transport">
       <div className="transport-buttons">
         <button
-          className={`icon-button ${state.shuffle ? "selected" : ""}`}
+          className={`icon-button transport-optional ${state.shuffle ? "selected" : ""}`}
           disabled={
             !queued || !player.supports.shuffle || state.connection !== "ready"
           }
@@ -43,7 +43,7 @@ export default function PlaybackControls() {
           <Shuffle size={17} />
         </button>
         <button
-          className="icon-button"
+          className="icon-button transport-optional"
           disabled={
             !(state.canPrevious ?? selected) ||
             !player.supports.previous ||
@@ -80,7 +80,7 @@ export default function PlaybackControls() {
           <SkipForward size={19} />
         </button>
         <button
-          className={`icon-button ${state.repeat !== "off" ? "selected" : ""}`}
+          className={`icon-button transport-optional ${state.repeat !== "off" ? "selected" : ""}`}
           disabled={
             !queued || !player.supports.repeat || state.connection !== "ready"
           }

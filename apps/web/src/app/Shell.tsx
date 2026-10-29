@@ -1,9 +1,11 @@
 import { useEffect, type ReactNode } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 import type { SharedPageProps } from "../shared/types";
 import { log } from "../shared/log";
-import LibrarySearch, { focusShellSearch } from "./LibrarySearch";
+import AccountMenu from "./AccountMenu";
+import LibrarySearch from "./LibrarySearch";
+import { handleSearchShortcut, isApplePlatform } from "./searchShortcut";
 import LibrarySections from "./LibrarySections";
 import Sidebar from "./Sidebar";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
@@ -19,14 +21,10 @@ export default function Shell({ children }: { children: ReactNode }) {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
   useEffect(() => {
-    function openSearch(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k")
-        return;
-      event.preventDefault();
-      if (!focusShellSearch()) router.get("/library");
-    }
-    window.addEventListener("keydown", openSearch);
-    return () => window.removeEventListener("keydown", openSearch);
+    const apple = isApplePlatform();
+    const listen = (event: KeyboardEvent) => handleSearchShortcut(event, apple);
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
   }, []);
   return (
     <NoticeProvider key={user.id}>
@@ -38,13 +36,9 @@ export default function Shell({ children }: { children: ReactNode }) {
           <div
             className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
           >
-            <Sidebar
-              user={user}
-              playlists={playlists}
-              lock={lock}
-              path={url.pathname}
-            />
+            <Sidebar playlists={playlists} path={url.pathname} />
             <div className="workspace">
+              <AccountMenu user={user} lock={lock} path={url.pathname} />
               {page.component !== "DiscoverPage" && (
                 <LibrarySearch
                   query={url.searchParams.get("q") ?? ""}
