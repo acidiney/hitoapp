@@ -1,31 +1,32 @@
 .settings {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 48px;
-  max-width: 1080px;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 40px;
   align-items: start;
 }
 .settings-nav {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 18px;
+  gap: 2px;
 }
 .settings-nav-group {
-  margin: 0 0 4px;
-  padding: 0 12px;
+  margin: 0;
+  padding: 14px 12px 6px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--muted);
+}
+.settings-nav [role="group"] {
+  display: grid;
+  gap: 2px;
 }
 .settings-nav a {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 12px;
   border-radius: 10px;
   font-weight: 500;
@@ -45,7 +46,7 @@
   display: grid;
   gap: 20px;
   min-width: 0;
-  max-width: 760px;
+  max-width: 820px;
 }
 .settings-back {
   display: none;
@@ -58,10 +59,13 @@
   display: grid;
   gap: 20px;
 }
+.settings-section-heading {
+  display: grid;
+  gap: 6px;
+}
 .settings-section-heading h2 {
-  font-size: 26px;
+  font-size: 24px;
   letter-spacing: -0.02em;
-  margin-bottom: 4px;
 }
 .settings-section-heading h2:focus-visible {
   outline-offset: 4px;
@@ -69,17 +73,23 @@
 .settings-section-heading p {
   margin: 0;
   max-width: 65ch;
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--ink-soft);
 }
 .settings-card-hint {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   max-width: 65ch;
   font-size: 13px;
   color: var(--muted);
 }
 .settings-card > header {
-  align-items: flex-start;
-  padding: 16px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom-color: var(--line-soft);
+}
+.settings-card > header .button {
+  min-height: 38px;
+  padding: 0 14px;
 }
 .settings-card h3 {
   margin: 0;
@@ -87,6 +97,10 @@
 .settings-card-body p {
   max-width: 65ch;
   font-size: 13px;
+  color: var(--muted);
+}
+.settings-card-body > p {
+  padding: 12px 0;
 }
 .settings-card-body > * + * {
   margin-top: 0;
@@ -102,7 +116,7 @@
   padding: 12px 0;
 }
 .setting-line {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 .setting-line:first-child {
   border-top: 0;
@@ -113,7 +127,7 @@
   align-items: center;
   gap: 16px;
   min-height: 64px;
-  padding: 10px 0;
+  padding: 12px 0;
 }
 .setting-line[data-wide] .setting-line-main {
   grid-template-columns: minmax(0, 1fr) 160px 300px;
@@ -124,6 +138,7 @@
 }
 .setting-line-title {
   font-weight: 700;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .setting-line-title :is(h4, h3) {
@@ -165,13 +180,19 @@
   justify-content: flex-end;
   gap: 8px;
 }
+.setting-line-action .button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
+}
 .plain-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 .plain-list > li + li {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 .plain-list .setting-line {
   border-top: 0;
@@ -182,7 +203,7 @@
   margin: 0;
 }
 .provider-order > li + li {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 .provider-order .setting-line {
   border-top: 0;
@@ -215,13 +236,16 @@
 .profile-identity {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 0;
+  gap: 20px;
+  padding: 20px 0;
+}
+.profile-identity .setting-line-title {
+  font-size: 20px;
 }
 .avatar.large {
-  width: 56px;
-  height: 56px;
-  font-size: 20px;
+  width: 72px;
+  height: 72px;
+  font-size: 24px;
 }
 .setting-line-path {
   font-family: var(--font-mono);
@@ -320,6 +344,15 @@
   .settings-card > header {
     flex-direction: column;
   }
+  .settings-card .segmented {
+    display: flex;
+    align-self: stretch;
+  }
+  .settings-card .segmented button {
+    flex: 1 1 0;
+    padding: 0 6px;
+    min-height: 44px;
+  }
 }
 .library-chooser {
   display: grid;
@@ -336,6 +369,6 @@
   background: var(--surface);
 }
 .setting-line-action .icon-button {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 36px;
+  min-height: 36px;
 }

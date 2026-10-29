@@ -51,11 +51,7 @@ export default function SettingsPage(props: SettingsPageProps) {
   }
   return (
     <UnsavedContext.Provider value={unsaved}>
-      <PageHeading
-        title="Settings"
-        description="Make Hito feel at home."
-        headingRef={pageHeading}
-      />
+      <PageHeading title="Settings" headingRef={pageHeading} />
       <div
         className="settings"
         data-view={chosen ? "section" : "list"}

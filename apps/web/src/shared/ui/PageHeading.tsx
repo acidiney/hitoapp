@@ -7,7 +7,7 @@ export default function PageHeading({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   headingRef?: Ref<HTMLHeadingElement>;
   children?: ReactNode;
 }) {
@@ -17,7 +17,7 @@ export default function PageHeading({
         <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
           {title}
         </h1>
-        <p className="muted">{description}</p>
+        {description && <p className="muted">{description}</p>}
       </div>
       {children}
     </div>

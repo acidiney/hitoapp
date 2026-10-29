@@ -33,13 +33,15 @@
 }
 .segmented {
   display: inline-flex;
+  align-self: flex-start;
+  justify-self: start;
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--subtle);
 }
 .segmented button {
-  min-height: 44px;
+  min-height: 36px;
   padding: 0 14px;
   border: 0;
   border-radius: 8px;
@@ -76,7 +78,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 64px;
+  min-height: 56px;
   padding: 8px 0;
 }
 .switch-copy {
@@ -84,7 +86,7 @@
   min-width: 0;
 }
 .switch-label {
-  font-weight: 700;
+  font-weight: 600;
 }
 .switch-hint {
   font-size: 13px;
@@ -102,7 +104,7 @@
 .switch::before {
   content: "";
   position: absolute;
-  inset: 10px 0;
+  inset: 9px 0;
   border-radius: 999px;
   background: var(--control-off);
 }
@@ -111,15 +113,15 @@
 }
 .switch-knob {
   position: absolute;
-  top: 13px;
+  top: 12px;
   left: 3px;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--surface);
 }
 .switch[aria-checked="true"] .switch-knob {
-  left: 23px;
+  left: 21px;
 }
 @media (prefers-reduced-motion: no-preference) {
   .switch-knob {
@@ -136,15 +138,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
 }
 .settings-card h3 {
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 800;
 }
 .settings-card-body {
-  padding: 4px 16px;
+  padding: 0 18px;
 }
 .list-row {
   display: grid;
@@ -152,7 +154,7 @@
   gap: 12px;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-soft);
 }
 .list-row-cover {
   width: 56px;
