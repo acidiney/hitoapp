@@ -201,3 +201,7 @@ fn canonical(page: &ArtistSimilarityPage) -> bool {
         .iter()
         .all(|item| validate_builtin_id(&item.artist.id).is_ok())
 }
+
+#[cfg(test)]
+#[path = "tests/similar_lookup_work.rs"]
+mod lookup_work;

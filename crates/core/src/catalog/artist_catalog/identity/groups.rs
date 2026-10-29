@@ -332,12 +332,17 @@ pub(in crate::catalog::artist_catalog) async fn chosen_groups_by_musicbrainz_id(
     }
     let requested = serde_json::to_string(ids)
         .map_err(|_| Error::Internal("Artist identities could not be encoded".into()))?;
-    let mut query = visible(actor, None, None);
-    query.push(
-        "SELECT id,provider_artist_id FROM summary WHERE provider_kind='builtin_musicbrainz' \
-         AND provider_artist_id IN (SELECT value FROM json_each(",
+    let mut query = QueryBuilder::new(
+        "SELECT g.id,g.provider_artist_id FROM account_artist_identity_groups g WHERE g.user_id=",
     );
-    query.push_bind(requested).push("))");
+    query
+        .push_bind(actor.id().to_owned())
+        .push(" AND g.provider_key='builtin:musicbrainz' AND g.provider_artist_id IN (SELECT value FROM json_each(")
+        .push_bind(requested)
+        .push(")) AND EXISTS (SELECT 1 ")
+        .push(current_choices())
+        .push_bind(actor.id().to_owned())
+        .push(" AND choice.group_id=g.id)");
     let rows: Vec<(String, String)> = query.build_query_as().fetch_all(connection).await?;
     Ok(rows
         .into_iter()
