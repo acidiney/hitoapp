@@ -155,7 +155,9 @@ async function captureMedia(page: Page) {
     await page.keyboard.press("Escape");
     await page.goto("/audiobooks");
     await shoot(page, "audiobooks-empty", size.name);
-    await page.getByRole("button", { name: "Add audiobook from a playlist" }).click();
+    await page
+      .getByRole("button", { name: "Add audiobook from a playlist" })
+      .click();
     await page
       .getByRole("dialog")
       .getByRole("combobox", { name: "Playlist" })
@@ -165,12 +167,20 @@ async function captureMedia(page: Page) {
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/audiobooks");
-  await page.getByRole("button", { name: "Add audiobook from a playlist" }).click();
+  await page
+    .getByRole("button", { name: "Add audiobook from a playlist" })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Add an audiobook" });
-  await dialog.getByRole("combobox", { name: "Playlist" }).selectOption({ label: "Late night" });
-  await dialog.getByRole("button", { name: "Add audiobook", exact: true }).click();
+  await dialog
+    .getByRole("combobox", { name: "Playlist" })
+    .selectOption({ label: "Late night" });
+  await dialog
+    .getByRole("button", { name: "Add audiobook", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/audiobooks\/[0-9a-f-]+$/);
-  await page.getByRole("button", { name: "Play chapter 2 from beginning" }).click();
+  await page
+    .getByRole("button", { name: "Play chapter 2 from beginning" })
+    .click();
   await expect
     .poll(() =>
       page
@@ -182,7 +192,9 @@ async function captureMedia(page: Page) {
   await page.waitForTimeout(1500);
   await page.reload();
   const bookmarks = page.getByRole("region", { name: "Bookmarks" });
-  await bookmarks.getByRole("combobox", { name: /Chapter/ }).selectOption({ index: 2 });
+  await bookmarks
+    .getByRole("combobox", { name: /Chapter/ })
+    .selectOption({ index: 2 });
   await bookmarks.getByLabel("Position in seconds").fill("1.5");
   await bookmarks.getByLabel("Bookmark label").fill("Start of the good part");
   await bookmarks.getByRole("button", { name: "Save bookmark" }).click();
@@ -265,30 +277,27 @@ async function captureMockedPodcasts(page: Page) {
     url: string,
     extra: Record<string, unknown>,
   ) => ({ ...base, component, url, props: { ...base.props, ...extra } });
-  await page.route(
-    /\/(podcasts|api\/v1\/podcasts)(\/.*)?(\?.*)?$/,
-    (route) => {
-      const request = route.request();
-      const path = new URL(request.url()).pathname;
-      if (path === "/api/v1/podcasts")
-        return route.fulfill({ json: [subscription] });
-      if (path.endsWith("/episodes")) return route.fulfill({ json: archive });
-      if (path.startsWith("/api/") || !request.headers()["x-inertia"])
-        return route.fallback();
-      const body =
-        path === "/podcasts"
-          ? inertia("PodcastIndexPage", path, { subscriptions: [subscription] })
-          : inertia("PodcastPage", path, {
-              subscription,
-              episodes: archive,
-              progress,
-            });
-      return route.fulfill({
-        json: body,
-        headers: { "x-inertia": "true", vary: "X-Inertia" },
-      });
-    },
-  );
+  await page.route(/\/(podcasts|api\/v1\/podcasts)(\/.*)?(\?.*)?$/, (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/v1/podcasts")
+      return route.fulfill({ json: [subscription] });
+    if (path.endsWith("/episodes")) return route.fulfill({ json: archive });
+    if (path.startsWith("/api/") || !request.headers()["x-inertia"])
+      return route.fallback();
+    const body =
+      path === "/podcasts"
+        ? inertia("PodcastIndexPage", path, { subscriptions: [subscription] })
+        : inertia("PodcastPage", path, {
+            subscription,
+            episodes: archive,
+            progress,
+          });
+    return route.fulfill({
+      json: body,
+      headers: { "x-inertia": "true", vary: "X-Inertia" },
+    });
+  });
   await page.route("**/api/v1/recordings/progress", (route) =>
     route.fulfill({ json: progress }),
   );
@@ -310,6 +319,70 @@ async function captureMockedPodcasts(page: Page) {
     await shoot(page, "podcast", size.name);
     await page.getByRole("radio", { name: "All" }).click();
     await shoot(page, "podcast-all", size.name);
+  }
+}
+
+async function captureListening(page: Page) {
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto("/library");
+    const expand = page.getByRole("button", {
+      name: "Expand player",
+      exact: true,
+    });
+    if (!(await expand.isEnabled())) {
+      await page
+        .getByRole("button", { name: /^Play / })
+        .first()
+        .click();
+      await expect(expand).toBeEnabled({ timeout: 20000 });
+    }
+    await expand.click();
+    const dialog = page.getByRole("dialog", { name: "Now playing" });
+    await expect(dialog).toBeVisible();
+    for (const tab of ["Up next", "Lyrics", "Source"]) {
+      await dialog.getByRole("tab", { name: tab, exact: true }).click();
+      await shoot(
+        page,
+        `now-playing-${tab.toLowerCase().replace(" ", "-")}`,
+        size.name,
+      );
+    }
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await page.getByRole("button", { name: "Open queue", exact: true }).click();
+    await expect(page).toHaveURL(/\/queue$/);
+    await expect(
+      page.getByRole("heading", { name: "Queue", level: 1 }),
+    ).toBeVisible();
+    await shoot(page, "queue", size.name);
+  }
+}
+
+/** The capture server already has an administrator, so the first-run state is rendered by flipping the page prop. */
+async function captureSetup(page: Page) {
+  await page.route("**/", async (route) => {
+    const response = await route.fetch();
+    const body = await response.text();
+    await route.fulfill({
+      response,
+      body: body.replace(
+        /needs_setup(&quot;|")\s*:\s*false/,
+        "needs_setup$1:true",
+      ),
+    });
+  });
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", { name: "Set up Hito", exact: true }),
+    ).toBeVisible();
+    await shoot(page, "setup", size.name);
+    await page.getByLabel("Username").fill("administrator");
+    await page.getByLabel("Password").fill("short");
+    await page.getByRole("button", { name: "Create administrator" }).click();
+    await shoot(page, "setup-validation", size.name);
   }
 }
 
@@ -357,6 +430,7 @@ test("capture every redesigned surface at desktop and phone width", async ({
   }
   await captureCollections(page);
   await captureMedia(page);
+  await captureListening(page);
   const guest = await browser.newContext({
     storageState: { cookies: [], origins: [] },
   });
@@ -369,5 +443,6 @@ test("capture every redesigned surface at desktop and phone width", async ({
     ).toBeVisible();
     await shoot(login, "sign-in", size.name);
   }
+  await captureSetup(login);
   await guest.close();
 });
