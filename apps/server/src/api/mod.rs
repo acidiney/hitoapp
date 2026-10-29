@@ -8,6 +8,7 @@ pub mod artist_identity_groups;
 pub mod artist_matching;
 pub mod artist_profiles;
 pub mod artist_review;
+pub mod artist_similarity;
 pub mod artwork;
 pub mod audiobooks;
 pub mod browsing;

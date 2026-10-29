@@ -148,6 +148,8 @@ mod artist_review_fixture;
 mod artist_review_host;
 #[path = "fixtures/artist_review_tcp.rs"]
 mod artist_review_tcp;
+#[path = "api/artist_similarity.rs"]
+mod artist_similarity;
 #[path = "api/metadata.rs"]
 mod metadata;
 #[path = "api/metadata_preferences.rs"]
