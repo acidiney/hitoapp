@@ -12,7 +12,7 @@ pub use player::{
     Player, PlayerAction, PlayerAttachment, PlayerAudiobookContinuation, PlayerAudiobookRequest,
     PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure, PlayerInspection, PlayerOwner,
     PlayerPhase, PlayerPosition, PlayerQueueEntry, PlayerQueueInput, PlayerQueuePage,
-    PlayerReceipt, PlayerRepeat, PlayerSnapshot,
+    PlayerReceipt, PlayerRepeat, PlayerSnapshot, PlayerSpeedSupport,
 };
 pub use source::Source;
 #[cfg(feature = "device")]

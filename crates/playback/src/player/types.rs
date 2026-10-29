@@ -61,6 +61,8 @@ pub struct PlayerSnapshot {
     pub seeking: bool,
     pub volume: u16,
     pub speed: u16,
+    pub effective_speed: u16,
+    pub speed_support: Option<PlayerSpeedSupport>,
     pub phase: PlayerPhase,
     pub error: Option<PlayerError>,
     pub last_failure: Option<PlayerFailure>,
@@ -83,12 +85,22 @@ impl Default for PlayerSnapshot {
             seeking: false,
             volume: 1000,
             speed: 1000,
+            effective_speed: 1000,
+            speed_support: None,
             phase: PlayerPhase::Idle,
             error: None,
             last_failure: None,
             persistence_error: None,
         }
     }
+}
+/// Speeds, in thousandths, that the current source can present. A source that
+/// supports only unit speed reports `min == max == 1000`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+pub struct PlayerSpeedSupport {
+    pub min: u16,
+    pub max: u16,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]

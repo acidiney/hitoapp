@@ -3702,6 +3702,8 @@ export interface components {
             current?: components["schemas"]["PlayerEntryRef"] | null;
             current_index?: number | null;
             desired_playing: boolean;
+            /** Format: int32 */
+            effective_speed: number;
             error?: components["schemas"]["PlayerError"] | null;
             last_failure?: components["schemas"]["PlayerFailure"] | null;
             persistence_error?: components["schemas"]["PlayerError"] | null;
@@ -3718,8 +3720,19 @@ export interface components {
             source_id?: string | null;
             /** Format: int32 */
             speed: number;
+            speed_support?: components["schemas"]["PlayerSpeedSupport"] | null;
             /** Format: int32 */
             volume: number;
+        };
+        /**
+         * @description Speeds, in thousandths, that the current source can present. A source that
+         *     supports only unit speed reports `min == max == 1000`.
+         */
+        PlayerSpeedSupport: {
+            /** Format: int32 */
+            max: number;
+            /** Format: int32 */
+            min: number;
         };
         PlayerStatus: {
             /** Format: uuid */

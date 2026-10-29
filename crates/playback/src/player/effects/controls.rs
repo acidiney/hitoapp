@@ -1,6 +1,7 @@
 use super::super::loading::{Restoration, Restored};
 use super::{Target, Update};
-use crate::{PlayerError, PlayerPhase, Session, Status};
+use crate::{PlayerError, PlayerPhase, PlayerSpeedSupport, Session, Status};
+use hito_audio::SpeedCapability;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use uuid::Uuid;
 
@@ -19,6 +20,7 @@ pub(super) struct Controls {
     applied_seek: Option<Uuid>,
     applied_volume: Option<u16>,
     applied_speed: Option<u16>,
+    support: Option<PlayerSpeedSupport>,
     resume_at: Duration,
     duration: Option<Duration>,
     pending: Option<Pending<crate::Result<Applied>>>,
@@ -41,6 +43,7 @@ impl Controls {
         self.configured = false;
         self.applied_volume = None;
         self.applied_speed = Some(1000);
+        self.support = None;
     }
     pub fn retire(&mut self, snapshot: Option<crate::Snapshot>) {
         if let Some(snapshot) = snapshot {
@@ -53,21 +56,36 @@ impl Controls {
     }
     pub fn sync(&mut self, session: &Arc<Session>, target: &Target) {
         let snapshot = session.snapshot();
+        let capability = snapshot.format.map(|format| format.speed_capability());
+        let negotiated = negotiate(capability, target.speed);
+        if snapshot.status == Status::Ready
+            && let Some(capability) = capability
+        {
+            self.support = Some(support(capability));
+        }
         if snapshot.status == Status::Ready
             && (!snapshot.ended || !self.configured)
             && self.pending.is_none()
             && (!self.configured
                 || snapshot.playing != target.playing
                 || self.applied_volume != Some(target.volume)
-                || self.applied_speed != Some(target.speed))
+                || self.applied_speed != Some(negotiated))
         {
             let session = session.clone();
             let seek_id = target.seek.map(|seek| seek.id);
             let volume = target.volume;
             let restoration = self.restoration;
             let restored = self.restored;
-            let speed = target.speed;
+            let speed = negotiated;
             let change_speed = self.applied_speed != Some(speed);
+            if speed != target.speed {
+                tracing::debug!(
+                    event = "player_speed_unsupported_by_source",
+                    chosen = target.speed,
+                    effective = speed,
+                    "The current source plays at unit speed"
+                );
+            }
             let seek =
                 if self.configured || (self.resume_at.is_zero() && seek_id == self.applied_seek) {
                     None
@@ -148,6 +166,10 @@ impl Controls {
             phase,
             playing: snapshot.playing,
             speed: snapshot.speed,
+            effective_speed: self.applied_speed,
+            speed_support: snapshot
+                .format
+                .map(|format| support(format.speed_capability())),
             source_id,
             position: snapshot.position,
             duration_ms: snapshot
@@ -177,6 +199,8 @@ impl Controls {
             phase,
             playing: false,
             speed: self.applied_speed.unwrap_or(1000),
+            effective_speed: self.configured.then_some(self.applied_speed).flatten(),
+            speed_support: self.support,
             source_id,
             position: self.resume_at,
             duration_ms: self
@@ -188,5 +212,73 @@ impl Controls {
             exhausted: false,
             error,
         }
+    }
+}
+
+/// The speed to present for a source: the chosen speed when the source supports
+/// it, otherwise unit speed. The chosen speed is never forgotten, so the next
+/// capable source restores it.
+fn negotiate(capability: Option<SpeedCapability>, chosen: u16) -> u16 {
+    match capability {
+        Some(capability) if !capability.supports(f32::from(chosen) / 1000.) => 1000,
+        _ => chosen,
+    }
+}
+
+fn support(capability: SpeedCapability) -> PlayerSpeedSupport {
+    match capability {
+        SpeedCapability::UnitOnly => PlayerSpeedSupport {
+            min: 1000,
+            max: 1000,
+        },
+        SpeedCapability::Range { min, max } => PlayerSpeedSupport {
+            min: (min * 1000.).round() as u16,
+            max: (max * 1000.).round() as u16,
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const RANGE: SpeedCapability = SpeedCapability::Range { min: 0.5, max: 3. };
+
+    #[test]
+    fn a_supported_speed_is_kept_and_an_unsupported_one_plays_at_unit_speed() {
+        assert_eq!(negotiate(Some(RANGE), 500), 500);
+        assert_eq!(negotiate(Some(RANGE), 3000), 3000);
+        assert_eq!(negotiate(Some(SpeedCapability::UnitOnly), 1500), 1000);
+        assert_eq!(negotiate(Some(SpeedCapability::UnitOnly), 1000), 1000);
+        assert_eq!(negotiate(None, 1500), 1500);
+    }
+
+    #[test]
+    fn the_chosen_speed_returns_when_a_capable_source_follows_an_incapable_one() {
+        let chosen = 1500;
+        let sources = [Some(RANGE), Some(SpeedCapability::UnitOnly), Some(RANGE)];
+        let presented: Vec<u16> = sources
+            .into_iter()
+            .map(|capability| negotiate(capability, chosen))
+            .collect();
+        assert_eq!(presented, [1500, 1000, 1500]);
+    }
+
+    #[test]
+    fn support_is_reported_in_thousandths() {
+        assert_eq!(
+            support(RANGE),
+            PlayerSpeedSupport {
+                min: 500,
+                max: 3000
+            }
+        );
+        assert_eq!(
+            support(SpeedCapability::UnitOnly),
+            PlayerSpeedSupport {
+                min: 1000,
+                max: 1000
+            }
+        );
     }
 }

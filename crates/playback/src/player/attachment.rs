@@ -26,6 +26,8 @@ pub(super) struct Owned {
     pub(super) applied_seek: Option<Uuid>,
     pub(super) volume: u16,
     pub(super) speed: u16,
+    pub(super) effective_speed: u16,
+    pub(super) speed_support: Option<super::PlayerSpeedSupport>,
     pub(super) source_id: Option<String>,
     pub(super) phase: PlayerPhase,
     pub(super) error: Option<PlayerError>,
@@ -54,6 +56,8 @@ impl Owned {
             applied_seek: None,
             volume: 1000,
             speed: 1000,
+            effective_speed: 1000,
+            speed_support: None,
             source_id: None,
             phase: PlayerPhase::Idle,
             error: None,
@@ -70,6 +74,8 @@ impl Owned {
             seeking: self.seek.map(|seek| seek.id) != self.applied_seek,
             volume: self.volume,
             speed: self.speed,
+            effective_speed: self.effective_speed,
+            speed_support: self.speed_support,
             source_id: self.source_id.clone(),
             phase: self.phase,
             error: self.error,
@@ -136,6 +142,8 @@ impl Owned {
         };
         self.playing = false;
         self.source_id = None;
+        self.speed_support = None;
+        self.effective_speed = self.speed;
         self.error = None;
         self.saved = None;
         self.seek = None;

@@ -1,15 +1,17 @@
 #![cfg(feature = "device")]
 use hito_audio::test_support::capture;
+use hito_core::test_support::support;
 #[path = "fixtures/recovery.rs"]
 mod fixture;
-use hito_core::test_support::support;
-use hito_playback::{Player, PlayerAction, PlayerCommand, PlayerError, PlayerPhase};
+use hito_playback::{
+    Player, PlayerAction, PlayerCommand, PlayerError, PlayerPhase, PlayerSpeedSupport,
+};
 use std::time::Duration;
 use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the isolated clocked audio monitor"]
-async fn unsupported_tempo_is_visible_and_unit_speed_can_retry_the_same_occurrence() {
+async fn a_high_rate_source_reports_its_speed_range_and_plays_at_the_chosen_rate() {
     let f = fixture::Recovery::start_with_wave(384_000, 768_000).await;
     let capture = capture::Capture::open();
     let (player, owner) = Player::native(f.services.clone());
@@ -30,6 +32,7 @@ async fn unsupported_tempo_is_visible_and_unit_speed_can_retry_the_same_occurren
                 start: 0,
             },
         ),
+        (3, 1, PlayerAction::Resume {}),
     ] {
         player
             .submit(
@@ -47,56 +50,57 @@ async fn unsupported_tempo_is_visible_and_unit_speed_can_retry_the_same_occurren
     }
     tokio::time::timeout(
         Duration::from_secs(5),
-        state.wait_for(|s| s.phase == PlayerPhase::Failed),
+        state.wait_for(|s| s.phase == PlayerPhase::Ready && s.playing),
     )
     .await
     .unwrap()
     .unwrap();
-    let failed = state.borrow().clone();
-    assert_eq!(failed.error, Some(PlayerError::Playback));
-    assert_eq!(failed.last_failure.unwrap().error, PlayerError::Playback);
-    assert!(!failed.playing);
-    assert!(!failed.desired_playing);
-    assert_eq!(position.borrow().position_ms, 0);
-    capture.after(capture.mark(), 0.2);
-    assert!(capture::energy(&capture.recent(0.1)) < 0.000001);
-    assert!(
-        f.services
-            .collection
-            .activity(&f.actor)
-            .await
-            .unwrap()
-            .history
-            .is_empty()
+    let ready = state.borrow().clone();
+    assert_eq!(ready.error, None);
+    assert!(ready.last_failure.is_none());
+    assert_eq!(ready.speed, 500);
+    assert_eq!(ready.effective_speed, 500);
+    assert_eq!(
+        ready.speed_support,
+        Some(PlayerSpeedSupport {
+            min: 500,
+            max: 3000
+        })
     );
-    for (sequence, action) in [
-        (3, PlayerAction::Speed { rate: 1000 }),
-        (4, PlayerAction::Resume {}),
-    ] {
-        player
-            .submit(
-                &f.actor,
-                PlayerCommand {
-                    id: Uuid::new_v4(),
-                    lease,
-                    sequence,
-                    revision: 1,
-                    action,
-                },
-            )
-            .await
-            .unwrap();
-    }
     tokio::time::timeout(
         Duration::from_secs(5),
-        position.wait_for(|p| p.position_ms >= 200),
+        position.wait_for(|p| p.position_ms >= 100),
     )
     .await
     .unwrap()
     .unwrap();
-    assert_eq!(state.borrow().current, failed.current);
-    assert_eq!(state.borrow().selection, failed.selection);
-    assert_eq!(state.borrow().speed, 1000);
+    assert!(capture::energy(&capture.recent(0.1)) > 0.001);
+    player
+        .submit(
+            &f.actor,
+            PlayerCommand {
+                id: Uuid::new_v4(),
+                lease,
+                sequence: 4,
+                revision: 1,
+                action: PlayerAction::Speed { rate: 2000 },
+            },
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        state.wait_for(|s| s.effective_speed == 2000),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let faster = state.borrow().clone();
+    assert!(faster.playing);
+    assert_eq!(faster.phase, PlayerPhase::Ready);
+    assert_eq!(faster.error, None);
+    assert_ne!(faster.error, Some(PlayerError::Playback));
+    assert_eq!(faster.speed, 2000);
     assert!(capture::energy(&capture.recent(0.1)) > 0.001);
     owner.close().await.unwrap();
 }

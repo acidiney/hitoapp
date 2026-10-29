@@ -399,6 +399,20 @@ impl State {
                 true
             }
         });
+        if let (Some(support), Some(effective)) = (update.speed_support, update.effective_speed) {
+            if owned.speed_support != Some(support) || owned.effective_speed != effective {
+                tracing::debug!(
+                    event = "player_speed_negotiated",
+                    min = support.min,
+                    max = support.max,
+                    chosen = owned.speed,
+                    effective,
+                    "Native source speed support changed"
+                );
+            }
+            owned.speed_support = Some(support);
+            owned.effective_speed = effective;
+        }
         owned.phase = update.phase;
         owned.playing = update.playing;
         owned.source_id = update.source_id;

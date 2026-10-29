@@ -20379,6 +20379,7 @@
           "seeking",
           "volume",
           "speed",
+          "effective_speed",
           "phase"
         ],
         "properties": {
@@ -20404,6 +20405,11 @@
           },
           "desired_playing": {
             "type": "boolean"
+          },
+          "effective_speed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "error": {
             "oneOf": [
@@ -20475,7 +20481,37 @@
             "format": "int32",
             "minimum": 0
           },
+          "speed_support": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerSpeedSupport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "volume": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PlayerSpeedSupport": {
+        "type": "object",
+        "description": "Speeds, in thousandths, that the current source can present. A source that\nsupports only unit speed reports `min == max == 1000`.",
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "min": {
             "type": "integer",
             "format": "int32",
             "minimum": 0

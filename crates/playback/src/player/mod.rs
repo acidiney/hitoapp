@@ -21,7 +21,7 @@ pub use types::{
     PlayerAction, PlayerAttachment, PlayerAudiobookContinuation, PlayerAudiobookRequest,
     PlayerCommand, PlayerEntryRef, PlayerError, PlayerFailure, PlayerInspection, PlayerPhase,
     PlayerPosition, PlayerQueueEntry, PlayerQueueInput, PlayerQueuePage, PlayerReceipt,
-    PlayerRepeat, PlayerSnapshot,
+    PlayerRepeat, PlayerSnapshot, PlayerSpeedSupport,
 };
 use uuid::Uuid;
 
