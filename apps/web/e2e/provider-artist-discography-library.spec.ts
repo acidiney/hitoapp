@@ -90,6 +90,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     });
     await page.goto(`/artist-groups/${chosen.id}`);
     expect(fixture.state.discographyReads).toBe(0);
+    await expect(page.getByRole("heading", { name: "Similar artists", exact: true })).toHaveCount(0);
 
     fixture.state.outage = true;
     await page.getByRole("button", { name: "Browse full discography", exact: true }).click();

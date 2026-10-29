@@ -26,7 +26,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 - [Catalog browsing](catalog-browsing.md)
 - [Metadata](metadata.md), [metadata preferences](metadata-preferences.md), [built-in MusicBrainz](builtin-musicbrainz.md)
 - [Recording attribution](recording-attribution.md)
-- Artists: [catalog host](artist-catalog-host.md), [discography](artist-discography.md), [identity groups](artist-identity-groups.md), [review](artist-review.md)
+- Artists: [catalog host](artist-catalog-host.md), [discography](artist-discography.md), [similar artists](artist-similarity.md), [identity groups](artist-identity-groups.md), [review](artist-review.md)
 - [Database maintenance](database-maintenance.md)
 
 ## Playback and sources
