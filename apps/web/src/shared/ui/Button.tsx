@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import { Check } from "lucide-react";
 
 export type ButtonVariant =
@@ -8,7 +8,7 @@ export type ButtonVariant =
   | "destructive"
   | "active";
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type ButtonProps = ComponentProps<"button"> & {
   variant?: ButtonVariant;
   pressed?: boolean;
 };

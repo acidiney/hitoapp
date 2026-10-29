@@ -1,128 +1,47 @@
-import { useRef, useState, type KeyboardEvent } from "react";
-import { usePage } from "@inertiajs/react";
+import { useEffect, useRef } from "react";
+import { Link, usePage } from "@inertiajs/react";
+import { ChevronLeft } from "lucide-react";
 import type { SettingsPageProps } from "../../../shared/types";
-import AccountSettings from "../../accounts/components/AccountSettings";
-import LibrarySettings from "../../library/components/LibrarySettings";
-import PluginSettings from "../../plugins/components/PluginSettings";
-import MetadataPreferences from "../../metadata/components/MetadataPreferences";
-import SharedCorrectionsSettings from "../../artists/components/SharedCorrectionsSettings";
-import CommunitySettings from "../../community/components/CommunitySettings";
-import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
-import ScreenLockSettings from "../../session/components/ScreenLockSettings";
 import PageHeading from "../../../shared/ui/PageHeading";
-import { log } from "../../../shared/log";
+import SettingsNav from "../components/SettingsNav";
+import SettingsSectionBody from "../components/SettingsSectionBody";
+import { readLocation, sectionMeta, visibleGroups } from "../sections";
 
 export default function SettingsPage(props: SettingsPageProps) {
   const { url } = usePage();
-  const [selected, setSelected] = useState(() => {
-    const section = new URL(url, "http://hito.local").searchParams.get(
-      "section",
-    );
-    return section === "plugins" ||
-      section === "metadata" ||
-      section === "privacy"
-      ? section
-      : "library";
-  });
-  const navigation = useRef<HTMLDivElement>(null);
-  const tabs = [
-    { id: "library", label: "Library" },
-    { id: "privacy", label: "Privacy" },
-    { id: "metadata", label: "Metadata" },
-    { id: "plugins", label: "Plugins" },
-    ...(props.user.admin ? [{ id: "accounts", label: "Accounts" }] : []),
-  ];
-  function selectTab(mode: string) {
-    log.debug("settings.section", { mode });
-    setSelected(mode);
-  }
-  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const next =
-      event.key === "ArrowRight"
-        ? (index + 1) % tabs.length
-        : event.key === "ArrowLeft"
-          ? (index + tabs.length - 1) % tabs.length
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? tabs.length - 1
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    selectTab(tabs[next].id);
-    navigation.current
-      ?.querySelectorAll<HTMLButtonElement>("[role=tab]")
-      [next]?.focus();
-  }
+  const { section, chosen } = readLocation(url, props.user.admin);
+  const meta = sectionMeta(section);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const previous = useRef(section);
+  useEffect(() => {
+    if (previous.current !== section) heading.current?.focus();
+    previous.current = section;
+  }, [section]);
   return (
     <>
       <PageHeading title="Settings" description="Make Hito feel at home." />
-      <div className="settings">
-        <div
-          className="settings-tabs"
-          role="tablist"
-          aria-label="Settings sections"
-          ref={navigation}
-        >
-          {tabs.map((tab, index) => (
-            <button
-              key={tab.id}
-              role="tab"
-              id={`tab-${tab.id}`}
-              aria-selected={selected === tab.id}
-              aria-controls="settings-content"
-              tabIndex={selected === tab.id ? 0 : -1}
-              onClick={() => selectTab(tab.id)}
-              onKeyDown={(event) => navigate(event, index)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div
-          id="settings-content"
-          role="tabpanel"
-          aria-labelledby={`tab-${selected}`}
-        >
-          {selected === "plugins" && (
-            <PluginSettings account={props.user.id} admin={props.user.admin} />
-          )}
-          {selected === "metadata" && (
-            <MetadataPreferences key={props.user.id} account={props.user.id} />
-          )}
-          {selected === "library" && <LibrarySettings {...props} />}
-          {selected === "privacy" && (
-            <>
-              <CommunitySettings
-                key={`community-preferences:${props.user.id}`}
-                account={props.user.id}
-              />
-              <CommunityRankingSettings
-                key={`community-rankings:${props.user.id}`}
-                account={props.user.id}
-              />
-              <ScreenLockSettings
-                key={`screen-lock:${props.user.id}:${props.lock.pin_enabled}`}
-                account={props.user.id}
-                lock={props.lock}
-              />
-            </>
-          )}
-          {selected === "accounts" && props.user.admin && (
-            <>
-              <AccountSettings
-                key={props.user.id}
-                account={props.user.id}
-                library={
-                  props.libraries.find((library) => !library.personal)?.id
-                }
-              />
-              <SharedCorrectionsSettings
-                key={`shared-corrections:${props.user.id}`}
-                account={props.user.id}
-              />
-            </>
-          )}
+      <div className="settings" data-view={chosen ? "section" : "list"}>
+        <SettingsNav
+          groups={visibleGroups(props.user.admin)}
+          current={section}
+        />
+        <div className="settings-content">
+          <Link className="settings-back" href="/settings">
+            <ChevronLeft size={18} aria-hidden="true" />
+            All settings
+          </Link>
+          <section
+            aria-labelledby="settings-title"
+            className="settings-section"
+          >
+            <div className="settings-section-heading">
+              <h2 id="settings-title" ref={heading} tabIndex={-1}>
+                {meta.label}
+              </h2>
+              <p className="muted">{meta.description}</p>
+            </div>
+            <SettingsSectionBody section={section} {...props} />
+          </section>
         </div>
       </div>
     </>

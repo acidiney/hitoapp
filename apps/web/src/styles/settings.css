@@ -1,161 +1,323 @@
 .settings {
-  max-width: 1000px;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1080px;
+  align-items: start;
 }
-.settings-tabs {
-  display: flex;
-  gap: 28px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 34px;
+.settings-nav {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 18px;
 }
-.settings-tabs > button {
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  padding: 14px 0;
+.settings-nav-group {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: 14px;
-  position: relative;
 }
-.settings-tabs > button[aria-selected="true"] {
-  color: var(--primary);
-}
-.settings-tabs > button[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  background: var(--primary);
-}
-.settings-intro {
-  margin-bottom: 28px;
-}
-.settings h2 {
-  font-size: 20px;
-  margin-bottom: 12px;
-}
-.settings p {
-  color: var(--muted);
-  font-size: 13px;
-  max-width: 65ch;
-}
-.setting-row {
+.settings-nav a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
-  padding: 25px 0;
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-weight: 500;
 }
-.setting-row h3 {
-  font-size: 14px;
-  margin-bottom: 5px;
-}
-.setting-value {
-  font-size: 21px;
-}
-.setting-badge {
-  font-size: 12px;
+.settings-nav a > svg {
+  display: none;
   color: var(--muted);
-  padding: 5px 15px;
-  border-radius: 18px;
+}
+.settings-nav a:hover {
+  background: var(--hover);
+}
+.settings-nav a[aria-current="page"] {
   background: var(--subtle);
+  font-weight: 700;
 }
-.library-storage-row {
-  display: flex;
+.settings-content {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  max-width: 760px;
+}
+.settings-back {
+  display: none;
   align-items: center;
-  gap: 14px;
-  padding: 22px 0;
+  gap: 4px;
+  min-height: 44px;
+  font-weight: 700;
 }
-.library-storage-row strong {
+.settings-section {
+  display: grid;
+  gap: 20px;
+}
+.settings-section-heading h2 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.settings-section-heading h2:focus-visible {
+  outline-offset: 4px;
+}
+.settings-section-heading p {
+  margin: 0;
+  max-width: 65ch;
+  font-size: 14px;
+}
+.settings-card-hint {
+  margin: 4px 0 0;
+  max-width: 65ch;
+  font-size: 13px;
+  color: var(--muted);
+}
+.settings-card > header {
+  align-items: flex-start;
+  padding: 16px;
+}
+.settings-card h3 {
+  margin: 0;
+}
+.settings-card-body p {
+  max-width: 65ch;
+  font-size: 13px;
+}
+.settings-card-body > * + * {
+  margin-top: 0;
+}
+.card-actions,
+.form-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.form-actions {
+  padding: 12px 0;
+}
+.setting-line {
+  border-top: 1px solid var(--line);
+}
+.setting-line:first-child {
+  border-top: 0;
+}
+.setting-line-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px 140px;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 0;
+}
+.setting-line[data-wide] .setting-line-main {
+  grid-template-columns: minmax(0, 1fr) 160px 300px;
+}
+.setting-line-copy {
+  display: grid;
+  min-width: 0;
+}
+.setting-line-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.setting-line-title :is(h4, h3) {
+  margin: 0;
+  font-size: inherit;
+}
+.setting-line-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.setting-line-icon > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.setting-line-hint {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.setting-line-hint > span {
+  display: block;
+}
+.setting-line-status {
+  min-width: 0;
+  font-size: 13px;
+}
+.setting-line-status .health {
+  white-space: normal;
+  align-items: flex-start;
+}
+.setting-line-status .health-dot {
+  margin-top: 5px;
+  flex: 0 0 auto;
+}
+.setting-line-action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.plain-list > li + li {
+  border-top: 1px solid var(--line);
+}
+.plain-list .setting-line {
+  border-top: 0;
+}
+.provider-order {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.provider-order > li + li {
+  border-top: 1px solid var(--line);
+}
+.provider-order .setting-line {
+  border-top: 0;
+}
+.provider-add {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+}
+.provider-add label,
+.plugin-form label,
+.pin-form label,
+.dialog-form label,
+.field-label {
+  display: grid;
+  gap: 6px;
   font-size: 13px;
   font-weight: 500;
 }
-.library-storage-row small {
-  margin-top: 4px;
-  font-size: 11px;
-}
-.storage-icon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  background: var(--surface);
+.provider-add select,
+.plugin-form select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--control-border);
   border-radius: 10px;
-  color: var(--muted);
-}
-.storage-help {
-  margin-top: 30px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.storage-help summary {
-  cursor: pointer;
-  color: var(--muted);
-}
-.storage-help p {
-  margin-top: 12px;
-}
-.settings code {
-  font-size: 12px;
   background: var(--surface);
-  border-radius: 4px;
-  padding: 3px 5px;
 }
-.account-form {
-  display: flex;
-  gap: 14px;
-  align-items: flex-end;
-  padding: 26px 0 30px;
-  border-bottom: 1px solid var(--border);
-}
-.account-form label {
-  font-size: 12px;
-  flex: 1;
-}
-.account-form input {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-}
-.account-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-}
-.account-list li {
+.profile-identity {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 22px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  gap: 16px;
+  padding: 16px 0;
 }
-.account-list small {
-  margin-top: 4px;
-  font-size: 11px;
+.avatar.large {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
 }
-.account-list li > div {
-  display: flex;
-  gap: 8px;
+.setting-line-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
-
 .pin-form fieldset {
   display: grid;
-  gap: 8px;
-  max-width: 360px;
+  gap: 10px;
+  max-width: 400px;
   margin: 0;
-  padding: 0;
+  padding: 12px 0;
   border: 0;
 }
-.pin-form input,
-.pin-form select {
+.pin-form input {
   width: 100%;
+  min-height: 44px;
 }
 .pin-form fieldset > div {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
+}
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 24px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+}
+.dialog::backdrop {
+  background: #000b;
+}
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.dialog-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+.dialog-form input {
+  width: 100%;
+  min-height: 44px;
+}
+.dialog-actions {
+  justify-content: flex-end;
+}
+.settings code {
+  font-size: 12px;
+  background: var(--subtle);
+  border-radius: 4px;
+  padding: 3px 5px;
+}
+@media (max-width: 767px) {
+  .settings {
+    display: block;
+    max-width: none;
+  }
+  .settings[data-view="list"] .settings-content,
+  .settings[data-view="section"] .settings-nav {
+    display: none;
+  }
+  .settings-nav {
+    position: static;
+    gap: 20px;
+  }
+  .settings-nav a {
+    min-height: 52px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .settings-nav a[aria-current="page"] {
+    background: transparent;
+  }
+  .settings-nav a > svg {
+    display: block;
+  }
+  .settings-back {
+    display: inline-flex;
+  }
+  .setting-line-main,
+  .setting-line[data-wide] .setting-line-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .setting-line-action {
+    justify-content: flex-start;
+  }
+  .setting-line-status:empty,
+  .setting-line-action:empty {
+    display: none;
+  }
+  .settings-card > header {
+    flex-direction: column;
+  }
 }

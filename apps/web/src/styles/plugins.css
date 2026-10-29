@@ -1,8 +1,4 @@
-.plugin-section {
-  margin-top: 34px;
-}
-.plugin-section > h3,
-.plugin-review h3 {
+.plugin-review h4 {
   font-size: 16px;
   margin-bottom: 12px;
 }
@@ -35,16 +31,10 @@
 .plugin-form p {
   margin: 0;
 }
-.plugin-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
 .plugin-connection {
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
-.plugin-connection .setting-row {
+.plugin-connection:last-child {
   border-bottom: 0;
 }
 .plugin-actions {
@@ -89,11 +79,6 @@
   margin-top: 14px;
 }
 @media (max-width: 700px) {
-  .plugin-connection .setting-row {
-    align-items: start;
-    flex-direction: column;
-    gap: 18px;
-  }
   .plugin-review dl {
     grid-template-columns: 1fr;
     gap: 6px;

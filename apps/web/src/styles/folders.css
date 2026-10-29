@@ -1,47 +1,11 @@
-.music-folders-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 14px 0 24px;
-}
-.music-folders-heading h3 {
-  font-size: 16px;
-  margin-bottom: 6px;
-}
-.music-folders-list,
 .folder-browser-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.music-folders-list > li {
-  border-bottom: 1px solid var(--border);
-}
-.music-folder-row {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  padding: 24px 0;
-}
-.music-folder-detail {
-  min-width: 0;
-  flex: 1;
-}
-.music-folder-detail h4,
 .folder-remove-confirm h4 {
   margin: 0 0 6px;
   font-size: 14px;
-  font-weight: 550;
-  overflow-wrap: anywhere;
-}
-.music-folder-detail small {
-  margin-top: 6px;
-  overflow-wrap: anywhere;
-}
-.music-folder-actions {
-  display: flex;
-  gap: 8px;
 }
 .music-folders-empty {
   padding: 38px 24px;
@@ -53,7 +17,7 @@
   color: var(--primary);
   margin-bottom: 20px;
 }
-.music-folders-empty h3 {
+.music-folders-empty h4 {
   font-size: 17px;
   margin-bottom: 8px;
 }
@@ -67,7 +31,7 @@
   margin-top: 8px;
 }
 .folder-remove-confirm {
-  padding: 0 0 24px 62px;
+  padding: 0 0 20px;
 }
 .folder-remove-confirm > div {
   display: flex;
@@ -77,17 +41,6 @@
 }
 .folder-remove-confirm .danger {
   margin-left: 0;
-}
-.folder-library-select {
-  display: grid;
-  gap: 8px;
-  font-size: 13px;
-  margin-bottom: 20px;
-  max-width: 360px;
-}
-.folder-library-select select {
-  padding: 10px 12px;
-  width: 100%;
 }
 .folder-picker {
   width: min(640px, calc(100vw - 32px));
@@ -194,25 +147,6 @@
   margin-top: 20px;
 }
 @media (max-width: 640px) {
-  .music-folders-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .music-folder-row {
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .music-folder-row .storage-icon {
-    width: 38px;
-    height: 38px;
-  }
-  .music-folder-detail {
-    flex-basis: calc(100% - 50px);
-  }
-  .music-folder-actions {
-    margin-left: 50px;
-  }
   .folder-remove-confirm {
     padding-left: 0;
   }
@@ -225,19 +159,13 @@
     gap: 16px;
   }
 }
-.music-folders-add {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 .music-folder-proposal {
   padding: 24px;
   margin: 0 0 16px;
-  background: var(--surface);
+  background: var(--subtle);
   border-radius: 12px;
 }
-.music-folder-proposal h3 {
+.music-folder-proposal h4 {
   font-size: 17px;
   margin-bottom: 8px;
 }
