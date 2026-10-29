@@ -1,6 +1,6 @@
 # Reviewed artist discography
 
-Core, authenticated HTTP routes and shared recording-detail and chosen-artist controls can read release groups, list their editions and show a selected edition's complete track list. The provider and provider artist identity come from an explicitly confirmed recording-credit association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Packaged edition acceptance, playable availability and normal-server publication remain unfinished.
+Core, authenticated HTTP routes and shared recording-detail and chosen-artist controls can read release groups, list their editions and show a selected edition's complete track list. The provider and provider artist identity come from an explicitly confirmed recording-credit association. Callers supply a page limit and optional Hito continuation, rather than a separate provider identity. Chosen-artist pages group the catalog by release type and mark exactly linked library albums ([below](#types-and-library-availability)). Packaged chosen-page acceptance, live catalogs and normal-server publication remain unfinished.
 
 ## Ownership
 
@@ -65,6 +65,31 @@ The chosen-page loader has a 20-second deadline across association and profile h
 Thirty-two new DOM cases cover initial browsing, namesakes, mismatched identities, provider outcomes, explicit retries, Strict Mode, held headers and JSON, deadlines and retired requests. All 91 related cases across 17 files pass, with both TypeScript configurations, formatting and the production build. Independent source review passes. An independent Docker repeat passes all 91 cases in 15.019 seconds, with all 2,388 source input hashes unchanged and no remaining owned containers.
 
 One full frontend run was stopped at its 120-second watchdog after 157 passing file results, with no failed results observed. It is not a full-suite pass. The chosen-page source is integrated; its packaged browser acceptance and deployment remain open. Earlier packaged Recording Details evidence below does not qualify this new page.
+
+## Types and library availability
+
+The chosen-artist page splits the loaded release groups into Albums, EPs, Singles and Other releases (broadcasts, other types and groups with no type). Each section shows ten releases and offers a local "Show more" action. A "... only" filter narrows the page to one type. Sections are built from the pages already loaded; the provider contract has no type filter, so "Load more releases" still pages the whole catalog. Recording Details keeps its flat list and makes no availability request.
+
+Availability is a library-only read, separate from the provider read, so it still works when a catalog is down and never contacts a provider.
+
+```mermaid
+flowchart LR
+    Page[Loaded release groups] --> Ask[POST discography/library with the new group ids]
+    Ask --> Core[Core reads the account's saved album editions]
+    Core --> Match{Same provider, same release group id}
+    Match -->|yes, album still lists the chosen recording| Counts[Track and playable counts]
+    Match -->|no| None[Not linked to a library album]
+    Counts --> Row[Row with Open in your library]
+    None --> Row
+```
+
+A release group is linked to a library album only when the account saved an edition of that exact provider release group for that album (see [remembered edition](catalog-browsing.md#remembered-edition)). Provider kind, connection and group identifier must all be equal. Titles, artist names and dates are never compared, so two same-title groups stay separate and an album the user never linked reads "Not linked to a library album". This is not "not in your library": the library may hold the music without a saved link. Choosing an edition on the album page creates the link.
+
+The saved choice also has to be usable now: its reviewed association must still be linked, readable under the account's metadata settings and unchanged, and the album must still list the recording the choice was made from. Otherwise the album page asks for a new choice and this read ignores the link as well. For each linked album the answer carries its track count and how many tracks have a playable source on this host, using the same playable rule as the album page. A request names one to 50 distinct identities of at most 256 bytes. At most three albums are reported for one group.
+
+Cost: one transaction and a scan of the account's saved choices (no index on the release group; a migration was avoided), plus one pass over the linked albums' tracks. A work-budget test measures 13,200 SQLite VM steps with 100 saved choices and 76,400 with 3,000, and fails when growth exceeds 60 steps per added choice. The route is `POST /api/v1/recordings/{id}/artist-associations/{association}/discography/library` and returns `private, no-store`. The browser requests only identities it has not checked, never retries by itself and shows "Library availability could not be checked" with "Check library again" when the read fails, leaving the catalog visible.
+
+Evidence: two core workflows (an exact link, same-group lookalikes, invalid requests, another account, an unlinked association, no provider requests) and a playable-audio workflow with owned WAV files, one HTTP workflow, one work-budget test and five DOM cases pass. Limits: no provider-side type filter or per-type paging, so a very large catalog is still read in provider order; no "partly in library" level, because that needs the edition's full track list; credit pages without a chosen artist show no catalog (the credit page links to the chosen page); live MusicBrainz returns HTTP 503, so the live gate still fails.
 
 ## Packaged browsing acceptance
 
