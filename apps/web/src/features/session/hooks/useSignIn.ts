@@ -3,6 +3,8 @@ import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { sessionApi } from "../api/sessionApi";
 
+export type SignInFlow = ReturnType<typeof useSignIn>;
+
 export function useSignIn(setup: boolean) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
