@@ -1,4 +1,3 @@
-import { Folder, FolderSync, Trash2 } from "lucide-react";
 import type { MusicFolder } from "../../../shared/types";
 import Button from "../../../shared/ui/Button";
 import HealthDot, { type HealthTone } from "../../../shared/ui/HealthDot";
@@ -57,10 +56,7 @@ export default function FolderRow({
   return (
     <SettingRow
       title={
-        <span className="setting-line-icon">
-          <Folder size={18} aria-hidden="true" />
-          <h4>{folder.name}</h4>
-        </span>
+<h4>{folder.name}</h4>
       }
       hint={
         !!folder.directory?.components?.length && (
@@ -76,22 +72,21 @@ export default function FolderRow({
       }
       action={
         <>
-          <button
-            className="icon-button"
+          <Button
             aria-label={`Scan ${folder.name}`}
             disabled={busy || !folder.available || scanning}
             onClick={onScan}
           >
-            <FolderSync size={19} />
-          </button>
-          <button
-            className="icon-button"
+            Scan
+          </Button>
+          <Button
+            variant="destructive"
             aria-label={`Remove ${folder.name}`}
             disabled={busy}
             onClick={onAskRemove}
           >
-            <Trash2 size={18} />
-          </button>
+            Remove
+          </Button>
         </>
       }
     >

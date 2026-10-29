@@ -77,6 +77,7 @@ async function seedLibrary(page: Page) {
 
 test("capture every redesigned surface at desktop and phone width", async ({
   page,
+  browser,
 }) => {
   test.setTimeout(240000);
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -116,4 +117,17 @@ test("capture every redesigned surface at desktop and phone width", async ({
       await shoot(page, `settings-${section}`, size.name);
     }
   }
+  const guest = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+  });
+  const login = await guest.newPage();
+  for (const size of sizes) {
+    await login.setViewportSize({ width: size.width, height: size.height });
+    await login.goto("/");
+    await expect(
+      login.getByRole("heading", { name: "Sign in", exact: true }),
+    ).toBeVisible();
+    await shoot(login, "sign-in", size.name);
+  }
+  await guest.close();
 });

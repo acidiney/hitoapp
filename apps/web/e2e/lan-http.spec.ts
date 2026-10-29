@@ -32,7 +32,7 @@ if (process.env.HITO_TEST_MOBILE === "1")
 
 async function signIn(page: Page, username: string, password: string) {
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill(password);
@@ -338,7 +338,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       .getByRole("button", { name: "Sign out", exact: true })
       .click();
     await expect(
-      localPage.getByRole("heading", { name: "Welcome back" }),
+      localPage.getByRole("heading", { name: "Sign in", exact: true }),
     ).toBeVisible();
     await localPage.close();
   } finally {

@@ -180,6 +180,9 @@
   justify-content: flex-end;
   gap: 8px;
 }
+.setting-line-action:has(> .button + .button) {
+  flex-wrap: nowrap;
+}
 .setting-line-action .button {
   min-height: 36px;
   padding: 0 12px;
@@ -334,8 +337,10 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
-  .setting-line-action {
+  .setting-line-action,
+  .setting-line-action:has(> .button + .button) {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
   .setting-line-status:empty,
   .setting-line-action:empty {

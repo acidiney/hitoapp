@@ -493,7 +493,7 @@ test.describe("account switching", () => {
       ).toContainText("plugin-listener");
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Welcome back" }),
+        page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
       await signIn(page, "plugin-listener", "plugin listener password");
       await expect(
@@ -541,7 +541,7 @@ test.describe("account switching", () => {
       ).toBeFocused();
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Welcome back" }),
+        page.getByRole("heading", { name: "Sign in", exact: true }),
       ).toBeVisible();
       await signIn(page, "admin", "docker browser test password");
       await expect(

@@ -1,4 +1,4 @@
-import BrandMark from "../../../shared/ui/BrandMark";
+import AuthIntro from "../components/AuthIntro";
 import type { LockPageProps } from "../../../shared/types";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { useSignOut } from "../hooks/useSignOut";
@@ -18,16 +18,10 @@ function LockScreen({ username, account_id }: LockPageProps) {
   const signOut = useSignOut(account_id, () => {});
   return (
     <main className="auth-page">
-      <div className="auth-intro">
-        <div className="brand">
-          <BrandMark />
-          <span className="brand-word">hito</span>
-        </div>
-        <p>Enter your PIN to carry on where you left off.</p>
-      </div>
+      <AuthIntro headline="Enter your PIN to carry on where you left off." />
       <div className="auth-form">
         <form onSubmit={submit}>
-          <h2>Locked</h2>
+          <h1>Locked</h1>
           <strong>{username}</strong>
           <label>
             PIN
@@ -42,14 +36,14 @@ function LockScreen({ username, account_id }: LockPageProps) {
               onChange={(event) => setPin(event.target.value)}
             />
           </label>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
           <button className="button primary" disabled={busy}>
             {busy ? "Checking…" : "Unlock"}
           </button>
+          {error && (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          )}
           <button
             className="button"
             type="button"

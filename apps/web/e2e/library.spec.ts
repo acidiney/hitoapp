@@ -592,10 +592,10 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .toContain("Docker favorites");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await expect(
-    otherTab.getByRole("heading", { name: "Welcome back" }),
+    otherTab.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await expect(otherTab.locator("audio")).toHaveCount(0);
   await page.getByLabel("Username", { exact: true }).fill("listener");

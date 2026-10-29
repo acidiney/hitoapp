@@ -400,20 +400,13 @@
     display: block;
   }
   .auth-intro {
-    padding: 35px 28px;
+    padding: 28px;
+    gap: 40px;
   }
-  .auth-intro .brand {
-    margin-bottom: 30px;
+  .auth-headline {
+    font-size: 44px;
   }
-  .auth-intro h1 {
-    font-size: 38px;
-  }
-  .auth-intro p {
-    font-size: 15px;
-    margin-top: 18px;
-    max-width: none;
-  }
-  .auth-intro > span {
+  .auth-origin {
     display: none;
   }
   .auth-form {
@@ -427,7 +420,7 @@
   .duration-column {
     display: none;
   }
-  .auth-intro h1 {
-    font-size: 34px;
+  .auth-headline {
+    font-size: 36px;
   }
 }

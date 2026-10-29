@@ -369,6 +369,8 @@ Current behavior: the Shell, Settings, Home, Search and Discover were compared w
 
 Tested evidence (Docker): the capture spec ran against a scratch server with a 14-track fixture library (`test-results/visual/`, copies in the session scratchpad); all 240 frontend files (959 cases, two removed opener cases for the deleted rail), both type configurations and the production build pass. See the commit log for the default browser run.
 
+Sign-in and Lock now use the prototype's ink brand panel (headline "Your music. Your server.", mono server host), a 36 px "Sign in" title and 48 px fields; the browser specs assert the heading "Sign in" instead of "Welcome back". Folder rows in Music & providers show a name, the path and labelled Scan and Remove buttons.
+
 Known remaining differences: Plugins keep list rows instead of the prototype's two-column cards with capability chips and Accounts keep plain rows (no connected plugin or second account could be shown in the isolated server to verify a rebuild); Profile has no display-name, photo or language fields and Updates has no release card (no server capability); Settings has no "search a setting" field; quick-access tiles have no play circle (it would not play); Home has no "New from your artists" column; Library, Album, Artist and Playlist pages still use their earlier styling and the generic placeholder cover, to be rebuilt in later phases.
 
 ## Web redesign phase 3: Home, Search and Discover

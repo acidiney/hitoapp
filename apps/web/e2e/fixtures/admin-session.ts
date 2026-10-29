@@ -16,7 +16,7 @@ export const sharedAdminSession = !Object.entries(process.env).some(
 export async function enterAdmin(page: Page) {
   await page.goto("/");
   const setup = page.getByRole("heading", { name: "Set up Hito" });
-  const welcome = page.getByRole("heading", { name: "Welcome back" });
+  const welcome = page.getByRole("heading", { name: "Sign in", exact: true });
   await expect(setup.or(welcome)).toBeVisible();
   const firstRun = await setup.isVisible();
   await page

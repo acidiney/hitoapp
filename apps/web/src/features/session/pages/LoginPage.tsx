@@ -1,4 +1,4 @@
-import BrandMark from "../../../shared/ui/BrandMark";
+import AuthIntro from "../components/AuthIntro";
 import { useSignIn } from "../hooks/useSignIn";
 import type { LoginPageProps } from "../../../shared/types";
 
@@ -7,27 +7,11 @@ export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
     useSignIn(setup);
   return (
     <main className="auth-page">
-      <div className="auth-intro">
-        <div className="brand">
-          <BrandMark />
-          <span className="brand-word">hito</span>
-        </div>
-        <h1>
-          Your music.
-          <br />
-          Your library.
-        </h1>
-        <p>A home for the audio you keep coming back to.</p>
-        <span>Open source. Self-hosted.</span>
-      </div>
+      <AuthIntro decorative headline={<>Your music.<br />Your server.</>} />
       <div className="auth-form">
         <form onSubmit={submit}>
-          <h2>{setup ? "Set up Hito" : "Welcome back"}</h2>
-          <p>
-            {setup
-              ? "Create the administrator account for this server."
-              : "Sign in to your library."}
-          </p>
+          <h1>{setup ? "Set up Hito" : "Sign in"}</h1>
+          {setup && <p>Create the administrator account for this server.</p>}
           <label>
             Username
             <input
@@ -53,14 +37,20 @@ export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
           {setup && (
             <small>Use at least 12 characters for your password.</small>
           )}
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
           <button className="button primary" disabled={busy}>
             {busy ? "Connecting…" : setup ? "Create administrator" : "Sign in"}
           </button>
+          {error && (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          )}
+          {!setup && (
+            <p className="auth-note">
+              Forgot your password? Ask whoever manages this server for a new
+              access link.
+            </p>
+          )}
         </form>
       </div>
     </main>
