@@ -11,17 +11,20 @@ export default function CollectionHeader({
   cover,
   crumbs,
   actions,
+  extra,
   headingRef,
   children,
 }: {
   tint: string;
-  size: "artist" | "playlist";
+  size: "artist" | "playlist" | "podcast" | "audiobook";
   eyebrow: ReactNode;
   title: string;
   stats: ReactNode;
   cover?: ReactNode;
   crumbs?: ReactNode;
   actions?: ReactNode;
+  /** Content between the stats line and the actions, such as a progress bar. */
+  extra?: ReactNode;
   headingRef?: Ref<HTMLHeadingElement>;
   children?: ReactNode;
 }) {
@@ -38,7 +41,8 @@ export default function CollectionHeader({
           <span className="tinted-eyebrow">{eyebrow}</span>
           <h1 ref={headingRef}>{title}</h1>
           <span className="tinted-stats">{stats}</span>
-          {size === "playlist" && actions && (
+          {extra}
+          {size !== "artist" && actions && (
             <div className="tinted-actions">{actions}</div>
           )}
         </div>

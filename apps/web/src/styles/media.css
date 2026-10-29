@@ -1,0 +1,465 @@
+/* podcasts and audiobooks */
+.media-index-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.media-index-head h1 {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0 0 8px;
+}
+.media-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 28px 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.media-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.media-card > .fallback-cover,
+.media-card > .artwork {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.media-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.media-card-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.media-card:hover .media-card-title {
+  color: var(--action);
+}
+.media-warn {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warning);
+}
+.media-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 56px 24px;
+  text-align: center;
+  border: 1px dashed var(--control-border);
+  border-radius: 16px;
+}
+.media-empty h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+.media-empty p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--muted);
+}
+.media-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 36px;
+  align-items: flex-start;
+}
+.media-main {
+  flex: 999 1 520px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.media-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ink);
+}
+.media-section-head h2 {
+  margin: 0 8px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+.media-side {
+  flex: 1 1 240px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.media-side h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+.media-card-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.media-card-panel h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.media-side-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.media-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.media-notices p {
+  margin: 0;
+}
+.media-form {
+  display: grid;
+  gap: 12px;
+}
+.media-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.media-form input,
+.media-form select {
+  width: 100%;
+  min-height: 44px;
+}
+.media-form p {
+  margin: 0;
+}
+
+/* progress bars */
+.progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+/* round icon buttons */
+.round-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.round-button.solid {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+}
+.round-button.solid:hover:not(:disabled) {
+  background: var(--ink-hover);
+}
+
+/* tinted header additions */
+.tinted-header[data-size="podcast"] h1 {
+  font-size: 64px;
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+}
+.tinted-header[data-size="audiobook"] h1 {
+  font-size: 56px;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+.tinted-header[data-size="audiobook"] .tinted-cover {
+  width: 180px;
+  flex-basis: 180px;
+}
+.tint-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #141414;
+  font-size: 14px;
+  font-weight: 700;
+}
+.podcast-status p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+}
+.podcast-status .media-mono,
+.tinted-header .media-mono {
+  color: rgba(255, 255, 255, 0.78);
+}
+.audiobook-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.audiobook-progress .progress-bar {
+  flex: 0 1 360px;
+  min-width: 140px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.audiobook-progress .progress-fill {
+  background: #ffffff;
+}
+
+/* podcast episodes */
+.episode-list,
+.chapter-list,
+.bookmark-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.episode-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 140px 340px;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.episode-row[data-state="played"] {
+  color: var(--muted);
+}
+.episode-length {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.episode-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.episode-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.episode-sub {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.episode-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.episode-state-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.episode-row[data-state="new"] .episode-state-label {
+  color: var(--action);
+}
+.episode-row[data-state="played"] .episode-state-label {
+  color: var(--muted);
+}
+.episode-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-start;
+}
+.episode-actions .track-actions {
+  margin-left: auto;
+}
+.episode-actions .track-actions .icon-button {
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .episode-row:not(:hover):not(:focus-within) .track-actions > a.icon-button,
+  .episode-row:not(:hover):not(:focus-within) .track-actions > select {
+    opacity: 0;
+  }
+}
+
+/* audiobook chapters and bookmarks */
+.chapter-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 160px 64px 44px;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.chapter-row[data-current] {
+  background: var(--subtle);
+  font-weight: 700;
+}
+.chapter-row[data-unavailable] {
+  color: var(--muted);
+}
+.chapter-number,
+.chapter-length {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.chapter-length {
+  text-align: right;
+}
+.chapter-title {
+  overflow-wrap: anywhere;
+}
+.chapter-state {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.chapter-state[data-current] {
+  color: var(--action);
+  font-family: var(--font-mono);
+}
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bookmark-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.bookmark-card strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.bookmark-card p {
+  margin: 0;
+}
+.bookmark-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bookmark-actions .button {
+  min-height: 36px;
+  font-size: 13px;
+}
+
+@media (max-width: 1280px) {
+  .episode-row {
+    grid-template-columns: minmax(0, 1fr) 140px auto;
+  }
+  .episode-length {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .tinted-header[data-size="podcast"] h1 {
+    font-size: 40px;
+  }
+  .tinted-header[data-size="audiobook"] h1 {
+    font-size: 36px;
+  }
+  .tinted-header[data-size="audiobook"] .tinted-cover {
+    width: 140px;
+    flex-basis: 140px;
+  }
+  .media-index-head h1 {
+    font-size: 30px;
+  }
+  .media-side {
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .episode-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 10px;
+  }
+  .episode-state {
+    max-width: 260px;
+  }
+  .episode-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .round-button {
+    width: 44px;
+    height: 44px;
+  }
+  .chapter-row {
+    grid-template-columns: 28px minmax(0, 1fr) 44px;
+    row-gap: 4px;
+  }
+  .chapter-state {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .chapter-length {
+    grid-column: 2;
+    grid-row: 3;
+    text-align: left;
+  }
+  .chapter-row > button,
+  .chapter-row > span:last-child {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+  }
+  .tint-status {
+    min-height: 44px;
+  }
+}
+.dialog-form select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+}
