@@ -1,5 +1,6 @@
 mod admission;
 mod authority;
+mod catalog_match;
 mod cursor;
 mod matching;
 mod provider;
@@ -10,7 +11,9 @@ mod types;
 use crate::{Actor, Catalog, Error, Result};
 use admission::Caller;
 pub(crate) use admission::CallerAdmission;
+pub(crate) use catalog_match::{CatalogAudio, CatalogTrack};
 use cursor::Candidates;
+use provider::Subject;
 use publication::Publication;
 use receipts::{Admission, Attempt, Lease};
 use std::{future::Future, pin::Pin, time::Duration};
@@ -215,7 +218,7 @@ impl Catalog {
         if sources.iter().any(|source| source.ready) {
             return Ok(PreparedResolution::Existing(SourceResolutionOutcome::Ready));
         }
-        let candidates = Candidates::new(self, actor, &attempt.target).await?;
+        let candidates = Candidates::new(self, actor, &attempt.target.musical).await?;
         Ok(PreparedResolution::Search(Box::new(candidates)))
     }
 
@@ -228,12 +231,17 @@ impl Catalog {
         mut cancelled: Pin<&mut (impl Future<Output = ()> + Send)>,
         deadline: Instant,
     ) -> Result<Option<SourceResolutionOutcome>> {
+        let subject = Subject {
+            musical: &attempt.target.musical,
+            recording: Some(recording),
+            binding: Some(&attempt.target.binding_id),
+        };
         loop {
             let candidate = tokio::select! {
                 biased;
                 _ = cancelled.as_mut() => return Ok(None),
                 _ = tokio::time::sleep_until(deadline) => return Ok(None),
-                result = candidates.next(self, actor, recording, &attempt.target) => result?,
+                result = candidates.next(self, actor, &subject) => result?,
             };
             tokio::select! {
                 biased;

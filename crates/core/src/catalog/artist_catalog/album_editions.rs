@@ -3,7 +3,7 @@ use super::{
     associations, authority::Credit, editions::EditionRead, policy, provider,
 };
 use crate::{
-    Actor, AlbumCatalogAnchor, Catalog, Error, Recording, ReleaseTrack, Result,
+    Actor, AlbumCatalogAnchor, Catalog, Error, Recording, ReleaseDetail, ReleaseTrack, Result,
     catalog::recordings_on,
 };
 use hito_plugin_sdk::CatalogEditionTrackList;
@@ -126,25 +126,8 @@ impl Catalog {
         release: &str,
         request: ReadAlbumEditionTrackList,
     ) -> Result<AlbumEditionTrackListAvailability> {
-        let detail = self.release_for_comparison(actor, release).await?;
-        if !detail
-            .tracks
-            .items
-            .iter()
-            .any(|track| track.recording.id == request.recording_id)
-        {
-            return Err(Error::NotFound);
-        }
-        let read = self
-            .read_edition(
-                actor,
-                &request.recording_id,
-                &request.association_id,
-                ReadEditionTrackList {
-                    release_group_id: request.release_group_id,
-                    edition_id: request.edition_id,
-                },
-            )
+        let (detail, read) = self
+            .read_album_edition_tracks(actor, release, request)
             .await?;
         let (association, edition, playback_revision) = match read {
             EditionRead::Available(found) => {
@@ -221,6 +204,35 @@ impl Catalog {
             adoption,
             is_album_release,
         })
+    }
+
+    pub(super) async fn read_album_edition_tracks(
+        &self,
+        actor: &Actor,
+        release: &str,
+        request: ReadAlbumEditionTrackList,
+    ) -> Result<(ReleaseDetail, EditionRead)> {
+        let detail = self.release_for_comparison(actor, release).await?;
+        if !detail
+            .tracks
+            .items
+            .iter()
+            .any(|track| track.recording.id == request.recording_id)
+        {
+            return Err(Error::NotFound);
+        }
+        let read = self
+            .read_edition(
+                actor,
+                &request.recording_id,
+                &request.association_id,
+                ReadEditionTrackList {
+                    release_group_id: request.release_group_id,
+                    edition_id: request.edition_id,
+                },
+            )
+            .await?;
+        Ok((detail, read))
     }
 
     async fn linked_recordings(

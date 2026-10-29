@@ -163,7 +163,8 @@ fn deluxe() -> Value {
         json!({
             "id": id, "position": position,
             "number": if position == 0 { Value::Null } else { json!(position.to_string()) },
-            "kind": kind, "title": title, "artist_credit": null,
+            "kind": kind, "title": title,
+            "artist_credit": [{"artist": null, "credited_name": CREDIT, "join_phrase": ""}],
             "duration_ms": 1000, "recording_id": recording
         })
     };

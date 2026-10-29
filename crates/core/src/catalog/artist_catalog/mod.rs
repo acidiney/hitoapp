@@ -1,3 +1,4 @@
+mod album_audio;
 mod album_edition_choice;
 mod album_editions;
 mod association_changes;
@@ -25,6 +26,7 @@ pub use library_availability::{
 };
 pub use matching::*;
 
+pub use album_audio::{AlbumTrackAudio, FindAlbumTrackAudio};
 pub use album_edition_choice::{
     AlbumEditionChoice, AlbumEditionChoiceReceipt, AlbumEditionChoiceState, ChooseAlbumEdition,
     ClearAlbumEdition, SavedAlbumEdition,

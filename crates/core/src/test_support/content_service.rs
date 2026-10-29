@@ -87,6 +87,9 @@ impl ProviderServer {
     pub async fn offline(&self) {
         *self.state.offline.write().await = true;
     }
+    pub async fn online(&self) {
+        *self.state.offline.write().await = false;
+    }
     pub async fn playlist_pages(&self, pages: Vec<(Option<String>, Value)>) {
         *self.state.playlist_pages.write().await = pages.into_iter().collect();
     }

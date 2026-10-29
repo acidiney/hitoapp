@@ -1,5 +1,5 @@
 use super::{
-    authority::{self, Target},
+    authority,
     matching::{METADATA_POLICY, MusicalRecording, POLICY},
 };
 use crate::{Actor, Catalog, Error, Result, plugins::Operation};
@@ -9,6 +9,14 @@ use hito_plugin_sdk::{
 use std::{collections::BTreeSet, iter::Take, sync::Arc, vec::IntoIter};
 
 const DETAIL_LIMIT: usize = 3;
+
+/// What a search looks for: the musical evidence, and the saved recording
+/// (when there is one) whose access and exclusive provider bindings apply.
+pub(super) struct Subject<'a> {
+    pub(super) musical: &'a MusicalRecording,
+    pub(super) recording: Option<&'a str>,
+    pub(super) binding: Option<&'a str>,
+}
 
 enum CandidateEvidence {
     Legacy,
@@ -117,7 +125,7 @@ impl Catalog {
     pub(super) async fn search_resolution_connection(
         &self,
         actor: &Actor,
-        target: &Target,
+        musical: &MusicalRecording,
         installation: String,
         revision: i64,
         query: &str,
@@ -146,9 +154,9 @@ impl Catalog {
         let returned_count = page.items.len();
         page.items.retain(|candidate| {
             if operation.metadata_approved() {
-                target.musical.plausible_metadata_summary(candidate)
+                musical.plausible_metadata_summary(candidate)
             } else {
-                target.musical.plausible(candidate)
+                musical.plausible(candidate)
             }
         });
         tracing::debug!(
@@ -173,22 +181,22 @@ impl Page {
         &mut self,
         catalog: &Catalog,
         actor: &Actor,
-        recording: &str,
-        target: &Target,
+        subject: &Subject<'_>,
     ) -> Result<Option<Candidate>> {
+        let (recording, musical) = (subject.recording, subject.musical);
         loop {
             let Some(summary) = self.summaries.next() else {
                 return Ok(None);
             };
             let occupied = {
                 let mut connection = catalog.store.pool.acquire().await?;
-                authority::access(&mut connection, actor, recording).await?;
+                authority::check(&mut connection, actor, recording).await?;
                 self.operation.recheck(&mut connection).await?;
                 sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM provider_items candidate
                     JOIN provider_items primary_item ON primary_item.id = ?
                     WHERE candidate.installation_id = ? AND candidate.provider_recording_id = ?
                         AND candidate.retired = 0 AND candidate.recording_id != primary_item.recording_id)")
-                    .bind(&target.binding_id).bind(&self.installation).bind(&summary.id)
+                    .bind(subject.binding).bind(&self.installation).bind(&summary.id)
                     .fetch_one(&mut *connection).await?
             };
             if occupied {
@@ -219,7 +227,7 @@ impl Page {
             let rejection = if candidate.details.id != summary.id {
                 Some("detail_identity_mismatch")
             } else {
-                candidate.rejection(&target.musical)
+                candidate.rejection(musical)
             };
             if let Some(reason) = rejection {
                 tracing::debug!(
@@ -237,7 +245,7 @@ impl Page {
         &self,
         catalog: &Catalog,
         actor: &Actor,
-        recording: &str,
+        recording: Option<&str>,
         request: &RecordingRequest,
     ) -> Result<Candidate> {
         let details = self.operation.recording_details(request).await;
@@ -263,9 +271,14 @@ impl Page {
         })
     }
 
-    async fn recheck(&self, catalog: &Catalog, actor: &Actor, recording: &str) -> Result<()> {
+    async fn recheck(
+        &self,
+        catalog: &Catalog,
+        actor: &Actor,
+        recording: Option<&str>,
+    ) -> Result<()> {
         let mut connection = catalog.store.pool.acquire().await?;
-        authority::access(&mut connection, actor, recording).await?;
+        authority::check(&mut connection, actor, recording).await?;
         self.operation.recheck(&mut connection).await
     }
 }

@@ -42,6 +42,17 @@ pub(super) async fn access(
     Ok(())
 }
 
+pub(super) async fn check(
+    connection: &mut SqliteConnection,
+    actor: &Actor,
+    recording: Option<&str>,
+) -> Result<()> {
+    match recording {
+        Some(recording) => access(connection, actor, recording).await,
+        None => actor.check_session_on(connection).await,
+    }
+}
+
 pub(super) async fn capture(
     connection: &mut SqliteConnection,
     actor: &Actor,

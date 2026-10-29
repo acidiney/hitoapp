@@ -1,6 +1,7 @@
 use super::{
-    authority::{self, Target},
-    provider::{Candidate, Page},
+    authority,
+    matching::MusicalRecording,
+    provider::{Candidate, Page, Subject},
 };
 use crate::{Actor, Catalog, Error, Result};
 use std::vec::IntoIter;
@@ -14,14 +15,19 @@ struct Connection {
 #[derive(Default)]
 pub(super) struct Candidates {
     pub(super) provider_unavailable: bool,
+    pub(super) connection_count: usize,
     query: String,
     connections: IntoIter<Connection>,
     page: Option<Page>,
 }
 
 impl Candidates {
-    pub(super) async fn new(catalog: &Catalog, actor: &Actor, target: &Target) -> Result<Self> {
-        let Some(query) = target.musical.query() else {
+    pub(super) async fn new(
+        catalog: &Catalog,
+        actor: &Actor,
+        musical: &MusicalRecording,
+    ) -> Result<Self> {
+        let Some(query) = musical.query() else {
             return Ok(Self::default());
         };
         let connections = sqlx::query_as::<_, Connection>("SELECT installation.id,installation.revision FROM plugin_installations installation
@@ -33,6 +39,7 @@ impl Candidates {
             .bind(actor.id()).fetch_all(&catalog.store.pool).await?;
         Ok(Self {
             provider_unavailable: false,
+            connection_count: connections.len(),
             query,
             connections: connections.into_iter(),
             page: None,
@@ -43,16 +50,15 @@ impl Candidates {
         &mut self,
         catalog: &Catalog,
         actor: &Actor,
-        recording: &str,
-        target: &Target,
+        subject: &Subject<'_>,
     ) -> Result<Option<Candidate>> {
         loop {
             {
                 let mut connection = catalog.store.pool.acquire().await?;
-                authority::access(&mut connection, actor, recording).await?;
+                authority::check(&mut connection, actor, subject.recording).await?;
             }
             if let Some(page) = self.page.as_mut() {
-                let candidate = page.next(catalog, actor, recording, target).await;
+                let candidate = page.next(catalog, actor, subject).await;
                 self.provider_unavailable |= page.provider_unavailable;
                 match candidate {
                     Ok(Some(candidate)) => return Ok(Some(candidate)),
@@ -77,7 +83,7 @@ impl Candidates {
             match catalog
                 .search_resolution_connection(
                     actor,
-                    target,
+                    subject.musical,
                     connection.id,
                     connection.revision,
                     &self.query,
