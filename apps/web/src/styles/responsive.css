@@ -156,6 +156,11 @@
   .library-sections {
     padding: 0 16px;
   }
+  .library-sections a,
+  .pills button,
+  .list-row-action .button {
+    min-height: 44px;
+  }
   .topbar {
     min-height: 68px;
     padding: 0 60px 0 16px;

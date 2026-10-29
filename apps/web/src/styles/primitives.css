@@ -13,6 +13,10 @@
 .availability[data-state="catalog"] {
   color: var(--muted);
 }
+.availability .ring {
+  width: 9px;
+  height: 9px;
+}
 .health-dot {
   width: 8px;
   height: 8px;
@@ -62,10 +66,11 @@
   gap: 6px;
 }
 .pills button {
-  min-height: 44px;
-  padding: 0 16px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--line-strong);
+  font-weight: 700;
 }
 .pills button[aria-pressed="true"] {
   background: var(--ink);
@@ -175,6 +180,12 @@
 }
 .list-row-action {
   justify-self: end;
+}
+.list-row-action .button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13px;
 }
 .section-warning {
   display: flex;
