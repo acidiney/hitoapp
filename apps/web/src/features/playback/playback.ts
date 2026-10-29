@@ -597,6 +597,7 @@ export class Playback implements Player {
       const started = performance.now();
       if (!sourceCurrent()) return;
       const known = Number.isFinite(media.duration) && media.duration >= 0;
+      if (!known && (media.readyState ?? 1) < 1) return;
       const duration = this.reconcile(media).seconds;
       if (duration === this.state.duration) return;
       this.update({ duration });
@@ -627,7 +628,11 @@ export class Playback implements Player {
     const generation = this.generation;
     const sources = this.sources;
     this.activeSource = null;
-    const position = this.pendingSeek ?? this.media.currentTime;
+    const position =
+      this.pendingSeek ??
+      (this.media.currentTime > 0
+        ? this.media.currentTime
+        : this.state.position);
     this.pendingSeek = position;
     this.media.pause();
     this.update({ playing: false, loading: true });
@@ -703,7 +708,10 @@ export class Playback implements Player {
       0,
       Math.min(seconds, this.state.duration || seconds),
     );
-    if (this.state.loading && !this.activeSource) this.pendingSeek = position;
+    const awaitingMetadata =
+      this.activeSource !== null && (this.media.readyState ?? 1) < 1;
+    if ((this.state.loading && !this.activeSource) || awaitingMetadata)
+      this.pendingSeek = position;
     else {
       try {
         const alreadyAtPosition =

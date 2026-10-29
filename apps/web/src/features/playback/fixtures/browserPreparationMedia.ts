@@ -16,7 +16,7 @@ export function browserPreparationMedia() {
   const loaded: { media: HTMLAudioElement; source: string | null }[] = [];
   const states = new WeakMap<
     HTMLMediaElement,
-    { paused: boolean; ended: boolean }
+    { paused: boolean; ended: boolean; ready: boolean }
   >();
   const waiting = new Map<string, (media: HTMLAudioElement) => void>();
   const owned = new Set<HTMLAudioElement>();
@@ -42,7 +42,7 @@ export function browserPreparationMedia() {
   const state = (media: HTMLMediaElement) => {
     let value = states.get(media);
     if (!value) {
-      value = { paused: true, ended: false };
+      value = { paused: true, ended: false, ready: false };
       states.set(media, value);
     }
     return value;
@@ -60,6 +60,11 @@ export function browserPreparationMedia() {
   vi.spyOn(HTMLMediaElement.prototype, "ended", "get").mockImplementation(
     function (this: HTMLMediaElement) {
       return state(this).ended;
+    },
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockImplementation(
+    function (this: HTMLMediaElement) {
+      return state(this).ready ? 4 : 0;
     },
   );
   vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(90);
@@ -98,6 +103,7 @@ export function browserPreparationMedia() {
     loaded.push({ media: this, source });
     this.currentTime = 0;
     state(this).ended = false;
+    state(this).ready = false;
     this.dispatchEvent(new Event("loadstart"));
     if (source) waiting.get(source)?.(this);
   });
@@ -128,6 +134,7 @@ export function browserPreparationMedia() {
       return next.promise;
     },
     canPlay(media: HTMLAudioElement) {
+      state(media).ready = true;
       media.dispatchEvent(new Event("loadedmetadata"));
       media.dispatchEvent(new Event("canplay"));
     },
