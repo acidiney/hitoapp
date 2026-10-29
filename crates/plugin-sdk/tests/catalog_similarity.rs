@@ -195,3 +195,24 @@ fn the_encoded_page_has_a_fixed_budget() {
         "a page larger than the byte budget is rejected even within the row limit"
     );
 }
+
+#[test]
+fn names_reject_invisible_and_bidirectional_formatting_but_keep_joiners() {
+    for hidden in [
+        "\u{202E}", "\u{202A}", "\u{2066}", "\u{2069}", "\u{200E}", "\u{200F}", "\u{061C}",
+        "\u{200B}", "\u{2060}", "\u{FEFF}", "\u{2062}",
+    ] {
+        let name = format!("Banda{hidden}Falsa");
+        assert!(
+            page(vec![similar(OTHER, &name, None)])
+                .validate_for(&request(5))
+                .is_err(),
+            "{hidden:?} must be rejected"
+        );
+    }
+    for legitimate in ["می\u{200C}خواهم", "👩\u{200D}🎤 Artista", "Ünï Çödé"] {
+        page(vec![similar(OTHER, legitimate, None)])
+            .validate_for(&request(5))
+            .unwrap();
+    }
+}

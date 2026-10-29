@@ -167,7 +167,12 @@ impl ProviderRecordingRef {
 }
 
 pub(crate) fn text(value: &str, maximum: usize) -> Result<(), &'static str> {
-    if value.len() > maximum || value.trim().is_empty() || value.chars().any(char::is_control) {
+    if value.len() > maximum
+        || value.trim().is_empty()
+        || value
+            .chars()
+            .any(|character| character.is_control() || deceptive(character))
+    {
         return Err("Provider fields must use bounded nonempty text without control characters");
     }
     Ok(())
@@ -177,4 +182,20 @@ pub(crate) fn optional(value: Option<&str>, maximum: usize) -> Result<(), &'stat
         .map(|value| text(value, maximum))
         .transpose()
         .map(|_| ())
+}
+
+/// Invisible or reordering format characters that can disguise text. Joiners that scripts and
+/// emoji sequences need (U+200C, U+200D) stay valid.
+fn deceptive(character: char) -> bool {
+    matches!(
+        character,
+        '\u{061C}'
+            | '\u{200B}'
+            | '\u{200E}'
+            | '\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{FEFF}'
+    )
 }
