@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import type { components } from "../src/generated";
 import { prepareDownloadLibrary, read } from "./fixtures/downloads";
 import { providerFixture } from "./fixtures/provider";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -115,10 +116,7 @@ test.describe("explicit persistent recording download", () => {
           uuid.test(first.source_id),
       ).toBe(true);
       await library.assertRetained(page);
-      await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "History", exact: true })
-        .click();
+      await openLibrarySection(page, "History");
       await page.goto(details);
       await expect(section.getByRole("status")).toHaveText(
         "Saved on this server",

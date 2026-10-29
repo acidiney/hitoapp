@@ -216,7 +216,7 @@ test("an account reviews a namesake through its chosen metadata provider without
       exact: true,
     });
     await navigation
-      .getByRole("link", { name: "Library", exact: true })
+      .getByRole("link", { name: "Biblioteca", exact: true })
       .click();
     await page
       .getByRole("link", {

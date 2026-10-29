@@ -21,6 +21,7 @@ import {
   verifySpotifyStoredRecordings,
   verifySpotifyTrackCredit,
 } from "./fixtures/spotify-albums-projections";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 
@@ -186,8 +187,8 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     });
 
     phase = 4;
-    await navigation
-      .getByRole("link", { name: "Settings", exact: true })
+    await page
+      .getByRole("link", { name: "Conta e definições", exact: true })
       .click();
     await page.getByRole("tab", { name: "Plugins", exact: true }).click();
     await page.getByText("Services for this server", { exact: true }).click();
@@ -257,9 +258,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     );
 
     phase = 5;
-    await navigation
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,
@@ -363,7 +362,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     editionChecks = spotifyAlbumEditionChecks(detail, album, byRecording);
     verifySpotifyAlbumEdition(detail, album, byRecording);
     phase8Step = 4;
-    await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+    await openLibrarySection(page, "Albums");
     const card = page
       .locator(".album-card")
       .filter({ has: page.locator(`a[href="${albumPath}"]`) });
@@ -493,9 +492,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     phase = 10;
     const performer = artists[0];
     liveCheck(performer);
-    await navigation
-      .getByRole("link", { name: "Artists", exact: true })
-      .click();
+    await openLibrarySection(page, "Artists");
     await page.locator(`a[href="/artists/${performer.id}"]`).click();
     await expect
       .poll(

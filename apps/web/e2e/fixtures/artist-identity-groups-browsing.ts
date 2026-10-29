@@ -123,7 +123,7 @@ export async function browseArtistGroups(
   ).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
+      .getByRole("navigation", { name: "Library sections", exact: true })
       .getByRole("link", { name: "Artists", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const offsets = { library_offset: 0, recording_offset: 0, release_offset: 0 };

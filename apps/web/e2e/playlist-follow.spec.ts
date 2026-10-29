@@ -13,6 +13,7 @@ import {
   connectLiveProvider,
   setUpSpotifyYouTubeLiveAccount as setUpDisposableFollowAccount,
 } from "./fixtures/spotify-youtube-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -763,10 +764,7 @@ function partialDetailRequest(
 }
 
 async function openPlaylists(page: Page) {
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
 }
 
 function postResponse(page: Page, path: string) {

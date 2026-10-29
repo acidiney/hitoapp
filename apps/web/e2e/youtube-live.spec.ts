@@ -9,6 +9,7 @@ import {
   liveYouTubeConfiguration,
   signInLiveAccount,
 } from "./fixtures/youtube-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 class LiveFailure extends Error {}
@@ -90,8 +91,7 @@ test.describe("isolated packaged YouTube", () => {
       next("disposable account sign-in");
       await signInLiveAccount(page);
       await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Settings", exact: true })
+        .getByRole("link", { name: "Conta e definições", exact: true })
         .click();
       await page.getByRole("tab", { name: "Plugins", exact: true }).click();
       await expect(
@@ -183,7 +183,7 @@ test.describe("isolated packaged YouTube", () => {
       next("actual provider discovery");
       await page
         .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Discover", exact: true })
+        .getByRole("link", { name: "Início", exact: true })
         .click();
       await page
         .getByRole("combobox", { name: "Music service", exact: true })
@@ -269,7 +269,7 @@ test.describe("isolated packaged YouTube", () => {
       playStage = 1;
       await page
         .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Library", exact: true })
+        .getByRole("link", { name: "Biblioteca", exact: true })
         .click();
       playStage = 2;
       await page
@@ -352,10 +352,7 @@ test.describe("isolated packaged YouTube", () => {
       expect(afterSeek.time < target + 5).toBe(true);
 
       next("navigation preserves actual playback");
-      await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "History", exact: true })
-        .click();
+      await openLibrarySection(page, "History");
       await expect
         .poll(async () => (await liveAudioState(page)).time, {
           timeout: 10_000,

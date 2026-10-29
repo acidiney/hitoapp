@@ -18,6 +18,7 @@ import {
 } from "./fixtures/spotify-youtube-automatic";
 import { liveAudioState } from "./fixtures/youtube-live";
 import { audioPath } from "./fixtures/spotify-youtube-playback";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 type Phase =
@@ -291,10 +292,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     );
 
     phase = "import";
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,
@@ -357,7 +355,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     phase = "single_track";
     await page
       .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Library", exact: true })
+      .getByRole("link", { name: "Biblioteca", exact: true })
       .click();
     const search = page.getByRole("textbox", {
       name: "Search library",
@@ -469,10 +467,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     seekTime = (await liveAudioState(page)).time;
 
     phase = "navigation";
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "History", exact: true })
-      .click();
+    await openLibrarySection(page, "History");
     await expect
       .poll(async () => (await liveAudioState(page)).time, { timeout: 10_000 })
       .toBeGreaterThan(seekTime + 0.2);

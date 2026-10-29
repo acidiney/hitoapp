@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { SyncBatch } from "../src/shared/types";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 // Requires a fresh e2e-server with scripts/audio-fixtures.mjs --e2e fixtures.
 // Its configured origins must include both test URLs in the browser namespace.
@@ -160,8 +161,8 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     const navigation = page.getByRole("navigation", {
       name: "Main navigation",
     });
-    await navigation
-      .getByRole("link", { name: "Settings", exact: true })
+    await page
+      .getByRole("link", { name: "Conta e definições", exact: true })
       .click();
     for (const folder of ["Music", "Archive"]) {
       await page.getByRole("button", { name: "Add music folder" }).click();
@@ -189,7 +190,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     ).toBeVisible();
 
     await navigation
-      .getByRole("link", { name: "Library", exact: true })
+      .getByRole("link", { name: "Biblioteca", exact: true })
       .click();
     await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
     await page
@@ -208,7 +209,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     const before = await page
       .locator("audio")
       .evaluate((audio: HTMLAudioElement) => audio.currentTime);
-    await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+    await openLibrarySection(page, "Albums");
     await expect(
       page.getByRole("heading", { name: "Albums", exact: true }),
     ).toBeVisible();
@@ -235,9 +236,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     await expect(queue.locator(".queue-tracks li")).toHaveCount(2);
     await queue.getByRole("button", { name: "Close now playing" }).click();
 
-    await navigation
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     await page
       .getByLabel("New playlist", { exact: true })
       .fill(privatePlaylist);
@@ -292,9 +291,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await signIn(page, admin, adminPassword);
     if (process.env.HITO_TEST_MOBILE === "1") {
-      await navigation
-        .getByRole("link", { name: "Playlists", exact: true })
-        .click();
+      await openLibrarySection(page, "Playlists");
       await expect(
         page
           .locator(".playlist-list")
@@ -318,10 +315,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       })),
     ).toEqual({ secure: true, randomUUID: "function", subtle: "object" });
     await signIn(localPage, admin, adminPassword);
-    await localPage
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(localPage, "Playlists");
     await expect(
       localPage
         .locator(".playlist-list")

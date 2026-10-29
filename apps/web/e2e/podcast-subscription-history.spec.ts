@@ -7,6 +7,7 @@ import {
   podcastHistoryJson,
   podcastHistoryReader,
 } from "./fixtures/podcast-subscription-history";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -141,7 +142,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
           response.request().method() === "GET" &&
           response.headers()["x-inertia"] === "true",
       ),
-      navigation.getByRole("link", { name: "Podcasts", exact: true }).click(),
+      openLibrarySection(page, "Podcasts"),
     ]);
     const initialPage =
       await podcastHistoryJson<InertiaPage<Schema["PodcastIndexPageProps"]>>(
@@ -232,7 +233,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
           response.request().method() === "GET" &&
           response.headers()["x-inertia"] === "true",
       ),
-      navigation.getByRole("link", { name: "Library", exact: true }).click(),
+      navigation.getByRole("link", { name: "Biblioteca", exact: true }).click(),
     ]);
     await podcastHistoryJson<unknown>(libraryResponse);
     await expect(

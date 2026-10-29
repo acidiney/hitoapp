@@ -272,8 +272,7 @@ test("existing independent playlist copies automatically retain private provider
     phase = "approval";
     fixture.enableArtwork();
     await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Settings", exact: true })
+      .getByRole("link", { name: "Conta e definições", exact: true })
       .click();
     await page.getByRole("tab", { name: "Plugins", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute(

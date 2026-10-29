@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
+import { openLibrarySection } from "./fixtures/library-sections";
 type Schema = components["schemas"];
 
 test("selected provider audio plays and seeks in the library without exposing its private connection", async ({
@@ -90,10 +91,7 @@ test("selected provider audio plays and seeks in the library without exposing it
     const before = await audio.evaluate(
       (element: HTMLAudioElement) => element.currentTime,
     );
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "History", exact: true })
-      .click();
+    await openLibrarySection(page, "History");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),

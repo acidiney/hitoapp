@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
 import type { components } from "../src/generated";
+import { openLibrarySection } from "./fixtures/library-sections";
 type Schema = components["schemas"];
 
 async function signIn(page: Page, username: string, password: string) {
@@ -250,10 +251,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
     const source = await audio.evaluate(
       (element: HTMLAudioElement) => element.src,
     );
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "History", exact: true })
-      .click();
+    await openLibrarySection(page, "History");
     await expect
       .poll(() =>
         audio.evaluate((element: HTMLAudioElement) => element.currentTime),
@@ -275,10 +273,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
     ).filter((artist) => artist.name === fixture.recording.artist);
     expect(discoveredArtists).toHaveLength(1);
     const artistId = discoveredArtists[0].id;
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Artists", exact: true })
-      .click();
+    await openLibrarySection(page, "Artists");
     await page.locator(`a[href="/artists/${artistId}"]`).click();
     await expect(
       page.getByRole("heading", {

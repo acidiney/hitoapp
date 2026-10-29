@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
 import type { components } from "../src/generated";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 type FixtureStatus = {
@@ -72,7 +73,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await navigation.getByRole("link", { name: "Podcasts", exact: true }).click();
+  await openLibrarySection(page, "Podcasts");
   await expect(
     page.getByRole("heading", { name: "Podcasts", exact: true }),
   ).toBeVisible();
@@ -163,11 +164,13 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   });
   await expect(dock.locator(".now-playing strong")).toHaveText(title);
   const beforeNavigation = await position();
-  await navigation.getByRole("link", { name: "Library", exact: true }).click();
+  await navigation
+    .getByRole("link", { name: "Biblioteca", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  await navigation.getByRole("link", { name: "Podcasts", exact: true }).click();
+  await openLibrarySection(page, "Podcasts");
   await page.getByRole("link", { name: feedTitle, exact: true }).click();
   await expect(page).toHaveURL(detailUrl);
   await expect.poll(position).toBeGreaterThan(beforeNavigation);

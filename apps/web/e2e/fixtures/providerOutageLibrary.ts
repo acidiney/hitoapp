@@ -15,6 +15,7 @@ import {
   artistReviewDownloadAbsence,
 } from "./artist-review-state";
 import type { OutageProvider, OutageTrack } from "./providerOutageProvider";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 export type OutageSetupPhase =
@@ -197,10 +198,7 @@ export async function prepareOutageLibrary(
   const copies: Record<string, Schema["PlaylistDetail"]> = {};
   for (const key of ["retry", "queue", "preserved"] as const) {
     checkpoint(importPhases[key]);
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     const form = page.getByRole("region", {
       name: "Import a playlist",
       exact: true,

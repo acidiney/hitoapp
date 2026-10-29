@@ -9,6 +9,7 @@ import {
   releaseCreditReader,
 } from "./release-credits";
 import type { playlistMetadataProvider } from "./playlist-metadata-provider";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 type Reader = ReturnType<typeof releaseCreditReader>;
@@ -31,7 +32,9 @@ export async function prepareMetadataCopy(
   ).toBeVisible();
   const user = await read<Schema["User"]>("/api/v1/me");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await navigation.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Conta e definições", exact: true })
+    .click();
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
@@ -76,9 +79,7 @@ export async function prepareMetadataCopy(
         accept_manifest_digest: reviewed.body.digest,
       }),
   ).toBe(true);
-  await navigation
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", { name: "Import a playlist" });
   await form
     .getByRole("combobox", { name: "Playlist service" })

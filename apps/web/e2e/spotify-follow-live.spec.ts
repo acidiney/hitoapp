@@ -15,6 +15,7 @@ import {
   spotifyFollowLiveConfiguration,
   verifySpotifyFollowSnapshot,
 } from "./fixtures/spotify-follow-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -66,10 +67,7 @@ async function createFollow(
   reference: string,
   interval: Schema["PlaylistFollowInterval"],
 ) {
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

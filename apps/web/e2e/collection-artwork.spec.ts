@@ -32,6 +32,7 @@ import {
   lateRendererRetry,
   retainedRetry,
 } from "./fixtures/collection-artwork-retry";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 
@@ -201,10 +202,7 @@ test("packaged albums and independent imported copies retain exact private cover
         await retained(page, paths.copies[index], fixture.covers.playlist),
       );
     }
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Albums", exact: true })
-      .click();
+    await openLibrarySection(page, "Albums");
     await expect
       .poll(() =>
         evidence.enqueues.some(

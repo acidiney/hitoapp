@@ -12,6 +12,7 @@ import {
 } from "./metadata-preferences-state";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import type { artistIdentityGroupsProvider } from "./artist-identity-groups-provider";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 export type GroupReader = ReturnType<typeof artistReviewReader>;
@@ -101,10 +102,7 @@ export async function prepareArtistGroups(
     enabled: true,
     providers: [selected],
   });
-  await page
-    .getByRole("navigation", { name: "Main navigation", exact: true })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

@@ -28,8 +28,7 @@ export async function prepareDownloadLibrary(
 ) {
   await setUpDisposableDownloadAccount(page);
   await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Settings", exact: true })
+    .getByRole("link", { name: "Conta e definições", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Add music folder", exact: true })

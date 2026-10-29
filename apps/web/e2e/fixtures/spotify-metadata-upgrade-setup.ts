@@ -15,6 +15,7 @@ import {
   type UpgradeSchema,
 } from "./spotify-metadata-upgrade-state";
 import { editSpotifyUpgradeCopy } from "./spotify-metadata-upgrade-actions";
+import { openLibrarySection } from "./library-sections";
 
 export async function prepareSpotifyMetadataUpgrade(
   page: Page,
@@ -36,7 +37,9 @@ export async function prepareSpotifyMetadataUpgrade(
     .waitFor();
   const user = await read<UpgradeSchema["User"]>("/api/v1/me");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await navigation.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Conta e definições", exact: true })
+    .click();
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page.getByLabel("Service address", { exact: true }).fill(address);
@@ -83,9 +86,7 @@ export async function prepareSpotifyMetadataUpgrade(
         accept_manifest_digest: reviewed.body.digest,
       }),
   );
-  await navigation
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

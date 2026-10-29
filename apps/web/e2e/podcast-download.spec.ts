@@ -9,6 +9,7 @@ import {
   stopUpstream,
   type Schema,
 } from "./fixtures/podcast-download";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 const origin = "http://localhost:8080";
 const feedTitle = "Owned audio feed";
@@ -107,9 +108,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     const navigation = page.getByRole("navigation", {
       name: "Main navigation",
     });
-    await navigation
-      .getByRole("link", { name: "Podcasts", exact: true })
-      .click();
+    await openLibrarySection(page, "Podcasts");
     await page
       .getByLabel("Feed address", { exact: true })
       .fill(initial.feed_url);
@@ -252,9 +251,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     expect(await progress(page, recording.id, origin)).toEqual(beforeProgress);
     await original.assertRetained(page);
 
-    await navigation
-      .getByRole("link", { name: "Podcasts", exact: true })
-      .click();
+    await openLibrarySection(page, "Podcasts");
     await page.getByRole("link", { name: feedTitle, exact: true }).click();
     const unsubscribeResponse = page.waitForResponse(
       (response) =>
@@ -297,7 +294,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     expect((await fixtureStatus(page)).upstream_closed).toBe(true);
 
     await navigation
-      .getByRole("link", { name: "Library", exact: true })
+      .getByRole("link", { name: "Biblioteca", exact: true })
       .click();
     const delivered = page.waitForResponse(
       (response) =>

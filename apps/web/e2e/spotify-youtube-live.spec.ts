@@ -29,6 +29,7 @@ import {
   spotifyYouTubeMediaEvents,
   verifySpotifyYouTubePlayback,
 } from "./fixtures/spotify-youtube-playback";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -136,10 +137,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
       ).toBe(true);
 
       phase = 3;
-      await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Playlists", exact: true })
-        .click();
+      await openLibrarySection(page, "Playlists");
       const form = page.getByRole("region", {
         name: "Import a playlist",
         exact: true,

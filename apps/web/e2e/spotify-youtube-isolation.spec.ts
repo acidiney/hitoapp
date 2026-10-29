@@ -6,6 +6,7 @@ import {
   SpotifyYouTubeLiveFailure,
 } from "./fixtures/spotify-youtube-live";
 import { signInLiveAccount } from "./fixtures/youtube-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 
@@ -67,10 +68,7 @@ test("the live Spotify to YouTube entry point refuses an initialized server befo
 
     phase = 2;
     await signInLiveAccount(page);
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     await page
       .getByLabel("New playlist", { exact: true })
       .fill("Isolation retained playlist");

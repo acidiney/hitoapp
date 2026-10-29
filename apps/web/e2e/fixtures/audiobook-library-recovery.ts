@@ -8,6 +8,7 @@ import {
   openBooks,
   pageLink,
 } from "./audiobook-library-navigation";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 const navigation = (page: Page) =>
@@ -122,10 +123,7 @@ export async function recoverLibrary(
   ).toBeVisible();
   for (const cookie of await page.context().cookies())
     fixture.remember(cookie.value);
-  await page
-    .getByRole("navigation", { name: "Main navigation", exact: true })
-    .getByRole("link", { name: "Audiobooks", exact: true })
-    .click();
+  await openLibrarySection(page, "Audiobooks");
   const peer = [
     { id: fixture.peerBook, name: fixture.peerName, kind: "local" as const },
   ];

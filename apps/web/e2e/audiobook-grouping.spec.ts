@@ -16,6 +16,7 @@ import {
   failureScope,
 } from "./fixtures/audiobook-grouping-delivery";
 import { audiobookGroupingEvidence } from "./fixtures/audiobook-grouping-evidence";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -212,10 +213,7 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
     );
 
     stage = "sidebar audiobook entry and explicit playlist selection";
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("link", { name: "Audiobooks", exact: true })
-      .click();
+    await openLibrarySection(page, "Audiobooks");
     await expect(
       page
         .locator("main")

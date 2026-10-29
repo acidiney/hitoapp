@@ -10,6 +10,7 @@ import {
   prepareMetadataCopy,
   verifyMetadataRepair,
 } from "./fixtures/playlist-metadata-workflow";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -181,10 +182,7 @@ test("a lost album lookup acknowledgement retries its original receipt offline w
     ).toBe(true);
 
     stage = "album navigation, unknown album artist and stable track order";
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Albums", exact: true })
-      .click();
+    await openLibrarySection(page, "Albums");
     await expect(
       page.getByText("Album artist not provided", { exact: true }),
     ).toBeVisible();

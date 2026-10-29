@@ -9,6 +9,7 @@ import {
   liveReader,
   watchLiveAudio,
 } from "./fixtures/podcast-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -97,9 +98,7 @@ test("a public RSS episode plays through the packaged server without an implicit
       name: "Main navigation",
     });
     stage = "initial podcasts navigation";
-    await navigation
-      .getByRole("link", { name: "Podcasts", exact: true })
-      .click();
+    await openLibrarySection(page, "Podcasts");
     expect(
       (await read<Schema["PodcastSubscription"][]>("/api/v1/podcasts")).length,
     ).toBe(0);
@@ -251,7 +250,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     navigationAudio = await watchLiveAudio(page);
     stage = "library navigation";
     await navigation
-      .getByRole("link", { name: "Library", exact: true })
+      .getByRole("link", { name: "Biblioteca", exact: true })
       .click();
     stage = "navigation library heading visibility";
     await expect(
@@ -260,9 +259,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     stage = "library navigation audio continuity";
     expect(await navigationAudio.uninterrupted()).toBe(true);
     stage = "podcasts index navigation";
-    await navigation
-      .getByRole("link", { name: "Podcasts", exact: true })
-      .click();
+    await openLibrarySection(page, "Podcasts");
     stage = "podcasts index navigation audio continuity";
     expect(await navigationAudio.uninterrupted()).toBe(true);
     stage = "podcast detail navigation";

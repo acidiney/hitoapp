@@ -268,7 +268,9 @@ test.describe("account switching", () => {
         name: "Review connection",
         exact: true,
       });
-      await reviewButton.scrollIntoViewIfNeeded();
+      await reviewButton.evaluate((element) =>
+        element.scrollIntoView({ block: "center" }),
+      );
       const connectBounds = await reviewButton.boundingBox();
       const dockBounds = await page
         .getByRole("contentinfo", { name: "Audio player" })

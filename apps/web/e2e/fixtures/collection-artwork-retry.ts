@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { decoded, retained } from "./collection-artwork-actions";
+import { openLibrarySection } from "./library-sections";
 
 export async function retainedRetry(
   page: Page,
@@ -66,10 +67,7 @@ export async function lateRendererRetry(
   });
   const documentTime = await page.evaluate(() => performance.timeOrigin);
   try {
-    await page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Albums", exact: true })
-      .click();
+    await openLibrarySection(page, "Albums");
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       documentTime,
     );

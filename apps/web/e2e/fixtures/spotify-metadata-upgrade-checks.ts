@@ -8,6 +8,7 @@ import type {
 } from "./spotify-metadata-upgrade-state";
 import type { PreparedSpotifyUpgrade } from "./spotify-metadata-upgrade-setup";
 import type { spotifyUpgradeState } from "./spotify-metadata-upgrade-state";
+import { openLibrarySection } from "./library-sections";
 
 type State = Awaited<ReturnType<typeof spotifyUpgradeState>>;
 
@@ -121,10 +122,7 @@ export async function browseRepairedSpotifyAlbum(
       ),
   );
   const album = albums[0];
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Albums", exact: true })
-    .click();
+  await openLibrarySection(page, "Albums");
   await page.locator(`a[href="/albums/${album.id}"]`).first().click();
   await expect
     .poll(

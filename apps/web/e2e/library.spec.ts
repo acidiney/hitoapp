@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { enterAdmin } from "./fixtures/admin-session";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -11,8 +12,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   page.on("pageerror", (error) => errors.push(error.message));
   await enterAdmin(page);
   await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Settings", exact: true })
+    .getByRole("link", { name: "Conta e definições", exact: true })
     .click();
   for (const folder of ["Music", "Archive"]) {
     await page.getByRole("button", { name: "Add music folder" }).click();
@@ -56,7 +56,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Library", exact: true })
+    .getByRole("link", { name: "Biblioteca", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
@@ -79,7 +79,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     .locator("audio[data-hito-player]")
     .evaluate((audio: HTMLAudioElement) => audio.src);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+  await openLibrarySection(page, "Albums");
   await expect(
     page.getByRole("heading", { name: "Albums", exact: true }),
   ).toBeVisible();
@@ -114,7 +114,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     ),
   ).toBe(false);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await navigation.getByRole("link", { name: "Artists", exact: true }).click();
+  await openLibrarySection(page, "Artists");
   await expect(page.locator(".artist-card")).toHaveCount(1);
   await expect
     .poll(() =>
@@ -123,7 +123,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
-  await navigation.getByRole("link", { name: "Library", exact: true }).click();
+  await navigation
+    .getByRole("link", { name: "Biblioteca", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Library spotlight" }),
   ).toBeVisible();
@@ -236,7 +238,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(page.locator(".now-playing small")).toHaveText(
     "Hito test fixtures",
   );
-  await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+  await openLibrarySection(page, "Albums");
   await page
     .getByRole("link", { name: "Fixture collection 440 Hz", exact: true })
     .click();
@@ -351,7 +353,9 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
       .locator("audio[data-hito-player]")
       .evaluate((audio: HTMLAudioElement) => audio.paused),
   ).toBe(false);
-  await navigation.getByRole("link", { name: "Library", exact: true }).click();
+  await navigation
+    .getByRole("link", { name: "Biblioteca", exact: true })
+    .click();
   await page.screenshot({
     path: "/workspace/test-results/library-desktop.png",
   });
@@ -424,10 +428,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   await expect(
     page.getByRole("heading", { name: "Playlists", exact: true }),
   ).toBeVisible();
@@ -447,7 +448,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Library", exact: true })
+    .getByRole("link", { name: "Biblioteca", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Like Fixture 440 Hz", exact: true })
@@ -472,16 +473,12 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "History", exact: true })
-    .click();
+  await openLibrarySection(page, "History");
   await expect(
     page.getByRole("button", { name: "Play Fixture 440 Hz", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Settings", exact: true })
+    .getByRole("link", { name: "Conta e definições", exact: true })
     .click();
   const libraryTab = page.getByRole("tab", { name: "Library", exact: true });
   await expect(libraryTab).toHaveAttribute("aria-selected", "true");
@@ -543,10 +540,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(0);
-  await otherTab
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(otherTab, "Playlists");
   await expect(
     otherTab.locator(".playlist-list").getByText("Docker favorites"),
   ).toBeVisible();
@@ -599,7 +593,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   ).toHaveCount(0);
   await otherTab
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Library", exact: true })
+    .getByRole("link", { name: "Biblioteca", exact: true })
     .click();
   await otherTab.goBack();
   await expect(otherTab.locator(".account")).toContainText("listener");

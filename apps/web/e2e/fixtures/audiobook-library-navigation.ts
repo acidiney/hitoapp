@@ -3,6 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import type { components } from "../../src/generated";
 import { libraryId, type LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 export async function documentToken(page: Page) {
@@ -65,10 +66,7 @@ export async function openBooks(
   delivery: LibraryDelivery,
 ) {
   const token = await documentToken(page);
-  await page
-    .getByRole("navigation", { name: "Main navigation", exact: true })
-    .getByRole("link", { name: "Audiobooks", exact: true })
-    .click();
+  await openLibrarySection(page, "Audiobooks");
   await assertBooks(page, fixture.books.slice(0, 60));
   expect(await documentToken(page)).toBe(token);
   expect(delivery.counts.visits).toBe(1);

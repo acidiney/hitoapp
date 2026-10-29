@@ -9,6 +9,7 @@ import {
   releaseCreditReader,
   releaseCreditsFixture,
 } from "./fixtures/release-credits";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -91,8 +92,8 @@ test("source-free imported albums preserve unknown credits through personal edit
       name: "Main navigation",
     });
     stage = "offer and connect owned provider";
-    await navigation
-      .getByRole("link", { name: "Settings", exact: true })
+    await page
+      .getByRole("link", { name: "Conta e definições", exact: true })
       .click();
     await page.getByRole("tab", { name: "Plugins", exact: true }).click();
     await page.getByText("Services for this server", { exact: true }).click();
@@ -144,9 +145,7 @@ test("source-free imported albums preserve unknown credits through personal edit
         }),
     ).toBe(true);
     stage = "import metadata without sources";
-    await navigation
-      .getByRole("link", { name: "Playlists", exact: true })
-      .click();
+    await openLibrarySection(page, "Playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
     await form
       .getByRole("combobox", { name: "Playlist service" })
@@ -281,7 +280,7 @@ test("source-free imported albums preserve unknown credits through personal edit
         ),
     ).toBe(true);
     stage = "album and performer navigation";
-    await navigation.getByRole("link", { name: "Albums", exact: true }).click();
+    await openLibrarySection(page, "Albums");
     await expect(
       page.getByText("Album artist not provided", { exact: true }),
     ).toBeVisible();
@@ -309,9 +308,7 @@ test("source-free imported albums preserve unknown credits through personal edit
           ),
         ),
     ).toBe(true);
-    await navigation
-      .getByRole("link", { name: "Artists", exact: true })
-      .click();
+    await openLibrarySection(page, "Artists");
     const performer = artists.items[0];
     await page.locator(`a[href="/artists/${performer.id}"]`).click();
     await expect(

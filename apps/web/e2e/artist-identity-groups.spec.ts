@@ -23,6 +23,7 @@ import {
 } from "./fixtures/artist-identity-groups-review";
 import { browseArtistGroups } from "./fixtures/artist-identity-groups-browsing";
 import { artistGroupsEvidence } from "./fixtures/artist-identity-groups-evidence";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 test.use({
@@ -195,10 +196,7 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
           index === 2 ? groups.groupId : groups.namesakeId,
         );
     }
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("link", { name: "Artists", exact: true })
-      .click();
+    await openLibrarySection(page, "Artists");
     await expect(
       page.getByRole("heading", { name: "No chosen artists yet", exact: true }),
     ).toBeVisible();

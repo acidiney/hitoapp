@@ -2,6 +2,7 @@ import { expect, test as baseTest, type Route } from "@playwright/test";
 import type { components } from "../src/generated";
 import { preparePlaylistDownload } from "./fixtures/playlist-download";
 import { providerFixture } from "./fixtures/provider";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -273,10 +274,7 @@ test.describe("explicit persistent playlist download", () => {
       await library.assertRetained(page);
 
       phase = "navigation_reload";
-      await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "History", exact: true })
-        .click();
+      await openLibrarySection(page, "History");
       await page.goto(details);
       await expect(section.getByRole("status")).toHaveText(
         "2 of 2 entries saved.",

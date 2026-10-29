@@ -11,6 +11,7 @@ import {
   connectLiveProvider,
   setUpSpotifyYouTubeLiveAccount as setUpDisposableFollowAccount,
 } from "./fixtures/spotify-youtube-live";
+import { openLibrarySection } from "./fixtures/library-sections";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -248,8 +249,7 @@ test.describe("isolated provider playlist Resume", () => {
       phase = 4;
       const proposed = fixture.reviewManifest();
       await page
-        .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Settings", exact: true })
+        .getByRole("link", { name: "Conta e definições", exact: true })
         .click();
       await page.getByRole("tab", { name: "Plugins", exact: true }).click();
       const card = page.locator(".plugin-connection").filter({
@@ -647,10 +647,7 @@ async function savePlaylist(
   reference: string,
   mode: "copy" | "follow",
 ) {
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", {
     name: "Import a playlist",
     exact: true,

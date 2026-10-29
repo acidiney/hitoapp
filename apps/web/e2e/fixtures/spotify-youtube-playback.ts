@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type { components } from "../../src/generated";
 import { liveAudioState, liveControlBounds } from "./youtube-live";
+import { openLibrarySection } from "./library-sections";
 
 type Schema = components["schemas"];
 
@@ -102,10 +103,7 @@ export async function verifySpotifyYouTubePlayback(
   },
 ) {
   setPhase(8);
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Playlists", exact: true })
-    .click();
+  await openLibrarySection(page, "Playlists");
   await page
     .locator(`a[href="/playlists/${receipt.playlist_id}"]`)
     .first()
@@ -202,10 +200,7 @@ export async function verifySpotifyYouTubePlayback(
   expect(afterSeek.time < target + 5).toBe(true);
 
   setPhase(10);
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "History", exact: true })
-    .click();
+  await openLibrarySection(page, "History");
   await expect
     .poll(async () => (await liveAudioState(page)).time, {
       timeout: 10_000,
