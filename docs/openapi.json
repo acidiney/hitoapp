@@ -19199,6 +19199,7 @@
           "AudiobookPage",
           "HistoryPage",
           "SettingsPage",
+          "QueuePage",
           "DiscoverPage",
           "PodcastIndexPage",
           "PodcastPage"
@@ -21868,6 +21869,13 @@
             "type": "string"
           }
         }
+      },
+      "QueuePageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          }
+        ]
       },
       "ReadAlbumEditionTrackList": {
         "type": "object",

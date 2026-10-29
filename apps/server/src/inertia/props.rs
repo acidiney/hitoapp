@@ -34,6 +34,7 @@ pub enum PageComponent {
     AudiobookPage,
     HistoryPage,
     SettingsPage,
+    QueuePage,
     DiscoverPage,
     PodcastIndexPage,
     PodcastPage,
@@ -259,6 +260,12 @@ pub struct SettingsPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct QueuePageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct DiscoverPageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -316,6 +323,7 @@ pub enum PageProps {
     Audiobook(AudiobookPageProps),
     History(HistoryPageProps),
     Settings(SettingsPageProps),
+    Queue(QueuePageProps),
     Discover(DiscoverPageProps),
     PodcastIndex(PodcastIndexPageProps),
     Podcast(PodcastPageProps),
@@ -343,6 +351,7 @@ impl PageProps {
             Self::Audiobook(_) => PageComponent::AudiobookPage,
             Self::History(_) => PageComponent::HistoryPage,
             Self::Settings(_) => PageComponent::SettingsPage,
+            Self::Queue(_) => PageComponent::QueuePage,
             Self::Discover(_) => PageComponent::DiscoverPage,
             Self::PodcastIndex(_) => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,

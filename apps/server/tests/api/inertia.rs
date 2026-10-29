@@ -205,7 +205,8 @@ async fn inertia_pages_only_include_the_data_for_their_screen() {
                 "user",
             ],
         ),
-        ("/settings", "SettingsPage", shared),
+        ("/settings", "SettingsPage", shared.clone()),
+        ("/queue", "QueuePage", shared),
     ] {
         let response = app
             .clone()
@@ -283,6 +284,7 @@ async fn api_contract_is_published_without_authentication() {
         "PlaylistPageProps",
         "HistoryPageProps",
         "SettingsPageProps",
+        "QueuePageProps",
     ] {
         assert!(
             contract["components"]["schemas"][schema].is_object(),

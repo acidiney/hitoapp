@@ -29,6 +29,7 @@ pub enum Screen<'a> {
     Audiobook(&'a str),
     History,
     Settings,
+    Queue,
     Discover,
     PodcastIndex,
     Podcast(&'a str),
@@ -45,6 +46,7 @@ impl<'a> Screen<'a> {
             "/audiobooks" => Self::AudiobookIndex,
             "/history" => Self::History,
             "/settings" => Self::Settings,
+            "/queue" => Self::Queue,
             "/discover" => Self::Discover,
             "/podcasts" => Self::PodcastIndex,
             "/albums" => Self::AlbumIndex,
@@ -92,6 +94,7 @@ impl<'a> Screen<'a> {
             Self::Audiobook(_) => PageComponent::AudiobookPage,
             Self::History => PageComponent::HistoryPage,
             Self::Settings => PageComponent::SettingsPage,
+            Self::Queue => PageComponent::QueuePage,
             Self::Discover => PageComponent::DiscoverPage,
             Self::PodcastIndex => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,
@@ -140,6 +143,9 @@ impl<'a> Screen<'a> {
             Self::Podcast(id) => podcasts::detail(request, id).await,
             Self::Discover => discover::discover(request).await,
             Self::Settings => Ok(PageProps::Settings(SettingsPageProps {
+                shared: request.shared,
+            })),
+            Self::Queue => Ok(PageProps::Queue(QueuePageProps {
                 shared: request.shared,
             })),
         }

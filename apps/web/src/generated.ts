@@ -3388,7 +3388,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
+        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -4084,6 +4084,7 @@ export interface components {
             candidate: components["schemas"]["ProviderRecording"];
             review_stamp: string;
         };
+        QueuePageProps: components["schemas"]["SharedPageProps"];
         ReadAlbumEditionTrackList: {
             association_id: string;
             edition_id: string;

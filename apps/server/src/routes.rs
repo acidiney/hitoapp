@@ -45,6 +45,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         AudiobookPageProps,
         HistoryPageProps,
         SettingsPageProps,
+        QueuePageProps,
         DiscoverPageProps,
         PodcastIndexPageProps,
         PodcastPageProps,
@@ -276,6 +277,7 @@ fn application(
         .route("/likes", get(inertia::page))
         .route("/history", get(inertia::page))
         .route("/settings", get(inertia::page))
+        .route("/queue", get(inertia::page))
         .route("/playlists", get(inertia::page))
         .route("/playlists/{id}", get(inertia::page))
         .route("/audiobooks", get(inertia::page))
