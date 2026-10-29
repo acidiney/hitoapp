@@ -32,8 +32,8 @@ async fn http_similar_artists_use_the_chosen_plugin_and_link_exact_chosen_artist
     tagged(&music.join("b.wav"), 2, "Song B", M2);
     let hito = services(dir.path(), &music).await;
     let app = hito_server::router(hito.clone());
-    let token = admin(&app).await;
-    let token = Some(token.as_str());
+    let token_text = admin(&app).await;
+    let token = Some(token_text.as_str());
     let (_, libraries) = call(&app, "GET", "/api/v1/libraries", Value::Null, token).await;
     let library = libraries[0]["id"].as_str().unwrap().to_owned();
     call(
@@ -87,7 +87,7 @@ async fn http_similar_artists_use_the_chosen_plugin_and_link_exact_chosen_artist
     assert_eq!(none, json!({"status": "unsupported"}));
 
     let mut server = SimilarityServer::start().await;
-    let admin_actor = hito.identity.authenticate(token.unwrap()).await.unwrap();
+    let admin_actor = hito.identity.authenticate(&token_text).await.unwrap();
     let service = hito
         .plugins
         .offer_service(
