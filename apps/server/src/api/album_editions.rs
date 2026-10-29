@@ -8,8 +8,9 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    AlbumEditionChoiceReceipt, AlbumEditionTrackListAvailability, ChooseAlbumEdition,
-    ClearAlbumEdition, ReadAlbumEditionTrackList, Services,
+    AlbumEditionChoiceReceipt, AlbumEditionTrackListAvailability, AlbumTrackAudio,
+    ChooseAlbumEdition, ClearAlbumEdition, FindAlbumTrackAudio, ReadAlbumEditionTrackList,
+    Services,
 };
 use std::time::Instant;
 use uuid::Uuid;
@@ -43,6 +44,39 @@ pub async fn track_list(
             .map_or_else(|error| error.code(), |read| read.outcome()),
         elapsed_ms = started.elapsed().as_millis() as u64,
         "Album edition track list HTTP request completed"
+    );
+    Ok(Json(result?))
+}
+
+#[utoipa::path(post, path = "/api/v1/albums/{id}/edition-track-audio", operation_id = "album_edition_track_audio",
+    params(("id" = String, Path)),
+    request_body = FindAlbumTrackAudio,
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = AlbumTrackAudio, headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
+    (status = 409, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 500, body = ErrorResponse), (status = 502, body = ErrorResponse),
+))]
+#[tracing::instrument(level = "debug", skip_all, fields(operation = "http_album_edition_track_audio", request_id = %Uuid::new_v4()))]
+pub async fn track_audio(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<FindAlbumTrackAudio>,
+) -> ApiResult<Json<AlbumTrackAudio>> {
+    let started = Instant::now();
+    let result = services
+        .catalog
+        .find_album_track_audio_until(&actor, &id, request, std::future::pending())
+        .await;
+    tracing::debug!(
+        outcome = result
+            .as_ref()
+            .map_or_else(|error| error.code(), |found| found.outcome()),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Album track audio HTTP request completed"
     );
     Ok(Json(result?))
 }

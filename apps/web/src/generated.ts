@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/albums/{id}/edition-track-audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["album_edition_track_audio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/albums/{id}/edition-track-list": {
         parameters: {
             query?: never;
@@ -2305,6 +2321,35 @@ export interface components {
         AlbumPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["ReleaseDetail"];
         };
+        AlbumTrackAudio: {
+            installation_id: string;
+            /** Format: int64 */
+            installation_revision: number;
+            provider_recording_id: string;
+            /** @enum {string} */
+            status: "found";
+        } | {
+            /** @enum {string} */
+            status: "no_match";
+        } | {
+            /** @enum {string} */
+            status: "no_providers";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        } | {
+            /** @enum {string} */
+            status: "needs_choice";
+        };
         ApplyArtistIdentityToCredit: {
             after?: string | null;
             group_id: string;
@@ -2993,6 +3038,13 @@ export interface components {
         ErrorResponse: {
             code?: components["schemas"]["ErrorCode"] | null;
             error: string;
+        };
+        FindAlbumTrackAudio: {
+            association_id: string;
+            edition_id: string;
+            occurrence_id: string;
+            recording_id: string;
+            release_group_id: string;
         };
         FolderRevision: {
             /** Format: int64 */
@@ -4969,6 +5021,113 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    album_edition_track_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindAlbumTrackAudio"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumTrackAudio"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

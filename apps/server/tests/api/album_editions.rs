@@ -388,3 +388,131 @@ fn assert_saved_contract() {
         );
     }
 }
+
+#[tokio::test]
+async fn a_catalog_only_track_finds_approved_audio_over_http_without_saving_anything() {
+    let (_directory, app) = support::app().await;
+    let account = Account::setup(&app).await;
+    let mut catalog = AlbumProvider::start().await;
+    let audio = crate::provider_fixture::ProviderServer::start().await;
+    let result = tokio::time::timeout(
+        Duration::from_secs(60),
+        AssertUnwindSafe(find_audio(&app, &account, &catalog, &audio)).catch_unwind(),
+    )
+    .await;
+    audio.shutdown().await;
+    let joined = catalog.finish().await;
+    match result {
+        Ok(Ok(())) => {}
+        Ok(Err(panic)) => resume_unwind(panic),
+        Err(_) => panic!("The album audio workflow must finish within its deadline"),
+    }
+    assert!(joined);
+}
+
+async fn find_audio(
+    app: &Router,
+    account: &Account,
+    catalog: &AlbumProvider,
+    audio: &crate::provider_fixture::ProviderServer,
+) {
+    let Prepared {
+        release,
+        first,
+        association,
+        ..
+    } = prepare(app, account, catalog).await;
+    let path = format!("/api/v1/albums/{release}/edition-track-audio");
+    let body = json!({
+        "recording_id": first, "association_id": association,
+        "release_group_id": provider::GROUP_ID, "edition_id": provider::EDITION_ID,
+        "occurrence_id": "occurrence:album/2/2"
+    });
+    let before = account.get(app, "/api/v1/recordings").await["total"].clone();
+
+    let mut anonymous = account.headers();
+    anonymous.remove("cookie");
+    let (status, _, _) = fixture::exchange(app, "POST", &path, body.clone(), anonymous).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let mut unguarded = account.headers();
+    unguarded.remove("x-hito-request");
+    let (status, _, _) = fixture::exchange(app, "POST", &path, body.clone(), unguarded).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let mut unknown = body.clone();
+    unknown["title"] = json!("Bonus catalog title");
+    let (status, _, _) = fixture::exchange(app, "POST", &path, unknown, account.headers()).await;
+    assert!(
+        status.is_client_error(),
+        "Caller-supplied evidence is rejected"
+    );
+    let (status, _, _) =
+        fixture::exchange(app, "POST", &path, body.clone(), account.headers()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        accepted(app, account, &path, body.clone()).await,
+        json!({"status": "no_providers"})
+    );
+
+    audio
+        .reply(
+            "v1/manifest",
+            json!({"id": "org.hito.audio-fixture", "name": "Audio fixture", "protocol_version": 1,
+                "capabilities": ["search", "sources", "metadata"]}),
+        )
+        .await;
+    let installation = account
+        .connect(app, &audio.url, "Audio fixture", None)
+        .await;
+    let detail = json!({
+        "id": "audio/bonus", "title": "Bonus catalog title", "artist": provider::CREDIT,
+        "duration_ms": 1000, "release": null, "disc_number": null, "track_number": null,
+        "revision": "audio-r1"
+    });
+    audio
+        .reply(
+            "v1/search",
+            json!({"items": [detail.clone()], "next_cursor": null}),
+        )
+        .await;
+    audio.reply("v1/recordings/detail", detail.clone()).await;
+    audio
+        .reply(
+            "v1/recordings/metadata",
+            json!({"recording": detail, "musical_title": "Bonus catalog title",
+                "album_title": provider::RELEASE_TITLE, "source_ids": ["audio/source"]}),
+        )
+        .await;
+    audio
+        .reply(
+            "v1/sources",
+            json!({"items": [{"id": "audio/source", "label": "Owned audio", "ready": true}]}),
+        )
+        .await;
+    assert_eq!(
+        accepted(app, account, &path, body.clone()).await,
+        json!({
+            "status": "found", "installation_id": installation["id"],
+            "installation_revision": installation["revision"],
+            "provider_recording_id": "audio/bonus"
+        })
+    );
+    audio.offline().await;
+    assert_eq!(
+        accepted(app, account, &path, body.clone()).await,
+        json!({"status": "unavailable"})
+    );
+    assert_eq!(
+        account.get(app, "/api/v1/recordings").await["total"],
+        before
+    );
+    assert!(audio.requests("v1/audio").await.is_empty());
+    assert_eq!(catalog.unexpected(), 0);
+
+    let contract = serde_json::to_value(hito_server::openapi()).unwrap();
+    let endpoint = &contract["paths"]["/api/v1/albums/{id}/edition-track-audio"]["post"];
+    assert_eq!(endpoint["operationId"], "album_edition_track_audio");
+    assert_eq!(
+        endpoint["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/AlbumTrackAudio"
+    );
+}
