@@ -236,3 +236,30 @@ pub struct HistoryEntry {
     pub available: bool,
     pub liked: bool,
 }
+
+#[derive(Serialize, ToSchema)]
+pub struct Home {
+    pub has_music: bool,
+    pub liked_count: i64,
+    pub recent_albums: Vec<HomeAlbum>,
+    pub unheard: Vec<UnheardOnAlbum>,
+}
+
+#[derive(Serialize, sqlx::FromRow, ToSchema)]
+pub struct HomeAlbum {
+    pub id: String,
+    pub title: String,
+    pub artist: String,
+    pub last_played_at: i64,
+    pub played: i64,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct UnheardOnAlbum {
+    pub release_id: String,
+    pub title: String,
+    pub artist: String,
+    pub played: i64,
+    pub remaining: i64,
+    pub tracks: Vec<crate::Recording>,
+}

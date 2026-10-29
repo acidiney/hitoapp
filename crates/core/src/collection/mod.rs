@@ -3,6 +3,7 @@ mod audiobooks;
 mod events;
 mod follow;
 mod history;
+mod home;
 mod import;
 mod import_persist;
 mod import_publication;
@@ -21,6 +22,9 @@ mod audiobook_admission_work;
 #[cfg(test)]
 #[path = "tests/audiobook_library_work.rs"]
 mod audiobook_library_work;
+#[cfg(test)]
+#[path = "tests/home_work.rs"]
+mod home_work;
 #[cfg(test)]
 #[path = "tests/saved_playback_work.rs"]
 mod saved_playback_work;
@@ -48,8 +52,9 @@ pub use import_receipts::PlaylistImportReceipt;
 pub use metadata_refresh::{ImportedPlaylistMetadataRefresh, RefreshImportedPlaylistMetadata};
 pub(crate) use saved_playback::saved_progress;
 pub use types::{
-    Action, Activity, HistoryEntry, Operation, Playlist, PlaylistDetail, PlaylistEntry,
-    RecordingProgress, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    Action, Activity, HistoryEntry, Home, HomeAlbum, Operation, Playlist, PlaylistDetail,
+    PlaylistEntry, RecordingProgress, SavedPosition, SyncBatch, SyncEvent, SyncPage, SyncReceipt,
+    UnheardOnAlbum,
 };
 
 #[derive(Clone)]
