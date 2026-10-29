@@ -8905,6 +8905,138 @@
         ]
       }
     },
+    "/api/v1/recordings/{id}/artist-associations/{association}/discography/library": {
+      "post": {
+        "operationId": "recording_artist_discography_library",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "association",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadDiscographyLibrary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscographyLibrary"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/recordings/{id}/artist-associations/{association}/edition-track-list": {
       "post": {
         "operationId": "recording_artist_edition_track_list",
@@ -16941,6 +17073,24 @@
         },
         "additionalProperties": false
       },
+      "DiscographyLibrary": {
+        "type": "object",
+        "required": [
+          "association_id",
+          "groups"
+        ],
+        "properties": {
+          "association_id": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryReleaseGroup"
+            }
+          }
+        }
+      },
       "DiscoverPageProps": {
         "allOf": [
           {
@@ -17770,6 +17920,49 @@
           },
           "personal": {
             "type": "boolean"
+          }
+        }
+      },
+      "LibraryAlbum": {
+        "type": "object",
+        "required": [
+          "release_id",
+          "edition_id",
+          "track_count",
+          "playable_count"
+        ],
+        "properties": {
+          "edition_id": {
+            "type": "string"
+          },
+          "playable_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "release_id": {
+            "type": "string"
+          },
+          "track_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "LibraryReleaseGroup": {
+        "type": "object",
+        "required": [
+          "release_group_id",
+          "albums"
+        ],
+        "properties": {
+          "albums": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryAlbum"
+            }
+          },
+          "release_group_id": {
+            "type": "string"
           }
         }
       },
@@ -21110,6 +21303,21 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReadDiscographyLibrary": {
+        "type": "object",
+        "required": [
+          "release_group_ids"
+        ],
+        "properties": {
+          "release_group_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false

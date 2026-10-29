@@ -31,15 +31,15 @@ async fn an_account_compares_a_selected_edition_with_its_album_without_saving_ca
     assert!(joined, "The owned album provider must join shutdown");
 }
 
-struct Prepared {
-    installation: Value,
-    saved: Vec<Value>,
-    release: String,
-    first: String,
-    association: String,
+pub(crate) struct Prepared {
+    pub installation: Value,
+    pub saved: Vec<Value>,
+    pub release: String,
+    pub first: String,
+    pub association: String,
 }
 
-async fn prepare(app: &Router, account: &Account, server: &AlbumProvider) -> Prepared {
+pub(crate) async fn prepare(app: &Router, account: &Account, server: &AlbumProvider) -> Prepared {
     let installation = account
         .connect(app, &server.url, "Owned album editions", None)
         .await;

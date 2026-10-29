@@ -9,6 +9,7 @@ mod discography;
 mod discovery;
 mod editions;
 pub(crate) mod identity;
+mod library_availability;
 mod matching;
 mod policy;
 mod preview;
@@ -19,6 +20,9 @@ mod review;
 mod shared_corrections;
 mod types;
 pub use identity::*;
+pub use library_availability::{
+    DiscographyLibrary, LibraryAlbum, LibraryReleaseGroup, ReadDiscographyLibrary,
+};
 pub use matching::*;
 
 pub use album_edition_choice::{

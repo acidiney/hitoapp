@@ -150,6 +150,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_profiles::unlink))
         .routes(routes!(api::artist_profiles::undo))
         .routes(routes!(api::artist_discography::read))
+        .routes(routes!(api::artist_discography::library))
         .routes(routes!(api::album_editions::track_list))
         .routes(routes!(api::album_editions::saved_track_list))
         .routes(routes!(api::album_editions::choose))

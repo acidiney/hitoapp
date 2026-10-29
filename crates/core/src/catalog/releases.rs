@@ -50,9 +50,9 @@ pub struct ReleaseDetail {
 pub(super) const MAX_COMPARED_TRACKS: i64 = 1000;
 const MAX_ANCHOR_CANDIDATES: i64 = 16;
 
-const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
+pub(super) const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
     OR EXISTS (SELECT 1 FROM provider_release_appearances appearance WHERE appearance.release_id = a.id))";
-const ENTRIES: &str = "), source_entries AS (
+pub(super) const ENTRIES: &str = "), source_entries AS (
     SELECT m.release_id, s.recording_id, min(m.source_id) AS entry_id
     FROM selected a CROSS JOIN source_metadata m ON m.release_id = a.id JOIN sources s ON s.id = m.source_id
     GROUP BY m.release_id, s.recording_id, m.disc_number, m.track_number

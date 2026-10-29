@@ -13,6 +13,7 @@ pub use provider::{
     SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
 };
 pub(crate) use provider::{ExistingProviderMetadata, refresh_existing_provider_metadata};
+mod release_availability;
 mod releases;
 mod search;
 mod selection;
@@ -52,9 +53,10 @@ pub use artist_catalog::{
     ArtistMatchSuggestion, ArtistMatchSuggestions, ArtistProfileAvailability,
     ArtistReviewConnection, ArtistReviewContext, ArtistReviewMetadataBinding,
     AssociateRecordingArtist, CatalogAdoption, CatalogTrackMatch, ChooseAlbumEdition,
-    ChooseRecordingArtistIdentity, ClearAlbumEdition, DismissArtistMatchSuggestion,
-    EditionTrackListAvailability, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
-    PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography,
+    ChooseRecordingArtistIdentity, ClearAlbumEdition, DiscographyLibrary,
+    DismissArtistMatchSuggestion, EditionTrackListAvailability, LibraryAlbum, LibraryReleaseGroup,
+    MatchArtistsFromTags, MetadataProvider, MetadataSettings, PromoteArtistCorrection,
+    PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography, ReadDiscographyLibrary,
     ReadEditionTrackList, ReadReleaseGroupEditions, RecordingArtistIdentityChoice,
     RecordingArtistIdentityState, ReleaseGroupEditionsAvailability, ResetRecordingArtistIdentity,
     SavedAlbumEdition, SharedArtistCorrection, SharedArtistCorrectionQuery,
