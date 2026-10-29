@@ -1,6 +1,6 @@
 # Design system (proposed redesign)
 
-**Status: phase 1 (foundation) and the settings half of phase 2 implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled; the screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
+**Status: phase 1 (foundation), the settings half of phase 2 and the Home, Search and Discover half of phase 3 implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled except Settings, Home, Search and Discover; the other screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
 
 | Area | State |
 | --- | --- |
@@ -10,11 +10,14 @@
 | Shell | Sidebar with the mark, Home / Search (⌘K on Apple systems, Ctrl+K elsewhere) / Library, playlists, and an account bar (account and settings link, lock, sign-out) that sits at the bottom of the sidebar on desktop and in a header on phones. Below 768 px the navigation becomes a three-tab bottom bar. |
 | Player bar | Restyled (cover, title and artist, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
 | Settings | Implemented: a grouped navigation (Your account: Profile, Privacy & lock; Listening: Music & providers, Plugins, Playback, Downloads & storage; Server: Accounts, Updates, About) with one deep link per section, a section heading, and cards built from SettingsCard, SettingRow, Switch, SegmentedControl, Button, HealthDot and SectionWarning. See "Settings" below. |
-| Home, Biblioteca filters, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phase 2 Biblioteca and later). |
+| Home | Implemented at `/home` (see "Home, Search and Discover" below). |
+| Search | Implemented at `/search` with All / Library / Providers scopes (see below). |
+| Discover | Restyled: provider pills, section warning, availability labels. Genres, featured albums and radio are not built (see below). |
+| Biblioteca filters, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phase 2 Biblioteca and later). |
 
 **Language.** The prototype labels are Portuguese, but the app stays English for now (Home, Search, Library, "Account and settings"). Translation is a separate i18n item in the [TODO](../TODO.md).
 
-Route mapping in phase 1: there is no Home page yet, so Home opens `/discover`, the closest existing page, until the real Home is built. Search is a button that focuses the library search field, or opens `/library` and focuses the field on arrival when the page has none. Library opens `/library`; albums, artists, playlists, podcasts, audiobooks, likes and history stay at their routes and are reachable from the "Library sections" strip shown on those pages. Settings open from the avatar.
+Routes: Home opens `/home`, Search opens `/search` (a real page, not a focus shortcut) and Library opens `/library`; albums, artists, playlists, podcasts, audiobooks, likes and history stay at their routes and are reachable from the "Library sections" strip shown on those pages. `/discover` stays a separate page reached from Home and the Providers scope of Search, and counts as part of the Search destination. Settings open from the avatar. `/` and the post-sign-in landing remain the library: several browser flows assert the library heading after sign-in, so moving the landing to Home is deferred (see the [TODO](../TODO.md)). The ⌘K / Ctrl+K shortcut focuses the field of the current page when it has one (library pages keep their own library filter, Home and Search their own field) and otherwise opens `/search` and focuses its field.
 
 **Fallback cover rule (implemented).** `FallbackCover` takes its colours and shape from a 32-bit FNV-1a hash of the release id (the recording id when there is no release). The hash picks one of eight fixed palette entries (`coverPalette.ts`) and one of three shapes (circle, band, plain), so the same id looks the same on every visit and device. Real artwork always wins; the fallback shows only when no artwork loads.
 
@@ -115,3 +118,18 @@ Current behavior (apps/web, English labels):
 Not built because the server has no matching capability (see the [TODO](../TODO.md)): display name, avatar photo, language, password change, open-session list, playback-history toggle and deletion, update checks and channels, copy diagnostics, playback and download options.
 
 Where the old pages were: Library settings now live in Music & providers (music folders); Metadata moved into the same section; Privacy keeps community consent and source rankings and gains the screen lock; Plugins and Accounts keep their content.
+
+## Home, Search and Discover
+
+**Home (`/home`).** A greeting with the account name and a search field that sends the query to Search, then only sections the server can fill from data it already has:
+
+- *Quick access*, up to six tiles: the three most recently played albums, Liked tracks (with a count, shown as `1,000+` above 1,000), then the account's own and followed playlists, then any further recent albums. Each tile opens its page.
+- *Unheard, near what you like*, up to three albums the account has played where other playable tracks have never been started. Each card says why ("You played 3 tracks from Tide.") and offers Listen (queues those tracks) and Open album. There is no "Not now" because nothing persists a dismissal.
+- An empty library (no music, no playlists) shows folder, playlist-import and service actions; a listener who cannot manage folders is told to ask the administrator.
+
+"New from your artists" is not shown: nothing in the server polls provider discographies. The read model is `Collection::home` in core (recent albums come from the 200 most recent progress rows, so its work does not grow with listening history; a SQLite work-budget test covers this) and the thin `HomePage` adapter in the server.
+
+**Search (`/search`).** One field and the pills All / Library / Providers. Library results come from the existing catalog search and are grouped as Top result, Tracks (availability label: In library or Catalog only; Play or View), Albums and Artists, at most 8 tracks and 6 albums and artists. Provider results use the first connected service that can search (a pill group chooses another) through the existing provider search, with the same Listen and Add actions as Discover and a section warning when that service fails, while the library results stay. The scope is client state and is not in the URL.
+
+**Discover (`/discover`).** The provider search page, restyled: provider filter pills, the search field, availability labels (In library, Available, Catalog only), Listen (play) and Add actions and an inline section warning with a service refresh link on a provider failure. By-genre tiles, featured albums per provider and "Radio from…" are not built because no plugin capability supplies them.
+
