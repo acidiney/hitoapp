@@ -1,5 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import { UserPlus } from "lucide-react";
+import Button from "../../../shared/ui/Button";
+import SettingRow from "../../../shared/ui/SettingRow";
+import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useAccounts } from "../hooks/useAccounts";
+import AccountDialog from "./AccountDialog";
 
 export default function AccountSettings({
   account,
@@ -9,71 +14,56 @@ export default function AccountSettings({
   library?: string;
 }) {
   const { users, pending, create, access } = useAccounts(account);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!pending && (await create(username, password))) {
-      setUsername("");
-      setPassword("");
-    }
-  }
+  const [creating, setCreating] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  const wasCreating = useRef(false);
+  useEffect(() => {
+    if (wasCreating.current && !creating)
+      opener.current?.focus({ preventScroll: true });
+    wasCreating.current = creating;
+  }, [creating]);
   return (
-    <section id="accounts">
-      <h2>Accounts</h2>
-      <p>Each account has private playlists, likes, and listening history.</p>
-      <form className="account-form" onSubmit={submit}>
-        <label>
-          Username
-          <input
-            autoComplete="off"
-            value={username}
-            maxLength={64}
-            required
-            onChange={(event) => setUsername(event.target.value)}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            autoComplete="new-password"
-            minLength={12}
-            value={password}
-            required
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
-        <button className="button primary" type="submit" disabled={pending}>
+    <SettingsCard
+      title="Accounts and access"
+      description="People who can sign in to this server."
+      action={
+        <Button
+          ref={opener}
+          variant="primary"
+          onClick={() => setCreating(true)}
+        >
+          <UserPlus size={16} aria-hidden="true" />
           Create account
-        </button>
-      </form>
-      <ul className="account-list">
-        {users.map((user) => (
-          <li key={user.id}>
-            <span>
-              {user.username}
-              {user.admin && <small>Administrator</small>}
-            </span>
-            {!user.admin && library && (
-              <div>
-                <button
-                  className="button"
-                  onClick={() => void access(library, user, true)}
-                >
+        </Button>
+      }
+    >
+      {users.map((user) => (
+        <SettingRow
+          key={user.id}
+          title={user.username}
+          hint={user.admin ? "Administrator" : "Member"}
+          wide
+          action={
+            !user.admin && library ? (
+              <>
+                <Button onClick={() => void access(library, user, true)}>
                   Grant access
-                </button>
-                <button
-                  className="button"
-                  onClick={() => void access(library, user, false)}
-                >
+                </Button>
+                <Button onClick={() => void access(library, user, false)}>
                   Remove access
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+                </Button>
+              </>
+            ) : undefined
+          }
+        />
+      ))}
+      {creating && (
+        <AccountDialog
+          pending={pending}
+          onCreate={create}
+          onClose={() => setCreating(false)}
+        />
+      )}
+    </SettingsCard>
   );
 }
