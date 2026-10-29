@@ -294,7 +294,9 @@ test("Podcasts preserves a new feed draft while the submitted feed awaits acknow
     resolveSubscription(Response.json(receipt, { status: 202 }));
   });
   await screen.findByRole("link", { name: "Submitted podcast" });
-  expect(screen.getByRole("dialog", { name: "Subscribe to a podcast" })).toBeTruthy();
+  expect(
+    screen.getByRole("dialog", { name: "Subscribe to a podcast" }),
+  ).toBeTruthy();
   expect(
     (screen.getByRole("textbox", { name: "Feed address" }) as HTMLInputElement)
       .value,

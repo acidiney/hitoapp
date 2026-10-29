@@ -549,13 +549,11 @@ async function assertChapters(
       "aria-label",
       new RegExp(`^Chapter ${index + 1}: `),
     );
+    await expect(rows.nth(index).locator(".chapter-number")).toHaveText(
+      String(index + 1),
+    );
     await expect(
-      rows.nth(index).locator(".chapter-number"),
-    ).toHaveText(String(index + 1));
-    await expect(
-      rows
-        .nth(index)
-        .getByText(saved.privateValues[0], { exact: true }),
+      rows.nth(index).getByText(saved.privateValues[0], { exact: true }),
     ).toBeVisible();
   }
   expect(

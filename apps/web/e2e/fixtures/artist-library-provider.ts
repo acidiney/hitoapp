@@ -25,10 +25,10 @@ export async function artistLibraryProvider(label: string) {
       response.writeHead(401).end();
       return;
     }
-    const route = new URL(request.url!, "http://fixture.invalid").pathname.replace(
-      /^\/library\//,
-      "",
-    );
+    const route = new URL(
+      request.url!,
+      "http://fixture.invalid",
+    ).pathname.replace(/^\/library\//, "");
     let body = "";
     for await (const chunk of request) body += chunk;
     const value = body ? JSON.parse(body) : null;
@@ -94,7 +94,10 @@ export async function artistLibraryProvider(label: string) {
           title,
           artist: artistLibrary.credit,
           duration_ms: 1000,
-          release: { id: "e2e:release/library", title: `Library album ${label}` },
+          release: {
+            id: "e2e:release/library",
+            title: `Library album ${label}`,
+          },
           disc_number: 1,
           track_number: 1,
           revision: "library-r1",

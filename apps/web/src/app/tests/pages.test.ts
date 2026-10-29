@@ -6,7 +6,10 @@ import { buildPages, pages, resolvePage } from "../pages";
 
 type PageComponent = components["schemas"]["PageComponent"];
 
-const contract = resolve(import.meta.dirname, "../../../../../docs/openapi.json");
+const contract = resolve(
+  import.meta.dirname,
+  "../../../../../docs/openapi.json",
+);
 
 function serverComponents(): PageComponent[] {
   const document = JSON.parse(readFileSync(contract, "utf8"));

@@ -259,10 +259,14 @@ test("each episode row has one details link and a played row plays from the star
     expect(
       within(row)
         .getAllByRole("link")
-        .filter((link) => link.getAttribute("href")?.startsWith("/recordings/")),
+        .filter((link) =>
+          link.getAttribute("href")?.startsWith("/recordings/"),
+        ),
     ).toHaveLength(1);
   expect(within(rows[1]).queryByRole("progressbar")).not.toBeNull();
-  fireEvent.click(within(rows[1]).getByRole("button", { name: "Play Halfway" }));
+  fireEvent.click(
+    within(rows[1]).getByRole("button", { name: "Play Halfway" }),
+  );
   expect(playQueue).toHaveBeenLastCalledWith(expect.any(Array), 1, {
     kind: "position",
     position: 0,
@@ -276,9 +280,9 @@ test("a new episode has no progress bar and the check mark is decorative", () =>
   ).getAllByRole("listitem");
   expect(within(rows[0]).queryByRole("progressbar")).toBeNull();
   expect(screen.getByText("Following").textContent).toBe("Following ✓");
-  expect(document.querySelector(".tint-status [aria-hidden]")?.textContent).toBe(
-    "✓",
-  );
+  expect(
+    document.querySelector(".tint-status [aria-hidden]")?.textContent,
+  ).toBe("✓");
 });
 
 test("closing the dialog during an unconfirmed request keeps a retry next to the trigger", async () => {
@@ -304,13 +308,18 @@ test("closing the dialog during an unconfirmed request keeps a retry next to the
   await act(async () => {});
   openSubscribeDialog();
   const dialog = screen.getByRole("dialog");
-  fireEvent.change(within(dialog).getByRole("textbox", { name: "Feed address" }), {
-    target: { value: "https://feed.invalid/x.xml" },
-  });
+  fireEvent.change(
+    within(dialog).getByRole("textbox", { name: "Feed address" }),
+    {
+      target: { value: "https://feed.invalid/x.xml" },
+    },
+  );
   fireEvent.click(within(dialog).getByRole("button", { name: "Subscribe" }));
   await within(dialog).findByRole("alert");
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("status").textContent).toMatch(/not confirmed/i);
-  expect(screen.getByRole("button", { name: "Review subscription request" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Review subscription request" }),
+  ).toBeTruthy();
 });

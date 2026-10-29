@@ -5,13 +5,20 @@ import type { AddressInfo } from "node:net";
 export const artistSplit = {
   credit: "Split performer",
   artists: ["e2e:artist/split-first", "e2e:artist/split-second"],
-  recordings: ["e2e:recording/split-a", "e2e:recording/split-b", "e2e:recording/split-c"],
+  recordings: [
+    "e2e:recording/split-a",
+    "e2e:recording/split-b",
+    "e2e:recording/split-c",
+  ],
 };
 
 export async function artistSplitProvider(label: string) {
   const token = "browser-private-artist-split-token";
   const titles = Object.fromEntries(
-    artistSplit.recordings.map((id, index) => [id, `Split track ${index + 1} ${label}`]),
+    artistSplit.recordings.map((id, index) => [
+      id,
+      `Split track ${index + 1} ${label}`,
+    ]),
   );
   const state = { unexpected: 0 };
   const server = createServer(async (request, response) => {
@@ -19,10 +26,10 @@ export async function artistSplitProvider(label: string) {
       response.writeHead(401).end();
       return;
     }
-    const route = new URL(request.url!, "http://fixture.invalid").pathname.replace(
-      /^\/split\//,
-      "",
-    );
+    const route = new URL(
+      request.url!,
+      "http://fixture.invalid",
+    ).pathname.replace(/^\/split\//, "");
     let body = "";
     for await (const chunk of request) body += chunk;
     const value = body ? JSON.parse(body) : null;
@@ -51,7 +58,9 @@ export async function artistSplitProvider(label: string) {
           artist: { id: value.artist_id, name: artistSplit.credit },
           sort_name: null,
           kind: "person",
-          disambiguation: value.artist_id.endsWith("first") ? "First" : "Second",
+          disambiguation: value.artist_id.endsWith("first")
+            ? "First"
+            : "Second",
           revision: "split-profile:1",
         });
       }

@@ -55,9 +55,7 @@ export default function FolderRow({
     folder.latest_job?.state === "running";
   return (
     <SettingRow
-      title={
-<h4>{folder.name}</h4>
-      }
+      title={<h4>{folder.name}</h4>}
       hint={
         !!folder.directory?.components?.length && (
           <span className="setting-line-path">

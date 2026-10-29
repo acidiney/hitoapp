@@ -196,7 +196,9 @@ test("a saved artist review browses paged catalog groups without adopting albums
     ).toBeNull();
     expect(within(region).queryAllByRole("link")).toHaveLength(0);
     expect(region.querySelectorAll("img")).toHaveLength(0);
-    expect(region.querySelectorAll(".fallback-cover").length).toBeGreaterThan(0);
+    expect(region.querySelectorAll(".fallback-cover").length).toBeGreaterThan(
+      0,
+    );
     expect(
       within(region).queryByRole("button", {
         name: /play|download|import|add to library/i,

@@ -276,11 +276,9 @@ export async function providerOutageEvidence(
       const registry = JSON.stringify([...privateValues]);
       if (Buffer.byteLength(registry) > 65_536)
         throw new Error("Owned private registry exceeded its bound");
-      await writeFile(
-        "/control/private-canaries.json",
-        registry,
-        { mode: 0o600 },
-      );
+      await writeFile("/control/private-canaries.json", registry, {
+        mode: 0o600,
+      });
       await outageControl("log-check-ready", "log_check_ready", { assets });
       const result = await waitOutageControl(
         "logs-checked",

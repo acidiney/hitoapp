@@ -40,7 +40,10 @@ test("closing returns focus to the element that opened the dialog", () => {
   const trigger = screen.getByRole("button", { name: "Open" });
   trigger.focus();
   fireEvent.click(trigger);
-  fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(trigger);
 });

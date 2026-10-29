@@ -177,8 +177,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     await expect
       .poll(async () => {
         const detail = await page.request.get(`/api/v1/releases/${release}`);
-        return (await detail.json()).saved_edition?.state?.edition
-          ?.edition_id;
+        return (await detail.json()).saved_edition?.state?.edition?.edition_id;
       })
       .toBe(albumEdition.standardId);
     const catalogCalls = fixture.calls.length;

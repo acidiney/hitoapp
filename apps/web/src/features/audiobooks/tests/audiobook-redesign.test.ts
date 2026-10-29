@@ -141,22 +141,35 @@ test("Continue needs only saved progress, and an unknown duration hides the tota
     },
   };
   render(createElement(AudiobookPage, unknown));
-  expect(screen.getByRole("button", { name: "Continue ch. 2 · 1:00" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Continue ch. 2 · 1:00" }),
+  ).toBeTruthy();
   expect(screen.getByText(/^Audiobook · 3 chapters · ≥ /)).toBeTruthy();
   expect(screen.queryByRole("progressbar")).toBeNull();
 });
 
 test("the Bookmark button explains why it is disabled while the form is locked", () => {
   const { detail } = audiobookPages();
-  render(createElement(AudiobookPage, { ...detail, detail: { ...detail.detail, chapters: [] } }));
-  const button = screen.getByRole("button", { name: "Bookmark" }) as HTMLButtonElement;
+  render(
+    createElement(AudiobookPage, {
+      ...detail,
+      detail: { ...detail.detail, chapters: [] },
+    }),
+  );
+  const button = screen.getByRole("button", {
+    name: "Bookmark",
+  }) as HTMLButtonElement;
   expect(button.disabled).toBe(true);
   expect(button.title).toMatch(/chapter/i);
 });
 
 test("chapter rows keep their number and title together", () => {
   render(createElement(AudiobookPage, inProgress()));
-  const rows = within(screen.getByRole("list", { name: "Chapters" })).getAllByRole("listitem");
-  expect(within(rows[0]).getByText("1", { selector: ".chapter-number" })).toBeTruthy();
+  const rows = within(
+    screen.getByRole("list", { name: "Chapters" }),
+  ).getAllByRole("listitem");
+  expect(
+    within(rows[0]).getByText("1", { selector: ".chapter-number" }),
+  ).toBeTruthy();
   expect(rows[0].getAttribute("aria-label")).toBe("Chapter 1: Owned chapter A");
 });

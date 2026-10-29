@@ -48,7 +48,9 @@ export default function AudiobookCreate({
       {!open && hasAttempt && !pending && (
         <div className="media-index-pending">
           <p role="status">Your audiobook request was not confirmed.</p>
-          <Button onClick={() => setOpen(true)}>Review audiobook request</Button>
+          <Button onClick={() => setOpen(true)}>
+            Review audiobook request
+          </Button>
         </div>
       )}
       {open && (

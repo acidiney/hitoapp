@@ -167,9 +167,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   });
   await expect(dock.locator(".now-playing strong")).toHaveText(title);
   const beforeNavigation = await position();
-  await navigation
-    .getByRole("link", { name: "Library", exact: true })
-    .click();
+  await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
