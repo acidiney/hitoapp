@@ -24,6 +24,7 @@ export default function AudiobookChapters({
           <li
             key={chapter.entry_id}
             id={`chapter-${chapter.entry_id}`}
+            aria-label={`Chapter ${index + 1}: ${chapter.title || "Untitled chapter"}`}
             className="chapter-row"
             data-current={current || undefined}
             data-unavailable={!playable || undefined}

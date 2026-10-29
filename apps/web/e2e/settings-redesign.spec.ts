@@ -59,4 +59,21 @@ test("settings deep links, legacy aliases and the grouped navigation work for an
 
   await page.getByRole("link", { name: "All settings" }).click();
   await expect(nav).toBeVisible();
+
+  await page.goto("/podcasts");
+  const subscribe = page.getByRole("button", {
+    name: "Subscribe to a podcast",
+    exact: true,
+  });
+  await subscribe.click();
+  const dialog = page.getByRole("dialog", { name: "Subscribe to a podcast" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(subscribe).toBeFocused();
+  await subscribe.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(subscribe).toBeFocused();
 });

@@ -87,7 +87,9 @@ export default function PodcastPage({
                   : "Play latest"}
               </button>
             )}
-            <span className="tint-status">Following ✓</span>
+            <span className="tint-status">
+              Following <span aria-hidden="true">✓</span>
+            </span>
             <PodcastRefreshButton {...lifecycle} />
           </>
         }

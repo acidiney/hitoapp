@@ -62,12 +62,14 @@ export default function PodcastIndexPage({
             const title = subscription.title || "Untitled podcast";
             return (
               <li className="media-card" key={subscription.subscription_id}>
+                <div aria-hidden="true" className="media-card-cover">
                 <FallbackCover
                   id={subscription.subscription_id}
                   title={title}
                   artist="Podcast"
                   inline={false}
                 />
+                </div>
                 <Link
                   className="media-card-title"
                   href={`/podcasts/${encodeURIComponent(subscription.subscription_id)}`}

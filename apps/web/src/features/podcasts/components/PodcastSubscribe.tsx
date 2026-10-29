@@ -24,17 +24,19 @@ export default function PodcastSubscribe({
     const submittedRevision = draftRevision.current;
     void subscribe(address).then((accepted) => {
       if (!accepted) return;
-      if (draftRevision.current === submittedRevision) setAddress("");
+      if (draftRevision.current !== submittedRevision) return;
+      setAddress("");
       setOpen(false);
     });
   }
   function retrySubscription() {
+    const revision = draftRevision.current;
     void retry().then((accepted) => {
-      if (accepted) setOpen(false);
+      if (accepted && draftRevision.current === revision) setOpen(false);
     });
   }
   return (
-    <>
+    <div className="media-index-action">
       <Button
         variant="action"
         aria-haspopup="dialog"
@@ -44,6 +46,20 @@ export default function PodcastSubscribe({
         <Plus size={17} aria-hidden="true" />
         Subscribe
       </Button>
+      {!open && (pending || hasAttempt) && (
+        <div className="media-index-pending">
+          <p role="status">
+            {pending
+              ? "Subscribing…"
+              : "Your subscription request was not confirmed."}
+          </p>
+          {hasAttempt && !pending && (
+            <Button onClick={() => setOpen(true)}>
+              Review subscription request
+            </Button>
+          )}
+        </div>
+      )}
       {open && (
         <Dialog
           title="Subscribe to a podcast"
@@ -96,6 +112,6 @@ export default function PodcastSubscribe({
           </form>
         </Dialog>
       )}
-    </>
+    </div>
   );
 }

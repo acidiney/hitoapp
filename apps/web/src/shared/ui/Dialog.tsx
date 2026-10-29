@@ -13,10 +13,23 @@ export default function Dialog({
 }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
+    if (!element) return;
+    const opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const closed = () => close.current();
+    element.addEventListener("close", closed);
+    element.showModal();
+    return () => {
+      element.removeEventListener("close", closed);
+      element.close();
+      if (opener?.isConnected) opener.focus();
+    };
   }, []);
   return (
     <dialog
@@ -25,7 +38,7 @@ export default function Dialog({
       aria-labelledby={id}
       onCancel={(event) => {
         event.preventDefault();
-        if (!busy) onClose();
+        if (!busy) close.current();
       }}
     >
       <h2 id={id}>{title}</h2>

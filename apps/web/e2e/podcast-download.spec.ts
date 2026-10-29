@@ -110,6 +110,9 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     });
     await openLibrarySection(page, "Podcasts");
     await page
+      .getByRole("button", { name: "Subscribe to a podcast", exact: true })
+      .click();
+    await page
       .getByLabel("Feed address", { exact: true })
       .fill(initial.feed_url);
     const subscribeResponse = page.waitForResponse(

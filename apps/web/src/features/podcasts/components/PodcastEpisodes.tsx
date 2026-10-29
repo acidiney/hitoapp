@@ -1,5 +1,4 @@
-import { Link } from "@inertiajs/react";
-import { Download, Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw } from "lucide-react";
 import TrackActions from "../../playback/components/TrackActions";
 import ProgressBar from "../../../shared/ui/ProgressBar";
 import { longDuration, time } from "../../../shared/format";
@@ -24,8 +23,11 @@ export default function PodcastEpisodes({
   return (
     <ol className="episode-list" aria-label="Episodes">
       {rows.map(({ index, track, state, positionMs }) => {
-        const start = track.playback_start;
-        const resuming = positionMs > 0 && state.kind !== "played";
+        const resuming = positionMs > 0 && state.kind === "remaining";
+        const start: PlaybackStart =
+          state.kind === "played"
+            ? { kind: "position", position: 0 }
+            : track.playback_start;
         return (
           <li
             key={track.row_id}
@@ -47,10 +49,12 @@ export default function PodcastEpisodes({
             </div>
             <div className="episode-state">
               <span className="episode-state-label">{state.label}</span>
-              <ProgressBar
-                percent={state.percent}
-                label={`Progress of ${track.title}`}
-              />
+              {state.kind !== "new" && (
+                <ProgressBar
+                  percent={state.percent}
+                  label={`Progress of ${track.title}`}
+                />
+              )}
             </div>
             <div className="episode-actions">
               <button
@@ -73,14 +77,6 @@ export default function PodcastEpisodes({
                   <RotateCcw size={15} />
                 </button>
               )}
-              <Link
-                className="round-button"
-                href={`/recordings/${encodeURIComponent(track.id)}`}
-                aria-label={`Download options for ${track.title}`}
-                title="Download options"
-              >
-                <Download size={15} />
-              </Link>
               <TrackActions
                 track={track}
                 playlists={playlists}

@@ -545,11 +545,13 @@ async function assertChapters(
     ),
   ).toBe(true);
   for (let index = 0; index < 2; index++) {
+    await expect(rows.nth(index)).toHaveAttribute(
+      "aria-label",
+      new RegExp(`^Chapter ${index + 1}: `),
+    );
     await expect(
-      rows
-        .nth(index)
-        .getByText(String(index + 1), { exact: true }),
-    ).toBeVisible();
+      rows.nth(index).locator(".chapter-number"),
+    ).toHaveText(String(index + 1));
     await expect(
       rows
         .nth(index)

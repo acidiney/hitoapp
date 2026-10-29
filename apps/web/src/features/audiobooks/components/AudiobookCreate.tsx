@@ -35,7 +35,7 @@ export default function AudiobookCreate({
     void add();
   }
   return (
-    <>
+    <div className="media-index-action">
       <Button
         variant="action"
         aria-haspopup="dialog"
@@ -45,6 +45,12 @@ export default function AudiobookCreate({
         <Plus size={17} aria-hidden="true" />
         Add audiobook
       </Button>
+      {!open && hasAttempt && !pending && (
+        <div className="media-index-pending">
+          <p role="status">Your audiobook request was not confirmed.</p>
+          <Button onClick={() => setOpen(true)}>Review audiobook request</Button>
+        </div>
+      )}
       {open && (
         <Dialog
           title="Add an audiobook"
@@ -107,6 +113,6 @@ export default function AudiobookCreate({
           </form>
         </Dialog>
       )}
-    </>
+    </div>
   );
 }

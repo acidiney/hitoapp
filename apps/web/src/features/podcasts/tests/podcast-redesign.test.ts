@@ -108,13 +108,14 @@ test("the podcast header continues the episode in progress and the list shows st
   expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
     "Salt of the Earth",
   );
-  expect(screen.getByText("Following ✓")).toBeTruthy();
+  expect(screen.getByText("Following")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh feed" })).toBeTruthy();
   expect(
     screen.getByRole("heading", { name: "For this podcast" }),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Unsubscribe" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Download/ })).toBeNull();
+  expect(screen.queryByRole("link", { name: /Download/ })).toBeNull();
 
   const list = screen.getByRole("list", { name: "Episodes" });
   const rows = within(list).getAllByRole("listitem");
@@ -128,7 +129,7 @@ test("the podcast header continues the episode in progress and the list shows st
   ).toBe("50");
   expect(
     within(rows[1])
-      .getByRole("link", { name: "Download options for Halfway" })
+      .getByRole("link", { name: "Details for Halfway" })
       .getAttribute("href"),
   ).toBe("/recordings/rec-mid");
 
@@ -246,4 +247,70 @@ test("the podcast index shows cards that link to each podcast and an empty state
   ).toBe(`/podcasts/${subscription.subscription_id}`);
   expect(within(cards[0]).getByText(/Last checked/)).toBeTruthy();
   expect(within(cards[0]).getByText("Last feed check failed")).toBeTruthy();
+});
+
+test("each episode row has one details link and a played row plays from the start", () => {
+  view([{ recording_id: "rec-mid", position_ms: 3_599_500, speed: 1 }]);
+  fireEvent.click(screen.getByRole("radio", { name: "All" }));
+  const rows = within(
+    screen.getByRole("list", { name: "Episodes" }),
+  ).getAllByRole("listitem");
+  for (const row of rows)
+    expect(
+      within(row)
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href")?.startsWith("/recordings/")),
+    ).toHaveLength(1);
+  expect(within(rows[1]).queryByRole("progressbar")).not.toBeNull();
+  fireEvent.click(within(rows[1]).getByRole("button", { name: "Play Halfway" }));
+  expect(playQueue).toHaveBeenLastCalledWith(expect.any(Array), 1, {
+    kind: "position",
+    position: 0,
+  });
+});
+
+test("a new episode has no progress bar and the check mark is decorative", () => {
+  view([]);
+  const rows = within(
+    screen.getByRole("list", { name: "Episodes" }),
+  ).getAllByRole("listitem");
+  expect(within(rows[0]).queryByRole("progressbar")).toBeNull();
+  expect(screen.getByText("Following").textContent).toBe("Following ✓");
+  expect(document.querySelector(".tint-status [aria-hidden]")?.textContent).toBe(
+    "✓",
+  );
+});
+
+test("closing the dialog during an unconfirmed request keeps a retry next to the trigger", async () => {
+  const props = {
+    user: { id: "alice", username: "Alice", admin: false },
+    errors: {},
+    native_playback: false,
+    lock: { pin_enabled: false, idle_minutes: 0, locked: false },
+    libraries: [],
+    playlists: [],
+    subscriptions: [],
+  } satisfies Schema["PodcastIndexPageProps"];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: RequestInfo | URL, options?: RequestInit) => {
+      if (options?.method === "POST") throw new TypeError("lost");
+      return Response.json([]);
+    }),
+  );
+  render(createElement(PodcastIndexPage, props), {
+    wrapper: ({ children }) => createElement(NoticeProvider, null, children),
+  });
+  await act(async () => {});
+  openSubscribeDialog();
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Feed address" }), {
+    target: { value: "https://feed.invalid/x.xml" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Subscribe" }));
+  await within(dialog).findByRole("alert");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("status").textContent).toMatch(/not confirmed/i);
+  expect(screen.getByRole("button", { name: "Review subscription request" })).toBeTruthy();
 });

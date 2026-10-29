@@ -32,6 +32,22 @@ export default function AudiobookPage({
     0,
   );
   const continuing = detail.continuation?.progress;
+  const continuingNumber =
+    detail.chapters.findIndex(
+      (chapter) => chapter.entry_id === detail.continuation?.chapter.entry_id,
+    ) + 1;
+  const durationsKnown = detail.chapters.every(
+    (chapter) => chapter.duration_ms > 0,
+  );
+  const bookmarkLock = bookmarks.pending || bookmarks.hasAttempt;
+  const bookmarkable = detail.chapters.some(
+    (chapter) => chapter.recording_id != null && chapter.available,
+  );
+  const bookmarkReason = !bookmarkable
+    ? "Bookmarks need a chapter that is available to play."
+    : bookmarkLock
+      ? "A bookmark change is in progress or needs a retry."
+      : undefined;
   return (
     <>
       <CollectionHeader
@@ -59,7 +75,9 @@ export default function AudiobookPage({
           />
         }
         eyebrow={`Audiobook · ${count} ${count === 1 ? "chapter" : "chapters"}${
-          total > 0 ? ` · ${longDuration(total / 1000)}` : ""
+          total > 0
+            ? ` · ${durationsKnown ? "" : "≥ "}${longDuration(total / 1000)}`
+            : ""
         }`}
         title={detail.playlist.name}
         stats={author}
@@ -79,20 +97,24 @@ export default function AudiobookPage({
         }
         actions={
           <>
-            {continuing && progress && (
+            {continuing && (
               <button
                 type="button"
                 className="button tint-primary"
                 disabled={playback.pending}
                 onClick={() => void playback.continueAudiobook()}
               >
-                Continue ch. {progress.chapterNumber} ·{" "}
+                {continuingNumber > 0
+                  ? `Continue ch. ${continuingNumber} · `
+                  : "Continue · "}
                 {time(continuing.position_ms / 1000)}
               </button>
             )}
             <button
               type="button"
               className="button tint-secondary"
+              disabled={bookmarkReason !== undefined}
+              title={bookmarkReason}
               onClick={() =>
                 side.current?.querySelector<HTMLElement>("select")?.focus()
               }
