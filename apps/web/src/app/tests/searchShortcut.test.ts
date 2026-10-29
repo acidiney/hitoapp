@@ -94,10 +94,10 @@ test("nothing happens while a dialog is open", () => {
   expect(router.get).not.toHaveBeenCalled();
 });
 
-test("without a search field it opens the library and focuses the field on arrival", async () => {
+test("without a search field it opens the Search page and focuses the field on arrival", async () => {
   openSearch();
   expect(router.get).toHaveBeenCalledWith(
-    "/library",
+    "/search",
     {},
     expect.objectContaining({ onSuccess: expect.any(Function) }),
   );

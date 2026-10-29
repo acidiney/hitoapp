@@ -13,6 +13,8 @@ import { PlaybackProvider } from "../features/playback/components/PlaybackProvid
 import PlayerDock from "../features/playback/components/PlayerDock";
 import { ArtworkProvider } from "../features/artwork/components/ArtworkProvider";
 
+const OWN_SEARCH = new Set(["HomePage", "SearchPage", "DiscoverPage"]);
+
 export default function Shell({ children }: { children: ReactNode }) {
   const page = usePage<SharedPageProps & PageProps>();
   const { user, playlists, lock } = page.props;
@@ -39,7 +41,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <Sidebar playlists={playlists} path={url.pathname} />
             <div className="workspace">
               <AccountMenu user={user} lock={lock} path={url.pathname} />
-              {page.component !== "DiscoverPage" && (
+              {!OWN_SEARCH.has(page.component) && (
                 <LibrarySearch
                   query={url.searchParams.get("q") ?? ""}
                   target={

@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import DiscoverPage from "../pages/DiscoverPage";
 import type {
@@ -54,14 +54,12 @@ test("discovery searches the selected service and offers explicit play and libra
   vi.stubGlobal("fetch", fetch);
   render(createElement(DiscoverPage, props));
   expect(fetch).not.toHaveBeenCalled();
+  const services = screen.getByRole("group", { name: "Music service" });
   expect(
-    (
-      screen.getByRole("combobox", {
-        name: "Music service",
-      }) as HTMLSelectElement
-    ).value,
-  ).toBe("connection");
-  expect(screen.getByRole("option", { name: /Home collection/ })).toBeTruthy();
+    within(services)
+      .getByRole("button", { name: /Home collection/ })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
   fireEvent.change(screen.getByRole("searchbox", { name: "Search music" }), {
     target: { value: "song" },
   });
@@ -126,9 +124,12 @@ test("switching named services clears results and preserves the search draft", a
   fireEvent.change(search, { target: { value: "song" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   await screen.findByRole("button", { name: "Play Home song" });
-  fireEvent.change(screen.getByRole("combobox", { name: "Music service" }), {
-    target: { value: "archive" },
-  });
+  fireEvent.click(
+    within(screen.getByRole("group", { name: "Music service" })).getByRole(
+      "button",
+      { name: /Archive collection/ },
+    ),
+  );
   expect(screen.queryByRole("button", { name: "Play Home song" })).toBeNull();
   expect((search as HTMLInputElement).value).toBe("song");
   fireEvent.click(screen.getByRole("button", { name: "Search" }));

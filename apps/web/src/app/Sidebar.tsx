@@ -5,7 +5,7 @@ import { coverStyle } from "../shared/ui/coverPalette";
 import type { Playlist } from "../shared/types";
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
-import { isApplePlatform, openSearch, shortcutLabel } from "./searchShortcut";
+import { isApplePlatform, shortcutLabel } from "./searchShortcut";
 
 const shortcut = shortcutLabel(isApplePlatform());
 
@@ -27,23 +27,23 @@ export default function Sidebar({
       </Link>
       <nav aria-label="Main navigation">
         <Link
-          href="/discover"
+          href="/home"
           aria-current={destination === "home" ? "page" : undefined}
-          onClick={mark("/discover")}
+          onClick={mark("/home")}
         >
           <Home size={18} aria-hidden="true" />
           Home
         </Link>
-        <button
-          type="button"
-          aria-label="Open search"
+        <Link
+          href="/search"
           aria-keyshortcuts={shortcut.keys}
-          onClick={openSearch}
+          aria-current={destination === "search" ? "page" : undefined}
+          onClick={mark("/search")}
         >
           <Search size={18} aria-hidden="true" />
           Search
           <kbd aria-hidden="true">{shortcut.text}</kbd>
-        </button>
+        </Link>
         <Link
           href="/library"
           aria-current={destination === "library" ? "page" : undefined}

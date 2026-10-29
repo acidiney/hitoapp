@@ -5,6 +5,8 @@ import type { ProviderRecording, Recording } from "../../../shared/types";
 import type { ProviderSelection } from "../hooks/useDiscovery";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
+import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
+import Button from "../../../shared/ui/Button";
 
 type SelectionIntent = "play" | "save";
 type ResultProps = {
@@ -82,6 +84,11 @@ function ProviderResult({
       >
         {duration ?? "—"}
       </span>
+      <div className="provider-result-state">
+        <AvailabilityLabel
+          state={saved ? "library" : canPlay ? "available" : "catalog"}
+        />
+      </div>
       <div className="provider-result-action">
         {saved ? (
           <Link
@@ -91,19 +98,18 @@ function ProviderResult({
             aria-label={`View ${hit.title} in library`}
           >
             <Check size={16} />
-            In library
+            Open
           </Link>
         ) : (
-          <button
-            className="button"
+          <Button
             ref={save}
             aria-label={`Add ${hit.title} to library`}
             disabled={disabled}
             onClick={() => select("save")}
           >
             <Plus size={16} />
-            Add to library
-          </button>
+            Add
+          </Button>
         )}
       </div>
       {current?.error && (

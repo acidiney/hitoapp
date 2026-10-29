@@ -29,7 +29,7 @@ function focusOnArrival(attempts = 20) {
 
 export function openSearch() {
   if (focusShellSearch()) return;
-  router.get("/library", {}, { onSuccess: () => focusOnArrival() });
+  router.get("/search", {}, { onSuccess: () => focusOnArrival() });
 }
 
 export function handleSearchShortcut(event: KeyboardEvent, apple: boolean) {

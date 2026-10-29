@@ -8,6 +8,8 @@ import DiscoverySearch from "../components/DiscoverySearch";
 import ProviderResults from "../components/ProviderResults";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
+import SectionWarning from "../../../shared/ui/SectionWarning";
+import Button from "../../../shared/ui/Button";
 
 export default function DiscoverPage({
   user,
@@ -43,10 +45,10 @@ export default function DiscoverPage({
     <section className="discovery-page" aria-label="Music discovery">
       <PageHeading
         title="Discover music"
-        description="Find music through your connected services."
+        description="Music outside your library, from the services you connected. You listen first; only what you add stays."
       >
         {selected && (
-          <Link className="button" href="/settings?section=plugins">
+          <Link className="button secondary" href="/settings?section=plugins">
             <Settings size={16} />
             Manage services
           </Link>
@@ -81,6 +83,7 @@ export default function DiscoverPage({
             pending={discovery.pending}
             onChoose={(id) => setChoice({ account: user.id, id })}
             onSearch={discovery.search}
+            pills
           />
           {!selected.manifest.capabilities.includes("sources") && (
             <p className="discovery-note">
@@ -89,8 +92,11 @@ export default function DiscoverPage({
             </p>
           )}
           {discovery.error && (
-            <div className="discovery-error" role="alert">
-              <p>{discovery.error}</p>
+            <SectionWarning
+              tone="error"
+              title={`${service_names[selected.service_id] ?? selected.manifest.name} could not finish.`}
+            >
+              {discovery.error}{" "}
               <Link
                 className="text-link"
                 href="/discover"
@@ -101,7 +107,7 @@ export default function DiscoverPage({
               >
                 Refresh services
               </Link>
-            </div>
+            </SectionWarning>
           )}
           {discovery.query && (
             <div className="discovery-results-heading">
@@ -159,23 +165,21 @@ export default function DiscoverPage({
               className="discovery-pagination"
               aria-label="Search result pages"
             >
-              <button
-                className="button"
+              <Button
                 disabled={!discovery.hasPrevious || discovery.pending}
                 onClick={() => turn("previous")}
               >
                 <ChevronLeft size={16} />
                 Previous
-              </button>
+              </Button>
               <span>Page {discovery.page + 1}</span>
-              <button
-                className="button"
+              <Button
                 disabled={!discovery.hasNext || discovery.pending}
                 onClick={() => turn("next")}
               >
                 Next
                 <ChevronRight size={16} />
-              </button>
+              </Button>
             </nav>
           )}
         </>

@@ -1,4 +1,4 @@
-export type Destination = "home" | "library" | "settings" | null;
+export type Destination = "home" | "search" | "library" | "settings" | null;
 
 export type LibrarySection = { href: string; label: string };
 
@@ -25,7 +25,8 @@ export function currentSection(path: string): string | null {
 }
 
 export function currentDestination(path: string): Destination {
-  if (within(path, "/discover")) return "home";
+  if (within(path, "/home")) return "home";
+  if (within(path, "/search") || within(path, "/discover")) return "search";
   if (within(path, "/settings")) return "settings";
   return currentSection(path) ? "library" : null;
 }

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import type { PluginInstallation } from "../../../shared/types";
+import Button from "../../../shared/ui/Button";
+import FilterPills from "../../../shared/ui/FilterPills";
 
 export default function DiscoverySearch({
   connections,
@@ -9,6 +11,7 @@ export default function DiscoverySearch({
   pending,
   onChoose,
   onSearch,
+  pills = false,
 }: {
   connections: PluginInstallation[];
   names: Record<string, string>;
@@ -16,37 +19,52 @@ export default function DiscoverySearch({
   pending: boolean;
   onChoose: (id: string) => void;
   onSearch: (query: string) => Promise<boolean>;
+  pills?: boolean;
 }) {
   const [query, setQuery] = useState("");
   function submit(event: FormEvent) {
     event.preventDefault();
     void onSearch(query);
   }
+  const label = (connection: PluginInstallation) => {
+    const name = names[connection.service_id];
+    return name && name !== connection.manifest.name
+      ? `${name} · ${connection.manifest.name}`
+      : connection.manifest.name;
+  };
   return (
     <form
       className="discovery-search"
+      data-pills={pills || undefined}
       onSubmit={submit}
       role="search"
       aria-label="Music service search"
     >
-      <label className="discovery-service">
-        Music service
-        <select
+      {pills ? (
+        <FilterPills
+          label="Music service"
+          options={connections.map((connection) => ({
+            value: connection.id,
+            label: label(connection),
+          }))}
           value={selected}
-          onChange={(event) => onChoose(event.target.value)}
-        >
-          {connections.map((connection) => {
-            const name = names[connection.service_id];
-            return (
+          onChange={onChoose}
+        />
+      ) : (
+        <label className="discovery-service">
+          Music service
+          <select
+            value={selected}
+            onChange={(event) => onChoose(event.target.value)}
+          >
+            {connections.map((connection) => (
               <option key={connection.id} value={connection.id}>
-                {name && name !== connection.manifest.name
-                  ? `${name} · ${connection.manifest.name}`
-                  : connection.manifest.name}
+                {label(connection)}
               </option>
-            );
-          })}
-        </select>
-      </label>
+            ))}
+          </select>
+        </label>
+      )}
       <label>
         Search music
         <span className="discovery-query">
@@ -61,18 +79,10 @@ export default function DiscoverySearch({
         </span>
       </label>
       <div className="discovery-search-actions">
-        <button className="button primary" type="submit" disabled={pending}>
+        <Button variant="primary" type="submit" disabled={pending}>
           {pending ? "Searching…" : "Search"}
-        </button>
-        {pending && (
-          <button
-            className="button"
-            type="button"
-            onClick={() => void onSearch("")}
-          >
-            Cancel
-          </button>
-        )}
+        </Button>
+        {pending && <Button onClick={() => void onSearch("")}>Cancel</Button>}
       </div>
     </form>
   );

@@ -54,18 +54,20 @@ function account(path: string, pin = true) {
   );
 }
 
-test("the main navigation offers Home and Library links and a Search button", () => {
+test("the main navigation offers Home, Search and Library links", () => {
   const navigation = sidebar("/library");
   const links = within(navigation).getAllByRole("link");
-  expect(links.map((link) => link.textContent)).toEqual(["Home", "Library"]);
+  expect(links.map((link) => link.textContent)).toEqual([
+    "Home",
+    "Search⌘K",
+    "Library",
+  ]);
   expect(links.map((link) => link.getAttribute("href"))).toEqual([
-    "/discover",
+    "/home",
+    "/search",
     "/library",
   ]);
-  const search = within(navigation).getByRole("button", {
-    name: "Open search",
-  });
-  expect(search.textContent).toContain("Search");
+  const search = links[1];
   expect(search.getAttribute("aria-keyshortcuts")).toBe("Meta+K");
   expect(search.querySelector("kbd")?.getAttribute("aria-hidden")).toBe("true");
   expect(search.querySelector("kbd")?.textContent).toBe("⌘K");
@@ -83,22 +85,15 @@ test.each([
   ["/likes", "Library"],
   ["/history", "Library"],
   ["/recordings/r1", "Library"],
-  ["/discover", "Home"],
+  ["/home", "Home"],
+  ["/search", "Search⌘K"],
+  ["/discover", "Search⌘K"],
 ])("%s marks %s as the current destination", (path, current) => {
   const navigation = sidebar(path);
   const marked = within(navigation)
     .getAllByRole("link")
     .filter((link) => link.getAttribute("aria-current") === "page");
   expect(marked.map((link) => link.textContent)).toEqual([current]);
-});
-
-test("the Search button asks the shell to open search", async () => {
-  const { openSearch } = await import("../searchShortcut");
-  const navigation = sidebar("/library");
-  fireEvent.click(
-    within(navigation).getByRole("button", { name: "Open search" }),
-  );
-  expect(openSearch).toHaveBeenCalled();
 });
 
 test("the mark names the product", () => {
