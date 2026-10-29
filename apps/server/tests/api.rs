@@ -86,6 +86,9 @@ mod playlist_pages;
 #[path = "api/inertia.rs"]
 mod inertia;
 
+#[path = "api/home_search_pages.rs"]
+mod home_search_pages;
+
 #[path = "api/security.rs"]
 mod security;
 

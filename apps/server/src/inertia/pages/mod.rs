@@ -1,8 +1,10 @@
 mod audiobooks;
 mod catalog;
 mod discover;
+mod home;
 mod playlists;
 mod podcasts;
+mod search;
 
 use super::{ArtistPagination, props::*, protocol::Protocol};
 use crate::error::ApiResult;
@@ -10,6 +12,8 @@ use hito_core::{Actor, Search, Services};
 use std::future::Future;
 
 pub enum Screen<'a> {
+    Home,
+    Search,
     Catalog,
     AlbumIndex,
     Album(&'a str),
@@ -34,6 +38,8 @@ impl<'a> Screen<'a> {
     pub fn from_path(path: &'a str) -> Self {
         match path {
             "/" | "/library" => Self::Catalog,
+            "/home" => Self::Home,
+            "/search" => Self::Search,
             "/likes" => Self::Likes,
             "/playlists" => Self::PlaylistIndex,
             "/audiobooks" => Self::AudiobookIndex,
@@ -69,6 +75,8 @@ impl<'a> Screen<'a> {
 
     pub fn component(&self) -> PageComponent {
         match self {
+            Self::Home => PageComponent::HomePage,
+            Self::Search => PageComponent::SearchPage,
             Self::Catalog => PageComponent::CatalogPage,
             Self::AlbumIndex => PageComponent::AlbumIndexPage,
             Self::Album(_) => PageComponent::AlbumPage,
@@ -112,6 +120,8 @@ impl<'a> Screen<'a> {
             shared,
         };
         match self {
+            Self::Home => home::home(request).await,
+            Self::Search => search::search(request).await,
             Self::Catalog => catalog::recordings(request).await,
             Self::Likes => catalog::likes(request).await,
             Self::AlbumIndex => catalog::album_index(request).await,

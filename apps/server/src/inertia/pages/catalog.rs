@@ -193,7 +193,7 @@ pub(super) async fn artist_identity_group(
     ))
 }
 
-fn browse(search: Search) -> Browse {
+pub(super) fn browse(search: Search) -> Browse {
     Browse {
         q: search.q,
         library: search.library,

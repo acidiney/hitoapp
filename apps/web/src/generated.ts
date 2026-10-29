@@ -3103,6 +3103,25 @@ export interface components {
         HistoryPageProps: components["schemas"]["SharedPageProps"] & {
             activity: components["schemas"]["Activity"];
         };
+        Home: {
+            has_music: boolean;
+            /** Format: int64 */
+            liked_count: number;
+            recent_albums: components["schemas"]["HomeAlbum"][];
+            unheard: components["schemas"]["UnheardOnAlbum"][];
+        };
+        HomeAlbum: {
+            artist: string;
+            id: string;
+            /** Format: int64 */
+            last_played_at: number;
+            /** Format: int64 */
+            played: number;
+            title: string;
+        };
+        HomePageProps: components["schemas"]["SharedPageProps"] & {
+            home: components["schemas"]["Home"];
+        };
         HostFolderChoice: {
             directory?: components["schemas"]["DirectoryRef"] | null;
         };
@@ -3369,7 +3388,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "LockPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
+        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -4295,6 +4314,16 @@ export interface components {
             items: components["schemas"]["ProviderRecording"][];
             next_cursor?: string | null;
         };
+        SearchPageProps: components["schemas"]["SharedPageProps"] & {
+            artists: components["schemas"]["ArtistPage"];
+            connections: components["schemas"]["PluginInstallation"][];
+            query: string;
+            recordings: components["schemas"]["RecordingPage"];
+            releases: components["schemas"]["ReleasePage"];
+            service_names: {
+                [key: string]: string;
+            };
+        };
         SelectArtistCandidate: {
             context: components["schemas"]["ArtistReviewContext"];
             provider_artist_id: string;
@@ -4575,6 +4604,16 @@ export interface components {
             expected_revision: number;
             /** Format: uuid */
             request_id: string;
+        };
+        UnheardOnAlbum: {
+            artist: string;
+            /** Format: int64 */
+            played: number;
+            release_id: string;
+            /** Format: int64 */
+            remaining: number;
+            title: string;
+            tracks: components["schemas"]["Recording"][];
         };
         UnlinkRecordingArtist: {
             /** Format: uuid */

@@ -17,6 +17,8 @@ use utoipa::ToSchema;
 pub enum PageComponent {
     LoginPage,
     LockPage,
+    HomePage,
+    SearchPage,
     CatalogPage,
     AlbumIndexPage,
     AlbumPage,
@@ -77,6 +79,39 @@ pub struct LoginPageProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(required = true, nullable = false)]
     pub needs_setup: Option<bool>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct HomePageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub home: Option<hito_core::Home>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct SearchPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub query: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub recordings: Option<RecordingPage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub releases: Option<ReleasePage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub artists: Option<ArtistPage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub connections: Option<Vec<hito_core::PluginInstallation>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = true, nullable = false)]
+    pub service_names: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -264,6 +299,8 @@ pub struct PodcastPageProps {
 pub enum PageProps {
     Login(LoginPageProps),
     Lock(LockPageProps),
+    Home(HomePageProps),
+    Search(SearchPageProps),
     Catalog(CatalogPageProps),
     AlbumIndex(AlbumIndexPageProps),
     Album(AlbumPageProps),
@@ -289,6 +326,8 @@ impl PageProps {
         match self {
             Self::Login(_) => PageComponent::LoginPage,
             Self::Lock(_) => PageComponent::LockPage,
+            Self::Home(_) => PageComponent::HomePage,
+            Self::Search(_) => PageComponent::SearchPage,
             Self::Catalog(_) => PageComponent::CatalogPage,
             Self::AlbumIndex(_) => PageComponent::AlbumIndexPage,
             Self::Album(_) => PageComponent::AlbumPage,

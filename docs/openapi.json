@@ -17960,6 +17960,83 @@
           }
         ]
       },
+      "Home": {
+        "type": "object",
+        "required": [
+          "has_music",
+          "liked_count",
+          "recent_albums",
+          "unheard"
+        ],
+        "properties": {
+          "has_music": {
+            "type": "boolean"
+          },
+          "liked_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recent_albums": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeAlbum"
+            }
+          },
+          "unheard": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnheardOnAlbum"
+            }
+          }
+        }
+      },
+      "HomeAlbum": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "last_played_at",
+          "played"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_played_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "played": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "HomePageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "home"
+            ],
+            "properties": {
+              "home": {
+                "$ref": "#/components/schemas/Home"
+              }
+            }
+          }
+        ]
+      },
       "HostFolderChoice": {
         "type": "object",
         "properties": {
@@ -19105,6 +19182,8 @@
         "enum": [
           "LoginPage",
           "LockPage",
+          "HomePage",
+          "SearchPage",
           "CatalogPage",
           "AlbumIndexPage",
           "AlbumPage",
@@ -22730,6 +22809,53 @@
         },
         "additionalProperties": false
       },
+      "SearchPageProps": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SharedPageProps"
+          },
+          {
+            "type": "object",
+            "required": [
+              "query",
+              "recordings",
+              "releases",
+              "artists",
+              "connections",
+              "service_names"
+            ],
+            "properties": {
+              "artists": {
+                "$ref": "#/components/schemas/ArtistPage"
+              },
+              "connections": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PluginInstallation"
+                }
+              },
+              "query": {
+                "type": "string"
+              },
+              "recordings": {
+                "$ref": "#/components/schemas/RecordingPage"
+              },
+              "releases": {
+                "$ref": "#/components/schemas/ReleasePage"
+              },
+              "service_names": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
       "SelectArtistCandidate": {
         "type": "object",
         "required": [
@@ -23800,6 +23926,42 @@
           }
         },
         "additionalProperties": false
+      },
+      "UnheardOnAlbum": {
+        "type": "object",
+        "required": [
+          "release_id",
+          "title",
+          "artist",
+          "played",
+          "remaining",
+          "tracks"
+        ],
+        "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "played": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "release_id": {
+            "type": "string"
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Recording"
+            }
+          }
+        }
       },
       "UnlinkRecordingArtist": {
         "type": "object",

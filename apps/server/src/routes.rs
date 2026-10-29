@@ -29,6 +29,8 @@ use utoipa_axum::{router::OpenApiRouter, routes};
         SharedPageProps,
         LoginPageProps,
         LockPageProps,
+        HomePageProps,
+        SearchPageProps,
         CatalogPageProps,
         AlbumIndexPageProps,
         AlbumPageProps,
@@ -259,6 +261,8 @@ fn application(
     Router::new()
         .route("/", get(inertia::page))
         .route("/library", get(inertia::page))
+        .route("/home", get(inertia::page))
+        .route("/search", get(inertia::page))
         .route("/discover", get(inertia::page))
         .route("/podcasts", get(inertia::page))
         .route("/podcasts/{id}", get(inertia::page))
