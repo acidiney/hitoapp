@@ -413,8 +413,8 @@
   justify-content: flex-end;
 }
 .track-table .track-actions .icon-button {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   color: var(--muted);
 }
 .track-table .track-actions .icon-button.selected {

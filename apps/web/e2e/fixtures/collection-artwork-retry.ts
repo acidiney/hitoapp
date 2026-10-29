@@ -30,7 +30,7 @@ export async function retainedRetry(
   });
   try {
     await page.goto(route);
-    const hero = page.locator(".collection-hero .artwork");
+    const hero = page.locator(".tinted-header .artwork");
     await expect(hero.locator("img")).toHaveCount(0);
     const retry = page.getByRole("button", {
       name: "Retry artwork",

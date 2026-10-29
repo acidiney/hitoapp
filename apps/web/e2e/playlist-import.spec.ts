@@ -298,7 +298,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         rows.nth(index).getByText(status, { exact: true }),
       ).toBeVisible();
       await expect(rows.nth(index).getByRole("link")).toHaveCount(0);
-      await expect(rows.nth(index).getByRole("button")).toHaveCount(1);
+      await expect(rows.nth(index).getByRole("button")).toHaveCount(0);
       await expect(rows.nth(index).locator("img")).toHaveCount(0);
       await expect(rows.nth(index).locator(".duration-column")).toHaveText("—");
     }
@@ -348,7 +348,6 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     fixture.offline();
     await page.reload();
     await expect(rows).toHaveCount(4);
-    await enterEditMode(page);
     expect(await (await page.request.get(detailPath)).json()).toEqual(detail);
     await page.goto("/settings?section=plugins");
     const plugin = page.getByRole("listitem").filter({
@@ -379,6 +378,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     await page.goto(copyPath);
     await expect(rows).toHaveCount(4);
     expect(await (await page.request.get(detailPath)).json()).toEqual(detail);
+    await enterEditMode(page);
     const remaining = [...detail.entries];
     for (const entry of [detail.entries[0], detail.entries[2]]) {
       const index = remaining.findIndex(

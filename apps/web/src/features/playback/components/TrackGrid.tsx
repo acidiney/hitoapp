@@ -26,7 +26,6 @@ export default function TrackGrid({
           <div className="track-card-cover">
             <Artwork
               recording={track.id}
-              release={track.release_id ?? undefined}
               fallback={{
                 id: track.release_id ?? track.id,
                 title: track.album ?? track.title,
