@@ -19,6 +19,7 @@ mod provider;
 pub(crate) mod reconcile;
 mod review;
 mod shared_corrections;
+mod similar_artists;
 mod types;
 pub use identity::*;
 pub use library_availability::{
@@ -46,6 +47,7 @@ pub use shared_corrections::{
     SharedArtistCorrectionReceipt, SharedArtistCorrections, SharedCorrectionKind,
     SharedCorrectionRef, UndoSharedArtistCorrection,
 };
+pub use similar_artists::{ReadSimilarArtists, SimilarArtistView, SimilarArtistsAvailability};
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,

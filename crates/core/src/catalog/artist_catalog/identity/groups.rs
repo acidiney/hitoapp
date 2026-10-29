@@ -319,3 +319,28 @@ pub(in crate::catalog::artist_catalog) fn visible(
         FROM account_artist_identity_groups g JOIN labels label ON label.group_id=g.id AND label.ordinal=1 AND label.user_id=g.user_id) ");
     query
 }
+
+/// The account's current chosen artists whose identity is exactly one of the given
+/// built-in MusicBrainz artist identifiers. Names are never compared.
+pub(in crate::catalog::artist_catalog) async fn chosen_groups_by_musicbrainz_id(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    ids: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    if ids.is_empty() {
+        return Ok(Default::default());
+    }
+    let requested = serde_json::to_string(ids)
+        .map_err(|_| Error::Internal("Artist identities could not be encoded".into()))?;
+    let mut query = visible(actor, None, None);
+    query.push(
+        "SELECT id,provider_artist_id FROM summary WHERE provider_kind='builtin_musicbrainz' \
+         AND provider_artist_id IN (SELECT value FROM json_each(",
+    );
+    query.push_bind(requested).push("))");
+    let rows: Vec<(String, String)> = query.build_query_as().fetch_all(connection).await?;
+    Ok(rows
+        .into_iter()
+        .map(|(group, identity)| (identity, group))
+        .collect())
+}

@@ -3,9 +3,9 @@ use crate::{Actor, Catalog, Error, Result, plugins::Operation};
 use hito_metadata_musicbrainz::MusicBrainzClient;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
-    ArtistSearchRequest, Capability, CatalogArtistProfile, CatalogEditionOperation,
-    CatalogEditionTrackList, EditionTrackListRequest, ReleaseGroupEditionsPage,
-    ReleaseGroupEditionsRequest,
+    ArtistSearchRequest, ArtistSimilarityPage, ArtistSimilarityRequest, Capability,
+    CatalogArtistProfile, CatalogEditionOperation, CatalogEditionTrackList,
+    EditionTrackListRequest, ReleaseGroupEditionsPage, ReleaseGroupEditionsRequest,
 };
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -85,6 +85,25 @@ impl Connection {
         match self {
             Self::Builtin(_) => Ok(true),
             Self::Http(operation) => operation.catalog_discography_supported().await,
+        }
+    }
+
+    pub(super) async fn similarity_supported(&self) -> Result<bool> {
+        match self {
+            Self::Builtin(_) => Ok(false),
+            Self::Http(operation) => operation.catalog_similarity_supported().await,
+        }
+    }
+
+    pub(super) async fn similar_artists(
+        &self,
+        request: &ArtistSimilarityRequest,
+    ) -> Result<ArtistSimilarityPage> {
+        match self {
+            Self::Builtin(_) => Err(Error::Upstream(
+                "The built-in metadata provider does not recommend similar artists",
+            )),
+            Self::Http(operation) => operation.catalog_artist_similarity(request).await,
         }
     }
 

@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use zeroize::Zeroizing;
 
 mod catalog_editions;
+mod catalog_similarity;
 mod timed_content;
 
 pub(crate) struct Operation {

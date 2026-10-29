@@ -57,13 +57,14 @@ pub use artist_catalog::{
     DismissArtistMatchSuggestion, EditionTrackListAvailability, FindAlbumTrackAudio, LibraryAlbum,
     LibraryReleaseGroup, MatchArtistsFromTags, MetadataProvider, MetadataSettings,
     PromoteArtistCorrection, PromotionSource, ReadAlbumEditionTrackList, ReadArtistDiscography,
-    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions,
+    ReadDiscographyLibrary, ReadEditionTrackList, ReadReleaseGroupEditions, ReadSimilarArtists,
     RecordingArtistIdentityChoice, RecordingArtistIdentityState, ReleaseGroupEditionsAvailability,
     ResetRecordingArtistIdentity, SavedAlbumEdition, SharedArtistCorrection,
     SharedArtistCorrectionQuery, SharedArtistCorrectionReceipt, SharedArtistCorrections,
-    SharedCorrectionKind, SharedCorrectionRef, SplitArtistIdentityGroup, SplitDestination,
-    UndoArtistIdentityChange, UndoRecordingArtistChange, UndoSharedArtistCorrection,
-    UnlinkRecordingArtist, UpdateMetadataSettings,
+    SharedCorrectionKind, SharedCorrectionRef, SimilarArtistView, SimilarArtistsAvailability,
+    SplitArtistIdentityGroup, SplitDestination, UndoArtistIdentityChange,
+    UndoRecordingArtistChange, UndoSharedArtistCorrection, UnlinkRecordingArtist,
+    UpdateMetadataSettings,
 };
 pub use artists::{Artist, ArtistDetail};
 pub use artwork::{
