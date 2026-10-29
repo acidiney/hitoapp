@@ -4,8 +4,8 @@ use super::{
     editions::EditionRead,
 };
 use crate::{
-    Actor, Catalog, Error, Result,
-    catalog::provider::{CatalogAudio, CatalogTrack},
+    Actor, AdoptProviderRecording, Catalog, Error, Recording, Result,
+    catalog::provider::{AudioPermit, CatalogAudio, CatalogTrack},
 };
 use hito_plugin_sdk::{CatalogCreditMember, CatalogEditionTrackList, CatalogTrackKind};
 use serde::{Deserialize, Serialize};
@@ -26,13 +26,12 @@ pub struct FindAlbumTrackAudio {
 #[derive(Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AlbumTrackAudio {
-    Found {
-        installation_id: String,
-        installation_revision: i64,
-        provider_recording_id: String,
-    },
+    Saved { recording: Box<Recording> },
     NoMatch,
+    InsufficientEvidence,
     NoProviders,
+    Busy,
+    Changed,
     Disabled,
     Unsupported,
     Unavailable,
@@ -43,9 +42,12 @@ pub enum AlbumTrackAudio {
 impl AlbumTrackAudio {
     pub fn outcome(&self) -> &'static str {
         match self {
-            Self::Found { .. } => "found",
+            Self::Saved { .. } => "saved",
             Self::NoMatch => "no_match",
+            Self::InsufficientEvidence => "insufficient_evidence",
             Self::NoProviders => "no_providers",
+            Self::Busy => "busy",
+            Self::Changed => "changed",
             Self::Disabled => "disabled",
             Self::Unsupported => "unsupported",
             Self::Unavailable => "unavailable",
@@ -70,10 +72,11 @@ impl From<AlbumEditionTrackListAvailability> for AlbumTrackAudio {
 
 impl Catalog {
     /// Finds playable audio for one catalog-only track of a chosen edition
-    /// through the account's approved source providers. The track's evidence
-    /// comes from a fresh read of the edition, never from the caller. Nothing
-    /// is saved, and a candidate that the automatic source policy does not
-    /// accept is reported as no match.
+    /// through the account's approved source providers and saves the one
+    /// accepted recording. The track's evidence comes from a fresh read of the
+    /// edition, never from the caller. A candidate that the automatic source
+    /// policy does not accept is never saved, and the provider's answer at
+    /// save time must equal the answer that was accepted.
     #[tracing::instrument(level = "debug", skip_all, fields(operation = "album_track_audio", request_id = %Uuid::new_v4()))]
     pub async fn find_album_track_audio_until(
         &self,
@@ -83,11 +86,16 @@ impl Catalog {
         cancelled: impl Future<Output = ()> + Send,
     ) -> Result<AlbumTrackAudio> {
         let started = Instant::now();
+        let permit = match self.admit_catalog_audio(actor).await {
+            Ok(permit) => permit,
+            Err(Error::Conflict(_)) => return Ok(AlbumTrackAudio::Busy),
+            Err(error) => return Err(error),
+        };
         tokio::pin!(cancelled);
         let result = tokio::select! {
             biased;
             _ = &mut cancelled => Ok(AlbumTrackAudio::Cancelled),
-            result = tokio::time::timeout(REQUEST_BUDGET, self.find_album_track_audio(actor, release, request)) => {
+            result = tokio::time::timeout(REQUEST_BUDGET, self.find_album_track_audio(actor, release, request, &permit)) => {
                 result.unwrap_or(Ok(AlbumTrackAudio::Unavailable))
             }
         };
@@ -107,6 +115,7 @@ impl Catalog {
         actor: &Actor,
         release: &str,
         request: FindAlbumTrackAudio,
+        permit: &AudioPermit,
     ) -> Result<AlbumTrackAudio> {
         let occurrence = request.occurrence_id;
         let (_, read) = self
@@ -128,18 +137,37 @@ impl Catalog {
             }
         };
         let track = catalog_track(&edition, &occurrence).ok_or(Error::NotFound)?;
-        Ok(
-            match self.find_audio_for_catalog_track(actor, track).await? {
-                CatalogAudio::Found(found) => AlbumTrackAudio::Found {
-                    installation_id: found.installation_id,
+        let found = match self
+            .find_audio_for_catalog_track(actor, track, permit)
+            .await?
+        {
+            CatalogAudio::Found(found) => found,
+            CatalogAudio::NoMatch => return Ok(AlbumTrackAudio::NoMatch),
+            CatalogAudio::InsufficientEvidence => {
+                return Ok(AlbumTrackAudio::InsufficientEvidence);
+            }
+            CatalogAudio::NoProviders => return Ok(AlbumTrackAudio::NoProviders),
+            CatalogAudio::Unavailable => return Ok(AlbumTrackAudio::Unavailable),
+        };
+        let saved = self
+            .adopt_accepted(
+                actor,
+                &found.installation_id,
+                AdoptProviderRecording {
                     installation_revision: found.installation_revision,
                     provider_recording_id: found.provider_recording_id,
                 },
-                CatalogAudio::NoMatch => AlbumTrackAudio::NoMatch,
-                CatalogAudio::NoProviders => AlbumTrackAudio::NoProviders,
-                CatalogAudio::Unavailable => AlbumTrackAudio::Unavailable,
+                Some(&found.accepted),
+            )
+            .await;
+        Ok(match saved {
+            Ok(Some(recording)) => AlbumTrackAudio::Saved {
+                recording: Box::new(recording),
             },
-        )
+            Ok(None) => AlbumTrackAudio::Changed,
+            Err(Error::Upstream(_) | Error::ProviderBusy(_)) => AlbumTrackAudio::Unavailable,
+            Err(error) => return Err(error),
+        })
     }
 }
 

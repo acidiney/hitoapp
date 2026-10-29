@@ -225,6 +225,15 @@ impl Album {
         })
     }
 
+    pub async fn total(&self) -> i64 {
+        self.hito
+            .catalog
+            .recordings(&self.actor, Search::default())
+            .await
+            .unwrap()
+            .total
+    }
+
     pub async fn sql(&self, statement: &str, binds: &[&str]) {
         let mut connection = SqliteConnectOptions::new()
             .filename(&self.database)

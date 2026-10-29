@@ -22,6 +22,7 @@ struct Fixture {
     recording_replies: RwLock<HashMap<(String, String), Value>>,
     requests: Mutex<Vec<(String, HeaderMap, Value)>>,
     gates: RwLock<HashMap<String, Arc<Gate>>>,
+    later: RwLock<HashMap<String, (usize, Value)>>,
     closed: watch::Receiver<bool>,
 }
 pub struct ProviderServer {
@@ -45,6 +46,7 @@ impl ProviderServer {
             recording_replies: Default::default(),
             requests: Default::default(),
             gates: Default::default(),
+            later: Default::default(),
             closed: receiver,
         });
         state.replies.write().await.insert("v1/manifest".into(), json!({"id":"org.hito.content-fixture","name":"Content fixture","protocol_version":1,"capabilities":["search","sources"]}));
@@ -86,6 +88,14 @@ impl ProviderServer {
     }
     pub async fn offline(&self) {
         *self.state.offline.write().await = true;
+    }
+    /// Replies with `value` to the `call`th (1-based) and later requests to `path`.
+    pub async fn reply_from_call(&self, path: &str, call: usize, value: Value) {
+        self.state
+            .later
+            .write()
+            .await
+            .insert(path.into(), (call, value));
     }
     pub async fn online(&self) {
         *self.state.offline.write().await = false;
@@ -439,6 +449,21 @@ async fn exchange(
             .get(path)
             .cloned()
             .unwrap_or(Value::Null)
+    };
+    let reply = match state.later.read().await.get(path) {
+        Some((call, later))
+            if state
+                .requests
+                .lock()
+                .await
+                .iter()
+                .filter(|(route, _, _)| route == path)
+                .count()
+                >= *call =>
+        {
+            later.clone()
+        }
+        _ => reply,
     };
     if !wait_gate(&state, path).await {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();

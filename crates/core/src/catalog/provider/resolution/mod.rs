@@ -11,7 +11,7 @@ mod types;
 use crate::{Actor, Catalog, Error, Result};
 use admission::Caller;
 pub(crate) use admission::CallerAdmission;
-pub(crate) use catalog_match::{CatalogAudio, CatalogTrack};
+pub(in crate::catalog) use catalog_match::{AudioPermit, CatalogAudio, CatalogTrack};
 use cursor::Candidates;
 use provider::Subject;
 use publication::Publication;

@@ -8,7 +8,7 @@ use hito_core::test_support::album_edition_service::{self as provider, AlbumProv
 #[allow(unused_imports)]
 use hito_core::test_support::support;
 
-use hito_core::{AdoptProviderRecording, AlbumTrackAudio, Credentials, FindAlbumTrackAudio};
+use hito_core::{AlbumTrackAudio, Credentials, FindAlbumTrackAudio};
 use library::Album;
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -97,7 +97,7 @@ async fn nothing_requested(audio: &audio_provider::ProviderServer) {
 }
 
 #[tokio::test]
-async fn a_catalog_only_track_is_matched_to_approved_audio_and_saved_only_by_adoption() {
+async fn a_catalog_only_track_is_matched_and_saved_under_the_same_policy() {
     let mut catalog = AlbumProvider::start().await;
     let audio = audio_provider::ProviderServer::start().await;
     let album = Album::prepare(&catalog).await;
@@ -111,24 +111,27 @@ async fn a_catalog_only_track_is_matched_to_approved_audio_and_saved_only_by_ado
     )
     .await;
     let before = album.library().await;
+    let total = album.total().await;
     let details = catalog.requests_to("v1/recordings/detail").len();
 
-    let found = find(&album, BONUS_OCCURRENCE).await.unwrap();
-    let AlbumTrackAudio::Found {
-        installation_id,
-        installation_revision,
-        provider_recording_id,
-    } = found
-    else {
+    let AlbumTrackAudio::Saved { recording } = find(&album, BONUS_OCCURRENCE).await.unwrap() else {
         panic!("An exact title, credit and duration must match approved audio");
     };
-    assert_eq!(installation_id, installation.id);
-    assert_eq!(installation_revision, installation.revision);
-    assert_eq!(provider_recording_id, "audio-provider/bonus");
     assert_eq!(
-        album.library().await,
-        before,
-        "Matching saves nothing: recordings, releases and personal edits are unchanged"
+        album.total().await,
+        total + 1,
+        "Exactly one recording is saved"
+    );
+    assert_eq!(recording.title, BONUS_TITLE);
+    let sources = album
+        .hito
+        .catalog
+        .sources(&album.actor, &recording.id)
+        .await
+        .unwrap();
+    assert!(
+        sources.iter().any(|source| source.ready),
+        "The saved recording is playable through the approved provider"
     );
     assert_eq!(
         audio.requests("v1/search").await[0].1,
@@ -137,31 +140,126 @@ async fn a_catalog_only_track_is_matched_to_approved_audio_and_saved_only_by_ado
     );
     assert_eq!(catalog.requests_to("v1/recordings/detail").len(), details);
     nothing_requested(&audio).await;
+    let _ = (&before, &installation);
 
-    let saved = album
-        .hito
-        .catalog
-        .adopt_provider(
-            &album.actor,
-            &installation.id,
-            AdoptProviderRecording {
-                installation_revision: installation.revision,
-                provider_recording_id,
-            },
-        )
-        .await
-        .unwrap();
-    let sources = album
-        .hito
-        .catalog
-        .sources(&album.actor, &saved.id)
-        .await
-        .unwrap();
-    assert!(
-        sources.iter().any(|source| source.ready),
-        "The adopted recording is playable through the approved provider"
+    let AlbumTrackAudio::Saved { recording: again } = find(&album, BONUS_OCCURRENCE).await.unwrap()
+    else {
+        panic!("A repeated search must succeed");
+    };
+    assert_eq!(
+        again.id, recording.id,
+        "A candidate already saved returns the same recording"
     );
+    assert_eq!(album.total().await, total + 1, "No duplicate is created");
     assert_eq!(catalog.unexpected(), 0);
+    audio.shutdown().await;
+    assert!(catalog.finish().await);
+}
+
+#[tokio::test]
+async fn details_that_change_between_the_search_and_the_save_are_refused() {
+    let mut catalog = AlbumProvider::start().await;
+    let audio = audio_provider::ProviderServer::start().await;
+    let album = Album::prepare(&catalog).await;
+    connect_audio(&album, &audio).await;
+    offer(
+        &audio,
+        "audio-provider/bonus",
+        BONUS_TITLE,
+        provider::CREDIT,
+        1000,
+    )
+    .await;
+    let [changed, _, _] = candidate(
+        "audio-provider/bonus",
+        "Some other recording",
+        provider::CREDIT,
+        1000,
+        SOURCE,
+    );
+    audio
+        .reply_from_call("v1/recordings/detail", 2, changed)
+        .await;
+    let before = album.library().await;
+    let total = album.total().await;
+
+    assert!(matches!(
+        find(&album, BONUS_OCCURRENCE).await.unwrap(),
+        AlbumTrackAudio::Changed
+    ));
+    assert_eq!(album.total().await, total, "Nothing is saved");
+    assert_eq!(album.library().await, before);
+    audio.shutdown().await;
+    assert!(catalog.finish().await);
+}
+
+#[tokio::test]
+async fn a_catalog_without_a_usable_credit_or_length_is_reported_as_insufficient() {
+    let mut catalog = AlbumProvider::start().await;
+    let audio = audio_provider::ProviderServer::start().await;
+    let album = Album::prepare(&catalog).await;
+    connect_audio(&album, &audio).await;
+    offer(
+        &audio,
+        "audio-provider/bonus",
+        BONUS_TITLE,
+        provider::CREDIT,
+        1000,
+    )
+    .await;
+    for (credit, duration) in [
+        ("Various Artists", Some(1000)),
+        (provider::CREDIT, None),
+        (provider::CREDIT, Some(400)),
+    ] {
+        catalog.set_bonus(credit, duration);
+        assert!(
+            matches!(
+                find(&album, BONUS_OCCURRENCE).await.unwrap(),
+                AlbumTrackAudio::InsufficientEvidence
+            ),
+            "{credit} {duration:?}"
+        );
+    }
+    catalog.set_bonus("Owned album performer feat. Guest", Some(1000));
+    assert!(
+        matches!(
+            find(&album, BONUS_OCCURRENCE).await.unwrap(),
+            AlbumTrackAudio::NoMatch
+        ),
+        "A joined multi-artist credit is not equal to a single performer"
+    );
+    assert!(audio.requests("v1/search").await.len() <= 1);
+    audio.shutdown().await;
+    assert!(catalog.finish().await);
+}
+
+#[tokio::test]
+async fn a_second_search_while_one_runs_is_busy_and_the_first_still_completes() {
+    let mut catalog = AlbumProvider::start().await;
+    let audio = audio_provider::ProviderServer::start().await;
+    let album = Album::prepare(&catalog).await;
+    connect_audio(&album, &audio).await;
+    offer(
+        &audio,
+        "audio-provider/bonus",
+        BONUS_TITLE,
+        provider::CREDIT,
+        1000,
+    )
+    .await;
+    let gate = audio.hold("v1/search").await;
+    let first = find(&album, BONUS_OCCURRENCE);
+    let second = async {
+        gate.entered().await;
+        let busy = find(&album, BONUS_OCCURRENCE).await;
+        gate.release();
+        busy
+    };
+    let (first, second) = tokio::join!(first, second);
+    assert!(matches!(second.unwrap(), AlbumTrackAudio::Busy));
+    assert!(matches!(first.unwrap(), AlbumTrackAudio::Saved { .. }));
+    assert_eq!(audio.requests("v1/search").await.len(), 1);
     audio.shutdown().await;
     assert!(catalog.finish().await);
 }
@@ -239,10 +337,11 @@ async fn provider_outages_and_missing_connections_are_honest_and_retryable() {
         find(&album, BONUS_OCCURRENCE).await.unwrap(),
         AlbumTrackAudio::Unavailable
     ));
+    assert_eq!(album.library().await, before, "An outage saves nothing");
     audio.online().await;
     assert!(matches!(
         find(&album, BONUS_OCCURRENCE).await.unwrap(),
-        AlbumTrackAudio::Found { .. }
+        AlbumTrackAudio::Saved { .. }
     ));
 
     catalog.set_outage(true);
@@ -251,7 +350,11 @@ async fn provider_outages_and_missing_connections_are_honest_and_retryable() {
         AlbumTrackAudio::Unavailable
     ));
     catalog.set_outage(false);
-    assert_eq!(album.library().await, before, "The album stays as it was");
+    assert_eq!(
+        album.total().await,
+        4,
+        "Only the one matched track was saved"
+    );
     assert!(
         album
             .hito

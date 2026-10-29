@@ -21,6 +21,7 @@ pub(crate) use metadata::{
 pub use preparation::{
     PrepareSource, SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus,
 };
-pub(crate) use resolution::{CallerAdmission, CatalogAudio, CatalogTrack};
+pub(crate) use resolution::CallerAdmission;
+pub(super) use resolution::{AudioPermit, CatalogAudio, CatalogTrack};
 pub use resolution::{ResolveSource, SourceResolution, SourceResolutionOutcome};
 pub use search::ProviderSearch;

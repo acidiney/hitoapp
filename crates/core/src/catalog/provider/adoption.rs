@@ -1,6 +1,6 @@
 use super::{Catalog, metadata, persist};
 use crate::{Actor, Error, Recording, Result};
-use hito_plugin_sdk::{Capability, RecordingRequest};
+use hito_plugin_sdk::{Capability, ProviderRecording, RecordingRequest};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
@@ -11,6 +11,13 @@ pub struct AdoptProviderRecording {
     pub provider_recording_id: String,
 }
 
+/// The provider recording a search accepted. Saving it is refused unless the
+/// provider still reports exactly these details and ready sources.
+pub(in crate::catalog) struct AcceptedRecording {
+    pub details: ProviderRecording,
+    pub sources: Vec<(String, bool)>,
+}
+
 impl Catalog {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn adopt_provider(
@@ -19,6 +26,20 @@ impl Catalog {
         installation: &str,
         request: AdoptProviderRecording,
     ) -> Result<Recording> {
+        self.adopt_accepted(actor, installation, request, None)
+            .await?
+            .ok_or_else(|| Error::Internal("Provider adoption did not complete".into()))
+    }
+
+    /// Saves a provider recording. With `accepted`, returns `None` and saves
+    /// nothing when the provider's current answer differs from it.
+    pub(in crate::catalog) async fn adopt_accepted(
+        &self,
+        actor: &Actor,
+        installation: &str,
+        request: AdoptProviderRecording,
+        accepted: Option<&AcceptedRecording>,
+    ) -> Result<Option<Recording>> {
         actor.check_session(&self.store).await?;
         let request_id = RecordingRequest {
             recording_id: request.provider_recording_id,
@@ -39,6 +60,21 @@ impl Catalog {
             ));
         }
         let (details, sources) = operation.recording_for_saving(&request_id).await?;
+        if let Some(accepted) = accepted {
+            let current: Vec<(String, bool)> = sources
+                .iter()
+                .flat_map(|page| &page.items)
+                .map(|source| (source.id.clone(), source.ready))
+                .collect();
+            if details != accepted.details || current != accepted.sources {
+                tracing::debug!(
+                    event = "provider_adoption_refused",
+                    outcome = "changed",
+                    "Provider recording changed since it was accepted"
+                );
+                return Ok(None);
+            }
+        }
         let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
         actor.check_session_on(&mut tx).await?;
         operation.recheck(&mut tx).await?;
@@ -75,6 +111,6 @@ impl Catalog {
             sources = sources.as_ref().map(|page| page.items.len()),
             "Provider recording adopted"
         );
-        Ok(result)
+        Ok(Some(result))
     }
 }

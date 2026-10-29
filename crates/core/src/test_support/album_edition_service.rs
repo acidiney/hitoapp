@@ -44,6 +44,7 @@ struct State_ {
     unexpected: AtomicUsize,
     outage: AtomicBool,
     editions: AtomicBool,
+    bonus: Mutex<(String, Option<u64>)>,
 }
 
 pub struct AlbumProvider {
@@ -60,6 +61,7 @@ impl AlbumProvider {
             unexpected: AtomicUsize::new(0),
             outage: AtomicBool::new(false),
             editions: AtomicBool::new(true),
+            bonus: Mutex::new((CREDIT.into(), Some(1000))),
         });
         let router = Router::new().fallback(respond).with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -83,6 +85,11 @@ impl AlbumProvider {
 
     pub fn set_outage(&self, outage: bool) {
         self.state.outage.store(outage, Ordering::SeqCst);
+    }
+
+    /// Changes the credit and duration the edition reports for the bonus track.
+    pub fn set_bonus(&self, credit: &str, duration_ms: Option<u64>) {
+        *self.state.bonus.lock().unwrap() = (credit.into(), duration_ms);
     }
 
     pub fn set_editions(&self, supported: bool) {
@@ -144,7 +151,7 @@ pub fn detail(id: &str) -> Option<Value> {
 
 pub fn track_list(edition: &str) -> Option<Value> {
     match edition {
-        EDITION_ID => Some(deluxe()),
+        EDITION_ID => Some(deluxe(&(CREDIT.into(), Some(1000)))),
         STANDARD_ID => Some(json!({
             "id": STANDARD_ID, "release_group_id": GROUP_ID, "title": RELEASE_TITLE,
             "artist_credit": null, "revision": null,
@@ -158,14 +165,19 @@ pub fn track_list(edition: &str) -> Option<Value> {
     }
 }
 
-fn deluxe() -> Value {
+fn deluxe(bonus: &(String, Option<u64>)) -> Value {
     let occurrence = |id: &str, position: u32, kind: &str, title: &str, recording: Option<&str>| {
+        let (credit, duration) = if id == "occurrence:album/2/2" {
+            (bonus.0.as_str(), bonus.1)
+        } else {
+            (CREDIT, Some(1000))
+        };
         json!({
             "id": id, "position": position,
             "number": if position == 0 { Value::Null } else { json!(position.to_string()) },
             "kind": kind, "title": title,
-            "artist_credit": [{"artist": null, "credited_name": CREDIT, "join_phrase": ""}],
-            "duration_ms": 1000, "recording_id": recording
+            "artist_credit": [{"artist": null, "credited_name": credit, "join_phrase": ""}],
+            "duration_ms": duration, "recording_id": recording
         })
     };
     json!({
@@ -271,7 +283,12 @@ async fn respond(State(state): State<Arc<State_>>, request: Request) -> Response
             let Ok(request) = serde_json::from_value::<EditionTrackListRequest>(body) else {
                 return reject(&state);
             };
-            let Some(list) = track_list(&request.edition_id) else {
+            let list = if request.edition_id == EDITION_ID {
+                Some(deluxe(&state.bonus.lock().unwrap().clone()))
+            } else {
+                track_list(&request.edition_id)
+            };
+            let Some(list) = list else {
                 return reject(&state);
             };
             if request.release_group_id != GROUP_ID {
