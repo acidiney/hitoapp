@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { ArrowUpRight, Headphones } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
+import { coverIdentity } from "../../artwork/coverIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import QueueTracks from "./QueueTracks";
 
@@ -38,6 +39,7 @@ export default function ListeningPanel({
         <Artwork
           release={current?.release_id ?? undefined}
           recording={current?.id}
+          fallback={coverIdentity(current)}
         />
       </button>
       <div className="listening-title">

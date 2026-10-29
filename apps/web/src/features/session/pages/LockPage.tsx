@@ -1,4 +1,4 @@
-import { AudioLines } from "lucide-react";
+import BrandMark from "../../../shared/ui/BrandMark";
 import type { LockPageProps } from "../../../shared/types";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { useSignOut } from "../hooks/useSignOut";
@@ -20,8 +20,8 @@ function LockScreen({ username, account_id }: LockPageProps) {
     <main className="auth-page">
       <div className="auth-intro">
         <div className="brand">
-          <AudioLines size={38} />
-          hito
+          <BrandMark />
+          <span className="brand-word">hito</span>
         </div>
         <p>Enter your PIN to carry on where you left off.</p>
       </div>

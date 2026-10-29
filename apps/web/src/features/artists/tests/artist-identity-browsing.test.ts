@@ -10,6 +10,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import ArtistIndexPage from "../pages/ArtistIndexPage";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import Sidebar from "../../../app/Sidebar";
+import LibrarySections from "../../../app/LibrarySections";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 
@@ -236,6 +237,7 @@ test("group library filters use authorized names and reset only the detail pages
 
 test("group detail stays within Artists navigation", () => {
   const { index, group } = artistIdentityBrowsing();
+  const path = `/artist-groups/${group.id}`;
   render(
     createElement(
       NoticeProvider,
@@ -244,23 +246,29 @@ test("group detail stays within Artists navigation", () => {
         user: index.user,
         playlists: index.playlists,
         lock: { pin_enabled: false, idle_minutes: 0, locked: false },
-        path: `/artist-groups/${group.id}`,
+        path,
       }),
+      createElement(LibrarySections, { path }),
     ),
   );
-  const navigation = screen.getByRole("navigation", {
-    name: "Main navigation",
+  const sections = screen.getByRole("navigation", {
+    name: "Library sections",
   });
   expect(
-    within(navigation)
+    within(sections)
       .getByRole("link", { name: "Artists" })
       .getAttribute("aria-current"),
   ).toBe("page");
   expect(
-    within(navigation)
+    within(sections)
       .getByRole("link", { name: "Library" })
       .getAttribute("aria-current"),
   ).toBeNull();
+  expect(
+    within(screen.getByRole("navigation", { name: "Main navigation" }))
+      .getByRole("link", { name: "Biblioteca" })
+      .getAttribute("aria-current"),
+  ).toBe("page");
 });
 
 test("an emptied chosen-artist page keeps its previous page and the listed library credits", () => {

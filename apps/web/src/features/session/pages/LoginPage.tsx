@@ -1,4 +1,4 @@
-import { AudioLines } from "lucide-react";
+import BrandMark from "../../../shared/ui/BrandMark";
 import { useSignIn } from "../hooks/useSignIn";
 import type { LoginPageProps } from "../../../shared/types";
 
@@ -9,8 +9,8 @@ export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
     <main className="auth-page">
       <div className="auth-intro">
         <div className="brand">
-          <AudioLines size={38} />
-          hito
+          <BrandMark />
+          <span className="brand-word">hito</span>
         </div>
         <h1>
           Your music.

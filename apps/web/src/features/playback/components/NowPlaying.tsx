@@ -1,6 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { ArrowDownLeft, X } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
+import { coverIdentity } from "../../artwork/coverIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import QueueList from "./QueueList";
 import PlaybackControls from "./PlaybackControls";
@@ -40,6 +41,7 @@ export default function NowPlaying({ close }: { close: () => void }) {
           <Artwork
             release={current?.release_id ?? undefined}
             recording={current?.id}
+            fallback={coverIdentity(current)}
           />
           <div className="now-playing-caption">
             <span>From your library</span>

@@ -3,6 +3,16 @@ import { router } from "@inertiajs/react";
 import { Search } from "lucide-react";
 import { log } from "../shared/log";
 
+export const SHELL_SEARCH_ID = "shell-search";
+
+export function focusShellSearch(): boolean {
+  const field = document.getElementById(SHELL_SEARCH_ID);
+  if (!(field instanceof HTMLInputElement)) return false;
+  field.focus();
+  field.select();
+  return true;
+}
+
 export default function LibrarySearch({
   query,
   target = "library",
@@ -22,6 +32,7 @@ export default function LibrarySearch({
       <form className="search" onSubmit={submit}>
         <Search size={19} />
         <input
+          id={SHELL_SEARCH_ID}
           aria-label={`Search ${target}`}
           placeholder={`Search your ${target}`}
           value={search}

@@ -1,9 +1,10 @@
 import { useEffect, type ReactNode } from "react";
-import { usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
 import type { SharedPageProps } from "../shared/types";
 import { log } from "../shared/log";
-import LibrarySearch from "./LibrarySearch";
+import LibrarySearch, { focusShellSearch } from "./LibrarySearch";
+import LibrarySections from "./LibrarySections";
 import Sidebar from "./Sidebar";
 import { NoticeBanner, NoticeProvider } from "../shared/ui/Notices";
 import { PlaybackProvider } from "../features/playback/components/PlaybackProvider";
@@ -17,12 +18,22 @@ export default function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     log.info("navigation.page", { page: page.component, account_id: user.id });
   }, [page.component, page.url, user.id]);
+  useEffect(() => {
+    function openSearch(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k")
+        return;
+      event.preventDefault();
+      if (!focusShellSearch()) router.get("/library");
+    }
+    window.addEventListener("keydown", openSearch);
+    return () => window.removeEventListener("keydown", openSearch);
+  }, []);
   return (
     <NoticeProvider key={user.id}>
       <ArtworkProvider account={user.id}>
         <PlaybackProvider account={user.id} native={page.props.native_playback}>
           <a className="skip-link" href="#main">
-            Skip to library
+            Skip to content
           </a>
           <div
             className={`app-shell ${page.component === "SettingsPage" ? "wide-workspace" : ""}`}
@@ -46,6 +57,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   }
                 />
               )}
+              <LibrarySections path={url.pathname} />
               <NoticeBanner />
               <main id="main" tabIndex={-1}>
                 {children}
