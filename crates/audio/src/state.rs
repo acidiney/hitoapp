@@ -76,6 +76,7 @@ impl State {
             Error::Worker => 7,
             Error::InvalidControl => 8,
             Error::Interrupted => 9,
+            Error::OutputFormat => 10,
         };
         self.failure.store(code, Ordering::Release);
         self.playing.store(false, Ordering::Release);
@@ -92,6 +93,7 @@ impl State {
             6 => Some(Error::Output),
             8 => Some(Error::InvalidControl),
             9 => Some(Error::Interrupted),
+            10 => Some(Error::OutputFormat),
             _ => Some(Error::Worker),
         }
     }

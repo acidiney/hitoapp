@@ -10,6 +10,8 @@ pub enum Error {
     Seek,
     #[error("A compatible audio output device is unavailable")]
     OutputUnavailable,
+    #[error("This audio device can't play this file's format")]
+    OutputFormat,
     #[error("The audio output device failed")]
     Output,
     #[error("The audio worker failed")]

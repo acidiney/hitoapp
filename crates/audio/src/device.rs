@@ -1,5 +1,6 @@
 use crate::{
     AudioFormat, Error, Result,
+    negotiate::{self, OutputConfig, Target},
     render::{Frame, Render},
     state::State,
 };
@@ -16,7 +17,68 @@ use std::{
 
 pub(crate) struct Output(cpal::Stream);
 
+fn playable(format: SampleFormat) -> bool {
+    matches!(
+        format,
+        SampleFormat::F32 | SampleFormat::I16 | SampleFormat::U16
+    )
+}
+
 impl Output {
+    /// Chooses the representation to open the default device with for a source
+    /// already reduced to `wanted`. `rates` replaces the device's offered rates
+    /// with a fixed list, for tests that need a device of a known capability.
+    pub fn negotiate(wanted: AudioFormat, rates: Option<&[u32]>) -> Result<Target> {
+        let device = cpal::default_host()
+            .default_output_device()
+            .ok_or(Error::OutputUnavailable)?;
+        let mut offered: Vec<OutputConfig> = device
+            .supported_output_configs()
+            .map_err(|_| Error::OutputUnavailable)?
+            .filter(|config| playable(config.sample_format()))
+            .map(|config| OutputConfig {
+                channels: config.channels(),
+                min_rate: config.min_sample_rate(),
+                max_rate: config.max_sample_rate(),
+            })
+            .collect();
+        if offered.is_empty() {
+            return Err(Error::OutputUnavailable);
+        }
+        let mut default_rate = device
+            .default_output_config()
+            .ok()
+            .map(|config| config.sample_rate());
+        if let Some(rates) = rates {
+            offered = offered
+                .iter()
+                .flat_map(|config| {
+                    rates
+                        .iter()
+                        .filter(|rate| (config.min_rate..=config.max_rate).contains(rate))
+                        .map(|rate| OutputConfig {
+                            channels: config.channels,
+                            min_rate: *rate,
+                            max_rate: *rate,
+                        })
+                })
+                .collect();
+            default_rate = rates.first().copied();
+        }
+        let target = negotiate::choose(wanted.sample_rate, wanted.channels, &offered, default_rate);
+        tracing::debug!(
+            event = "audio_output_negotiated",
+            source_rate = wanted.sample_rate,
+            source_channels = wanted.channels,
+            offered_configs = offered.len(),
+            default_rate,
+            chosen_rate = target.map(|target| target.sample_rate),
+            chosen_channels = target.map(|target| target.channels),
+            "Audio output representation negotiated"
+        );
+        target.ok_or(Error::OutputFormat)
+    }
+
     pub fn start(format: AudioFormat, state: Arc<State>) -> Result<(rtrb::Producer<Frame>, Self)> {
         state.callbacks.store(0, Ordering::Release);
         let (producer, consumer) = rtrb::RingBuffer::new((format.sample_rate / 10) as usize);
@@ -39,12 +101,7 @@ impl Output {
                     && config.min_sample_rate() <= format.sample_rate
                     && config.max_sample_rate() >= format.sample_rate
             })
-            .filter(|config| {
-                matches!(
-                    config.sample_format(),
-                    SampleFormat::F32 | SampleFormat::I16 | SampleFormat::U16
-                )
-            })
+            .filter(|config| playable(config.sample_format()))
             .max_by_key(|config| match config.sample_format() {
                 SampleFormat::F32 => 3,
                 SampleFormat::I16 => 2,

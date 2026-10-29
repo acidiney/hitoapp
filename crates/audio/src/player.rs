@@ -40,6 +40,7 @@ impl Stop {
 pub struct Player {
     id: u64,
     format: AudioFormat,
+    output: AudioFormat,
     state: Arc<State>,
     commands: SyncSender<Control>,
     worker: Option<JoinHandle<Result<()>>>,
@@ -48,6 +49,16 @@ pub struct Player {
 impl Player {
     #[tracing::instrument(level = "info", skip_all, err(Debug), fields(audio_id))]
     pub fn open(input: impl Input + 'static) -> Result<Self> {
+        Self::start(input, None)
+    }
+
+    /// Opens a player whose device offers only the listed sample rates.
+    #[cfg(feature = "test-support")]
+    pub fn open_with_output_rates(input: impl Input + 'static, rates: &[u32]) -> Result<Self> {
+        Self::start(input, Some(rates.to_vec()))
+    }
+
+    fn start(input: impl Input + 'static, rates: Option<Vec<u32>>) -> Result<Self> {
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         tracing::Span::current().record("audio_id", id);
         let decoder = Decoder::open(input)?;
@@ -62,7 +73,7 @@ impl Player {
             tracing::dispatcher::with_default(&dispatch, || {
             let _entered = span.enter();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                worker::run(decoder, receiver, worker_state.clone(), ready.clone())
+                worker::run(decoder, receiver, worker_state.clone(), ready.clone(), rates)
             })).unwrap_or(Err(Error::Worker));
             if let Err(error) = result {
                 worker_state.fail(error);
@@ -72,20 +83,28 @@ impl Player {
             result
             })
         }).map_err(|_| Error::Worker)?;
-        let result = started.recv().unwrap_or(Err(Error::Worker));
-        if let Err(error) = result {
-            state.stopped.store(true, Ordering::Release);
-            let _ = commands.try_send(Control::Stop);
-            let _ = worker.join();
-            return Err(error);
-        }
+        let output = match started.recv().unwrap_or(Err(Error::Worker)) {
+            Ok(output) => output,
+            Err(error) => {
+                state.stopped.store(true, Ordering::Release);
+                let _ = commands.try_send(Control::Stop);
+                let _ = worker.join();
+                return Err(error);
+            }
+        };
         Ok(Self {
             id,
             format,
+            output,
             state,
             commands,
             worker: Some(worker),
         })
+    }
+
+    /// The representation presented to the output device after negotiation.
+    pub fn output_format(&self) -> AudioFormat {
+        self.output
     }
 
     pub fn speed_capability(&self) -> SpeedCapability {

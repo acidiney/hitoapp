@@ -323,3 +323,59 @@ fn reversing_a_pending_rate_change_does_not_end_the_stream_early() {
         assert!(samples.iter().filter(|sample| sample.abs() > 0.01).count() > 48_000);
     }
 }
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn a_device_offering_only_48_khz_plays_high_rate_sources_at_every_speed() {
+    for (rate, speed, seconds) in [
+        (384_000, 1., 2),
+        (384_000, 0.5, 1),
+        (384_000, 2., 4),
+        (352_800, 1., 2),
+        (352_800, 2., 4),
+        (192_000, 1., 2),
+        (176_400, 0.5, 1),
+        (44_100, 1., 2),
+    ] {
+        let capture = Capture::open();
+        let mut player =
+            Player::open_with_output_rates(tone_clip(rate, 2, seconds), &[48_000]).unwrap();
+        assert_eq!(player.output_format().sample_rate, 48_000, "{rate} Hz");
+        assert_eq!(player.output_format().channels, 2);
+        assert_eq!(
+            player.speed_capability(),
+            hito_audio::SpeedCapability::Range { min: 0.5, max: 3. }
+        );
+        if speed != 1. {
+            player.speed(speed).unwrap();
+        }
+        player.resume().unwrap();
+        wait(|| player.snapshot().ended);
+        let snapshot = player.snapshot();
+        assert!((snapshot.position.as_secs_f64() - f64::from(seconds)).abs() < 0.001);
+        assert_eq!(snapshot.format.sample_rate, rate);
+        player.close().unwrap();
+        capture.after(capture.mark(), 0.2);
+        let samples = capture.all();
+        let active = samples.iter().filter(|sample| sample.abs() > 0.01).count();
+        let expected = f64::from(seconds) * 48_000. / f64::from(speed);
+        assert!(
+            (expected * 0.9..expected * 1.1).contains(&(active as f64)),
+            "{rate} Hz at {speed} emitted {active} active frames, expected about {expected}"
+        );
+        assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
+    }
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn a_device_with_no_usable_rate_fails_with_a_plain_typed_error() {
+    let error = Player::open_with_output_rates(tone_clip(48_000, 2, 1), &[])
+        .err()
+        .unwrap();
+    assert_eq!(error, hito_audio::Error::OutputFormat);
+    assert_eq!(
+        error.to_string(),
+        "This audio device can't play this file's format"
+    );
+}

@@ -1,5 +1,6 @@
 use crate::{
-    Converter, Decoder, Error, Result, device::Output, render::Frame, state::State, tempo::Tempo,
+    AudioFormat, Converter, Decoder, Error, Result, device::Output, render::Frame, state::State,
+    tempo::Tempo,
 };
 use rtrb::Producer;
 use std::{
@@ -29,14 +30,20 @@ pub(crate) fn run(
     decoder: Decoder,
     commands: Receiver<Control>,
     state: Arc<State>,
-    ready: SyncSender<Result<()>>,
+    ready: SyncSender<Result<AudioFormat>>,
+    rates: Option<Vec<u32>>,
 ) -> Result<()> {
-    let mut decoder = Tempo::new(Converter::new(decoder));
+    let target = Output::negotiate(decoder.format().output_format(), rates.as_deref())?;
+    let mut decoder = Tempo::new(Converter::with_output(
+        decoder,
+        target.sample_rate,
+        target.channels,
+    ));
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let (mut producer, output) = Output::start(format, state.clone())?;
     let mut output = Some(output);
-    let _ = ready.send(Ok(()));
+    let _ = ready.send(Ok(format));
     let mut epoch = 1;
     let mut xruns = 0;
     let mut notices = 0;
