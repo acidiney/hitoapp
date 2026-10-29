@@ -77,6 +77,9 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await expect(
     page.getByRole("heading", { name: "Podcasts", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Subscribe to a podcast", exact: true })
+    .click();
   await page.getByLabel("Feed address", { exact: true }).fill(owned.feed_url);
   const subscribed = page.waitForResponse(
     (response) =>
@@ -100,8 +103,8 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await expect(
     page.getByRole("heading", { name: feedTitle, exact: true }),
   ).toBeVisible();
-  const episodes = page.getByRole("table", { name: "Episodes", exact: true });
-  await expect(episodes.getByRole("row")).toHaveCount(2);
+  const episodes = page.getByRole("list", { name: "Episodes", exact: true });
+  await expect(episodes.getByRole("listitem")).toHaveCount(1);
   const playEpisode = episodes.getByRole("button", {
     name: `Play ${title}`,
     exact: true,

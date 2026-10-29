@@ -190,8 +190,8 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
     ).toBeVisible();
     await expect(
       page
-        .getByRole("table", { name: "Chapters", exact: true })
-        .locator("tbody tr"),
+        .getByRole("list", { name: "Chapters", exact: true })
+        .getByRole("listitem"),
     ).toHaveCount(2);
     await page.waitForLoadState("networkidle", { timeout: 10_000 });
     delivery.arm(user.id, beforeBook, beforeBook.chapters[1], label);

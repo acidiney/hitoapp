@@ -126,8 +126,8 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       throw new Error("The owned podcast detail link must be present");
     const subscription = podcastPath.split("/").at(-1)!;
     await podcast.click();
-    const episodes = page.getByRole("table", { name: "Episodes", exact: true });
-    await expect(episodes.getByRole("row")).toHaveCount(2);
+    const episodes = page.getByRole("list", { name: "Episodes", exact: true });
+    await expect(episodes.getByRole("listitem")).toHaveCount(1);
     await episodes
       .getByRole("button", { name: `Like ${episodeTitle}`, exact: true })
       .click();

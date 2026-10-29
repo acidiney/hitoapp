@@ -163,6 +163,9 @@ test("a packaged subscription survives returning to the original empty Inertia h
     ).toBeVisible();
 
     stage = "public subscription acceptance";
+    await page
+      .getByRole("button", { name: "Subscribe to a podcast", exact: true })
+      .click();
     await page.getByLabel("Feed address", { exact: true }).fill(feed);
     const [accepted] = await Promise.all([
       page.waitForResponse(

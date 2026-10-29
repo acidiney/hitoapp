@@ -171,8 +171,8 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
     ).toBeVisible();
     await expect(
       page
-        .getByRole("table", { name: "Chapters", exact: true })
-        .locator("tbody tr"),
+        .getByRole("list", { name: "Chapters", exact: true })
+        .getByRole("listitem"),
     ).toHaveCount(3);
     await page.waitForLoadState("networkidle", { timeout: 10_000 });
     await expect.poll(() => evidence!.pending()).toBe(0);
@@ -381,7 +381,8 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
     await evidence.checkpoint(8);
     diagnostics.navigation_step = 1;
     await page
-      .getByRole("link", { name: "All audiobooks", exact: true })
+      .getByRole("navigation", { name: "Breadcrumb" })
+      .getByRole("link", { name: "Audiobooks", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "Audiobooks", exact: true }),

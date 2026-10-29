@@ -70,6 +70,9 @@ export async function openBooks(
   await assertBooks(page, fixture.books.slice(0, 60));
   expect(await documentToken(page)).toBe(token);
   expect(delivery.counts.visits).toBe(1);
+  await page
+    .getByRole("button", { name: "Add audiobook from a playlist", exact: true })
+    .click();
   const options = await page
     .getByRole("combobox", { name: "Playlist", exact: true })
     .locator("option")
@@ -90,6 +93,7 @@ export async function openBooks(
       .locator("main")
       .getByRole("link", { name: fixture.peerName, exact: true }),
   ).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.waitForLoadState("networkidle");
 }
 

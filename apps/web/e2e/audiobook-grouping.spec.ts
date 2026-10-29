@@ -219,7 +219,13 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
         .locator("main")
         .getByRole("heading", { level: 1, name: "Audiobooks", exact: true }),
     ).toBeVisible();
-    const form = page.getByRole("region", {
+    await page
+      .getByRole("button", {
+        name: "Add audiobook from a playlist",
+        exact: true,
+      })
+      .click();
+    const form = page.getByRole("dialog", {
       name: "Add an audiobook",
       exact: true,
     });
@@ -309,19 +315,26 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
     await page.reload();
     await assertChapters(page, saved);
     await page
-      .locator("main")
-      .getByRole("link", { name: "All audiobooks", exact: true })
+      .getByRole("navigation", { name: "Breadcrumb" })
+      .getByRole("link", { name: "Audiobooks", exact: true })
       .click();
     await expect(
       page
         .locator("main")
         .getByRole("heading", { level: 1, name: "Audiobooks", exact: true }),
     ).toBeVisible();
+    await page
+      .getByRole("button", {
+        name: "Add audiobook from a playlist",
+        exact: true,
+      })
+      .click();
     await expect(
       page
-        .getByRole("region", { name: "Add an audiobook", exact: true })
+        .getByRole("dialog", { name: "Add an audiobook", exact: true })
         .getByRole("option", { name: saved.privateValues[2], exact: true }),
     ).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await page
       .locator("main")
       .getByRole("link", { name: saved.privateValues[2], exact: true })
@@ -522,8 +535,8 @@ async function assertChapters(
     }),
   ).toBeVisible();
   const rows = main
-    .getByRole("table", { name: "Chapters", exact: true })
-    .locator("tbody tr");
+    .getByRole("list", { name: "Chapters", exact: true })
+    .getByRole("listitem");
   await expect(rows).toHaveCount(2);
   expect(
     isDeepStrictEqual(
@@ -535,12 +548,12 @@ async function assertChapters(
     await expect(
       rows
         .nth(index)
-        .getByRole("rowheader", { name: `Chapter ${index + 1}`, exact: true }),
+        .getByText(String(index + 1), { exact: true }),
     ).toBeVisible();
     await expect(
       rows
         .nth(index)
-        .getByRole("cell", { name: saved.privateValues[0], exact: true }),
+        .getByText(saved.privateValues[0], { exact: true }),
     ).toBeVisible();
   }
   expect(

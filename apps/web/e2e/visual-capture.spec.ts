@@ -138,6 +138,181 @@ async function captureCollections(page: Page) {
   }
 }
 
+async function captureMedia(page: Page) {
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto("/podcasts");
+    await expect(
+      page.getByRole("heading", { name: "Podcasts", exact: true }),
+    ).toBeVisible();
+    await shoot(page, "podcasts-empty", size.name);
+    await page.getByRole("button", { name: "Subscribe to a podcast" }).click();
+    await page
+      .getByRole("dialog")
+      .getByLabel("Feed address")
+      .fill("not-a-feed.example/feed.xml");
+    await shoot(page, "podcasts-subscribe", size.name);
+    await page.keyboard.press("Escape");
+    await page.goto("/audiobooks");
+    await shoot(page, "audiobooks-empty", size.name);
+    await page.getByRole("button", { name: "Add audiobook from a playlist" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("combobox", { name: "Playlist" })
+      .selectOption({ label: "Late night" });
+    await shoot(page, "audiobooks-add", size.name);
+    await page.keyboard.press("Escape");
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/audiobooks");
+  await page.getByRole("button", { name: "Add audiobook from a playlist" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add an audiobook" });
+  await dialog.getByRole("combobox", { name: "Playlist" }).selectOption({ label: "Late night" });
+  await dialog.getByRole("button", { name: "Add audiobook", exact: true }).click();
+  await expect(page).toHaveURL(/\/audiobooks\/[0-9a-f-]+$/);
+  await page.getByRole("button", { name: "Play chapter 2 from beginning" }).click();
+  await expect
+    .poll(() =>
+      page
+        .locator("audio[data-hito-player]")
+        .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+    )
+    .toBeGreaterThan(2);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.waitForTimeout(1500);
+  await page.reload();
+  const bookmarks = page.getByRole("region", { name: "Bookmarks" });
+  await bookmarks.getByRole("combobox", { name: /Chapter/ }).selectOption({ index: 2 });
+  await bookmarks.getByLabel("Position in seconds").fill("1.5");
+  await bookmarks.getByLabel("Bookmark label").fill("Start of the good part");
+  await bookmarks.getByRole("button", { name: "Save bookmark" }).click();
+  await expect(bookmarks.getByText("Start of the good part")).toBeVisible();
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.reload();
+    await shoot(page, "audiobook", size.name);
+    await page.goto("/audiobooks");
+    await shoot(page, "audiobooks", size.name);
+    await page.goBack();
+  }
+  await captureMockedPodcasts(page);
+}
+
+type InertiaPage = {
+  component: string;
+  props: Record<string, unknown>;
+  url: string;
+  version: string | null;
+};
+
+/**
+ * The capture server has no reachable feed, so these surfaces are rendered from
+ * fixed Inertia and API responses. The data exists for the screenshots only.
+ */
+async function captureMockedPodcasts(page: Page) {
+  await page.goto("/home");
+  const base: InertiaPage = await page.evaluate(() =>
+    JSON.parse(
+      document.querySelector("script[data-page]")?.textContent ??
+        document.getElementById("app")?.dataset.page ??
+        "{}",
+    ),
+  );
+  const id = "515993a6-776f-42bc-9d28-d4df99ceae28";
+  const subscription = {
+    subscription_id: id,
+    title: "O Sal da Terra",
+    refresh_pending: false,
+    refresh_failed: false,
+    last_refreshed_at: 1_790_000_000,
+    content_revision: 1,
+  };
+  const names = [
+    "43 · O pão da avó",
+    "42 · Sal e vento",
+    "41 · Mel de urze",
+    "40 · A horta urbana",
+    "39 · Queijo da Serra",
+  ];
+  const items = names.map((title, index) => ({
+    episode_id: `00000000-0000-4000-8000-00000000000${index}`,
+    recording: {
+      id: `10000000-0000-4000-8000-00000000000${index}`,
+      library_id: "20000000-0000-4000-8000-000000000000",
+      title,
+      inherited_title: title,
+      artist: "O Sal da Terra",
+      inherited_artist: "O Sal da Terra",
+      duration_ms: 52 * 60_000,
+      liked: false,
+      available: true,
+    },
+  }));
+  const progress = [
+    { recording_id: items[1].recording.id, position_ms: 33 * 60_000, speed: 1 },
+    { recording_id: items[2].recording.id, position_ms: 52 * 60_000, speed: 1 },
+    { recording_id: items[3].recording.id, position_ms: 52 * 60_000, speed: 1 },
+  ];
+  const archive = {
+    items,
+    total: items.length,
+    limit: 50,
+    next_cursor: null,
+    content_revision: 1,
+  };
+  const inertia = (
+    component: string,
+    url: string,
+    extra: Record<string, unknown>,
+  ) => ({ ...base, component, url, props: { ...base.props, ...extra } });
+  await page.route(
+    /\/(podcasts|api\/v1\/podcasts)(\/.*)?(\?.*)?$/,
+    (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (path === "/api/v1/podcasts")
+        return route.fulfill({ json: [subscription] });
+      if (path.endsWith("/episodes")) return route.fulfill({ json: archive });
+      if (path.startsWith("/api/") || !request.headers()["x-inertia"])
+        return route.fallback();
+      const body =
+        path === "/podcasts"
+          ? inertia("PodcastIndexPage", path, { subscriptions: [subscription] })
+          : inertia("PodcastPage", path, {
+              subscription,
+              episodes: archive,
+              progress,
+            });
+      return route.fulfill({
+        json: body,
+        headers: { "x-inertia": "true", vary: "X-Inertia" },
+      });
+    },
+  );
+  await page.route("**/api/v1/recordings/progress", (route) =>
+    route.fulfill({ json: progress }),
+  );
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto("/home");
+    await page
+      .getByRole("link", { name: "Library", exact: true })
+      .first()
+      .click();
+    await page
+      .getByRole("link", { name: "Podcasts", exact: true })
+      .first()
+      .click();
+    await expect(page.locator(".media-card-title")).toBeVisible();
+    await shoot(page, "podcasts", size.name);
+    await page.locator(".media-card-title").click();
+    await expect(page.getByRole("list", { name: "Episodes" })).toBeVisible();
+    await shoot(page, "podcast", size.name);
+    await page.getByRole("radio", { name: "All" }).click();
+    await shoot(page, "podcast-all", size.name);
+  }
+}
+
 test("capture every redesigned surface at desktop and phone width", async ({
   page,
   browser,
@@ -181,6 +356,7 @@ test("capture every redesigned surface at desktop and phone width", async ({
     }
   }
   await captureCollections(page);
+  await captureMedia(page);
   const guest = await browser.newContext({
     storageState: { cookies: [], origins: [] },
   });

@@ -103,6 +103,9 @@ test("a public RSS episode plays through the packaged server without an implicit
       (await read<Schema["PodcastSubscription"][]>("/api/v1/podcasts")).length,
     ).toBe(0);
     stage = "public feed subscription";
+    await page
+      .getByRole("button", { name: "Subscribe to a podcast", exact: true })
+      .click();
     await page.getByLabel("Feed address", { exact: true }).fill(feed);
     const [response] = await Promise.all([
       page.waitForResponse(
@@ -187,8 +190,8 @@ test("a public RSS episode plays through the packaged server without an implicit
     ).toBe(404);
     expect(audioRequests).toBe(0);
     const row = page
-      .getByRole("table", { name: "Episodes", exact: true })
-      .locator("tbody tr")
+      .getByRole("list", { name: "Episodes", exact: true })
+      .getByRole("listitem")
       .first();
     expect(
       await row.locator(`a[href="/recordings/${recording}"]`).count(),
