@@ -8,7 +8,7 @@
   display: grid;
   grid-template-columns: 42% minmax(0, 1fr);
   min-height: 276px;
-  background: #24211f;
+  background: var(--surface);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -26,7 +26,7 @@
   min-width: 0;
 }
 .spotlight-label {
-  color: #cbb7ae;
+  color: var(--muted);
   font-size: 11px;
   margin-bottom: 17px;
 }
@@ -43,11 +43,11 @@
 .spotlight-copy p {
   margin-top: 12px;
   font-size: 13px;
-  color: #e1d4ce;
+  color: var(--ink);
 }
 .spotlight-album {
   font-size: 11px;
-  color: #cbb7ae;
+  color: var(--muted);
   margin-top: 5px;
 }
 .spotlight-copy .button {
@@ -108,8 +108,8 @@
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: #282523;
-  color: #c6a89b;
+  background: var(--subtle);
+  color: var(--muted);
   flex-shrink: 0;
 }
 .list-toolbar {
@@ -129,7 +129,7 @@
   align-items: center;
   gap: 3px;
   margin-left: auto;
-  background: #202020;
+  background: var(--surface);
   border-radius: 8px;
   padding: 3px;
 }
@@ -139,7 +139,7 @@
   color: var(--muted);
 }
 .view-toggle [aria-pressed="true"] {
-  background: #39312c;
+  background: var(--subtle);
   color: var(--primary);
 }
 .track-grid {
@@ -168,11 +168,11 @@
   border: 0;
   border-radius: 50%;
   background: var(--primary);
-  color: #17110f;
+  color: var(--on-action);
   box-shadow: 0 5px 15px #0004;
 }
 .card-play:hover:not(:disabled) {
-  background: #ff916b;
+  background: var(--action);
 }
 .track-card-copy {
   padding: 13px 3px 0;
@@ -229,7 +229,7 @@
 }
 .track-table td {
   padding: 13px 12px;
-  border-bottom: 1px solid #242424;
+  border-bottom: 1px solid var(--surface);
   font-size: 12px;
   max-width: 260px;
 }
@@ -237,7 +237,7 @@
   min-width: 180px;
 }
 .track-table tr:hover td {
-  background: #1c1c1c;
+  background: var(--surface);
 }
 .track-cell > .artwork {
   width: 40px;
@@ -298,11 +298,11 @@
   padding: 70px 28px;
   margin: 30px 0;
   text-align: center;
-  background: #1b1b1b;
+  background: var(--surface);
   border-radius: 16px;
 }
 .empty > svg {
-  color: #bf9c8f;
+  color: var(--muted);
   margin-bottom: 20px;
 }
 .empty h2 {

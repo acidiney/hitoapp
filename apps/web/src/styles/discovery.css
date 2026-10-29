@@ -20,7 +20,7 @@
   min-width: 0;
   min-height: 46px;
   padding: 10px 12px;
-  color: #f5f5f5;
+  color: var(--ink);
 }
 .discovery-query {
   display: flex;
@@ -35,7 +35,7 @@
   width: 100%;
   border: 0;
   background: transparent;
-  color: #f5f5f5;
+  color: var(--ink);
   padding-left: 0;
 }
 .discovery-search-actions {
@@ -125,7 +125,7 @@
 }
 .provider-result-error {
   grid-column: 3/-1;
-  color: #ffaaa3;
+  color: var(--error);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -149,7 +149,7 @@
 .discovery-error {
   padding: 16px 0;
   margin-bottom: 20px;
-  color: #ffaaa3;
+  color: var(--error);
   overflow-wrap: anywhere;
 }
 .discovery-error .text-link {

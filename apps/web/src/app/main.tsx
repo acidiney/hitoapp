@@ -23,5 +23,5 @@ void createInertiaApp({
       root.render(<ConnectionErrorPage />);
     }
   },
-  progress: { color: "#ff7848" },
+  progress: { color: "#2f4bff" },
 });

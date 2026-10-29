@@ -38,7 +38,7 @@
 .credit-link:hover,
 .album-card h2 a:hover,
 .track-table td > a:hover {
-  color: #f5f5f5;
+  color: var(--ink);
   text-decoration: underline;
 }
 .album-card small,

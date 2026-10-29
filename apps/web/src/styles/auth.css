@@ -4,7 +4,7 @@
   grid-template-columns: 1fr 1fr;
 }
 .auth-intro {
-  background: #1e1917;
+  background: var(--surface);
   padding: 70px 12%;
   display: flex;
   flex-direction: column;
@@ -13,7 +13,18 @@
 }
 .auth-intro .brand {
   margin-bottom: 60px;
-  font-size: 45px;
+  padding: 0;
+  gap: 14px;
+}
+.auth-intro .brand-word {
+  font-size: 52px;
+}
+.auth-intro .brand .ring {
+  width: 22px;
+  height: 22px;
+}
+.auth-intro .brand-mark {
+  gap: 5px;
 }
 .auth-intro h1 {
   font-size: 56px;
@@ -24,17 +35,17 @@
   font-size: 18px;
   max-width: 300px;
   margin-top: 25px;
-  color: #c7b6ae;
+  color: var(--muted);
 }
 .auth-intro > span {
   font-size: 12px;
-  color: #c7b6ae;
+  color: var(--muted);
   margin-top: 65px;
 }
 .auth-form {
   display: grid;
   place-items: center;
-  background: #1e1e1e;
+  background: var(--surface);
   padding: 50px;
 }
 .auth-form form {
@@ -66,7 +77,7 @@
   width: 100%;
 }
 .form-error {
-  color: #ffaaa3 !important;
+  color: var(--error) !important;
 }
 .auth-form small {
   font-size: 11px;
@@ -76,7 +87,7 @@ audio {
 }
 
 .auth-form {
-  background: #151515;
+  background: var(--bg);
 }
 .session-error {
   min-height: 100dvh;

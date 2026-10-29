@@ -1,5 +1,8 @@
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 @import "./styles/base.css";
 @import "./styles/shell.css";
+@import "./styles/primitives.css";
 @import "./styles/artwork.css";
 @import "./styles/library.css";
 @import "./styles/browsing.css";

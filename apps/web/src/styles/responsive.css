@@ -65,68 +65,86 @@
     flex-wrap: wrap;
   }
 }
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   :root {
     --sidebar: 0px;
-    --player: 146px;
+    --tabs: 64px;
+    --player: 64px;
   }
   .app-shell {
     display: block;
     padding-right: 0;
+    padding-bottom: calc(
+      var(--player) + var(--tabs) + env(safe-area-inset-bottom)
+    );
   }
   .sidebar {
     position: static;
+    display: block;
     width: 100%;
-    padding: 22px 18px 0;
-    overflow: visible;
-  }
-  .brand {
-    font-size: 29px;
     padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
   }
-  .brand span,
-  .nav-group-label,
+  .brand,
   .sidebar-playlists {
     display: none;
   }
   .sidebar nav {
-    display: flex;
-    overflow: auto;
-    gap: 3px;
-    margin: 20px -7px 0;
-    padding-bottom: 10px;
-  }
-  .nav-group {
-    display: contents;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 31;
+    height: calc(var(--tabs) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
   }
   .sidebar nav a {
-    padding: 10px 8px;
-    white-space: nowrap;
-    font-size: 12px;
-    gap: 6px;
-  }
-  .sidebar nav svg {
-    width: 16px;
-  }
-  .account {
-    position: absolute;
-    top: 20px;
-    right: 18px;
-    border: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
     padding: 0;
-    margin: 0;
+    border-radius: 0;
+    font-size: 12px;
+    background: transparent;
   }
-  .account > span:nth-child(2) {
+  .sidebar nav a[aria-current="page"] {
+    background: transparent;
+    box-shadow: inset 0 2px 0 var(--ink);
+  }
+  .sidebar nav kbd {
     display: none;
   }
-  .account .avatar {
-    width: 30px;
-    height: 30px;
-    font-size: 12px;
+  .account {
+    position: fixed;
+    top: 6px;
+    right: 8px;
+    z-index: 20;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    gap: 0;
+  }
+  .account-link {
+    padding: 0 6px;
+  }
+  .account-link > span:last-child {
+    display: none;
+  }
+  .library-sections {
+    padding: 0 18px;
+  }
+  .app-shell:not(:has(.topbar)) main#main {
+    padding-top: 60px;
   }
   .topbar {
-    height: 76px;
-    padding: 0 18px;
+    min-height: 76px;
+    padding: 0 148px 0 18px;
   }
   main#main {
     padding: 24px 18px 38px;
@@ -227,41 +245,37 @@
     font-size: 10px;
   }
   .player {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 10px 18px;
-    gap: 5px 12px;
+    bottom: calc(var(--tabs) + env(safe-area-inset-bottom));
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding: 0 12px;
+    gap: 4px;
   }
-  .now-playing {
-    grid-column: 1;
-    grid-row: 1;
+  .now-playing .availability,
+  .player-tools > :not(button[aria-label="Open queue"]),
+  .transport-buttons > :not(.play-button, [aria-label="Next track"]),
+  .seek,
+  .queue-label {
+    display: none;
   }
   .dock-artwork {
     width: 44px;
     height: 44px;
   }
-  .player-tools {
-    grid-column: 2;
-    grid-row: 1;
-    gap: 4px;
+  .now-playing strong {
+    font-size: 14px;
+  }
+  .now-playing small {
+    font-size: 12px;
   }
   .transport {
-    grid-column: 1/-1;
-    grid-row: 2;
-    max-width: none;
+    margin: 0;
   }
-  .transport-buttons {
-    gap: 24px;
-  }
-  .play-button {
-    width: 44px;
-    height: 44px;
-  }
-  .seek {
-    margin-top: 2px;
+  .player-tools .icon-button {
+    border: 0;
   }
   .queue-panel {
     top: 18px;
-    bottom: calc(var(--player) + 16px);
+    bottom: calc(var(--player) + var(--tabs) + 16px);
     left: 16px;
     right: 16px;
     width: auto;
@@ -370,7 +384,6 @@
     padding: 35px 28px;
   }
   .auth-intro .brand {
-    font-size: 30px;
     margin-bottom: 30px;
   }
   .auth-intro h1 {

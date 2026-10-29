@@ -46,7 +46,7 @@
 .music-folders-empty {
   padding: 38px 24px;
   margin: 4px 0 16px;
-  background: #1c1c1c;
+  background: var(--surface);
   border-radius: 12px;
 }
 .music-folders-empty > svg {
@@ -93,9 +93,9 @@
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100dvh - 40px);
   padding: 28px;
-  color: var(--text, #f5f5f5);
-  background: #1b1b1b;
-  border: 1px solid #3b3b3b;
+  color: var(--text, var(--ink));
+  background: var(--surface);
+  border: 1px solid var(--subtle);
   border-radius: 16px;
   overflow: auto;
 }
@@ -147,7 +147,7 @@
 }
 .folder-breadcrumbs button:disabled {
   opacity: 1;
-  color: #c4c4c4;
+  color: var(--muted);
 }
 .folder-browser-content {
   min-height: 180px;
@@ -234,7 +234,7 @@
 .music-folder-proposal {
   padding: 24px;
   margin: 0 0 16px;
-  background: #1c1c1c;
+  background: var(--surface);
   border-radius: 12px;
 }
 .music-folder-proposal h3 {

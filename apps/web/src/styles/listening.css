@@ -7,7 +7,7 @@
   padding: 26px 22px 22px;
   display: flex;
   flex-direction: column;
-  background: #101010;
+  background: var(--bg);
   overflow: auto;
 }
 .listening-panel > .section-heading {
@@ -64,7 +64,7 @@
   gap: 10px;
   margin-top: auto;
   padding-top: 24px;
-  color: #d1c0b8;
+  color: var(--muted);
   font-size: 11px;
 }
 .listening-device small {

@@ -4,9 +4,9 @@
   aspect-ratio: 1;
   width: 100%;
   overflow: hidden;
-  border-radius: 12px;
-  background: #282725;
-  color: #8b8881;
+  border-radius: 10px;
+  background: var(--subtle);
+  color: var(--muted);
 }
 .artwork > svg {
   width: 45%;
@@ -19,7 +19,7 @@
   display: block;
 }
 .artwork.has-image {
-  background: #222;
+  background: var(--surface);
 }
 .artwork img:not([src]) {
   visibility: hidden;

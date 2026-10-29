@@ -27,7 +27,7 @@
   padding: 10px 12px;
 }
 .plugin-form :is(input, select, button) {
-  scroll-margin-block: 24px calc(var(--player) + 24px);
+  scroll-margin-block: 24px calc(var(--player) + var(--tabs) + 24px);
 }
 .plugin-form > .button {
   justify-self: start;

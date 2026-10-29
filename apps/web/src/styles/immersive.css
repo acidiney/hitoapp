@@ -6,8 +6,8 @@
   padding: 22px 30px;
   border: 0;
   border-radius: 18px;
-  background: #101010;
-  color: #f5f5f5;
+  background: var(--bg);
+  color: var(--ink);
 }
 .now-playing-dialog[open] {
   display: grid;
