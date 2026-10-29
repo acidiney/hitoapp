@@ -116,6 +116,7 @@ export function useRetainedCommand(
     error: view.error,
     notice: view.notice,
     run,
-    retry: () => (owner.attempt ? run(owner.attempt.kind, () => null) : undefined),
+    retry: () =>
+      owner.attempt ? run(owner.attempt.kind, () => null) : undefined,
   };
 }

@@ -219,9 +219,7 @@ test("an administrator can share the latest built-in unlink and sees retired unl
           ],
           shared_hidden: 2,
           shareable: bodies.length === 0,
-          shared: bodies.length
-            ? { id: "shared-unlink", revision: 1 }
-            : null,
+          shared: bodies.length ? { id: "shared-unlink", revision: 1 } : null,
         } satisfies Schema["ArtistAssociationChanges"]);
       if (method === "GET" && path.startsWith("/api/v1/artist-corrections?"))
         return Response.json({
@@ -255,7 +253,9 @@ test("an administrator can share the latest built-in unlink and sees retired unl
     screen.getByRole("button", { name: "Find artist information" }),
   );
   fireEvent.click(
-    await screen.findByRole("button", { name: "Apply this unlink for everyone" }),
+    await screen.findByRole("button", {
+      name: "Apply this unlink for everyone",
+    }),
   );
   await screen.findByRole("button", { name: "Withdraw the shared unlink" });
   expect(bodies).toEqual([
@@ -273,5 +273,9 @@ test("an administrator can share the latest built-in unlink and sees retired unl
     },
   ]);
   expect(screen.getByText(/1 unlink no longer applies/)).toBeTruthy();
-  expect(screen.getByText(/2 saved reviews are hidden by a correction an administrator shared/)).toBeTruthy();
+  expect(
+    screen.getByText(
+      /2 saved reviews are hidden by a correction an administrator shared/,
+    ),
+  ).toBeTruthy();
 });

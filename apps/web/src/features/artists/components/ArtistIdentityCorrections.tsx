@@ -145,7 +145,9 @@ export default function ArtistIdentityCorrections({
           <button
             type="button"
             className="button"
-            disabled={corrections.groupPage.offset + 20 >= corrections.groupTotal}
+            disabled={
+              corrections.groupPage.offset + 20 >= corrections.groupTotal
+            }
             onClick={() => corrections.moveGroupPage(1)}
           >
             More artists
@@ -174,9 +176,8 @@ export default function ArtistIdentityCorrections({
       </button>
       {latest && (
         <p>
-          Latest change:{" "}
-          {latest.kind === "split" ? "moved" : "restored"} {latest.recordings}{" "}
-          {latest.recordings === 1 ? "track" : "tracks"}
+          Latest change: {latest.kind === "split" ? "moved" : "restored"}{" "}
+          {latest.recordings} {latest.recordings === 1 ? "track" : "tracks"}
           {latest.retired > 0 &&
             `. ${latest.retired} no longer ${latest.retired === 1 ? "applies" : "apply"} because the file tags changed.`}
         </p>

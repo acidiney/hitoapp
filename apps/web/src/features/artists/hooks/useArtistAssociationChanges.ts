@@ -80,9 +80,16 @@ export function useArtistAssociationChanges(
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 
   async function readState(signal: AbortSignal) {
-    const state = await artistAssociationApi.changes(account, recording, signal);
+    const state = await artistAssociationApi.changes(
+      account,
+      recording,
+      signal,
+    );
     signal.throwIfAborted();
-    if (state.recording_id !== recording || !Number.isSafeInteger(state.revision))
+    if (
+      state.recording_id !== recording ||
+      !Number.isSafeInteger(state.revision)
+    )
       throw new Error("Invalid artist review change state");
     owner.state = state;
     setSnapshot((value) => ({
@@ -180,10 +187,7 @@ export function useArtistAssociationChanges(
           error.status < 500;
         if (rejected) {
           owner.attempt = null;
-          await Promise.allSettled([
-            readState(captured.signal),
-            onChanged(),
-          ]);
+          await Promise.allSettled([readState(captured.signal), onChanged()]);
         }
         reason = expired ? "deadline" : "failed";
         setSnapshot((value) => ({

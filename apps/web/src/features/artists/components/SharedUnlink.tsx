@@ -24,7 +24,9 @@ export default function SharedUnlink({
       {state.retired.length > 0 && (
         <p>
           {state.retired.length}{" "}
-          {state.retired.length === 1 ? "unlink no longer applies" : "unlinks no longer apply"}{" "}
+          {state.retired.length === 1
+            ? "unlink no longer applies"
+            : "unlinks no longer apply"}{" "}
           because the file&apos;s artist tag changed. They keep hiding their
           reviews.
         </p>

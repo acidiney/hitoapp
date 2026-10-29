@@ -69,7 +69,10 @@ function owned(
         revision,
         latest,
       } satisfies Schema["ArtistIdentityGroupChanges"]);
-    if (method === "GET" && path.startsWith("/api/v1/artist-identity-groups?")) {
+    if (
+      method === "GET" &&
+      path.startsWith("/api/v1/artist-identity-groups?")
+    ) {
       searches.push(path);
       return Response.json({
         items: [group, other],
@@ -167,7 +170,8 @@ async function open(props: ReturnType<typeof page>["props"]) {
   await screen.findByRole("button", { name: "Move selected tracks" });
   await waitFor(() =>
     expect(
-      (screen.getByRole("combobox", { name: "Move to" }) as HTMLSelectElement).options.length,
+      (screen.getByRole("combobox", { name: "Move to" }) as HTMLSelectElement)
+        .options.length,
     ).toBe(2),
   );
 }
@@ -273,7 +277,9 @@ test("only an administrator can share a split and withdraw the shared correction
     screen.getByRole("button", { name: "Withdraw the shared correction" }),
   );
   await waitFor(() => expect(bodies).toHaveLength(3));
-  expect(bodies[2].path).toBe("/api/v1/artist-corrections/shared-correction/undo");
+  expect(bodies[2].path).toBe(
+    "/api/v1/artist-corrections/shared-correction/undo",
+  );
   expect(bodies[2].body).toEqual({
     request_id: expect.any(String),
     expected_revision: 1,
@@ -283,7 +289,9 @@ test("only an administrator can share a split and withdraw the shared correction
 test("the destination list is searched on the server and paged instead of loading every artist", async () => {
   const { props, searches } = owned(false);
   await open(props);
-  expect(searches).toEqual(["/api/v1/artist-identity-groups?limit=20&offset=0"]);
+  expect(searches).toEqual([
+    "/api/v1/artist-identity-groups?limit=20&offset=0",
+  ]);
   fireEvent.change(screen.getByLabelText("Find destination artist"), {
     target: { value: "Other chosen" },
   });

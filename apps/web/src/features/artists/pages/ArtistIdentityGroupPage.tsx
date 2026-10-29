@@ -11,6 +11,7 @@ import TrackTable, {
 import { artistGroupTracksListing } from "../api/trackListings";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import ArtistGroupDiscography from "../components/ArtistGroupDiscography";
+import SimilarArtists from "../components/SimilarArtists";
 import ArtistIdentityCorrections from "../components/ArtistIdentityCorrections";
 
 export default function ArtistIdentityGroupPage({
@@ -57,6 +58,7 @@ export default function ArtistIdentityGroupPage({
         </div>
       </section>
       <ArtistGroupDiscography account={user.id} group={group} />
+      <SimilarArtists account={user.id} group={group} />
       <ArtistIdentityCorrections
         account={user.id}
         admin={user.admin}

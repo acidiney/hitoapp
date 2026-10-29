@@ -235,7 +235,9 @@ test("one action browses the chosen artist's exact full discography independentl
     screen.getByRole("button", { name: "Browse full discography" }),
   );
   const region = await screen.findByRole("region", { name: "Discography" });
-  const list = within(await within(region).findByRole("region", { name: "Albums" })).getByRole("list");
+  const list = within(
+    await within(region).findByRole("region", { name: "Albums" }),
+  ).getByRole("list");
   await waitFor(() => expect(list.children).toHaveLength(1));
   expect(
     within(list).getByRole("heading", { name: discographyTitle }),

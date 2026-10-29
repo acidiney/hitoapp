@@ -40,7 +40,9 @@ function owned(options: { total?: number; lostFirst?: boolean } = {}) {
     const method = init?.method ?? "GET";
     if (method === "GET" && path.startsWith("/api/v1/artist-corrections?")) {
       reads.push(path);
-      const offset = Number(new URL(path, "http://hito.local").searchParams.get("offset"));
+      const offset = Number(
+        new URL(path, "http://hito.local").searchParams.get("offset"),
+      );
       return Response.json({
         revision: 2,
         items: offset === 0 ? items : [],
@@ -78,10 +80,18 @@ function owned(options: { total?: number; lostFirst?: boolean } = {}) {
 test("an administrator withdraws and restores shared corrections from the list", async () => {
   const { bodies } = owned();
   render(createElement(SharedCorrectionsSettings, { account: "admin" }));
-  expect(await screen.findByText(/Split · 2 recordings · 1 no longer matches the file tags · Applied/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Withdraw shared correction 1" }));
+  expect(
+    await screen.findByText(
+      /Split · 2 recordings · 1 no longer matches the file tags · Applied/,
+    ),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Withdraw shared correction 1" }),
+  );
   await screen.findByRole("button", { name: "Restore shared correction 1" });
-  fireEvent.click(screen.getByRole("button", { name: "Restore shared correction 2" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Restore shared correction 2" }),
+  );
   await screen.findByRole("button", { name: "Withdraw shared correction 2" });
   expect(bodies.map(({ path }) => path)).toEqual([
     "/api/v1/artist-corrections/split-one/undo",
@@ -97,11 +107,19 @@ test("an administrator withdraws and restores shared corrections from the list",
 test("a lost acknowledgement retries the same withdraw request, and long lists page", async () => {
   const { bodies, reads } = owned({ total: 60, lostFirst: true });
   render(createElement(SharedCorrectionsSettings, { account: "admin" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Withdraw shared correction 1" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Retry the same shared correction request" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Withdraw shared correction 1" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Retry the same shared correction request",
+    }),
+  );
   await screen.findByRole("status");
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toEqual(bodies[0]);
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  await waitFor(() => expect(reads.at(-1)).toBe("/api/v1/artist-corrections?offset=25&limit=25"));
+  await waitFor(() =>
+    expect(reads.at(-1)).toBe("/api/v1/artist-corrections?offset=25&limit=25"),
+  );
 });

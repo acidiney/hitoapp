@@ -18,7 +18,12 @@ export function useSharedCorrections(account: string) {
   const [failed, setFailed] = useState(false);
 
   async function load(signal: AbortSignal, at = offset) {
-    const next = await artistCorrectionApi.shared(account, signal, at, pageSize);
+    const next = await artistCorrectionApi.shared(
+      account,
+      signal,
+      at,
+      pageSize,
+    );
     signal.throwIfAborted();
     setPage(next);
     setFailed(false);
@@ -31,7 +36,11 @@ export function useSharedCorrections(account: string) {
     });
   }, [scope, offset]);
 
-  const command = useRetainedCommand(account, (signal) => load(signal), () => {});
+  const command = useRetainedCommand(
+    account,
+    (signal) => load(signal),
+    () => {},
+  );
   return {
     page,
     failed,

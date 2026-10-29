@@ -92,7 +92,11 @@ test.each([
       });
       await flush();
       expect(http.calls.discography).toBe(1);
-      expect(within(screen.getByRole("region", { name: "Albums" })).getByRole("list")).toBeTruthy();
+      expect(
+        within(screen.getByRole("region", { name: "Albums" })).getByRole(
+          "list",
+        ),
+      ).toBeTruthy();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(errors).not.toHaveBeenCalled();
     } finally {

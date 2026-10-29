@@ -26,8 +26,8 @@ export default function SharedCorrectionsSettings({
         <ul>
           {page.items.map((item) => (
             <li key={item.id}>
-              {item.kind === "unlink" ? "Unlink" : "Split"} ·{" "}
-              {item.recordings} {item.recordings === 1 ? "recording" : "recordings"}
+              {item.kind === "unlink" ? "Unlink" : "Split"} · {item.recordings}{" "}
+              {item.recordings === 1 ? "recording" : "recordings"}
               {item.retired > 0 &&
                 ` · ${item.retired} no longer ${item.retired === 1 ? "matches" : "match"} the file tags`}
               {" · "}

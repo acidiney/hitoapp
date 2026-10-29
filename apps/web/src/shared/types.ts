@@ -77,6 +77,9 @@ export type ArtistProfileAvailability = Schema["ArtistProfileAvailability"];
 export type ArtistDiscographyAvailability =
   Schema["ArtistDiscographyAvailability"];
 export type ReadArtistDiscography = Schema["ReadArtistDiscography"];
+export type ReadSimilarArtists = Schema["ReadSimilarArtists"];
+export type SimilarArtistsAvailability = Schema["SimilarArtistsAvailability"];
+export type SimilarArtistView = Schema["SimilarArtistView"];
 export type CatalogReleaseGroup = Schema["CatalogReleaseGroup"];
 export type DiscographyLibrary = Schema["DiscographyLibrary"];
 export type LibraryAlbum = Schema["LibraryAlbum"];

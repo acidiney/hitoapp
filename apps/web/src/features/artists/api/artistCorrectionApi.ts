@@ -20,12 +20,7 @@ export const artistCorrectionApi = {
       { action: "artist_identity.changes", account, signal },
     );
   },
-  groups(
-    account: string,
-    signal: AbortSignal,
-    search = "",
-    offset = 0,
-  ) {
+  groups(account: string, signal: AbortSignal, search = "", offset = 0) {
     const query = new URLSearchParams({ limit: "20", offset: String(offset) });
     if (search) query.set("q", search);
     return requestJson<ArtistIdentityGroupList>(
@@ -73,11 +68,7 @@ export const artistCorrectionApi = {
       { action: "artist_correction.list", account, signal },
     );
   },
-  promote(
-    account: string,
-    body: PromoteArtistCorrection,
-    signal: AbortSignal,
-  ) {
+  promote(account: string, body: PromoteArtistCorrection, signal: AbortSignal) {
     return requestJson<SharedArtistCorrectionReceipt>(
       "/artist-corrections/promote",
       {
