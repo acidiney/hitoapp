@@ -65,7 +65,14 @@ function ProviderResult({
       >
         <Play size={18} fill="currentColor" />
       </button>
-      <Artwork recording={saved?.id} />
+      <Artwork
+        recording={saved?.id}
+        fallback={{
+          id: hit.release?.id ?? hit.id,
+          title: hit.release?.title ?? hit.title,
+          artist: hit.artist,
+        }}
+      />
       <div className="provider-result-copy">
         <h3>{hit.title}</h3>
         <p>{hit.artist}</p>

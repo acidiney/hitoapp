@@ -7,6 +7,14 @@ import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Button from "../../../shared/ui/Button";
 import ListRow from "../../../shared/ui/ListRow";
 
+function trackCover(track: Recording) {
+  return {
+    id: track.release_id ?? track.id,
+    title: track.album ?? track.title,
+    artist: track.artist,
+  };
+}
+
 function TrackRow({
   track,
   onPlay,
@@ -16,7 +24,7 @@ function TrackRow({
 }) {
   return (
     <ListRow
-      cover={<Artwork recording={track.id} />}
+      cover={<Artwork recording={track.id} fallback={trackCover(track)} />}
       title={track.title}
       subtitle={[track.artist, track.album].filter(Boolean).join(" · ")}
       state={
@@ -63,7 +71,7 @@ export function TopResult({
           className="search-card"
           href={`/recordings/${encodeURIComponent(track.id)}`}
         >
-          <Artwork recording={track.id} />
+          <Artwork recording={track.id} fallback={trackCover(track)} />
           <span className="search-card-copy">
             <strong>{track.title}</strong>
             <span>Track · {track.artist}</span>
