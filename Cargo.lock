@@ -2413,9 +2413,17 @@ dependencies = [
 name = "hito-plugin-sdk"
 version = "0.1.0-dev"
 dependencies = [
+ "axum",
+ "hito-plugin-sdk",
+ "http-body-util",
  "serde",
  "serde_json",
+ "sha2",
+ "subtle",
+ "tokio",
+ "tower",
  "tracing",
+ "tracing-subscriber",
  "url",
  "utoipa",
  "uuid",

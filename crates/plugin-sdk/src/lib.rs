@@ -10,6 +10,8 @@ mod lyrics;
 mod metadata;
 mod playlists;
 mod preparation;
+#[cfg(feature = "server")]
+pub mod server;
 pub use artwork::{ARTWORK_PATH, ArtworkEntity, ArtworkRequest};
 pub use attribution::RecordingAttribution;
 pub use authorization::Authorization;

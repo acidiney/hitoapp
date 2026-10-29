@@ -6,7 +6,12 @@ rust-version.workspace = true
 license = "Apache-2.0"
 
 [dependencies]
+axum = { workspace = true, optional = true }
 serde.workspace = true
+sha2 = { workspace = true, optional = true }
+subtle = { version = "=2.6.1", optional = true }
+tokio = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 serde_json.workspace = true
 tracing.workspace = true
@@ -15,3 +20,14 @@ uuid.workspace = true
 
 [features]
 schema = ["dep:utoipa"]
+server = ["dep:axum", "dep:sha2", "dep:subtle", "dep:tokio", "dep:tracing-subscriber"]
+
+[dev-dependencies]
+hito-plugin-sdk = { path = ".", features = ["server"] }
+http-body-util.workspace = true
+tokio.workspace = true
+tower.workspace = true
+
+[[test]]
+name = "server"
+required-features = ["server"]
