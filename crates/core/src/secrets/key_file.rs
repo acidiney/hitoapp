@@ -1,11 +1,26 @@
-use rand::RngCore;
-use std::{
-    fs::{File, OpenOptions},
-    io::{self, Read, Write},
-    path::Path,
-};
+use std::{io, path::Path};
 use zeroize::Zeroizing;
 
+#[cfg(unix)]
+use rand::RngCore;
+#[cfg(unix)]
+use std::{
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+};
+
+#[cfg(unix)]
+const KEY_MODES: [u32; 2] = [0o400, 0o600];
+
+#[cfg(not(unix))]
+pub(super) fn load(_path: &Path, _allow_creation: bool) -> io::Result<Zeroizing<[u8; 32]>> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "Owner-only key protection is not verified on this platform",
+    ))
+}
+
+#[cfg(unix)]
 pub(super) fn load(path: &Path, allow_creation: bool) -> io::Result<Zeroizing<[u8; 32]>> {
     match read(path) {
         Ok(key) => Ok(key),
@@ -21,7 +36,6 @@ pub(super) fn load(path: &Path, allow_creation: bool) -> io::Result<Zeroizing<[u
             temporary.as_file().sync_all()?;
             match temporary.persist_noclobber(path) {
                 Ok(_) => {
-                    #[cfg(unix)]
                     File::open(parent)?.sync_all()?;
                     Ok(key)
                 }
@@ -33,10 +47,10 @@ pub(super) fn load(path: &Path, allow_creation: bool) -> io::Result<Zeroizing<[u
     }
 }
 
+#[cfg(unix)]
 fn read(path: &Path) -> io::Result<Zeroizing<[u8; 32]>> {
     let mut options = OpenOptions::new();
     options.read(true);
-    #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
@@ -46,12 +60,8 @@ fn read(path: &Path) -> io::Result<Zeroizing<[u8; 32]>> {
     if !metadata.is_file() || metadata.len() != 32 {
         return Err(io::Error::other("Invalid plugin credential key"));
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if metadata.permissions().mode() & 0o077 != 0 {
-            return Err(io::Error::other("Plugin credential key is not private"));
-        }
+    if !crate::private_file::is_private(&metadata, &KEY_MODES) {
+        return Err(io::Error::other("Plugin credential key is not private"));
     }
     let mut bytes = Zeroizing::new(Vec::new());
     file.take(33).read_to_end(&mut bytes)?;

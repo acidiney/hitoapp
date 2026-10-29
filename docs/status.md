@@ -329,6 +329,10 @@ Other public-boundary fixtures establish the following development behavior:
 | Editor tooling            | Docker and project Rust 1.99 agree; rust-analyzer expanded real tracing instrumentation                                                                                      | Existing editor processes must use the pinned toolchain                                                                                                               |
 | Setup and lifecycle       | Two setup CLI cases, Compose literal-path handling, shell/PowerShell checks, graceful SIGINT/SIGTERM and isolated container stop                                             | Live native dialogs, permissions, drive reconnects, upgrades, forced termination and packaged installation                                                            |
 
+## Credential key and token file ownership
+
+The credential key reader and the community administrator-token reader share one private-file rule on Unix: regular file, one hard link, effective-user owner and mode 0400 or 0600. Public `open` tests in the Linux container (`plugins_key_ownership`) cover group/other-accessible modes, hard links, symlinks, a foreign owner (the container runs as root), unwritable-data-directory refusal and owner-only atomic regeneration after every credential is cleared, always keeping encrypted rows and local services. Before the shared rule existed the hard-link and foreign-owner cases failed; two draft directory cases failed because `open` already refuses such directories, so they were rewritten to assert that refusal. Core unit cases cover the administrator-token reader the same way. Windows now fails closed and its ACL work is deferred to community testing. Nothing here was run on a macOS device, and a typed reason for key failure is not exposed to the UI.
+
 ## Release work still required
 
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:

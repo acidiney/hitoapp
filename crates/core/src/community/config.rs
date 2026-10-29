@@ -76,7 +76,7 @@ pub(super) fn read_admin_token(path: &std::path::Path) -> Result<Zeroizing<Strin
     use std::{
         fs::OpenOptions,
         io::Read,
-        os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+        os::unix::fs::OpenOptionsExt,
     };
     let unavailable = || Error::Upstream("Community administrator credentials are unavailable");
     let file = OpenOptions::new()
@@ -85,11 +85,7 @@ pub(super) fn read_admin_token(path: &std::path::Path) -> Result<Zeroizing<Strin
         .open(path)
         .map_err(|_| unavailable())?;
     let metadata = file.metadata().map_err(|_| unavailable())?;
-    let owner = unsafe { libc::geteuid() };
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.uid() != owner
-        || !matches!(metadata.permissions().mode() & 0o7777, 0o400 | 0o600)
+    if !crate::private_file::is_private(&metadata, &[0o400, 0o600])
         || !(64..=66).contains(&metadata.len())
     {
         return Err(unavailable());
@@ -115,4 +111,61 @@ pub(super) fn read_admin_token(_path: &std::path::Path) -> Result<Zeroizing<Stri
     Err(Error::Upstream(
         "Community administrator credentials are unavailable on this platform",
     ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::read_admin_token;
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    use std::path::Path;
+
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn token_file(directory: &Path, contents: &str, mode: u32) -> std::path::PathBuf {
+        let path = directory.join("admin-token");
+        std::fs::write(&path, contents).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        path
+    }
+
+    #[test]
+    fn only_a_private_single_link_file_owned_by_this_user_is_read() {
+        let directory = tempfile::tempdir().unwrap();
+        for mode in [0o600, 0o400] {
+            let path = token_file(directory.path(), &format!("{TOKEN}\n"), mode);
+            assert_eq!(read_admin_token(&path).unwrap().as_str(), TOKEN);
+        }
+        for mode in [0o640, 0o604, 0o644, 0o660, 0o700, 0o666] {
+            let path = token_file(directory.path(), TOKEN, mode);
+            assert!(read_admin_token(&path).is_err(), "mode {mode:o}");
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o7777,
+                mode,
+                "an unsafe file is never repaired"
+            );
+        }
+        let path = token_file(directory.path(), TOKEN, 0o600);
+        let alias = directory.path().join("alias");
+        std::fs::hard_link(&path, &alias).unwrap();
+        assert!(read_admin_token(&path).is_err(), "second hard link");
+        std::fs::remove_file(&alias).unwrap();
+        symlink(&path, &alias).unwrap();
+        assert!(read_admin_token(&alias).is_err(), "symlink");
+        for contents in ["short", &"g".repeat(64), &format!("{TOKEN}\n\n")] {
+            let path = token_file(directory.path(), contents, 0o600);
+            assert!(read_admin_token(&path).is_err());
+        }
+        assert!(read_admin_token(&directory.path().join("missing")).is_err());
+    }
+
+    #[test]
+    fn a_file_owned_by_another_user_is_refused() {
+        if unsafe { libc::geteuid() } != 0 {
+            return;
+        }
+        let directory = tempfile::tempdir().unwrap();
+        let path = token_file(directory.path(), TOKEN, 0o600);
+        std::os::unix::fs::chown(&path, Some(65534), None).unwrap();
+        assert!(read_admin_token(&path).is_err());
+    }
 }

@@ -12,6 +12,7 @@ mod metadata;
 mod playback_access;
 mod plugins;
 mod podcasts;
+mod private_file;
 mod remote_http;
 mod secrets;
 mod store;
