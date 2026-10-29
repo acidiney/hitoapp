@@ -16,10 +16,11 @@ const FALLBACK_HEIGHT = 560;
 type Block = { version: number; entries: PlaybackOccurrence[] };
 type Viewport = { first: number; height: number };
 
-export function useQueueWindow(player: Player) {
+/** `from` is the first queue index the window may show; entries before it are never loaded. */
+export function useQueueWindow(player: Player, from = 0) {
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const [viewport, setViewport] = useState<Viewport>(() => ({
-    first: Math.max(0, (view.currentIndex ?? 0) - 1),
+    first: from === 0 ? Math.max(0, (view.currentIndex ?? 0) - 1) : 0,
     height: FALLBACK_HEIGHT,
   }));
   const [attempt, setAttempt] = useState(0);
@@ -29,10 +30,11 @@ export function useQueueWindow(player: Player) {
   if (blocks.current.player !== player)
     blocks.current = { player, items: new Map() };
 
-  const start = Math.max(0, viewport.first - OVERSCAN);
+  const first = from + viewport.first;
+  const start = Math.max(from, first - OVERSCAN);
   const end = Math.min(
     view.total,
-    viewport.first + Math.ceil(viewport.height / QUEUE_ROW) + OVERSCAN,
+    first + Math.ceil(viewport.height / QUEUE_ROW) + OVERSCAN,
   );
   const firstBlock = Math.floor(start / BLOCK);
   const lastBlock =
@@ -88,6 +90,7 @@ export function useQueueWindow(player: Player) {
 
   return {
     view,
+    from,
     start,
     end,
     error,

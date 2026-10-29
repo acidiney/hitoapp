@@ -8,6 +8,8 @@ import { QUEUE_ROW } from "../hooks/useQueueWindow";
 type Props = {
   entry: PlaybackOccurrence;
   index: number;
+  /** First index of the list this row belongs to; positions count from here. */
+  first: number;
   total: number;
   current: boolean;
   marker: "before" | "after" | null;
@@ -19,6 +21,7 @@ type Props = {
 const QueueRow = memo(function QueueRow({
   entry,
   index,
+  first,
   total,
   current,
   marker,
@@ -33,9 +36,9 @@ const QueueRow = memo(function QueueRow({
       data-index={index}
       data-entry={id}
       data-drop={marker ?? undefined}
-      aria-posinset={index + 1}
-      aria-setsize={total}
-      style={{ transform: `translateY(${index * QUEUE_ROW}px)` }}
+      aria-posinset={index - first + 1}
+      aria-setsize={total - first}
+      style={{ transform: `translateY(${(index - first) * QUEUE_ROW}px)` }}
     >
       <button
         className="queue-handle"
@@ -45,6 +48,7 @@ const QueueRow = memo(function QueueRow({
       >
         <GripVertical size={16} />
       </button>
+      <span className="queue-index">{index - first + 1}</span>
       <button className="queue-track" onClick={() => select(id)}>
         <Artwork release={track.release_id ?? undefined} recording={track.id} />
         <span>
@@ -58,7 +62,7 @@ const QueueRow = memo(function QueueRow({
           className="icon-button"
           data-move="up"
           aria-label={`Move ${track.title} up`}
-          disabled={index === 0}
+          disabled={index === first}
           onClick={() => move(id, index, -1)}
         >
           <ChevronUp size={14} />

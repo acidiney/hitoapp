@@ -98,42 +98,37 @@ test("play-all queues every library page, then a reorder changes the next transi
     expect(new URLSearchParams(pageRequests[0]).get("offset")).toBe("3");
 
     await page.getByRole("button", { name: "Open queue", exact: true }).click();
-    const queue = page.getByRole("complementary", {
-      name: "Playback queue",
-      exact: true,
-    });
-    const rows = queue.locator("ol.queue-tracks > li");
+    await expect(page).toHaveURL(/\/queue$/);
+    const now = page.getByRole("region", { name: "Now playing", exact: true });
+    const rows = page.locator("ol.queue-tracks > li");
     const titles = () => rows.locator("strong").allTextContents();
-    await expect(rows).toHaveCount(7);
-    const expected = [
-      "Order catalog fixture 1",
+    await expect(now.locator("strong")).toHaveText("Order catalog fixture 1");
+    await expect(rows).toHaveCount(6);
+    expect(await titles()).toEqual([
       "Order catalog fixture 2",
       "Order catalog fixture 3",
       "Order catalog fixture 4",
       "Order catalog fixture 5",
       "Order owned fixture",
       "Order second fixture",
-    ];
-    expect(await titles()).toEqual(expected);
-    await expect(rows.nth(0)).toHaveClass("current");
+    ]);
 
     const playing = await audio.evaluate((element: HTMLAudioElement) => ({
       source: element.src,
       time: element.currentTime,
     }));
-    const up = queue.getByRole("button", {
+    const up = page.getByRole("button", {
       name: "Move Order second fixture up",
       exact: true,
     });
     await up.focus();
     for (let step = 0; step < 5; step++) {
       await page.keyboard.press("Enter");
-      await expect(rows.nth(5 - step).locator("strong")).toHaveText(
+      await expect(rows.nth(4 - step).locator("strong")).toHaveText(
         "Order second fixture",
       );
     }
     expect(await titles()).toEqual([
-      "Order catalog fixture 1",
       "Order second fixture",
       "Order catalog fixture 2",
       "Order catalog fixture 3",
@@ -141,19 +136,17 @@ test("play-all queues every library page, then a reorder changes the next transi
       "Order catalog fixture 5",
       "Order owned fixture",
     ]);
-    await expect(rows.nth(0)).toHaveClass("current");
     await expect(
-      rows.nth(1).getByRole("button", { name: /^Move .* up$/ }),
+      rows.nth(0).getByRole("button", { name: /^Move .* down$/ }),
     ).toBeFocused();
 
     await rows
-      .nth(6)
+      .nth(5)
       .getByRole("button", { name: "Drag Order owned fixture" })
-      .dragTo(rows.nth(2), { targetPosition: { x: 40, y: 4 } });
+      .dragTo(rows.nth(1), { targetPosition: { x: 40, y: 4 } });
     await expect
       .poll(titles)
       .toEqual([
-        "Order catalog fixture 1",
         "Order second fixture",
         "Order owned fixture",
         "Order catalog fixture 2",
@@ -174,7 +167,9 @@ test("play-all queues every library page, then a reorder changes the next transi
     await audio.evaluate((element: HTMLAudioElement) => {
       element.currentTime = element.duration - 1;
     });
-    await expect(rows.nth(1)).toHaveClass("current", { timeout: 20_000 });
+    await expect(now.locator("strong")).toHaveText("Order second fixture", {
+      timeout: 20_000,
+    });
     await expect
       .poll(() => audio.evaluate((element: HTMLAudioElement) => element.src))
       .not.toBe(playing.source);
@@ -186,7 +181,9 @@ test("play-all queues every library page, then a reorder changes the next transi
     await audio.evaluate((element: HTMLAudioElement) => {
       element.currentTime = element.duration - 1;
     });
-    await expect(rows.nth(2)).toHaveClass("current", { timeout: 20_000 });
+    await expect(now.locator("strong")).toHaveText("Order owned fixture", {
+      timeout: 20_000,
+    });
     expect(downloads).toBe(0);
     expect(errors).toEqual([]);
   } finally {

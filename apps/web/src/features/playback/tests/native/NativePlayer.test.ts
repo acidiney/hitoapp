@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { PlaybackProvider } from "../../components/PlaybackProvider";
 import PlayerDock from "../../components/PlayerDock";
+import QueueScreen from "../../components/QueueScreen";
 import { nativeService } from "../../fixtures/native/service";
 
 test("native Previous remains available after queue completion without current metadata", async () => {
@@ -280,10 +281,9 @@ test("a transient queue metadata failure can be retried without taking playback 
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(QueueScreen),
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
   fireEvent.click(await screen.findByRole("button", { name: "Retry queue" }));
   expect(await screen.findByRole("button", { name: /^Track 0/ })).toBeTruthy();
   expect(service.claims).toBe(1);

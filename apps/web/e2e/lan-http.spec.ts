@@ -245,7 +245,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       name: "Now playing",
       exact: true,
     });
-    await expect(queue.locator(".queue-tracks li")).toHaveCount(2);
+    await expect(queue.locator(".np-next li")).toHaveCount(1);
     await queue.getByRole("button", { name: "Close now playing" }).click();
 
     await openLibrarySection(page, "Playlists");

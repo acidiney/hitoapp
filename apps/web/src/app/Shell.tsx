@@ -18,6 +18,7 @@ const OWN_SEARCH = new Set([
   "SearchPage",
   "DiscoverPage",
   "SettingsPage",
+  "QueuePage",
 ]);
 
 export default function Shell({ children }: { children: ReactNode }) {
@@ -65,7 +66,7 @@ export default function Shell({ children }: { children: ReactNode }) {
               </main>
             </div>
           </div>
-          <PlayerDock />
+          <PlayerDock queueActive={url.pathname === "/queue"} />
         </PlaybackProvider>
       </ArtworkProvider>
     </NoticeProvider>

@@ -9,6 +9,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { Playback } from "../playback";
 import PlayerDock from "../components/PlayerDock";
+import QueueScreen from "../components/QueueScreen";
 
 let player: Playback;
 vi.mock("../components/PlaybackProvider", () => ({ usePlayer: () => player }));
@@ -51,8 +52,8 @@ test("position updates move the seek control without rendering any of a thousand
   }));
   await player.playQueue(tracks);
   render(createElement(PlayerDock));
-  fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
-  const queue = screen.getByRole("complementary", { name: "Playback queue" });
+  render(createElement(QueueScreen));
+  const queue = screen.getByRole("region", { name: "Up next" });
   await waitFor(() =>
     expect(queue.querySelectorAll("li").length).toBeGreaterThan(0),
   );
@@ -63,12 +64,12 @@ test("position updates move the seek control without rendering any of a thousand
     configurable: true,
   });
   fireEvent.scroll(window);
-  await waitFor(() => expect(queue.textContent).toContain("Track 500"));
+  await waitFor(() => expect(queue.textContent).toContain("Track 501"));
   expect(queue.querySelectorAll("li").length).toBeLessThanOrEqual(40);
   Object.defineProperty(window, "scrollTop", { value: 0, configurable: true });
   fireEvent.scroll(window);
   await waitFor(() =>
-    expect(queue.querySelector("li strong")?.textContent).toBe("Track 0"),
+    expect(queue.querySelector("li strong")?.textContent).toBe("Track 1"),
   );
   queuedRowReads = 0;
   for (let tick = 1; tick <= 10; tick++) {
@@ -90,10 +91,11 @@ test("position updates move the seek control without rendering any of a thousand
     await player.next();
   });
   await waitFor(() =>
-    expect(queue.querySelector("li.current strong")?.textContent).toBe(
-      "Track 1",
-    ),
+    expect(queue.querySelector("li strong")?.textContent).toBe("Track 2"),
   );
+  expect(
+    screen.getByRole("region", { name: "Now playing" }).textContent,
+  ).toContain("Track 1");
   expect(queuedRowReads).toBeGreaterThan(0);
   expect(audio.playbackRate).toBe(1.5);
   expect(

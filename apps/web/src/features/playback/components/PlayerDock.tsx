@@ -6,18 +6,22 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
+import { router } from "@inertiajs/react";
 import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
 import { coverIdentity } from "../../artwork/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
-import PlaybackQueue from "./PlaybackQueue";
 import Artwork from "../../artwork/components/Artwork";
 import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 
-export default function PlayerDock() {
+export default function PlayerDock({
+  queueActive = false,
+}: {
+  queueActive?: boolean;
+}) {
   const player = usePlayer();
   const current = useSyncExternalStore(
     player.subscribe,
@@ -31,7 +35,6 @@ export default function PlayerDock() {
     player.subscribe,
     () => player.queueSnapshot().total,
   );
-  const [queueOpen, setQueueOpen] = useState(false);
   const volume = useSyncExternalStore(
     player.subscribe,
     () => player.snapshot().volume,
@@ -56,21 +59,17 @@ export default function PlayerDock() {
   const openExpanded = useCallback((opener: HTMLButtonElement) => {
     log.debug("player.expanded", { enabled: true });
     expandedOpener.current = opener;
-    setQueueOpen(false);
     setExpanded(true);
   }, []);
-  const closeQueue = useCallback(() => {
-    log.debug("player.queue", { enabled: false });
-    setQueueOpen(false);
-  }, []);
-  function showQueue(enabled: boolean) {
-    log.debug("player.queue", { enabled });
-    setQueueOpen(enabled);
+  function showQueue() {
+    log.debug("player.queue", { enabled: true });
+    router.visit("/queue");
   }
   return (
     <>
-      {expanded && <NowPlaying close={closeExpanded} />}
-      {queueOpen && <PlaybackQueue close={closeQueue} />}
+      {expanded && (
+        <NowPlaying close={closeExpanded} openQueue={closeExpanded} />
+      )}
       <footer className="player" aria-label="Audio player" hidden={expanded}>
         <div className="now-playing">
           <button
@@ -117,10 +116,10 @@ export default function PlayerDock() {
           </button>
           <button
             ref={queueButton}
-            className={`icon-button queue-button ${queueOpen ? "selected" : ""}`}
+            className={`icon-button queue-button ${queueActive ? "selected" : ""}`}
             aria-label="Open queue"
-            aria-expanded={queueOpen}
-            onClick={() => showQueue(!queueOpen)}
+            aria-current={queueActive ? "page" : undefined}
+            onClick={showQueue}
           >
             <ListOrdered size={16} />
             <span className="queue-label">

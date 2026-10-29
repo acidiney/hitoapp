@@ -156,23 +156,73 @@
   background: var(--warning-bg);
   color: var(--warning);
 }
-.queue-panel {
-  position: fixed;
-  top: 20px;
-  bottom: calc(var(--player) + 20px);
-  right: 16px;
-  width: 320px;
-  max-width: calc(100vw - 32px);
-  background: var(--surface);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px #0006;
-  padding: 24px 18px;
+.queue-screen {
   display: flex;
   flex-direction: column;
-  z-index: 40;
+  gap: 24px;
+  max-width: 980px;
 }
-.queue-panel > .queue-tracks {
-  overflow: auto;
+.queue-actions {
+  display: flex;
+  gap: 8px;
+}
+.queue-screen h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.queue-now {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.queue-now h2 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.queue-now-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--subtle);
+}
+.queue-now-row .artwork {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+}
+.queue-now-row strong {
+  display: block;
+  font-weight: 800;
+}
+.queue-now-row small,
+.queue-now-row .mono {
+  font-size: 13px;
+  color: var(--muted);
+}
+.queue-now-row .mono {
+  font-family: var(--font-mono);
+}
+.queue-next {
+  display: flex;
+  flex-direction: column;
+}
+.queue-next-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.queue-next-head span {
+  font-size: 13px;
+  color: var(--muted);
 }
 .queue-tracks {
   list-style: none;
@@ -183,24 +233,23 @@
 .queue-tracks li {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--subtle);
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
 }
 .queue-track {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   flex: 1;
   min-width: 0;
   border: 0;
   background: transparent;
-  padding: 6px 0;
+  padding: 0;
   text-align: left;
 }
 .queue-track .artwork {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border-radius: 6px;
 }
@@ -209,31 +258,42 @@
 }
 .queue-track strong {
   display: block;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .queue-track small {
-  font-size: 10px;
-  margin-top: 4px;
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.queue-index,
 .queue-duration {
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.queue-index {
+  min-width: 24px;
+  text-align: right;
+}
+.queue-duration {
+  min-width: 44px;
+  text-align: right;
+}
 .queue-tracks .current strong {
-  color: var(--primary);
+  color: var(--action);
 }
 .queue-window {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 70dvh;
+  max-height: max(320px, calc(100dvh - 420px));
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -249,21 +309,13 @@
   height: 56px;
   box-sizing: border-box;
   padding: 0;
-  gap: 4px;
   will-change: transform;
 }
 .queue-virtual > li[data-drop="before"] {
-  box-shadow: inset 0 2px 0 var(--primary);
+  box-shadow: inset 0 2px 0 var(--action);
 }
 .queue-virtual > li[data-drop="after"] {
-  box-shadow: inset 0 -2px 0 var(--primary);
-}
-.queue-virtual .queue-track {
-  padding: 0;
-}
-.queue-window .queue-virtual .queue-track .artwork {
-  width: 40px;
-  height: 40px;
+  box-shadow: inset 0 -2px 0 var(--action);
 }
 .queue-handle {
   flex-shrink: 0;
@@ -271,28 +323,34 @@
   background: transparent;
   color: var(--muted);
   cursor: grab;
-  padding: 12px 0;
+  padding: 12px 4px;
 }
 .queue-order {
   display: flex;
-  flex-direction: column;
   flex-shrink: 0;
 }
 .queue-order .icon-button {
-  min-width: 28px;
-  min-height: 24px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
 }
+.queue-tracks li > .icon-button[aria-label$="from queue"] {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 9px;
+  min-width: 40px;
+  min-height: 40px;
+}
 .queue-loading {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
-  padding: 0 0 8px;
+  padding: 8px 0;
 }
 .queue-empty {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.7;
-  padding: 8px 0;
+  padding: 12px 0;
 }
 
 .playback-status,

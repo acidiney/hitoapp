@@ -1,13 +1,20 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { ArrowDownLeft, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
 import { coverIdentity } from "../../artwork/coverIdentity";
 import Artwork from "../../artwork/components/Artwork";
-import QueueList from "./QueueList";
-import PlaybackControls from "./PlaybackControls";
+import { SeekBar, TransportButtons } from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";
+import NowPlayingTabs from "./NowPlayingTabs";
+import RouteLink from "../../../shared/ui/RouteLink";
 
-export default function NowPlaying({ close }: { close: () => void }) {
+export default function NowPlaying({
+  close,
+  openQueue,
+}: {
+  close: () => void;
+  openQueue: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const player = usePlayer();
   const current = useSyncExternalStore(
@@ -27,42 +34,48 @@ export default function NowPlaying({ close }: { close: () => void }) {
       onClose={close}
     >
       <header>
-        <span>Now playing</span>
         <button
           className="icon-button"
           aria-label="Close now playing"
           onClick={() => dialog.current?.close()}
         >
-          <X size={21} />
+          <ChevronDown size={20} />
         </button>
+        <span>Now playing</span>
+        <span aria-hidden="true" className="np-header-balance" />
       </header>
-      <div className="now-playing-body">
-        <section className="now-playing-focus">
-          <Artwork
-            release={current?.release_id ?? undefined}
-            recording={current?.id}
-            fallback={coverIdentity(current)}
-          />
-          <div className="now-playing-caption">
-            <span>From your library</span>
+      <div className="np-body">
+        <section className="np-track" aria-label="Track">
+          <div className="np-cover">
+            <Artwork
+              release={current?.release_id ?? undefined}
+              recording={current?.id}
+              fallback={coverIdentity(current)}
+            />
+          </div>
+          <div className="np-title">
             <h1>{current?.title ?? "Ready when you are"}</h1>
-            <p>{current?.artist ?? "Choose a track to start listening."}</p>
+            {current ? (
+              <RouteLink
+                href={`/search?q=${encodeURIComponent(current.artist)}`}
+              >
+                {current.artist}
+              </RouteLink>
+            ) : (
+              <p>Choose a track to start listening.</p>
+            )}
           </div>
+          <div className="np-seek">
+            <SeekBar remaining />
+          </div>
+          <div className="np-transport">
+            <TransportButtons />
+          </div>
+          <PlaybackStatus className="now-playing-status" />
         </section>
-        <aside
-          className="now-playing-queue"
-          aria-label="Expanded playback queue"
-        >
-          <div className="section-heading">
-            <h2>Up next</h2>
-            <ArrowDownLeft size={18} />
-          </div>
-          <QueueList />
+        <aside aria-label="Details" className="np-details">
+          <NowPlayingTabs track={current} openQueue={openQueue} />
         </aside>
-      </div>
-      <div className="now-playing-controls">
-        <PlaybackStatus className="now-playing-status" />
-        <PlaybackControls />
       </div>
     </dialog>
   );

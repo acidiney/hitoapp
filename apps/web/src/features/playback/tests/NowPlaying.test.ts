@@ -107,11 +107,7 @@ test("closing after the queue empties focuses an enabled player control", async 
   });
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  fireEvent.click(
-    await within(dialog).findByRole("button", {
-      name: "Remove Fixture from queue",
-    }),
-  );
+  act(() => player.clear());
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Close now playing" }),
   );

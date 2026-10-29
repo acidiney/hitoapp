@@ -390,7 +390,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     expanded.getByRole("heading", { name: "Fixture 440 Hz", exact: true }),
   ).toBeVisible();
-  await expect(expanded.locator(".queue-tracks li")).toHaveCount(2);
+  await expect(expanded.locator(".np-next li")).toHaveCount(1);
   await page.screenshot({
     path: "/workspace/test-results/now-playing-desktop.png",
   });
@@ -417,23 +417,33 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page.route("**/api/v1/recordings/*/playback-sources", (route) =>
     route.fulfill({ status: 503 }),
   );
-  await expanded.locator(".queue-track").last().click();
+  await expanded.locator(".np-next-row").last().click();
   await expect(expanded.getByRole("status")).toContainText(
     "Audio is unavailable",
   );
   await page.unroute("**/api/v1/recordings/*/playback-sources");
-  await expanded.locator(".queue-track").first().click();
+  await expanded.getByRole("button", { name: "Previous track" }).click();
   await expect(expanded.getByRole("status")).toHaveCount(0);
-  await expanded
-    .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
-    .click();
-  await expanded
+  await expanded.getByRole("link", { name: "See full queue" }).click();
+  await expect(page).toHaveURL(/\/queue$/);
+  await expect(
+    page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
+  ).toBeVisible();
+  await page
     .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
     .click();
-  await expanded.getByRole("button", { name: "Close now playing" }).click();
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Clear queue", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Open queue", exact: true }),
-  ).toBeFocused();
+    page.getByText("Choose a track to start listening"),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Library", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Play Fixture 440 Hz", exact: true })
     .click();

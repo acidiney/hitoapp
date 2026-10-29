@@ -12,25 +12,25 @@ import { QUEUE_ROW, useQueueWindow } from "../hooks/useQueueWindow";
 
 type Drag = { entry: string; index: number };
 
-const QueueList = memo(function QueueList() {
+const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
   const player = usePlayer();
-  const queue = useQueueWindow(player);
+  const queue = useQueueWindow(player, from);
   const { view, start, end, scrolled } = queue;
   const scroller = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const refocus = useRef<{ entry: string; move: "up" | "down" } | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const latest = useRef({ view, queue, player });
-  latest.current = { view, queue, player };
+  const latest = useRef({ view, queue, player, from });
+  latest.current = { view, queue, player, from };
 
   useLayoutEffect(() => {
     const element = scroller.current;
-    if (!element) return;
+    if (!element || from > 0) return;
     const index = latest.current.view.currentIndex ?? 0;
     element.scrollTop = Math.max(0, (index - 1) * QUEUE_ROW);
     scrolled(element.scrollTop, element.clientHeight);
-  }, [scrolled]);
+  }, [scrolled, from]);
 
   useLayoutEffect(() => {
     const target = refocus.current;
@@ -57,10 +57,12 @@ const QueueList = memo(function QueueList() {
 
   const place = useCallback(
     async (entry: string, at: number, title: string, position: number) => {
-      const { view: now, queue: window, player: owner } = latest.current;
+      const { view: now, queue: window, player: owner, from } = latest.current;
       const before = at >= now.total ? null : await window.idAt(at);
       owner.moveEntry(entry, before);
-      setAnnouncement(`Moved ${title} to position ${position} of ${now.total}`);
+      setAnnouncement(
+        `Moved ${title} to position ${position - from} of ${now.total - from}`,
+      );
     },
     [],
   );
@@ -102,6 +104,8 @@ const QueueList = memo(function QueueList() {
         Choose a track to start listening. Your queue stays with this device.
       </p>
     );
+  if (view.total <= from && view.pending === 0)
+    return <p className="queue-empty">Nothing is queued after this track.</p>;
   const items = [];
   for (let index = start; index < end; index++) {
     const entry = queue.entryAt(index);
@@ -111,6 +115,7 @@ const QueueList = memo(function QueueList() {
         key={entry.id}
         entry={entry}
         index={index}
+        first={from}
         total={view.total}
         current={entry.id === view.currentEntry}
         marker={
@@ -153,7 +158,7 @@ const QueueList = memo(function QueueList() {
       >
         <ol
           className="queue-tracks queue-virtual"
-          style={{ height: view.total * QUEUE_ROW }}
+          style={{ height: Math.max(0, view.total - from) * QUEUE_ROW }}
           onDragStart={(event) => {
             const item = row(event);
             const entry = item && queue.entryAt(Number(item.dataset.index));

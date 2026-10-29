@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import type { components } from "../src/generated";
 import { artistReviewOriginals } from "./fixtures/artist-review-state";
 import { audiobookPlaybackEvidence } from "./fixtures/audiobook-playback-evidence";
@@ -238,9 +238,8 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
       })
       .toBe(true);
     checks.chapter_advances = true;
-    const queue = await openQueue(page);
     await assertQueue(
-      queue,
+      page,
       before.book.chapters.map((chapter) => chapter.title),
       0,
     );
@@ -280,7 +279,7 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
       )
       .toBe(true);
     await assertQueue(
-      queue,
+      page,
       before.book.chapters.map((chapter) => chapter.title),
       1,
     );
@@ -323,7 +322,7 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
     const bookmarked = await audiobookMediaState(page, audio[0].path);
     diagnostics.bookmark_ms = Math.round(bookmarked.position * 1000);
     await assertQueue(
-      queue,
+      page,
       before.book.chapters.map((chapter) => chapter.title),
       2,
     );
@@ -341,19 +340,6 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
     await bookmarkSeek.finish();
     await evidence.checkpoint(5);
     await evidence.checkpoint(6);
-    await queue
-      .locator("ol.queue-tracks > li")
-      .nth(0)
-      .getByRole("button", {
-        name: `Remove ${before.book.chapters[0].title} from queue`,
-        exact: true,
-      })
-      .click();
-    await assertQueue(
-      queue,
-      before.book.chapters.slice(1).map((chapter) => chapter.title),
-      1,
-    );
     await expect
       .poll(async () => {
         const current = await audiobookMediaState(page, audio[0].path);
@@ -364,10 +350,16 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
         );
       })
       .toBe(true);
-    diagnostics.remaining_queue_rows = await queue
-      .locator("ol.queue-tracks > li")
-      .count();
-    checks.duplicate_queue = diagnostics.remaining_queue_rows === 2;
+    diagnostics.remaining_queue_rows = Number(
+      /(\d+) tracks/.exec(
+        await assertQueue(
+          page,
+          before.book.chapters.map((chapter) => chapter.title),
+          2,
+        ),
+      )?.[1] ?? 0,
+    );
+    checks.duplicate_queue = diagnostics.remaining_queue_rows === 3;
     await evidence.checkpoint(7);
 
     stage =
@@ -558,27 +550,26 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
     );
 });
 
-async function openQueue(page: Page) {
-  const button = page
+async function assertQueue(page: Page, titles: string[], selected: number) {
+  await page
     .locator("footer.player")
-    .getByRole("button", { name: "Open queue", exact: true });
-  if ((await button.getAttribute("aria-expanded")) !== "true")
-    await button.click();
-  const queue = page.getByRole("complementary", {
-    name: "Playback queue",
-    exact: true,
-  });
-  await expect(queue).toBeVisible();
-  return queue;
-}
-
-async function assertQueue(queue: Locator, titles: string[], selected: number) {
-  const rows = queue.locator("ol.queue-tracks > li");
-  await expect(rows).toHaveCount(titles.length);
-  for (const [index, title] of titles.entries()) {
+    .getByRole("button", { name: "Open queue", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/queue$/);
+  await expect(
+    page
+      .getByRole("region", { name: "Now playing", exact: true })
+      .locator("strong"),
+  ).toHaveText(titles[selected]);
+  const rows = page.locator("ol.queue-tracks > li");
+  await expect(rows).toHaveCount(titles.length - selected - 1);
+  for (const [index, title] of titles.slice(selected + 1).entries())
     await expect(rows.nth(index).locator("strong")).toHaveText(title);
-    if (index === selected)
-      await expect(rows.nth(index)).toHaveClass("current");
-    else await expect(rows.nth(index)).not.toHaveClass("current");
-  }
+  const total = await page
+    .getByRole("heading", { name: "Queue", level: 1 })
+    .locator("xpath=..")
+    .textContent();
+  await page.goBack();
+  await expect(page.locator("footer.player")).toBeVisible();
+  return total ?? "";
 }
