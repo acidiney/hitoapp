@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { router } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
+import { useNotice } from "../../../shared/ui/Notices";
 import type { PlaylistEntry } from "../../../shared/types";
 import { reorderMoves } from "../model/reorder";
 import { log } from "../../../shared/log";
@@ -10,34 +11,44 @@ export function usePlaylistEdit(
   playlist: string,
   entries: PlaylistEntry[],
 ) {
-  const { mutate, pending } = useMutation(account);
+  const { mutate, mutateMany, pending } = useMutation(account);
+  const notice = useNotice();
   const [editing, setEditing] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  function reload() {
+    setReloading(true);
+    router.reload({ onFinish: () => setReloading(false) });
+  }
   async function move(entryId: string, delta: -1 | 1) {
+    if (pending || reloading) return;
     const moves = reorderMoves(entries, entryId, delta);
+    if (moves === null) {
+      notice("This playlist's order cannot be changed here. Try again later.");
+      return;
+    }
     if (moves.length === 0) return;
     log.info("playlist.reorder", { playlist_id: playlist });
-    for (const step of moves) {
-      const result = await mutate({
-        kind: "entry_move",
+    await mutateMany(
+      moves.map((step) => ({
+        kind: "entry_move" as const,
         playlist_id: playlist,
         entry_id: step.entry_id,
         position: step.position,
-      });
-      if (!result.ok) return;
-    }
-    router.reload();
+      })),
+    );
+    reload();
   }
   async function rename(name: string) {
     const trimmed = name.trim();
-    if (!trimmed) return false;
+    if (!trimmed || pending || reloading) return false;
     log.info("playlist.rename", { playlist_id: playlist });
     const result = await mutate({
       kind: "playlist_rename",
       playlist_id: playlist,
       name: trimmed,
     });
-    if (result.ok) router.reload();
+    if (result.ok) reload();
     return result.ok;
   }
-  return { editing, setEditing, move, rename, pending };
+  return { editing, setEditing, move, rename, pending: pending || reloading };
 }

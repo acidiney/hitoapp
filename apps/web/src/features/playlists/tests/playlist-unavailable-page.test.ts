@@ -112,7 +112,7 @@ test("retained playlists remain editable and known recordings resolve audio only
     const table = screen.getByRole("table", { name: "Playlist entries" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(screen.getByText(/2 entries/, { exact: true })).toBeTruthy();
+    expect(screen.getByText(/2 entries/)).toBeTruthy();
     expect(screen.queryByText("This playlist is ready for music")).toBeNull();
     expect(screen.getByText(/Curated by the fixture owner/)).toBeTruthy();
     const toolbar = screen.getByRole("button", { name: "Play playlist" });

@@ -118,7 +118,7 @@ test("the name cannot be saved empty or unchanged", () => {
   expect(save.disabled).toBe(true);
 });
 
-test("moving an entry down swaps the two positions", async () => {
+test("moving an entry down sends both positions in one request", async () => {
   const sent = open();
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
@@ -129,6 +129,7 @@ test("moving an entry down swaps the two positions", async () => {
     within(rows[0]).getByRole("button", { name: "Move Fixture A down" }),
   );
   await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  expect(sent).toHaveLength(1);
   expect(actions(sent)).toEqual([
     {
       kind: "entry_move",
@@ -156,4 +157,50 @@ test("removing an entry in edit mode sends one removal", async () => {
   expect(actions(sent)).toEqual([
     { kind: "entry_remove", playlist_id: playlist, entry_id: second.entry_id },
   ]);
+});
+
+test("edit controls stay busy until the reload finishes", async () => {
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  const row = () =>
+    within(screen.getByRole("table")).getAllByRole("row").slice(1)[0];
+  fireEvent.click(
+    within(row()).getByRole("button", { name: "Move Fixture A down" }),
+  );
+  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
+  const options = vi.mocked(router.reload).mock.calls[0][0] as {
+    onFinish: () => void;
+  };
+  expect(
+    (
+      within(row()).getByRole("button", {
+        name: "Move Fixture A down",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  options.onFinish();
+});
+
+test("a failed reorder still reloads the playlist", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ error: "boom" }, { status: 500 })),
+  );
+  render(
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(PlaybackProvider, {
+        account: props.user.id,
+        children: createElement(PlaylistPage, props),
+      }),
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+  fireEvent.click(
+    within(rows[0]).getByRole("button", { name: "Move Fixture A down" }),
+  );
+  await waitFor(() => expect(router.reload).toHaveBeenCalledTimes(1));
 });

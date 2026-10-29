@@ -66,6 +66,21 @@ export async function submitChange(
   }
 }
 
+export function prepareChanges(actions: Action[]): SyncBatch {
+  return {
+    device_id: deviceId(),
+    operations: actions.map((action) => ({ id: createUuid(), action })),
+  };
+}
+
+export async function changeMany(
+  account: string,
+  actions: Action[],
+  signal?: AbortSignal,
+): Promise<SyncReceipt> {
+  return submitChange(account, prepareChanges(actions), signal);
+}
+
 export async function change(
   account: string,
   action: Action,

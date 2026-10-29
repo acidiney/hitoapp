@@ -1,7 +1,11 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
-/** Turns on edit mode for an editable playlist when it is not already on. */
+/** Turns on edit mode for an editable playlist and fails when Edit is missing. */
 export async function enterEditMode(page: Page) {
   const edit = page.getByRole("button", { name: "Edit", exact: true });
-  if (await edit.isVisible()) await edit.click();
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(
+    page.getByRole("button", { name: "Done", exact: true }),
+  ).toBeVisible();
 }
