@@ -32,3 +32,9 @@ The `hito-desktop` `gui` feature uses `souvlaki` 0.8.3 (MIT, [repository](https:
 ## Desktop folder dialog
 
 The `hito-desktop` `gui` feature uses `tauri-plugin-dialog` 2.8.4 ([repository](https://github.com/tauri-apps/plugins-workspace), Apache-2.0 or MIT) only through its Rust API to open the operating system's folder chooser. It adds `rfd` 0.17.2 (MIT, [repository](https://github.com/PolyMeilex/rfd)), `tauri-plugin` 2.7.2 and `tauri-plugin-fs` 2.7.1 (both Apache-2.0 or MIT) to `Cargo.lock`. The `gtk3` feature reuses the GTK crates already locked for Tauri on Linux; Hito disables the plugin's default features and does not enable the XDG portal. All are compatible with AGPL-3.0-only. Hito does not modify them. The plugin exposes no JavaScript permissions to the web page. Public packaging must still carry their license texts.
+
+## Web interface fonts
+
+The web interface bundles Geist and Geist Mono as self-hosted variable fonts through `@fontsource-variable/geist` 5.3.0 and `@fontsource-variable/geist-mono` 5.3.0 (both OFL-1.1, [Fontsource](https://fontsource.org/)). The font files come from [vercel/geist-font](https://github.com/vercel/geist-font), Copyright 2024 The Geist Project Authors. Vite copies the Latin, Latin Extended, Cyrillic, Vietnamese and symbol subsets into the built assets that the server serves from its own origin, so the interface loads no font from a CDN and works offline. Hito does not modify the fonts.
+
+The SIL Open Font License 1.1 allows bundling and redistribution with software, provided the copyright notice and license travel with the fonts and the fonts are not sold on their own. The complete texts are copied verbatim from the packages: [Geist](licenses/OFL-1.1-Geist.txt) and [Geist Mono](licenses/OFL-1.1-Geist-Mono.txt). Public packaging must still carry them next to the built web assets.
