@@ -74,9 +74,32 @@ flowchart LR
   Rows -->|Play on a catalog-only row| Save[Save through the same provider, then play]
 ```
 
-Rows follow the provider's disc and track order, including repeated recordings, bonus discs, pregaps and data tracks. A row is "In your library" only when the provider recording ID of the occurrence equals the current, non-retired primary identity of a recording this account can access, on the same installation, and that identity is the recording's current metadata binding. A provider ID that is only attached as audio to another recording stays catalog-only, says so and offers no Play, because saving it would return that other recording. Equal titles never match, and a track without a provider recording ID stays catalog-only. The row shows the account's own title when it has one. Album recordings that the edition does not list appear under a separate heading. The built-in MusicBrainz provider has no stored recording identities, so its rows are all catalog-only and cannot be saved from here.
+Rows follow the provider's disc and track order, including repeated recordings, bonus discs, pregaps and data tracks. A row is "In your library" only when the provider recording ID of the occurrence equals the current, non-retired primary identity of a recording this account can access, on the same installation, and that identity is the recording's current metadata binding. A provider ID that is only attached as audio to another recording stays catalog-only, says so and offers no Play, because saving it would return that other recording. Equal titles never match, and a track without a provider recording ID stays catalog-only. The row shows the account's own title when it has one. Album recordings that the edition does not list appear under a separate heading. The built-in MusicBrainz provider has no stored recording identities, so its rows are all catalog-only and cannot be saved from here. They can look for audio instead, as described next.
 
 Play on a catalog-only row saves that one recording through the provider that served the edition, using the existing metadata and source adoption, and then starts playback. The normal playback owner finds audio, including automatic resolution through other approved providers. Reading the list saves nothing, creates no download and starts no audio. The album's own table keeps working during a provider outage, and the section shows that the list is unavailable with an explicit retry. Leaving the page cancels a pending read or save.
+
+### Finding audio for tracks the catalog provider cannot save
+
+A catalog-only row offers **Play** only when the provider that served the edition can also save recordings and identifies the track. Every other audio row (the built-in MusicBrainz provider, a catalog-only plugin, or a track without a provider identity) offers **Find audio and play**. The action asks the account's own approved connections that offer both search and sources, then saves and plays only a match. It never uses names to link a row to a library recording.
+
+```mermaid
+flowchart LR
+  Click[Find audio and play on one row] --> Route[POST /api/v1/albums/id/edition-track-audio]
+  Route --> Reread[Core re-reads the edition and takes the row's title, credit, duration and album]
+  Reread --> Search[Up to 4 approved search and source connections, 3 detailed candidates each]
+  Search --> Policy{Automatic source policy accepts?}
+  Policy -->|Yes| Found[Found: installation, revision, provider recording ID]
+  Policy -->|No| None[No match, nothing saved]
+  Found --> Adopt[Existing adopt, then the normal player]
+```
+
+The request names the album, the anchor recording, the reviewed association, the release group, the edition and the occurrence. It carries no title, artist or duration, so the evidence always comes from a fresh provider read under the same authority checks as the track list. Only audio rows of that edition qualify; unknown occurrences and pregap or data rows return not found.
+
+The match uses the same policy as automatic source resolution: equal normalized title and a known equal artist, durations within two percent (three to ten seconds), matching version qualifiers such as live or remix, a ready source and, for connections with the metadata capability, complete musical metadata. A candidate that fails any rule is dropped. If nothing passes, the answer is no match and the library is unchanged. A candidate already bound to another library recording is returned as is; the existing save returns that recording and creates no duplicate.
+
+Outcomes: found, no match, no providers (nothing connected can search and supply audio), unavailable (a provider failed or the 15-second budget ended), cancelled, disabled, unsupported and needs choice. Unavailable and no match are shown on the row with the button still enabled, so the user can retry. The album table and library rows stay playable throughout. Finding audio saves nothing; the web app then saves the found provider recording with the existing save and starts playback through the normal owner. The saved recording is the audio provider's own recording. The catalog row is not linked to it after a reload, so a later visit shows the row as catalog-only again and finding audio returns the same saved recording.
+
+Logs record the outcome, connection and candidate counts and timings only.
 
 ### Remembered edition
 
