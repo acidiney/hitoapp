@@ -1,6 +1,5 @@
 COMPOSE_PROJECT ?=
 COMPOSE_EXTRA ?=
-RUST_FEATURES := hito-debrid-real-debrid/test-support,hito-debrid-all-debrid/test-support,hito-debrid-torbox/test-support,hito-debrid-premiumize/test-support,hito-plugin-torbox/test-support,hito-plugin-premiumize/test-support
 
 ifneq ($(COMPOSE_PROJECT),)
 export COMPOSE_PROJECT_NAME := $(COMPOSE_PROJECT)
@@ -35,7 +34,7 @@ fmt-check:
 	$(RUST) cargo fmt --all --check
 
 test-rust:
-	$(RUST) cargo test --workspace --locked --features $(RUST_FEATURES)
+	$(RUST) cargo test --workspace --locked
 	$(COMPOSE) --profile tools run --rm -e 'RUSTFLAGS=--cfg rustix_use_libc' rust cargo test --locked -p hito-core --test storage_walk_stalls -- --ignored
 
 test-web:
@@ -48,7 +47,7 @@ web-audit:
 	$(NODE) npm audit --audit-level=high
 
 lint:
-	$(RUST) cargo clippy --workspace --all-targets --locked --features $(RUST_FEATURES) -- -D warnings
+	$(RUST) cargo clippy --workspace --all-targets --locked -- -D warnings
 
 contracts:
 	./scripts/check-contracts.sh

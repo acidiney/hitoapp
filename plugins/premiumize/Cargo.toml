@@ -31,6 +31,7 @@ zeroize.workspace = true
 libc = "0.2"
 
 [dev-dependencies]
+hito-plugin-premiumize = { path = ".", features = ["test-support"] }
 hito-audio = { path = "../../crates/audio" }
 hito-testkit = { path = "../../crates/testkit" }
 reqwest.workspace = true

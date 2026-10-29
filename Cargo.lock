@@ -2096,6 +2096,7 @@ name = "hito-debrid-all-debrid"
 version = "0.1.0-dev"
 dependencies = [
  "hito-audio",
+ "hito-debrid-all-debrid",
  "hito-remote-audio",
  "hito-testkit",
  "reqwest",
@@ -2116,6 +2117,7 @@ name = "hito-debrid-premiumize"
 version = "0.1.0-dev"
 dependencies = [
  "hito-audio",
+ "hito-debrid-premiumize",
  "hito-remote-audio",
  "hito-testkit",
  "reqwest",
@@ -2157,6 +2159,7 @@ version = "0.1.0-dev"
 dependencies = [
  "chacha20poly1305",
  "hito-audio",
+ "hito-debrid-torbox",
  "hito-remote-audio",
  "hito-testkit",
  "hmac",
@@ -2353,6 +2356,7 @@ dependencies = [
  "futures-util",
  "hito-audio",
  "hito-debrid-premiumize",
+ "hito-plugin-premiumize",
  "hito-plugin-sdk",
  "hito-testkit",
  "hmac",
@@ -2454,6 +2458,7 @@ dependencies = [
  "hito-audio",
  "hito-debrid-torbox",
  "hito-plugin-sdk",
+ "hito-plugin-torbox",
  "hito-testkit",
  "hmac",
  "hyper",

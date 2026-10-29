@@ -33,6 +33,7 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+hito-plugin-torbox = { path = ".", features = ["test-support"] }
 hito-audio = { path = "../../crates/audio" }
 hito-testkit = { path = "../../crates/testkit" }
 reqwest.workspace = true

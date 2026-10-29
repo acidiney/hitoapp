@@ -84,4 +84,6 @@ Docker Desktop has one known quirk that looks like flakiness. Two `hito-core` ta
 | Web feature fixtures | `apps/web/src/features/<domain>/fixtures` |
 | Browser audio fixtures | `scripts/audio-fixtures.mjs --e2e`, output `fixtures/e2e-generated` |
 
+Crates that have a `test-support` feature enable it for their own tests through a dev-dependency on themselves, so plain `cargo test --workspace` and `cargo clippy --workspace --all-targets` need no feature list. Normal builds never enable it.
+
 No crate's tests read another crate's directory. If two crates need the same helper, move it into `hito-testkit` or expose it through a `test-support` feature of the crate that owns the behavior.

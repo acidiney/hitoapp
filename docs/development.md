@@ -17,7 +17,7 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make build-tools` | Build the Rust tools image |
 | `make fmt` | `cargo fmt --all`, which rewrites files |
 | `make fmt-check` | `cargo fmt --all --check` |
-| `make test-rust` | `cargo test --workspace --locked` with the debrid and plugin `test-support` features, then the ignored `storage_walk_stalls` test in `hito-core` |
+| `make test-rust` | `cargo test --workspace --locked`, then the ignored `storage_walk_stalls` test in `hito-core` |
 | `make lint` | `cargo clippy --workspace --all-targets` with warnings denied |
 | `make test-web` | `npm test` (vitest) in `apps/web` |
 | `make web-install` | `npm ci` from `apps/web`, which installs the root npm workspace into `apps/web/node_modules` |
@@ -65,18 +65,18 @@ The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`
 [Testing](testing.md) explains the strategy. In short:
 
 - `crates/testkit` (`hito-testkit`) holds helpers shared across crates: log capture, owned TLS, a plugin HTTP server and WAV helpers.
-- `hito-core`, `hito-audio` and the debrid crates have a `test-support` feature. It exposes a `test_support` module that integration tests import. No crate's tests read another crate's directory.
+- `hito-core`, `hito-audio`, the debrid crates and the TorBox and Premiumize plugins have a `test-support` feature, which each crate turns on for its own tests. It exposes a `test_support` module that integration tests import. No crate's tests read another crate's directory.
 - Each crate keeps its integration tests in its own `tests/` directory.
 - Web tests live next to the feature they cover, in `apps/web/src/features/<domain>/tests`, with fixtures in `fixtures`. Shared helpers and the vitest setup are in `apps/web/src/test`. Browser workflows are in `apps/web/e2e`; the shared-session rules are in [Browser e2e sessions](testing.md#browser-e2e-sessions).
 
 ## Running one crate or one test
 
-Use the same Compose services. Plugin and debrid tests need their `test-support` features, which `make test-rust` enables.
+Use the same Compose services. Debrid and plugin crates enable their own `test-support` feature for their tests through a dev-dependency on themselves, so no `--features` list is needed.
 
 ```sh
 docker compose --profile tools run --rm rust cargo test --locked -p hito-plugin-sdk
 docker compose --profile tools run --rm rust cargo test --locked -p hito-core --test <integration_test_file>
-docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-torbox --features test-support <test_name>
+docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-torbox <test_name>
 docker compose --profile tools run --rm node npx vitest run src/features/catalog/tests/browsing.test.ts
 ```
 

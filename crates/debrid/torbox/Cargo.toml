@@ -29,6 +29,7 @@ uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+hito-debrid-torbox = { path = ".", features = ["test-support"] }
 hito-audio = { path = "../../audio" }
 hito-testkit = { path = "../../testkit" }
 tokio-rustls = { version = "=0.26.6", default-features = false }
