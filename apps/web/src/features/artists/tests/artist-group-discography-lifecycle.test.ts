@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
@@ -91,7 +92,7 @@ test.each([
       });
       await flush();
       expect(http.calls.discography).toBe(1);
-      expect(screen.getByRole("list", { name: "Albums" })).toBeTruthy();
+      expect(within(screen.getByRole("region", { name: "Albums" })).getByRole("list")).toBeTruthy();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(errors).not.toHaveBeenCalled();
     } finally {

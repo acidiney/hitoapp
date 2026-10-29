@@ -17,6 +17,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
   let connection: Schema["PluginInstallation"] | null = null;
   let original: Schema["MetadataSettings"] | null = null;
   let chosenRecording: string | null = null;
+  let chosenRelease: string | null = null;
   const send = async <T>(method: "POST" | "PUT", path: string, data: unknown, status = 200) => {
     const response = await page.request.fetch(path, { method, headers, data });
     expect(response.status(), path).toBe(status);
@@ -58,6 +59,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
       providers: [provider],
     } satisfies Schema["UpdateMetadataSettings"]);
     chosenRecording = recording.id;
+    chosenRelease = recording.release_id!;
     const base = `/api/v1/recordings/${recording.id}`;
     const context = await send<Schema["ArtistReviewContext"]>("POST", `${base}/artist-review/context`, { provider });
     const association = await send<Schema["ArtistAssociation"]>("POST", `${base}/artist-review/confirm`, {
@@ -101,7 +103,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     await expect(region.getByRole("heading", { name: "EPs (1)" })).toBeVisible();
     await expect(region.getByRole("heading", { name: "Singles (1)" })).toBeVisible();
     await expect(region.getByRole("heading", { name: "Other releases (1)" })).toBeVisible();
-    const albums = region.getByRole("list", { name: "Albums", exact: true }).locator("> li");
+    const albums = region.getByRole("region", { name: "Albums", exact: true }).locator("> ul > li");
     await expect(albums).toHaveCount(2);
     await expect(albums.nth(0)).toContainText("none playable yet");
     await expect(albums.nth(0).getByRole("link", { name: "Open in your library" })).toHaveAttribute(
@@ -120,20 +122,33 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     expect(fixture.state.unexpected).toBe(0);
     expect(errors).toEqual([]);
   } finally {
+    const cleanup: Array<[string, number]> = [];
+    if (chosenRelease) {
+      const saved = await (await page.request.get(`/api/v1/releases/${chosenRelease}`)).json();
+      const response = await page.request.post(`/api/v1/albums/${chosenRelease}/edition/clear`, {
+        headers,
+        data: {
+          request_id: randomUUID(),
+          expected_revision: saved.saved_edition.revision,
+        } satisfies Schema["ClearAlbumEdition"],
+      });
+      cleanup.push(["clear edition", response.status()]);
+    }
     if (chosenRecording) {
       const identity = `/api/v1/recordings/${chosenRecording}/artist-identity`;
       const current = await (await page.request.get(identity)).json();
-      await page.request.post(`${identity}/reset`, {
+      const response = await page.request.post(`${identity}/reset`, {
         headers,
         data: {
           request_id: randomUUID(),
           expected_revision: current.revision,
         } satisfies Schema["ResetRecordingArtistIdentity"],
       });
+      cleanup.push(["reset identity", response.status()]);
     }
     if (original && connection) {
       const latest = await (await page.request.get("/api/v1/metadata/settings")).json();
-      await page.request.put("/api/v1/metadata/settings", {
+      const response = await page.request.put("/api/v1/metadata/settings", {
         headers,
         data: {
           revision: latest.revision,
@@ -141,12 +156,17 @@ test("a chosen artist's full discography is grouped by type and marks only exact
           providers: original.providers,
         } satisfies Schema["UpdateMetadataSettings"],
       });
+      cleanup.push(["restore settings", response.status()]);
     }
-    if (connection)
-      await page.request.delete(`/api/v1/plugins/${connection.id}`, {
+    if (connection) {
+      // The API has no recording delete; removing the connection retires its provider items.
+      const response = await page.request.delete(`/api/v1/plugins/${connection.id}`, {
         headers,
         data: { revision: connection.revision },
       });
+      cleanup.push(["remove connection", response.status()]);
+    }
     await fixture.close();
+    expect(cleanup.filter(([, status]) => status < 200 || status > 299)).toEqual([]);
   }
 });

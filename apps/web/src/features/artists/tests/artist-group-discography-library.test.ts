@@ -140,7 +140,9 @@ test("releases are grouped by primary type with exact library availability and n
     "Other releases (2)",
   ]);
   const albums = Array.from(
-    within(region).getByRole("list", { name: "Albums" }).children,
+    within(region)
+      .getByRole("region", { name: "Albums" })
+      .querySelector(":scope > ul")!.children,
   ) as HTMLElement[];
   expect(albums).toHaveLength(2);
   const link = within(albums[0]).getByRole("link", {
@@ -166,15 +168,17 @@ test("a type filter narrows the loaded releases and long sections page locally",
   http.reply("discography", page([...albums, release("rg:ep", "ep")], null));
   const region = await open();
   await within(region).findByRole("heading", { name: "Albums (14)" });
-  const list = within(region).getByRole("list", { name: "Albums" });
+  const list = within(
+    within(region).getByRole("region", { name: "Albums" }),
+  ).getByRole("list");
   expect(list.children).toHaveLength(10);
   fireEvent.click(
     within(region).getByRole("button", { name: "Show more albums" }),
   );
   expect(list.children).toHaveLength(14);
   fireEvent.click(within(region).getByRole("button", { name: "EPs only" }));
-  expect(within(region).queryByRole("list", { name: "Albums" })).toBeNull();
-  expect(within(region).getByRole("list", { name: "EPs" })).toBeTruthy();
+  expect(within(region).queryByRole("region", { name: "Albums" })).toBeNull();
+  expect(within(region).getByRole("region", { name: "EPs" })).toBeTruthy();
   expect(
     within(region)
       .getByRole("button", { name: "EPs only" })

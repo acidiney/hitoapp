@@ -83,7 +83,7 @@ export default function DiscographySections({
           return (
             <section key={section.key} aria-label={section.title}>
               <h4>{`${section.title} (${members.length})`}</h4>
-              <ul aria-label={section.title}>
+              <ul>
                 {members.slice(0, visible).map((group) => (
                   <DiscographyRelease
                     key={group.id}
