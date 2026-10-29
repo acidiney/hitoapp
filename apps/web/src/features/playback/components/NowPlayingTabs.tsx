@@ -8,9 +8,11 @@ type Tab = (typeof TABS)[number];
 export default function NowPlayingTabs({
   track,
   openQueue,
+  leave,
 }: {
   track: Track | null;
   openQueue: () => void;
+  leave: () => void;
 }) {
   const [active, setActive] = useState<Tab>("Up next");
   const base = useId();
@@ -58,10 +60,11 @@ export default function NowPlayingTabs({
         id={`${base}-panel`}
         aria-labelledby={`${base}-${TABS.indexOf(active)}`}
         className="np-panel"
+        tabIndex={active === "Lyrics" && !track ? 0 : undefined}
       >
         {active === "Up next" && <UpNextPanel openQueue={openQueue} />}
-        {active === "Lyrics" && <LyricsPanel track={track} />}
-        {active === "Source" && <SourcePanel track={track} />}
+        {active === "Lyrics" && <LyricsPanel track={track} leave={leave} />}
+        {active === "Source" && <SourcePanel track={track} leave={leave} />}
       </div>
     </>
   );

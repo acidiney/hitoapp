@@ -17,7 +17,7 @@ type Block = { version: number; entries: PlaybackOccurrence[] };
 type Viewport = { first: number; height: number };
 
 /** `from` is the first queue index the window may show; entries before it are never loaded. */
-export function useQueueWindow(player: Player, from = 0) {
+export function useQueueWindow(player: Player, from = 0, to?: number) {
   const view = useSyncExternalStore(player.subscribe, player.queueSnapshot);
   const [viewport, setViewport] = useState<Viewport>(() => ({
     first: from === 0 ? Math.max(0, (view.currentIndex ?? 0) - 1) : 0,
@@ -33,7 +33,7 @@ export function useQueueWindow(player: Player, from = 0) {
   const first = from + viewport.first;
   const start = Math.max(from, first - OVERSCAN);
   const end = Math.min(
-    view.total,
+    to ?? view.total,
     first + Math.ceil(viewport.height / QUEUE_ROW) + OVERSCAN,
   );
   const firstBlock = Math.floor(start / BLOCK);

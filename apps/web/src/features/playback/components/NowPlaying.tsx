@@ -58,6 +58,7 @@ export default function NowPlaying({
             {current ? (
               <RouteLink
                 href={`/search?q=${encodeURIComponent(current.artist)}`}
+                onNavigate={close}
               >
                 {current.artist}
               </RouteLink>
@@ -74,7 +75,7 @@ export default function NowPlaying({
           <PlaybackStatus className="now-playing-status" />
         </section>
         <aside aria-label="Details" className="np-details">
-          <NowPlayingTabs track={current} openQueue={openQueue} />
+          <NowPlayingTabs track={current} openQueue={openQueue} leave={close} />
         </aside>
       </div>
     </dialog>

@@ -6,7 +6,6 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import { router } from "@inertiajs/react";
 import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
 import { coverIdentity } from "../../artwork/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
@@ -16,6 +15,7 @@ import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
 import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
+import { visitFromPlayer } from "../../../shared/ui/RouteLink";
 
 export default function PlayerDock({
   queueActive = false,
@@ -63,7 +63,7 @@ export default function PlayerDock({
   }, []);
   function showQueue() {
     log.debug("player.queue", { enabled: true });
-    router.visit("/queue");
+    visitFromPlayer("/queue");
   }
   return (
     <>

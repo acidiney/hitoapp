@@ -46,7 +46,7 @@ const upNext = () =>
 
 test("the header counts the tracks and the playing track has its own row", async () => {
   expect(screen.getByRole("heading", { name: "Queue", level: 1 })).toBeTruthy();
-  expect(screen.getByText("5 tracks")).toBeTruthy();
+  expect(screen.getByText("5 tracks · 3 up next")).toBeTruthy();
   const now = screen.getByRole("region", { name: "Now playing" });
   expect(within(now).getByText("Track 1")).toBeTruthy();
   await waitFor(() =>
@@ -74,7 +74,7 @@ test("a track can be removed from the queue", async () => {
     screen.getByRole("button", { name: "Remove Track 3 from queue" }),
   );
   await waitFor(() => expect(upNext()).toEqual(["Track 2", "Track 4"]));
-  expect(screen.getByText("4 tracks")).toBeTruthy();
+  expect(screen.getByText("4 tracks · 2 up next")).toBeTruthy();
 });
 
 test("Clear asks first and then empties the queue", async () => {
@@ -84,6 +84,32 @@ test("Clear asks first and then empties the queue", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Clear queue" }));
   await waitFor(() => expect(player.queueSnapshot().total).toBe(0));
   expect(screen.getByText(/Choose a track to start listening/)).toBeTruthy();
+});
+
+test("played tracks stay reachable in a collapsed section and can be removed", async () => {
+  const played = screen.getByText("Played (1)").closest("details")!;
+  expect(played.open).toBe(false);
+  fireEvent.click(screen.getByText("Played (1)"));
+  await waitFor(() => expect(within(played).getByText("Track 0")).toBeTruthy());
+  fireEvent.click(
+    within(played).getByRole("button", { name: "Remove Track 0 from queue" }),
+  );
+  await waitFor(() => expect(player.queueSnapshot().total).toBe(4));
+  expect(screen.queryByText(/^Played/)).toBeNull();
+});
+
+test("the playing track can be removed from its own row", async () => {
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "Now playing" })).getByRole(
+      "button",
+      { name: "Remove Track 1 from queue" },
+    ),
+  );
+  await waitFor(() => expect(player.queueSnapshot().total).toBe(4));
+});
+
+test("the heading separates the total from what is up next", () => {
+  expect(screen.getByText("5 tracks · 3 up next")).toBeTruthy();
 });
 
 test("Save as playlist is not offered without a capability", () => {

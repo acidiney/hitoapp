@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import { useQueuePage } from "../hooks/useQueuePage";
 import Artwork from "../../artwork/components/Artwork";
@@ -64,7 +64,13 @@ export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
   );
 }
 
-export function LyricsPanel({ track }: { track: Track | null }) {
+export function LyricsPanel({
+  track,
+  leave,
+}: {
+  track: Track | null;
+  leave: () => void;
+}) {
   return (
     <div className="np-lyrics">
       <p>Lyrics are not shown here.</p>
@@ -73,7 +79,10 @@ export function LyricsPanel({ track }: { track: Track | null }) {
         details to choose a provider and load lyrics.
       </p>
       {track && (
-        <RouteLink href={`/recordings/${encodeURIComponent(track.id)}`}>
+        <RouteLink
+          href={`/recordings/${encodeURIComponent(track.id)}`}
+          onNavigate={leave}
+        >
           Track details
         </RouteLink>
       )}
@@ -81,9 +90,16 @@ export function LyricsPanel({ track }: { track: Track | null }) {
   );
 }
 
+const SPEED_SETTLE_MS = 250;
 const label = (speed: number) => `${speed}×`;
 
-export function SourcePanel({ track }: { track: Track | null }) {
+export function SourcePanel({
+  track,
+  leave,
+}: {
+  track: Track | null;
+  leave: () => void;
+}) {
   const player = usePlayer();
   const speed = useSyncExternalStore(
     player.subscribe,
@@ -101,9 +117,33 @@ export function SourcePanel({ track }: { track: Track | null }) {
     const state = player.snapshot();
     return state.connection === "ready" && state.controlsAvailable !== false;
   });
+  const [chosen, setChosen] = useState<number | null>(null);
+  const timer = useRef<number | null>(null);
+  const latest = useRef({ chosen, player });
+  latest.current = { chosen, player };
+  useEffect(
+    () => () => {
+      if (timer.current === null) return;
+      window.clearTimeout(timer.current);
+      const { chosen: pending, player: owner } = latest.current;
+      if (pending !== null) owner.speed(pending);
+    },
+    [],
+  );
+  function choose(value: number) {
+    setChosen(value);
+    latest.current.chosen = value;
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      player.speed(value);
+      setChosen(null);
+    }, SPEED_SETTLE_MS);
+  }
+  const shown = chosen ?? speed;
   const choices = SPEED_CHOICES.filter(
     (choice) =>
-      choice === speed ||
+      choice === shown ||
       range === null ||
       (choice >= range.min && choice <= range.max),
   );
@@ -127,7 +167,10 @@ export function SourcePanel({ track }: { track: Track | null }) {
         </dl>
         {track && (
           <p className="np-card-foot">
-            <RouteLink href={`/recordings/${encodeURIComponent(track.id)}`}>
+            <RouteLink
+              href={`/recordings/${encodeURIComponent(track.id)}`}
+              onNavigate={leave}
+            >
               Choose another source in track details
             </RouteLink>
           </p>
@@ -141,9 +184,9 @@ export function SourcePanel({ track }: { track: Track | null }) {
             value: String(choice),
             label: label(choice),
           }))}
-          value={String(speed)}
+          value={String(shown)}
           disabled={!player.supports.speed || !ready}
-          onChange={(value) => player.speed(+value)}
+          onChange={(value) => choose(+value)}
         />
       </section>
     </div>

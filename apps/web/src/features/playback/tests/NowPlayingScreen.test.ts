@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { router } from "@inertiajs/react";
 import { Playback } from "../playback";
 import NowPlaying from "../components/NowPlaying";
 import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
@@ -101,8 +102,53 @@ test("Source shows the speed the source plays at and sets the speed", () => {
     "ariaChecked",
     "true",
   );
+  vi.useFakeTimers();
   fireEvent.click(within(speed).getByRole("radio", { name: "1.5×" }));
+  act(() => vi.advanceTimersByTime(400));
+  vi.useRealTimers();
   expect(media.playbackRate).toBe(1.5);
+});
+
+test("rapid speed choices coalesce into one command", () => {
+  const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Source" }));
+  const speed = within(dialog).getByRole("radiogroup", { name: "Speed" });
+  const command = vi.spyOn(player, "speed");
+  vi.useFakeTimers();
+  for (const name of ["1.25×", "1.5×", "2×"])
+    fireEvent.click(within(speed).getByRole("radio", { name }));
+  expect(command).not.toHaveBeenCalled();
+  expect(
+    within(speed)
+      .getByRole("radio", { name: "2×" })
+      .getAttribute("aria-checked"),
+  ).toBe("true");
+  act(() => vi.advanceTimersByTime(400));
+  vi.useRealTimers();
+  expect(command).toHaveBeenCalledTimes(1);
+  expect(command).toHaveBeenCalledWith(2);
+});
+
+test("following a link inside the player closes it and then focuses the new page", () => {
+  const dialog = screen.getByRole("dialog", { name: "Now playing" });
+  fireEvent.click(
+    within(dialog).getByRole("link", { name: "Owned performer" }),
+  );
+  expect(close).toHaveBeenCalledTimes(1);
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
+  fireEvent.click(within(dialog).getByRole("link", { name: "Track details" }));
+  expect(close).toHaveBeenCalledTimes(2);
+  const visit = vi.mocked(router.visit);
+  const options = visit.mock.calls.at(-1)?.[1] as { onSuccess(): void };
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    '<main><h1 id="landing">Details</h1></main>',
+  );
+  vi.useFakeTimers();
+  options.onSuccess();
+  vi.runAllTimers();
+  vi.useRealTimers();
+  expect(document.activeElement?.id).toBe("landing");
 });
 
 test("position ticks do not fetch queue pages", async () => {

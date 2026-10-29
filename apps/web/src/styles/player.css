@@ -370,3 +370,14 @@
   background: var(--panel);
   color: var(--muted);
 }
+.queue-played summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--muted);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.queue-now-row {
+  grid-template-columns: 56px minmax(0, 1fr) auto auto;
+}

@@ -12,17 +12,23 @@ import { QUEUE_ROW, useQueueWindow } from "../hooks/useQueueWindow";
 
 type Drag = { entry: string; index: number };
 
-const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
+const QueueList = memo(function QueueList({
+  from = 0,
+  to,
+}: {
+  from?: number;
+  to?: number;
+}) {
   const player = usePlayer();
-  const queue = useQueueWindow(player, from);
+  const queue = useQueueWindow(player, from, to);
   const { view, start, end, scrolled } = queue;
   const scroller = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const refocus = useRef<{ entry: string; move: "up" | "down" } | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const latest = useRef({ view, queue, player, from });
-  latest.current = { view, queue, player, from };
+  const latest = useRef({ view, queue, player, from, to });
+  latest.current = { view, queue, player, from, to };
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -61,7 +67,7 @@ const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
       const before = at >= now.total ? null : await window.idAt(at);
       owner.moveEntry(entry, before);
       setAnnouncement(
-        `Moved ${title} to position ${position - from} of ${now.total - from}`,
+        `Moved ${title} to position ${position - from} of ${(latest.current.to ?? now.total) - from}`,
       );
     },
     [],
@@ -104,7 +110,8 @@ const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
         Choose a track to start listening. Your queue stays with this device.
       </p>
     );
-  if (view.total <= from && view.pending === 0)
+  const last = Math.min(to ?? view.total, view.total);
+  if (last <= from && (to !== undefined || view.pending === 0))
     return <p className="queue-empty">Nothing is queued after this track.</p>;
   const items = [];
   for (let index = start; index < end; index++) {
@@ -116,7 +123,7 @@ const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
         entry={entry}
         index={index}
         first={from}
-        total={view.total}
+        total={last}
         current={entry.id === view.currentEntry}
         marker={
           dropAt === index
@@ -158,7 +165,7 @@ const QueueList = memo(function QueueList({ from = 0 }: { from?: number }) {
       >
         <ol
           className="queue-tracks queue-virtual"
-          style={{ height: Math.max(0, view.total - from) * QUEUE_ROW }}
+          style={{ height: Math.max(0, last - from) * QUEUE_ROW }}
           onDragStart={(event) => {
             const item = row(event);
             const entry = item && queue.entryAt(Number(item.dataset.index));

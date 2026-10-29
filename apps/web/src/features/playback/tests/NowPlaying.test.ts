@@ -10,6 +10,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Playback, type Source } from "../playback";
 import PlayerDock from "../components/PlayerDock";
+import QueueScreen from "../components/QueueScreen";
 
 let player: Playback;
 let audio: HTMLAudioElement;
@@ -104,10 +105,16 @@ test("a native dialog close restores focus to the button that opened it", async 
 test("closing after the queue empties focuses an enabled player control", async () => {
   await act(async () => {
     render(createElement(PlayerDock));
+    render(createElement(QueueScreen));
   });
   fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
-  act(() => player.clear());
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Remove Fixture from queue",
+      hidden: true,
+    }),
+  );
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Close now playing" }),
   );
