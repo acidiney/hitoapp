@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import { useQueuePage } from "../hooks/useQueuePage";
 import Artwork from "../../artwork/components/Artwork";
+import { coverIdentity } from "../../artwork/coverIdentity";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import RouteLink from "../../../shared/ui/RouteLink";
 import { time } from "../../../shared/format";
@@ -42,6 +43,7 @@ export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
                 <Artwork
                   release={recording.release_id ?? undefined}
                   recording={recording.id}
+                  fallback={coverIdentity(recording)}
                 />
                 <span>
                   <strong>{recording.title}</strong>

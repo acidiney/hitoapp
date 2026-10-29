@@ -306,7 +306,10 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
   - [ ] Fidelity follow-ups: Plugins as two-column cards with capability chips, Accounts rows with avatars and last seen, a settings search field, and the placeholder cover on Library, Album and Playlist pages (use the fallback cover).
   - [ ] Phase 3: real Artist, Album and Playlist screens on the shared components, using the cover colour.
   - [ ] Translate the interface (the prototype uses Portuguese; the app is English for now) as a separate i18n item: extract labels, choose the locale from the account or browser, keep ⌘K and other platform hints.
-  - [ ] Phase 4: A tocar, Fila, Contas and invites, sign-in and account creation, the states board, and phone versions of the remaining screens.
+  - [x] Phases 5 and 7, Now playing, Queue and first-run setup: full-screen player with Up next, Lyrics and Source tabs, the `/queue` page, and the setup screen on the new two-column layout. See [status](docs/status.md#web-redesign-phases-5-and-7-now-playing-queue-and-first-run-setup). The web redesign is complete for what the server can fill.
+  - [ ] Phase 5 follow-ups that need data: Like and an artist link on Now playing (the player has no like state or artist id); source format, sample rate, output conversion and an alternative source with "Switch" on the Source tab; timed lyrics inside Now playing; queue origin ("from ..."), total duration, per-entry preparation state and "Save as playlist".
+  - [ ] Phase 7 follow-up: invite links and account creation outside first-run (needs server invitations); a display-name field (needs a profile field).
+  - [ ] Remaining redesign items: the Biblioteca filter bar, the states board, dark-mode screens and phone versions of screens without one.
 - [ ] Regenerate Hito's logo and wordmark with a new visual direction, replace the current orange waveform across the app, and verify readability at small sizes and as an application icon.
 
 ## Community service

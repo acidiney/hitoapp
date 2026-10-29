@@ -317,6 +317,22 @@
   .player-tools .icon-button {
     border: 0;
   }
+  .queue-screen .page-heading {
+    flex-wrap: wrap;
+    padding-right: 52px;
+  }
+  .queue-next-head span,
+  .queue-handle,
+  .queue-index,
+  .queue-duration {
+    display: none;
+  }
+  .queue-next-head {
+    padding-bottom: 8px;
+  }
+  .queue-virtual > li {
+    gap: 6px;
+  }
   .inline-form {
     flex-wrap: wrap;
     padding: 18px;

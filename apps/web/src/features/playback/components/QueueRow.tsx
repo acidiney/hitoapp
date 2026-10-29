@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { ChevronDown, ChevronUp, GripVertical, X } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
+import { coverIdentity } from "../../artwork/coverIdentity";
 import { time } from "../../../shared/format";
 import type { PlaybackOccurrence } from "../model";
 import { QUEUE_ROW } from "../hooks/useQueueWindow";
@@ -50,7 +51,11 @@ const QueueRow = memo(function QueueRow({
       </button>
       <span className="queue-index">{index - first + 1}</span>
       <button className="queue-track" onClick={() => select(id)}>
-        <Artwork release={track.release_id ?? undefined} recording={track.id} />
+        <Artwork
+          release={track.release_id ?? undefined}
+          recording={track.id}
+          fallback={coverIdentity(track)}
+        />
         <span>
           <strong>{track.title}</strong>
           <small>{track.artist}</small>

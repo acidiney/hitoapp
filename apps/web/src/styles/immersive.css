@@ -50,13 +50,14 @@
   gap: 22px;
   min-width: 0;
 }
+.np-track {
+  --np-width: min(440px, 100%, 46dvh);
+}
 .np-cover,
 .np-title,
-.np-seek {
-  width: min(440px, 100%);
-}
-.np-cover {
-  width: min(440px, 100%, 46dvh);
+.np-seek,
+.now-playing-status {
+  width: var(--np-width);
 }
 .np-cover .artwork {
   border-radius: 18px;
@@ -136,14 +137,13 @@
   border-radius: 8px;
   background: var(--subtle);
   font-size: 13px;
-  max-width: 440px;
 }
 .np-details {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  align-self: center;
+  align-self: start;
   max-height: 100%;
 }
 .np-tabs {
@@ -284,6 +284,11 @@
   }
   .np-cover {
     width: min(100%, 38dvh);
+  }
+  .np-title,
+  .np-seek,
+  .now-playing-status {
+    width: 100%;
   }
   .np-title h1 {
     font-size: 25px;
