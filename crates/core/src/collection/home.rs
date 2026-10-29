@@ -6,7 +6,7 @@ use std::time::Instant;
 const RECENT_PLAYS: i64 = 200;
 const RECENT_ALBUMS: i64 = 6;
 const UNHEARD_ALBUMS: usize = 3;
-const UNHEARD_TRACKS: i64 = 5;
+const UNHEARD_TRACKS: i64 = 25;
 const UNHEARD_COUNT_CAP: i64 = 1_000;
 const LIKED_COUNT_CAP: i64 = 1_000;
 
@@ -18,7 +18,9 @@ impl Collection {
         actor.check_session_on(&mut tx).await?;
         let has_music: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM library_members m
-                JOIN recordings r ON r.library_id = m.library_id WHERE m.user_id = ?)",
+                JOIN recordings r ON r.library_id = m.library_id
+                WHERE m.user_id = ?
+                  AND NOT EXISTS (SELECT 1 FROM podcast_episodes e WHERE e.recording_id = r.id))",
         )
         .bind(actor.id())
         .fetch_one(&mut *tx)
@@ -128,7 +130,18 @@ impl Collection {
             .push_bind(release.to_owned());
         push_unheard_filters(&mut query, &self.host, actor);
         query
-            .push(" ORDER BY title COLLATE NOCASE, r.id LIMIT ")
+            .push(
+                " ORDER BY (SELECT min(COALESCE(sm.disc_number, 1)) FROM sources ss
+                    JOIN source_metadata sm ON sm.source_id = ss.id
+                    WHERE ss.recording_id = r.id AND sm.release_id = r.release_id),
+                  (SELECT min(sm.track_number) FROM sources ss
+                    JOIN source_metadata sm ON sm.source_id = ss.id
+                    WHERE ss.recording_id = r.id AND sm.release_id = r.release_id) IS NULL,
+                  (SELECT min(sm.track_number) FROM sources ss
+                    JOIN source_metadata sm ON sm.source_id = ss.id
+                    WHERE ss.recording_id = r.id AND sm.release_id = r.release_id),
+                  title COLLATE NOCASE, r.id LIMIT ",
+            )
             .push_bind(limit);
         Ok(query.build_query_as().fetch_all(&mut **tx).await?)
     }

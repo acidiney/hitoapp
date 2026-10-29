@@ -10,10 +10,17 @@ use std::path::Path;
 use uuid::Uuid;
 
 fn tag_wav(path: &Path, title: &str, album: &str, artist: &str) {
+    tag_track(path, title, album, artist, None);
+}
+
+fn tag_track(path: &Path, title: &str, album: &str, artist: &str, number: Option<u32>) {
     let mut tag = Tag::new(TagType::Id3v2);
     tag.set_title(title.into());
     tag.set_artist(artist.into());
     tag.set_album(album.into());
+    if let Some(number) = number {
+        tag.set_track(number);
+    }
     tag.insert_text(ItemKey::AlbumArtist, artist.into());
     tag.save_to_path(path, WriteOptions::default()).unwrap();
 }
@@ -159,6 +166,107 @@ async fn home_never_reveals_another_accounts_listening() {
     let guest = hito.identity.authenticate(&session.token).await.unwrap();
     let home = hito.collection.home(&guest).await.unwrap();
     assert!(home.has_music);
+    assert_eq!(home.liked_count, 0);
+    assert!(home.recent_albums.is_empty());
+    assert!(home.unheard.is_empty());
+}
+
+async fn guest_with_access(
+    hito: &hito_core::Services,
+    admin: &hito_core::Actor,
+    library_id: &str,
+) -> hito_core::Actor {
+    let credentials = || Credentials {
+        username: "guest".into(),
+        password: "guest home test password".into(),
+    };
+    let guest = hito
+        .identity
+        .create_user(admin, credentials())
+        .await
+        .unwrap();
+    hito.identity
+        .set_library_access(admin, library_id, &guest.id, true)
+        .await
+        .unwrap();
+    let session = hito.identity.login(credentials()).await.unwrap();
+    hito.identity.authenticate(&session.token).await.unwrap()
+}
+
+#[tokio::test]
+async fn unheard_tracks_follow_album_order_and_leave_when_their_source_goes() {
+    let (_dir, hito, actor, library_id, music) = library("home-order").await;
+    for (offset, (name, title, number)) in [
+        ("o1.wav", "Zulu opener", 1),
+        ("o2.wav", "Alpha closer", 2),
+        ("o3.wav", "Mid song", 3),
+        ("o4.wav", "Played first", 4),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let path = music.join(name);
+        write_wav(&path, offset as i16);
+        tag_track(&path, title, "Ordered", "Band", Some(number));
+    }
+    scan(&hito, &actor, &library_id).await;
+    let all = tracks(&hito, &actor).await;
+    let id = |title: &str| all.iter().find(|r| r.title == title).unwrap().id.clone();
+    synchronize(&hito, &actor, vec![progress(&id("Played first"), 10)]).await;
+    let home = hito.collection.home(&actor).await.unwrap();
+    let titles: Vec<&str> = home.unheard[0]
+        .tracks
+        .iter()
+        .map(|t| t.title.as_str())
+        .collect();
+    assert_eq!(titles, ["Zulu opener", "Alpha closer", "Mid song"]);
+    assert_eq!(home.unheard[0].remaining, 3);
+
+    std::fs::remove_file(music.join("o2.wav")).unwrap();
+    scan(&hito, &actor, &library_id).await;
+    let home = hito.collection.home(&actor).await.unwrap();
+    let titles: Vec<&str> = home.unheard[0]
+        .tracks
+        .iter()
+        .map(|t| t.title.as_str())
+        .collect();
+    assert_eq!(titles, ["Zulu opener", "Mid song"]);
+    assert_eq!(home.unheard[0].remaining, 2);
+}
+
+#[tokio::test]
+async fn removing_library_access_empties_the_home_summary() {
+    let (_dir, hito, admin, library_id, music) = library("home-revoked").await;
+    for (offset, title) in ["Shared one", "Shared two"].into_iter().enumerate() {
+        let path = music.join(format!("{title}.wav"));
+        write_wav(&path, offset as i16);
+        tag_wav(&path, title, "Shared", "Owner");
+    }
+    scan(&hito, &admin, &library_id).await;
+    let guest = guest_with_access(&hito, &admin, &library_id).await;
+    let all = tracks(&hito, &guest).await;
+    synchronize(
+        &hito,
+        &guest,
+        vec![
+            progress(&all[0].id, 500),
+            Action::LikeSet {
+                recording_id: Uuid::parse_str(&all[0].id).unwrap(),
+                liked: true,
+            },
+        ],
+    )
+    .await;
+    let home = hito.collection.home(&guest).await.unwrap();
+    assert_eq!(home.liked_count, 1);
+    assert_eq!(home.recent_albums.len(), 1);
+    assert_eq!(home.unheard.len(), 1);
+    hito.identity
+        .set_library_access(&admin, &library_id, &guest.user().id, false)
+        .await
+        .unwrap();
+    let home = hito.collection.home(&guest).await.unwrap();
+    assert!(!home.has_music);
     assert_eq!(home.liked_count, 0);
     assert!(home.recent_albums.is_empty());
     assert!(home.unheard.is_empty());

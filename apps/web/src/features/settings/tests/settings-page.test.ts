@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
+import { router } from "@inertiajs/react";
 import SettingsPage from "../pages/SettingsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { SettingsPageProps } from "../../../shared/types";
@@ -79,6 +80,7 @@ const current = () =>
 
 beforeEach(() => {
   location.url = "/settings";
+  vi.spyOn(router, "visit").mockImplementation(() => undefined);
 });
 
 test("the navigation groups every section as a deep link", async () => {

@@ -373,6 +373,8 @@ Tested evidence (Docker): the new core cases failed first (`red-ui3-core.log`, m
 
 Limits: only Chromium, and screenshots at 1440 and 390 px were read by eye, not compared with the prototype pixel by pixel; the scope and chosen provider are not kept in the URL; ⌘K on a library page still focuses that page's library filter instead of opening Search; provider search in the Search page uses one connected service at a time; the quick-access tiles open pages and do not start playback; the library-page filter bar is unchanged. Not a public release.
 
+Review fixes after phase 3: unheard tracks follow album order (disc, track, title), only while playable, and Listen queues up to 25 of them instead of the first five alphabetically; Search no longer sends the query to a provider until the listener chooses Providers or "Search your services"; the provider outage warning stays when earlier results remain; quick-access tiles lost their misleading play icon; podcast-episode recordings no longer count as music for the empty-state guidance; the settings page test no longer lets the real Inertia router run. New cases failed first (`red-ui3fix-rust.log`: album order; `red-ui3fix-web.log`: no automatic provider request, action-first outage) and revoked library access, a removed source and the locked session for `/home` and `/search` were added and pass.
+
 ## Release work still required
 
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:

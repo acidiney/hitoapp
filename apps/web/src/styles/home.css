@@ -71,7 +71,7 @@
 }
 .quick-tile {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 40px;
+  grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   padding-right: 10px;
@@ -111,14 +111,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.quick-tile-open {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--subtle);
 }
 .unheard {
   display: flex;
@@ -284,7 +276,6 @@
     width: 48px;
     height: 48px;
   }
-  .quick-tile-open,
   .quick-tile-kind {
     display: none;
   }

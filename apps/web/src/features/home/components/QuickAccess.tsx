@@ -1,5 +1,4 @@
 import { Link } from "@inertiajs/react";
-import { Play } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import type { QuickTile } from "../quickAccess";
@@ -29,9 +28,6 @@ export default function QuickAccess({ tiles }: { tiles: QuickTile[] }) {
           <span className="quick-tile-copy">
             <span className="quick-tile-title">{tile.title}</span>
             <span className="quick-tile-kind">{tile.subtitle}</span>
-          </span>
-          <span className="quick-tile-open" aria-hidden="true">
-            <Play size={14} fill="currentColor" />
           </span>
         </Link>
       ))}

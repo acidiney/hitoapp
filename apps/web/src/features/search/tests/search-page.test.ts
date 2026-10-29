@@ -150,6 +150,29 @@ test("scope pills narrow the results to the library or to providers", () => {
   expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
 });
 
+test("a plain search sends nothing to a provider until the listener asks", async () => {
+  const hit = { id: "remote", title: "Provider tide", artist: "Remote" };
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
+  vi.stubGlobal("fetch", fetch);
+  render(
+    createElement(
+      SearchPage,
+      props({ connections: [connection], service_names: { service: "Home" } }),
+    ),
+  );
+  await Promise.resolve();
+  expect(fetch).not.toHaveBeenCalled();
+  expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
+  expect(
+    await screen.findByRole("button", { name: "Play Provider tide" }),
+  ).toBeTruthy();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("tide");
+});
+
 test("provider results use the connected service with explicit listen and add actions", async () => {
   const hit = {
     id: "remote",
@@ -181,13 +204,11 @@ test("provider results use the connected service with explicit listen and add ac
 test("a provider outage warns inside its section and keeps library results", async () => {
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ error: "The service is unavailable." }), {
-          status: 502,
-        }),
-      ),
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "The service is unavailable." }), {
+        status: 502,
+      }),
+    ),
   );
   render(
     createElement(
@@ -195,6 +216,7 @@ test("a provider outage warns inside its section and keeps library results", asy
       props({ connections: [connection], service_names: { service: "Home" } }),
     ),
   );
+  fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
   expect((await screen.findByRole("alert")).textContent).toContain(
     "unavailable",
   );

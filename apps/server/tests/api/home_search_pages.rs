@@ -112,3 +112,33 @@ async fn home_is_its_own_route_and_the_library_routes_are_unchanged() {
         );
     }
 }
+
+#[tokio::test]
+async fn a_locked_session_gets_the_lock_page_for_home_and_search() {
+    let (_dir, app, token, _) = indexed_app().await;
+    let (status, _) = call(
+        &app,
+        "PUT",
+        "/api/v1/account/pin",
+        json!({"password":"administrator test password","pin":"1234","idle_minutes":15}),
+        Some(&token),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/account/lock",
+        Value::Null,
+        Some(&token),
+    )
+    .await;
+    assert!(status.is_success(), "{status}");
+    for path in ["/home", "/search?q=Fixture"] {
+        let locked = page(&app, path, Some(&token), None).await;
+        assert_eq!(locked["component"], "LockPage", "{path}");
+        assert_eq!(locked["props"]["locked"], true);
+        assert!(locked["props"].get("home").is_none());
+        assert!(locked["props"].get("recordings").is_none());
+    }
+}

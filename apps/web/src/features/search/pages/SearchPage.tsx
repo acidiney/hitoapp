@@ -33,11 +33,13 @@ export default function SearchPage({
   const player = usePlayer();
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
+  const [asked, setAsked] = useState<string | null>(null);
+  const requested = scope === "providers" || (asked === query && query !== "");
   const providers = useProviderSearch(
     user.id,
     connections,
     query,
-    scope !== "library",
+    requested,
     player,
   );
   const library = scope !== "providers";
@@ -108,6 +110,8 @@ export default function SearchPage({
               names={service_names}
               query={query}
               full={scope === "providers"}
+              requested={requested}
+              onRequest={() => setAsked(query)}
               onSeeAll={() => setScope("providers")}
             />
           )}
