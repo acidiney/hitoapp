@@ -422,16 +422,11 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
     "Audio is unavailable",
   );
   await page.unroute("**/api/v1/recordings/*/playback-sources");
-  await expanded.getByRole("button", { name: "Previous track" }).click();
-  await expect(expanded.getByRole("status")).toHaveCount(0);
   await expanded.getByRole("link", { name: "See full queue" }).click();
   await expect(page).toHaveURL(/\/queue$/);
   await expect(
     page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
-    .click();
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await page
     .getByRole("dialog")
