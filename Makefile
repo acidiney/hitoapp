@@ -10,11 +10,11 @@ COMPOSE := docker compose
 RUST := $(COMPOSE) --profile tools run --rm rust
 NODE := $(COMPOSE) --profile tools run --rm node
 
-.PHONY: help up down build-tools fmt fmt-check test-rust test-web web-install web-audit lint contracts web-build setup-check e2e desktop verify
+.PHONY: help up down build-tools fmt fmt-check test-rust test-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify
 
 help:
 	@echo "Targets that act on the running 'hito' application project: up down"
-	@echo "Targets that run one-off tool containers: build-tools fmt fmt-check test-rust test-web web-install web-audit lint contracts web-build setup-check e2e desktop verify"
+	@echo "Targets that run one-off tool containers: build-tools fmt fmt-check test-rust test-web web-install web-audit lint web-lint contracts web-build setup-check e2e desktop verify"
 	@echo "Variables: COMPOSE_PROJECT=<name> redirects every target except up and down"
 	@echo "           COMPOSE_EXTRA=<override.yaml[:more.yaml]> is added to the Compose file list for every target"
 
@@ -48,6 +48,9 @@ web-audit:
 
 lint:
 	$(RUST) cargo clippy --workspace --all-targets --locked -- -D warnings
+
+web-lint:
+	$(NODE) npm run lint
 
 contracts:
 	./scripts/check-contracts.sh

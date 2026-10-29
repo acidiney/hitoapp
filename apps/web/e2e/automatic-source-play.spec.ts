@@ -7,15 +7,15 @@ type Schema = components["schemas"];
 const optedIn = process.env.HITO_AUTOMATIC_SOURCE_E2E === "1";
 const test = baseTest.extend<{ automaticSourcePrivacy: void }>({
   automaticSourcePrivacy: [
-    async ({}, use) => {
+    async ({}, provide) => {
       if (!optedIn) {
-        await use();
+        await provide();
         return;
       }
       const previous = process.env.PLAYWRIGHT_NO_COPY_PROMPT;
       process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
       try {
-        await use();
+        await provide();
       } finally {
         if (previous === undefined)
           delete process.env.PLAYWRIGHT_NO_COPY_PROMPT;

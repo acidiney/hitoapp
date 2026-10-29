@@ -5,6 +5,7 @@ make fmt-check
 make test-rust
 make lint
 make web-install
+make web-lint
 make contracts
 make test-web
 make web-build

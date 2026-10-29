@@ -45,6 +45,7 @@ make test-web      # vitest
 make web-install   # npm ci (root workspace, installs into apps/web/node_modules)
 make web-audit     # npm audit, high severity
 make lint          # clippy with warnings denied
+make web-lint      # prettier, tsc and eslint (React hooks rules)
 make fmt           # rustfmt, rewrites files
 make fmt-check     # rustfmt check
 make contracts     # OpenAPI and TypeScript regeneration check

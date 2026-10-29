@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PluginInstallation } from "../../../shared/types";
 import type { Player } from "../../playback/model";
 import { useDiscovery } from "../../discovery/hooks/useDiscovery";
@@ -27,12 +27,14 @@ export function useProviderSearch(
     providers[0] ??
     null;
   const discovery = useDiscovery(account, selected, player);
-  const search = discovery.search;
+  const latestSearch = useRef(discovery.search);
+  latestSearch.current = discovery.search;
+  const hasProvider = selected !== null;
+  const providerId = selected?.id;
+  const providerRevision = selected?.revision;
   useEffect(() => {
-    if (enabled && selected && query) void search(query);
-    // The search function changes with every render; the inputs below decide when to search.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, selected?.id, selected?.revision, query]);
+    if (enabled && hasProvider && query) void latestSearch.current(query);
+  }, [enabled, hasProvider, providerId, providerRevision, query]);
   return {
     providers,
     selected,

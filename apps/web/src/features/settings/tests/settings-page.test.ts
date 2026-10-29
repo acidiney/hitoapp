@@ -29,12 +29,11 @@ vi.mock("../../plugins/components/PluginSettings", async () => {
 vi.mock("../../community/components/CommunitySettings", async () => {
   const { createElement: h } = await import("react");
   const { useReportUnsaved } = await import("../../../shared/unsavedChanges");
-  return {
-    default: () => {
-      useReportUnsaved(true);
-      return h("p", null, "Community stub");
-    },
-  };
+  function CommunityStub() {
+    useReportUnsaved(true);
+    return h("p", null, "Community stub");
+  }
+  return { default: CommunityStub };
 });
 vi.mock("../../community/components/CommunityRankingSettings", async () => {
   const { createElement: h } = await import("react");

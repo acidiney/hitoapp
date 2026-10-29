@@ -9,15 +9,15 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const optedIn = process.env.HITO_PLAYLIST_DOWNLOAD_E2E === "1";
 const test = baseTest.extend<{ playlistDownloadPrivacy: void }>({
   playlistDownloadPrivacy: [
-    async ({}, use) => {
+    async ({}, provide) => {
       if (!optedIn) {
-        await use();
+        await provide();
         return;
       }
       const previous = process.env.PLAYWRIGHT_NO_COPY_PROMPT;
       process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
       try {
-        await use();
+        await provide();
       } finally {
         if (previous === undefined)
           delete process.env.PLAYWRIGHT_NO_COPY_PROMPT;

@@ -19,6 +19,7 @@ The root `Makefile` is the single task entry. Each target wraps a documented Doc
 | `make fmt-check` | `cargo fmt --all --check` |
 | `make test-rust` | `cargo test --workspace --locked`, then the ignored `storage_walk_stalls` test in `hito-core` |
 | `make lint` | `cargo clippy --workspace --all-targets` with warnings denied |
+| `make web-lint` | `npm run lint` in `apps/web`: `prettier --check`, `tsc --noEmit` for the app and e2e projects, and ESLint with the React hooks rules. `rules-of-hooks` violations fail the check. `exhaustive-deps` findings are warnings with a ceiling set in `apps/web/package.json`, so new ones fail but the existing identity-keyed owner hooks do not |
 | `make test-web` | `npm test` (vitest) in `apps/web` |
 | `make web-install` | `npm ci` from `apps/web`, which installs the root npm workspace into `apps/web/node_modules` |
 | `make web-audit` | `npm audit --audit-level=high` |
