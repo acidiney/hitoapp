@@ -30,15 +30,16 @@ An HTTP plugin that declares the `catalog` capability may also serve an independ
 
 The descriptor names the identity namespace. Version 1 supports only `musicbrainz_artist`, so only canonical MusicBrainz artist identifiers cross the boundary. A missing, malformed, other-version or other-namespace descriptor means "not supported". Existing catalog and edition descriptors are unchanged.
 
-Limits: one to 25 results, identities up to 256 bytes, names up to 2,048 bytes without control characters, a finite score from 0 to one billion (relative, comparable only inside one response), no repeated identity, never the requested artist, and at most 32 KiB of encoded response. Core also requires canonical MusicBrainz identifiers in the response. Scores are not shown in the interface.
+Limits: one to 25 results, identities up to 256 bytes, names up to 2,048 bytes without control or invisible formatting characters (bidirectional overrides and marks, zero-width space, word joiner, byte-order mark and invisible operators; the joiners U+200C and U+200D stay valid for scripts and emoji; the check is the shared provider-text validator, so every contract that uses it applies it), a finite score from 0 to one billion (relative, comparable only inside one response), no repeated identity, never the requested artist, and at most 32 KiB of encoded response. Core also requires canonical MusicBrainz identifiers in the response. Scores are not shown in the interface.
 
 ## Core behavior
 
 - The artist must be a chosen artist whose reviewed credit is unchanged and whose identity is the built-in MusicBrainz provider. Artists chosen through other providers get the status `unsupported`: their identifiers are private to that provider and are never given to a different service.
-- Only plugins in the account's metadata provider list are considered, in the saved priority order, at most three. A plugin that does not declare the operation is skipped. One that is unavailable or returns an invalid answer falls through to the next. The first valid answer wins; answers are not merged.
+- Only plugins in the account's metadata provider list are considered, in the saved priority order. Up to eight are probed for the descriptor, and only plugins that declare the operation count toward at most three answer attempts, so non-capable providers never hide a capable one. A missing descriptor (404 or 501) or an invalid one means unsupported. A descriptor probe that fails (connection error or other status) makes the answer `unavailable`, never `unsupported`. A provider that is unavailable or returns an invalid answer falls through to the next. The first valid answer wins; answers are not merged.
 - Statuses: `available`, `disabled` (provider use is off), `unsupported` (no chosen capable plugin), `unavailable` (capable plugins failed) and `cancelled`.
+- A locked (PIN) session is refused with 423 before any plugin is contacted.
 - The existing reviewed-read admission applies (global and per-account slots), with a 15 second budget, cancellation, and re-checks of the credit, policy revision and plugin approval after each provider call.
-- Every returned artist carries `chosen_artist_id` when the account has a current chosen artist with exactly that MusicBrainz identity. Names are never compared. A namesake with another identity is not linked.
+- Every returned artist carries `chosen_artist_id` when the account has a current chosen artist with exactly that MusicBrainz identity. The lookup queries the account's identity groups by exact identity and checks the current-choice predicate only for matches, so its work does not grow with the number of chosen artists (a SQLite work-budget case compares 20 and 300 chosen artists: 500 VM steps each). Names are never compared. A namesake with another identity is not linked.
 - Logs record outcome, count and elapsed time at debug level only. They exclude names, identifiers, titles and service addresses.
 
 ## Interface
@@ -58,10 +59,18 @@ Source: the public pages for the [similar-artists viewer](https://labs.api.liste
 
 ### The plugin
 
-`plugins/listenbrainz` is a small service (manifest `catalog`, descriptor above, one POST route). It validates the request, calls the labs origin with the fixed algorithm `session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30`, bounds the body to 256 KiB, filters invalid or repeated rows, and answers 503 for upstream failure and 502 for an invalid answer. Its three protocol cases use a local fake and never contact the network. It has no container packaging or Compose profile yet. Run it with `hito-plugin-listenbrainz 127.0.0.1:8095`, offer that address as a plugin service, install it, and add it to Settings, Metadata.
+`plugins/listenbrainz` is a small service (manifest `catalog`, descriptor above, one POST route). It validates the request, calls the labs origin with the fixed algorithm `session_based_days_9000_session_300_contribution_5_threshold_15_limit_50_skip_30`, bounds the body to 256 KiB, requires an `application/json` answer, filters invalid or repeated rows, and answers 503 for upstream failure and 502 for an invalid answer. A labs 404 (an artist the service does not know) is an empty answer. A 429 backs the plugin off for its `Retry-After` seconds (default 10, at most 300) and later requests fail fast as unavailable without contacting the service. Request starts are spaced one second apart; a start that would wait more than two seconds is refused rather than queued.
+
+Operation: every route requires the service bearer and the Hito protocol header, compared in constant time, so the plugin cannot be used as an open proxy. The operator must supply a contact, which goes into the User-Agent as the upstream requires. The service refuses to start without it.
+
+```
+hito-plugin-listenbrainz --contact ops@example.org --service-token-file /run/secrets/listenbrainz-token [--listen 127.0.0.1:8095] [--endpoint https://...]
+```
+
+Offer that address as a plugin service with the same token as the bearer, install it, and add it to Settings, Metadata. It binds loopback by default and has no container packaging or Compose profile yet. Its eight protocol cases and two limiter cases (one with a paused clock) use a local fake and never contact the network.
 
 ## Evidence and limits
 
-Evidence: seven SDK cases, six core cases (exact links and namesakes, no contact without a chosen capable plugin, priority and fall-through across invalid answers, limits, cancellation, other accounts), one HTTP workflow, ten DOM cases, three plugin cases, and regenerated OpenAPI and TypeScript.
+Evidence: eight SDK cases, eight core cases (exact links and namesakes, no contact without a chosen capable plugin, priority and fall-through across invalid answers, limits, cancellation, other accounts, failing probes and a capable fourth provider), one HTTP workflow including the locked-session answer, one SQLite work-budget case, ten DOM cases, ten plugin cases, and regenerated OpenAPI and TypeScript.
 
 Not done: a browser case that shows the section (the offline browser server cannot create a MusicBrainz-identified chosen artist without live MusicBrainz, so the browser case only checks that the section stays hidden and silent for plugin-identified artists), plugin-identified artists, merging several providers, score display, live ListenBrainz verification, plugin packaging and deployment.
