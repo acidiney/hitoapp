@@ -1,6 +1,19 @@
 # Design system (proposed redesign)
 
-**Status: planned.** This describes the proposed visual and interaction redesign agreed on 2026-10-29. None of it is implemented in `apps/web` yet. The current web app still uses the orange dark theme in `apps/web/src/styles/`.
+**Status: phase 1 (foundation) implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled; the screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
+
+| Area | State |
+| --- | --- |
+| Colour tokens, light and dark | Implemented in `apps/web/src/styles/base.css`; dark follows `prefers-color-scheme`. Old palette variables are aliases of the new tokens. |
+| Geist and Geist Mono | Implemented, bundled locally with `@fontsource-variable` (OFL-1.1, see [third-party notices](third-party-notices.md)). No CDN. |
+| Primitives in `apps/web/src/shared/ui` | Button, SegmentedControl, FilterPills, Switch, AvailabilityLabel, HealthDot, ListRow, SettingsCard, SectionWarning, FallbackCover, BrandMark. Not yet used by the old pages, which keep their class names. |
+| Shell | Sidebar with the mark, Início / Pesquisar (⌘K or Ctrl+K) / Biblioteca, playlists, account link, lock and sign-out. Below 768 px the navigation becomes a three-tab bottom bar. |
+| Player bar | Restyled (cover, title and artist, library ring, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
+| Home, Biblioteca filters, Settings navigation, Contas, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phases 2 and later). |
+
+Route mapping in phase 1: there is no Home page yet, so Início opens `/discover`, the closest existing page, until the real Home is built. Pesquisar focuses the library search field (or opens `/library` when the page has none). Biblioteca opens `/library`; albums, artists, playlists, podcasts, audiobooks, likes and history stay at their routes and are reachable from the "Library sections" strip shown on those pages. Settings open from the avatar.
+
+**Fallback cover rule (implemented).** `FallbackCover` takes its colours and shape from a 32-bit FNV-1a hash of the release id (the recording id when there is no release). The hash picks one of eight fixed palette entries (`coverPalette.ts`) and one of three shapes (circle, band, plain), so the same id looks the same on every visit and device. Real artwork always wins; the fallback shows only when no artwork loads.
 
 The prototype with every screen is a private design canvas: https://claude.ai/artifact/HurdZx23txC2chX73MX529. The rows marked **v2** are the agreed direction; earlier rows are explorations kept for history.
 
@@ -78,4 +91,6 @@ Account creation is never linked from the sign-in screen. It is reachable only t
 
 - Phone versions of the remaining screens.
 - Dark mode screens.
-- Implementation in `apps/web`, including replacing the current styles and building the shared components.
+- Rebuilding each screen with the shared components (phases 2 and later); the speed control is still a native select and the player bar has no queue count.
+- The cover colour for headers (computed from real artwork on the server) is not built.
+- No source or provider label is available for the playing track, so the player bar shows only the library ring.

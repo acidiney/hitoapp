@@ -13,7 +13,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 - [API](api.md) and the generated [OpenAPI schema](openapi.json)
 - [Logging](logging.md)
 - [Design proposals (RFCs)](rfcs/README.md): proposed architecture changes, not yet built.
-- [Design system](design-system.md): proposed visual and interaction redesign, not yet built.
+- [Design system](design-system.md): visual and interaction redesign; the foundation (phase 1) is built, the screens are not.
 
 ## Development and testing
 
