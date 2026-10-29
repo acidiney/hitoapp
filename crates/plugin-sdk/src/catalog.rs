@@ -2,6 +2,7 @@ mod discography;
 mod discovery;
 mod edition;
 mod edition_listing;
+mod similarity;
 
 pub use discography::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogCreditMember, CatalogReleaseGroup,
@@ -23,6 +24,13 @@ pub use edition::{
 pub use edition_listing::{
     CatalogEditionSummary, RELEASE_GROUP_EDITIONS_PATH, ReleaseGroupEditionsPage,
     ReleaseGroupEditionsRequest,
+};
+
+pub use similarity::{
+    ARTIST_SIMILARITY_PATH, ArtistSimilarityPage, ArtistSimilarityRequest,
+    CATALOG_SIMILARITY_CAPABILITIES_PATH, CATALOG_SIMILARITY_VERSION,
+    CatalogSimilarityCapabilities, CatalogSimilarityIdentity, CatalogSimilarityOperation,
+    MAX_SIMILAR_ARTISTS, MAX_SIMILAR_ARTISTS_BYTES, SimilarArtist,
 };
 
 use crate::content::{optional, text};
