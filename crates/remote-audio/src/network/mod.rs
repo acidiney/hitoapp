@@ -1,6 +1,8 @@
+mod control;
 mod dns;
 mod dns_runtime;
 
+pub use control::control_client;
 pub use dns::Dns;
 
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};

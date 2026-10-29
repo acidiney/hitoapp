@@ -1,4 +1,5 @@
 use crate::{Error, PersistenceError};
+use hito_remote_audio::network::control_client;
 use hmac::{Hmac, Mac};
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use sha2::Sha256;
@@ -182,15 +183,7 @@ impl Transport {
 }
 
 fn builder() -> reqwest::ClientBuilder {
-    reqwest::Client::builder()
-        .https_only(true)
-        .no_proxy()
-        .redirect(reqwest::redirect::Policy::none())
-        .retry(reqwest::retry::never())
-        .pool_max_idle_per_host(0)
-        .connect_timeout(Duration::from_secs(2))
-        .timeout(Duration::from_secs(10))
-        .user_agent(concat!("HitoTorBox/", env!("CARGO_PKG_VERSION")))
+    control_client(concat!("HitoTorBox/", env!("CARGO_PKG_VERSION")))
 }
 
 fn request_error(error: reqwest::Error) -> Error {

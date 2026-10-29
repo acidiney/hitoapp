@@ -1,6 +1,6 @@
 use crate::{
     Error,
-    network::{self, Dns, DnsPurpose, NetworkError, PinnedResolver},
+    network::{self, Dns, DnsPurpose, NetworkError, PinnedResolver, control_client},
 };
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
@@ -202,15 +202,9 @@ impl Transport {
             .checked_sub(started.elapsed())
             .filter(|remaining| !remaining.is_zero())
             .ok_or(Error::Deadline)?;
-        let builder = reqwest::Client::builder()
+        let builder = control_client(concat!("HitoRealDebrid/", env!("CARGO_PKG_VERSION")))
             .https_only(self.endpoint.scheme() == "https")
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .retry(reqwest::retry::never())
-            .pool_max_idle_per_host(0)
             .connect_timeout(remaining)
-            .timeout(Duration::from_secs(10))
-            .user_agent(concat!("HitoRealDebrid/", env!("CARGO_PKG_VERSION")))
             .dns_resolver(Arc::new(PinnedResolver::new(
                 API_HOST.into(),
                 addresses.clone(),
