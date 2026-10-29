@@ -355,6 +355,14 @@ Limits: no screen was rebuilt; no visual comparison with the prototype beyond re
 
 Review fixes after phase 1: primary and action button hover no longer hides the label; fallback cover shapes sit in a free band clear of the text and every cover colour holds 4.5:1 for its text; an off switch and input borders hold 3:1 in both schemes (computed in unit tests from the token file); the phone account bar is in the page flow above the search; the shortcut follows the platform, ignores extra modifiers, composition, handled events and open dialogs, and focuses the search field after opening the library; font files get content-hashed names (the server still serves them with its default headers, no cache policy was added); the player bar no longer claims a source. Evidence: the failing run is `red-ui1fix-review.log` (11 cases and 4 files) and all 235 frontend files (922 cases) pass afterwards; one fresh-server browser run passes 47 specs (73 skipped), with the plugin layout check back on `scrollIntoViewIfNeeded` thanks to a document `scroll-padding-bottom` that clears the player and tab bar.
 
+## Web redesign phase 2: Settings
+
+Current behavior: Settings use the grouped navigation, section deep links and shared cards described in the [design system](design-system.md#settings). Every section shows only real data and actions the server already supports: music folders (add, scan, remove, desktop "Choose folder…"), metadata provider order, plugin install, review and credential flows, screen lock, community opt-ins and rankings, account creation and library access, shared corrections, sign-out and lock. Playback, Downloads & storage, Updates and About hold short factual rows and links only. Missing capabilities are listed in the [TODO](../TODO.md), not simulated.
+
+Tested evidence (Docker): new DOM cases for the section registry (groups, legacy aliases, administrator-only sections, deep-link URLs), the page (navigation links, current section, member view, list/section view marker, profile actions) and the account dialog (open, create, cancel, no sign-up link) failed first (`red-ui2-settings.log`: 9 files and 17 cases failing, missing modules and the checkbox, tab and select roles) and then passed. The existing community, metadata, screen-lock and shared-correction cases were updated for switches, the segmented idle control and the new row layout. Web results are recorded in the TODO entry for phase 2.
+
+Limits: only Chromium; visual layout was checked by DOM and computed rules, not against pixels of the prototype; the phone drill-down was exercised at 390 px only; Windows and Linux are untested; two native selects remain (see the design system); the server has no endpoint for the omitted items. Not a public release.
+
 ## Release work still required
 
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:

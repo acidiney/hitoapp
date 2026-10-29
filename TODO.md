@@ -292,7 +292,10 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 
 - [ ] Redesign the web app to the [design system](docs/design-system.md): Início / Pesquisar / Biblioteca shell, new tokens and fonts, shared components, and every screen.
   - [x] Phase 1, foundation: tokens (light and dark), bundled Geist fonts, shared primitives, new sidebar and phone tab bar, restyled player bar and mini player. Pages are restyled, not rebuilt; Início points at Discover until Home exists. See [status](docs/status.md#web-redesign-phase-1).
-  - [ ] Phase 2: Biblioteca with filters (albums, artists, playlists, podcasts, audiobooks, likes, history) replacing the section strip, and the settings navigation.
+  - [x] Phase 2, Settings: grouped navigation, deep-linkable sections with legacy aliases, cards built from the shared primitives, fixed status/action columns, an account dialog and a phone list-to-section drill-down. See [status](docs/status.md#web-redesign-phase-2-settings) and the [design system](docs/design-system.md#settings).
+  - [ ] Phase 2, Biblioteca: filters (albums, artists, playlists, podcasts, audiobooks, likes, history) replacing the section strip.
+  - [ ] Settings follow-ups that need server capabilities: display name and avatar photo; interface language (with the i18n item); password change; list and revoke open sessions; playback-history toggle and "delete history"; update checks, release channels and "copy diagnostics"; playback options (output, crossfade, normalization) and download/storage options; invitation links (the server has none, so none are shown).
+  - [ ] Settings polish: replace the plugin-service and metadata-provider native selects with a listbox/combobox pattern; per-provider rows with an Add-provider dialog as in the prototype.
   - [ ] Phase 3: real Home, Artist, Album and Playlist screens on the shared components, using the cover colour.
   - [ ] Translate the interface (the prototype uses Portuguese; the app is English for now) as a separate i18n item: extract labels, choose the locale from the account or browser, keep ⌘K and other platform hints.
   - [ ] Phase 4: A tocar, Fila, Contas and invites, sign-in and account creation, the states board, and phone versions of the remaining screens.

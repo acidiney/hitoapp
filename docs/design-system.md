@@ -1,15 +1,16 @@
 # Design system (proposed redesign)
 
-**Status: phase 1 (foundation) implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled; the screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
+**Status: phase 1 (foundation) and the settings half of phase 2 implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled; the screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
 
 | Area | State |
 | --- | --- |
 | Colour tokens, light and dark | Implemented in `apps/web/src/styles/base.css`; dark follows `prefers-color-scheme`. Old palette variables are aliases of the new tokens. |
 | Geist and Geist Mono | Implemented, bundled locally with `@fontsource-variable` (OFL-1.1, see [third-party notices](third-party-notices.md)). No CDN. |
-| Primitives in `apps/web/src/shared/ui` | Button, SegmentedControl, FilterPills, Switch, AvailabilityLabel, HealthDot, ListRow, SettingsCard, SectionWarning, FallbackCover, BrandMark. Not yet used by the old pages, which keep their class names. |
+| Primitives in `apps/web/src/shared/ui` | Button, SegmentedControl, FilterPills, Switch, AvailabilityLabel, HealthDot, ListRow, SettingsCard, SectionWarning, FallbackCover, BrandMark. Settings use them (plus SettingRow and Dialog); the other pages keep their class names. |
 | Shell | Sidebar with the mark, Home / Search (⌘K on Apple systems, Ctrl+K elsewhere) / Library, playlists, and an account bar (account and settings link, lock, sign-out) that sits at the bottom of the sidebar on desktop and in a header on phones. Below 768 px the navigation becomes a three-tab bottom bar. |
 | Player bar | Restyled (cover, title and artist, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
-| Home, Biblioteca filters, Settings navigation, Contas, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phases 2 and later). |
+| Settings | Implemented: a grouped navigation (Your account: Profile, Privacy & lock; Listening: Music & providers, Plugins, Playback, Downloads & storage; Server: Accounts, Updates, About) with one deep link per section, a section heading, and cards built from SettingsCard, SettingRow, Switch, SegmentedControl, Button, HealthDot and SectionWarning. See "Settings" below. |
+| Home, Biblioteca filters, Artista, Álbum, Playlist, A tocar, Fila, states board | Planned (phase 2 Biblioteca and later). |
 
 **Language.** The prototype labels are Portuguese, but the app stays English for now (Home, Search, Library, "Account and settings"). Translation is a separate i18n item in the [TODO](../TODO.md).
 
@@ -98,3 +99,17 @@ Account creation is never linked from the sign-in screen. It is reachable only t
 - Rebuilding each screen with the shared components (phases 2 and later); the speed control is still a native select and the player bar has no queue count.
 - The cover colour for headers (computed from real artwork on the server) is not built.
 - No source or provider label is available for the playing track, so the player bar shows none until the track carries a source.
+
+## Settings
+
+Current behavior (apps/web, English labels):
+
+- `/settings?section=<id>` opens a section: `profile`, `privacy`, `music`, `plugins`, `playback`, `downloads`, `accounts`, `updates`, `about`. With no parameter the page opens Music & providers on desktop and the section list on phones. Old links keep working: `library` and `metadata` open Music & providers; an unknown id, or `accounts` for a non-administrator, opens Music & providers. Accounts is hidden from the navigation for non-administrators.
+- The navigation is a list of links (`aria-current="page"` marks the open section). Choosing a section moves focus to its heading. Below 768 px the list and the open section are separate views: the list, then the section with an "All settings" link back. The phase 1 account bar is hidden on phone Settings; Profile offers Sign out and, when a PIN is set, Lock now.
+- Rows use fixed status and action columns (200 px and 140 px; 160 px and 300 px for rows with several buttons) so status and buttons line up between rows. On phones the columns stack.
+- On/off choices are Switches and the idle-lock period is a segmented control. Switches in Privacy keep explicit Save and Cancel, because consent changes must be saved deliberately. Two native selects remain on purpose, for lists whose length depends on the server: the service chooser when connecting a plugin and the metadata provider chooser.
+- Creating an account opens a dialog from the Accounts card. The server has no invitation or public sign-up flow, and the interface offers none.
+
+Not built because the server has no matching capability (see the [TODO](../TODO.md)): display name, avatar photo, language, password change, open-session list, playback-history toggle and deletion, update checks and channels, copy diagnostics, playback and download options.
+
+Where the old pages were: Library settings now live in Music & providers (music folders); Metadata moved into the same section; Privacy keeps community consent and source rankings and gains the screen lock; Plugins and Accounts keep their content.
