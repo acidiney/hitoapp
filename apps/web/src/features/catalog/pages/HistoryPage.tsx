@@ -25,11 +25,11 @@ export default function HistoryPage({
     <>
       <PageHeading
         title="Listening history"
-        description="Pick up where you left off."
+        description={`${tracks.length} recently played ${tracks.length === 1 ? "track" : "tracks"}`}
       />
       {tracks.length > 0 ? (
         <>
-          <TrackToolbar tracks={tracks} description="Original audio" />
+          <TrackToolbar tracks={tracks} />
           <TrackTable
             rows={tracks.map<TrackTableRow>((track) => ({
               kind: "recording",

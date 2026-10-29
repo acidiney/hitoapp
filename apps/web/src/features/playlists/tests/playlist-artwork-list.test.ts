@@ -81,8 +81,8 @@ test("playlist rows retrieve imported covers by playlist identity and keep unsup
     fireEvent.error(cover(manualRow)!);
   });
   expect(cover(manualRow)).toBeNull();
-  expect(manualRow.querySelector(".artwork svg")).toBeTruthy();
-  expect(followedRow.querySelector(".artwork svg")).toBeTruthy();
+  expect(manualRow.querySelector(".artwork .fallback-cover")).toBeTruthy();
+  expect(followedRow.querySelector(".artwork .fallback-cover")).toBeTruthy();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual([
     `${image}/availability`,
     `${image}/fetch`,

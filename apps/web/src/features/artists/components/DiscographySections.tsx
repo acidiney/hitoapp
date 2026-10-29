@@ -11,16 +11,26 @@ import DiscographyRelease from "./DiscographyRelease";
 const SECTION_PAGE = 10;
 
 const sections = [
-  { key: "album", title: "Albums", noun: "albums", only: "Albums only" },
-  { key: "ep", title: "EPs", noun: "EPs", only: "EPs only" },
-  { key: "single", title: "Singles", noun: "singles", only: "Singles only" },
+  { key: "album", title: "Albums", noun: "albums", label: "Albums" },
+  { key: "ep", title: "EPs", noun: "EPs", label: "EPs" },
+  { key: "single", title: "Singles", noun: "singles", label: "Singles" },
   {
     key: "other",
     title: "Other releases",
     noun: "other releases",
-    only: "Other releases only",
+    label: "Other",
   },
 ] as const;
+
+function isComplete(albums: LibraryAlbum[] | undefined) {
+  return (
+    albums !== undefined &&
+    albums.some(
+      (album) =>
+        album.track_count > 0 && album.playable_count === album.track_count,
+    )
+  );
+}
 
 type SectionKey = (typeof sections)[number]["key"];
 
@@ -53,32 +63,55 @@ export default function DiscographySections({
 }) {
   const [only, setOnly] = useState<SectionKey | null>(null);
   const [shown, setShown] = useState<Partial<Record<SectionKey, number>>>({});
+  const [missingOnly, setMissingOnly] = useState(false);
+  const wanted = missingOnly
+    ? groups.filter((group) => !isComplete(library[group.id]))
+    : groups;
   const present = sections.filter((section) =>
     groups.some((group) => sectionOf(group) === section.key),
   );
   return (
     <>
-      {present.length > 1 && (
-        <div role="group" aria-label="Release types">
-          {present.map((section) => (
+      <div className="discography-controls">
+        {present.length > 1 && (
+          <div className="segmented" role="group" aria-label="Release types">
             <button
-              key={section.key}
               type="button"
-              className="button"
-              aria-pressed={only === section.key}
-              onClick={() => setOnly(only === section.key ? null : section.key)}
+              aria-pressed={only === null}
+              onClick={() => setOnly(null)}
             >
-              {section.only}
+              {`All · ${groups.length}`}
             </button>
-          ))}
-        </div>
-      )}
+            {present.map((section) => (
+              <button
+                key={section.key}
+                type="button"
+                aria-pressed={only === section.key}
+                onClick={() =>
+                  setOnly(only === section.key ? null : section.key)
+                }
+              >
+                {`${section.label} · ${groups.filter((group) => sectionOf(group) === section.key).length}`}
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          className="chip-toggle"
+          aria-pressed={missingOnly}
+          onClick={() => setMissingOnly(!missingOnly)}
+        >
+          Only what I'm missing
+        </button>
+      </div>
       {present
         .filter((section) => only === null || only === section.key)
         .map((section) => {
-          const members = groups.filter(
+          const members = wanted.filter(
             (group) => sectionOf(group) === section.key,
           );
+          if (members.length === 0) return null;
           const visible = shown[section.key] ?? SECTION_PAGE;
           return (
             <section key={section.key} aria-label={section.title}>

@@ -27,7 +27,7 @@ export default function ArtistIndexPage({
     <>
       <PageHeading
         title="Artists"
-        description={`${artists.total} ${artists.total === 1 ? "artist credit" : "artist credits"} in your libraries`}
+        description={`${artists.total} ${artists.total === 1 ? "artist credit" : "artist credits"} · ${identity_groups.total} chosen`}
       />
       <section aria-labelledby="chosen-artists-title">
         <h2 className="discography-heading" id="chosen-artists-title">
@@ -37,11 +37,14 @@ export default function ArtistIndexPage({
           <div className="artist-grid">
             {identity_groups.items.map((group) => (
               <Link
-                className="artist-card"
+                className="artist-card round"
                 key={group.id}
                 href={`/artist-groups/${encodeURIComponent(group.id)}${suffix}`}
               >
-                <Artwork recording={group.name.recording_id} />
+                <Artwork
+                  recording={group.name.recording_id}
+                  fallback={{ id: group.id, title: group.name.value }}
+                />
                 <h2>{group.name.value}</h2>
                 <small>
                   {group.recording_count}{" "}
@@ -78,11 +81,14 @@ export default function ArtistIndexPage({
           <div className="artist-grid">
             {artists.items.map((artist) => (
               <Link
-                className="artist-card"
+                className="artist-card round"
                 key={artist.id}
                 href={`/artists/${encodeURIComponent(artist.id)}`}
               >
-                <Artwork recording={artist.artwork_recording_id ?? undefined} />
+                <Artwork
+                  recording={artist.artwork_recording_id ?? undefined}
+                  fallback={{ id: artist.id, title: artist.name }}
+                />
                 <h2>{artist.name}</h2>
                 <small>
                   {artist.recording_count > 0 || artist.release_count === 0 ? (

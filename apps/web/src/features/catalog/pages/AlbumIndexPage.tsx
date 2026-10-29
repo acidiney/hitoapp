@@ -12,7 +12,7 @@ export default function AlbumIndexPage({
     <>
       <PageHeading
         title="Albums"
-        description={`${releases.total} ${releases.total === 1 ? "album" : "albums"} in your libraries`}
+        description={`${releases.total} ${releases.total === 1 ? "album" : "albums"}`}
       />
       {releases.items.length ? (
         <AlbumGrid releases={releases.items} />

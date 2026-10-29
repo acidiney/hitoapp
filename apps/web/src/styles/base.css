@@ -125,6 +125,19 @@ input {
   min-width: 0;
   padding: 11px 13px;
 }
+input:is([type="radio"], [type="checkbox"]) {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  margin: 0 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  vertical-align: middle;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
 input::placeholder {
   color: var(--muted);
   opacity: 1;
@@ -265,6 +278,16 @@ small {
   background: var(--action);
   border-color: var(--action);
   color: var(--on-action);
+}
+.button {
+  justify-self: start;
+  align-self: end;
+}
+.button:disabled {
+  opacity: 1;
+  background: var(--subtle);
+  border-color: var(--line-strong);
+  color: var(--muted);
 }
 .button.primary:hover:not(:disabled) {
   background: var(--ink-hover);

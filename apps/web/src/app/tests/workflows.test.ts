@@ -29,6 +29,9 @@ vi.mock("../../features/library/api/libraryApi", () => ({
 vi.mock("../../features/accounts/api/accountsApi", () => ({
   accountsApi: { list: vi.fn(), create: vi.fn(), setLibraryAccess: vi.fn() },
 }));
+vi.mock("../../features/playback/components/PlaybackProvider", () => ({
+  usePlayer: () => ({ snapshot: () => ({ shuffle: false }) }),
+}));
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
   Link: ({ children, href }: { children: ReactNode; href: string }) =>

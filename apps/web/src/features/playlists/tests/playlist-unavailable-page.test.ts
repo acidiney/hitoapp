@@ -112,7 +112,7 @@ test("retained playlists remain editable and known recordings resolve audio only
     const table = screen.getByRole("table", { name: "Playlist entries" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(screen.getByText("2 entries", { exact: true })).toBeTruthy();
+    expect(screen.getByText(/2 entries/, { exact: true })).toBeTruthy();
     expect(screen.queryByText("This playlist is ready for music")).toBeNull();
     expect(screen.getByText(/Curated by the fixture owner/)).toBeTruthy();
     const toolbar = screen.getByRole("button", { name: "Play playlist" });
@@ -122,7 +122,7 @@ test("retained playlists remain editable and known recordings resolve audio only
       expect(row.getByText(entry.title)).toBeTruthy();
       if (entry.recording_id == null) {
         expect(row.queryAllByRole("link")).toHaveLength(0);
-        expect(row.getAllByRole("button")).toHaveLength(1);
+        expect(row.queryAllByRole("button")).toHaveLength(0);
         expect(
           row.queryByRole("button", { name: /Play|Like|Unlike|Details/ }),
         ).toBeNull();
@@ -219,6 +219,7 @@ test("retained playlists remain editable and known recordings resolve audio only
     }
     const beforeRemoval = fetch.mock.calls.length;
     const removed = props.detail.entries[1];
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(
       within(rows[1]).getByRole("button", {
         name: `Remove ${removed.title} from playlist`,

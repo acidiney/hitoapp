@@ -8,7 +8,7 @@ import LibrarySpotlight from "../components/LibrarySpotlight";
 
 export default function CatalogPage(props: CatalogPageProps) {
   const { scan, scanning } = useScanJob(props.user.id, props.libraries[0]?.id);
-  const description = `${props.recordings.total.toLocaleString()} tracks${props.query ? ` matching “${props.query}”` : ""}`;
+  const description = `${props.recordings.total.toLocaleString()} ${props.recordings.total === 1 ? "track" : "tracks"}${props.query ? ` matching “${props.query}”` : ""}`;
   return (
     <>
       <PageHeading title="Your library" description={description}>

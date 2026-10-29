@@ -2,6 +2,8 @@ import { Link } from "@inertiajs/react";
 import type { AlbumPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { time } from "../../../shared/format";
+import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
+import PlayShuffle from "../../playback/components/PlayShuffle";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
@@ -23,34 +25,60 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
   const listing = releaseTracksListing(user.id, release.id, page);
   return (
     <>
-      <section className="collection-hero album-hero">
-        <Artwork release={release.id} />
-        <div>
-          <span>Album</span>
-          <h1>{release.title}</h1>
-          {release.artist !== null && release.artist_id !== null ? (
-            <Link
-              className="credit-link"
-              href={`/artists/${encodeURIComponent(release.artist_id)}`}
-            >
-              {release.artist}
-            </Link>
-          ) : (
-            <span className="muted">Album artist not provided</span>
-          )}
-          <p>
-            {release.track_count}{" "}
-            {release.track_count === 1 ? "track" : "tracks"} ·{" "}
-            {time(release.duration_ms / 1000)}
-          </p>
-          <Link
-            className="text-link"
-            href={`/albums/${encodeURIComponent(release.id)}/details`}
-          >
-            Edit album details
-          </Link>
+      <header className="album-header">
+        <Breadcrumbs
+          crumbs={[
+            { label: "Library", href: "/library" },
+            { label: "Albums", href: "/albums" },
+            { label: release.title },
+          ]}
+        />
+        <div className="album-header-body">
+          <div className="album-header-cover">
+            <Artwork
+              release={release.id}
+              fallback={{
+                id: release.id,
+                title: release.title,
+                artist: release.artist,
+              }}
+            />
+          </div>
+          <div className="album-header-copy">
+            <span className="album-eyebrow">Album</span>
+            <h1>{release.title}</h1>
+            {release.artist !== null && release.artist_id !== null ? (
+              <Link
+                className="album-artist"
+                href={`/artists/${encodeURIComponent(release.artist_id)}`}
+              >
+                {release.artist}
+              </Link>
+            ) : (
+              <span className="muted">Album artist not provided</span>
+            )}
+            <span className="album-stats">
+              {release.track_count}{" "}
+              {release.track_count === 1 ? "track" : "tracks"} ·{" "}
+              {time(release.duration_ms / 1000)}
+            </span>
+            <div className="album-actions">
+              <PlayShuffle
+                tracks={tracks}
+                listing={listing}
+                label="album"
+                tone="plain"
+              />
+              <Link
+                className="button"
+                href={`/albums/${encodeURIComponent(release.id)}/details`}
+              >
+                Edit album details
+              </Link>
+            </div>
+          </div>
         </div>
-      </section>
+      </header>
       <ArtworkStatus release={release.id} />
       {tracks.length ? (
         <>
@@ -58,6 +86,7 @@ export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
             tracks={tracks}
             listing={listing}
             label="album"
+            withPlay={false}
             description={
               page.items.some((track) => track.track_number != null)
                 ? "Ordered by disc and track tags"

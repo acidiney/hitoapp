@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { enterAdmin } from "./fixtures/admin-session";
 import { openLibrarySection } from "./fixtures/library-sections";
+import { enterEditMode } from "./fixtures/playlist-edit";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -474,6 +475,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("heading", { name: "Docker favorites", exact: true }),
   ).toBeVisible();
+  await enterEditMode(page);
   await expect(
     page.getByRole("button", {
       name: "Remove Fixture 440 Hz from playlist",

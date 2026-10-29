@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
 import type { components } from "../src/generated";
+import { enterEditMode } from "./fixtures/playlist-edit";
 type Schema = components["schemas"];
 type Target = {
   label: string;
@@ -330,6 +331,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         { kind: "canonical", playlist_id: fixture.detail.id },
       ],
     ]);
+    await enterEditMode(page);
     const observedRequests = fixture.requests.length;
     await layouts(
       page,
@@ -346,6 +348,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     fixture.offline();
     await page.reload();
     await expect(rows).toHaveCount(4);
+    await enterEditMode(page);
     expect(await (await page.request.get(detailPath)).json()).toEqual(detail);
     await page.goto("/settings?section=plugins");
     const plugin = page.getByRole("listitem").filter({

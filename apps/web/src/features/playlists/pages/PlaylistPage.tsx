@@ -2,6 +2,12 @@ import { router } from "@inertiajs/react";
 import type { PlaylistPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
+import CollectionHeader from "../../../shared/ui/CollectionHeader";
+import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
+import { tintFor } from "../../../shared/ui/collectionTint";
+import PlayShuffle from "../../playback/components/PlayShuffle";
+import PlaylistRename from "../components/PlaylistRename";
+import { usePlaylistEdit } from "../hooks/usePlaylistEdit";
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
@@ -78,33 +84,84 @@ export default function PlaylistPage({
       Delete playlist
     </button>
   );
+  const edit = usePlaylistEdit(user.id, detail.playlist.id, detail.entries);
+  const editable = detail.playlist.kind === "local";
+  const ready = detail.entries.filter(
+    (entry) => entry.recording_id != null && entry.available,
+  ).length;
+  const stats = `${entryCount} ${entryCount === 1 ? "entry" : "entries"} · ${ready} ready${
+    entryCount > ready ? ` · ${entryCount - ready} unavailable` : ""
+  }`;
   return (
     <>
-      <section className="collection-hero">
-        <Artwork
-          playlistId={copied ? detail.playlist.id : undefined}
-          recording={copied ? undefined : tracks[0]?.id}
-          playlist
+      <CollectionHeader
+        tint={tintFor(detail.playlist.id)}
+        size="playlist"
+        crumbs={
+          <Breadcrumbs
+            crumbs={[
+              { label: "Library", href: "/library" },
+              { label: "Playlists", href: "/playlists" },
+              { label: detail.playlist.name },
+            ]}
+          />
+        }
+        cover={
+          <Artwork
+            playlistId={copied ? detail.playlist.id : undefined}
+            recording={copied ? undefined : tracks[0]?.id}
+            fallback={{
+              id: detail.playlist.id,
+              title: detail.playlist.name,
+              artist: "Playlist",
+            }}
+            playlist
+          />
+        }
+        eyebrow={
+          followed
+            ? "Playlist · followed"
+            : detail.origin
+              ? "Playlist · imported copy"
+              : "Playlist · yours"
+        }
+        title={detail.playlist.name}
+        stats={stats}
+        actions={
+          <>
+            <PlayShuffle tracks={tracks} label="playlist" />
+            {editable && (
+              <button
+                type="button"
+                className="button tint-secondary"
+                aria-pressed={edit.editing}
+                onClick={() => edit.setEditing(!edit.editing)}
+              >
+                {edit.editing ? "Done" : "Edit"}
+              </button>
+            )}
+          </>
+        }
+      />
+      {detail.origin && (
+        <p className="origin-note">
+          <span>{detail.origin.attribution.label}</span>
+          {" · "}
+          <span>
+            {followed
+              ? "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play."
+              : "Editable copy. Provider changes will not update it. Tracks need an available source to play."}
+          </span>
+        </p>
+      )}
+      {edit.editing && editable && (
+        <PlaylistRename
+          key={detail.playlist.name}
+          name={detail.playlist.name}
+          pending={edit.pending}
+          save={edit.rename}
         />
-        <div>
-          <span>{followed ? "Followed playlist" : "Your playlist"}</span>
-          <h1>{detail.playlist.name}</h1>
-          <p>
-            {entryCount} {entryCount === 1 ? "entry" : "entries"} ·{" "}
-            {followed ? "Updated by its provider" : "Collected by you"}
-          </p>
-          {detail.origin && (
-            <>
-              <p>{detail.origin.attribution.label}</p>
-              <p>
-                {followed
-                  ? "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play."
-                  : "Editable copy. Provider changes will not update it. Tracks need an available source to play."}
-              </p>
-            </>
-          )}
-        </div>
-      </section>
+      )}
       {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
       <PlaylistDownload
         account={user.id}
@@ -121,11 +178,7 @@ export default function PlaylistPage({
       )}
       {entryCount > 0 ? (
         <>
-          <TrackToolbar
-            tracks={tracks}
-            label="playlist"
-            description={`${entryCount} ${entryCount === 1 ? "entry" : "entries"}`}
-          >
+          <TrackToolbar tracks={tracks} label="playlist" withPlay={false}>
             {deletion}
           </TrackToolbar>
           <TrackTable
@@ -133,6 +186,11 @@ export default function PlaylistPage({
             playlists={playlists}
             playlist={detail.playlist}
             mutate={mutate}
+            edit={{
+              active: edit.editing && editable,
+              busy: edit.pending,
+              move: (id, delta) => void edit.move(id, delta),
+            }}
           />
         </>
       ) : (

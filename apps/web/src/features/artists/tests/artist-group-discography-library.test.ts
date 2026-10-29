@@ -176,12 +176,12 @@ test("a type filter narrows the loaded releases and long sections page locally",
     within(region).getByRole("button", { name: "Show more albums" }),
   );
   expect(list.children).toHaveLength(14);
-  fireEvent.click(within(region).getByRole("button", { name: "EPs only" }));
+  fireEvent.click(within(region).getByRole("button", { name: "EPs · 1" }));
   expect(within(region).queryByRole("region", { name: "Albums" })).toBeNull();
   expect(within(region).getByRole("region", { name: "EPs" })).toBeTruthy();
   expect(
     within(region)
-      .getByRole("button", { name: "EPs only" })
+      .getByRole("button", { name: "EPs · 1" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
 });
@@ -236,4 +236,97 @@ test("a provider outage is retryable while the rest of the artist page works", a
   expect(screen.getByRole("heading", { name: "Libraries" })).toBeTruthy();
   fireEvent.click(within(region).getByRole("button", { name: "Try again" }));
   await within(region).findByRole("heading", { name: /Albums|Other releases/ });
+});
+
+test("each release shows one availability state and the missing-only filter hides complete releases", async () => {
+  const http = artistGroupHttp();
+  http.reply(
+    "discography",
+    page(
+      [
+        release("rg:complete", "album", "Complete one"),
+        release("rg:partial", "album", "Partial one"),
+        release("rg:absent", "ep", "Absent one"),
+      ],
+      null,
+    ),
+  );
+  http.replyLibrary({
+    association_id: artistAssociation.id,
+    groups: [
+      {
+        release_group_id: "rg:complete",
+        albums: [
+          {
+            release_id: "album-a",
+            edition_id: "edition:1",
+            track_count: 4,
+            playable_count: 4,
+          },
+        ],
+      },
+      {
+        release_group_id: "rg:partial",
+        albums: [
+          {
+            release_id: "album-b",
+            edition_id: "edition:2",
+            track_count: 10,
+            playable_count: 6,
+          },
+        ],
+      },
+      { release_group_id: "rg:absent", albums: [] },
+    ],
+  });
+  const region = await open();
+  await within(region).findByText("Partial · 6 of 10");
+  expect(within(region).getByText("In library")).toBeTruthy();
+  expect(within(region).getByText("Catalog only")).toBeTruthy();
+  const missing = within(region).getByRole("button", {
+    name: "Only what I'm missing",
+  });
+  expect(missing.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(missing);
+  expect(missing.getAttribute("aria-pressed")).toBe("true");
+  expect(
+    within(region).queryByRole("heading", { name: "Complete one" }),
+  ).toBeNull();
+  expect(
+    within(region).getByRole("heading", { name: "Partial one" }),
+  ).toBeTruthy();
+  expect(
+    within(region).getByRole("heading", { name: "Absent one" }),
+  ).toBeTruthy();
+  fireEvent.click(missing);
+  expect(
+    within(region).getByRole("heading", { name: "Complete one" }),
+  ).toBeTruthy();
+});
+
+test("the release type control counts every type and keeps the all choice", async () => {
+  const http = artistGroupHttp();
+  http.reply(
+    "discography",
+    page(
+      [
+        release("rg:one", "album"),
+        release("rg:two", "album"),
+        release("rg:ep", "ep"),
+      ],
+      null,
+    ),
+  );
+  const region = await open();
+  await within(region).findByRole("heading", { name: "Albums (2)" });
+  const group = within(region).getByRole("group", { name: "Release types" });
+  expect(
+    within(group)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["All · 3", "Albums · 2", "EPs · 1"]);
+  fireEvent.click(within(group).getByRole("button", { name: "EPs · 1" }));
+  expect(within(region).queryByRole("region", { name: "Albums" })).toBeNull();
+  fireEvent.click(within(group).getByRole("button", { name: "All · 3" }));
+  expect(within(region).getByRole("region", { name: "Albums" })).toBeTruthy();
 });

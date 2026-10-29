@@ -24,7 +24,15 @@ export default function TrackGrid({
       {tracks.map((track, index) => (
         <article className="track-card" key={track.row_id}>
           <div className="track-card-cover">
-            <Artwork recording={track.id} />
+            <Artwork
+              recording={track.id}
+              release={track.release_id ?? undefined}
+              fallback={{
+                id: track.release_id ?? track.id,
+                title: track.album ?? track.title,
+                artist: track.artist,
+              }}
+            />
             <button
               className="card-play"
               aria-label={`Play ${track.title}`}

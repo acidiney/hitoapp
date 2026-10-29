@@ -1,7 +1,10 @@
 import type { ArtistPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
-import Artwork from "../../artwork/components/Artwork";
+import CollectionHeader from "../../../shared/ui/CollectionHeader";
+import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
+import { tintFor } from "../../../shared/ui/collectionTint";
+import PlayShuffle from "../../playback/components/PlayShuffle";
 import AlbumGrid from "../../catalog/components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -26,12 +29,22 @@ export default function ArtistPage({
   const listing = artistTracksListing(user.id, artist.id, recordings);
   return (
     <>
-      <section className="collection-hero artist-hero">
-        <Artwork recording={artist.artwork_recording_id ?? undefined} />
-        <div>
-          <span>From your collection</span>
-          <h1>{artist.name}</h1>
-          <p>
+      <CollectionHeader
+        tint={tintFor(releases.items[0]?.id ?? artist.id)}
+        size="artist"
+        crumbs={
+          <Breadcrumbs
+            crumbs={[
+              { label: "Library", href: "/library" },
+              { label: "Artists", href: "/artists" },
+              { label: artist.name },
+            ]}
+          />
+        }
+        eyebrow="Artist · credit in your library"
+        title={artist.name}
+        stats={
+          <>
             {artist.recording_count > 0 || artist.release_count === 0 ? (
               <>
                 {artist.recording_count}{" "}
@@ -45,9 +58,14 @@ export default function ArtistPage({
                 {artist.release_count === 1 ? "album" : "albums"}
               </>
             )}
-          </p>
-        </div>
-      </section>
+          </>
+        }
+        actions={
+          tracks.length > 0 ? (
+            <PlayShuffle tracks={tracks} listing={listing} />
+          ) : undefined
+        }
+      />
       <ArtistCreditIdentity account={user.id} artist={artist} />
       {releases.total > 0 && (
         <section aria-labelledby="artist-albums-title">
@@ -81,6 +99,7 @@ export default function ArtistPage({
               <TrackToolbar
                 tracks={tracks}
                 listing={listing}
+                withPlay={false}
                 description="Recording credits in your library"
               />
               <TrackTable

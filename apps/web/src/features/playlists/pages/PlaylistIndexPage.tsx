@@ -34,7 +34,7 @@ export default function PlaylistIndexPage({
     <>
       <PageHeading
         title="Playlists"
-        description="Make room for the music you come back to."
+        description={`${playlists.length} ${playlists.length === 1 ? "playlist" : "playlists"}`}
       />
       <form className="inline-form" id="new-playlist" onSubmit={create}>
         <label htmlFor="playlist-name">New playlist</label>
@@ -57,25 +57,32 @@ export default function PlaylistIndexPage({
         connections={connections}
         names={service_names}
       />
-      <div className="playlist-list">
-        {playlists.map((playlist) => (
-          <Link href={`/playlists/${playlist.id}`} key={playlist.id}>
-            <Artwork
-              playlistId={playlist.kind === "local" ? playlist.id : undefined}
-              playlist
-            />
-            <span>
+      {playlists.length > 0 && (
+        <div className="playlist-list">
+          {playlists.map((playlist) => (
+            <Link href={`/playlists/${playlist.id}`} key={playlist.id}>
+              <Artwork
+                playlistId={playlist.kind === "local" ? playlist.id : undefined}
+                fallback={{
+                  id: playlist.id,
+                  title: playlist.name,
+                  artist: "Playlist",
+                  inline: false,
+                }}
+                playlist
+              />
               <strong>{playlist.name}</strong>
               <small>
-                {playlist.kind === "followed"
-                  ? "Followed playlist"
-                  : "Your playlist"}
+                {playlist.kind === "followed" ? (
+                  <span className="badge">Following</span>
+                ) : (
+                  "Your playlist"
+                )}
               </small>
-            </span>
-            <span aria-hidden="true">→</span>
-          </Link>
-        ))}
-      </div>
+            </Link>
+          ))}
+        </div>
+      )}
       {playlists.length === 0 && (
         <EmptyState
           title="A home for your favorites"

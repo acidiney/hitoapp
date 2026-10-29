@@ -10,3 +10,10 @@ export function errorMessage(error: unknown) {
     ? error.message
     : "Hito could not complete this request.";
 }
+
+export function longDuration(seconds: number) {
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  return minutes >= 60
+    ? `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+    : `${minutes} min`;
+}

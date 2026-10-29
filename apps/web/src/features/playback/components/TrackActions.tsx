@@ -1,5 +1,6 @@
 import { createUuid } from "../../../shared/uuid";
 import { Link, router } from "@inertiajs/react";
+import type { ReactNode } from "react";
 import { Heart, Info, X } from "lucide-react";
 import type { Action, Playlist } from "../../../shared/types";
 import type { Mutate } from "../../../shared/hooks/useMutation";
@@ -42,7 +43,11 @@ export default function TrackActions({
   playlist,
   mutate,
   onMutationAccepted,
+  editing = false,
+  children,
 }: {
+  editing?: boolean;
+  children?: ReactNode;
   track: TrackRow;
   playlists: Playlist[];
   playlist?: Playlist;
@@ -79,8 +84,10 @@ export default function TrackActions({
       >
         <Heart size={17} fill={track.liked ? "currentColor" : "none"} />
       </button>
+      {children}
       {playlist
-        ? entryId && (
+        ? editing &&
+          entryId && (
             <PlaylistEntryRemove
               entryId={entryId}
               title={track.title}

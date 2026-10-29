@@ -1,7 +1,10 @@
 import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
 import { Link, usePage } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
-import Artwork from "../../artwork/components/Artwork";
+import CollectionHeader from "../../../shared/ui/CollectionHeader";
+import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
+import { tintFor } from "../../../shared/ui/collectionTint";
+import PlayShuffle from "../../playback/components/PlayShuffle";
 import AlbumGrid from "../../catalog/components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -39,24 +42,27 @@ export default function ArtistIdentityGroupPage({
   }
   return (
     <>
-      <section className="collection-hero artist-hero">
-        <Artwork recording={group.name.recording_id} />
-        <div>
-          <span>Chosen artist</span>
-          <h1>{group.name.value}</h1>
-          <p>
-            {group.recording_count}{" "}
-            {group.recording_count === 1 ? "track" : "tracks"}
-            {" · "}
-            {group.release_count}{" "}
-            {group.release_count === 1 ? "album" : "albums"}
-            {" · "}
-            {group.library_count}{" "}
-            {group.library_count === 1 ? "library" : "libraries"}
-          </p>
-          <p>Tracks grouped by your reviewed artist choices.</p>
-        </div>
-      </section>
+      <CollectionHeader
+        tint={tintFor(releases.items[0]?.id ?? group.id)}
+        size="artist"
+        crumbs={
+          <Breadcrumbs
+            crumbs={[
+              { label: "Library", href: "/library" },
+              { label: "Artists", href: "/artists" },
+              { label: group.name.value },
+            ]}
+          />
+        }
+        eyebrow="Chosen artist"
+        title={group.name.value}
+        stats={`${group.recording_count} ${group.recording_count === 1 ? "track" : "tracks"} · ${group.release_count} ${group.release_count === 1 ? "album" : "albums"} · ${group.library_count} ${group.library_count === 1 ? "library" : "libraries"}`}
+        actions={
+          tracks.length > 0 ? (
+            <PlayShuffle tracks={tracks} listing={listing} />
+          ) : undefined
+        }
+      />
       <ArtistGroupDiscography account={user.id} group={group} />
       <SimilarArtists account={user.id} group={group} />
       <ArtistIdentityCorrections
@@ -144,6 +150,7 @@ export default function ArtistIdentityGroupPage({
               <TrackToolbar
                 tracks={tracks}
                 listing={listing}
+                withPlay={false}
                 description="Tracks with your chosen artist identity"
               />
               <TrackTable

@@ -16,7 +16,14 @@ export default function AlbumGrid({ releases }: { releases: Release[] }) {
                 : `Open ${release.title}`
             }
           >
-            <Artwork release={release.id} />
+            <Artwork
+              release={release.id}
+              fallback={{
+                id: release.id,
+                title: release.title,
+                artist: release.artist,
+              }}
+            />
           </Link>
           <h2>
             <Link href={`/albums/${encodeURIComponent(release.id)}`}>

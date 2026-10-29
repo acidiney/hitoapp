@@ -75,11 +75,74 @@ async function seedLibrary(page: Page) {
   ).toBeVisible();
 }
 
+async function fillPlaylist(page: Page) {
+  await page.goto("/library");
+  const adders = page.getByLabel(/^Add .* to playlist$/);
+  await expect(adders.first()).toBeVisible();
+  for (let index = 0; index < 4; index += 1) {
+    await adders.nth(index).selectOption({ label: "Late night" });
+    await page.waitForTimeout(400);
+  }
+  for (let index = 0; index < 3; index += 1) {
+    await page
+      .getByRole("button", { name: /^Like / })
+      .first()
+      .click();
+    await page.waitForTimeout(400);
+  }
+}
+
+async function captureCollections(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await fillPlaylist(page);
+  for (const size of sizes) {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto("/library");
+    await shoot(page, "library-tracks", size.name);
+    await page.getByRole("button", { name: "List view" }).click();
+    await shoot(page, "library-tracks-list", size.name);
+    await page.goto("/albums");
+    await shoot(page, "albums", size.name);
+    await page.goto("/artists");
+    await shoot(page, "artists", size.name);
+    await page.goto("/playlists");
+    await shoot(page, "playlists", size.name);
+    await page.goto("/likes");
+    await shoot(page, "likes", size.name);
+    await page.goto("/history");
+    await shoot(page, "history", size.name);
+    await page.goto("/artists");
+    await page
+      .locator(".artist-grid a")
+      .filter({ hasText: "Lume Areia" })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/artists\//);
+    await shoot(page, "artist-credit", size.name);
+    await page.goto("/albums");
+    await page.locator(".album-grid a").first().click();
+    await expect(page).toHaveURL(/\/albums\//);
+    await shoot(page, "album", size.name);
+    await page.goto("/playlists");
+    await page
+      .getByRole("link", { name: /Late night/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/playlists\//);
+    await shoot(page, "playlist", size.name);
+    const edit = page.getByRole("button", { name: "Edit", exact: true });
+    if (await edit.isVisible()) {
+      await edit.click();
+      await shoot(page, "playlist-edit", size.name);
+    }
+  }
+}
+
 test("capture every redesigned surface at desktop and phone width", async ({
   page,
   browser,
 }) => {
-  test.setTimeout(240000);
+  test.setTimeout(420000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await seedLibrary(page);
   const tabs = page.getByRole("navigation", { name: "Main navigation" });
@@ -117,6 +180,7 @@ test("capture every redesigned surface at desktop and phone width", async ({
       await shoot(page, `settings-${section}`, size.name);
     }
   }
+  await captureCollections(page);
   const guest = await browser.newContext({
     storageState: { cookies: [], origins: [] },
   });

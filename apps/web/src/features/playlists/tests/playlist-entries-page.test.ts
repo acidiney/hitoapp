@@ -108,13 +108,14 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
     recordingA,
   ]);
   expect(new Set(queue.entries.map((entry) => entry.id)).size).toBe(3);
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   const retained = within(rows[1]);
   expect(retained.queryAllByRole("link")).toHaveLength(0);
   expect(rows[1].querySelector("img")).toBeNull();
   expect(
     retained.queryByRole("button", { name: /Play|Like|Unlike|Details/ }),
   ).toBeNull();
-  expect(retained.getAllByRole("button")).toHaveLength(1);
+  expect(retained.getAllByRole("button")).toHaveLength(3);
   expect(retained.getAllByRole("cell")[4].textContent?.trim()).toBe("—");
   fireEvent.click(
     retained.getByRole("button", {

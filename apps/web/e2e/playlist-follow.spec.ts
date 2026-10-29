@@ -14,6 +14,7 @@ import {
   setUpSpotifyYouTubeLiveAccount as setUpDisposableFollowAccount,
 } from "./fixtures/spotify-youtube-live";
 import { openLibrarySection } from "./fixtures/library-sections";
+import { enterEditMode } from "./fixtures/playlist-edit";
 
 type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -173,6 +174,7 @@ test.describe("isolated provider playlist Follow", () => {
         exact: true,
       });
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(5);
+      await enterEditMode(page);
       await expect(
         table.getByRole("button", { name: /^Remove .* from playlist$/ }),
       ).toHaveCount(5);

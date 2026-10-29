@@ -169,7 +169,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   const originalPlayer = player;
   const originalSelection = player.queueSnapshot();
   const originalQueue = await player.queuePage(0, 10);
-  const hero = () => container.querySelector(".collection-hero .artwork img");
+  const hero = () => container.querySelector(".tinted-header .artwork img");
   expect(hero()?.getAttribute("src")).toBe(image);
   const artworkCalls = () =>
     fetch.mock.calls.filter(([path]) => path.includes("artwork"));

@@ -53,7 +53,7 @@ export default function CatalogResults({
             description={
               recordings.total > recordings.limit
                 ? `Showing ${recordings.offset + 1}–${recordings.offset + tracks.length}`
-                : "Original audio"
+                : ""
             }
           >
             <div className="view-toggle" role="group" aria-label="Library view">

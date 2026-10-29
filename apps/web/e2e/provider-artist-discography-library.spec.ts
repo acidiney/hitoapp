@@ -114,7 +114,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     await expect(albums.nth(1)).toContainText("Not linked to a library album");
     await expect(region.getByText("Not linked to a library album")).toHaveCount(4);
 
-    await region.getByRole("button", { name: "EPs only" }).click();
+    await region.getByRole("button", { name: /^EPs · \d+$/ }).click();
     await expect(region.getByRole("heading", { name: "Albums (2)" })).toHaveCount(0);
     await expect(region.getByRole("heading", { name: "EPs (1)" })).toBeVisible();
 

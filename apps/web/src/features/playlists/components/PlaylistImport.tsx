@@ -4,6 +4,7 @@ import {
   useProviderPlaylist,
   type PlaylistCreationMode,
 } from "../hooks/useProviderPlaylist";
+import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import type {
   PlaylistFollowInterval,
   PluginInstallation,
@@ -47,34 +48,24 @@ export default function PlaylistImport({
   return (
     <section className="playlist-import" aria-label="Import a playlist">
       <h2>Import a playlist</h2>
-      <p className="muted">
+      <p className="muted import-explain">
         {mode === "copy"
           ? "Create an editable copy. Changes at the provider will not update it. Copying a playlist adds its track details, without downloading audio. Tracks need an available source to play."
           : "Follow a read-only playlist. Hito checks its provider for changes to tracks and their order. Following adds track details, without downloading audio. Tracks need an available source to play."}
       </p>
       {selected ? (
         <form className="playlist-import-form" onSubmit={submit}>
-          <fieldset>
-            <legend>Playlist behavior</legend>
-            <label>
-              <input
-                type="radio"
-                name="playlist-behavior"
-                checked={mode === "copy"}
-                onChange={() => setMode("copy")}
-              />
-              Import a copy
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="playlist-behavior"
-                checked={mode === "follow"}
-                onChange={() => setMode("follow")}
-              />
-              Follow playlist
-            </label>
-          </fieldset>
+          <div className="import-mode">
+            <SegmentedControl
+              label="Playlist behavior"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "copy", label: "Import a copy" },
+                { value: "follow", label: "Follow playlist" },
+              ]}
+            />
+          </div>
           <label>
             Playlist service
             <select

@@ -7,6 +7,7 @@ import type { PlaybackStart, Track } from "../model";
 import type { Playlist, PlaylistEntry } from "../../../shared/types";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
+import EntryMoves from "./EntryMoves";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
@@ -29,6 +30,12 @@ export type TrackTableRow =
       entry: Pick<PlaylistEntry, "entry_id" | "title" | "artist" | "origin">;
     };
 
+export type PlaylistEdit = {
+  active: boolean;
+  busy: boolean;
+  move(entryId: string, delta: -1 | 1): void;
+};
+
 export default function TrackTable({
   rows,
   offset = 0,
@@ -36,7 +43,9 @@ export default function TrackTable({
   playlist,
   mutate,
   listing,
+  edit,
 }: {
+  edit?: PlaylistEdit;
   rows: TrackTableRow[];
   listing?: TrackListing;
   offset?: number;
@@ -117,6 +126,11 @@ export default function TrackTable({
                     <Artwork
                       release={track.release_id ?? undefined}
                       recording={track.id}
+                      fallback={{
+                        id: track.release_id ?? track.id,
+                        title: track.album ?? track.title,
+                        artist: track.artist,
+                      }}
                     />
                   ) : (
                     <Artwork />
@@ -142,7 +156,14 @@ export default function TrackTable({
                       </small>
                     ) : (
                       !row.track.available && (
-                        <small>Unavailable on this device</small>
+                        <small className="availability" data-state="catalog">
+                          <span
+                            className="ring"
+                            data-ring="catalog"
+                            aria-hidden="true"
+                          />
+                          Unavailable on this device
+                        </small>
                       )
                     )}
                     <span className="mobile-artist">{display.artist}</span>
@@ -169,10 +190,28 @@ export default function TrackTable({
                       track={track}
                       playlists={playlists}
                       playlist={playlist}
+                      editing={edit?.active ?? false}
                       mutate={mutate}
-                    />
-                  ) : row.kind === "retained" && playlist ? (
+                    >
+                      {edit?.active && (
+                        <EntryMoves
+                          entryId={track.entry_id ?? track.row_id}
+                          title={track.title}
+                          first={index === 0}
+                          last={index === rows.length - 1}
+                          edit={edit}
+                        />
+                      )}
+                    </TrackActions>
+                  ) : row.kind === "retained" && playlist && edit?.active ? (
                     <div className="track-actions">
+                      <EntryMoves
+                        entryId={row.entry.entry_id}
+                        title={row.entry.title}
+                        first={index === 0}
+                        last={index === rows.length - 1}
+                        edit={edit}
+                      />
                       <PlaylistEntryRemove
                         entryId={row.entry.entry_id}
                         title={row.entry.title}

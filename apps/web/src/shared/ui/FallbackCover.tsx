@@ -5,10 +5,13 @@ export default function FallbackCover({
   id,
   title,
   artist,
+  inline = true,
 }: {
   id: string;
   title: string;
   artist?: string | null;
+  /** When false the title is painted by CSS so it is not duplicated in page text. */
+  inline?: boolean;
 }) {
   const style = coverStyle(id);
   const colours = {
@@ -25,7 +28,12 @@ export default function FallbackCover({
       style={colours}
     >
       {artist && <span className="fallback-cover-artist">{artist}</span>}
-      <span className="fallback-cover-title">{title}</span>
+      <span
+        className="fallback-cover-title"
+        data-text={inline ? undefined : title}
+      >
+        {inline ? title : null}
+      </span>
     </div>
   );
 }

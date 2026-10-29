@@ -21,7 +21,17 @@ export default function LibrarySpotlight({
   return (
     <div className="library-feature-row">
       <section className="library-spotlight" aria-label="Library spotlight">
-        <Artwork recording={track.id} />
+        <Artwork
+          recording={track.id}
+          fallback={{
+            id: track.release_id ?? track.id,
+            title:
+              track.album && track.album !== "Unknown album"
+                ? track.album
+                : track.title,
+            artist: track.artist,
+          }}
+        />
         <div className="spotlight-copy">
           <span className="spotlight-label">From your collection</span>
           <h2>{track.title}</h2>

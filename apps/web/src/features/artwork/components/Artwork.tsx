@@ -7,6 +7,7 @@ export type CoverIdentity = {
   id: string;
   title: string;
   artist?: string | null;
+  inline?: boolean;
 };
 
 export default function Artwork({
