@@ -1,12 +1,16 @@
-use crate::{AudioFormat, Decoded, Decoder, Result, resample::Decimator};
+use crate::{
+    AudioFormat, Decoded, Decoder, Result,
+    resample::{Decimator, Resampler},
+};
 use std::time::Duration;
 use symphonia::core::audio::{Channels, Position};
 
 const CENTER: f32 = std::f32::consts::FRAC_1_SQRT_2;
 
 /// Presents a decoded source in the representation the output device path
-/// accepts: at most 192 kHz and at most two channels. A source that already has
-/// such a representation is forwarded unchanged.
+/// accepts: at most 192 kHz (or the rate the device negotiated) and at most two
+/// channels. A source that already has such a representation is forwarded
+/// unchanged.
 pub struct Converter {
     decoder: Decoder,
     output: AudioFormat,
@@ -18,8 +22,8 @@ struct Stage {
     output_channels: usize,
     mix: Option<Vec<[f32; 2]>>,
     limiter: Option<Limiter>,
-    decimator: Option<Decimator>,
-    factor: u64,
+    rate: Option<Rate>,
+    ratio: f64,
     source_rate: f64,
     duration: Option<Duration>,
     mixed: Vec<f32>,
@@ -31,6 +35,47 @@ struct Stage {
     finished: bool,
 }
 
+enum Rate {
+    Decimate(Decimator),
+    Resample(Resampler),
+}
+
+impl Rate {
+    fn new(source: u32, output: u32, channels: usize) -> Option<Self> {
+        if source == output {
+            None
+        } else if source > output && source.is_multiple_of(output) {
+            Some(Self::Decimate(Decimator::new(
+                (source / output) as usize,
+                channels,
+            )))
+        } else {
+            Some(Self::Resample(Resampler::new(source, output, channels)))
+        }
+    }
+
+    fn push(&mut self, input: &[f32], output: &mut Vec<f32>) {
+        match self {
+            Self::Decimate(stage) => stage.push(input, output),
+            Self::Resample(stage) => stage.push(input, output),
+        }
+    }
+
+    fn finish(&mut self, output: &mut Vec<f32>) {
+        match self {
+            Self::Decimate(stage) => stage.finish(output),
+            Self::Resample(stage) => stage.finish(output),
+        }
+    }
+
+    fn reset(&mut self) {
+        match self {
+            Self::Decimate(stage) => stage.reset(),
+            Self::Resample(stage) => stage.reset(),
+        }
+    }
+}
+
 /// Maps converted frames to media time. A segment starts at the first packet
 /// after a start, a seek, or a gap in packet times.
 #[derive(Default, Clone, Copy)]
@@ -40,11 +85,30 @@ struct Segment {
 }
 
 impl Converter {
+    /// Presents the source at the rate and channel count the output path accepts
+    /// without a device: the source itself unless it is above 192 kHz or has
+    /// more than two channels.
     pub fn new(decoder: Decoder) -> Self {
+        let output = decoder.format().output_format();
+        Self::with_output(decoder, output.sample_rate, output.channels)
+    }
+
+    /// Presents the source at a rate and channel count the output device
+    /// negotiated. A source with more than two channels is mixed to stereo; a
+    /// mono source is duplicated when stereo is requested.
+    pub fn with_output(decoder: Decoder, sample_rate: u32, channels: u16) -> Self {
         let source = decoder.format();
-        let output = source.output_format();
-        let stage = source
-            .requires_conversion()
+        let channels = if source.channels == 1 {
+            channels.clamp(1, 2)
+        } else {
+            source.channels.min(2)
+        };
+        let output = AudioFormat {
+            sample_rate,
+            channels,
+            duration: source.duration,
+        };
+        let stage = (source.sample_rate != sample_rate || source.channels != channels)
             .then(|| Stage::new(source, output, decoder.layout()));
         tracing::debug!(
             event = "audio_conversion_configured",
@@ -110,15 +174,22 @@ impl Converter {
 
 impl Stage {
     fn new(source: AudioFormat, output: AudioFormat, layout: &Channels) -> Self {
-        let factor = source.decimation() as usize;
-        let mix = (source.channels > 2).then(|| downmix(layout));
+        let mix = match source.channels {
+            3.. => Some(downmix(layout)),
+            1 if output.channels == 2 => Some(vec![[1., 1.]]),
+            _ => None,
+        };
         Stage {
             source_channels: usize::from(source.channels),
             output_channels: usize::from(output.channels),
-            limiter: mix.is_some().then(|| Limiter::new(output.sample_rate)),
+            limiter: (source.channels > 2).then(|| Limiter::new(output.sample_rate)),
             mix,
-            decimator: (factor > 1).then(|| Decimator::new(factor, usize::from(output.channels))),
-            factor: factor as u64,
+            rate: Rate::new(
+                source.sample_rate,
+                output.sample_rate,
+                usize::from(output.channels),
+            ),
+            ratio: f64::from(source.sample_rate) / f64::from(output.sample_rate),
             source_rate: f64::from(source.sample_rate),
             duration: source.duration,
             mixed: Vec::new(),
@@ -134,7 +205,7 @@ impl Stage {
     fn accept(&mut self, position: Duration, input: &[f32]) {
         let expected = self.segment.time.as_secs_f64()
             + (self.consumed - self.segment.consumed) as f64 / self.source_rate;
-        let tolerance = self.factor as f64 / self.source_rate;
+        let tolerance = self.ratio.ceil().max(1.) / self.source_rate;
         if !self.started || (position.as_secs_f64() - expected).abs() > tolerance {
             self.segment = Segment {
                 time: position,
@@ -148,7 +219,7 @@ impl Stage {
 
     /// The media position of the samples ready to be read, which are then consumed.
     fn emitted(&mut self) -> Duration {
-        let offset = (self.produced * self.factor) as f64 - self.segment.consumed as f64;
+        let offset = self.produced as f64 * self.ratio - self.segment.consumed as f64;
         let seconds = self.segment.time.as_secs_f64() + offset / self.source_rate;
         let position = Duration::try_from_secs_f64(seconds.max(0.)).unwrap_or_default();
         self.produced += (self.samples.len() / self.output_channels) as u64;
@@ -171,8 +242,8 @@ impl Stage {
             input
         };
         let ready = self.samples.len();
-        match &mut self.decimator {
-            Some(decimator) => decimator.push(mixed, &mut self.samples),
+        match &mut self.rate {
+            Some(rate) => rate.push(mixed, &mut self.samples),
             None => self.samples.extend_from_slice(mixed),
         }
         self.limit(ready);
@@ -181,8 +252,8 @@ impl Stage {
     fn finish(&mut self) {
         self.finished = true;
         let ready = self.samples.len();
-        if let Some(decimator) = &mut self.decimator {
-            decimator.finish(&mut self.samples);
+        if let Some(rate) = &mut self.rate {
+            rate.finish(&mut self.samples);
         }
         self.limit(ready);
     }
@@ -194,8 +265,8 @@ impl Stage {
     }
 
     fn reset(&mut self) {
-        if let Some(decimator) = &mut self.decimator {
-            decimator.reset();
+        if let Some(rate) = &mut self.rate {
+            rate.reset();
         }
         if let Some(limiter) = &mut self.limiter {
             limiter.reset();

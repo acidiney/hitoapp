@@ -375,3 +375,158 @@ fn a_loud_surround_mix_is_limited_below_full_scale_and_recovers() {
         &tail[..4]
     );
 }
+
+fn device_converter(
+    rate: u32,
+    channels: u16,
+    frames: u32,
+    target: (u32, u16),
+    sample: impl Fn(u32, u16) -> i16,
+) -> Converter {
+    let decoder = Decoder::open(support::wave(rate, channels, frames, sample)).unwrap();
+    Converter::with_output(decoder, target.0, target.1)
+}
+
+const DEVICE_PAIRS: [(u32, u32); 7] = [
+    (176_400, 48_000),
+    (192_000, 44_100),
+    (96_000, 48_000),
+    (44_100, 48_000),
+    (384_000, 48_000),
+    (352_800, 44_100),
+    (48_000, 44_100),
+];
+
+#[test]
+fn a_device_rate_conversion_keeps_the_frame_count_tone_level_and_frequency() {
+    for (source, target) in DEVICE_PAIRS {
+        let mut converted = device_converter(source, 1, source, (target, 1), |frame, _| {
+            tone(source, 1_000., 16_384., frame)
+        });
+        assert_eq!(converted.format().sample_rate, target, "{source}->{target}");
+        assert_eq!(converted.format().duration, Some(Duration::from_secs(1)));
+        let output = drain(&mut converted);
+        assert_eq!(output.frames, target as usize, "{source}->{target} frames");
+        let body = &output.samples[2_000..output.frames - 2_000];
+        assert!(
+            (amplitude(body, target, 1_000.) - 0.5).abs() < 0.005,
+            "{source}->{target} level {}",
+            amplitude(body, target, 1_000.)
+        );
+        assert!(
+            amplitude(body, target, 1_100.) < 0.002,
+            "{source}->{target}"
+        );
+        assert!(
+            amplitude(body, target, 2_000.) < 0.002,
+            "{source}->{target}"
+        );
+    }
+}
+
+#[test]
+fn a_tone_above_the_device_nyquist_is_rejected_instead_of_folding() {
+    for (source, target, hertz, folded) in [
+        (192_000, 44_100, 30_000., 14_100.),
+        (176_400, 48_000, 30_000., 18_000.),
+        (384_000, 48_000, 30_000., 18_000.),
+        (96_000, 44_100, 30_000., 14_100.),
+    ] {
+        let mut converted = device_converter(source, 1, source, (target, 1), |frame, _| {
+            tone(source, hertz, 16_384., frame)
+        });
+        let output = drain(&mut converted);
+        let body = &output.samples[2_000..output.frames - 2_000];
+        let level = amplitude(body, target, folded);
+        assert!(
+            level < 0.0005,
+            "{source}->{target}: {hertz} Hz folded to {level}"
+        );
+        assert!(
+            body.iter().all(|sample| sample.abs() < 0.001),
+            "{source}->{target}"
+        );
+    }
+}
+
+#[test]
+fn a_device_rate_conversion_restarts_at_the_seek_target_and_flushes_at_the_end() {
+    for (source, target) in [(192_000, 44_100), (44_100, 48_000), (384_000, 48_000)] {
+        let mut converted = device_converter(source, 2, source * 2, (target, 2), |frame, _| {
+            tone(source, 1_000., 16_384., frame)
+        });
+        let first = converted.read().unwrap().unwrap().position;
+        assert_eq!(first, Duration::ZERO);
+        converted.seek(Duration::from_secs(1)).unwrap();
+        let block = converted.read().unwrap().unwrap();
+        assert!(
+            (block.position.as_secs_f64() - 1.).abs() < 1. / f64::from(target) + 1e-9,
+            "{source}->{target} resumed at {:?}",
+            block.position
+        );
+        let mut samples = block.samples.to_vec();
+        while let Some(block) = converted.read().unwrap() {
+            samples.extend_from_slice(block.samples);
+        }
+        assert_eq!(samples.len() / 2, target as usize, "{source}->{target}");
+        let left: Vec<f32> = samples
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|frame| frame[0])
+            .collect();
+        let body = &left[2_000..left.len() - 2_000];
+        assert!((amplitude(body, target, 1_000.) - 0.5).abs() < 0.005);
+        converted.seek(Duration::ZERO).unwrap();
+        assert_eq!(drain(&mut converted).frames, (target * 2) as usize);
+    }
+}
+
+#[test]
+fn the_requested_output_rate_equal_to_the_source_is_bit_exact() {
+    let sample = |frame: u32, channel: u16| ((frame % 97) as i16 - 48) * 300 + channel as i16 * 100;
+    let mut native = Decoder::open(support::wave(96_000, 2, 9_600, sample)).unwrap();
+    let mut converted = device_converter(96_000, 2, 9_600, (96_000, 2), sample);
+    assert_eq!(converted.format(), native.format());
+    while let Some(expected) = native.read().unwrap() {
+        let actual = converted.read().unwrap().unwrap();
+        assert_eq!(expected.samples, actual.samples);
+    }
+    assert!(converted.read().unwrap().is_none());
+}
+
+#[test]
+fn mono_is_duplicated_for_a_stereo_only_device() {
+    let mut converted = device_converter(48_000, 1, 4_800, (48_000, 2), |frame, _| {
+        tone(48_000, 1_000., 16_384., frame)
+    });
+    assert_eq!(converted.format().channels, 2);
+    let output = drain(&mut converted);
+    assert_eq!(output.frames, 4_800);
+    assert!(
+        output
+            .samples
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .all(|frame| frame[0] == frame[1])
+    );
+    assert!(output.samples.iter().any(|sample| sample.abs() > 0.4));
+}
+
+#[test]
+fn surround_and_a_device_rate_conversion_compose() {
+    let mut converted = device_converter(96_000, 6, 96_000, (44_100, 2), |frame, channel| {
+        if channel == 0 {
+            tone(96_000, 1_000., 16_384., frame)
+        } else {
+            0
+        }
+    });
+    assert_eq!(converted.format().sample_rate, 44_100);
+    assert_eq!(converted.format().channels, 2);
+    let output = drain(&mut converted);
+    assert_eq!(output.frames, 44_100);
+    let left = channel(&output, 2, 0);
+    assert!((amplitude(&left[2_000..42_000], 44_100, 1_000.) - 0.5).abs() < 0.005);
+}

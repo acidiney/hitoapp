@@ -51,8 +51,10 @@ impl AudioFormat {
         }
     }
 
-    /// The representation sent to the output device: the source itself unless it
-    /// is above 192 kHz or has more than two channels.
+    /// The representation the output path accepts before device negotiation: the
+    /// source itself unless it is above 192 kHz or has more than two channels. A
+    /// device that does not offer it receives the representation the player
+    /// negotiated instead, reported by `Player::output_format`.
     pub fn output_format(&self) -> AudioFormat {
         AudioFormat {
             sample_rate: self.sample_rate / self.decimation(),
