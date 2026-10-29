@@ -6,25 +6,52 @@ const LABS: &str = "https://labs.api.listenbrainz.org/";
 pub struct Config {
     pub(crate) endpoint: Url,
     pub(crate) min_interval: Duration,
+    pub(crate) contact: String,
+    pub(crate) service_bearer: String,
 }
 
 #[derive(Debug)]
 pub enum InitError {
     InvalidEndpoint,
+    InvalidContact,
+    InvalidServiceToken,
     HttpClient,
 }
 
 impl Config {
     /// The public ListenBrainz labs service, at most one request per second.
-    pub fn production() -> Result<Self, InitError> {
+    ///
+    /// `contact` is the operator's email address or web address, sent in the User-Agent as the
+    /// upstream rules require. `service_bearer` is the secret Hito presents on every request.
+    pub fn new(contact: &str, service_bearer: &str) -> Result<Self, InitError> {
+        let email = contact.contains('@') && !contact.contains("://");
+        let web = contact.starts_with("https://");
+        if !(email || web)
+            || contact.len() > 128
+            || !contact
+                .bytes()
+                .all(|byte| (0x21..=0x7e).contains(&byte) && byte != b'(' && byte != b')')
+        {
+            return Err(InitError::InvalidContact);
+        }
+        if service_bearer.is_empty()
+            || service_bearer.len() > 4096
+            || !service_bearer
+                .bytes()
+                .all(|byte| (0x21..=0x7e).contains(&byte))
+        {
+            return Err(InitError::InvalidServiceToken);
+        }
         Ok(Self {
             endpoint: Url::parse(LABS).map_err(|_| InitError::InvalidEndpoint)?,
             min_interval: Duration::from_secs(1),
+            contact: contact.to_owned(),
+            service_bearer: service_bearer.to_owned(),
         })
     }
 
     /// A different labs-compatible origin. Only HTTPS, or HTTP on loopback for local fakes.
-    pub fn with_endpoint(endpoint: Url) -> Result<Self, InitError> {
+    pub fn with_endpoint(mut self, endpoint: Url) -> Result<Self, InitError> {
         let loopback = matches!(
             endpoint.host_str(),
             Some("127.0.0.1" | "localhost" | "[::1]")
@@ -36,14 +63,12 @@ impl Config {
         {
             return Err(InitError::InvalidEndpoint);
         }
-        let min_interval = if loopback {
-            Duration::ZERO
-        } else {
-            Duration::from_secs(1)
-        };
-        Ok(Self {
-            endpoint,
-            min_interval,
-        })
+        self.endpoint = endpoint;
+        Ok(self)
+    }
+
+    pub fn with_min_interval(mut self, interval: Duration) -> Self {
+        self.min_interval = interval;
+        self
     }
 }

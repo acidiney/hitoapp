@@ -1,10 +1,12 @@
-use crate::config::{Config, InitError};
+use crate::{
+    config::{Config, InitError},
+    limiter::Limiter,
+};
 use hito_plugin_sdk::{
     ArtistSimilarityPage, ArtistSimilarityRequest, CatalogArtistRef, SimilarArtist,
 };
 use serde::Deserialize;
-use std::{collections::HashSet, sync::Arc, time::Duration};
-use tokio::{sync::Mutex, time::Instant};
+use std::{collections::HashSet, time::Duration};
 use url::Url;
 use uuid::Uuid;
 
@@ -30,8 +32,7 @@ struct Row {
 pub(crate) struct Labs {
     client: reqwest::Client,
     endpoint: Url,
-    min_interval: Duration,
-    next_start: Arc<Mutex<Option<Instant>>>,
+    limiter: Limiter,
 }
 
 impl Labs {
@@ -44,18 +45,17 @@ impl Labs {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(2))
             .timeout(Duration::from_secs(10))
-            .user_agent(concat!(
-                "Hito/",
+            .user_agent(format!(
+                "Hito/{} ListenBrainz-similarity-plugin ({})",
                 env!("CARGO_PKG_VERSION"),
-                " ListenBrainz-similarity-plugin (contact@example.invalid)"
+                config.contact
             ))
             .build()
             .map_err(|_| InitError::HttpClient)?;
         Ok(Self {
             client,
             endpoint: config.endpoint,
-            min_interval: config.min_interval,
-            next_start: Arc::default(),
+            limiter: Limiter::new(config.min_interval),
         })
     }
 
@@ -74,15 +74,45 @@ impl Labs {
         url.query_pairs_mut()
             .append_pair("artist_mbids", &request.artist_id)
             .append_pair("algorithm", ALGORITHM);
-        self.wait_for_start().await;
+        self.limiter
+            .reserve()
+            .await
+            .map_err(|()| Failure::Unavailable)?;
         let mut response = self
             .client
             .get(url)
             .send()
             .await
             .map_err(|_| Failure::Unavailable)?;
-        if !response.status().is_success() {
+        let status = response.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(ArtistSimilarityPage {
+                artist_id: request.artist_id.clone(),
+                items: Vec::new(),
+            });
+        }
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let wait = response
+                .headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse::<u64>().ok())
+                .unwrap_or(10)
+                .clamp(1, 300);
+            self.limiter.back_off(Duration::from_secs(wait)).await;
             return Err(Failure::Unavailable);
+        }
+        if !status.is_success() {
+            return Err(Failure::Unavailable);
+        }
+        let json = response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(';').next())
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("application/json"));
+        if !json {
+            return Err(Failure::BadResponse);
         }
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await.map_err(|_| Failure::Unavailable)? {
@@ -122,17 +152,6 @@ impl Labs {
         page.validate_for(request)
             .map_err(|_| Failure::BadResponse)?;
         Ok(page)
-    }
-
-    async fn wait_for_start(&self) {
-        if self.min_interval.is_zero() {
-            return;
-        }
-        let mut next = self.next_start.lock().await;
-        if let Some(at) = *next {
-            tokio::time::sleep_until(at).await;
-        }
-        *next = Some(Instant::now() + self.min_interval);
     }
 }
 
