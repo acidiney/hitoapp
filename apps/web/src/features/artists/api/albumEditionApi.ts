@@ -18,9 +18,12 @@ const statuses: Record<AlbumEditionTrackListAvailability["status"], true> = {
 };
 
 const audioStatuses: Record<AlbumTrackAudio["status"], true> = {
-  found: true,
+  saved: true,
   no_match: true,
+  insufficient_evidence: true,
   no_providers: true,
+  busy: true,
+  changed: true,
   disabled: true,
   unsupported: true,
   unavailable: true,

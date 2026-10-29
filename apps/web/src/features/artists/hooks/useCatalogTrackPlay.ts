@@ -25,11 +25,16 @@ type Obtain = (signal: AbortSignal) => Promise<Recording>;
 export type AudioSearch = { release: string; request: FindAlbumTrackAudio };
 
 const searchMessages: Record<
-  Exclude<AlbumTrackAudio["status"], "found">,
+  Exclude<AlbumTrackAudio["status"], "saved">,
   string
 > = {
   no_match:
     "No approved provider has a confident match for this track. Nothing was saved.",
+  insufficient_evidence:
+    "The catalog does not give a single artist and a length for this track, so Hito cannot look for audio. Nothing was saved.",
+  busy: "Another audio search is running. Try again in a moment. Nothing was saved.",
+  changed:
+    "The provider's recording changed while saving. Nothing was saved. Try again.",
   no_providers:
     "Connect an audio provider in Settings to play tracks that are not in your library.",
   disabled: "Metadata providers are disabled in your settings.",
@@ -40,14 +45,16 @@ const searchMessages: Record<
   needs_choice: "Choose the edition again to find audio for this track.",
 };
 
-export const foundKey = (occurrence: string) => `occurrence:${occurrence}`;
+export const foundKey = (edition: string, occurrence: string) =>
+  `${edition}/occurrence:${occurrence}`;
 
 export function useCatalogTrackPlay(
   account: string,
   adoption: CatalogAdoption | null,
   player: Pick<Player, "prepareSelection">,
+  edition: string,
 ) {
-  const scope = useRequestScope(JSON.stringify([account, adoption]));
+  const scope = useRequestScope(JSON.stringify([account, adoption, edition]));
   const owner = useMemo<Owner>(
     () => ({ pending: null, saved: new Map() }),
     [scope],
@@ -144,7 +151,7 @@ export function useCatalogTrackPlay(
   async function findAndPlay(occurrence: string, search: AudioSearch) {
     await run(
       occurrence,
-      foundKey(occurrence),
+      foundKey(search.request.edition_id, occurrence),
       "catalog_track_find",
       async (signal) => {
         const found = await albumEditionApi.audio(
@@ -154,13 +161,9 @@ export function useCatalogTrackPlay(
           signal,
         );
         signal.throwIfAborted();
-        if (found.status !== "found")
+        if (found.status !== "saved")
           throw new Error(searchMessages[found.status]);
-        return adopt(
-          found.installation_id,
-          found.installation_revision,
-          found.provider_recording_id,
-        )(signal);
+        return found.recording;
       },
     );
   }

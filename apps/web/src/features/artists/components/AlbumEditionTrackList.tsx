@@ -36,6 +36,7 @@ export default function AlbumEditionTrackList({
     account,
     comparison?.adoption ?? null,
     player,
+    `${source.release}/${comparison?.edition.id ?? ""}`,
   );
   const linked = new Map<string, Recording>(
     comparison?.matches.map((match) => [
@@ -62,7 +63,7 @@ export default function AlbumEditionTrackList({
       (track.recording_id
         ? catalog.saved.get(track.recording_id)
         : undefined) ??
-      catalog.saved.get(foundKey(track.id));
+      catalog.saved.get(foundKey(comparison?.edition.id ?? "", track.id));
     const failure = catalog.failed?.id === track.id ? catalog.failed : null;
     return (
       <li key={track.id}>
