@@ -130,13 +130,16 @@ input:is([type="radio"], [type="checkbox"]) {
   width: 20px;
   height: 20px;
   min-width: 20px;
-  margin: 0 8px 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
   background: none;
   vertical-align: middle;
   accent-color: var(--ink);
   cursor: pointer;
+}
+label > input:is([type="radio"], [type="checkbox"]) {
+  margin-inline-end: 8px;
 }
 input::placeholder {
   color: var(--muted);
@@ -281,13 +284,6 @@ small {
 }
 .button {
   justify-self: start;
-  align-self: end;
-}
-.button:disabled {
-  opacity: 1;
-  background: var(--subtle);
-  border-color: var(--line-strong);
-  color: var(--muted);
 }
 .button.primary:hover:not(:disabled) {
   background: var(--ink-hover);
@@ -303,6 +299,15 @@ small {
 }
 .button.danger {
   margin-left: auto;
+}
+.button:disabled,
+.button.danger:disabled,
+.button.primary:disabled,
+.button.action:disabled {
+  opacity: 1;
+  background: var(--subtle);
+  border-color: var(--line-strong);
+  color: var(--muted);
 }
 .icon-button {
   display: inline-flex;

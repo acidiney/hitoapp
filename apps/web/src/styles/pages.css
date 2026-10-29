@@ -159,7 +159,7 @@
   gap: 8px;
 }
 .tinted-header .crumbs {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
 }
 .tinted-header .crumbs a:hover,
 .tinted-header .crumbs [aria-current] {
@@ -181,7 +181,7 @@
 .tinted-eyebrow {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
 }
 .tinted-header h1 {
   color: #ffffff;
@@ -200,7 +200,7 @@
 .tinted-stats {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
 }
 .tinted-actions {
   display: flex;
@@ -210,6 +210,14 @@
 .tinted-cover {
   width: 200px;
   flex: 0 0 200px;
+}
+.tinted-header[data-size="artist"] .tinted-cover {
+  width: 160px;
+  flex-basis: 160px;
+}
+.tinted-header[data-size="artist"] .tinted-cover .artwork {
+  border-radius: 50%;
+  overflow: hidden;
 }
 .tinted-cover .artwork {
   border-radius: 14px;
