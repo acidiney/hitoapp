@@ -31,6 +31,7 @@ import {
 import { BrowserLookahead } from "./browser/BrowserLookahead";
 import { BrowserEndGuard, reconcileDuration } from "./browser/BrowserDuration";
 import { listenToMedia } from "./browser/BrowserMediaEvents";
+import { applyBrowserSpeed } from "./browser/BrowserSpeed";
 import {
   BrowserAudiobookRun,
   type AudiobookPreparer,
@@ -123,6 +124,20 @@ export class Playback implements Player {
     return this.store.state;
   }
 
+  private applySpeed(chosen: number) {
+    const { effective, range } = applyBrowserSpeed(this.media, chosen);
+    const current = this.state.speedRange;
+    if (
+      this.state.effectiveSpeed !== effective ||
+      current?.min !== range.min ||
+      current?.max !== range.max
+    ) {
+      if (effective !== chosen)
+        log.info("playback.speed_unsupported", { speed: chosen });
+      this.update({ effectiveSpeed: effective, speedRange: range });
+    }
+  }
+
   private listenMedia() {
     const media = this.media;
     this.stopListening = listenToMedia(media, () => this.media === media, {
@@ -133,6 +148,7 @@ export class Playback implements Player {
           recording_id: this.state.current?.id,
         });
         this.update({ duration: this.reconcile(media).seconds });
+        this.applySpeed(this.state.speed);
         if (this.pendingSeek !== null) {
           const position = this.pendingSeek;
           this.pendingSeek = null;
@@ -459,10 +475,7 @@ export class Playback implements Player {
       prepared?.sources ??
       (current ? new PlaybackSources(current.id, this.resolve) : null);
     if (!continuation) this.media.pause();
-    if (continuation) {
-      this.media.defaultPlaybackRate = continuation.speed;
-      this.media.playbackRate = continuation.speed;
-    }
+    if (continuation) this.applySpeed(continuation.speed);
     this.activeSource = null;
     this.media.removeAttribute("src");
     this.media.load();
@@ -506,8 +519,7 @@ export class Playback implements Player {
             this.mediaOwner?.activate(this.media);
             this.mediaOwner?.release(previous);
             this.media.volume = this.state.volume;
-            this.media.defaultPlaybackRate = this.state.speed;
-            this.media.playbackRate = this.state.speed;
+            this.applySpeed(this.state.speed);
             this.activeSource = { ...buffered.source };
             this.observeSource(occurrence, buffered.source);
             this.entryEnded = false;
@@ -719,9 +731,8 @@ export class Playback implements Player {
   speed(value: number) {
     this.cancelAudiobook();
     log.info("playback.speed", { speed: value });
-    this.media.defaultPlaybackRate = value;
-    this.media.playbackRate = value;
     this.update({ speed: value });
+    this.applySpeed(value);
   }
   volume(value: number) {
     this.cancelAudiobook();

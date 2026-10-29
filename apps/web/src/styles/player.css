@@ -282,3 +282,7 @@
   min-height: 44px;
   flex-shrink: 0;
 }
+.playback-status.speed-notice {
+  background: var(--panel);
+  color: var(--muted);
+}

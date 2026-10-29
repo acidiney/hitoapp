@@ -136,6 +136,8 @@ test("native views page a large queue and isolate position frames from queue and
     seeking: false,
     volume: 750,
     speed: 1000,
+    effective_speed: 1000,
+    speed_support: null,
     phase: "ready",
     error: null,
     last_failure: null,

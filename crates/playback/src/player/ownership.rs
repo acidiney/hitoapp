@@ -260,6 +260,7 @@ impl State {
                 }
                 if let PlayerAction::Speed { rate } = command.action {
                     owned.speed = rate;
+                    owned.negotiate_speed();
                     tracing::debug!(
                         event = "player_speed_changed",
                         rate,
@@ -285,6 +286,7 @@ impl State {
                 if let Some((_, _, position, speed, play_revision)) = continuation {
                     owned.saved = Some(super::loading::SavedStart::prepared(command.id, position));
                     owned.speed = speed;
+                    owned.negotiate_speed();
                     owned.desired_playing = true;
                     owned.play_revision = play_revision;
                 }

@@ -23,6 +23,32 @@ export default function PlaybackStatus({
     player.subscribe,
     () => player.snapshot().resumeFailed,
   );
+  const speed = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().speed,
+  );
+  const known = useSyncExternalStore(
+    player.subscribe,
+    () => !!player.snapshot().speedRange,
+  );
+  const effectiveSpeed = useSyncExternalStore(
+    player.subscribe,
+    () => player.snapshot().effectiveSpeed ?? player.snapshot().speed,
+  );
+  if (
+    !loading &&
+    !error &&
+    connection === "ready" &&
+    known &&
+    effectiveSpeed !== speed
+  )
+    return (
+      <div className={`${className} speed-notice`} role="status">
+        <span>
+          {`This source plays at ${effectiveSpeed}×. Your ${speed}× speed returns with a source that supports it.`}
+        </span>
+      </div>
+    );
   if (!loading && !error && connection !== "connecting") return null;
   return (
     <div className={className} role="status">

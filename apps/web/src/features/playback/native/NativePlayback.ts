@@ -21,6 +21,8 @@ function emptyView(): PlaybackView {
     repeat: "off",
     shuffle: false,
     speed: 1,
+    effectiveSpeed: 1,
+    speedRange: null,
     volume: 1,
     connection: "connecting",
     resumeFailed: false,
@@ -210,6 +212,8 @@ export class NativePlayback implements Player {
       shuffle: value.shuffle,
       repeat: value.repeat,
       speed: value.speed / 1000,
+      effectiveSpeed: (value.effective_speed ?? value.speed) / 1000,
+      speedRange: this.speedRange(value),
       controlsAvailable: value.phase !== "suspended",
       resumeFailed: value.error === "resume" && value.phase !== "suspended",
       loading:
@@ -223,6 +227,16 @@ export class NativePlayback implements Player {
     });
     if (changed) this.loadCurrent();
     if (this.latestPosition) this.observePosition(this.latestPosition);
+  }
+
+  private speedRange(value: Snapshot) {
+    const support = value.speed_support;
+    if (!support) return null;
+    const next = { min: support.min / 1000, max: support.max / 1000 };
+    const previous = this.view.speedRange;
+    return previous?.min === next.min && previous.max === next.max
+      ? previous
+      : next;
   }
 
   private loadCurrent() {

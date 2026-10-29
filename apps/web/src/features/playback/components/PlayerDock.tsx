@@ -13,6 +13,7 @@ import Artwork from "../../artwork/components/Artwork";
 import ListeningPanel from "./ListeningPanel";
 import NowPlaying from "./NowPlaying";
 import PlaybackStatus from "./PlaybackStatus";
+import SpeedControl from "./SpeedControl";
 import { log } from "../../../shared/log";
 
 export default function PlayerDock({
@@ -24,10 +25,6 @@ export default function PlayerDock({
   const current = useSyncExternalStore(
     player.subscribe,
     () => player.snapshot().current,
-  );
-  const speed = useSyncExternalStore(
-    player.subscribe,
-    () => player.snapshot().speed,
   );
   const controlsAvailable = useSyncExternalStore(player.subscribe, () => {
     const state = player.snapshot();
@@ -101,23 +98,7 @@ export default function PlayerDock({
         </div>
         <PlaybackControls />
         <div className="player-tools">
-          <select
-            aria-label="Playback speed"
-            value={speed}
-            disabled={!player.supports.speed || !controlsAvailable}
-            title={
-              !player.supports.speed
-                ? "Playback speed is not available in the desktop player yet"
-                : undefined
-            }
-            onChange={(event) => player.speed(+event.target.value)}
-          >
-            {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
-              <option key={speed} value={speed}>
-                {speed}×
-              </option>
-            ))}
-          </select>
+          <SpeedControl available={controlsAvailable} />
           <Volume2 size={18} />
           <input
             className="volume"

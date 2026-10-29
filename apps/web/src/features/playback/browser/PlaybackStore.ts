@@ -13,6 +13,8 @@ export class PlaybackStore {
     repeat: "off",
     shuffle: false,
     speed: 1,
+    effectiveSpeed: 1,
+    speedRange: null,
     volume: 1,
     connection: "ready",
   };

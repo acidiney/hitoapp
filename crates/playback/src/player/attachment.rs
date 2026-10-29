@@ -128,6 +128,14 @@ impl Owned {
             "Playback authority availability changed"
         );
     }
+    /// Re-derives the speed presented for the current source after the chosen
+    /// speed changed. Only the supported range of the source can lower it.
+    pub(super) fn negotiate_speed(&mut self) {
+        self.effective_speed = match self.speed_support {
+            Some(support) if !(support.min..=support.max).contains(&self.speed) => 1000,
+            _ => self.speed,
+        };
+    }
     pub(super) fn selected(&mut self, native: bool) {
         let snapshot = self.queue.snapshot();
         self.position.send_replace(PlayerPosition {

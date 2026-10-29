@@ -25,6 +25,8 @@ test("a lost command response retries its exact payload before a later relative 
     seeking: false,
     volume: 1000,
     speed: 1000,
+    effective_speed: 1000,
+    speed_support: null,
     phase: "idle",
     error: null,
     last_failure: null,
