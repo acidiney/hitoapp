@@ -1,6 +1,6 @@
 # Architecture
 
-Hito keeps library rules in `hito-core`. Startup opens concrete identity, catalog, playback access, collection, library-storage, plugin, download and podcast services. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
+Hito keeps library rules in `hito-core`. Startup opens nine concrete capability services: identity, catalog, playback access, collection, community, library storage, plugins, downloads and podcasts. HTTP adapters authenticate requests once and call those services. The core owns SQLite transactions, permissions, indexing and synchronization, so the desktop backend reuses them without HTTP.
 
 Each statement here is one of four kinds, and the text says which:
 
@@ -13,13 +13,14 @@ Nothing here describes a public release. The VPS install is a development deploy
 
 ## Repository and crate dependencies
 
-Current behavior. The diagram shows normal (non-test) path dependencies, read from each `Cargo.toml`. Arrows point from the dependent crate to the crate it uses. Package names keep the `hito-` prefix, so `crates/core` is `hito-core`.
+Current behavior. The diagram is read from each `Cargo.toml` in the workspace. Solid arrows are normal path dependencies. Dotted arrows are optional dependencies that only the `test-support` feature turns on. Arrows point from the dependent crate to the crate it uses. Package names keep the `hito-` prefix, so `crates/core` is `hito-core`.
 
 ```mermaid
 flowchart TB
   subgraph apps
     server[apps/server hito-server]
     desktop[apps/desktop hito-desktop]
+    community[apps/community hito-community]
   end
   subgraph crates
     core[crates/core hito-core]
@@ -27,7 +28,8 @@ flowchart TB
     audio[crates/audio hito-audio]
     sdk[crates/plugin-sdk hito-plugin-sdk]
     mb[crates/metadata-musicbrainz]
-    remote[crates/remote-audio]
+    remote[crates/remote-audio hito-remote-audio]
+    testkit[crates/testkit hito-testkit]
     rd[crates/debrid/real-debrid]
     ad[crates/debrid/all-debrid]
     tb[crates/debrid/torbox]
@@ -38,6 +40,7 @@ flowchart TB
     pspotify[plugins/spotify]
     pyoutube[plugins/youtube]
     pjamendo[plugins/jamendo]
+    plb[plugins/listenbrainz]
     prd[plugins/real-debrid]
     pad[plugins/all-debrid]
     ptb[plugins/torbox]
@@ -58,7 +61,6 @@ flowchart TB
   ad --> remote
   tb --> remote
   pz --> remote
-  tb -. optional .-> audio
   prd --> rd
   pad --> ad
   ptb --> tb
@@ -67,15 +69,21 @@ flowchart TB
   pspotify --> sdk
   pyoutube --> sdk
   pjamendo --> sdk
+  plb --> sdk
   prd --> sdk
   pad --> sdk
   ptb --> sdk
   ppz --> sdk
+  core -.-> testkit
+  ad -.-> testkit
+  tb -.-> testkit
+  pz -.-> testkit
+  tb -.-> audio
 ```
 
-Five packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk`, `hito-community` and `hito-testkit`. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The dotted TorBox edge exists only under its `test-support` feature.
+Five packages have no Hito dependencies: `hito-audio`, `hito-remote-audio`, `hito-plugin-sdk`, `hito-community` and `hito-testkit`. `apps/community` is a separate executable and shares no code with the server. Plugins never depend on `hito-core`. They talk to it over HTTP using SDK types. The ListenBrainz and Jamendo plugins use the SDK and nothing else from Hito.
 
-`hito-testkit` is a dev-dependency (the debrid crates also pull it in through `test-support`). `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins use it. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. See [testing](testing.md) for how tests use these helpers.
+`hito-testkit` is a dev-dependency of `hito-server`, `hito-playback`, the four debrid crates and the folder, Spotify, YouTube and four debrid plugins. `hito-audio` is a dev-dependency of `hito-desktop` (with `test-support`), the debrid crates and the YouTube and debrid plugins. `hito-core`, `hito-audio`, the TorBox, All-Debrid and Premiumize crates and the TorBox and Premiumize plugins list themselves as a dev-dependency with `test-support` on, so plain `cargo test --workspace` works while normal builds never enable the feature. See [testing](testing.md) for how tests use these helpers.
 
 The web app in `apps/web` is not a Cargo member. Its TypeScript models come from the server's generated OpenAPI file, `docs/openapi.json`.
 
@@ -90,24 +98,24 @@ flowchart LR
   Desktop --> Native[hito-playback and hito-audio]
   Server --> Core
   Embedded --> Core
-  subgraph Core[hito-core capabilities]
+  subgraph Core[hito-core Services: nine capabilities]
     Identity
     Catalog
+    PlaybackAccess
     Collection
+    Community
     LibraryStorage
     Plugins
+    Downloads
+    Podcasts
   end
-  Identity --> SQLite[(SQLite, WAL)]
-  Catalog --> SQLite
-  Collection --> SQLite
-  LibraryStorage --> SQLite
-  Plugins --> SQLite
+  Core --> SQLite[(SQLite, WAL)]
   LibraryStorage --> Files[Granted music folders]
   Plugins -->|bounded HTTP, bearer token| Plug[Plugin processes]
   Catalog -->|search, detail, sources| Plug
-  Playback[PlaybackAccess] -->|provider audio relay| Plug
+  PlaybackAccess -->|provider audio relay| Plug
   Plug -->|provider APIs| Ext[External providers]
-  Catalog -. opt-in, planned .-> Community[Community service]
+  Community -. opt-in delivery .-> CommunityService[apps/community service]
 ```
 
 Rules that follow from the diagram:
@@ -115,7 +123,7 @@ Rules that follow from the diagram:
 - Only core touches SQLite, SQL, migrations and the filesystem. The server maps typed requests to capability calls and applies transport policy.
 - Plugins hold provider network access. Core holds only the personal token for each installation, encrypted in a vault beside the database.
 - External providers are external dependencies. Their availability, rate limits and blocking policies are outside Hito. [YouTube on servers](plugin-youtube.md#server-side-limitation) is the clearest case.
-- The community service is a separate executable today and is not on the normal server path. Opt-in use is planned.
+- The `Community` capability keeps consent, an outbox and reporter credentials in the core database. The community service (`apps/community`) is a separate executable. Delivery to it is optional and off unless the server is configured with its origin and token ([community service](community-service.md)).
 
 The [desktop host](desktop.md) uses the native player contract. Ordinary web sessions use browser audio. The [native playback owner](native-playback.md) retains a core grant, bridges authorized local and provider input, and supervises the [audio engine](native-audio.md) through revocation and joined cleanup. The synchronization client remains unfinished.
 
@@ -189,32 +197,69 @@ What each piece owns:
 - Outcomes are `ready`, `no_suitable_source`, `provider_unavailable`, `protected_choice` and `cancelled`. `provider_unavailable` records that a provider call failed or was busy, so a blocked extraction does not read as "nothing matched".
 - Resolution only attaches a source. Audio plays later through a separate relay that checks live authority again. See [plugins](plugins.md#audio-relay) and [automatic sources](automatic-sources.md).
 
-## Components
+## Core composition
 
-The diagram below is the original capability map. Solid lines are current. Dashed lines are planned. [Status](status.md) records which parts exist and which are verified.
+Current behavior. `hito_core::open` builds one `Store` (the private SQLite handle) and then the nine capabilities that make up `Services`. Each capability is a plain struct holding the pieces it owns. `Services` has no forwarding methods: the server and desktop host call a capability directly. The store field of `Services` is private and is used only for the health check.
 
 ```mermaid
-flowchart LR
-  Browser[React browser UI] --> HTTP[Axum / Inertia and JSON API]
-  HTTP --> Identity[Identity / opaque authenticated Actor]
-  HTTP --> Catalog[Catalog / authorized reads]
-  HTTP --> Collection[Collection / atomic operation acceptance]
-  HTTP --> Storage[LibraryStorage / folders and durable scans]
-  HTTP --> Connections[Plugins / personal installation authority]
-  Connections --> Store
-  Connections --> Vault[Private credential key]
-  Connections --> Provider[HTTP services / manifest lifecycle]
-  Identity --> Store[Private SQLite store]
-  Catalog --> Store
+flowchart TB
+  subgraph Services[hito_core::Services]
+    Identity
+    Catalog
+    PlaybackAccess
+    Collection
+    Community
+    LibraryStorage
+    Plugins
+    Downloads
+    Podcasts
+  end
+  Store[(Store: SQLite, WAL)]
+  Vault[Vault: private credential key]
+  Managed[ManagedFiles: downloaded audio]
+  Remote[RemoteHttp: bounded podcast and enclosure client]
+  Local[LocalFiles: granted music folders]
+  Artist[artist_catalog Host]
+  Identity --> Store
   Collection --> Store
-  Storage --> Store
-  Store --> DB[(SQLite / WAL)]
-  Storage --> Music[Granted read-only music folders]
-  Desktop[Tauri development host / private local backend] --> HTTP
-  Catalog -->|private search and adoption| Provider
-  Playback -->|audio relay| Provider
-  Catalog -. opt-in .-> Community[Planned community service]
+  Collection --> Plugins
+  LibraryStorage --> Store
+  LibraryStorage --> Local
+  Plugins --> Store
+  Plugins --> Vault
+  Community --> Store
+  Community --> Vault
+  Catalog --> Store
+  Catalog --> Plugins
+  Catalog --> Community
+  Catalog --> Local
+  Catalog --> Artist
+  Downloads --> Store
+  Downloads --> Plugins
+  Downloads --> Managed
+  Downloads --> Remote
+  Podcasts --> Store
+  Podcasts --> Remote
+  PlaybackAccess --> Store
+  PlaybackAccess --> Plugins
+  PlaybackAccess --> Local
+  PlaybackAccess --> Managed
+  PlaybackAccess --> Remote
 ```
+
+What each capability owns:
+
+- `Identity`: accounts, sessions and the opaque authenticated actor.
+- `Catalog`: authorized reads, provider search and adoption, source resolution, artwork and the artist catalog.
+- `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.
+- `Collection`: the single transaction that accepts a batch of personal operations and appends events.
+- `Community`: per-account consent, the report outbox, reporter credentials and optional ranking reads.
+- `LibraryStorage`: music folders, grants, scans, leases and reconciliation.
+- `Plugins`: offered service addresses, personal installations, credential encryption and manifest checks.
+- `Downloads`: persistent and playlist downloads into managed storage.
+- `Podcasts`: subscriptions, episodes and episode progress.
+
+Planned behavior and gaps are in [status](status.md). The desktop host and the server build their routers on this same `Services` value.
 
 ## Data ownership
 

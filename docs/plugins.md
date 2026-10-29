@@ -299,7 +299,7 @@ The service is running in the local development deployment. Ten owned TCP tests 
 
 ## Plugin crates and the SDK
 
-Plugin services live in `plugins/<name>`: `folder`, `spotify`, `youtube`, `jamendo`, `real-debrid`, `all-debrid`, `torbox` and `premiumize`. Each depends on `crates/plugin-sdk` (`hito-plugin-sdk`) and never on `hito-core`. The four debrid plugins also depend on their provider client in `crates/debrid/<provider>`. Dockerfiles are `docker/plugin-<name>.Dockerfile` and each service has a `compose.<name>.yaml` overlay at the repository root, except Premiumize, which has neither yet. The [architecture](architecture.md#repository-and-crate-dependencies) shows the dependency graph.
+Plugin services live in `plugins/<name>`: `folder`, `spotify`, `youtube`, `jamendo`, `listenbrainz`, `real-debrid`, `all-debrid`, `torbox` and `premiumize`. Each depends on `crates/plugin-sdk` (`hito-plugin-sdk`) and never on `hito-core`. The four debrid plugins also depend on their provider client in `crates/debrid/<provider>`. Dockerfiles are `docker/plugin-<name>.Dockerfile` and each service has a `compose.<name>.yaml` overlay at the repository root, except Premiumize, which has neither yet. The [architecture](architecture.md#repository-and-crate-dependencies) shows the dependency graph.
 
 The SDK owns the wire types, their `validate` functions and the size limits that core also applies. A plugin that returns data the SDK rejects fails in core, not in the browser.
 

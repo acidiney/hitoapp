@@ -6,7 +6,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 
 ## Architecture and design
 
-- [Architecture](architecture.md): crate graph, runtime topology, plugin protocol, source resolution, data ownership.
+- [Architecture](architecture.md): crate graph, runtime topology, core composition, plugin protocol, source resolution, data ownership.
 - [Architecture decisions](architecture-decisions.md)
 - [Recording identity](recording-identity.md)
 - [Playback access](playback-access.md)
@@ -51,6 +51,7 @@ Each document says whether it describes current behavior, tested evidence, plann
 - [Catalog extension contracts](plugin-catalog.md), [timed lyrics and backing tracks](plugin-timed-content.md), [provider artwork](plugin-artwork.md)
 - [Folder plugin](plugin-folder.md), [Spotify plugin](plugin-spotify.md), [YouTube plugin](plugin-youtube.md), [Jamendo plugin](plugin-jamendo.md)
 - [Debrid adapters](debrid-adapters.md): Real-Debrid, All-Debrid, TorBox, Premiumize.
+- [ListenBrainz plugin and evaluation](artist-similarity.md#listenbrainz-evaluation): the similar-artists plugin (`plugins/listenbrainz`) and its written evaluation.
 
 Some crates and plugins also have their own README: `crates/remote-audio`, `crates/debrid/*` (Premiumize, All-Debrid, TorBox) and `plugins/premiumize`, `plugins/torbox`.
 
