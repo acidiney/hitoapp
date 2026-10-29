@@ -1,6 +1,7 @@
 import type { ArtistPageProps } from "../../../shared/types";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
+import Artwork from "../../artwork/components/Artwork";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import { tintFor } from "../../../shared/ui/collectionTint";
@@ -30,7 +31,13 @@ export default function ArtistPage({
   return (
     <>
       <CollectionHeader
-        tint={tintFor(releases.items[0]?.id ?? artist.id)}
+        tint={tintFor(artist.id)}
+        cover={
+          <Artwork
+            recording={artist.artwork_recording_id ?? undefined}
+            fallback={{ id: artist.id, title: artist.name }}
+          />
+        }
         size="artist"
         crumbs={
           <Breadcrumbs

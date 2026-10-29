@@ -57,3 +57,26 @@ test("both buttons are disabled when there is nothing to play", () => {
     ).disabled,
   ).toBe(true);
 });
+
+test("shuffle does not turn shuffle on when playback could not start", async () => {
+  player.playQueue.mockRejectedValueOnce(new Error("no audio"));
+  render(createElement(PlayShuffle, { tracks, label: "album" }));
+  fireEvent.click(screen.getByRole("button", { name: "Shuffle album" }));
+  await vi.waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
+  await Promise.resolve();
+  expect(player.shuffle).not.toHaveBeenCalled();
+});
+
+test("shuffle starts from a random track, not always the first", async () => {
+  const many = Array.from({ length: 50 }, (_, index) => ({
+    ...tracks[0],
+    id: `t${index}`,
+  })) as unknown as Track[];
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+  render(createElement(PlayShuffle, { tracks: many, label: "album" }));
+  fireEvent.click(screen.getByRole("button", { name: "Shuffle album" }));
+  await vi.waitFor(() => expect(player.playQueue).toHaveBeenCalledTimes(1));
+  const call = player.playQueue.mock.calls[0] as unknown as [Track[], number];
+  expect(call[1]).toBe(25);
+  vi.restoreAllMocks();
+});

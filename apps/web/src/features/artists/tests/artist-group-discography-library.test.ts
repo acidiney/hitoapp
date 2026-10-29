@@ -330,3 +330,35 @@ test("the release type control counts every type and keeps the all choice", asyn
   fireEvent.click(within(group).getByRole("button", { name: "All · 3" }));
   expect(within(region).getByRole("region", { name: "Albums" })).toBeTruthy();
 });
+
+test("the missing-only filter says so when every release is already in the library", async () => {
+  const http = artistGroupHttp();
+  http.reply(
+    "discography",
+    page([release("rg:complete", "album", "Complete one")], null),
+  );
+  http.replyLibrary({
+    association_id: artistAssociation.id,
+    groups: [
+      {
+        release_group_id: "rg:complete",
+        albums: [
+          {
+            release_id: "album-a",
+            edition_id: "edition:1",
+            track_count: 4,
+            playable_count: 4,
+          },
+        ],
+      },
+    ],
+  });
+  const region = await open();
+  await within(region).findByText("In library");
+  fireEvent.click(
+    within(region).getByRole("button", { name: "Only what I'm missing" }),
+  );
+  expect(
+    within(region).getByRole("status", { name: "Nothing missing" }).textContent,
+  ).toContain("Every release here is already in your library.");
+});

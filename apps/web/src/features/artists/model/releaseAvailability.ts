@@ -1,0 +1,24 @@
+import type { LibraryAlbum } from "../../../shared/types";
+
+export type ReleaseAvailability = {
+  state: "library" | "catalog";
+  label?: string;
+  complete: boolean;
+};
+
+/** The one rule for what a library holds of a catalog release; labels and filters both use it. */
+export function releaseAvailability(
+  albums: LibraryAlbum[],
+): ReleaseAvailability {
+  if (albums.length === 0) return { state: "catalog", complete: false };
+  const best = albums.reduce((a, b) =>
+    b.playable_count > a.playable_count ? b : a,
+  );
+  if (best.track_count > 0 && best.playable_count === best.track_count)
+    return { state: "library", complete: true };
+  return {
+    state: "library",
+    label: `Partial · ${best.playable_count} of ${best.track_count}`,
+    complete: false,
+  };
+}

@@ -1,6 +1,7 @@
 import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
 import { Link, usePage } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
+import Artwork from "../../artwork/components/Artwork";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
 import { tintFor } from "../../../shared/ui/collectionTint";
@@ -43,7 +44,13 @@ export default function ArtistIdentityGroupPage({
   return (
     <>
       <CollectionHeader
-        tint={tintFor(releases.items[0]?.id ?? group.id)}
+        tint={tintFor(group.id)}
+        cover={
+          <Artwork
+            recording={group.name.recording_id}
+            fallback={{ id: group.id, title: group.name.value }}
+          />
+        }
         size="artist"
         crumbs={
           <Breadcrumbs

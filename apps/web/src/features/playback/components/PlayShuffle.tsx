@@ -2,7 +2,6 @@ import { Play, Shuffle } from "lucide-react";
 import type { Track } from "../model";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
-import { usePlayer } from "./PlaybackProvider";
 
 export default function PlayShuffle({
   tracks,
@@ -15,12 +14,7 @@ export default function PlayShuffle({
   label?: string;
   tone?: "tint" | "plain";
 }) {
-  const player = usePlayer();
   const play = usePlayTracks(tracks, listing);
-  async function shuffle() {
-    await play.playAll();
-    if (!player.snapshot().shuffle) player.shuffle();
-  }
   return (
     <>
       <button
@@ -38,7 +32,7 @@ export default function PlayShuffle({
         className={tone === "tint" ? "button tint-secondary" : "button"}
         aria-label={`Shuffle ${label}`}
         disabled={tracks.length === 0}
-        onClick={() => void shuffle()}
+        onClick={() => void play.shuffleAll()}
       >
         <Shuffle size={17} />
         Shuffle

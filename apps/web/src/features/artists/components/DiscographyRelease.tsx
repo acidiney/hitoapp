@@ -7,6 +7,7 @@ import type {
   SavedAlbumEdition,
 } from "../../../shared/types";
 import FallbackCover from "../../../shared/ui/FallbackCover";
+import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import ArtistEditions from "./ArtistEditions";
 
@@ -47,22 +48,6 @@ function Availability({ albums }: { albums: LibraryAlbum[] }) {
   );
 }
 
-function stateOf(albums: LibraryAlbum[]): {
-  state: "library" | "catalog";
-  label?: string;
-} {
-  if (albums.length === 0) return { state: "catalog" };
-  const best = albums.reduce((a, b) =>
-    b.playable_count > a.playable_count ? b : a,
-  );
-  if (best.track_count > 0 && best.playable_count === best.track_count)
-    return { state: "library" };
-  return {
-    state: "library",
-    label: `Partial · ${best.playable_count} of ${best.track_count}`,
-  };
-}
-
 export default function DiscographyRelease({
   account,
   recording,
@@ -93,7 +78,12 @@ export default function DiscographyRelease({
           artist={group.artist_credit?.[0]?.credited_name}
         />
       </div>
-      {library && <AvailabilityLabel {...stateOf(library)} />}
+      {library && (
+        <AvailabilityLabel
+          state={releaseAvailability(library).state}
+          label={releaseAvailability(library).label}
+        />
+      )}
       <Heading>{group.title}</Heading>
       <p>{group.kind ? kinds[group.kind] : "Type not provided"}</p>
       {group.secondary_types.length > 0 && (

@@ -6,6 +6,7 @@ import type {
   LibraryAlbum,
   SavedAlbumEdition,
 } from "../../../shared/types";
+import { releaseAvailability } from "../model/releaseAvailability";
 import DiscographyRelease from "./DiscographyRelease";
 
 const SECTION_PAGE = 10;
@@ -21,16 +22,6 @@ const sections = [
     label: "Other",
   },
 ] as const;
-
-function isComplete(albums: LibraryAlbum[] | undefined) {
-  return (
-    albums !== undefined &&
-    albums.some(
-      (album) =>
-        album.track_count > 0 && album.playable_count === album.track_count,
-    )
-  );
-}
 
 type SectionKey = (typeof sections)[number]["key"];
 
@@ -65,7 +56,13 @@ export default function DiscographySections({
   const [shown, setShown] = useState<Partial<Record<SectionKey, number>>>({});
   const [missingOnly, setMissingOnly] = useState(false);
   const wanted = missingOnly
-    ? groups.filter((group) => !isComplete(library[group.id]))
+    ? groups.filter(
+        (group) =>
+          !(
+            library[group.id] !== undefined &&
+            releaseAvailability(library[group.id]).complete
+          ),
+      )
     : groups;
   const present = sections.filter((section) =>
     groups.some((group) => sectionOf(group) === section.key),
@@ -105,6 +102,11 @@ export default function DiscographySections({
           Only what I'm missing
         </button>
       </div>
+      {missingOnly && wanted.length === 0 && groups.length > 0 && (
+        <p role="status" aria-label="Nothing missing">
+          Every release here is already in your library.
+        </p>
+      )}
       {present
         .filter((section) => only === null || only === section.key)
         .map((section) => {
