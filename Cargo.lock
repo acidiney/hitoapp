@@ -2326,6 +2326,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hito-plugin-listenbrainz"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "hito-plugin-sdk",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "hito-plugin-premiumize"
 version = "0.1.0-dev"
 dependencies = [
