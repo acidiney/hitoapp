@@ -8,9 +8,13 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
 }) => {
   await enterAdmin(page);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await expect(navigation.getByRole("link")).toHaveText(["Home", "Library"]);
+  await expect(navigation.getByRole("link")).toHaveText([
+    /^Home$/,
+    /^Search/,
+    /^Library$/,
+  ]);
   await expect(
-    navigation.getByRole("button", { name: "Open search" }),
+    navigation.getByRole("link", { name: /^Search/ }),
   ).toHaveAttribute("aria-keyshortcuts", /(Meta|Control)\+K/);
   await expect(
     page.getByRole("link", { name: "Account and settings" }),
@@ -37,10 +41,39 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
   await expect(search).toBeFocused();
 
   await navigation.getByRole("link", { name: "Home", exact: true }).click();
-  await expect(page).toHaveURL(/\/discover$/);
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: /^Good (morning|afternoon|evening), /,
+    }),
+  ).toBeVisible();
+  await page.screenshot({ path: "/workspace/test-results/home-desktop.png" });
+  const homeSearch = page.getByRole("searchbox", {
+    name: "Search",
+    exact: true,
+  });
   await page.keyboard.press("Control+K");
-  await expect(page).toHaveURL(/\/library$/);
-  await expect(search).toBeFocused();
+  await expect(homeSearch).toBeFocused();
+
+  await navigation.getByRole("link", { name: /^Search/ }).click();
+  await expect(page).toHaveURL(/\/search$/);
+  await expect(
+    page.getByRole("group", { name: "Search scope" }).getByRole("button"),
+  ).toHaveText(["All", "Library", "Providers"]);
+  await homeSearch.fill("Fixture");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/search\?q=Fixture$/);
+  await expect(homeSearch).toHaveValue("Fixture");
+  await page.screenshot({ path: "/workspace/test-results/search-desktop.png" });
+
+  await page.goto("/discover");
+  await page.screenshot({
+    path: "/workspace/test-results/discover-desktop.png",
+  });
+  await page.keyboard.press("Control+K");
+  await expect(page).toHaveURL(/\/search$/);
+  await expect(homeSearch).toBeFocused();
 });
 
 test("a phone shows a three-tab bar with the mini player above it", async ({
@@ -48,6 +81,11 @@ test("a phone shows a three-tab bar with the mini player above it", async ({
 }) => {
   await enterAdmin(page);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await page.screenshot({ path: "/workspace/test-results/home-mobile.png" });
+  await page.goto("/search?q=Fixture");
+  await page.screenshot({ path: "/workspace/test-results/search-mobile.png" });
+  await page.goto("/library");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   const bar = await navigation.boundingBox();
   expect(bar).not.toBeNull();
@@ -73,9 +111,4 @@ test("a phone shows a three-tab bar with the mini player above it", async ({
     const box = await link.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
-  expect(
-    (await navigation
-      .getByRole("button", { name: "Open search" })
-      .boundingBox())!.height,
-  ).toBeGreaterThanOrEqual(44);
 });

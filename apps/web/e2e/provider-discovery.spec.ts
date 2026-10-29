@@ -52,12 +52,11 @@ test("provider discovery saves, pages and plays privately with stale selection p
     expect(installed.status()).toBe(201);
     connection = await installed.json();
     await page.goto("/discover");
+    const services = page.getByRole("group", { name: "Music service" });
     await expect(
-      page.getByRole("combobox", { name: "Music service" }),
-    ).toHaveValue(connection!.id);
-    await expect(
-      page.getByRole("option", { name: /Discovery collection/ }),
-    ).toHaveCount(1);
+      services.getByRole("button", { name: /Discovery collection/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(services.getByRole("button")).toHaveCount(1);
     const search = page.getByRole("searchbox", { name: "Search music" });
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await search.fill("Discovery");
@@ -363,7 +362,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         }),
       ).toBeVisible();
       await expect(
-        listener.getByRole("combobox", { name: "Music service" }),
+        listener.getByRole("group", { name: "Music service" }),
       ).toHaveCount(0);
       expect(
         (
