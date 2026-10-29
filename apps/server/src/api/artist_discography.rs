@@ -67,10 +67,10 @@ pub async fn read(
     request_body = ReadDiscographyLibrary,
     security(("session" = []), ("bearer" = [])), responses(
     (status = 200, body = DiscographyLibrary, headers(("Cache-Control" = String, description = "private, no-store"))),
-    (status = 400, body = ErrorResponse), (status = 401, body = ErrorResponse),
-    (status = 403, body = ErrorResponse), (status = 404, body = ErrorResponse),
-    (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
-    (status = 422, body = ErrorResponse), (status = 500, body = ErrorResponse),
+    (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 413, body = ErrorResponse),
+    (status = 415, body = ErrorResponse), (status = 422, body = ErrorResponse),
+    (status = 423, body = ErrorResponse), (status = 500, body = ErrorResponse),
 ))]
 #[tracing::instrument(level = "debug", skip_all, fields(operation = "http_recording_artist_discography_library", request_id = %Uuid::new_v4()))]
 pub async fn library(

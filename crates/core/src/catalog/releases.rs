@@ -50,9 +50,9 @@ pub struct ReleaseDetail {
 pub(super) const MAX_COMPARED_TRACKS: i64 = 1000;
 const MAX_ANCHOR_CANDIDATES: i64 = 16;
 
-pub(super) const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
+const HAS_ENTRIES: &str = " AND (EXISTS (SELECT 1 FROM source_metadata m WHERE m.release_id = a.id)
     OR EXISTS (SELECT 1 FROM provider_release_appearances appearance WHERE appearance.release_id = a.id))";
-pub(super) const ENTRIES: &str = "), source_entries AS (
+const ENTRIES: &str = "), source_entries AS (
     SELECT m.release_id, s.recording_id, min(m.source_id) AS entry_id
     FROM selected a CROSS JOIN source_metadata m ON m.release_id = a.id JOIN sources s ON s.id = m.source_id
     GROUP BY m.release_id, s.recording_id, m.disc_number, m.track_number
@@ -272,6 +272,27 @@ pub(super) async fn releases_by_ids_on(
         return Err(Error::NotFound);
     }
     Ok(releases)
+}
+
+/// The `entries` view of the account's own albums among `wanted`, a JSON array of
+/// `[release, recording]` pairs, after the `wanted` CTE that lists those pairs.
+pub(super) fn selected_among(actor: &Actor, wanted: &str) -> Result<QueryBuilder<'static, Sqlite>> {
+    let mut query = QueryBuilder::new(
+        "WITH wanted AS (SELECT json_extract(value, '$[0]') AS release_id, json_extract(value, '$[1]') AS recording_id FROM json_each(",
+    );
+    query.push_bind(wanted.to_owned());
+    query.push(")), selected AS (SELECT a.* FROM account_releases a");
+    Browse::default().filter(
+        &mut query,
+        actor,
+        "a",
+        "account_releases_fts",
+        "{title artist}",
+    )?;
+    query.push(" AND a.id IN (SELECT release_id FROM wanted)");
+    query.push(HAS_ENTRIES);
+    query.push(ENTRIES);
+    Ok(query)
 }
 
 fn selected(

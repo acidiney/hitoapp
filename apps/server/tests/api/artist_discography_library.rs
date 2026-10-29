@@ -99,5 +99,28 @@ async fn an_account_sees_which_release_groups_are_linked_to_its_albums_without_p
         requests,
         "The library join never contacts a provider"
     );
+    let (status, _) = account
+        .request(
+            &app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": "owned artist review administrator password", "pin": "1234", "idle_minutes": 0}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = account
+        .request(&app, "POST", "/api/v1/account/lock", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _, locked) = fixture::exchange(
+        &app,
+        "POST",
+        &path,
+        json!({"release_group_ids": [provider::GROUP_ID]}),
+        account.headers(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::LOCKED);
+    assert_eq!(locked["code"], "locked");
     assert!(server.finish().await);
 }

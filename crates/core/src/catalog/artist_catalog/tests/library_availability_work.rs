@@ -184,3 +184,63 @@ async fn availability_work_grows_only_with_the_account_s_saved_choices() {
         measured[0]
     );
 }
+
+const WIDE_GROUPS: i16 = 50;
+const ALBUMS_PER_GROUP: i16 = 3;
+const WIDE_BUDGET: u64 = 600_000;
+
+#[tokio::test]
+async fn fifty_groups_with_three_albums_on_separate_associations_stay_in_budget() {
+    use super::fixture::{associate, choose, enable_builtin, recording_of, write_album};
+    let (_directory, hito, actor, library, music) =
+        support::library("library-availability-wide").await;
+    for index in 0..WIDE_GROUPS * ALBUMS_PER_GROUP {
+        write_album(&music, &format!("Album {index}"), index, 1);
+    }
+    support::scan(&hito, &actor, &library).await;
+    let revision = enable_builtin(&hito, &actor).await;
+    let mut first = None;
+    for index in 0..WIDE_GROUPS * ALBUMS_PER_GROUP {
+        let (recording, release) = recording_of(&hito, &actor, &format!("Album {index}")).await;
+        let association = associate(&hito, &actor, &recording, revision).await;
+        choose(
+            &hito,
+            &actor,
+            &release,
+            &recording,
+            &association.id,
+            &format!("group-{}", index % WIDE_GROUPS),
+        )
+        .await;
+        first.get_or_insert((recording, association.id));
+    }
+    let (recording, association) = first.unwrap();
+    let meter = WorkMeter::install(&hito.catalog.store.pool).await;
+    let (result, work) = meter
+        .measure(
+            hito.catalog.discography_library(
+                &actor,
+                &recording,
+                &association,
+                ReadDiscographyLibrary {
+                    release_group_ids: (0..WIDE_GROUPS)
+                        .map(|index| format!("group-{index}"))
+                        .collect(),
+                },
+            ),
+        )
+        .await;
+    meter.remove(&hito.catalog.store.pool).await;
+    let result = result.unwrap();
+    eprintln!("Library availability wide VM_steps={work}");
+    assert!(
+        result
+            .groups
+            .iter()
+            .all(|group| group.albums.len() == ALBUMS_PER_GROUP as usize)
+    );
+    assert!(
+        work < WIDE_BUDGET,
+        "Wide availability used {work} VM steps against {WIDE_BUDGET}"
+    );
+}

@@ -10,7 +10,8 @@ use uuid::Uuid;
 
 const MAX_RELEASE_GROUPS: usize = 50;
 const MAX_IDENTITY_BYTES: usize = 256;
-const ALBUMS_PER_GROUP: i64 = 3;
+const ALBUMS_PER_GROUP: usize = 3;
+const CANDIDATES_PER_GROUP: i64 = 8;
 
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -81,13 +82,13 @@ impl Catalog {
                 FROM album_edition_choices c
                 WHERE c.user_id = ? AND c.provider_kind = ? AND c.plugin_installation_id IS ?
                     AND c.release_group_id IN (SELECT value FROM json_each(?))
-            ) WHERE position <= ?",
+            ) WHERE position <= ? ORDER BY release_group_id, position",
         )
         .bind(actor.id())
         .bind(kind)
         .bind(installation)
         .bind(&requested)
-        .bind(ALBUMS_PER_GROUP)
+        .bind(CANDIDATES_PER_GROUP)
         .fetch_all(&mut *tx)
         .await?;
         let mut readable: HashMap<(String, String), bool> = HashMap::new();
@@ -145,6 +146,7 @@ impl Catalog {
             if let Some(found) = groups
                 .iter_mut()
                 .find(|candidate| candidate.release_group_id == group)
+                .filter(|found| found.albums.len() < ALBUMS_PER_GROUP)
             {
                 found.albums.push(LibraryAlbum {
                     release_id,
@@ -170,6 +172,12 @@ impl Catalog {
     }
 }
 
+#[cfg(test)]
+#[path = "tests/library_availability_fixture.rs"]
+mod fixture;
+#[cfg(test)]
+#[path = "tests/library_availability_scope.rs"]
+mod scope;
 #[cfg(test)]
 #[path = "tests/library_availability_work.rs"]
 mod work;

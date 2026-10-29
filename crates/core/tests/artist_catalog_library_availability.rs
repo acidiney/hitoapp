@@ -6,7 +6,7 @@ use hito_core::test_support::support;
 
 use hito_core::{
     ChooseAlbumEdition, ClearAlbumEdition, Credentials, DiscographyLibrary, Error,
-    ReadDiscographyLibrary, UnlinkRecordingArtist,
+    MetadataProvider, ReadDiscographyLibrary, UnlinkRecordingArtist, UpdateMetadataSettings,
 };
 use library::Album;
 use uuid::Uuid;
@@ -198,6 +198,156 @@ async fn invalid_requests_unlinked_artists_and_other_accounts_reveal_nothing() {
     assert!(matches!(
         read(&album, &[provider::GROUP_ID]).await,
         Err(Error::NotFound | Error::Conflict(_))
+    ));
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn stale_newer_choices_never_hide_a_valid_older_one() {
+    let mut server = AlbumProvider::start().await;
+    let album = Album::prepare(&server).await;
+    album
+        .hito
+        .catalog
+        .choose_album_edition(
+            &album.actor,
+            &album.release_id,
+            choose(&album, provider::EDITION_ID, 0),
+        )
+        .await
+        .unwrap();
+    album
+        .sql(
+            "UPDATE album_edition_choices SET updated_at = 1 WHERE release_id = ?",
+            &[&album.release_id],
+        )
+        .await;
+    for stale in ["stale-a", "stale-b", "stale-c"] {
+        album
+            .sql(
+                "INSERT INTO album_edition_choices(user_id,release_id,revision,recording_id,association_id,provider_kind,plugin_installation_id,release_group_id,edition_id,updated_at)
+                VALUES((SELECT id FROM users LIMIT 1),?,1,?,?,'http_plugin',?,?,'edition',1000)",
+                &[
+                    stale,
+                    &album.first,
+                    &album.association.id,
+                    &album.installation.id,
+                    provider::GROUP_ID,
+                ],
+            )
+            .await;
+    }
+    let found = read(&album, &[provider::GROUP_ID]).await.unwrap();
+    let [only] = found.groups[0].albums.as_slice() else {
+        panic!("Three stale newer choices must not hide the valid one");
+    };
+    assert_eq!(only.release_id, album.release_id);
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn a_choice_that_the_album_page_would_reject_is_never_shown() {
+    let mut server = AlbumProvider::start().await;
+    let album = Album::prepare_with_featured(&server).await;
+    let featured = album.featured.clone().unwrap();
+    let featured_association = album
+        .hito
+        .catalog
+        .recording_artist_associations(&album.actor, &featured)
+        .await
+        .unwrap()
+        .remove(0);
+    let ask = || async {
+        album
+            .hito
+            .catalog
+            .discography_library(
+                &album.actor,
+                &featured,
+                &featured_association.id,
+                ReadDiscographyLibrary {
+                    release_group_ids: vec![provider::GROUP_ID.into()],
+                },
+            )
+            .await
+            .unwrap()
+    };
+    album
+        .hito
+        .catalog
+        .choose_album_edition(
+            &album.actor,
+            &album.release_id,
+            choose(&album, provider::EDITION_ID, 0),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ask().await.groups[0].albums.len(), 1);
+
+    let revision = album
+        .hito
+        .catalog
+        .recording_artist_association_changes(&album.actor, &album.first)
+        .await
+        .unwrap()
+        .revision;
+    album
+        .hito
+        .catalog
+        .unlink_recording_artist(
+            &album.actor,
+            &album.first,
+            UnlinkRecordingArtist {
+                request_id: Uuid::new_v4(),
+                expected_revision: revision,
+                association_id: Uuid::parse_str(&album.association.id).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        ask().await.groups[0].albums.is_empty(),
+        "A choice whose own association was unlinked is not a link, even through another readable association"
+    );
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn a_deselected_provider_reveals_nothing() {
+    let mut server = AlbumProvider::start().await;
+    let album = Album::prepare(&server).await;
+    album
+        .hito
+        .catalog
+        .choose_album_edition(
+            &album.actor,
+            &album.release_id,
+            choose(&album, provider::EDITION_ID, 0),
+        )
+        .await
+        .unwrap();
+    let settings = album
+        .hito
+        .catalog
+        .metadata_settings(&album.actor)
+        .await
+        .unwrap();
+    album
+        .hito
+        .catalog
+        .set_metadata_settings(
+            &album.actor,
+            UpdateMetadataSettings {
+                revision: settings.revision,
+                enabled: true,
+                providers: vec![MetadataProvider::BuiltinMusicBrainz],
+            },
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        read(&album, &[provider::GROUP_ID]).await,
+        Err(Error::NotFound)
     ));
     assert!(server.finish().await);
 }

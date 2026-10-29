@@ -1,9 +1,6 @@
-use super::{
-    Catalog, SourceAccess, push_source_access,
-    releases::{ENTRIES, HAS_ENTRIES},
-};
+use super::{Catalog, SourceAccess, push_source_access, releases::selected_among};
 use crate::{Actor, Result};
-use sqlx::{QueryBuilder, SqliteConnection};
+use sqlx::SqliteConnection;
 
 #[derive(sqlx::FromRow)]
 pub(super) struct ReleaseCounts {
@@ -22,23 +19,11 @@ impl Catalog {
         actor: &Actor,
         wanted: &str,
     ) -> Result<Vec<ReleaseCounts>> {
-        let mut query = QueryBuilder::new(
-            "WITH wanted AS (SELECT json_extract(value, '$[0]') AS release_id, json_extract(value, '$[1]') AS recording_id
-            FROM json_each(",
+        let mut query = selected_among(actor, wanted)?;
+        query.push(
+            " SELECT m.release_id, count(*) AS track_count, sum(EXISTS (SELECT 1 FROM sources s INDEXED BY sources_metadata_owner
+            WHERE s.recording_id = m.recording_id AND ",
         );
-        query.push_bind(wanted.to_owned());
-        query
-            .push("))\n, selected AS (SELECT a.* FROM account_releases a WHERE a.user_id = ")
-            .push_bind(actor.id().to_owned())
-            .push(" AND EXISTS (SELECT 1 FROM library_members access WHERE access.library_id = a.library_id AND access.user_id = ")
-            .push_bind(actor.id().to_owned())
-            .push(") AND a.id IN (SELECT release_id FROM wanted)")
-            .push(HAS_ENTRIES)
-            .push(ENTRIES)
-            .push(
-                " SELECT m.release_id, count(*) AS track_count, sum(EXISTS (SELECT 1 FROM sources s INDEXED BY sources_metadata_owner
-                WHERE s.recording_id = m.recording_id AND ",
-            );
         push_source_access(&mut query, &self.host, actor.id(), SourceAccess::Playable);
         query.push(
             ")) AS playable_count, max(m.recording_id IN (SELECT w.recording_id FROM wanted w WHERE w.release_id = m.release_id)) AS contains_wanted
