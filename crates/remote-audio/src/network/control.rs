@@ -92,7 +92,11 @@ mod tests {
             let (_stream, _) = listener.accept().await.unwrap();
             std::future::pending::<()>().await;
         });
-        let client = install_provider_and(control_client("HitoTest/1").https_only(false));
+        let client = install_provider_and(
+            control_client("HitoTest/1")
+                .https_only(false)
+                .connect_timeout(Duration::from_secs(60)),
+        );
         let started = tokio::time::Instant::now();
         let error = client
             .get(format!("http://{address}/"))
