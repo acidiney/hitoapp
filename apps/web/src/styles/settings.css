@@ -321,3 +321,21 @@
     flex-direction: column;
   }
 }
+.library-chooser {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.library-chooser select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.setting-line-action .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+}

@@ -1,3 +1,4 @@
+import Button from "../../../shared/ui/Button";
 import type { PluginInstallationPreview } from "../../../shared/types";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
@@ -31,22 +32,17 @@ export default function PluginInstallationReview({
         </dd>
       </dl>
       <div className="plugin-actions">
-        <button
-          className="button primary"
+        <Button
+          variant="primary"
           type="button"
           disabled={pending}
           onClick={onAccept}
         >
           Accept and connect
-        </button>
-        <button
-          className="button"
-          type="button"
-          disabled={pending}
-          onClick={onBack}
-        >
+        </Button>
+        <Button type="button" disabled={pending} onClick={onBack}>
           Back
-        </button>
+        </Button>
       </div>
     </div>
   );

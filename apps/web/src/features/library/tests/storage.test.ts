@@ -169,3 +169,30 @@ test("failed folder connection preserves the selection and shows a retryable err
     screen.getByRole("navigation", { name: "Folder location" }).textContent,
   ).toContain("Albums");
 });
+
+test("several shared libraries are chosen from an accessible select", async () => {
+  vi.mocked(storageApi.folders).mockResolvedValue([]);
+  render(
+    createElement(
+      NoticeProvider,
+      null,
+      createElement(LibrarySettings, {
+        ...props,
+        libraries: [
+          { id: "a", name: "Home library" },
+          { id: "b", name: "Archive" },
+        ],
+      }),
+    ),
+  );
+  const chooser = await screen.findByRole("combobox", { name: "Library" });
+  expect(screen.queryByRole("radiogroup", { name: "Library" })).toBeNull();
+  fireEvent.change(chooser, { target: { value: "b" } });
+  await waitFor(() =>
+    expect(storageApi.folders).toHaveBeenLastCalledWith(
+      "admin",
+      "b",
+      expect.anything(),
+    ),
+  );
+});

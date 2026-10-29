@@ -148,15 +148,11 @@ export default function PluginConnection({
             />
           </label>
           <div className="plugin-actions">
-            <button
-              className="button"
-              disabled={actions.pending || !storageReady}
-            >
+            <Button type="submit" disabled={actions.pending || !storageReady}>
               Save token
-            </button>
+            </Button>
             {plugin.credential_set && (
-              <button
-                className="button"
+              <Button
                 type="button"
                 disabled={actions.pending}
                 onClick={async () => {
@@ -169,7 +165,7 @@ export default function PluginConnection({
                 }}
               >
                 Clear saved token
-              </button>
+              </Button>
             )}
           </div>
         </form>
@@ -204,15 +200,14 @@ export default function PluginConnection({
             </dd>
           </dl>
           <div className="plugin-actions">
-            <button
-              className="button primary"
+            <Button
+              variant="primary"
               disabled={actions.pending}
               onClick={() => void check(true)}
             >
               Accept changes
-            </button>
-            <button
-              className="button"
+            </Button>
+            <Button
               disabled={actions.pending}
               onClick={() => {
                 setReview(null);
@@ -221,7 +216,7 @@ export default function PluginConnection({
               }}
             >
               Keep current declaration
-            </button>
+            </Button>
           </div>
         </div>
       )}

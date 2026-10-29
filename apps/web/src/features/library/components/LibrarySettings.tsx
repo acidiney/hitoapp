@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Folder } from "lucide-react";
 import type { SettingsPageProps } from "../../../shared/types";
 import SectionWarning from "../../../shared/ui/SectionWarning";
-import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
 import MusicFolders from "./MusicFolders";
@@ -18,15 +17,19 @@ export default function LibrarySettings({
     return (
       <>
         {shared.length > 1 && (
-          <SegmentedControl
-            label="Library"
-            options={shared.map((item) => ({
-              value: item.id,
-              label: item.name,
-            }))}
-            value={library.id}
-            onChange={select}
-          />
+          <label className="library-chooser">
+            Library
+            <select
+              value={library.id}
+              onChange={(event) => select(event.target.value)}
+            >
+              {shared.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         <MusicFolders
           key={`${user.id}\0${library.id}`}
