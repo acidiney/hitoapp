@@ -1,60 +1,96 @@
 import { Link } from "@inertiajs/react";
-import EmptyState from "../../../shared/ui/EmptyState";
-import PageHeading from "../../../shared/ui/PageHeading";
-import PodcastStatus from "../components/PodcastStatus";
+import Button from "../../../shared/ui/Button";
+import FallbackCover from "../../../shared/ui/FallbackCover";
 import PodcastSubscribe from "../components/PodcastSubscribe";
+import { checkedAt } from "../components/PodcastStatus";
 import { usePodcastSubscriptions } from "../hooks/usePodcastSubscriptions";
-import type { PodcastIndexPageProps } from "../../../shared/types";
+import type {
+  PodcastIndexPageProps,
+  PodcastSubscription,
+} from "../../../shared/types";
+
+function status(subscription: PodcastSubscription) {
+  if (subscription.refresh_pending) return "Checking feed…";
+  const checked = checkedAt(subscription);
+  if (!checked) return "Not checked yet";
+  return (
+    <>
+      Last checked{" "}
+      <time dateTime={checked.toISOString()}>{checked.toLocaleString()}</time>
+    </>
+  );
+}
 
 export default function PodcastIndexPage({
   user,
   subscriptions,
 }: PodcastIndexPageProps) {
   const workflow = usePodcastSubscriptions(user.id, subscriptions);
+  const count = workflow.subscriptions.length;
   return (
     <>
-      <PageHeading
-        title="Podcasts"
-        description="Your subscribed RSS feeds and episodes."
-      />
-      <PodcastSubscribe
-        key={user.id}
-        pending={workflow.pending}
-        hasAttempt={workflow.hasAttempt}
-        error={workflow.error}
-        subscribe={workflow.subscribe}
-        retry={workflow.retry}
-      />
+      <header className="media-index-head">
+        <div>
+          <h1>Podcasts</h1>
+          <span className="media-mono">
+            {count} {count === 1 ? "subscription" : "subscriptions"}
+          </span>
+        </div>
+        <PodcastSubscribe
+          key={user.id}
+          pending={workflow.pending}
+          hasAttempt={workflow.hasAttempt}
+          error={workflow.error}
+          subscribe={workflow.subscribe}
+          retry={workflow.retry}
+        />
+      </header>
       {workflow.statusError && (
         <div>
           <p role="alert">{workflow.statusError}</p>
-          <button
-            className="button"
+          <Button
             disabled={workflow.loading || workflow.pending}
             onClick={() => void workflow.check()}
           >
             Check again
-          </button>
+          </Button>
         </div>
       )}
-      {workflow.subscriptions.map((subscription) => (
-        <section className="playlist-import" key={subscription.subscription_id}>
-          <h2>
-            <Link
-              href={`/podcasts/${encodeURIComponent(subscription.subscription_id)}`}
-            >
-              {subscription.title || "Untitled podcast"}
-            </Link>
-          </h2>
-          <PodcastStatus subscription={subscription} />
-        </section>
-      ))}
-      {workflow.subscriptions.length === 0 && (
-        <EmptyState
-          title="No podcast subscriptions yet"
-          text="Subscribe with a feed address to see its episodes here."
-          libraryLink={false}
-        />
+      {count > 0 && (
+        <ul className="media-grid" aria-label="Subscribed podcasts">
+          {workflow.subscriptions.map((subscription) => {
+            const title = subscription.title || "Untitled podcast";
+            return (
+              <li className="media-card" key={subscription.subscription_id}>
+                <FallbackCover
+                  id={subscription.subscription_id}
+                  title={title}
+                  artist="Podcast"
+                  inline={false}
+                />
+                <Link
+                  className="media-card-title"
+                  href={`/podcasts/${encodeURIComponent(subscription.subscription_id)}`}
+                >
+                  {title}
+                </Link>
+                <span className="media-mono">{status(subscription)}</span>
+                {subscription.refresh_failed && (
+                  <span className="media-warn">Last feed check failed</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {count === 0 && (
+        <div className="media-empty">
+          <h2>No podcast subscriptions yet</h2>
+          <p>
+            Subscribe with a feed address to follow a show. New episodes appear
+            on its page after a feed check.
+          </p>
+        </div>
       )}
     </>
   );

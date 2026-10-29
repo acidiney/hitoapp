@@ -1,16 +1,19 @@
 import type { PodcastSubscription } from "../../../shared/types";
 
+export function checkedAt(subscription: PodcastSubscription): Date | null {
+  return subscription.last_refreshed_at == null
+    ? null
+    : new Date(subscription.last_refreshed_at * 1000);
+}
+
 export default function PodcastStatus({
   subscription,
 }: {
   subscription: PodcastSubscription;
 }) {
-  const checked =
-    subscription.last_refreshed_at == null
-      ? null
-      : new Date(subscription.last_refreshed_at * 1000);
+  const checked = checkedAt(subscription);
   return (
-    <div>
+    <div className="podcast-status">
       {subscription.refresh_pending && <p role="status">Checking feed…</p>}
       {subscription.refresh_failed && (
         <p>
@@ -19,7 +22,7 @@ export default function PodcastStatus({
         </p>
       )}
       {checked ? (
-        <p className="muted">
+        <p className="media-mono">
           Last checked{" "}
           <time dateTime={checked.toISOString()}>
             {checked.toLocaleString()}
@@ -27,7 +30,7 @@ export default function PodcastStatus({
         </p>
       ) : (
         !subscription.refresh_pending && (
-          <p className="muted">
+          <p className="media-mono">
             This feed has not been checked successfully yet.
           </p>
         )
