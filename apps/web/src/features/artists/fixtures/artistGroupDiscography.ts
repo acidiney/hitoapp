@@ -22,6 +22,10 @@ export function artistGroupHttp() {
     profile: 0,
     discography: 0,
   };
+  const library = {
+    requests: [] as string[][],
+    replies: [] as Array<(ids: string[]) => Response>,
+  };
   const cleanup: Array<() => void> = [];
   const responses: Response[] = [];
   const response = (value: unknown, status = 200) => {
@@ -30,6 +34,20 @@ export function artistGroupHttp() {
     return result;
   };
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
+    if (path === `${paths.discography}/library` && options?.signal) {
+      const ids = (
+        JSON.parse(options.body as string) as {
+          release_group_ids: string[];
+        }
+      ).release_group_ids;
+      library.requests.push(ids);
+      const next = library.replies.shift();
+      if (next) return next(ids);
+      return response({
+        association_id: artistAssociation.id,
+        groups: ids.map((id) => ({ release_group_id: id, albums: [] })),
+      });
+    }
     const stage = (Object.keys(paths) as Stage[]).find(
       (name) => paths[name] === path,
     );
@@ -56,6 +74,12 @@ export function artistGroupHttp() {
   return {
     fetch,
     calls,
+    libraryRequests: library.requests,
+    replyLibrary(value: unknown | ((ids: string[]) => unknown), status = 200) {
+      library.replies.push((ids) =>
+        response(typeof value === "function" ? value(ids) : value, status),
+      );
+    },
     responses,
     reply(stage: Stage, value: unknown, status = 200) {
       replies[stage].push(() => response(value, status));

@@ -23,6 +23,7 @@ export default function ArtistGroupDiscography({
           association={workflow.ready.association}
           profile={workflow.ready.profile}
           browseOnMount
+          showLibrary
         />
       ) : (
         <button

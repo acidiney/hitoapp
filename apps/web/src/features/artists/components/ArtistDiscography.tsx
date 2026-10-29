@@ -1,18 +1,12 @@
 import { useArtistDiscography } from "../hooks/useArtistDiscography";
+import { useDiscographyLibrary } from "../hooks/useDiscographyLibrary";
 import type {
   ArtistAssociation,
   CatalogArtistProfile,
   SavedAlbumEdition,
 } from "../../../shared/types";
-import ArtistEditions from "./ArtistEditions";
-
-const kinds = {
-  album: "Album",
-  ep: "EP",
-  single: "Single",
-  broadcast: "Broadcast",
-  other: "Other",
-};
+import DiscographyRelease from "./DiscographyRelease";
+import DiscographySections from "./DiscographySections";
 
 export default function ArtistDiscography({
   account,
@@ -20,6 +14,7 @@ export default function ArtistDiscography({
   association,
   profile,
   browseOnMount = false,
+  showLibrary = false,
   release,
   onAlbumEdition,
 }: {
@@ -28,6 +23,7 @@ export default function ArtistDiscography({
   association: ArtistAssociation;
   profile: CatalogArtistProfile;
   browseOnMount?: boolean;
+  showLibrary?: boolean;
   release?: string;
   onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
 }) {
@@ -37,6 +33,13 @@ export default function ArtistDiscography({
     association,
     profile,
     browseOnMount,
+  );
+  const library = useDiscographyLibrary(
+    account,
+    recording,
+    association,
+    workflow.groups,
+    showLibrary,
   );
   if (!workflow.opened)
     return (
@@ -59,23 +62,30 @@ export default function ArtistDiscography({
         </p>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
-      <ul aria-label="Discography releases">
-        {workflow.groups.map((group) => (
-          <li key={group.id}>
-            <h4>{group.title}</h4>
-            <p>{group.kind ? kinds[group.kind] : "Type not provided"}</p>
-            {group.secondary_types.length > 0 && (
-              <p>{group.secondary_types.join(" · ")}</p>
-            )}
-            <p>
-              {group.artist_credit?.length
-                ? group.artist_credit
-                    .map((member) => member.credited_name + member.join_phrase)
-                    .join("")
-                : "Artist credit not provided"}
-            </p>
-            <p>{group.first_release_date ?? "Release date not provided"}</p>
-            <ArtistEditions
+      {showLibrary && library.error && (
+        <p role="status">
+          {library.error}{" "}
+          <button type="button" className="button" onClick={library.retry}>
+            Check library again
+          </button>
+        </p>
+      )}
+      {showLibrary ? (
+        <DiscographySections
+          account={account}
+          recording={recording}
+          association={association}
+          profile={profile}
+          groups={workflow.groups}
+          library={library.albums}
+          release={release}
+          onAlbumEdition={onAlbumEdition}
+        />
+      ) : (
+        <ul aria-label="Discography releases">
+          {workflow.groups.map((group) => (
+            <DiscographyRelease
+              key={group.id}
               account={account}
               recording={recording}
               association={association}
@@ -84,9 +94,9 @@ export default function ArtistDiscography({
               release={release}
               onAlbumEdition={onAlbumEdition}
             />
-          </li>
-        ))}
-      </ul>
+          ))}
+        </ul>
+      )}
       {workflow.pages > 0 &&
         workflow.groups.length === 0 &&
         !workflow.pending &&

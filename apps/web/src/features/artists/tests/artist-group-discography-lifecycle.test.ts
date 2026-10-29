@@ -91,9 +91,7 @@ test.each([
       });
       await flush();
       expect(http.calls.discography).toBe(1);
-      expect(
-        screen.getByRole("list", { name: "Discography releases" }),
-      ).toBeTruthy();
+      expect(screen.getByRole("list", { name: "Albums" })).toBeTruthy();
       expect(screen.queryByRole("alert")).toBeNull();
       expect(errors).not.toHaveBeenCalled();
     } finally {

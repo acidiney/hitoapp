@@ -78,6 +78,9 @@ export type ArtistDiscographyAvailability =
   Schema["ArtistDiscographyAvailability"];
 export type ReadArtistDiscography = Schema["ReadArtistDiscography"];
 export type CatalogReleaseGroup = Schema["CatalogReleaseGroup"];
+export type DiscographyLibrary = Schema["DiscographyLibrary"];
+export type LibraryAlbum = Schema["LibraryAlbum"];
+export type ReadDiscographyLibrary = Schema["ReadDiscographyLibrary"];
 export type CatalogEditionSummary = Schema["CatalogEditionSummary"];
 export type CatalogEditionTrackList = Schema["CatalogEditionTrackList"];
 export type ReleaseGroupEditionsAvailability =

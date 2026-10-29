@@ -208,6 +208,15 @@ test("one action browses the chosen artist's exact full discography independentl
       value = reviewedArtistProfile;
     else if (method === "POST" && path === discographyPath)
       value = ++pages === 1 ? firstDiscographyPage : lastDiscographyPage;
+    else if (method === "POST" && path === `${discographyPath}/library`)
+      value = {
+        association_id: artistAssociation.id,
+        groups: (
+          JSON.parse(options?.body as string) as {
+            release_group_ids: string[];
+          }
+        ).release_group_ids.map((id) => ({ release_group_id: id, albums: [] })),
+      };
     else throw new Error("Unexpected request outside chosen artist browsing");
     const response = Response.json(value);
     responses.push(response);
@@ -226,12 +235,8 @@ test("one action browses the chosen artist's exact full discography independentl
     screen.getByRole("button", { name: "Browse full discography" }),
   );
   const region = await screen.findByRole("region", { name: "Discography" });
-  const list = await within(region).findByRole("list", {
-    name: "Discography releases",
-  });
-  await waitFor(() =>
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1),
-  );
+  const list = await within(region).findByRole("list", { name: "Albums" });
+  await waitFor(() => expect(list.children).toHaveLength(1));
   expect(
     within(list).getByRole("heading", { name: discographyTitle }),
   ).toBeTruthy();
@@ -239,6 +244,7 @@ test("one action browses the chosen artist's exact full discography independentl
     associations,
     profilePath,
     discographyPath,
+    `${discographyPath}/library`,
   ]);
   expect(JSON.parse(fetch.mock.calls[2][1]?.body as string)).toEqual({
     limit: 20,
@@ -248,7 +254,7 @@ test("one action browses the chosen artist's exact full discography independentl
     createElement(ArtistIdentityGroupPage, structuredClone(detail)),
   );
   await waitFor(() => expect(region.getAttribute("aria-busy")).toBe("false"));
-  expect(fetch).toHaveBeenCalledTimes(3);
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
   fireEvent.click(
     within(screen.getByRole("navigation", { name: "Album pages" })).getByRole(
       "button",
@@ -262,22 +268,21 @@ test("one action browses the chosen artist's exact full discography independentl
     recording_offset: "0",
     release_offset: 2,
   });
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch).toHaveBeenCalledTimes(4);
   fireEvent.click(
     within(region).getByRole("button", { name: "Load more releases" }),
   );
   await waitFor(() =>
-    expect(within(list).getAllByRole("listitem")).toHaveLength(2),
+    expect(
+      within(region).getAllByRole("heading", { name: discographyTitle }),
+    ).toHaveLength(2),
   );
-  expect(
-    within(list).getAllByRole("heading", { name: discographyTitle }),
-  ).toHaveLength(2);
-  expect(fetch).toHaveBeenCalledTimes(4);
-  expect(JSON.parse(fetch.mock.calls[3][1]?.body as string)).toEqual({
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(6));
+  expect(JSON.parse(fetch.mock.calls[4][1]?.body as string)).toEqual({
     limit: 20,
     continuation: hostDiscographyContinuation,
   });
-  expect(fetch.mock.calls[3][1]?.body).not.toContain(providerDiscographyCursor);
+  expect(fetch.mock.calls[4][1]?.body).not.toContain(providerDiscographyCursor);
   for (const [, options] of fetch.mock.calls) {
     expect(options?.credentials).toBe("same-origin");
     expect(options?.signal).toBeInstanceOf(AbortSignal);
