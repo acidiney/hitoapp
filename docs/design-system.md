@@ -1,6 +1,6 @@
-# Design system (proposed redesign)
+# Design system
 
-**Status: redesign complete for the screens the server can fill.** Phases 1 to 7 are implemented in `apps/web` (foundation, Settings, Home/Search/Discover, Library/Artist/Album/Playlist, full-screen Now playing and Queue, Podcasts/Audiobooks, first-run setup), followed by the fidelity passes. Remaining follow-ups are items that need server data or capabilities, a Biblioteca filter bar, dark-mode screens and translation; they are listed in the [TODO](../TODO.md) and under "Still open" below. Nothing here is a public release.
+**Status.** The web redesign is implemented in `apps/web` for every screen the server can fill: foundation, Settings, Home, Search and Discover, Library, Artist, Album and Playlist, Now playing and Queue, Podcasts and Audiobooks, and first-run setup. Open items are listed under "Still open"; the work that needs new server data or capabilities is tracked in the [TODO](../TODO.md). This is a local development state, not a public release.
 
 | Area | State |
 | --- | --- |
@@ -14,7 +14,7 @@
 | Search | Implemented at `/search` with All / Library / Providers scopes (see below). |
 | Discover | Restyled: provider pills, section warning, availability labels. Genres, featured albums and radio are not built (see below). |
 | Now playing, Queue, first-run setup | Implemented (phases 5 and 7, see below). |
-| Biblioteca filter bar, states board, dark-mode screens | Not built. |
+| Library filter bar, states board, dark-mode screens | Not built. |
 
 **Language.** The prototype labels are Portuguese, but the app stays English for now (Home, Search, Library, "Account and settings"). Translation is a separate i18n item in the [TODO](../TODO.md).
 
@@ -24,9 +24,48 @@ Routes: Home opens `/home`, Search opens `/search` (a real page, not a focus sho
 
 The prototype with every screen is a private design canvas: https://claude.ai/artifact/HurdZx23txC2chX73MX529. The rows marked **v2** are the agreed direction; earlier rows are explorations kept for history.
 
+## Structure
+
+Navigation and what opens from the player:
+
+```mermaid
+flowchart LR
+  subgraph Shell
+    SB[Sidebar and phone tab bar]
+    ACC[Account bar / avatar]
+    PD[Player bar]
+  end
+  SB --> HOME["/home"]
+  SB --> SEARCH["/search"]
+  SB --> LIB["/library"]
+  SB --> PL["Playlists in the sidebar"]
+  HOME --> DISC["/discover"]
+  SEARCH --> DISC
+  LIB --> SEC["Library sections strip"]
+  SEC --> ALB["/albums"] & ART["/artists"] & PLS["/playlists"] & POD["/podcasts"] & AUD["/audiobooks"] & LIKES["/likes"] & HIST["/history"]
+  ACC --> SET["/settings?section=..."]
+  SET --> SS["profile, privacy, music, plugins, playback, downloads, accounts, updates, about"]
+  PD -->|chevron or cover| NP["Now playing dialog: Up next, Lyrics, Source"]
+  PD -->|Queue button| Q["/queue"]
+  NP -->|See full queue| Q
+  NP -->|links| DET["Search, track details"]
+```
+
+Component layers. Each layer imports only from the layers to its left:
+
+```mermaid
+flowchart LR
+  T["Tokens and fonts<br/>styles/base.css"] --> P["Primitives<br/>shared/ui"]
+  P --> F["Feature components and workflow hooks<br/>features/*/components, hooks"]
+  F --> G["Pages<br/>features/*/pages"]
+  G --> SH["Shell and persistent player<br/>app/Shell.tsx"]
+```
+
+Pages own one route. Workflow hooks own async work and cancellation. Playback position reaches the screen only through the small seek and clock components, so pages, tabs and queue rows do not re-render on position ticks.
+
 ## Principles
 
-- **Three destinations.** Início (discover), Pesquisar (one search across library and providers, ⌘K on desktop), Biblioteca (artists, albums, playlists, podcasts and audiobooks as filters, not separate pages). Settings live behind the avatar.
+- **Three destinations.** Home, Search (one search across library and providers, ⌘K on desktop) and Library. Artists, albums, playlists, podcasts, audiobooks, likes and history are separate routes reached from a section strip; the prototype's single filter bar is not built. Settings open from the avatar.
 - **One shell.** The sidebar, the player bar and the cover are shared components. Every screen uses them unchanged.
 - **One action per state.** Each item shows its availability and only the action that state allows.
 - **Nothing merges by itself.** Uncertain matches wait for review; the user decides.
@@ -90,19 +129,23 @@ Geist for the interface, Geist Mono for technical values.
 - **Section warning**: amber or red box inside the affected section, saying what happened, what still works and what to do.
 - **Fallback cover**: typographic cover (title, artist, one shape) used only when there is no real artwork.
 
-## Screens
+## Prototype screens
 
-Desktop screens in the prototype: Início, Artista, Álbum, Biblioteca, Playlist (view and edit), Descobrir, Podcast, Audiolivro, A tocar (full screen with Up next, Lyrics and Source tabs; built as Now playing), Fila (built as Queue), Definições (all sections), Contas with invite creation, Entrar, Criar conta, and a board of real states (loading, provider down, offline, empty library, import problems, unplayable track). Phone screens exist for Pesquisa and A tocar.
+Built: Home, Artist, Album, Library, Playlist (view and edit), Discover, Podcast, Audiobook, Now playing, Queue, Settings (all sections), Sign-in, first-run setup. Built with fewer elements than the prototype: the Library page (no filter bar), the Source tab (no format or alternative source), account management (no invitations).
 
-Account creation is never linked from the sign-in screen. It is reachable only through a single-use invite link, or on the first start of a server with no accounts, where it creates the administrator. The screen infers which case applies.
+Not built: invite-link account creation, the states board (loading, provider down, offline, empty library, import problems, unplayable track as one reference), dark-mode screens, and phone versions of screens that have none (the prototype draws phone screens only for Search and Now playing; the `LeitorMobile` file was not in the reference set).
+
+Account creation is never linked from the sign-in screen. On the first start of a server with no accounts the sign-in page shows the administrator setup. A single-use invite link would be the other entry; the server has no invitations yet.
 
 ## Still open
 
-- Dark mode screens.
+- Dark-mode screens and the states board.
+- The Library filter bar, and invite-link accounts (needs a server capability).
 - The player bar speed control is still a native select.
-- The Biblioteca filter bar, the states board and invite-link accounts (need a server capability).
-- The cover colour for headers (computed from real artwork on the server) is not built.
-- No source or provider label is available for the playing track, so the player bar shows none until the track carries a source.
+- The cover colour for headers is deterministic (see `tintFor`), not taken from artwork; that needs server-side extraction.
+- No source or provider label is available for the playing track, so the player bar shows none.
+- Interface translation (see Language above).
+- Follow-ups that need server data are in the "Not built" lists of each section below.
 
 ## Settings
 
@@ -137,17 +180,37 @@ Where the old pages were: Library settings now live in Music & providers (music 
 
 ## Now playing, Queue and first-run setup (phases 5 and 7)
 
-Current behaviour, covered by `apps/web` unit tests, the browser specs that open the player, and the visual capture (`now-playing-*`, `queue`, `setup*`).
+Current behaviour, covered by `apps/web` unit tests, the browser specs that open the player and the visual capture (`now-playing-*`, `queue`, `setup*`).
 
-- **Now playing** is a full-screen modal dialog opened from the player bar chevron or cover and closed with the chevron button or Escape; focus returns to the opener. The playback hooks are unchanged. Left column: cover (artwork, else the generated cover), 30/800 title, artist (a link to Search), a 6 px seek bar with mono elapsed and remaining time, shuffle, previous, a 76 px play button, next and repeat, and the player status. Right column: a tablist with Up next, Lyrics and Source (arrow keys, Home and End move between tabs).
-  - **Up next** shows the next four queued tracks and "See full queue" (closes the dialog and opens `/queue`). Rows play that entry.
-  - **Lyrics** is a pointer only: lyrics are fetched from a provider on the track details page after an explicit request, so nothing is sent from here. The existing timed or plain lyrics feature is not embedded because it needs a loaded recording record and a provider choice.
-  - **Source** shows what the player exposes: browser or desktop player, the speed the source plays at and the speeds it supports, plus a link to track details where the source is chosen. The speed is a SegmentedControl wired to the same speed command as the player bar select (choices outside the source's range are hidden). Format, sample rate, output conversion and an alternative source with a "Switch" action are not shown: the player does not carry them.
-  - Seek and time rendering are small components that subscribe to position; the pages, tabs and queue rows do not re-render on ticks (a test checks that ticks cause no queue reads).
-- **Queue (`/queue`)** is a server page (shared props only) reached from the player bar "Queue · N" button and "See full queue". Header: 36/800 title, mono track count (plus "N more loading" while a long list is still being added) and a destructive Clear that asks for confirmation. "Now playing" is its own highlighted row with mono position. "Up next" is the existing windowed list starting after the playing entry: drag handle, mono position, cover, title and artist, mono length, Move up and Move down buttons (keyboard reorder, announced to screen readers), remove. A queue of 100,000 tracks still renders only the visible window. On phones the handle, position and length are hidden. Entries before the playing track are not shown, so they cannot be removed from the page.
-- **Not built**: Like on Now playing (the player has no like state), an artist page link (a track carries only an artist name), "from <context>" and total duration in the queue header (the queue stores no origin and only loaded entries have lengths), per-entry preparation state (not exposed by the player), "Save as playlist" (no queue-to-playlist capability) and the phone design file (`LeitorMobile` was not in the reference set, so the phone layout is the desktop one in a single column).
-- **First-run setup** (the sign-in page when the server has no accounts): the same two-column layout as Sign-in with the action-colour brand panel ("Welcome to your server."), a form up to 400 px wide, 48 px fields and button, a lead sentence, password guidance linked to the field with `aria-describedby`, 12-character minimum, and errors in a `role="alert"` box. The mode comes from the server (`needs_setup`); there is no toggle and nothing links to or from Sign-in. The button still reads "Create administrator".
-- **Account creation by invite link** is not built: the server has no invitation or public sign-up flow (administrators create accounts from Settings > Accounts), so there is no invite screen and no display-name field.
+**Now playing** is a full-screen modal dialog opened from the player bar chevron or cover. It closes with the chevron button or Escape and focus returns to the opener. The playback hooks are unchanged.
+
+- Left: cover (artwork, else the generated cover), 30/800 title, artist (a link to Search), a 6 px seek bar with mono elapsed and remaining time, shuffle, previous, a 76 px play button, next, repeat, and the player status.
+- Right: tabs Up next, Lyrics and Source (arrow keys, Home and End move between tabs).
+  - **Up next**: the next four queued tracks, which play when chosen, and "See full queue".
+  - **Lyrics**: a pointer to the track details page. Lyrics are fetched from a provider only after an explicit request there, so nothing is sent from here.
+  - **Source**: what the player exposes: browser or desktop player, the speed the source plays at, the speeds it supports, and a link to track details where the source is chosen. The speed is a SegmentedControl on the same speed command as the player bar. Choices outside the source's range are hidden. Rapid choices (for example arrow keys) show at once and are sent as one command after 250 ms, or on closing.
+- Any link inside the dialog (artist, track details, See full queue) closes it first. After the new page loads, focus moves to its `h1`. The Queue button in the player bar does the same.
+- Seek and time are small components that subscribe to position. A test checks that position ticks cause no queue reads.
+
+**Queue (`/queue`)** is a server page with shared props only, reached from the player bar "Queue · N" button and "See full queue".
+
+- Header: 36/800 title, a mono line "N tracks · M up next", and a destructive Clear that asks for confirmation.
+- "Now playing": the current entry in a highlighted row with mono position and a Remove button. It is read from the queue itself, so it shows in the desktop player too.
+- "Played (N)": a collapsed section shown when earlier entries exist. It lists them with the same row controls (move, drag, remove, play).
+- "Up next": the windowed list after the playing entry. Each row has a drag handle, mono position, cover, title, artist, mono length, Move up and Move down buttons (announced to screen readers) and Remove. A queue of 100,000 tracks renders only the visible window. A "N more loading" line shows while a long list is still being added.
+- On phones the handle, position and length are hidden; the arrows remain.
+
+**First-run setup** is the sign-in page when the server has no accounts: the same two-column layout as Sign-in with an action-colour brand panel ("Welcome to your server."), a form up to 400 px wide, 48 px fields and button, a lead sentence, password guidance tied to the field with `aria-describedby`, a 12-character minimum and errors in a `role="alert"` box. The server decides the mode (`needs_setup`); there is no toggle and nothing links to or from Sign-in. The button reads "Create administrator".
+
+**Not built**, with the reason:
+
+- Like on Now playing: the player has no like state.
+- An artist page link: a track carries only an artist name.
+- Source format, sample rate, conversion and an alternative source with "Switch": the player does not carry them.
+- Timed lyrics inside Now playing: the lyrics feature needs a loaded recording record and a provider choice.
+- "From <context>", total duration and per-entry preparation state in the queue: the queue stores no origin, only loaded entries have lengths, and the player does not expose preparation per entry.
+- "Save as playlist": no queue-to-playlist capability.
+- Invite-link account creation and a display-name field: the server has neither.
 
 ## Visual fidelity checks
 
