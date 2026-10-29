@@ -7,8 +7,8 @@
 | Colour tokens, light and dark | Implemented in `apps/web/src/styles/base.css`; dark follows `prefers-color-scheme`. Old palette variables are aliases of the new tokens. |
 | Geist and Geist Mono | Implemented, bundled locally with `@fontsource-variable` (OFL-1.1, see [third-party notices](third-party-notices.md)). No CDN. |
 | Primitives in `apps/web/src/shared/ui` | Button, SegmentedControl, FilterPills, Switch, AvailabilityLabel, HealthDot, ListRow, SettingsCard, SectionWarning, FallbackCover, BrandMark. Settings use them (plus SettingRow and Dialog); the other pages keep their class names. |
-| Shell | Sidebar with the mark, Home / Search (⌘K on Apple systems, Ctrl+K elsewhere) / Library, playlists, and an account bar (account and settings link, lock, sign-out) that sits at the bottom of the sidebar on desktop and in a header on phones. Below 768 px the navigation becomes a three-tab bottom bar. |
-| Player bar | Restyled (cover, title and artist, transport, mono times, speed, queue, expand). Below 768 px it is a mini player above the tab bar. Playback logic is unchanged. |
+| Shell | Sidebar with the mark, Home / Search (⌘K on Apple systems, Ctrl+K elsewhere) / Library, playlists, and an account bar (account and settings link, lock, sign-out) that sits at the bottom of the sidebar on desktop and shows only the avatar in the page header on phones. Below 768 px the navigation becomes a three-tab bottom bar. |
+| Player bar | Restyled to the prototype: 56 px cover, three columns, flat 4 px seek bar, a chevron to open Now playing, and "Queue · N". Below 768 px it is a dark mini player pill above the tab bar. Playback logic is unchanged. There is no right-hand listening rail any more; Now playing and the queue open from the player. |
 | Settings | Implemented: a grouped navigation (Your account: Profile, Privacy & lock; Listening: Music & providers, Plugins, Playback, Downloads & storage; Server: Accounts, Updates, About) with one deep link per section, a section heading, and cards built from SettingsCard, SettingRow, Switch, SegmentedControl, Button, HealthDot and SectionWarning. See "Settings" below. |
 | Home | Implemented at `/home` (see "Home, Search and Discover" below). |
 | Search | Implemented at `/search` with All / Library / Providers scopes (see below). |
@@ -112,7 +112,7 @@ Current behavior (apps/web, English labels):
 - Rows use fixed status and action columns (200 px and 140 px; 160 px and 300 px for rows with several buttons) so status and buttons line up between rows. On phones the columns stack.
 - On/off choices are Switches and the idle-lock period is a segmented control. Switches in Privacy keep explicit Save and Cancel, because consent changes must be saved deliberately. Three native selects remain on purpose, for lists whose length depends on the server: the library chooser, the service chooser when connecting a plugin and the metadata provider chooser. The folder picker keeps its own dialog markup and has not moved to the shared Dialog yet.
 - Leaving a section with unsaved changes (community choices, source rankings, metadata preferences, a typed PIN or password) asks for confirmation first. A member or alias URL such as `?section=library` is replaced by the resolved section in the address bar.
-- On phones, Sign out and Lock now are available only in Profile, because the account bar is hidden on Settings.
+- On phones, Sign out and Lock now are available only in Profile; the phone header shows only the account avatar.
 - Creating an account opens a dialog from the Accounts card. The server has no invitation or public sign-up flow, and the interface offers none.
 
 Not built because the server has no matching capability (see the [TODO](../TODO.md)): display name, avatar photo, language, password change, open-session list, playback-history toggle and deletion, update checks and channels, copy diagnostics, playback and download options.
@@ -133,3 +133,15 @@ Where the old pages were: Library settings now live in Music & providers (music 
 
 **Discover (`/discover`).** The provider search page, restyled: provider filter pills, the search field, availability labels (In library, Available, Catalog only), Listen (play) and Add actions and an inline section warning with a service refresh link on a provider failure. By-genre tiles, featured albums per provider and "Radio from…" are not built because no plugin capability supplies them.
 
+
+## Visual fidelity checks
+
+The prototype mockups carry exact sizes, so the built screens are compared with them by eye as well as by DOM tests. Tokens added for this: `--line-soft` (card row dividers) and `--ink-soft` (secondary body text). Known, deliberate differences from the mockups: input and switch borders use the darker `control-border` and `control-off` tokens (3:1 contrast) instead of the mockup's lighter grey, and touch targets stay at 44 px on phones where the mockup draws 36 or 38 px.
+
+**Capture harness.** `apps/web/e2e/visual-capture.spec.ts` is skipped unless `HITO_VISUAL_CAPTURE=1`. It uses the shared administrator session, adds the two fixture music folders through the settings screen, plays a track, creates a playlist, and saves a viewport screenshot (plus a `-full` screenshot when the page scrolls) of Home, Discover, Search with results, Library, the Settings list and every Settings section, at 1440 x 900 and 390 x 844, into `test-results/visual/` (ignored by Git). Run it only against an isolated browser server, for example:
+
+```
+HITO_VISUAL_CAPTURE=1 docker compose -p <scratch-project> --profile e2e run --rm -e HITO_VISUAL_CAPTURE=1 browser npx playwright test visual-capture
+```
+
+Mounting `apps/web/dist` over `/app/web` in the e2e server (a scratch Compose override) lets a CSS change be checked after `vite build` without rebuilding the server image. Richer music can be mounted at `/music` the same way; the default fixtures hold one track per folder.
