@@ -29,13 +29,25 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
       page.getByRole("button", { name: "Add music folder" }),
     ).toBeFocused();
   }
-  await expect(page.locator(".music-folders-list > li")).toHaveCount(2);
   await expect(
-    page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
+    page
+      .getByRole("list", { name: "Connected music folders" })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await expect(
+    page
+      .getByRole("list", { name: "Connected music folders" })
+      .getByRole("listitem")
+      .filter({ hasText: "1 file read" }),
   ).toHaveCount(2, { timeout: 20000 });
   await page.screenshot({
     path: "/workspace/test-results/folders-desktop.png",
   });
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Music & providers", exact: true })
+    .click();
+  await expect(page).toHaveURL(/section=music$/);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Add music folder" }).click();
   await expect(

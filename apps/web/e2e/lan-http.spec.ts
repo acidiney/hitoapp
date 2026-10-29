@@ -177,7 +177,10 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       await expect(picker).not.toBeVisible();
     }
     await expect(
-      page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
+      page
+        .getByRole("list", { name: "Connected music folders" })
+        .getByRole("listitem")
+        .filter({ hasText: "1 file read" }),
     ).toHaveCount(2, { timeout: 20_000 });
     await page
       .getByRole("navigation", { name: "Settings sections" })
