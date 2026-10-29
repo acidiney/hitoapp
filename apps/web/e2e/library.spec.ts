@@ -427,10 +427,16 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await expect(
     page.getByRole("heading", { name: "Queue", exact: true, level: 1 }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await page.getByText(/^Played \(/).click();
+  await page.locator(".queue-track").first().click();
+  await expect(page.locator("footer.player").getByRole("status")).toHaveCount(
+    0,
+  );
   await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Clear queue", exact: true })
+    .getByRole("button", { name: "Remove Fixture 660 Hz from queue" })
+    .click();
+  await page
+    .getByRole("button", { name: "Remove Fixture 440 Hz from queue" })
     .click();
   await expect(
     page.getByText("Choose a track to start listening"),

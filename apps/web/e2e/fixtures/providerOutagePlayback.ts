@@ -302,11 +302,14 @@ export async function playThroughOutage(
     .click();
   await expect(page).toHaveURL(/\/queue$/);
   await expect(page.locator("ol.queue-tracks > li")).toHaveCount(2);
-  await expect(
-    page
-      .getByRole("region", { name: "Now playing", exact: true })
-      .locator("strong"),
-  ).toHaveText(/\S/);
+  const nowPlaying = page
+    .getByRole("region", { name: "Now playing", exact: true })
+    .locator("strong");
+  await expect(nowPlaying).toHaveText(/\S/);
+  const upNext = await page
+    .locator("ol.queue-tracks > li strong")
+    .allTextContents();
+  expect(upNext).toHaveLength(2);
   checkpoint("queue_seek");
   const queueAudio = await activeAudio(page).elementHandle();
   if (!queueAudio) throw new Error("Owned queue media is missing");
@@ -331,6 +334,7 @@ export async function playThroughOutage(
     )
     .toBe(1);
   checkpoint("queue_advance");
+  await expect(nowPlaying).toHaveText(upNext[1]);
   await expect(page.locator("ol.queue-tracks > li")).toHaveCount(0);
   await playing(page);
   await expect(dock(page).getByRole("status")).toHaveText(outageMessage);

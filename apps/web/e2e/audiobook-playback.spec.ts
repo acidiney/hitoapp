@@ -350,16 +350,21 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
         );
       })
       .toBe(true);
-    diagnostics.remaining_queue_rows = Number(
-      /(\d+) tracks/.exec(
-        await assertQueue(
-          page,
-          before.book.chapters.map((chapter) => chapter.title),
-          2,
-        ),
-      )?.[1] ?? 0,
+    diagnostics.remaining_queue_rows = await removeEarlierChapter(
+      page,
+      before.book.chapters.map((chapter) => chapter.title),
     );
-    checks.duplicate_queue = diagnostics.remaining_queue_rows === 3;
+    checks.duplicate_queue = diagnostics.remaining_queue_rows === 2;
+    await expect
+      .poll(async () => {
+        const current = await audiobookMediaState(page, audio[0].path);
+        return (
+          current.exact &&
+          current.playing &&
+          current.position - bookmarked.position > 0.3
+        );
+      })
+      .toBe(true);
     await evidence.checkpoint(7);
 
     stage =
@@ -565,11 +570,34 @@ async function assertQueue(page: Page, titles: string[], selected: number) {
   await expect(rows).toHaveCount(titles.length - selected - 1);
   for (const [index, title] of titles.slice(selected + 1).entries())
     await expect(rows.nth(index).locator("strong")).toHaveText(title);
-  const total = await page
-    .getByRole("heading", { name: "Queue", level: 1 })
-    .locator("xpath=..")
-    .textContent();
   await page.goBack();
   await expect(page.locator("footer.player")).toBeVisible();
-  return total ?? "";
+}
+
+/** Removes the first chapter from the Played section and returns how many rows the queue then shows. */
+async function removeEarlierChapter(page: Page, titles: string[]) {
+  await page
+    .locator("footer.player")
+    .getByRole("button", { name: "Open queue", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/queue$/);
+  await page.getByText(/^Played \(/).click();
+  await page
+    .getByRole("button", {
+      name: `Remove ${titles[0]} from queue`,
+      exact: true,
+    })
+    .click();
+  const rows = page.locator("ol.queue-tracks > li");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator("strong")).toHaveText(titles[1]);
+  await expect(
+    page
+      .getByRole("region", { name: "Now playing", exact: true })
+      .locator("strong"),
+  ).toHaveText(titles[2]);
+  const count = (await rows.count()) + 1;
+  await page.goBack();
+  await expect(page.locator("footer.player")).toBeVisible();
+  return count;
 }
