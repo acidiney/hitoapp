@@ -1,3 +1,4 @@
+import Button from "../../../shared/ui/Button";
 import { time } from "../../../shared/format";
 import type { AudiobookDetail } from "../../../shared/types";
 
@@ -19,9 +20,10 @@ export default function AudiobookBookmarkList({
       (entry, index) => [entry.entry_id, { entry, number: index + 1 }] as const,
     ),
   );
-  if (detail.bookmarks.length === 0) return <p>No bookmarks yet.</p>;
+  if (detail.bookmarks.length === 0)
+    return <p className="media-side-note">No bookmarks yet.</p>;
   return (
-    <ol>
+    <ol className="bookmark-list">
       {detail.bookmarks.map((bookmark) => {
         const chapter = chapters.get(bookmark.entry_id);
         const anchored =
@@ -29,35 +31,36 @@ export default function AudiobookBookmarkList({
             ? chapter
             : undefined;
         return (
-          <li key={bookmark.id}>
+          <li key={bookmark.id} className="bookmark-card">
+            <span className="media-mono">
+              {anchored ? `Ch. ${anchored.number} · ` : ""}
+              {time(bookmark.position_ms / 1000)}
+            </span>
             <strong>{bookmark.label}</strong>
-            <p>
+            <p className="media-side-note">
               {anchored
                 ? `Chapter ${anchored.number}: ${anchored.entry.title || "Untitled chapter"}`
                 : "Chapter unavailable"}
             </p>
-            <span>{time(bookmark.position_ms / 1000)}</span>
             {anchored && !anchored.entry.available && (
-              <p>Chapter unavailable</p>
+              <p className="media-side-note">Chapter unavailable</p>
             )}
-            {anchored?.entry.available && (
-              <button
-                className="button"
-                type="button"
-                disabled={disabled || playbackPending}
-                onClick={() => void play(bookmark)}
+            <div className="bookmark-actions">
+              {anchored?.entry.available && (
+                <Button
+                  disabled={disabled || playbackPending}
+                  onClick={() => void play(bookmark)}
+                >
+                  Play bookmark
+                </Button>
+              )}
+              <Button
+                disabled={disabled}
+                onClick={() => void remove(bookmark.id)}
               >
-                Play bookmark
-              </button>
-            )}
-            <button
-              className="button"
-              type="button"
-              disabled={disabled}
-              onClick={() => void remove(bookmark.id)}
-            >
-              Remove bookmark
-            </button>
+                Remove bookmark
+              </Button>
+            </div>
           </li>
         );
       })}

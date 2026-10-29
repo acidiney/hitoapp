@@ -1,7 +1,5 @@
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
-import EmptyState from "../../../shared/ui/EmptyState";
-import PageHeading from "../../../shared/ui/PageHeading";
 import AudiobookPagination from "../components/AudiobookPagination";
 import AudiobookCreate from "../components/AudiobookCreate";
 import { useAudiobookPageNavigation } from "../hooks/useAudiobookPageNavigation";
@@ -18,41 +16,59 @@ export default function AudiobookIndexPage({
   const grouping = useAudiobookGrouping(user.id, grouping_playlists, books);
   return (
     <>
-      <PageHeading
-        title="Audiobooks"
-        description="Your playlists grouped into ordered chapters."
-      >
-        <Link className="button" href="/playlists">
-          Browse playlists
-        </Link>
-      </PageHeading>
-      <AudiobookCreate {...grouping} />
+      <header className="media-index-head">
+        <div>
+          <h1>Audiobooks</h1>
+          <span className="media-mono">
+            {books.length} {books.length === 1 ? "audiobook" : "audiobooks"}
+            {book_pagination.next_cursor || book_pagination.previous_cursor
+              ? " on this page"
+              : ""}
+          </span>
+        </div>
+        <AudiobookCreate {...grouping} />
+      </header>
       <AudiobookPagination
         {...navigation}
         limit={book_pagination.limit}
         nextCursor={book_pagination.next_cursor ?? null}
         previousCursor={book_pagination.previous_cursor ?? null}
       />
-      <div className="playlist-list">
-        {books.map((book) => (
-          <Link
-            href={`/audiobooks/${encodeURIComponent(book.id)}`}
-            key={book.id}
-          >
-            <Artwork playlist />
-            <span>
-              <strong>{book.name}</strong>
-            </span>
-            <span aria-hidden="true">→</span>
-          </Link>
-        ))}
-      </div>
+      {books.length > 0 && (
+        <ul className="media-grid" aria-label="Audiobooks">
+          {books.map((book) => (
+            <li className="media-card" key={book.id}>
+              <Artwork
+                playlistId={book.id}
+                fallback={{
+                  id: book.id,
+                  title: book.name,
+                  artist: "Audiobook",
+                  inline: false,
+                }}
+                playlist
+              />
+              <Link
+                className="media-card-title"
+                href={`/audiobooks/${encodeURIComponent(book.id)}`}
+              >
+                {book.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
       {books.length === 0 && (
-        <EmptyState
-          title="No audiobooks yet"
-          text="Your grouped playlists will appear here."
-          libraryLink={false}
-        />
+        <div className="media-empty">
+          <h2>No audiobooks yet</h2>
+          <p>
+            Group an editable playlist into ordered chapters and it will appear
+            here.
+          </p>
+          <Link className="button" href="/playlists">
+            Browse playlists
+          </Link>
+        </div>
       )}
     </>
   );

@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import Button from "../../../shared/ui/Button";
 import type { PlaylistEntry } from "../../../shared/types";
 
 export default function AudiobookBookmarkForm({
@@ -32,7 +33,7 @@ export default function AudiobookBookmarkForm({
   }
   const locked = pending || hasAttempt;
   return (
-    <form className="playlist-import-form" onSubmit={submit}>
+    <form className="media-form" onSubmit={submit}>
       <label>
         Chapter
         <select
@@ -74,15 +75,15 @@ export default function AudiobookBookmarkForm({
           required
         />
       </label>
-      <button
-        className="button primary"
+      <Button
+        variant="primary"
         type="submit"
         disabled={
           locked || !draft.entry || !draft.position || !draft.label.trim()
         }
       >
         Save bookmark
-      </button>
+      </Button>
       {pending && (
         <p role="status">
           {acknowledged || canCheck
@@ -93,11 +94,11 @@ export default function AudiobookBookmarkForm({
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
       {(hasAttempt || canCheck) && !pending && error && (
-        <button className="button" type="button" onClick={() => void retry()}>
+        <Button onClick={() => void retry()}>
           {acknowledged || canCheck
             ? "Check bookmarks"
             : "Retry bookmark change"}
-        </button>
+        </Button>
       )}
     </form>
   );

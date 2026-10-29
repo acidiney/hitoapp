@@ -1,4 +1,7 @@
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { Plus } from "lucide-react";
+import Button from "../../../shared/ui/Button";
+import Dialog from "../../../shared/ui/Dialog";
 import type { Playlist } from "../../../shared/types";
 
 export default function AudiobookCreate({
@@ -26,57 +29,84 @@ export default function AudiobookCreate({
   retry: () => Promise<void>;
   chooseAnother: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   function submit(event: FormEvent) {
     event.preventDefault();
     void add();
   }
   return (
-    <section className="playlist-import" aria-label="Add an audiobook">
-      <h2>Add an audiobook</h2>
-      <p className="muted">
-        Use an editable playlist's entries as ordered chapters.
-      </p>
-      <form className="playlist-import-form" onSubmit={submit}>
-        <label>
-          Playlist
-          <select
-            value={selected}
-            disabled={pending || hasAttempt || playlists.length === 0}
-            onChange={(event) => select(event.target.value)}
-            required
-          >
-            <option value="">Choose a playlist</option>
-            {playlists.map((playlist) => (
-              <option key={playlist.id} value={playlist.id}>
-                {playlist.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="button primary"
-          type="submit"
-          disabled={pending || hasAttempt || !selected}
+    <>
+      <Button
+        variant="action"
+        aria-haspopup="dialog"
+        aria-label="Add audiobook from a playlist"
+        onClick={() => setOpen(true)}
+      >
+        <Plus size={17} aria-hidden="true" />
+        Add audiobook
+      </Button>
+      {open && (
+        <Dialog
+          title="Add an audiobook"
+          busy={pending}
+          onClose={() => setOpen(false)}
         >
-          Add audiobook
-        </button>
-        {pending && (
-          <p role="status">
-            {acknowledged ? "Checking audiobook…" : "Adding audiobook…"}
+          <p className="muted">
+            Choose an editable playlist. Its entries, in order, become the
+            chapters of the audiobook.
           </p>
-        )}
-        {error && <p role="alert">{error}</p>}
-        {hasAttempt && !pending && error && (
-          <button className="button" type="button" onClick={() => void retry()}>
-            {acknowledged ? "Check audiobook" : "Retry adding audiobook"}
-          </button>
-        )}
-        {canChooseAnother && (
-          <button className="button" type="button" onClick={chooseAnother}>
-            Choose another playlist
-          </button>
-        )}
-      </form>
-    </section>
+          <form className="dialog-form" onSubmit={submit}>
+            <label>
+              Playlist
+              <select
+                value={selected}
+                disabled={pending || hasAttempt || playlists.length === 0}
+                onChange={(event) => select(event.target.value)}
+                required
+              >
+                <option value="">Choose a playlist</option>
+                {playlists.map((playlist) => (
+                  <option key={playlist.id} value={playlist.id}>
+                    {playlist.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {playlists.length === 0 && (
+              <p className="muted">
+                No editable playlist is available to group. Create a playlist
+                first.
+              </p>
+            )}
+            {pending && (
+              <p role="status">
+                {acknowledged ? "Checking audiobook…" : "Adding audiobook…"}
+              </p>
+            )}
+            {error && <p role="alert">{error}</p>}
+            <div className="dialog-actions">
+              {hasAttempt && !pending && error && (
+                <Button onClick={() => void retry()}>
+                  {acknowledged ? "Check audiobook" : "Retry adding audiobook"}
+                </Button>
+              )}
+              {canChooseAnother && (
+                <Button onClick={chooseAnother}>Choose another playlist</Button>
+              )}
+              <Button disabled={pending} onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={pending || hasAttempt || !selected}
+              >
+                Add audiobook
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
   );
 }
