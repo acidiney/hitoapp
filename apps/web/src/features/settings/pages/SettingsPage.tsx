@@ -1,26 +1,66 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, type MouseEvent } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
 import type { SettingsPageProps } from "../../../shared/types";
 import PageHeading from "../../../shared/ui/PageHeading";
+import {
+  UnsavedContext,
+  createUnsavedRegistry,
+} from "../../../shared/unsavedChanges";
 import SettingsNav from "../components/SettingsNav";
 import SettingsSectionBody from "../components/SettingsSectionBody";
-import { readLocation, sectionMeta, visibleGroups } from "../sections";
+import {
+  readLocation,
+  sectionHref,
+  sectionMeta,
+  visibleGroups,
+} from "../sections";
 
 export default function SettingsPage(props: SettingsPageProps) {
   const { url } = usePage();
-  const { section, chosen } = readLocation(url, props.user.admin);
+  const { section, chosen, requested } = readLocation(url, props.user.admin);
   const meta = sectionMeta(section);
-  const heading = useRef<HTMLHeadingElement>(null);
-  const previous = useRef(section);
+  const sectionHeading = useRef<HTMLHeadingElement>(null);
+  const pageHeading = useRef<HTMLHeadingElement>(null);
+  const previous = useRef({ section, chosen });
+  const unsaved = useMemo(createUnsavedRegistry, []);
   useEffect(() => {
-    if (previous.current !== section) heading.current?.focus();
-    previous.current = section;
-  }, [section]);
+    const before = previous.current;
+    previous.current = { section, chosen };
+    if (before.section === section && before.chosen === chosen) return;
+    (chosen ? sectionHeading : pageHeading).current?.focus();
+  }, [section, chosen]);
+  useEffect(() => {
+    if (requested !== null && requested !== section)
+      window.history.replaceState(
+        window.history.state,
+        "",
+        sectionHref(section),
+      );
+  }, [requested, section]);
+  function guard(event: MouseEvent) {
+    const link = (event.target as Element).closest("a");
+    if (
+      link &&
+      unsaved.hasUnsaved() &&
+      !window.confirm("Leave without saving your changes?")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
   return (
-    <>
-      <PageHeading title="Settings" description="Make Hito feel at home." />
-      <div className="settings" data-view={chosen ? "section" : "list"}>
+    <UnsavedContext.Provider value={unsaved}>
+      <PageHeading
+        title="Settings"
+        description="Make Hito feel at home."
+        headingRef={pageHeading}
+      />
+      <div
+        className="settings"
+        data-view={chosen ? "section" : "list"}
+        onClickCapture={guard}
+      >
         <SettingsNav
           groups={visibleGroups(props.user.admin)}
           current={section}
@@ -35,7 +75,7 @@ export default function SettingsPage(props: SettingsPageProps) {
             className="settings-section"
           >
             <div className="settings-section-heading">
-              <h2 id="settings-title" ref={heading} tabIndex={-1}>
+              <h2 id="settings-title" ref={sectionHeading} tabIndex={-1}>
                 {meta.label}
               </h2>
               <p className="muted">{meta.description}</p>
@@ -44,6 +84,6 @@ export default function SettingsPage(props: SettingsPageProps) {
           </section>
         </div>
       </div>
-    </>
+    </UnsavedContext.Provider>
   );
 }

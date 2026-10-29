@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import SettingsPage from "../pages/SettingsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
@@ -27,7 +27,13 @@ vi.mock("../../plugins/components/PluginSettings", async () => {
 });
 vi.mock("../../community/components/CommunitySettings", async () => {
   const { createElement: h } = await import("react");
-  return { default: () => h("p", null, "Community stub") };
+  const { useReportUnsaved } = await import("../../../shared/unsavedChanges");
+  return {
+    default: () => {
+      useReportUnsaved(true);
+      return h("p", null, "Community stub");
+    },
+  };
 });
 vi.mock("../../community/components/CommunityRankingSettings", async () => {
   const { createElement: h } = await import("react");
@@ -164,4 +170,50 @@ test("the profile shows the signed-in account and keeps sign-out and lock reacha
     lock: { pin_enabled: true, idle_minutes: 5, locked: false },
   });
   expect(screen.getByRole("button", { name: "Lock now" })).toBeTruthy();
+});
+
+test("opening a section from the list focuses its heading and going back focuses the page heading", () => {
+  const view = open("/settings");
+  const rerender = (url: string) => {
+    location.url = url;
+    view.rerender(
+      createElement(NoticeProvider, null, createElement(SettingsPage, admin)),
+    );
+  };
+  rerender("/settings?section=music");
+  expect(document.activeElement).toBe(
+    screen.getByRole("heading", { name: "Music & providers", level: 2 }),
+  );
+  rerender("/settings");
+  expect(document.activeElement).toBe(
+    screen.getByRole("heading", { name: "Settings", level: 1 }),
+  );
+});
+
+test("a member opening the accounts link has the address replaced with the resolved section", () => {
+  window.history.replaceState(null, "", "/settings?section=accounts");
+  open("/settings?section=accounts", member);
+  expect(window.location.search).toBe("?section=music");
+  window.history.replaceState(null, "", "/settings?section=library");
+  open("/settings?section=library");
+  expect(window.location.search).toBe("?section=music");
+});
+
+test("leaving a section with unsaved changes asks first and stays when declined", async () => {
+  open("/settings?section=privacy");
+  await screen.findByText("Community stub");
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  const plugins = screen.getByRole("link", { name: "Plugins" });
+  expect(fireEvent.click(plugins)).toBe(false);
+  expect(confirm).toHaveBeenCalledTimes(1);
+  confirm.mockReturnValue(true);
+  fireEvent.click(plugins);
+  expect(confirm).toHaveBeenCalledTimes(2);
+});
+
+test("sections without unsaved changes never prompt", () => {
+  open("/settings?section=about");
+  const confirm = vi.spyOn(window, "confirm");
+  fireEvent.click(screen.getByRole("link", { name: "Plugins" }));
+  expect(confirm).not.toHaveBeenCalled();
 });

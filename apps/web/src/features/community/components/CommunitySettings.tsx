@@ -1,4 +1,5 @@
 import { type FormEvent } from "react";
+import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
@@ -11,6 +12,7 @@ export default function CommunitySettings({ account }: { account: string }) {
   const preferences = useCommunityPreferences(account);
   const credentials = useCommunityCredentialReset(account);
   const busy = preferences.pending !== null || credentials.pending;
+  useReportUnsaved(preferences.dirty);
   function submit(event: FormEvent) {
     event.preventDefault();
     void preferences.save();

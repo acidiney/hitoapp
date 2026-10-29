@@ -127,12 +127,13 @@ export function sectionHref(id: SectionId): string {
 export function readLocation(
   url: string,
   admin: boolean,
-): { section: SectionId; chosen: boolean } {
+): { section: SectionId; chosen: boolean; requested: string | null } {
   const requested = new URL(url, "http://hito.local").searchParams.get(
     "section",
   );
   return {
     section: resolveSection(requested, admin),
     chosen: requested !== null,
+    requested,
   };
 }

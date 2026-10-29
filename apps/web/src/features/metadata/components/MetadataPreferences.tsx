@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -13,6 +14,7 @@ export default function MetadataPreferences({ account }: { account: string }) {
 function PreferencesForm(
   preferences: ReturnType<typeof useMetadataPreferences>,
 ) {
+  useReportUnsaved(preferences.dirty);
   function submit(event: FormEvent) {
     event.preventDefault();
     void preferences.save();

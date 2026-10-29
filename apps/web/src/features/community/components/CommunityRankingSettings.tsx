@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -12,6 +13,7 @@ export default function CommunityRankingSettings({
 }) {
   const preference = useCommunityRankingPreferences(account);
   const busy = preference.pending !== null;
+  useReportUnsaved(preference.dirty);
   function submit(event: FormEvent) {
     event.preventDefault();
     void preference.save();

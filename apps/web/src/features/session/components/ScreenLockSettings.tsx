@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { LockStatus } from "../../../shared/types";
+import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -22,6 +23,7 @@ export default function ScreenLockSettings({
   const settings = usePinSettings(account, lock);
   const id = useId();
   const enabled = settings.status.pin_enabled;
+  useReportUnsaved(settings.pin !== "" || settings.password !== "");
   return (
     <SettingsCard
       title="Screen lock"
