@@ -1,6 +1,6 @@
 # Design system (proposed redesign)
 
-**Status: phase 1 (foundation), the settings half of phase 2 and the Home, Search and Discover half of phase 3 implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled except Settings, Home, Search and Discover; the other screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
+**Status: phase 1 (foundation), the settings half of phase 2 and the Home, Search and Discover half of phase 3 implemented, and phase 4 (Library, Artist, Album, Playlist, Liked tracks, History) implemented; later phases planned.** The tokens, bundled fonts, shared primitives, the new shell (sidebar, bottom tabs on phones) and the restyled player bar are in `apps/web`. Page contents are only restyled except Settings, Home, Search and Discover; the other screens listed under "Screens" are not rebuilt yet. Nothing here is a public release.
 
 | Area | State |
 | --- | --- |
@@ -145,3 +145,15 @@ HITO_VISUAL_CAPTURE=1 docker compose -p <scratch-project> --profile e2e run --rm
 ```
 
 Mounting `apps/web/dist` over `/app/web` in the e2e server (a scratch Compose override) lets a CSS change be checked after `vite build` without rebuilding the server image. Richer music can be mounted at `/music` the same way; the default fixtures hold one track per folder.
+
+## Library, artist, album and playlist pages (phase 4)
+
+Current behaviour, tested in `apps/web` unit tests; the browser flows are covered by the e2e suite and the visual capture (`library-*`, `albums`, `artists`, `playlists`, `likes`, `history`, `artist-credit`, `album`, `playlist`, `playlist-edit`).
+
+- **Tinted headers.** Artist and playlist pages use `CollectionHeader`: a flat colour band with a breadcrumb, eyebrow, name (88/800 for artists, 64/800 for playlists), a mono stats line and Play and Shuffle (and Edit for editable playlists). The colour comes from `tintFor(id)`: the generated-cover palette colour for a stable id (the artist's first release id on the page, else the artist or group id; the playlist id). The server does not extract a dominant colour from artwork, so this stays deterministic and white text keeps its contrast. If a server-side dominant colour is added later, only `tintFor` changes.
+- **Album header** is not tinted: 200 px cover, 52/800 title, artist link, mono stats, Play, Shuffle and Edit album details; the edition choice stays in the existing "Complete track list" card.
+- **Track table** is one component for Library, Liked tracks, History, Album, Artist and Playlist: mono number and duration, 44 px cover (artwork, else generated cover), title with artist beneath it on narrow widths, album column, a dashed-ring "Unavailable on this device" label, and grouped row actions (like always visible, details and add-to-playlist on hover, always on touch).
+- **Discography** on a chosen artist page: type control with counts (All, Albums, EPs, Singles, Other), "Only what I'm missing", and release cards with a generated cover, one availability state (In library, Partial n of m, Catalog only) and the existing actions.
+- **Playlist edit mode** (editable copies and your own playlists, not followed ones): Edit turns on rename, up and down arrows (writes `entry_move`; tied positions are renumbered) and remove (`entry_remove`). Remove is only shown in edit mode.
+- **Playlists index**: create row, an import card (Import a copy or Follow as a SegmentedControl, never native radios) and a cover grid with a Following badge. Native radios and checkboxes keep their native size; disabled buttons use the subtle disabled style and never stretch inside a form grid.
+- **Not built (no backend or deliberately deferred):** sort control, an "All" library pill, "Follow news" for artists, "Add N missing" on albums, a stepped import dialog, a download button inside the playlist header (Download stays a status card).

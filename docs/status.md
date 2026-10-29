@@ -403,3 +403,11 @@ The full scope remains in [release-plan.md](release-plan.md). The checklist in [
 - The separate logo and wordmark redesign.
 
 A passing development check or healthy local service does not complete a public release gate.
+
+## Web redesign phase 4: Library, Artist, Album and Playlist
+
+Implemented (web only, no Rust or contract change): `CollectionHeader` and `Breadcrumbs`, `PlayShuffle`, `tintFor`, a restyled shared `TrackTable` and `TrackGrid` with generated covers, album, artist and playlist cover grids (phone list rows), artist credit and chosen-artist headers, the album header, discography type control with counts and "Only what I'm missing", release cards with availability, playlist edit mode (`usePlaylistEdit`, `reorderMoves`), the playlists index and import card with a SegmentedControl, Liked tracks and History headers, and global form fixes (native radios and checkboxes sized correctly, buttons no longer stretch in grids, disabled buttons use the subtle style).
+
+Evidence: new cases failed first (`red-ui4-collections.log`: tint, reorder, shuffle, album cover, edit mode, discography state and missing filter). Web tests, `npm run build` and the visual capture were run after the change (`web-ui4-*.log`, `shoot-3.log`); fidelity notes are `fidelity-ui4-*.md` and the final shots `visual-final-ui4/` in the scratch area (not tracked). Existing tests that assumed remove buttons outside edit mode, "EPs only", or icon placeholders for playlists were updated to the new behaviour.
+
+Not covered: the artist page against a real catalog (offline capture), dark-mode shots of these pages, and keyboard reordering beyond the up and down buttons.
