@@ -365,8 +365,9 @@ fn a_loud_surround_mix_is_limited_below_full_scale_and_recovers() {
         .fold(0_f32, |peak, s| peak.max(s.abs()));
     assert!(peak > 0.9 && peak <= 1., "peak {peak}");
     let tail = output.samples[output.samples.len() - 2_000..]
-        .chunks_exact(2)
-        .map(|frame| frame[0])
+        .iter()
+        .step_by(2)
+        .copied()
         .collect::<Vec<_>>();
     assert!(
         tail.iter().all(|sample| (sample - 0.5).abs() < 0.005),

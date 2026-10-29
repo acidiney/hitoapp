@@ -232,7 +232,7 @@ impl Limiter {
     }
 
     fn apply(&mut self, samples: &mut [f32]) {
-        for frame in samples.chunks_exact_mut(2) {
+        for frame in samples.as_chunks_mut::<2>().0 {
             let peak = frame[0].abs().max(frame[1].abs());
             let mut gain = self.gain + (1. - self.gain) * self.release;
             if 1. - gain < 1e-6 {

@@ -166,7 +166,6 @@ impl Controls {
             phase,
             playing: snapshot.playing,
             speed: snapshot.speed,
-            effective_speed: self.applied_speed,
             speed_support: snapshot
                 .format
                 .map(|format| support(format.speed_capability())),
@@ -199,7 +198,6 @@ impl Controls {
             phase,
             playing: false,
             speed: self.applied_speed.unwrap_or(1000),
-            effective_speed: self.configured.then_some(self.applied_speed).flatten(),
             speed_support: self.support,
             source_id,
             position: self.resume_at,

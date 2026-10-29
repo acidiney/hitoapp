@@ -401,19 +401,20 @@ impl State {
                 true
             }
         });
-        if let (Some(support), Some(effective)) = (update.speed_support, update.effective_speed) {
-            if owned.speed_support != Some(support) || owned.effective_speed != effective {
+        if let Some(support) = update.speed_support {
+            let before = (owned.speed_support, owned.effective_speed);
+            owned.speed_support = Some(support);
+            owned.negotiate_speed();
+            if before != (owned.speed_support, owned.effective_speed) {
                 tracing::debug!(
                     event = "player_speed_negotiated",
                     min = support.min,
                     max = support.max,
                     chosen = owned.speed,
-                    effective,
+                    effective = owned.effective_speed,
                     "Native source speed support changed"
                 );
             }
-            owned.speed_support = Some(support);
-            owned.effective_speed = effective;
         }
         owned.phase = update.phase;
         owned.playing = update.playing;
@@ -457,5 +458,141 @@ impl State {
             speed: owned.speed,
             permitted: owned.authority_available,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{PlayerPhase, effects::Update};
+    use super::*;
+    use crate::PlayerSpeedSupport;
+    use hito_core::test_support::playback::LocalPlayback;
+    use std::time::Duration;
+
+    const RANGE: PlayerSpeedSupport = PlayerSpeedSupport {
+        min: 500,
+        max: 3000,
+    };
+    const UNIT: PlayerSpeedSupport = PlayerSpeedSupport {
+        min: 1000,
+        max: 1000,
+    };
+
+    struct Harness {
+        state: State,
+        actor: Actor,
+        recording: Uuid,
+        sequence: u64,
+        _fixture: LocalPlayback,
+    }
+
+    impl Harness {
+        async fn start() -> Self {
+            let fixture = LocalPlayback::start().await;
+            let actor = fixture.actor.clone();
+            let owned = Owned::new(actor.clone());
+            Self {
+                state: State {
+                    epoch: Uuid::new_v4(),
+                    owner: Some(owned),
+                    native: true,
+                },
+                actor,
+                recording: Uuid::parse_str(&fixture.recording).unwrap(),
+                sequence: 0,
+                _fixture: fixture,
+            }
+        }
+
+        fn owned(&self) -> &Owned {
+            self.state.owner.as_ref().unwrap()
+        }
+
+        fn submit(&mut self, action: PlayerAction) {
+            self.sequence += 1;
+            let command = super::super::PlayerCommand {
+                id: Uuid::new_v4(),
+                lease: self.owned().lease,
+                sequence: self.sequence,
+                revision: self.owned().queue.revision(),
+                action,
+            };
+            self.state
+                .accept(&self.actor, Action::Submit(command), Vec::new(), true)
+                .unwrap();
+        }
+
+        fn select(&mut self) {
+            self.submit(PlayerAction::Replace {
+                recordings: vec![self.recording],
+                start: 0,
+            });
+        }
+
+        fn source_reports(&mut self, support: PlayerSpeedSupport, applied: u16) {
+            let owned = self.owned();
+            let update = Update {
+                key: owned.key().unwrap(),
+                phase: PlayerPhase::Ready,
+                playing: true,
+                speed: applied,
+                speed_support: Some(support),
+                source_id: Some("source".into()),
+                position: Duration::ZERO,
+                duration_ms: Some(10_000),
+                seek_id: None,
+                restored: None,
+                ended: false,
+                exhausted: false,
+                error: None,
+            };
+            self.state.update(update);
+        }
+
+        fn presented(&self) -> (u16, u16, Option<PlayerSpeedSupport>) {
+            let snapshot = self.owned().snapshot();
+            (
+                snapshot.speed,
+                snapshot.effective_speed,
+                snapshot.speed_support,
+            )
+        }
+    }
+
+    #[tokio::test]
+    async fn a_speed_change_is_presented_consistently_while_the_engine_still_reports_the_old_speed()
+    {
+        let mut h = Harness::start().await;
+        h.select();
+        h.source_reports(RANGE, 1000);
+        assert_eq!(h.presented(), (1000, 1000, Some(RANGE)));
+        h.submit(PlayerAction::Speed { rate: 1500 });
+        assert_eq!(h.presented(), (1500, 1500, Some(RANGE)));
+        h.source_reports(RANGE, 1000);
+        assert_eq!(h.presented(), (1500, 1500, Some(RANGE)));
+        h.source_reports(RANGE, 1500);
+        assert_eq!(h.presented(), (1500, 1500, Some(RANGE)));
+        h.submit(PlayerAction::Speed { rate: 500 });
+        h.source_reports(RANGE, 1500);
+        assert_eq!(h.presented(), (500, 500, Some(RANGE)));
+    }
+
+    #[tokio::test]
+    async fn a_unit_only_source_plays_at_unit_speed_and_the_next_capable_source_restores_the_choice()
+     {
+        let mut h = Harness::start().await;
+        h.select();
+        h.submit(PlayerAction::Speed { rate: 1500 });
+        h.source_reports(UNIT, 1000);
+        assert_eq!(h.presented(), (1500, 1000, Some(UNIT)));
+        h.submit(PlayerAction::Speed { rate: 2000 });
+        assert_eq!(h.presented(), (2000, 1000, Some(UNIT)));
+        h.submit(PlayerAction::Speed { rate: 1000 });
+        assert_eq!(h.presented(), (1000, 1000, Some(UNIT)));
+        h.submit(PlayerAction::Speed { rate: 1500 });
+        h.select();
+        assert_eq!(h.presented(), (1500, 1500, None));
+        h.source_reports(RANGE, 1000);
+        assert_eq!(h.presented(), (1500, 1500, Some(RANGE)));
     }
 }

@@ -35,7 +35,6 @@ pub(super) struct Update {
     pub phase: PlayerPhase,
     pub playing: bool,
     pub speed: u16,
-    pub effective_speed: Option<u16>,
     pub speed_support: Option<super::PlayerSpeedSupport>,
     pub source_id: Option<String>,
     pub position: Duration,

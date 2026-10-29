@@ -88,13 +88,16 @@ async fn a_high_rate_source_reports_its_speed_range_and_plays_at_the_chosen_rate
         )
         .await
         .unwrap();
-    tokio::time::timeout(
-        Duration::from_secs(5),
-        state.wait_for(|s| s.effective_speed == 2000),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    assert_eq!(state.borrow().effective_speed, 2000);
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(600);
+    while tokio::time::Instant::now() < deadline {
+        let seen = state.borrow_and_update().clone();
+        assert_eq!(
+            seen.effective_speed, seen.speed,
+            "a capable source never presents a different speed"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
     let faster = state.borrow().clone();
     assert!(faster.playing);
     assert_eq!(faster.phase, PlayerPhase::Ready);
