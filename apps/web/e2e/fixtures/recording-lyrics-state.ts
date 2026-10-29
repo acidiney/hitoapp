@@ -36,7 +36,7 @@ export async function lyricDeadline<T>(
 
 export async function connectLyricsProvider(page: Page, owned: Provider) {
   await page
-    .getByRole("link", { name: "Conta e definições", exact: true })
+    .getByRole("link", { name: "Account and settings", exact: true })
     .click();
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await page.getByText("Services for this server", { exact: true }).click();

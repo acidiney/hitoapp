@@ -233,7 +233,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
           response.request().method() === "GET" &&
           response.headers()["x-inertia"] === "true",
       ),
-      navigation.getByRole("link", { name: "Biblioteca", exact: true }).click(),
+      navigation.getByRole("link", { name: "Library", exact: true }).click(),
     ]);
     await podcastHistoryJson<unknown>(libraryResponse);
     await expect(

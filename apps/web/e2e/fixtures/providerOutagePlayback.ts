@@ -243,7 +243,7 @@ export async function playThroughOutage(
   );
   await page
     .getByRole("navigation", { name: "Main navigation", exact: true })
-    .getByRole("link", { name: "Biblioteca", exact: true })
+    .getByRole("link", { name: "Library", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),

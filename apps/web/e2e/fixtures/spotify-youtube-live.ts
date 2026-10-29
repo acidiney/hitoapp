@@ -85,7 +85,7 @@ export async function connectLiveProvider(
   offered: (service: Schema["PluginService"]) => void,
 ) {
   await page
-    .getByRole("link", { name: "Conta e definições", exact: true })
+    .getByRole("link", { name: "Account and settings", exact: true })
     .click();
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await expect(

@@ -8,13 +8,12 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
 }) => {
   await enterAdmin(page);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await expect(navigation.getByRole("link")).toHaveText([
-    "Início",
-    /Pesquisar/,
-    "Biblioteca",
-  ]);
+  await expect(navigation.getByRole("link")).toHaveText(["Home", "Library"]);
   await expect(
-    page.getByRole("link", { name: "Conta e definições" }),
+    navigation.getByRole("button", { name: "Open search" }),
+  ).toHaveAttribute("aria-keyshortcuts", /(Meta|Control)\+K/);
+  await expect(
+    page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();
 
   const css = await (await page.request.get("/assets/app.css")).text();
@@ -31,9 +30,17 @@ test("the shell serves bundled fonts, offers three destinations and focuses sear
   ).toBe(true);
 
   await page.keyboard.press("Control+K");
-  await expect(
-    page.getByRole("textbox", { name: "Search library", exact: true }),
-  ).toBeFocused();
+  const search = page.getByRole("textbox", {
+    name: "Search library",
+    exact: true,
+  });
+  await expect(search).toBeFocused();
+
+  await navigation.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(page).toHaveURL(/\/discover$/);
+  await page.keyboard.press("Control+K");
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(search).toBeFocused();
 });
 
 test("a phone shows a three-tab bar with the mini player above it", async ({
@@ -55,10 +62,20 @@ test("a phone shows a three-tab bar with the mini player above it", async ({
   );
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Conta e definições" }),
+    page.getByRole("link", { name: "Account and settings" }),
   ).toBeVisible();
+  const account = await page
+    .getByRole("link", { name: "Account and settings" })
+    .boundingBox();
+  const searchBox = await page.locator(".search").boundingBox();
+  expect(account!.y + account!.height).toBeLessThanOrEqual(searchBox!.y);
   for (const link of await navigation.getByRole("link").all()) {
     const box = await link.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
   }
+  expect(
+    (await navigation
+      .getByRole("button", { name: "Open search" })
+      .boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(44);
 });

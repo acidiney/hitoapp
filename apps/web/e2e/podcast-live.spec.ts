@@ -250,7 +250,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     navigationAudio = await watchLiveAudio(page);
     stage = "library navigation";
     await navigation
-      .getByRole("link", { name: "Biblioteca", exact: true })
+      .getByRole("link", { name: "Library", exact: true })
       .click();
     stage = "navigation library heading visibility";
     await expect(

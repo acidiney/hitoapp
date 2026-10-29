@@ -162,7 +162,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
       name: "Main navigation",
     });
     await page
-      .getByRole("link", { name: "Conta e definições", exact: true })
+      .getByRole("link", { name: "Account and settings", exact: true })
       .click();
     for (const folder of ["Music", "Archive"]) {
       await page.getByRole("button", { name: "Add music folder" }).click();
@@ -190,7 +190,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     ).toBeVisible();
 
     await navigation
-      .getByRole("link", { name: "Biblioteca", exact: true })
+      .getByRole("link", { name: "Library", exact: true })
       .click();
     await expect(page.getByText("2 tracks", { exact: true })).toBeVisible();
     await page

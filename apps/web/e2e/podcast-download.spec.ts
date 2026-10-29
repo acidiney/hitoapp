@@ -294,7 +294,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     expect((await fixtureStatus(page)).upstream_closed).toBe(true);
 
     await navigation
-      .getByRole("link", { name: "Biblioteca", exact: true })
+      .getByRole("link", { name: "Library", exact: true })
       .click();
     const delivered = page.waitForResponse(
       (response) =>

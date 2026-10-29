@@ -355,7 +355,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     phase = "single_track";
     await page
       .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Biblioteca", exact: true })
+      .getByRole("link", { name: "Library", exact: true })
       .click();
     const search = page.getByRole("textbox", {
       name: "Search library",

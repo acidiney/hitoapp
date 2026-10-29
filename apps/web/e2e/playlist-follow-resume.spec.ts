@@ -249,7 +249,7 @@ test.describe("isolated provider playlist Resume", () => {
       phase = 4;
       const proposed = fixture.reviewManifest();
       await page
-        .getByRole("link", { name: "Conta e definições", exact: true })
+        .getByRole("link", { name: "Account and settings", exact: true })
         .click();
       await page.getByRole("tab", { name: "Plugins", exact: true }).click();
       const card = page.locator(".plugin-connection").filter({

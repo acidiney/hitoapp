@@ -91,7 +91,7 @@ test.describe("isolated packaged YouTube", () => {
       next("disposable account sign-in");
       await signInLiveAccount(page);
       await page
-        .getByRole("link", { name: "Conta e definições", exact: true })
+        .getByRole("link", { name: "Account and settings", exact: true })
         .click();
       await page.getByRole("tab", { name: "Plugins", exact: true }).click();
       await expect(
@@ -183,7 +183,7 @@ test.describe("isolated packaged YouTube", () => {
       next("actual provider discovery");
       await page
         .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Início", exact: true })
+        .getByRole("link", { name: "Home", exact: true })
         .click();
       await page
         .getByRole("combobox", { name: "Music service", exact: true })
@@ -269,7 +269,7 @@ test.describe("isolated packaged YouTube", () => {
       playStage = 1;
       await page
         .getByRole("navigation", { name: "Main navigation" })
-        .getByRole("link", { name: "Biblioteca", exact: true })
+        .getByRole("link", { name: "Library", exact: true })
         .click();
       playStage = 2;
       await page

@@ -33,7 +33,7 @@ export async function prepareMetadataCopy(
   const user = await read<Schema["User"]>("/api/v1/me");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await page
-    .getByRole("link", { name: "Conta e definições", exact: true })
+    .getByRole("link", { name: "Account and settings", exact: true })
     .click();
   await page.getByRole("tab", { name: "Plugins", exact: true }).click();
   await page.getByText("Services for this server", { exact: true }).click();
