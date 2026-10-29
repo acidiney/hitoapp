@@ -390,7 +390,8 @@ fn assert_saved_contract() {
 }
 
 #[tokio::test]
-async fn a_catalog_only_track_finds_approved_audio_over_http_without_saving_anything() {
+async fn a_catalog_only_track_finds_and_saves_approved_audio_over_http_and_stays_behind_the_pin_lock()
+ {
     let (_directory, app) = support::app().await;
     let account = Account::setup(&app).await;
     let mut catalog = AlbumProvider::start().await;
@@ -488,13 +489,14 @@ async fn find_audio(
             json!({"items": [{"id": "audio/source", "label": "Owned audio", "ready": true}]}),
         )
         .await;
+    let saved = accepted(app, account, &path, body.clone()).await;
+    assert_eq!(saved["status"], "saved");
+    assert_eq!(saved["recording"]["title"], "Bonus catalog title");
+    let _ = installation;
     assert_eq!(
-        accepted(app, account, &path, body.clone()).await,
-        json!({
-            "status": "found", "installation_id": installation["id"],
-            "installation_revision": installation["revision"],
-            "provider_recording_id": "audio/bonus"
-        })
+        account.get(app, "/api/v1/recordings").await["total"],
+        json!(before.as_i64().unwrap() + 1),
+        "Exactly the matched recording is saved"
     );
     audio.offline().await;
     assert_eq!(
@@ -503,10 +505,30 @@ async fn find_audio(
     );
     assert_eq!(
         account.get(app, "/api/v1/recordings").await["total"],
-        before
+        json!(before.as_i64().unwrap() + 1)
     );
     assert!(audio.requests("v1/audio").await.is_empty());
     assert_eq!(catalog.unexpected(), 0);
+
+    let (status, _) = account
+        .request(
+            app,
+            "PUT",
+            "/api/v1/account/pin",
+            json!({"password": "owned artist review administrator password", "pin": "1234", "idle_minutes": 0}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = account
+        .request(app, "POST", "/api/v1/account/lock", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let requests = audio.requests("v1/search").await.len();
+    let (status, _, locked) =
+        fixture::exchange(app, "POST", &path, body.clone(), account.headers()).await;
+    assert_eq!(status, StatusCode::LOCKED);
+    assert_eq!(locked["code"], "locked");
+    assert_eq!(audio.requests("v1/search").await.len(), requests);
 
     let contract = serde_json::to_value(hito_server::openapi()).unwrap();
     let endpoint = &contract["paths"]["/api/v1/albums/{id}/edition-track-audio"]["post"];

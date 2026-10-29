@@ -14712,26 +14712,17 @@
           {
             "type": "object",
             "required": [
-              "installation_id",
-              "installation_revision",
-              "provider_recording_id",
+              "recording",
               "status"
             ],
             "properties": {
-              "installation_id": {
-                "type": "string"
-              },
-              "installation_revision": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "provider_recording_id": {
-                "type": "string"
+              "recording": {
+                "$ref": "#/components/schemas/Recording"
               },
               "status": {
                 "type": "string",
                 "enum": [
-                  "found"
+                  "saved"
                 ]
               }
             }
@@ -14759,7 +14750,49 @@
               "status": {
                 "type": "string",
                 "enum": [
+                  "insufficient_evidence"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
                   "no_providers"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "busy"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "changed"
                 ]
               }
             }

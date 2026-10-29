@@ -2322,18 +2322,24 @@ export interface components {
             detail: components["schemas"]["ReleaseDetail"];
         };
         AlbumTrackAudio: {
-            installation_id: string;
-            /** Format: int64 */
-            installation_revision: number;
-            provider_recording_id: string;
+            recording: components["schemas"]["Recording"];
             /** @enum {string} */
-            status: "found";
+            status: "saved";
         } | {
             /** @enum {string} */
             status: "no_match";
         } | {
             /** @enum {string} */
+            status: "insufficient_evidence";
+        } | {
+            /** @enum {string} */
             status: "no_providers";
+        } | {
+            /** @enum {string} */
+            status: "busy";
+        } | {
+            /** @enum {string} */
+            status: "changed";
         } | {
             /** @enum {string} */
             status: "disabled";
