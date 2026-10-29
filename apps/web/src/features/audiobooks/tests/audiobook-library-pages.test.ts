@@ -15,6 +15,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { log } from "../../../shared/log";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 const boundaries = vi.hoisted(() => ({
   visit: vi.fn(),
@@ -147,6 +148,7 @@ test("grouped books outside the current page are absent from the authoritative g
       playlists: [...index.playlists, elsewhere],
     }),
   );
+  openAddAudiobookDialog();
   expect(screen.queryByRole("option", { name: elsewhere.name })).toBeNull();
   expect(screen.queryByRole("link", { name: elsewhere.name })).toBeNull();
   expect(

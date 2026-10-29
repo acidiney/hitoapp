@@ -10,6 +10,7 @@ import {
   readyPodcast,
 } from "../fixtures/podcastSubscriptions";
 import type { components } from "../../../generated";
+import { openSubscribeDialog } from "../../../test/media";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -67,6 +68,7 @@ test("Podcasts reloads current subscriptions after returning with the original e
   });
   try {
     await act(async () => {});
+    openSubscribeDialog();
     fireEvent.change(screen.getByRole("textbox", { name: "Feed address" }), {
       target: { value: ownedPodcastFeed },
     });

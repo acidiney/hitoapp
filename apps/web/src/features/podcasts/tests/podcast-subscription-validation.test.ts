@@ -10,6 +10,7 @@ import {
   readyPodcast,
 } from "../fixtures/podcastSubscriptions";
 import type { components } from "../../../generated";
+import { openSubscribeDialog } from "../../../test/media";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -90,6 +91,7 @@ test("Podcasts keeps its checked card during page validation and accepts a fresh
     expect(initialReads).toBe(1);
     expect(readSignals).toHaveLength(1);
     expect(screen.queryByRole("link", { name: readyPodcast.title })).toBeNull();
+    openSubscribeDialog();
     fireEvent.change(screen.getByRole("textbox", { name: "Feed address" }), {
       target: { value: ownedPodcastFeed },
     });

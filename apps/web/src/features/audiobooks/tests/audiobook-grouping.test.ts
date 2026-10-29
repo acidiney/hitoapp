@@ -13,6 +13,7 @@ import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping } from "../fixtures/audiobooks";
 import type { SyncBatch } from "../../../shared/types";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
   onBefore: expect.any(Function),
@@ -90,6 +91,7 @@ test("adding an eligible playlist confirms its owned audiobook before navigating
   });
   try {
     render(createElement(AudiobookIndexPage, index));
+    openAddAudiobookDialog();
     const select = screen.getByRole("combobox", {
       name: "Playlist",
     }) as HTMLSelectElement;
@@ -167,6 +169,7 @@ test("retrying a lost grouping acknowledgement resubmits the exact original oper
   });
   try {
     render(createElement(AudiobookIndexPage, index));
+    openAddAudiobookDialog();
     const select = screen.getByRole("combobox", {
       name: "Playlist",
     }) as HTMLSelectElement;

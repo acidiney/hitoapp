@@ -17,6 +17,7 @@ import type {
   AudiobookPageProps,
   SyncBatch,
 } from "../../../shared/types";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 type NavigationOptions = NonNullable<Parameters<typeof router.visit>[1]>;
 type NavigationVisit = Parameters<
@@ -200,6 +201,7 @@ test("a cancelled book navigation can recover while late old-account callbacks c
     late.onCancelToken?.({ cancel });
     view.rerender(createElement(AudiobookIndexPage, bob));
     expect(cancel).toHaveBeenCalledTimes(1);
+    openAddAudiobookDialog();
     expect(
       (screen.getByRole("combobox", { name: "Playlist" }) as HTMLSelectElement)
         .value,
@@ -240,6 +242,7 @@ test("a cancelled book navigation can recover while late old-account callbacks c
 });
 
 function submit(playlist: string) {
+  openAddAudiobookDialog();
   fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
     target: { value: playlist },
   });

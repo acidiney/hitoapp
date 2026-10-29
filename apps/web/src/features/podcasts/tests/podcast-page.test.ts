@@ -123,8 +123,8 @@ test("Podcast episodes resume saved positions, start over explicitly and replace
   expect(fetch).not.toHaveBeenCalled();
   expect(playQueue).not.toHaveBeenCalled();
   const firstRow = within(
-    screen.getByRole("table", { name: "Episodes" }),
-  ).getAllByRole("row")[1];
+    screen.getByRole("list", { name: "Episodes" }),
+  ).getAllByRole("listitem")[0];
   expect(
     within(firstRow).getByRole("button", { name: "Like Owned first episode" }),
   ).toBeTruthy();
@@ -179,8 +179,10 @@ test("Podcast episodes resume saved positions, start over explicitly and replace
     screen.queryByRole("button", { name: "Resume Owned first episode" }),
   ).toBeNull();
   expect(
-    within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row"),
-  ).toHaveLength(2);
+    within(screen.getByRole("list", { name: "Episodes" })).getAllByRole(
+      "listitem",
+    ),
+  ).toHaveLength(1);
   fireEvent.click(
     screen.getByRole("button", { name: "Play Owned second episode" }),
   );
@@ -269,8 +271,10 @@ test("Podcast episodes recover a stale cursor by loading a complete latest first
     screen.queryByRole("button", { name: "Resume Owned first episode" }),
   ).toBeNull();
   expect(
-    within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row"),
-  ).toHaveLength(2);
+    within(screen.getByRole("list", { name: "Episodes" })).getAllByRole(
+      "listitem",
+    ),
+  ).toHaveLength(1);
   expect(
     (
       screen.getByRole("button", {

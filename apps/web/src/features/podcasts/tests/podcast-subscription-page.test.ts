@@ -10,6 +10,7 @@ import { expect, test, vi } from "vitest";
 import PodcastIndexPage from "../pages/PodcastIndexPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
+import { openSubscribeDialog } from "../../../test/media";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -86,6 +87,7 @@ test("Podcasts recovers a lost subscription acknowledgement with the exact reque
   expect(subscriptionsRead).toBe(0);
   expect(fetch.mock.calls[0][1]?.method).toBe("GET");
 
+  openSubscribeDialog();
   const address = screen.getByRole("textbox", { name: "Feed address" });
   fireEvent.change(address, { target: { value: `  ${privateFeed}  ` } });
   expect(fetch).toHaveBeenCalledTimes(1);
@@ -197,6 +199,7 @@ test("Podcasts permits a corrected feed with a new request after a definitive se
   expect(fetch.mock.calls[0][1]?.method).toBe("GET");
   expect(screen.queryByRole("link", { name: "Corrected podcast" })).toBeNull();
 
+  openSubscribeDialog();
   const address = screen.getByRole("textbox", { name: "Feed address" });
   fireEvent.change(address, { target: { value: rejectedFeed } });
   fireEvent.click(screen.getByRole("button", { name: "Subscribe" }));
@@ -268,6 +271,7 @@ test("Podcasts preserves a new feed draft while the submitted feed awaits acknow
   expect(initialReads).toBe(1);
   expect(subscriptionsRead).toBe(0);
   expect(fetch.mock.calls[0][1]?.method).toBe("GET");
+  openSubscribeDialog();
   const address = screen.getByRole("textbox", {
     name: "Feed address",
   }) as HTMLInputElement;
@@ -290,8 +294,11 @@ test("Podcasts preserves a new feed draft while the submitted feed awaits acknow
     resolveSubscription(Response.json(receipt, { status: 202 }));
   });
   await screen.findByRole("link", { name: "Submitted podcast" });
-  expect(screen.getByRole("textbox", { name: "Feed address" })).toBe(address);
-  expect(address.value).toBe(nextFeed);
+  openSubscribeDialog();
+  expect(
+    (screen.getByRole("textbox", { name: "Feed address" }) as HTMLInputElement)
+      .value,
+  ).toBe(nextFeed);
   expect(
     (screen.getByRole("button", { name: "Subscribe" }) as HTMLButtonElement)
       .disabled,

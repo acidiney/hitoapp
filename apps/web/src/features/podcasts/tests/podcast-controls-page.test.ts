@@ -214,8 +214,10 @@ test("Podcast refresh retries a lost acknowledgement exactly and replaces episod
     screen.queryByRole("button", { name: "Resume Owned prior episode" }),
   ).toBeNull();
   expect(
-    within(screen.getByRole("table", { name: "Episodes" })).getAllByRole("row"),
-  ).toHaveLength(2);
+    within(screen.getByRole("list", { name: "Episodes" })).getAllByRole(
+      "listitem",
+    ),
+  ).toHaveLength(1);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(60_000);
   });

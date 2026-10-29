@@ -12,6 +12,7 @@ import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
 import type { AudiobookDetail, SyncBatch } from "../../../shared/types";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
   onBefore: expect.any(Function),
@@ -103,6 +104,7 @@ test("only an acknowledged unavailable audiobook can be released before an expli
   try {
     view = render(createElement(AudiobookIndexPage, index));
     expect(request).not.toHaveBeenCalled();
+    openAddAudiobookDialog();
     fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
       target: { value: playlist.id },
     });

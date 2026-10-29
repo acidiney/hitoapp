@@ -16,6 +16,7 @@ import {
   readyPodcast,
 } from "../fixtures/podcastSubscriptions";
 import type { components } from "../../../generated";
+import { openSubscribeDialog } from "../../../test/media";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -91,6 +92,7 @@ test("Podcasts keeps an accepted existing subscription visible across stale same
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("link", { name: readyPodcast.title })).toBeNull();
 
+  openSubscribeDialog();
   const address = screen.getByRole("textbox", { name: "Feed address" });
   fireEvent.change(address, { target: { value: ownedPodcastFeed } });
   await act(async () => {
@@ -115,7 +117,10 @@ test("Podcasts keeps an accepted existing subscription visible across stale same
   expect(screen.queryByRole("alert")).toBeNull();
 
   const readsBeforeCheck = subscriptionReads;
-  fireEvent.change(address, { target: { value: ownedPodcastFeed } });
+  openSubscribeDialog();
+  fireEvent.change(screen.getByRole("textbox", { name: "Feed address" }), {
+    target: { value: ownedPodcastFeed },
+  });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Subscribe" }));
   });

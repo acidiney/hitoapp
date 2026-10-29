@@ -92,23 +92,21 @@ test("chapter order and bookmarks retain the exact repeated recording occurrence
     }),
   ).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "All audiobooks" }).getAttribute("href"),
+    screen.getByRole("link", { name: "Audiobooks" }).getAttribute("href"),
   ).toBe("/audiobooks");
   expect(
     screen.getByRole("link", { name: "Open playlist" }).getAttribute("href"),
   ).toBe(`/playlists/${detail.detail.playlist.id}`);
-  const rows = within(screen.getByRole("table", { name: "Chapters" }))
-    .getAllByRole("row")
-    .slice(1);
+  const rows = within(
+    screen.getByRole("list", { name: "Chapters" }),
+  ).getAllByRole("listitem");
   expect(rows).toHaveLength(4);
   expect(rows.map((row) => row.id)).toEqual(
     detail.detail.chapters.map((chapter) => `chapter-${chapter.entry_id}`),
   );
   for (const [index, chapter] of detail.detail.chapters.entries()) {
     const row = within(rows[index]);
-    expect(
-      row.getByRole("rowheader", { name: `Chapter ${index + 1}` }),
-    ).toBeTruthy();
+    expect(row.getByText(String(index + 1), { exact: true })).toBeTruthy();
     expect(row.getByText(chapter.title, { exact: true })).toBeTruthy();
   }
   expect(
@@ -126,7 +124,9 @@ test("chapter order and bookmarks retain the exact repeated recording occurrence
   expect(
     within(saved[0]).getByText("Chapter 3: Owned chapter A", { exact: true }),
   ).toBeTruthy();
-  expect(within(saved[0]).getByText("0:35", { exact: true })).toBeTruthy();
+  expect(
+    within(saved[0]).getByText("Ch. 3 · 0:35", { exact: true }),
+  ).toBeTruthy();
   expect(
     within(saved[0]).queryByText("Chapter 1: Owned chapter A", { exact: true }),
   ).toBeNull();
@@ -143,9 +143,9 @@ test("retained unavailable chapters and removed chapter bookmarks never retarget
       },
     }),
   );
-  const rows = within(screen.getByRole("table", { name: "Chapters" }))
-    .getAllByRole("row")
-    .slice(1);
+  const rows = within(
+    screen.getByRole("list", { name: "Chapters" }),
+  ).getAllByRole("listitem");
   const retained = within(rows[3]);
   expect(retained.getByText("Retained chapter", { exact: true })).toBeTruthy();
   expect(

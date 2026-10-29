@@ -12,6 +12,7 @@ import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
 import type { SyncBatch } from "../../../shared/types";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
   onBefore: expect.any(Function),
@@ -97,6 +98,7 @@ test("an acknowledged grouping retries only its failed authoritative read and wa
   try {
     view = render(createElement(AudiobookIndexPage, index));
     expect(request).not.toHaveBeenCalled();
+    openAddAudiobookDialog();
     fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
       target: { value: playlist.id },
     });
@@ -163,6 +165,7 @@ test("an acknowledged deleted-playlist no-op stays unavailable without navigatio
   });
   render(createElement(AudiobookIndexPage, index));
   expect(request).not.toHaveBeenCalled();
+  openAddAudiobookDialog();
   fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
     target: { value: playlist.id },
   });

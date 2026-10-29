@@ -207,10 +207,10 @@ test("unavailable, null and mismatched rendered anchors offer no playback action
   ];
   render(createElement(AudiobookPage, page));
   const rows = within(
-    screen.getByRole("table", { name: "Chapters" }),
-  ).getAllByRole("row");
+    screen.getByRole("list", { name: "Chapters" }),
+  ).getAllByRole("listitem");
+  expect(within(rows[2]).queryByRole("button", { name: /Play/ })).toBeNull();
   expect(within(rows[3]).queryByRole("button", { name: /Play/ })).toBeNull();
-  expect(within(rows[4]).queryByRole("button", { name: /Play/ })).toBeNull();
   for (const item of within(
     screen.getByRole("region", { name: "Bookmarks" }),
   ).getAllByRole("listitem"))

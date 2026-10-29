@@ -15,6 +15,7 @@ import type {
   AudiobookIndexPageProps,
   SyncBatch,
 } from "../../../shared/types";
+import { openAddAudiobookDialog } from "../../../test/media";
 
 const boundaries = vi.hoisted(() => ({
   player: vi.fn(() => {
@@ -116,6 +117,7 @@ test("account replacement and unmount abort held confirmation bodies and reject 
   try {
     view = render(createElement(AudiobookIndexPage, alice.index));
     expect(request).not.toHaveBeenCalled();
+    openAddAudiobookDialog();
     fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
       target: { value: alice.playlist.id },
     });
@@ -126,6 +128,7 @@ test("account replacement and unmount abort held confirmation bodies and reject 
 
     view.rerender(createElement(AudiobookIndexPage, bob));
     expect(requests[1].signal.aborted).toBe(true);
+    openAddAudiobookDialog();
     expect(
       (screen.getByRole("combobox", { name: "Playlist" }) as HTMLSelectElement)
         .value,
@@ -142,6 +145,7 @@ test("account replacement and unmount abort held confirmation bodies and reject 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(alice.playlist.name, { exact: true })).toBeNull();
 
+    openAddAudiobookDialog();
     fireEvent.change(screen.getByRole("combobox", { name: "Playlist" }), {
       target: { value: bobPlaylist.id },
     });

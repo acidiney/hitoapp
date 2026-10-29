@@ -248,7 +248,7 @@ test.each([
         );
       const before = player.queueSnapshot();
       const button = screen.getByRole("button", {
-        name: /^Continue audiobook$/,
+        name: /^Continue ch\. \d+ · \d+:\d{2}$/,
       });
       expect(preparations).toEqual([]);
       if (outcome === "timeout") {

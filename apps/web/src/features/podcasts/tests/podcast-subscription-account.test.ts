@@ -10,6 +10,7 @@ import {
   readyPodcast,
 } from "../fixtures/podcastSubscriptions";
 import type { components } from "../../../generated";
+import { openSubscribeDialog } from "../../../test/media";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -105,6 +106,7 @@ test("Podcasts discards a late previous-account list and recovers through the ne
     expect(reads[0].account).toBe(emptyPodcastPage.user.id);
     expect(writes).toHaveLength(0);
     expect(screen.queryByRole("link", { name: readyPodcast.title })).toBeNull();
+    openSubscribeDialog();
     fireEvent.change(screen.getByRole("textbox", { name: "Feed address" }), {
       target: { value: ownedPodcastFeed },
     });
@@ -145,6 +147,7 @@ test("Podcasts discards a late previous-account list and recovers through the ne
       (read) => read.account === bobPage.user.id,
     ).length;
     expect(bobReadsBeforeSubmit).toBe(1);
+    openSubscribeDialog();
     fireEvent.change(screen.getByRole("textbox", { name: "Feed address" }), {
       target: { value: bobFeed },
     });
