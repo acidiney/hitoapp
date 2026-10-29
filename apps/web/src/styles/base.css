@@ -5,8 +5,12 @@
   --subtle: #eeeeea;
   --line: #e6e5e1;
   --line-strong: #d6d5d0;
+  --control-off: #8a8984;
+  --control-border: #8a8984;
   --ink: #141414;
   --on-ink: #ffffff;
+  --ink-hover: #3a3a37;
+  --action-hover: #1f38e0;
   --muted: #5f5e5a;
   --action: #2f4bff;
   --on-action: #ffffff;
@@ -22,7 +26,7 @@
   --font-mono:
     "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
   --primary: var(--action);
-  --border: var(--line);
+  --border: var(--line-strong);
   --panel: var(--surface);
   --hover: var(--subtle);
   --sidebar: 248px;
@@ -43,8 +47,12 @@
     --subtle: #262624;
     --line: #2e2e2b;
     --line-strong: #3d3d39;
+    --control-off: #75746e;
+    --control-border: #75746e;
     --ink: #f2f1ed;
     --on-ink: #111110;
+    --ink-hover: #ffffff;
+    --action-hover: #8fa1ff;
     --muted: #a3a29c;
     --action: #6f86ff;
     --on-action: #0b0d1f;
@@ -57,11 +65,11 @@
     --error-line: #63352b;
   }
 }
-body {
-  background: var(--bg);
-}
 * {
   box-sizing: border-box;
+}
+html {
+  scroll-padding-bottom: calc(var(--player) + var(--tabs) + 16px);
 }
 body {
   margin: 0;
@@ -101,6 +109,10 @@ button:disabled {
 }
 button:hover:not(:disabled) {
   background: var(--hover);
+}
+input,
+select {
+  border-color: var(--control-border);
 }
 input {
   min-width: 0;
@@ -198,10 +210,13 @@ small {
   border-color: var(--action);
   color: var(--on-action);
 }
-.button.primary:hover:not(:disabled),
+.button.primary:hover:not(:disabled) {
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
+}
 .button.action:hover:not(:disabled) {
-  filter: brightness(1.15);
-  background: inherit;
+  background: var(--action-hover);
+  border-color: var(--action-hover);
 }
 .button.destructive,
 .button.danger {

@@ -24,6 +24,7 @@ export default function SegmentedControl<T extends string>({
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
+  const selected = options.some((option) => option.value === value);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   function press(event: KeyboardEvent, index: number) {
     const next = step(event.key, index, options.length);
@@ -36,6 +37,7 @@ export default function SegmentedControl<T extends string>({
     <div className="segmented" role="radiogroup" aria-label={label}>
       {options.map((option, index) => {
         const checked = option.value === value;
+        const tabbable = selected ? checked : index === 0;
         return (
           <button
             key={option.value}
@@ -45,7 +47,7 @@ export default function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={checked}
-            tabIndex={checked ? 0 : -1}
+            tabIndex={tabbable ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => press(event, index)}

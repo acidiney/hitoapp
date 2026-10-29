@@ -97,3 +97,10 @@ test("filter pills report their pressed state and choose one filter", () => {
   fireEvent.click(screen.getByRole("button", { name: "Artists" }));
   expect(onChange).toHaveBeenCalledWith("artists");
 });
+
+test("when the value matches no option the first option is still reachable by Tab", () => {
+  segmented("missing");
+  expect(
+    screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex")),
+  ).toEqual(["0", "-1", "-1"]);
+});

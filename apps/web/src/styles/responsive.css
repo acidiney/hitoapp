@@ -104,7 +104,7 @@
     background: var(--surface);
     border-top: 1px solid var(--line);
   }
-  .sidebar nav a {
+  .sidebar nav :is(a, button) {
     flex-direction: column;
     justify-content: center;
     gap: 2px;
@@ -121,16 +121,16 @@
     display: none;
   }
   .account {
-    position: fixed;
-    top: 6px;
-    right: 8px;
-    z-index: 20;
-    margin: 0;
-    padding: 0;
-    border: 0;
+    position: static;
+    width: auto;
+    padding: 4px 8px;
     gap: 0;
+    justify-content: flex-end;
+    border: 0;
+    border-bottom: 1px solid var(--line);
   }
   .account-link {
+    flex: 0 0 auto;
     padding: 0 6px;
   }
   .account-link > span:last-child {
@@ -139,12 +139,9 @@
   .library-sections {
     padding: 0 18px;
   }
-  .app-shell:not(:has(.topbar)) main#main {
-    padding-top: 60px;
-  }
   .topbar {
     min-height: 76px;
-    padding: 0 148px 0 18px;
+    padding: 0 18px;
   }
   main#main {
     padding: 24px 18px 38px;
@@ -250,9 +247,8 @@
     padding: 0 12px;
     gap: 4px;
   }
-  .now-playing .availability,
-  .player-tools > :not(button[aria-label="Open queue"]),
-  .transport-buttons > :not(.play-button, [aria-label="Next track"]),
+  .player-tools :is(.speed-select, .volume-icon, .volume, .expand-player),
+  .transport-optional,
   .seek,
   .queue-label {
     display: none;

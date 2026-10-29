@@ -229,7 +229,7 @@
 }
 .track-table td {
   padding: 13px 12px;
-  border-bottom: 1px solid var(--surface);
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
   max-width: 260px;
 }

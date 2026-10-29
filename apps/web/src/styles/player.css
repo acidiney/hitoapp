@@ -39,10 +39,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.now-playing .availability {
-  font-size: 11px;
-  margin-left: 6px;
-}
 .dock-artwork {
   width: 56px;
   height: 56px;
@@ -90,8 +86,7 @@
   padding: 0;
 }
 .play-button:hover:not(:disabled) {
-  background: var(--ink);
-  filter: brightness(1.2);
+  background: var(--ink-hover);
 }
 .seek {
   display: flex;

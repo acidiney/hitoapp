@@ -12,7 +12,7 @@
   position: fixed;
   inset: 0 auto var(--player) 0;
   width: var(--sidebar);
-  padding: 24px 14px 16px;
+  padding: 24px 14px 84px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -58,7 +58,7 @@
   display: grid;
   gap: 2px;
 }
-.sidebar nav a {
+.sidebar nav :is(a, button) {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -68,7 +68,13 @@
   font-weight: 500;
   border-radius: 10px;
 }
-.sidebar nav a:hover {
+.sidebar nav button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.sidebar nav :is(a, button):hover:not(:disabled) {
   background: var(--subtle);
 }
 .sidebar nav a[aria-current="page"] {
@@ -125,6 +131,7 @@
   white-space: nowrap;
 }
 .playlist-swatch {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
@@ -135,9 +142,15 @@
   font-size: 13px;
 }
 .account {
-  margin-top: auto;
-  padding-top: 12px;
+  position: fixed;
+  left: 0;
+  bottom: var(--player);
+  z-index: 2;
+  width: var(--sidebar);
+  padding: 12px 14px;
+  background: var(--bg);
   border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -200,7 +213,7 @@
   width: 100%;
   max-width: 640px;
   min-height: 48px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: 12px;
   background: var(--surface);
   color: var(--muted);
