@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { PluginInstallation, PluginRefresh } from "../../../shared/types";
 import type { PluginActions } from "../hooks/usePlugins";
+import Button from "../../../shared/ui/Button";
+import HealthDot from "../../../shared/ui/HealthDot";
+import SettingRow from "../../../shared/ui/SettingRow";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 type Review = Extract<PluginRefresh, { kind: "review_required" }>;
@@ -54,37 +57,49 @@ export default function PluginConnection({
   }
   return (
     <li className="plugin-connection">
-      <div className="setting-row">
-        <div>
-          <h3>{plugin.manifest.name}</h3>
-          <p>
-            Declared capabilities: {capabilities(plugin.manifest.capabilities)}
-          </p>
-          <p>
-            Source persistence:{" "}
-            <PluginPersistencePolicy policy={plugin.manifest.content_policy} />
-          </p>
-          <p>{plugin.credential_set ? "Token saved" : "No token saved"}</p>
-        </div>
-        <div className="plugin-actions">
-          <button
-            className="button"
-            disabled={actions.pending}
-            ref={checkButton}
-            onClick={() => void check()}
-          >
-            Check connection
-          </button>
-          <button
-            className="button"
-            disabled={actions.pending}
-            ref={removeButton}
-            onClick={() => setConfirm(true)}
-          >
-            Remove
-          </button>
-        </div>
-      </div>
+      <SettingRow
+        title={<h4>{plugin.manifest.name}</h4>}
+        hint={
+          <>
+            <span>
+              Declared capabilities:{" "}
+              {capabilities(plugin.manifest.capabilities)}
+            </span>
+            <span>
+              Source persistence:{" "}
+              <PluginPersistencePolicy
+                policy={plugin.manifest.content_policy}
+              />
+            </span>
+          </>
+        }
+        status={
+          <HealthDot
+            tone={plugin.credential_set ? "success" : "action"}
+            label={plugin.credential_set ? "Token saved" : "No token saved"}
+          />
+        }
+        wide
+        action={
+          <>
+            <Button
+              disabled={actions.pending}
+              ref={checkButton}
+              onClick={() => void check()}
+            >
+              Check connection
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actions.pending}
+              ref={removeButton}
+              onClick={() => setConfirm(true)}
+            >
+              Remove
+            </Button>
+          </>
+        }
+      />
       {confirm && (
         <div className="plugin-confirm">
           <p>
@@ -92,17 +107,16 @@ export default function PluginConnection({
             will be cleared.
           </p>
           <div className="plugin-actions">
-            <button
-              className="button"
+            <Button
+              variant="destructive"
               disabled={actions.pending}
               onClick={async () => {
                 if (await actions.remove(plugin)) onRemoved();
               }}
             >
               Remove plugin
-            </button>
-            <button
-              className="button"
+            </Button>
+            <Button
               disabled={actions.pending}
               onClick={() => {
                 setConfirm(false);
@@ -110,7 +124,7 @@ export default function PluginConnection({
               }}
             >
               Cancel removal
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -162,7 +176,7 @@ export default function PluginConnection({
       </details>
       {review && (
         <div className="plugin-review">
-          <h3>Review plugin changes</h3>
+          <h4>Review plugin changes</h4>
           <p>
             The service changed its declaration. Accept it to update this
             connection.

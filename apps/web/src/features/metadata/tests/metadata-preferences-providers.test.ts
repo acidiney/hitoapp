@@ -5,6 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { isOn } from "../../../test/switch";
 import { beforeEach, expect, test, vi } from "vitest";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
@@ -155,7 +156,7 @@ test("a removed selected connection stays unavailable and can be retained while 
   await screen.findByText("Unavailable saved provider", { exact: true });
   expect(screen.queryByText(removed.installation.id)).toBeNull();
   fireEvent.click(
-    screen.getByRole("checkbox", {
+    screen.getByRole("switch", {
       name: "Use metadata providers",
     }),
   );

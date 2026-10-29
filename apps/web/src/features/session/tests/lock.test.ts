@@ -6,6 +6,7 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
@@ -179,9 +180,11 @@ test("PIN settings need the password and can remove the PIN", async () => {
   fireEvent.change(screen.getByLabelText("Current password"), {
     target: { value: "a long test password" },
   });
-  fireEvent.change(screen.getByLabelText("Lock when idle"), {
-    target: { value: "15" },
-  });
+  fireEvent.click(
+    within(
+      screen.getByRole("radiogroup", { name: "Lock when idle" }),
+    ).getByRole("radio", { name: "15 min" }),
+  );
   fireEvent.submit(screen.getByRole("button", { name: "Save PIN" }));
   await waitFor(() =>
     expect(lockApi.setPin).toHaveBeenCalledWith("alice-id", {

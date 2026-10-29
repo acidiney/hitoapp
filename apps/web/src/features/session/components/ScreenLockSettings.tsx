@@ -1,12 +1,15 @@
 import { useId } from "react";
 import type { LockStatus } from "../../../shared/types";
+import Button from "../../../shared/ui/Button";
+import SegmentedControl from "../../../shared/ui/SegmentedControl";
+import SettingsCard from "../../../shared/ui/SettingsCard";
 import { usePinSettings } from "../hooks/usePinSettings";
 
 const idleChoices = [
-  { value: 0, label: "Never" },
-  { value: 5, label: "After 5 minutes" },
-  { value: 15, label: "After 15 minutes" },
-  { value: 60, label: "After 1 hour" },
+  { value: "0", label: "Never" },
+  { value: "5", label: "5 min" },
+  { value: "15", label: "15 min" },
+  { value: "60", label: "1 hour" },
 ];
 
 export default function ScreenLockSettings({
@@ -20,15 +23,11 @@ export default function ScreenLockSettings({
   const id = useId();
   const enabled = settings.status.pin_enabled;
   return (
-    <section className="settings-panel" aria-label="Screen lock">
-      <div className="settings-intro">
-        <h2>Screen lock</h2>
-        <p>
-          Set a 4 to 8 digit PIN to lock this session while you step away. The
-          PIN never replaces your password: five wrong PINs sign you out, and
-          changing or removing the PIN needs your password.
-        </p>
-      </div>
+    <SettingsCard
+      title="Screen lock"
+      description="A 4 to 8 digit PIN locks this session while you step away. It never replaces your password: five wrong PINs sign you out, and changing or removing it needs your password."
+      busy={settings.busy}
+    >
       <form className="pin-form" onSubmit={settings.save}>
         <fieldset disabled={settings.busy}>
           <label htmlFor={`${id}-pin`}>PIN</label>
@@ -45,20 +44,14 @@ export default function ScreenLockSettings({
             onChange={(event) => settings.setPin(event.target.value)}
           />
           {enabled && <small>Leave blank to keep your current PIN.</small>}
-          <label htmlFor={`${id}-idle`}>Lock when idle</label>
-          <select
-            id={`${id}-idle`}
-            value={settings.idleMinutes}
-            onChange={(event) =>
-              settings.setIdleMinutes(Number(event.target.value))
-            }
-          >
-            {idleChoices.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
+          <span className="field-label">Lock when idle</span>
+          <SegmentedControl
+            label="Lock when idle"
+            options={idleChoices}
+            value={String(settings.idleMinutes)}
+            onChange={(value) => settings.setIdleMinutes(Number(value))}
+            disabled={settings.busy}
+          />
           <label htmlFor={`${id}-password`}>Current password</label>
           <input
             id={`${id}-password`}
@@ -75,22 +68,21 @@ export default function ScreenLockSettings({
             </p>
           )}
           <div>
-            <button className="button primary" type="submit">
+            <Button type="submit" variant="primary">
               Save PIN
-            </button>
+            </Button>
             {enabled && (
-              <button
-                className="button"
-                type="button"
+              <Button
+                variant="destructive"
                 disabled={settings.password === ""}
                 onClick={settings.remove}
               >
                 Remove PIN
-              </button>
+              </Button>
             )}
           </div>
         </fieldset>
       </form>
-    </section>
+    </SettingsCard>
   );
 }

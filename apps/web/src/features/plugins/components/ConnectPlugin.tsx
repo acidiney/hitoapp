@@ -1,6 +1,8 @@
 import type { PluginService } from "../../../shared/types";
 import type { PluginActions } from "../hooks/usePlugins";
 import { usePluginInstallation } from "../hooks/usePluginInstallation";
+import Button from "../../../shared/ui/Button";
+import SettingsCard from "../../../shared/ui/SettingsCard";
 import PluginInstallationReview from "./PluginInstallationReview";
 
 export default function ConnectPlugin({
@@ -17,8 +19,11 @@ export default function ConnectPlugin({
   const pending = actions.pending || workflow.pending;
   if (!service) return null;
   return (
-    <div className="plugin-section">
-      <h3>Connect a service</h3>
+    <SettingsCard
+      title="Connect a service"
+      description="Pick a service your administrator offers, review what it declares, then connect your account."
+      busy={pending}
+    >
       <form
         className="plugin-form"
         onSubmit={(event) => {
@@ -58,9 +63,9 @@ export default function ConnectPlugin({
           Use a token supplied by this service. It stays private to your
           account.
         </p>
-        <button className="button primary" disabled={pending}>
+        <Button type="submit" variant="primary" disabled={pending}>
           {workflow.pending ? "Checking service…" : "Review connection"}
-        </button>
+        </Button>
       </form>
       {workflow.error && (
         <p role="alert" className="form-error">
@@ -75,6 +80,6 @@ export default function ConnectPlugin({
           onBack={workflow.back}
         />
       )}
-    </div>
+    </SettingsCard>
   );
 }

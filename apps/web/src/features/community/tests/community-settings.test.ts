@@ -1,3 +1,4 @@
+import { isOn } from "../../../test/switch";
 import { createElement } from "react";
 import {
   act,
@@ -43,7 +44,7 @@ test("community consent requires an explicit independent save and retires cancel
     const oldRead = fetch.mock.calls[0][1]?.signal;
     view.rerender(createElement(CommunitySettings, { account: "bob" }));
     expect(oldRead?.aborted).toBe(true);
-    await screen.findByRole("checkbox", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Playback reporting" });
     await act(async () => {
       releaseRead(
         Response.json({
@@ -55,19 +56,19 @@ test("community consent requires an explicit independent save and retires cancel
       );
       await retiredRead;
     });
-    expect(playback().checked).toBe(false);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(false);
+    expect(isOn(corrections())).toBe(false);
     expect(save().disabled).toBe(true);
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(document.querySelector('input[type="password"]')).toBeNull();
 
     fireEvent.click(playback());
-    expect(playback().checked).toBe(true);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(true);
+    expect(isOn(corrections())).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole("button", { name: "Cancel changes" }));
-    expect(playback().checked).toBe(false);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(false);
+    expect(isOn(corrections())).toBe(false);
     expect(save().disabled).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
 
@@ -97,8 +98,8 @@ test("community consent requires an explicit independent save and retires cancel
       String(fetch.mock.calls[2][1]?.body),
     );
     expect(request).toEqual({ ...disabled, playback_reporting: true });
-    expect(playback().checked).toBe(true);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(true);
+    expect(isOn(corrections())).toBe(false);
     expect(save().disabled).toBe(true);
 
     fetch.mockResolvedValueOnce(
@@ -113,8 +114,8 @@ test("community consent requires an explicit independent save and retires cancel
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Community preferences changed. Review them again.",
     );
-    expect(playback().checked).toBe(true);
-    expect(corrections().checked).toBe(true);
+    expect(isOn(playback())).toBe(true);
+    expect(isOn(corrections())).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(4);
     expect(
       screen.queryByText("Community preferences saved.", { exact: true }),
@@ -131,9 +132,9 @@ test("community consent requires an explicit independent save and retires cancel
     );
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(5);
-      expect(playback().checked).toBe(false);
+      expect(isOn(playback())).toBe(false);
     });
-    expect(corrections().checked).toBe(true);
+    expect(isOn(corrections())).toBe(true);
     expect(save().disabled).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
 
@@ -150,7 +151,7 @@ test("community consent requires an explicit independent save and retires cancel
     });
     view.rerender(createElement(CommunitySettings, { account: "carol" }));
     expect(oldSave?.aborted).toBe(true);
-    await screen.findByRole("checkbox", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Playback reporting" });
     await act(async () => {
       releaseSave(
         Response.json({
@@ -161,8 +162,8 @@ test("community consent requires an explicit independent save and retires cancel
       );
       await retiredSave;
     });
-    expect(playback().checked).toBe(false);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(false);
+    expect(isOn(corrections())).toBe(false);
     expect(save().disabled).toBe(true);
     expect(
       screen.queryByText("Community preferences saved.", { exact: true }),
@@ -192,15 +193,15 @@ test("community consent requires an explicit independent save and retires cancel
 });
 
 function playback() {
-  return screen.getByRole("checkbox", {
+  return screen.getByRole("switch", {
     name: "Playback reporting",
-  }) as HTMLInputElement;
+  }) as HTMLButtonElement;
 }
 
 function corrections() {
-  return screen.getByRole("checkbox", {
+  return screen.getByRole("switch", {
     name: "Metadata corrections",
-  }) as HTMLInputElement;
+  }) as HTMLButtonElement;
 }
 
 function save() {
@@ -227,7 +228,7 @@ test("community credential recovery is explicit, preserves consent drafts, and r
   vi.stubGlobal("fetch", fetch);
   const view = render(createElement(CommunitySettings, { account: "alice" }));
   try {
-    await screen.findByRole("checkbox", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Playback reporting" });
     const reset = () =>
       screen.getByRole("button", {
         name: "Reset community credentials",
@@ -250,8 +251,8 @@ test("community credential recovery is explicit, preserves consent drafts, and r
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Community reset could not finish. Try again.",
     );
-    expect(playback().checked).toBe(true);
-    expect(corrections().checked).toBe(true);
+    expect(isOn(playback())).toBe(true);
+    expect(isOn(corrections())).toBe(true);
     expect(save().disabled).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(fetch.mock.calls[1][0]).toBe("/api/v1/community/credentials");
@@ -274,8 +275,8 @@ test("community credential recovery is explicit, preserves consent drafts, and r
       "Community credentials reset. Privacy choices and accepted contributions are kept. Unsent reports canceled: 3.",
     );
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(playback().checked).toBe(true);
-    expect(corrections().checked).toBe(true);
+    expect(isOn(playback())).toBe(true);
+    expect(isOn(corrections())).toBe(true);
     expect(save().disabled).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(3);
 
@@ -289,15 +290,15 @@ test("community credential recovery is explicit, preserves consent drafts, and r
     const oldReset = fetch.mock.calls[3][1]?.signal;
     view.rerender(createElement(CommunitySettings, { account: "bob" }));
     expect(oldReset?.aborted).toBe(true);
-    await screen.findByRole("checkbox", { name: "Playback reporting" });
+    await screen.findByRole("switch", { name: "Playback reporting" });
     await act(async () => {
       releaseReset(
         Response.json({ reporters_removed: 9, reports_cancelled: 99 }),
       );
       await retiredReset;
     });
-    expect(playback().checked).toBe(false);
-    expect(corrections().checked).toBe(false);
+    expect(isOn(playback())).toBe(false);
+    expect(isOn(corrections())).toBe(false);
     expect(screen.queryByText(/Community credentials reset/)).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(5);
     expect(

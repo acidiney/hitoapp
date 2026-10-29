@@ -1,3 +1,4 @@
+import { isOn } from "../../../test/switch";
 import { createElement, StrictMode } from "react";
 import {
   act,
@@ -40,9 +41,9 @@ beforeEach(() => {
   vi.stubGlobal("fetch", unexpectedRequest);
 });
 function enabled() {
-  return screen.getByRole("checkbox", {
+  return screen.getByRole("switch", {
     name: "Use metadata providers",
-  }) as HTMLInputElement;
+  }) as HTMLButtonElement;
 }
 function save() {
   return screen.getByRole("button", {
@@ -91,7 +92,7 @@ test("a retired initial read cannot overwrite an accepted save and duplicate sub
       initial.resolve(settings());
       await initial.promise;
     });
-    expect(enabled().checked).toBe(false);
+    expect(isOn(enabled())).toBe(false);
     expect(
       within(selected()).getByText(alice.service.name, { exact: true }),
     ).toBeTruthy();
@@ -136,7 +137,7 @@ test("account changes fence late private reads and unmount aborts the replacemen
       await Promise.all([oldSettings.finish(), oldConnections.finish()]);
     });
     expect(
-      screen.queryByRole("checkbox", {
+      screen.queryByRole("switch", {
         name: "Use metadata providers",
       }),
     ).toBeNull();
@@ -152,7 +153,7 @@ test("account changes fence late private reads and unmount aborts the replacemen
       await Promise.all([newSettings.finish(), newConnections.finish()]);
     });
     expect(
-      screen.queryByRole("checkbox", {
+      screen.queryByRole("switch", {
         name: "Use metadata providers",
       }),
     ).toBeNull();
@@ -197,7 +198,7 @@ test("an old account's late save cannot publish success or private state into it
     await act(async () => {
       await update.finish();
     });
-    expect(enabled().checked).toBe(true);
+    expect(isOn(enabled())).toBe(true);
     expect(
       screen.queryByText("Metadata preferences saved.", { exact: true }),
     ).toBeNull();
@@ -229,7 +230,7 @@ test("a revision conflict retains the draft until an explicit reload refreshes t
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Metadata settings changed. Review them again.",
     );
-    expect(enabled().checked).toBe(false);
+    expect(isOn(enabled())).toBe(false);
     expect(
       within(selected()).getByText(alice.service.name, { exact: true }),
     ).toBeTruthy();
@@ -254,7 +255,7 @@ test("a revision conflict retains the draft until an explicit reload refreshes t
       expect(metadataPreferencesApi.settings).toHaveBeenCalledTimes(2),
     );
     await screen.findByText(alice.service.name, { exact: true });
-    expect(enabled().checked).toBe(true);
+    expect(isOn(enabled())).toBe(true);
     expect(metadataPreferencesApi.update).toHaveBeenCalledTimes(1);
     fireEvent.click(enabled());
     fireEvent.click(save());

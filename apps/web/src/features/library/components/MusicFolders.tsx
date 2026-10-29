@@ -1,29 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Folder,
-  FolderOpen,
-  FolderPlus,
-  FolderSync,
-  Trash2,
-} from "lucide-react";
-import type { Library, MusicFolder } from "../../../shared/types";
+import { Folder, FolderOpen, FolderPlus, FolderSync } from "lucide-react";
+import type { Library } from "../../../shared/types";
+import Button from "../../../shared/ui/Button";
+import SectionWarning from "../../../shared/ui/SectionWarning";
+import SettingRow from "../../../shared/ui/SettingRow";
+import SettingsCard from "../../../shared/ui/SettingsCard";
 import { useHostFolders } from "../hooks/useHostFolders";
 import { useMusicFolders } from "../hooks/useMusicFolders";
 import FolderPicker from "./FolderPicker";
-
-function status(folder: MusicFolder) {
-  const job = folder.latest_job;
-  if (!folder.available)
-    return "Unavailable. Check that the drive is connected.";
-  if (job?.state === "queued") return "Waiting to scan";
-  if (job?.state === "running")
-    return `Scanning · ${job.progress.toLocaleString()} files read`;
-  if (job?.state === "failed")
-    return "Scan failed. Check the folder and try again.";
-  if (job?.state === "complete")
-    return `${job.progress.toLocaleString()} ${job.progress === 1 ? "file" : "files"} read`;
-  return "Ready to scan";
-}
+import FolderRow from "./FolderRow";
 
 export default function MusicFolders({
   account,
@@ -43,58 +28,55 @@ export default function MusicFolders({
   const [removing, remove] = useState<string | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const wasPicking = useRef(false);
+  const busy = !!folders.pending;
   useEffect(() => {
     if (wasPicking.current && !picking)
       addButton.current?.focus({ preventScroll: true });
     wasPicking.current = picking;
   }, [picking]);
   return (
-    <>
-      <div className="music-folders-heading">
-        <div>
-          <h3>Music folders</h3>
-          <p>{library.name} · Read-only access</p>
-        </div>
-        <div className="music-folders-add">
+    <SettingsCard
+      title="Music folders"
+      description={`${library.name} · Read-only access`}
+      action={
+        <div className="card-actions">
           {host.picker && (
-            <button
-              className="button"
-              disabled={!!folders.pending || host.choosing}
+            <Button
+              disabled={busy || host.choosing}
               onClick={() => void host.choose()}
             >
-              <FolderOpen size={18} />
+              <FolderOpen size={18} aria-hidden="true" />
               {host.choosing ? "Waiting for your choice…" : "Choose folder…"}
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             ref={addButton}
-            className="button primary"
-            disabled={!!folders.pending}
+            variant="primary"
+            disabled={busy}
             onClick={() => pick(true)}
           >
-            <FolderPlus size={18} />
+            <FolderPlus size={18} aria-hidden="true" />
             Add music folder
-          </button>
+          </Button>
         </div>
-      </div>
+      }
+    >
       {host.suggestion && (
         <div className="music-folder-proposal">
-          <h3>Add your Music folder?</h3>
+          <h4>Add your Music folder?</h4>
           <p>
             Hito found the Music folder on this computer. It only reads your
             files and never changes them.
           </p>
           <div>
-            <button className="button" onClick={host.dismiss}>
-              Not now
-            </button>
-            <button
-              className="button primary"
-              disabled={!!folders.pending || host.choosing}
+            <Button onClick={host.dismiss}>Not now</Button>
+            <Button
+              variant="primary"
+              disabled={busy || host.choosing}
               onClick={() => void host.accept()}
             >
               Use Music folder
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -107,112 +89,52 @@ export default function MusicFolders({
       {!folders.loading && !folders.folders.length && (
         <div className="music-folders-empty">
           <Folder size={32} aria-hidden="true" />
-          <h3>Make room for your collection</h3>
+          <h4>Make room for your collection</h4>
           <p>
             Add a folder to find your music. Hito reads the audio and its tags
             without moving your files.
           </p>
         </div>
       )}
-      <ul className="music-folders-list" aria-label="Connected music folders">
+      <ul className="plain-list" aria-label="Connected music folders">
         {folders.folders.map((folder) => (
           <li key={folder.id}>
-            <div className="music-folder-row">
-              <span className="storage-icon">
-                <Folder size={22} />
-              </span>
-              <div className="music-folder-detail">
-                <h4>{folder.name}</h4>
-                <p role="status">{status(folder)}</p>
-                {!!folder.directory?.components?.length && (
-                  <small>{folder.directory.components.join(" / ")}</small>
-                )}
-              </div>
-              <div className="music-folder-actions">
-                <button
-                  className="icon-button"
-                  aria-label={`Scan ${folder.name}`}
-                  disabled={
-                    !!folders.pending ||
-                    !folder.available ||
-                    folder.latest_job?.state === "queued" ||
-                    folder.latest_job?.state === "running"
-                  }
-                  onClick={() => void folders.scan(folder)}
-                >
-                  <FolderSync size={19} />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label={`Remove ${folder.name}`}
-                  disabled={!!folders.pending}
-                  onClick={() => remove(folder.id)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            </div>
-            {removing === folder.id && (
-              <div className="folder-remove-confirm">
-                <h4>Remove {folder.name}?</h4>
-                <p>
-                  Your files stay on disk. Playlists, likes, and library records
-                  are kept. Music available only in this folder will become
-                  unavailable.
-                </p>
-                <div>
-                  <button
-                    className="button"
-                    disabled={!!folders.pending}
-                    onClick={() => remove(null)}
-                  >
-                    Keep folder
-                  </button>
-                  <button
-                    className="button danger"
-                    disabled={!!folders.pending}
-                    onClick={async () => {
-                      if (await folders.remove(folder)) remove(null);
-                    }}
-                  >
-                    {folders.pending === folder.id
-                      ? "Removing…"
-                      : "Remove folder"}
-                  </button>
-                </div>
-              </div>
-            )}
+            <FolderRow
+              folder={folder}
+              busy={busy}
+              pending={folders.pending === folder.id}
+              removing={removing === folder.id}
+              onScan={() => void folders.scan(folder)}
+              onAskRemove={() => remove(folder.id)}
+              onCancelRemove={() => remove(null)}
+              onRemove={async () => {
+                if (await folders.remove(folder)) remove(null);
+              }}
+            />
           </li>
         ))}
       </ul>
       {folders.error && !picking && (
-        <div role="alert" className="folder-error">
-          <p className="form-error">{folders.error}</p>
+        <SectionWarning tone="error" title={folders.error}>
           <button className="text-link" onClick={folders.retry}>
             Refresh folders
           </button>
-        </div>
+        </SectionWarning>
       )}
       {!!folders.folders.length && (
-        <div className="setting-row">
-          <div>
-            <h3>Refresh your collection</h3>
-            <p>
-              Find new files and read changed tags in all connected folders.
-            </p>
-          </div>
-          <button
-            className="button"
-            disabled={!!folders.pending}
-            onClick={() => void folders.scanAll()}
-          >
-            <FolderSync size={17} />
-            Scan all folders
-          </button>
-        </div>
+        <SettingRow
+          title="Refresh your collection"
+          hint="Find new files and read changed tags in all connected folders."
+          action={
+            <Button disabled={busy} onClick={() => void folders.scanAll()}>
+              <FolderSync size={17} aria-hidden="true" />
+              Scan all folders
+            </Button>
+          }
+        />
       )}
       {!host.picker && (
-        <p className="folder-host-help">
+        <p className="folder-host-help muted">
           Looking for a folder on another drive? Open Hito Setup on the server
           computer to share it, then choose it here.
         </p>
@@ -220,12 +142,12 @@ export default function MusicFolders({
       {picking && (
         <FolderPicker
           account={account}
-          pending={!!folders.pending}
+          pending={busy}
           error={folders.error}
           onSelect={folders.connect}
           onClose={() => pick(false)}
         />
       )}
-    </>
+    </SettingsCard>
   );
 }

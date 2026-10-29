@@ -14,7 +14,7 @@ export default function PluginInstallationReview({
 }) {
   return (
     <div className="plugin-review">
-      <h3>Review connection</h3>
+      <h4>Review connection</h4>
       <p>Review this service's declaration before connecting your account.</p>
       <dl>
         <dt>Name</dt>

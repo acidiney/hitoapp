@@ -80,11 +80,9 @@ function owned(options: { total?: number; lostFirst?: boolean } = {}) {
 test("an administrator withdraws and restores shared corrections from the list", async () => {
   const { bodies } = owned();
   render(createElement(SharedCorrectionsSettings, { account: "admin" }));
-  expect(
-    await screen.findByText(
-      /Split · 2 recordings · 1 no longer matches the file tags · Applied/,
-    ),
-  ).toBeTruthy();
+  expect(await screen.findByText("Split · 2 recordings")).toBeTruthy();
+  expect(screen.getByText("1 no longer matches the file tags")).toBeTruthy();
+  expect(screen.getByText("Applied")).toBeTruthy();
   fireEvent.click(
     screen.getByRole("button", { name: "Withdraw shared correction 1" }),
   );

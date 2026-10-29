@@ -1,3 +1,4 @@
+import { isOn } from "../../../test/switch";
 import { createElement } from "react";
 import {
   fireEvent,
@@ -48,10 +49,10 @@ beforeEach(() => {
 });
 test("the built-in metadata default can be disabled without connecting or querying a provider", async () => {
   render(createElement(MetadataPreferences, { account: "alice" }));
-  const enabled = (await screen.findByRole("checkbox", {
+  const enabled = (await screen.findByRole("switch", {
     name: "Use metadata providers",
-  })) as HTMLInputElement;
-  expect(enabled.checked).toBe(true);
+  })) as HTMLButtonElement;
+  expect(isOn(enabled)).toBe(true);
   const selected = screen.getByRole("list", {
     name: "Selected metadata providers",
   });
@@ -73,7 +74,7 @@ test("the built-in metadata default can be disabled without connecting or queryi
   expect(unexpectedRequest).not.toHaveBeenCalled();
 
   fireEvent.click(enabled);
-  expect(enabled.checked).toBe(false);
+  expect(isOn(enabled)).toBe(false);
   expect(metadataPreferencesApi.update).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole("button", {
@@ -88,7 +89,7 @@ test("the built-in metadata default can be disabled without connecting or queryi
     ),
   );
   await screen.findByText("Metadata preferences saved.", { exact: true });
-  expect(enabled.checked).toBe(accepted.enabled);
+  expect(isOn(enabled)).toBe(accepted.enabled);
   expect(
     (
       screen.getByRole("button", {

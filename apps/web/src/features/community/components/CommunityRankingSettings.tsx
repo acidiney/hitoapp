@@ -1,4 +1,8 @@
-import { useId, type FormEvent } from "react";
+import type { FormEvent } from "react";
+import Button from "../../../shared/ui/Button";
+import SectionWarning from "../../../shared/ui/SectionWarning";
+import SettingsCard from "../../../shared/ui/SettingsCard";
+import Switch from "../../../shared/ui/Switch";
 import { useCommunityRankingPreferences } from "../hooks/useCommunityRankingPreferences";
 
 export default function CommunityRankingSettings({
@@ -7,73 +11,51 @@ export default function CommunityRankingSettings({
   account: string;
 }) {
   const preference = useCommunityRankingPreferences(account);
-  const id = useId();
   const busy = preference.pending !== null;
   function submit(event: FormEvent) {
     event.preventDefault();
     void preference.save();
   }
   return (
-    <section
-      className="settings-panel"
-      aria-label="Community source rankings"
-      aria-busy={busy}
+    <SettingsCard
+      title="Community source rankings"
+      description="Use community results to choose among suitable available music sources. Your saved sources and personal source choices keep priority. This requires a configured community service; receiving rankings does not enable playback reporting."
+      busy={busy}
     >
-      <div className="settings-intro">
-        <h2>Community source rankings</h2>
-        <p>
-          Use community results to choose among suitable available music
-          sources. Your saved sources and personal source choices keep priority.
-        </p>
-        <p>
-          This requires a configured community service. Receiving rankings does
-          not enable playback reporting. Playback continues when the community
-          service is unavailable.
-        </p>
-      </div>
       {!preference.loaded && busy && (
         <p role="status">Loading source ranking preference…</p>
       )}
       {preference.error && (
-        <div role="alert" className="form-error">
-          <p>{preference.error}</p>
-          <button
-            className="button"
-            type="button"
-            disabled={busy}
-            onClick={preference.reload}
-          >
+        <SectionWarning tone="error" title={preference.error}>
+          <Button disabled={busy} onClick={preference.reload}>
             Reload source ranking preference
-          </button>
-        </div>
+          </Button>
+        </SectionWarning>
       )}
       {preference.loaded && (
         <form onSubmit={submit}>
-          <fieldset>
-            <div className="setting-row">
-              <label htmlFor={id}>Use community source rankings</label>
-              <input
-                id={id}
-                type="checkbox"
-                disabled={busy}
-                checked={preference.enabled}
-                onChange={(event) => preference.edit(event.target.checked)}
-              />
+          <fieldset disabled={busy}>
+            <Switch
+              label="Use community source rankings"
+              disabled={busy}
+              checked={preference.enabled}
+              onChange={preference.edit}
+            />
+            <div className="form-actions">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={busy || !preference.dirty || preference.stale}
+              >
+                Save source ranking preference
+              </Button>
+              <Button
+                disabled={busy || !preference.dirty}
+                onClick={preference.cancel}
+              >
+                Cancel changes
+              </Button>
             </div>
-            <button
-              className="button"
-              disabled={busy || !preference.dirty || preference.stale}
-            >
-              Save source ranking preference
-            </button>
-            <button
-              className="button"
-              type="button"
-              disabled={busy || !preference.dirty}
-              onClick={preference.cancel}
-            >
-              Cancel changes
-            </button>
           </fieldset>
           {preference.pending === "save" && (
             <p role="status">Saving source ranking preference…</p>
@@ -83,6 +65,6 @@ export default function CommunityRankingSettings({
           )}
         </form>
       )}
-    </section>
+    </SettingsCard>
   );
 }

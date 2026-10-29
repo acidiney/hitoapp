@@ -1,4 +1,8 @@
 import type { FormEvent } from "react";
+import Button from "../../../shared/ui/Button";
+import SectionWarning from "../../../shared/ui/SectionWarning";
+import SettingsCard from "../../../shared/ui/SettingsCard";
+import Switch from "../../../shared/ui/Switch";
 import { useMetadataPreferences } from "../hooks/useMetadataPreferences";
 import MetadataProviderList from "./MetadataProviderList";
 
@@ -14,46 +18,30 @@ function PreferencesForm(
     void preferences.save();
   }
   return (
-    <section
-      className="settings-panel"
-      aria-label="Metadata preferences"
-      aria-busy={preferences.pending}
+    <SettingsCard
+      title="Metadata providers"
+      description="Control providers for artist profiles. File tags and your personal edits are kept."
+      busy={preferences.pending}
     >
-      <div className="settings-intro">
-        <h2>Metadata providers</h2>
-        <p>
-          Control providers for artist profiles. File tags and your personal
-          edits are kept.
-        </p>
-      </div>
       {!preferences.loaded && preferences.pending && (
         <p role="status">Loading metadata preferences…</p>
       )}
       {preferences.error && (
-        <div role="alert" className="form-error">
-          <p>{preferences.error}</p>
-          <button
-            className="button"
-            disabled={preferences.pending}
-            onClick={preferences.reload}
-          >
+        <SectionWarning tone="error" title={preferences.error}>
+          <Button disabled={preferences.pending} onClick={preferences.reload}>
             Reload metadata preferences
-          </button>
-        </div>
+          </Button>
+        </SectionWarning>
       )}
       {preferences.loaded && (
         <form onSubmit={submit}>
           <fieldset disabled={preferences.pending}>
-            <label>
-              <input
-                type="checkbox"
-                checked={preferences.enabled}
-                onChange={(event) =>
-                  preferences.setEnabled(event.target.checked)
-                }
-              />
-              Use metadata providers
-            </label>
+            <Switch
+              label="Use metadata providers"
+              disabled={preferences.pending}
+              checked={preferences.enabled}
+              onChange={preferences.setEnabled}
+            />
             <MetadataProviderList
               providers={preferences.providers}
               connections={preferences.connections}
@@ -63,15 +51,18 @@ function PreferencesForm(
               onRemove={preferences.removeProvider}
               onMove={preferences.moveProvider}
             />
-            <button
-              className="button"
-              disabled={
-                !preferences.dirty ||
-                (preferences.enabled && !preferences.providers.length)
-              }
-            >
-              Save metadata preferences
-            </button>
+            <div className="form-actions">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={
+                  !preferences.dirty ||
+                  (preferences.enabled && !preferences.providers.length)
+                }
+              >
+                Save metadata preferences
+              </Button>
+            </div>
           </fieldset>
           {preferences.pending && (
             <p role="status">Saving metadata preferences…</p>
@@ -81,6 +72,6 @@ function PreferencesForm(
           )}
         </form>
       )}
-    </section>
+    </SettingsCard>
   );
 }

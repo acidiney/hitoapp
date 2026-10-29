@@ -1,16 +1,22 @@
+import { isOn } from "../../../test/switch";
 import { createElement } from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
+import { NoticeProvider } from "../../../shared/ui/Notices";
 import SettingsPage from "../../settings/pages/SettingsPage";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { connections, settings } from "../fixtures/metadataPreferences";
 import type { SettingsPageProps } from "../../../shared/types";
 
+const location = vi.hoisted(() => ({ url: "/settings?section=metadata" }));
 vi.mock("@inertiajs/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/react")>();
-  return { ...actual, usePage: () => ({ url: "/settings?section=metadata" }) };
+  return { ...actual, usePage: () => ({ url: location.url }) };
 });
+vi.mock("../../playback/components/PlaybackProvider", () => ({
+  usePlayer: () => ({ clear: vi.fn() }),
+}));
 vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
 }));
@@ -36,29 +42,34 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", unexpectedRequest);
 });
-test("the Metadata settings deep link opens the real account preferences and retains keyboard tab navigation", async () => {
+test("the legacy Metadata deep link opens the real account preferences inside Music & providers", async () => {
   const read = Promise.resolve(settings());
   const pluginRead = Promise.resolve(connections());
   vi.mocked(metadataPreferencesApi.settings).mockReturnValue(read);
   vi.mocked(pluginsApi.settings).mockReturnValue(pluginRead);
-  const view = render(createElement(SettingsPage, props));
+  location.url = "/settings?section=metadata";
+  const view = render(
+    createElement(NoticeProvider, null, createElement(SettingsPage, props)),
+  );
+  const show = (url: string) => {
+    location.url = url;
+    view.rerender(
+      createElement(NoticeProvider, null, createElement(SettingsPage, props)),
+    );
+  };
   try {
-    const metadata = screen.getByRole("tab", { name: "Metadata" });
-    const tabs = screen.getAllByRole("tab");
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
     expect(
-      tabs.filter((tab) => tab !== metadata).map((tab) => tab.textContent),
-    ).toEqual(["Library", "Privacy", "Plugins", "Accounts"]);
-    expect(metadata.getAttribute("aria-selected")).toBe("true");
-    expect(metadata.tabIndex).toBe(0);
-    for (const tab of tabs.filter((tab) => tab !== metadata))
-      expect(tab.tabIndex).toBe(-1);
-    const panel = screen.getByRole("tabpanel", { name: "Metadata" });
-    expect(metadata.getAttribute("aria-controls")).toBe(panel.id);
-    expect(panel.getAttribute("aria-labelledby")).toBe(metadata.id);
-    const enabled = (await within(panel).findByRole("checkbox", {
+      within(nav)
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("aria-current") === "page")
+        .map((link) => link.textContent),
+    ).toEqual(["Music & providers"]);
+    const panel = screen.getByRole("region", { name: "Metadata providers" });
+    const enabled = (await within(panel).findByRole("switch", {
       name: "Use metadata providers",
-    })) as HTMLInputElement;
-    expect(enabled.checked).toBe(true);
+    })) as HTMLButtonElement;
+    expect(isOn(enabled)).toBe(true);
     expect(
       within(panel).getByText("MusicBrainz", { exact: true }),
     ).toBeTruthy();
@@ -74,25 +85,16 @@ test("the Metadata settings deep link opens the real account preferences and ret
       .calls[0][1];
     const firstPlugins = vi.mocked(pluginsApi.settings).mock.calls[0][1];
 
-    metadata.focus();
-    fireEvent.keyDown(metadata, { key: "Home" });
-    const library = screen.getByRole("tab", { name: "Library" });
-    expect(document.activeElement).toBe(library);
-    expect(library.getAttribute("aria-selected")).toBe("true");
-    expect(library.tabIndex).toBe(0);
-    expect(metadata.getAttribute("aria-selected")).toBe("false");
-    expect(metadata.tabIndex).toBe(-1);
-    expect(screen.getByRole("tabpanel", { name: "Library" })).toBeTruthy();
+    show("/settings?section=about");
     expect(
-      screen.queryByRole("checkbox", { name: "Use metadata providers" }),
+      screen.queryByRole("switch", { name: "Use metadata providers" }),
     ).toBeNull();
     expect(firstRead.aborted && firstPlugins.aborted).toBe(true);
 
-    fireEvent.click(metadata);
-    const reopened = screen.getByRole("tabpanel", { name: "Metadata" });
-    await within(reopened).findByRole("checkbox", {
-      name: "Use metadata providers",
-    });
+    show("/settings?section=metadata");
+    await within(
+      screen.getByRole("region", { name: "Metadata providers" }),
+    ).findByRole("switch", { name: "Use metadata providers" });
     expect(metadataPreferencesApi.settings).toHaveBeenCalledTimes(2);
     expect(pluginsApi.settings).toHaveBeenCalledTimes(2);
     expect(metadataPreferencesApi.update).not.toHaveBeenCalled();

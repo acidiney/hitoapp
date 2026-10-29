@@ -1,3 +1,4 @@
+import { isOn } from "../../../test/switch";
 import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -94,33 +95,33 @@ test("Privacy saves source rankings independently and requires review after a st
   };
   const view = render(createElement(SettingsPage, props));
   try {
-    const panel = screen.getByRole("tabpanel", { name: "Privacy" });
-    let ranking = (await within(panel).findByRole("checkbox", {
+    const panel = screen.getByRole("region", { name: "Privacy & lock" });
+    let ranking = (await within(panel).findByRole("switch", {
       name: "Use community source rankings",
-    })) as HTMLInputElement;
-    const reporting = within(panel).getByRole("checkbox", {
+    })) as HTMLButtonElement;
+    const reporting = within(panel).getByRole("switch", {
       name: "Playback reporting",
-    }) as HTMLInputElement;
-    const corrections = within(panel).getByRole("checkbox", {
+    }) as HTMLButtonElement;
+    const corrections = within(panel).getByRole("switch", {
       name: "Metadata corrections",
-    }) as HTMLInputElement;
+    }) as HTMLButtonElement;
     const save = () =>
       within(panel).getByRole("button", {
         name: "Save source ranking preference",
       }) as HTMLButtonElement;
     const controls = () => within(save().closest("form")!);
-    expect(ranking.checked).toBe(false);
-    expect(reporting.checked).toBe(true);
-    expect(corrections.checked).toBe(false);
+    expect(isOn(ranking)).toBe(false);
+    expect(isOn(reporting)).toBe(true);
+    expect(isOn(corrections)).toBe(false);
     expect(save().disabled).toBe(true);
     expect(rankWrites).toHaveLength(0);
     expect(legacyWrites).toHaveLength(0);
     fireEvent.click(ranking);
-    expect(ranking.checked).toBe(true);
+    expect(isOn(ranking)).toBe(true);
     expect(rankings).toEqual({ revision: 0, use_source_rankings: false });
     expect(rankWrites).toHaveLength(0);
     fireEvent.click(controls().getByRole("button", { name: "Cancel changes" }));
-    expect(ranking.checked).toBe(false);
+    expect(isOn(ranking)).toBe(false);
     expect(save().disabled).toBe(true);
 
     fireEvent.click(ranking);
@@ -145,7 +146,7 @@ test("Privacy saves source rankings independently and requires review after a st
       exact: true,
     });
     expect(ranking.disabled).toBe(false);
-    expect(ranking.checked).toBe(true);
+    expect(isOn(ranking)).toBe(true);
     expect(save().disabled).toBe(true);
     expect(legacy).toEqual(initial);
 
@@ -157,7 +158,7 @@ test("Privacy saves source rankings independently and requires review after a st
       "Source ranking preference changed. Reload it before saving.",
       { exact: true },
     );
-    expect(ranking.checked).toBe(false);
+    expect(isOn(ranking)).toBe(false);
     expect(rankWrites).toEqual([
       { revision: 0, use_source_rankings: true },
       { revision: 1, use_source_rankings: false },
@@ -173,17 +174,17 @@ test("Privacy saves source rankings independently and requires review after a st
     );
     await vi.waitFor(() =>
       expect(
-        (
-          within(panel).getByRole("checkbox", {
+        isOn(
+          within(panel).getByRole("switch", {
             name: "Use community source rankings",
-          }) as HTMLInputElement
-        ).checked,
+          }),
+        ),
       ).toBe(true),
     );
     expect(ranking.isConnected).toBe(false);
-    ranking = within(panel).getByRole("checkbox", {
+    ranking = within(panel).getByRole("switch", {
       name: "Use community source rankings",
-    }) as HTMLInputElement;
+    }) as HTMLButtonElement;
     expect(save().disabled).toBe(true);
     expect(
       screen.queryByText(
@@ -210,7 +211,7 @@ test("Privacy saves source rankings independently and requires review after a st
     await screen.findByText("Community preferences saved.", { exact: true });
     expect(legacyWrites).toEqual([{ ...initial, playback_reporting: false }]);
     expect(rankings).toEqual({ revision: 3, use_source_rankings: false });
-    expect(corrections.checked).toBe(false);
+    expect(isOn(corrections)).toBe(false);
     expect(
       requests.every((request) =>
         [

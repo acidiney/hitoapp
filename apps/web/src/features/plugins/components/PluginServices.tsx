@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from "react";
+import Button from "../../../shared/ui/Button";
+import SettingRow from "../../../shared/ui/SettingRow";
+import SettingsCard from "../../../shared/ui/SettingsCard";
 import type { PluginService } from "../../../shared/types";
 import type { PluginActions } from "../hooks/usePlugins";
 
@@ -27,12 +30,10 @@ export default function PluginServices({
     }
   }
   return (
-    <details className="plugin-section plugin-details">
-      <summary>Services for this server</summary>
-      <p>
-        Offer trusted plugin services for accounts to connect. Hito will contact
-        these addresses from the server and get their names automatically.
-      </p>
+    <SettingsCard
+      title="Services for this server"
+      description="Offer trusted plugin services for accounts to connect. Hito will contact these addresses from the server and get their names automatically."
+    >
       <form className="plugin-form" onSubmit={offer}>
         <label>
           Service address
@@ -62,58 +63,58 @@ export default function PluginServices({
             name.
           </p>
         </details>
-        <button className="button" disabled={actions.pending}>
+        <Button type="submit" variant="primary" disabled={actions.pending}>
           Offer service
-        </button>
+        </Button>
       </form>
-      <ul className="plugin-list">
+      <ul className="plain-list">
         {services.map((service) => (
           <li key={service.id}>
-            <div className="setting-row">
-              <div>
-                <h3>{service.name}</h3>
-                <p className="plugin-address">{service.base_url}</p>
-              </div>
-              <button
-                className="button"
-                disabled={actions.pending}
-                onClick={() => setConfirm(service.id)}
-              >
-                Withdraw service
-              </button>
-            </div>
-            {confirm === service.id && (
-              <div className="plugin-confirm">
-                <p>
-                  Withdraw {service.name} for everyone? This disconnects all its
-                  installations and clears their saved credentials.
-                </p>
-                <div className="plugin-actions">
-                  <button
-                    className="button"
-                    disabled={actions.pending}
-                    onClick={async () => {
-                      if (await actions.withdraw(service)) {
-                        setConfirm(null);
-                        onWithdrawn();
-                      }
-                    }}
-                  >
-                    Withdraw for everyone
-                  </button>
-                  <button
-                    className="button"
-                    disabled={actions.pending}
-                    onClick={() => setConfirm(null)}
-                  >
-                    Keep service
-                  </button>
+            <SettingRow
+              title={<h4>{service.name}</h4>}
+              hint={<span className="plugin-address">{service.base_url}</span>}
+              action={
+                <Button
+                  variant="destructive"
+                  disabled={actions.pending}
+                  onClick={() => setConfirm(service.id)}
+                >
+                  Withdraw service
+                </Button>
+              }
+            >
+              {confirm === service.id && (
+                <div className="plugin-confirm">
+                  <p>
+                    Withdraw {service.name} for everyone? This disconnects all
+                    its installations and clears their saved credentials.
+                  </p>
+                  <div className="plugin-actions">
+                    <Button
+                      variant="destructive"
+                      disabled={actions.pending}
+                      onClick={async () => {
+                        if (await actions.withdraw(service)) {
+                          setConfirm(null);
+                          onWithdrawn();
+                        }
+                      }}
+                    >
+                      Withdraw for everyone
+                    </Button>
+                    <Button
+                      disabled={actions.pending}
+                      onClick={() => setConfirm(null)}
+                    >
+                      Keep service
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </SettingRow>
           </li>
         ))}
       </ul>
-    </details>
+    </SettingsCard>
   );
 }
