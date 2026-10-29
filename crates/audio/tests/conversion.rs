@@ -180,8 +180,8 @@ fn content_above_the_output_band_is_rejected_instead_of_folding_into_it() {
 
 #[test]
 fn five_point_one_is_downmixed_to_stereo_per_channel_layout() {
-    let weight = 1. / (1. + std::f32::consts::FRAC_1_SQRT_2 * 2.);
-    let diagonal = weight * std::f32::consts::FRAC_1_SQRT_2;
+    let weight = 1.;
+    let diagonal = std::f32::consts::FRAC_1_SQRT_2;
     for (source, expected) in [
         (0, (weight, 0.)),
         (1, (0., weight)),
@@ -217,7 +217,7 @@ fn a_full_scale_surround_signal_cannot_clip_after_downmix() {
         .samples
         .iter()
         .fold(0_f32, |peak, sample| peak.max(sample.abs()));
-    assert!(peak > 0.5 && peak <= 1., "peak {peak}");
+    assert!(peak > 0.9 && peak <= 1., "peak {peak}");
 }
 
 #[test]
@@ -236,8 +236,7 @@ fn a_high_rate_surround_source_is_resampled_and_downmixed_together() {
     let output = drain(&mut converted);
     assert_eq!(output.frames, 48_000);
     let left = channel(&output, 2, 0);
-    let weight = 1. / (1. + std::f64::consts::FRAC_1_SQRT_2 * 2.);
-    assert!((amplitude(&left[1_000..47_000], 192_000, 2_000.) - 0.5 * weight).abs() < 0.01);
+    assert!((amplitude(&left[1_000..47_000], 192_000, 2_000.) - 0.5).abs() < 0.01);
     assert!(
         channel(&output, 2, 1)[1_000..47_000]
             .iter()
@@ -282,4 +281,96 @@ fn cancellation_reaches_the_decoder_through_conversion() {
         frames += block.samples.len() / 2;
     }
     assert_eq!(frames, 19_200, "interruption must not lose or repeat audio");
+}
+
+#[test]
+fn only_the_standard_rate_families_are_decimated_to_a_device_rate() {
+    for (rate, expected) in [
+        (352_800, 176_400),
+        (384_000, 192_000),
+        (705_600, 176_400),
+        (768_000, 192_000),
+    ] {
+        let source = format(rate, 2);
+        assert_eq!(source.output_format().sample_rate, expected, "{rate} Hz");
+        assert_eq!(source.speed_capability(), RANGE, "{rate} Hz");
+    }
+    for rate in [200_000, 220_500, 250_000, 192_001, 500_000, 768_001] {
+        assert_eq!(
+            format(rate, 2).speed_capability(),
+            SpeedCapability::UnitOnly,
+            "{rate} Hz"
+        );
+    }
+}
+
+#[test]
+fn a_rate_outside_the_standard_families_is_rejected_with_a_typed_reason() {
+    for rate in [200_000, 220_500, 250_000] {
+        let file = support::wave(rate, 2, 1_000, |_, _| 0);
+        assert!(
+            matches!(Decoder::open(file), Err(Error::Unsupported)),
+            "{rate} Hz"
+        );
+    }
+}
+
+#[test]
+fn quadruple_rate_sources_decimate_by_four_and_keep_their_tones() {
+    for (rate, expected) in [(705_600, 176_400), (768_000, 192_000)] {
+        let mut converted = converter(rate, 2, rate / 2, |frame, _| {
+            tone(rate, 3_000., 16_384., frame)
+        });
+        assert_eq!(converted.format().sample_rate, expected);
+        let output = drain(&mut converted);
+        assert_eq!(output.frames, (expected / 2) as usize);
+        let left = channel(&output, 2, 0);
+        let body = &left[2_000..left.len() - 2_000];
+        assert!(
+            (amplitude(body, expected, 3_000.) - 0.5).abs() < 0.01,
+            "{rate} Hz"
+        );
+    }
+}
+
+#[test]
+fn a_front_only_surround_tone_keeps_its_stereo_level() {
+    let mut converted = converter(48_000, 6, 48_000, |frame, channel| {
+        if channel < 2 {
+            tone(48_000, 1_000., 16_384., frame)
+        } else {
+            0
+        }
+    });
+    let output = drain(&mut converted);
+    let left = channel(&output, 2, 0);
+    assert!((amplitude(&left[1_000..47_000], 48_000, 1_000.) - 0.5).abs() < 0.005);
+}
+
+#[test]
+fn a_loud_surround_mix_is_limited_below_full_scale_and_recovers() {
+    let mut converted = converter(48_000, 8, 48_000 * 3, |frame, channel| {
+        if frame < 4_800 {
+            i16::MAX
+        } else if channel == 0 {
+            16_384
+        } else {
+            0
+        }
+    });
+    let output = drain(&mut converted);
+    let peak = output
+        .samples
+        .iter()
+        .fold(0_f32, |peak, s| peak.max(s.abs()));
+    assert!(peak > 0.9 && peak <= 1., "peak {peak}");
+    let tail = output.samples[output.samples.len() - 2_000..]
+        .chunks_exact(2)
+        .map(|frame| frame[0])
+        .collect::<Vec<_>>();
+    assert!(
+        tail.iter().all(|sample| (sample - 0.5).abs() < 0.005),
+        "gain did not recover: {:?}",
+        &tail[..4]
+    );
 }

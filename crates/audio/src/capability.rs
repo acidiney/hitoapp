@@ -2,10 +2,21 @@ use crate::AudioFormat;
 
 pub const MIN_SPEED: f32 = 0.5;
 pub const MAX_SPEED: f32 = 3.;
-pub(crate) const MAX_OUTPUT_RATE: u32 = 192_000;
 const MIN_RATE: u32 = 8_000;
-const MAX_RATE: u32 = 384_000;
+const MAX_OUTPUT_RATE: u32 = 192_000;
+/// Rates above the output limit that decimate by an integer factor onto the
+/// 44.1 kHz and 48 kHz families (2x and 4x). Any other rate above the limit would
+/// land on a rate output devices do not open, so it is not supported.
+const DECIMATED_RATES: [u32; 4] = [352_800, 384_000, 705_600, 768_000];
 const MAX_CHANNELS: u16 = 32;
+
+/// Whether the engine can present a decoded representation: a rate the output
+/// accepts directly or reaches by decimation, and a bounded channel count.
+pub(crate) fn supported(sample_rate: u32, channels: u16) -> bool {
+    let rate = (MIN_RATE..=MAX_OUTPUT_RATE).contains(&sample_rate)
+        || DECIMATED_RATES.contains(&sample_rate);
+    rate && (1..=MAX_CHANNELS).contains(&channels)
+}
 
 /// The playback speeds the engine can present for one decoded source.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,11 +39,9 @@ impl SpeedCapability {
 impl AudioFormat {
     /// Speed support derived from the decoded representation. The engine converts
     /// every representation the decoder accepts before time-stretching it, so a
-    /// source outside the decoder's bounds is the only unit-only case.
+    /// representation the engine does not support is the only unit-only case.
     pub fn speed_capability(&self) -> SpeedCapability {
-        if (MIN_RATE..=MAX_RATE).contains(&self.sample_rate)
-            && (1..=MAX_CHANNELS).contains(&self.channels)
-        {
+        if supported(self.sample_rate, self.channels) {
             SpeedCapability::Range {
                 min: MIN_SPEED,
                 max: MAX_SPEED,

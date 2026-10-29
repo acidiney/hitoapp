@@ -1,4 +1,4 @@
-use crate::{Error, Input, Result};
+use crate::{Error, Input, Result, capability};
 use std::{sync::LazyLock, time::Duration};
 use symphonia::core::{
     audio::Channels,
@@ -194,8 +194,7 @@ impl Decoder {
             let audio = vendor(|| self.codec.decode(&packet))?;
             let rate = audio.spec().rate();
             let channels = audio.spec().channels().count();
-            if !(8_000..=384_000).contains(&rate)
-                || !(1..=32).contains(&channels)
+            if !u16::try_from(channels).is_ok_and(|channels| capability::supported(rate, channels))
                 || audio.samples_interleaved() > 1_048_576
             {
                 return Err(Error::Unsupported);
