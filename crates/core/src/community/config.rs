@@ -73,11 +73,7 @@ pub(super) fn valid_token(token: &str) -> bool {
 
 #[cfg(unix)]
 pub(super) fn read_admin_token(path: &std::path::Path) -> Result<Zeroizing<String>> {
-    use std::{
-        fs::OpenOptions,
-        io::Read,
-        os::unix::fs::OpenOptionsExt,
-    };
+    use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt};
     let unavailable = || Error::Upstream("Community administrator credentials are unavailable");
     let file = OpenOptions::new()
         .read(true)

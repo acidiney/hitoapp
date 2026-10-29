@@ -1,8 +1,8 @@
 #![cfg(unix)]
 
-use hito_core::{Actor, CoreConfig, HostDeviceId, InstallPlugin, OfferPluginService, Services};
 use hito_core::test_support::plugin_service as fixture;
 use hito_core::test_support::support;
+use hito_core::{Actor, CoreConfig, HostDeviceId, InstallPlugin, OfferPluginService, Services};
 use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 
@@ -74,7 +74,11 @@ impl Host {
 }
 
 fn mode(path: &Path) -> u32 {
-    std::fs::symlink_metadata(path).unwrap().permissions().mode() & 0o7777
+    std::fs::symlink_metadata(path)
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o7777
 }
 
 #[tokio::test]
@@ -126,7 +130,8 @@ async fn a_key_owned_by_another_account_is_refused() {
 }
 
 #[tokio::test]
-async fn creating_a_key_after_every_credential_is_cleared_publishes_an_owner_only_file_atomically() {
+async fn creating_a_key_after_every_credential_is_cleared_publishes_an_owner_only_file_atomically()
+{
     let host = Host::start().await;
     let hito = host.open().await;
     let settings = hito.plugins.settings(&host.actor).await.unwrap();
@@ -162,8 +167,7 @@ async fn a_data_directory_that_others_can_write_neither_opens_nor_receives_a_key
         let dir = tempfile::tempdir().unwrap();
         let music = dir.path().join("music");
         std::fs::create_dir(&music).unwrap();
-        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(unsafe_mode))
-            .unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(unsafe_mode)).unwrap();
         let opened = hito_core::open(CoreConfig::new(
             dir.path().join("hito.db"),
             music,
