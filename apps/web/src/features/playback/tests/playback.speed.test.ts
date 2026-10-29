@@ -113,3 +113,37 @@ test("choosing a speed on a source that refuses it keeps the choice and reports 
   });
   expect(media.playbackRate).toBe(1);
 });
+
+test.each(["clamp", "throw"] as const)(
+  "a source that %ss the rate also resets the default rate to the accepted one",
+  async (refusal) => {
+    const { media, player } = start(refusal);
+    player.speed(1.5);
+    await player.playQueue([track("limited")]);
+    media.dispatchEvent(new Event("loadedmetadata"));
+    expect(media.playbackRate).toBe(1);
+    expect(media.defaultPlaybackRate).toBe(1);
+  },
+);
+
+test("a continuation verifies the speed against the reloaded element, not the source it replaces", async () => {
+  const { media, player } = start("clamp");
+  await player.playQueue([track("limited")]);
+  media.dispatchEvent(new Event("loadedmetadata"));
+  const open = (
+    player as unknown as {
+      open(index: number, position: number, selection: object): Promise<void>;
+    }
+  ).open.bind(player);
+  await open(0, 0, {
+    queue: [{ recording: track("plain") }],
+    index: 0,
+    position: 0,
+    speed: 1.5,
+  });
+  expect(media.playbackRate).toBe(1.5);
+  expect(player.snapshot()).toMatchObject({
+    speed: 1.5,
+    effectiveSpeed: 1.5,
+  });
+});

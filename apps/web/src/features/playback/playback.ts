@@ -475,10 +475,10 @@ export class Playback implements Player {
       prepared?.sources ??
       (current ? new PlaybackSources(current.id, this.resolve) : null);
     if (!continuation) this.media.pause();
-    if (continuation) this.applySpeed(continuation.speed);
     this.activeSource = null;
     this.media.removeAttribute("src");
     this.media.load();
+    if (continuation) this.applySpeed(continuation.speed);
     this.pendingSeek = position;
     this.update({
       ...(continuation

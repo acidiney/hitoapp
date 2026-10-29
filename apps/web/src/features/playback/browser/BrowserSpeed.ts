@@ -17,8 +17,8 @@ function assign(media: MediaPort, rate: number): boolean {
 
 /**
  * Applies the chosen speed to the current media and verifies what the browser
- * actually accepted. A refusal leaves the element at unit speed and reports a
- * unit-only source; the chosen speed stays with the caller so a later source
+ * actually accepted. A refusal returns the element and its default rate to unit
+ * speed and reports a unit-only source; the chosen speed stays with the caller so a later source
  * can present it.
  */
 export function applyBrowserSpeed(
@@ -27,10 +27,6 @@ export function applyBrowserSpeed(
 ): BrowserSpeed {
   if (assign(media, chosen))
     return { effective: chosen, range: BROWSER_SPEED_RANGE };
-  try {
-    if (media.playbackRate !== 1) media.playbackRate = 1;
-  } catch {
-    // The element stays at its own rate; the reported speed is still 1×.
-  }
+  assign(media, 1);
   return { effective: 1, range: UNIT_ONLY };
 }
