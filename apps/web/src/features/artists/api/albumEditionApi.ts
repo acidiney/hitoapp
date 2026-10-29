@@ -1,6 +1,8 @@
 import { request } from "../../../shared/http";
 import type {
   AlbumEditionTrackListAvailability,
+  AlbumTrackAudio,
+  FindAlbumTrackAudio,
   ReadAlbumEditionTrackList,
 } from "../../../shared/types";
 
@@ -15,9 +17,18 @@ const statuses: Record<AlbumEditionTrackListAvailability["status"], true> = {
   needs_choice: true,
 };
 
-export async function availability(
-  response: Response,
-): Promise<AlbumEditionTrackListAvailability> {
+const audioStatuses: Record<AlbumTrackAudio["status"], true> = {
+  found: true,
+  no_match: true,
+  no_providers: true,
+  disabled: true,
+  unsupported: true,
+  unavailable: true,
+  cancelled: true,
+  needs_choice: true,
+};
+
+async function statusBody(response: Response): Promise<{ status: string }> {
   let value: unknown;
   try {
     value = await response.json();
@@ -29,10 +40,17 @@ export async function availability(
     value === null ||
     typeof value !== "object" ||
     !("status" in value) ||
-    typeof value.status !== "string" ||
-    !Object.hasOwn(statuses, value.status)
+    typeof value.status !== "string"
   )
     throw new Error(INVALID_RESPONSE);
+  return value as { status: string };
+}
+
+export async function availability(
+  response: Response,
+): Promise<AlbumEditionTrackListAvailability> {
+  const value = await statusBody(response);
+  if (!Object.hasOwn(statuses, value.status)) throw new Error(INVALID_RESPONSE);
   return value as AlbumEditionTrackListAvailability;
 }
 
@@ -54,5 +72,27 @@ export const albumEditionApi = {
       },
     );
     return availability(response);
+  },
+
+  async audio(
+    account: string,
+    release: string,
+    body: FindAlbumTrackAudio,
+    signal: AbortSignal,
+  ): Promise<AlbumTrackAudio> {
+    const response = await request(
+      `/albums/${encodeURIComponent(release)}/edition-track-audio`,
+      {
+        action: "album_edition_track_audio.find",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+    const value = await statusBody(response);
+    if (!Object.hasOwn(audioStatuses, value.status))
+      throw new Error(INVALID_RESPONSE);
+    return value as AlbumTrackAudio;
   },
 };

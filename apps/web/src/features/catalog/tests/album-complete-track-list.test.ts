@@ -216,15 +216,22 @@ test("a provider outage is honest and leaves the album's library tracks playable
   ).toBeTruthy();
 });
 
-test("catalog tracks that no connected provider can save have no Play action", async () => {
-  serve({ [comparison]: () => Response.json(unsavableTrackList) });
+test("catalog tracks that no connected provider can save offer to find audio instead of a save", async () => {
+  const fetch = serve({
+    [comparison]: () => Response.json(unsavableTrackList),
+  });
   render(page());
   const region = await chooseEdition();
   const row = rowWith(region, "Catalog only song");
-  expect(within(row).queryByRole("button")).toBeNull();
-  expect(row.textContent).toContain(
-    "No connected provider can save this track",
-  );
+  expect(
+    within(row).queryByRole("button", { name: "Play Catalog only song" }),
+  ).toBeNull();
+  expect(
+    within(row).getByRole("button", {
+      name: "Find audio for Catalog only song",
+    }),
+  ).toBeTruthy();
+  expect(fetch.mock.calls.some(([path]) => path === adoption)).toBe(false);
 });
 
 test("leaving the album cancels a held comparison without updating or playing", async () => {

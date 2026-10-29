@@ -84,6 +84,7 @@ export default function AlbumCompleteTrackList({
           account={account}
           release={release}
           pending={edition.pending}
+          recording={ready!.recording_id}
           canChange={browseAnchor !== null}
           stale={stale}
           change={() => setView("browse")}
@@ -118,6 +119,7 @@ function SavedEdition({
   account,
   release,
   pending,
+  recording,
   canChange,
   stale,
   change,
@@ -125,6 +127,7 @@ function SavedEdition({
   account: string;
   release: string;
   pending: boolean;
+  recording: string;
   canChange: boolean;
   stale: () => void;
   change: () => void;
@@ -135,6 +138,7 @@ function SavedEdition({
       <h2>Complete track list</h2>
       <AlbumEditionTrackList
         account={account}
+        source={{ release, recording }}
         comparison={read.comparison}
         pending={read.pending}
         error={read.error}

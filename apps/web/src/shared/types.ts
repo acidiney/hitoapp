@@ -93,6 +93,8 @@ export type ReleaseDetail = Schema["ReleaseDetail"];
 export type AlbumEditionTrackListAvailability =
   Schema["AlbumEditionTrackListAvailability"];
 export type ReadAlbumEditionTrackList = Schema["ReadAlbumEditionTrackList"];
+export type FindAlbumTrackAudio = Schema["FindAlbumTrackAudio"];
+export type AlbumTrackAudio = Schema["AlbumTrackAudio"];
 export type CatalogTrackMatch = Schema["CatalogTrackMatch"];
 export type CatalogAdoption = Schema["CatalogAdoption"];
 export type EditionTrackListAvailability =

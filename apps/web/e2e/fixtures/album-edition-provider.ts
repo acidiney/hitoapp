@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import type { AddressInfo } from "node:net";
 
 export const albumEdition = {
@@ -26,11 +30,19 @@ function occurrence(
     number: String(position),
     kind: "audio",
     title,
-    artist_credit: null,
+    artist_credit: [
+      {
+        artist: null,
+        credited_name: albumEdition.artistName,
+        join_phrase: "",
+      },
+    ],
     duration_ms: 1000,
     recording_id: recording,
   };
 }
+
+export const unidentified = "Catalog unidentified";
 
 const deluxe = {
   id: albumEdition.deluxeId,
@@ -66,7 +78,42 @@ const standard = {
   media: [{ ...deluxe.media[0], tracks: [deluxe.media[0].tracks[0]] }],
 };
 
-export async function albumEditionProvider(label: string) {
+export function serveAudio(
+  request: IncomingMessage,
+  response: ServerResponse,
+  audio: Buffer,
+) {
+  let first = 0;
+  let last = audio.length - 1;
+  const range = request.method !== "HEAD" ? request.headers.range : undefined;
+  if (range) {
+    const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+    if (!match || Number(match[1]) >= audio.length) {
+      response
+        .writeHead(416, { "content-range": `bytes */${audio.length}` })
+        .end();
+      return;
+    }
+    first = Number(match[1]);
+    if (match[2]) last = Math.min(last, Number(match[2]));
+  }
+  response.writeHead(range ? 206 : 200, {
+    "content-type": "audio/wav",
+    "accept-ranges": "bytes",
+    "content-length": last - first + 1,
+    ...(range
+      ? { "content-range": `bytes ${first}-${last}/${audio.length}` }
+      : {}),
+  });
+  response.end(
+    request.method === "HEAD" ? undefined : audio.subarray(first, last + 1),
+  );
+}
+
+export async function albumEditionProvider(
+  label: string,
+  unidentifiedTrack = false,
+) {
   const titles: Record<string, string> = {
     [albumEdition.first]: `Album edition one ${label}`,
     [albumEdition.second]: `Album edition two ${label}`,
@@ -90,32 +137,7 @@ export async function albumEditionProvider(label: string) {
     const route = url.pathname.replace(/^\/albums\//, "");
     if (route === "v1/audio") {
       audioRequests.push(url.searchParams.get("source_id") ?? "");
-      let first = 0;
-      let last = audio.length - 1;
-      const range =
-        request.method !== "HEAD" ? request.headers.range : undefined;
-      if (range) {
-        const match = /^bytes=(\d+)-(\d*)$/.exec(range);
-        if (!match || Number(match[1]) >= audio.length) {
-          response
-            .writeHead(416, { "content-range": `bytes */${audio.length}` })
-            .end();
-          return;
-        }
-        first = Number(match[1]);
-        if (match[2]) last = Math.min(last, Number(match[2]));
-      }
-      response.writeHead(range ? 206 : 200, {
-        "content-type": "audio/wav",
-        "accept-ranges": "bytes",
-        "content-length": last - first + 1,
-        ...(range
-          ? { "content-range": `bytes ${first}-${last}/${audio.length}` }
-          : {}),
-      });
-      response.end(
-        request.method === "HEAD" ? undefined : audio.subarray(first, last + 1),
-      );
+      serveAudio(request, response, audio);
       return;
     }
     let body = "";
@@ -199,6 +221,20 @@ export async function albumEditionProvider(label: string) {
           state.unexpected++;
           return response.writeHead(400).end();
         }
+        if (unidentifiedTrack && edition === deluxe)
+          return reply({
+            ...deluxe,
+            media: [
+              deluxe.media[0],
+              {
+                ...deluxe.media[1],
+                tracks: [
+                  ...deluxe.media[1].tracks,
+                  occurrence("e2e:occ/2/3", 3, unidentified, null),
+                ],
+              },
+            ],
+          });
         return reply(edition);
       }
       case "v1/recordings/detail": {
@@ -223,6 +259,8 @@ export async function albumEditionProvider(label: string) {
           revision: "album-edition-r1",
         });
       }
+      case "v1/search":
+        return reply({ items: [], next_cursor: null });
       case "v1/sources":
         return reply({
           items: [

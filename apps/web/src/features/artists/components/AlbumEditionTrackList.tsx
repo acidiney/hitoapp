@@ -4,7 +4,7 @@ import type {
   Recording,
 } from "../../../shared/types";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
-import { useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
+import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
 
 type Comparison = Extract<
   AlbumEditionTrackListAvailability,
@@ -14,14 +14,18 @@ type Occurrence = Comparison["edition"]["media"][number]["tracks"][number];
 
 const kinds = { audio: "Audio", pregap: "Pregap", data: "Data" };
 
+export type AudioSource = { release: string; recording: string };
+
 export default function AlbumEditionTrackList({
   account,
+  source,
   comparison,
   pending,
   error,
   retry,
 }: {
   account: string;
+  source: AudioSource;
   comparison: Comparison | null;
   pending: boolean;
   error: string;
@@ -41,10 +45,24 @@ export default function AlbumEditionTrackList({
   );
   const play = (recording: Recording) => void player.playQueue([recording], 0);
 
+  const search = (track: Occurrence) => ({
+    release: source.release,
+    request: {
+      recording_id: source.recording,
+      association_id: comparison!.association_id,
+      release_group_id: comparison!.edition.release_group_id,
+      edition_id: comparison!.edition.id,
+      occurrence_id: track.id,
+    },
+  });
+
   function row(track: Occurrence) {
     const library =
       linked.get(track.id) ??
-      (track.recording_id ? catalog.saved.get(track.recording_id) : undefined);
+      (track.recording_id
+        ? catalog.saved.get(track.recording_id)
+        : undefined) ??
+      catalog.saved.get(foundKey(track.id));
     const failure = catalog.failed?.id === track.id ? catalog.failed : null;
     return (
       <li key={track.id}>
@@ -73,11 +91,12 @@ export default function AlbumEditionTrackList({
         ) : (
           <>
             <p>Not in your library</p>
-            {track.recording_id == null ? (
+            {track.recording_id == null && (
               <p>No provider identity for this track</p>
-            ) : comparison?.attached_occurrences.includes(track.id) ? (
+            )}
+            {comparison?.attached_occurrences.includes(track.id) ? (
               <p>Already attached as audio to another recording</p>
-            ) : comparison?.adoption ? (
+            ) : comparison?.adoption && track.recording_id != null ? (
               <button
                 type="button"
                 className="button"
@@ -87,9 +106,21 @@ export default function AlbumEditionTrackList({
               >
                 {catalog.pending === track.id ? "Saving…" : "Play"}
               </button>
-            ) : (
-              <p>No connected provider can save this track</p>
-            )}
+            ) : comparison ? (
+              <button
+                type="button"
+                className="button"
+                disabled={catalog.pending !== null}
+                aria-label={`Find audio for ${track.title}`}
+                onClick={() =>
+                  void catalog.findAndPlay(track.id, search(track))
+                }
+              >
+                {catalog.pending === track.id
+                  ? "Finding audio…"
+                  : "Find audio and play"}
+              </button>
+            ) : null}
             {failure && <p role="alert">{failure.message}</p>}
           </>
         )}
@@ -121,6 +152,8 @@ export default function AlbumEditionTrackList({
           )}
           <p>
             Catalog tracks are saved to your library only when you play them.
+            Tracks that are not saved can look for audio in your approved
+            providers.
           </p>
           {comparison.edition.media.map((medium) => (
             <section

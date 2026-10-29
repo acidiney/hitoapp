@@ -136,6 +136,7 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
         ) : (
           <AlbumEditionTrackList
             account={context.account}
+            source={{ release: context.release, recording: context.recording }}
             comparison={comparison.comparison}
             pending={comparison.pending}
             error={comparison.error}
