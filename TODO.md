@@ -103,7 +103,8 @@ Automatic audio resolution for imported playlists is deployed locally. Controlle
 - [x] Add native shuffle and repeat with stable queue occurrences, finite failure traversal, and matching browser traversal checks.
 - [x] Add native 0.5–3× playback speed for supported 8–192 kHz mono/stereo sources, preserving pitch, command ordering and observed progress rate.
 - [x] Load current authorized saved positions for explicit native History resume, with pending-write and stale-result fencing.
-- [ ] Add seamless source-specific speed capability negotiation and conversion for unsupported representations; current nonunit playback above 192 kHz fails visibly and can retry at 1×.
+- [x] Add source-specific speed capability negotiation and native conversion: sources above 192 kHz are decimated and sources with more than two channels are downmixed before time-stretching; both players report per-source speed support and show a non-blocking 1× notice, restoring the chosen speed on the next capable source.
+- [ ] Resample to an output-device-supported rate when the device lacks the converted rate (only decimation above 192 kHz exists), and verify 384 kHz/352.8 kHz and 5.1 speed playback, conversion quality and CPU on physical macOS hardware and in browsers.
 - [x] Preserve process-local private queue state across temporary authority/database failures while suspending output and rejecting unverified commands. Revalidate before recovery; clear on definitive session rejection.
 - [ ] Build Tauri clients for macOS, Windows, and Linux with bundled local backend lifecycle.
 - [ ] Add Symphonia decoding, CPAL output, FFmpeg fallback, and operating-system media controls.

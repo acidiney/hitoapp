@@ -11,7 +11,8 @@ flowchart LR
   Access[Core PlaybackAccess / authorized grant] --> Session[hito-playback session and owned input]
   Session --> Player[hito-audio Player]
   Player --> Decoder[Owned decoder worker / Symphonia]
-  Decoder --> Tempo[Worker-owned SoundTouch / bounded tempo segments]
+  Decoder --> Convert[Converter / downmix to stereo, decimate above 192 kHz]
+  Convert --> Tempo[Worker-owned SoundTouch / bounded tempo segments]
   Tempo --> PCM[Bounded 100 ms PCM ring / generation, source time and rate tags]
   PCM --> Render[CPAL callback / fixed presentation queue]
   Render --> Device[Native output device]
@@ -24,9 +25,35 @@ flowchart LR
 
 `Player` opens one input, starts paused, and owns resume, pause, seek, volume, speed, snapshots, and cleanup. Its worker owns both the decoder and output stream. Construction and control methods block. The native session owner calls them outside Tokio's asynchronous worker threads. Seeking waits for the decoder to apply the target, preserves paused state, and changes the PCM generation. The callback discards older generations and preserves frames newer than its current observation.
 
-The output starts with silence and waits for two callbacks before returning readiness. This primes the device before application audio. Device selection requests a 20 ms period within its advertised bounds; the negotiated callback size may differ. Output currently requires the source's exact rate and one or two channels, with float32, signed 16-bit, or unsigned 16-bit samples. No resampling or channel conversion is implemented yet.
+The output starts with silence and waits for two callbacks before returning readiness. This primes the device before application audio. Device selection requests a 20 ms period within its advertised bounds; the negotiated callback size may differ. Output requires the converted representation's exact rate and one or two channels, with float32, signed 16-bit, or unsigned 16-bit samples. The [conversion stage](#conversion-and-speed-capability) produces that representation; no other device-rate resampling exists yet.
 
 The PCM ring holds 100 ms of frames. The callback performs no allocation, locking, decoding, filesystem access, networking, or logging. Its fixed presentation queue holds at most 1,024 points. Overflow becomes a typed output failure. Stale-frame work is bounded by ring capacity for each callback.
+
+## Conversion and speed capability
+
+Each decoded source has one capability, derived from its actual decoded sample rate and channel count before the output opens. `AudioFormat::speed_capability` reports either a range (0.5 to 3.0) or unit-only speed, and `Player::speed_capability` exposes it for the opened source. Every representation the decoder accepts (8 to 384 kHz, 1 to 32 channels) has the full range, because the engine converts it first. Unit-only is the answer for anything outside those bounds. No decoder-accepted source currently reports it, so the unit-only path is exercised by unit tests and the browser path rather than by a native audio fixture.
+
+`Converter` sits between the decoder and the time-stretcher and is the only place sample rate or channel count changes:
+
+- A source at or below 192 kHz with one or two channels is forwarded without copying or arithmetic, so 1.0 playback of those sources is bit-exact.
+- A source above 192 kHz is decimated by an integer factor (two for 192 to 384 kHz, so 384 kHz becomes 192 kHz and 352.8 kHz becomes 176.4 kHz) with a 129-tap linear-phase Kaiser-windowed low-pass filter. Tests measure 1 kHz and 10 kHz tones kept within 2 percent of their amplitude and a 150 kHz tone, which would fold to 42 kHz, rejected below 0.2 percent of full scale (about 54 dB), so out-of-band content cannot fold into the audible band. They do not characterise the full passband ripple or compare against a reference resampler. The filter is centred on each output frame, so media time needs no latency offset, and trailing silence flushes the final frames at the end of the stream. This conversion applies at every speed, including 1.0: a stream cannot change its output rate while playing, and most output devices do not accept rates above 192 kHz, so the converted rate is the one the device opens.
+- A source with more than two channels is mixed to stereo using its speaker positions. Front channels keep their side, centre channels feed both sides at -3 dB, surround and rear channels feed their side at -3 dB, and low-frequency channels are dropped. Weights are scaled so that a full-scale signal in every channel cannot exceed full scale. A layout without speaker positions alternates channels between left and right. Surround content therefore plays at every speed instead of failing at the output.
+
+The processing is bounded: the filter keeps only its own history plus one decoded packet, output blocks are one packet, and cancellation reaches the decoder between packets exactly as before. Seeking resets the filter and restarts media time at the decoder's reported position; the first few output frames after a seek carry a filter transient shorter than a millisecond.
+
+```mermaid
+flowchart LR
+  Open[Decoder opens / actual rate and channels] --> Capability[Speed capability / range or unit only]
+  Capability --> Owner[Native control module / negotiate chosen speed]
+  Owner -->|supported| Chosen[Apply chosen speed]
+  Owner -->|unit only| Unit[Present at 1.0, keep chosen speed]
+  Chosen --> Snapshot[Player snapshot: speed, effective_speed, speed_support]
+  Unit --> Snapshot
+  Snapshot --> UI[Shared UI / disabled options and a non-blocking notice]
+  Browser[Browser media element / verify accepted playbackRate] --> Snapshot
+```
+
+The native control module in `hito-playback` negotiates for each opened session. It applies the chosen speed when the source's capability supports it and otherwise leaves the session at unit speed without failing it. The chosen speed stays in the owner, so a later capable source applies it again. The owner snapshot reports `speed` (the chosen speed), `effective_speed` (what the current source presents) and `speed_support` (the range in thousandths, `1000`-`1000` for unit-only, absent while unknown). The browser player verifies after each source loads that the media element accepted the rate; a refused or throwing rate leaves the element at 1.0 and reports unit-only for that source, and the next source retries the chosen speed. Both players expose `speedRange` and `effectiveSpeed` through the shared player interface. The speed menu disables choices outside the range, and when the effective speed differs from the chosen one a non-blocking status line says that the source plays at 1× and that the chosen speed returns with a source that supports it.
 
 ## Tempo and media time
 
@@ -43,7 +70,7 @@ flowchart LR
   Callback --> Observed[Observed source position and rate]
 ```
 
-Nonunit tempo is unsupported above 192 kHz because the bundled processor rejects those sample rates. The engine rejects such a speed request before changing its rate or playback state, preserving unit-speed playback. The coordinator currently reports a visible playback failure after finite source attempts; choosing 1.0 and Resume can retry the same paused occurrence. Source-specific speed negotiation and seamless rejection while preserving active playback remain unfinished. Monitor fixtures cover tempo at 8, 16, 44.1, 48, 96, and 192 kHz, with 384 kHz rejection followed by actual unit-speed output.
+The bundled processor rejects sample rates above 192 kHz, so the [conversion stage](#conversion-and-speed-capability) hands it at most 192 kHz and at most two channels. A request outside the source's capability is rejected before changing its rate or playback state. Monitor fixtures cover tempo at 8, 16, 44.1, 48, 96, and 192 kHz, and converted 384 kHz, 352.8 kHz and 5.1 sources at unit speed, 2.0 and 0.5, including mid-playback speed changes, seeking and cleanup.
 
 Positions, seeks, and duration use source media time. At 2.0, four seconds of source audio produce about two seconds of device audio. Each frame carries its source cursor and segment rate. Snapshots publish that rate when the corresponding audio is estimated to have played. A completion marker only advances position/completion and preserves the last presented rate, including a short clip ending within one callback or a seek directly to the end. Before any audio is presented, the observed rate starts at 1.0. Seeking resets the processor and generation while retaining the latest requested rate; output recovery uses the same reset at the last presented cursor.
 
@@ -93,14 +120,14 @@ The desktop verification script also runs this check. Ordinary workspace builds 
 
 The hardware-independent tests cover exact WAV samples, backward and zero seeks, nonfinite/truncated input, 24-bit precision, cancellation during a video-only tail, and trace-level log privacy. FFmpeg generates deterministic PCM16/PCM24/float WAV, FLAC, MP3, Vorbis, AAC-LC, ALAC, AIFF, and CAF fixtures. These checks establish decoding for those profiles, not every profile of each codec. Opus explicitly returns unsupported until fallback exists.
 
-The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery at 2.0. Tempo checks measure preserved pitch and output duration, source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
+The Linux device check uses an unprivileged process, private temporary PulseAudio socket, clocked null sink, and its monitor. It measures real CPAL output for tone identity, pause silence, backward/zero seeking, volume, short-clip completion, restart after end, explicit close/Drop, and underrun recovery at 2.0. Tempo checks measure preserved pitch and output duration (including converted high-rate and surround sources), source-time progression, pause/seek behavior, forward-only input, rapid rate reversal, and final observed rate. It never mounts the normal server volume or personal music. Renderer and end-marker races also have deterministic callback-boundary tests.
 
 Vendor diagnostics are suppressed only around Symphonia calls because malformed media can enter its log messages. Hito retains safe decoder readiness, seek, speed requests, tempo transitions, output, recovery, failure, and cleanup events. Player spans use a process-local audio ID. No media bytes or private paths enter those events.
 
 ## Remaining integration
 
-The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. Saved-position loading, resampling, FFmpeg fallback, gapless, and platform/hardware acceptance remain unfinished.
+The [application coordinator](native-coordinator.md) supplies authorized recording/source IDs, stable queue entries, bounded source attempts, progress persistence, and account/session command fencing. The desktop retains native cleanup through shutdown. Its HTTP adapter reuses server authentication and local process protection. React sends commands and observes snapshots through the shared player interface; web sessions keep the browser implementation. FFmpeg fallback, resampling to arbitrary device-supported rates, gapless, and platform/hardware acceptance remain unfinished.
 
-FFmpeg fallback, resampling, channel conversion, gapless preparation, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
+FFmpeg fallback, resampling to a rate the output device supports (only decimation above 192 kHz exists), gapless preparation, device selection/media controls, platform verification, and release latency targets remain unfinished. Linux monitor evidence does not establish speed quality across all codecs, physical devices, or platforms. The [release plan](release-plan.md) and [TODO](../TODO.md) retain those requirements.
 
 The pinned [Symphonia documentation](https://docs.rs/symphonia/0.6.1/symphonia/) lists codec and gapless limitations. [CPAL](https://docs.rs/cpal/0.18.2/cpal/) defines callback/device behavior, and [rtrb](https://docs.rs/rtrb/0.4.0/rtrb/) supplies the fixed-capacity SPSC ring.
