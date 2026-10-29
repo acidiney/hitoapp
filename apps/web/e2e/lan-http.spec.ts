@@ -179,14 +179,23 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     await expect(
       page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
     ).toHaveCount(2, { timeout: 20_000 });
-    await page.getByRole("tab", { name: "Accounts", exact: true }).click();
-    await page.getByLabel("Username", { exact: true }).fill(listener);
-    await page.getByLabel("Password", { exact: true }).fill(listenerPassword);
+    await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Accounts", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "Create account", exact: true })
       .click();
+    const dialog = page.getByRole("dialog", { name: "Create account" });
+    await dialog.getByLabel("Username", { exact: true }).fill(listener);
+    await dialog.getByLabel("Password", { exact: true }).fill(listenerPassword);
+    await dialog
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
     await expect(
-      page.locator(".account-list").getByText(listener, { exact: true }),
+      page
+        .getByRole("region", { name: "Accounts and access" })
+        .getByText(listener, { exact: true }),
     ).toBeVisible();
 
     await navigation

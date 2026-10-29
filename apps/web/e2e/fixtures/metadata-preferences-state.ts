@@ -67,14 +67,16 @@ export async function preferencesAction<T>(
 export async function openPreferences(page: Page) {
   await page.goto("/settings?section=metadata");
   await expect(
-    page.getByRole("tab", { name: "Metadata", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+    page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Music & providers", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   const panel = page.getByRole("region", {
-    name: "Metadata preferences",
+    name: "Metadata providers",
     exact: true,
   });
   await expect(
-    panel.getByRole("checkbox", {
+    panel.getByRole("switch", {
       name: "Use metadata providers",
       exact: true,
     }),

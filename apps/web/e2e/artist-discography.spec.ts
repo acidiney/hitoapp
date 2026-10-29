@@ -158,7 +158,10 @@ test(
       ).toBe(true);
 
       stage = "personal provider approval through settings";
-      await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link", { name: "Plugins", exact: true })
+        .click();
       await page.getByText("Services for this server", { exact: true }).click();
       await page
         .getByLabel("Service address", { exact: true })

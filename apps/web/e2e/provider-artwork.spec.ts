@@ -274,7 +274,10 @@ test("existing independent playlist copies automatically retain private provider
     await page
       .getByRole("link", { name: "Account and settings", exact: true })
       .click();
-    await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Plugins", exact: true })
+      .click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-artwork-approval-document",
       documentToken,

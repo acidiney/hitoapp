@@ -95,7 +95,10 @@ test("source-free imported albums preserve unknown credits through personal edit
     await page
       .getByRole("link", { name: "Account and settings", exact: true })
       .click();
-    await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Plugins", exact: true })
+      .click();
     await page.getByText("Services for this server", { exact: true }).click();
     await page
       .getByLabel("Service address", { exact: true })

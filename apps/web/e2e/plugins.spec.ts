@@ -39,7 +39,10 @@ async function withdrawEveryService(page: Page) {
     expect(response.ok()).toBe(true);
   }
   await page.reload();
-  await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Plugins", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Your plugins", exact: true }),
   ).toBeVisible();
@@ -58,7 +61,10 @@ async function signIn(page: Page, username: string, password: string) {
 
 async function openPlugins(page: Page) {
   await page.goto("/settings");
-  await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Plugins", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Your plugins", exact: true }),
   ).toBeVisible();
@@ -465,19 +471,26 @@ test.describe("account switching", () => {
       await page.screenshot({
         path: "/workspace/test-results/plugins-connected-desktop.png",
       });
-      await page.getByRole("tab", { name: "Accounts", exact: true }).click();
       await page
-        .getByLabel("Username", { exact: true })
-        .fill("plugin-listener");
-      await page
-        .getByLabel("Password", { exact: true })
-        .fill("plugin listener password");
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link", { name: "Accounts", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Create account", exact: true })
         .click();
-      await expect(page.locator(".account-list")).toContainText(
-        "plugin-listener",
-      );
+      const dialog = page.getByRole("dialog", { name: "Create account" });
+      await dialog
+        .getByLabel("Username", { exact: true })
+        .fill("plugin-listener");
+      await dialog
+        .getByLabel("Password", { exact: true })
+        .fill("plugin listener password");
+      await dialog
+        .getByRole("button", { name: "Create account", exact: true })
+        .click();
+      await expect(
+        page.getByRole("region", { name: "Accounts and access" }),
+      ).toContainText("plugin-listener");
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(
         page.getByRole("heading", { name: "Welcome back" }),

@@ -140,13 +140,16 @@ export async function prepareOutageLibrary(
   );
   const preferences = await openPreferences(page);
   await preferences
-    .getByRole("checkbox", { name: "Use metadata providers", exact: true })
+    .getByRole("switch", { name: "Use metadata providers", exact: true })
     .uncheck();
   await savePreferences(page, { ...settings, enabled: false });
   checkpoint("local_library");
   const local = await seedPreferencesLibrary(page, read, user);
   checkpoint("plugin_offer");
-  await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Plugins", exact: true })
+    .click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page
     .getByLabel("Service address", { exact: true })

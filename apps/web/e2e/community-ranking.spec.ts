@@ -463,7 +463,7 @@ test("a separately saved community ranking preference changes ordinary browser P
     phase = "unsaved_choice";
     checkpoint = "unsaved.navigate";
     await page.goto("/settings?section=privacy");
-    const ranking = page.getByRole("checkbox", {
+    const ranking = page.getByRole("switch", {
       name: "Use community source rankings",
       exact: true,
     });

@@ -123,9 +123,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
         .evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(before);
-  await navigation
-    .getByRole("link", { name: "Library", exact: true })
-    .click();
+  await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Library spotlight" }),
   ).toBeVisible();
@@ -353,9 +351,7 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
       .locator("audio[data-hito-player]")
       .evaluate((audio: HTMLAudioElement) => audio.paused),
   ).toBe(false);
-  await navigation
-    .getByRole("link", { name: "Library", exact: true })
-    .click();
+  await navigation.getByRole("link", { name: "Library", exact: true }).click();
   await page.screenshot({
     path: "/workspace/test-results/library-desktop.png",
   });
@@ -480,27 +476,45 @@ test("sign in, scan, listen across navigation, edit a playlist, and switch accou
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
     .click();
-  const libraryTab = page.getByRole("tab", { name: "Library", exact: true });
-  await expect(libraryTab).toHaveAttribute("aria-selected", "true");
-  await libraryTab.focus();
-  await page.keyboard.press("ArrowRight");
+  const settingsNav = page.getByRole("navigation", {
+    name: "Settings sections",
+  });
+  const musicLink = settingsNav.getByRole("link", {
+    name: "Music & providers",
+    exact: true,
+  });
+  await expect(musicLink).toHaveAttribute("aria-current", "page");
+  const privacyLink = settingsNav.getByRole("link", {
+    name: "Privacy & lock",
+    exact: true,
+  });
+  await privacyLink.focus();
+  await page.keyboard.press("Enter");
+  await expect(privacyLink).toHaveAttribute("aria-current", "page");
   await expect(
-    page.getByRole("tab", { name: "Privacy", exact: true }),
-  ).toBeFocused();
-  await expect(page.getByRole("tabpanel")).toContainText("Playback reporting");
-  await page.keyboard.press("End");
+    page.getByRole("region", { name: "Privacy & lock", exact: true }),
+  ).toContainText("Playback reporting");
   await expect(
-    page.getByRole("tab", { name: "Accounts", exact: true }),
+    page.getByRole("heading", { name: "Privacy & lock", level: 2 }),
   ).toBeFocused();
-  await page.getByLabel("Username", { exact: true }).fill("listener");
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill("listener docker test password");
+  await settingsNav
+    .getByRole("link", { name: "Accounts", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Create account", exact: true })
     .click();
+  const dialog = page.getByRole("dialog", { name: "Create account" });
+  await dialog.getByLabel("Username", { exact: true }).fill("listener");
+  await dialog
+    .getByLabel("Password", { exact: true })
+    .fill("listener docker test password");
+  await dialog
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
   await expect(
-    page.locator(".account-list").getByText("listener", { exact: true }),
+    page
+      .getByRole("region", { name: "Accounts and access" })
+      .getByText("listener", { exact: true }),
   ).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({

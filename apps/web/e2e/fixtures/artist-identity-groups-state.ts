@@ -35,7 +35,10 @@ export async function prepareArtistGroups(
   ).toBeVisible();
   const user = await read<Schema["User"]>("/api/v1/me");
   const saved = await seedPreferencesLibrary(page, read, user);
-  await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Plugins", exact: true })
+    .click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page
     .getByLabel("Service address", { exact: true })

@@ -93,7 +93,10 @@ test.describe("isolated packaged YouTube", () => {
       await page
         .getByRole("link", { name: "Account and settings", exact: true })
         .click();
-      await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link", { name: "Plugins", exact: true })
+        .click();
       await expect(
         page.getByRole("heading", { name: "Your plugins", exact: true }),
       ).toBeVisible();

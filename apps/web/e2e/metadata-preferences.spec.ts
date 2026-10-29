@@ -132,7 +132,7 @@ test("account metadata preferences persist ordered personal providers without to
       isDeepStrictEqual(await read("/api/v1/metadata/settings"), defaults),
     ).toBe(true);
     await expect(
-      panel.getByRole("checkbox", {
+      panel.getByRole("switch", {
         name: "Use metadata providers",
         exact: true,
       }),
@@ -144,7 +144,7 @@ test("account metadata preferences persist ordered personal providers without to
       }),
     ).toHaveText(/MusicBrainz/);
     await panel
-      .getByRole("checkbox", { name: "Use metadata providers", exact: true })
+      .getByRole("switch", { name: "Use metadata providers", exact: true })
       .uncheck();
     expect(
       isDeepStrictEqual(await read("/api/v1/metadata/settings"), defaults),
@@ -152,7 +152,7 @@ test("account metadata preferences persist ordered personal providers without to
     await savePreferences(page, { ...defaults, enabled: false });
     panel = await openPreferences(page);
     await expect(
-      panel.getByRole("checkbox", {
+      panel.getByRole("switch", {
         name: "Use metadata providers",
         exact: true,
       }),
@@ -160,7 +160,10 @@ test("account metadata preferences persist ordered personal providers without to
     expect(owned.calls.total).toBe(0);
 
     stage = "address-only offers and personal catalog approval";
-    await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Plugins", exact: true })
+      .click();
     await page.getByText("Services for this server", { exact: true }).click();
     const connections: Schema["PluginInstallation"][] = [];
     for (const [index, address] of owned.addresses.entries()) {
@@ -252,7 +255,7 @@ test("account metadata preferences persist ordered personal providers without to
       .getByRole("button", { name: `Move earlier ${owned.name}`, exact: true })
       .click();
     await panel
-      .getByRole("checkbox", { name: "Use metadata providers", exact: true })
+      .getByRole("switch", { name: "Use metadata providers", exact: true })
       .check();
     await savePreferences(page, {
       revision: 1,
@@ -289,14 +292,21 @@ test("account metadata preferences persist ordered personal providers without to
     ).toHaveCount(1);
 
     stage = "second account defaults and private connection authority";
-    await page.getByRole("tab", { name: "Accounts", exact: true }).click();
     await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Accounts", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Create account" });
+    await dialog
       .getByLabel("Username", { exact: true })
       .fill("preferences-listener");
-    await page.getByLabel("Password", { exact: true }).fill(otherPassword);
+    await dialog.getByLabel("Password", { exact: true }).fill(otherPassword);
     const created = await preferencesAction<Schema["User"]>(
       page,
-      page.getByRole("button", { name: "Create account", exact: true }),
+      dialog.getByRole("button", { name: "Create account", exact: true }),
       "POST",
       "/api/v1/users",
       201,
@@ -342,10 +352,12 @@ test("account metadata preferences persist ordered personal providers without to
     stage = "show second account metadata preference authority";
     const otherPanel = await openPreferences(other);
     await expect(
-      other.getByRole("tab", { name: "Accounts", exact: true }),
+      other
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("link", { name: "Accounts", exact: true }),
     ).toHaveCount(0);
     await expect(
-      otherPanel.getByRole("checkbox", {
+      otherPanel.getByRole("switch", {
         name: "Use metadata providers",
         exact: true,
       }),
@@ -362,7 +374,10 @@ test("account metadata preferences persist ordered personal providers without to
       otherPlugins.installations.length === 0 &&
         otherPlugins.services.length === 2,
     ).toBe(true);
-    await other.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await other
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Plugins", exact: true })
+      .click();
     await expect(
       other.getByText("No plugins connected to this account.", { exact: true }),
     ).toBeVisible();
@@ -371,7 +386,10 @@ test("account metadata preferences persist ordered personal providers without to
     ).toHaveCount(0);
 
     stage = "disconnect selected provider and disable retained reference";
-    await page.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Settings sections" })
+      .getByRole("link", { name: "Plugins", exact: true })
+      .click();
     const installedSettings =
       await read<Schema["PluginSettings"]>("/api/v1/plugins");
     const selectedIndex = installedSettings.installations.findIndex(
@@ -421,13 +439,13 @@ test("account metadata preferences persist ordered personal providers without to
       panel.getByText("Unavailable saved provider", { exact: true }),
     ).toBeVisible();
     await expect(
-      panel.getByRole("checkbox", {
+      panel.getByRole("switch", {
         name: "Use metadata providers",
         exact: true,
       }),
     ).toBeChecked();
     await panel
-      .getByRole("checkbox", { name: "Use metadata providers", exact: true })
+      .getByRole("switch", { name: "Use metadata providers", exact: true })
       .uncheck();
     stage = "disabled retained reference before explicit save";
     await savePreferences(page, {
@@ -441,7 +459,7 @@ test("account metadata preferences persist ordered personal providers without to
       panel.getByText("Unavailable saved provider", { exact: true }),
     ).toBeVisible();
     await expect(
-      panel.getByRole("checkbox", {
+      panel.getByRole("switch", {
         name: "Use metadata providers",
         exact: true,
       }),
