@@ -25,34 +25,111 @@ impl hito_audio::Input for Forward {
     }
 }
 
+fn tone_clip(rate: u32, channels: u16, seconds: u32) -> std::fs::File {
+    support::wave(rate, channels, rate * seconds, |frame, channel| {
+        if channel == 0 {
+            ((f64::from(frame) * 440. * std::f64::consts::TAU / f64::from(rate)).sin() * 16_000.)
+                as i16
+        } else {
+            0
+        }
+    })
+}
+
 #[test]
 #[ignore = "requires the isolated clocked audio monitor"]
-fn unsupported_high_rate_tempo_preserves_unit_speed_audio_and_cleanup() {
+fn sources_above_the_device_limits_play_at_unit_speed_in_converted_form() {
+    for (rate, channels) in [(384_000, 2), (352_800, 2), (48_000, 6)] {
+        let capture = Capture::open();
+        let mut player = Player::open(tone_clip(rate, channels, 1)).unwrap();
+        assert_eq!(
+            player.speed_capability(),
+            hito_audio::SpeedCapability::Range { min: 0.5, max: 3. }
+        );
+        player.resume().unwrap();
+        wait(|| player.snapshot().ended);
+        let snapshot = player.snapshot();
+        assert_eq!(snapshot.format.sample_rate, rate);
+        assert_eq!(snapshot.format.channels, channels);
+        assert!((snapshot.position.as_secs_f64() - 1.).abs() < 0.001);
+        assert_eq!(snapshot.speed, 1.);
+        player.close().unwrap();
+        capture.after(capture.mark(), 0.2);
+        let samples = capture.all();
+        let active = samples.iter().filter(|sample| sample.abs() > 0.01).count();
+        assert!(
+            (44_000..52_000).contains(&active),
+            "{rate} Hz {channels} channels emitted {active} active frames for one second"
+        );
+        assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
+    }
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn sources_above_the_device_limits_change_speed_with_preserved_pitch_and_duration() {
+    for (rate, channels, speed, seconds, expected) in [
+        (384_000, 2, 2., 4, 96_000.),
+        (352_800, 2, 2., 4, 96_000.),
+        (48_000, 6, 2., 4, 96_000.),
+        (384_000, 1, 0.5, 1, 96_000.),
+    ] {
+        let capture = Capture::open();
+        let mut player = Player::open(tone_clip(rate, channels, seconds)).unwrap();
+        player.speed(speed).unwrap();
+        player.resume().unwrap();
+        wait(|| player.snapshot().ended);
+        let snapshot = player.snapshot();
+        assert!((snapshot.position.as_secs_f64() - f64::from(seconds)).abs() < 0.001);
+        assert_eq!(snapshot.speed, speed);
+        player.close().unwrap();
+        capture.after(capture.mark(), 0.2);
+        let samples = capture.all();
+        let active = samples.iter().filter(|sample| sample.abs() > 0.01).count();
+        assert!(
+            (expected * 0.9..expected * 1.1).contains(&(active as f64)),
+            "{rate} Hz {channels} channels at {speed} emitted {active} active frames, expected about {expected}"
+        );
+        assert!(amplitude(&samples, 440.) > amplitude(&samples, 880.) * 100.);
+    }
+}
+
+#[test]
+#[ignore = "requires the isolated clocked audio monitor"]
+fn a_converted_source_keeps_speed_changes_seeks_and_cleanup_working() {
     let capture = Capture::open();
-    let input = support::wave(384_000, 2, 3840, |frame, _| {
-        ((f64::from(frame) * 440. * std::f64::consts::TAU / 384_000.).sin() * 16_000.) as i16
-    });
-    let mut player = Player::open(input).unwrap();
-    assert_eq!(player.speed(0.5), Err(hito_audio::Error::Unsupported));
-    assert_eq!(player.snapshot().speed, 1.);
-    assert!(!player.snapshot().playing);
-    assert!(!player.snapshot().ended);
-    assert!(player.snapshot().error.is_none());
+    let mut player = Player::open(tone_clip(384_000, 2, 12)).unwrap();
+    player.resume().unwrap();
+    wait(|| player.snapshot().position > Duration::from_millis(200));
+    player.speed(2.).unwrap();
+    wait(|| player.snapshot().speed == 2.);
+    let before = player.snapshot().position;
+    capture.after(capture.mark(), 0.6);
+    let distance = player.snapshot().position - before;
+    assert!(
+        (0.8..1.4).contains(&distance.as_secs_f64()),
+        "fast source-time distance: {distance:?}"
+    );
+    player.seek(Duration::from_secs(8)).unwrap();
+    wait(|| player.snapshot().position > Duration::from_millis(8_200));
+    player.speed(0.5).unwrap();
+    wait(|| player.snapshot().speed == 0.5);
+    let before = player.snapshot().position;
+    capture.after(capture.mark(), 0.6);
+    let distance = player.snapshot().position - before;
+    assert!(
+        (0.2..0.45).contains(&distance.as_secs_f64()),
+        "slow source-time distance: {distance:?}"
+    );
+    player.pause();
+    player.seek(Duration::ZERO).unwrap();
     player.speed(1.).unwrap();
     player.resume().unwrap();
-    wait(|| player.snapshot().ended);
-    assert_eq!(player.snapshot().position, Duration::from_millis(10));
+    wait(|| player.snapshot().position > Duration::from_millis(300));
+    assert!(player.snapshot().error.is_none());
     player.close().unwrap();
-    capture.after(capture.mark(), 0.2);
-    let active = capture
-        .all()
-        .iter()
-        .filter(|sample| sample.abs() > 0.01)
-        .count();
-    assert!(
-        active > 150,
-        "a 10 ms unit-speed clip emitted only {active} active monitor frames"
-    );
+    capture.after(capture.mark(), 0.3);
+    assert!(energy(&capture.recent(0.1)) < 0.000001);
 }
 
 #[test]

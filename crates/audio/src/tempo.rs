@@ -1,4 +1,4 @@
-use crate::{AudioFormat, Decoder, Error, Result, processor::Processor};
+use crate::{AudioFormat, Converter, Error, Result, processor::Processor};
 use std::time::Duration;
 
 pub(crate) struct Block<'a> {
@@ -10,7 +10,7 @@ pub(crate) struct Block<'a> {
 }
 
 pub(crate) struct Tempo {
-    decoder: Decoder,
+    decoder: Converter,
     stretch: Option<Processor>,
     speed: f32,
     requested: Option<f32>,
@@ -24,7 +24,7 @@ pub(crate) struct Tempo {
 }
 
 impl Tempo {
-    pub fn new(decoder: Decoder) -> Self {
+    pub fn new(decoder: Converter) -> Self {
         let channels = usize::from(decoder.format().channels);
         Self {
             decoder,

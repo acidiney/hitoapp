@@ -1,6 +1,11 @@
+mod capability;
+mod convert;
 mod decoding;
 mod error;
+mod resample;
 
+pub use capability::{MAX_SPEED, MIN_SPEED, SpeedCapability};
+pub use convert::Converter;
 pub use decoding::{AudioFormat, Decoded, Decoder};
 pub use error::{Error, Result};
 pub use symphonia::core::io::MediaSource as Input;

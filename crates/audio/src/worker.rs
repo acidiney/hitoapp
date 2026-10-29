@@ -1,4 +1,6 @@
-use crate::{Decoder, Error, Result, device::Output, render::Frame, state::State, tempo::Tempo};
+use crate::{
+    Converter, Decoder, Error, Result, device::Output, render::Frame, state::State, tempo::Tempo,
+};
 use rtrb::Producer;
 use std::{
     sync::{
@@ -29,7 +31,7 @@ pub(crate) fn run(
     state: Arc<State>,
     ready: SyncSender<Result<()>>,
 ) -> Result<()> {
-    let mut decoder = Tempo::new(decoder);
+    let mut decoder = Tempo::new(Converter::new(decoder));
     let format = decoder.format();
     let channels = usize::from(format.channels);
     let (mut producer, output) = Output::start(format, state.clone())?;

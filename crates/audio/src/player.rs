@@ -1,5 +1,5 @@
 use crate::{
-    AudioFormat, Decoder, Error, Input, Result, Snapshot,
+    AudioFormat, Decoder, Error, Input, Result, Snapshot, SpeedCapability,
     state::State,
     worker::{self, Control},
 };
@@ -86,6 +86,10 @@ impl Player {
             commands,
             worker: Some(worker),
         })
+    }
+
+    pub fn speed_capability(&self) -> SpeedCapability {
+        self.format.speed_capability()
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -185,7 +189,7 @@ impl Player {
         if let Some(error) = self.snapshot().error {
             return Err(error);
         }
-        if value != 1. && self.format.sample_rate > 192_000 {
+        if !self.format.speed_capability().supports(value) {
             return Err(Error::Unsupported);
         }
         let (reply, applied) = mpsc::sync_channel(1);

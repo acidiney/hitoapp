@@ -1,6 +1,7 @@
 use crate::{Error, Input, Result};
 use std::{sync::LazyLock, time::Duration};
 use symphonia::core::{
+    audio::Channels,
     codecs::audio::AudioDecoder,
     common::Limit,
     formats::{FormatReader, SeekMode, SeekTo, TrackType, probe::Hint},
@@ -33,6 +34,7 @@ pub struct Decoder {
     track: u32,
     time_base: TimeBase,
     format: AudioFormat,
+    layout: Channels,
     samples: Vec<f32>,
     position: Duration,
     pending: bool,
@@ -79,6 +81,7 @@ impl Decoder {
                 duration,
             },
             reader,
+            layout: Channels::None,
             samples: Vec::new(),
             position: Duration::ZERO,
             pending: false,
@@ -100,6 +103,10 @@ impl Decoder {
 
     pub fn format(&self) -> AudioFormat {
         self.format
+    }
+
+    pub(crate) fn layout(&self) -> &Channels {
+        &self.layout
     }
 
     #[tracing::instrument(level = "trace", skip_all)]
@@ -198,6 +205,9 @@ impl Decoder {
                     || channels != usize::from(self.format.channels))
             {
                 return Err(Error::FormatChanged);
+            }
+            if self.format.sample_rate == 0 {
+                self.layout = audio.spec().channels().clone();
             }
             self.format.sample_rate = rate;
             self.format.channels = channels as u16;
