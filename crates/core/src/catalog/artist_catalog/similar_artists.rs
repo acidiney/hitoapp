@@ -12,7 +12,8 @@ use std::{future::Future, time::Instant};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-const MAX_PROVIDER_ATTEMPTS: usize = 3;
+const MAX_ANSWER_ATTEMPTS: usize = 3;
+const MAX_PROBES: usize = 8;
 
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -124,28 +125,35 @@ impl Catalog {
             policy::read(&mut connection, actor).await?
         };
         let mut capable = false;
+        let mut probe_failed = false;
         let mut attempts = 0;
         for provider in settings
             .providers
             .iter()
             .filter(|provider| matches!(provider, MetadataProvider::HttpPlugin { .. }))
+            .take(MAX_PROBES)
         {
-            if attempts == MAX_PROVIDER_ATTEMPTS {
+            if attempts == MAX_ANSWER_ATTEMPTS {
                 break;
             }
             let connection = match Connection::open(self, actor, provider).await {
                 Err(Error::NotFound) => continue,
                 result => result?,
             };
-            attempts += 1;
             match connection.similarity_supported().await {
                 Ok(true) => capable = true,
-                Ok(false) | Err(Error::Upstream(_)) => {
+                Ok(false) => {
+                    read.recheck().await?;
+                    continue;
+                }
+                Err(Error::Upstream(_)) => {
+                    probe_failed = true;
                     read.recheck().await?;
                     continue;
                 }
                 Err(error) => return Err(error),
             }
+            attempts += 1;
             let page = match connection.similar_artists(&provider_request).await {
                 Ok(page) if canonical(&page) => page,
                 Ok(_) | Err(Error::Upstream(_)) => {
@@ -180,7 +188,7 @@ impl Catalog {
                 artists,
             });
         }
-        Ok(if capable {
+        Ok(if capable || probe_failed {
             SimilarArtistsAvailability::Unavailable
         } else {
             SimilarArtistsAvailability::Unsupported

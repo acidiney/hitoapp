@@ -365,3 +365,53 @@ async fn other_accounts_and_unreviewed_credits_cannot_read_similar_artists() {
     assert!(calls(&server).is_empty());
     assert!(server.finish().await);
 }
+
+#[tokio::test]
+async fn a_failing_descriptor_probe_is_unavailable_but_a_missing_one_is_unsupported() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    let mut server = SimilarityServer::start().await;
+    let plugin = connect(&library, &server).await;
+    choose(
+        &library,
+        true,
+        vec![MetadataProvider::BuiltinMusicBrainz, plugin],
+    )
+    .await;
+    server.fail_descriptor(Some(axum::http::StatusCode::SERVICE_UNAVAILABLE));
+    assert_eq!(status(read(&library, &seed, 5).await), "unavailable");
+    server.fail_descriptor(Some(axum::http::StatusCode::NOT_IMPLEMENTED));
+    assert_eq!(status(read(&library, &seed, 5).await), "unsupported");
+    server.fail_descriptor(None);
+    server.declare_similarity(false);
+    assert_eq!(status(read(&library, &seed, 5).await), "unsupported");
+    assert!(server.finish().await);
+}
+
+#[tokio::test]
+async fn providers_that_cannot_answer_do_not_use_up_the_answer_attempts() {
+    let library = Library::prepare().await;
+    let seed = seed(&library).await;
+    let mut plain = Vec::new();
+    let mut providers = vec![MetadataProvider::BuiltinMusicBrainz];
+    for _ in 0..3 {
+        let server = SimilarityServer::start().await;
+        server.declare_similarity(false);
+        providers.push(connect(&library, &server).await);
+        plain.push(server);
+    }
+    let mut capable = SimilarityServer::start().await;
+    let fourth = connect(&library, &capable).await;
+    providers.push(fourth.clone());
+    capable.reply(similar(&[(M3, "Quarta", None)]));
+    choose(&library, true, providers).await;
+    let found = available(read(&library, &seed, 5).await);
+    assert_eq!(found["provider"], serde_json::to_value(&fourth).unwrap());
+    for server in &plain {
+        assert!(server.similarity_requests().is_empty());
+    }
+    for mut server in plain {
+        assert!(server.finish().await);
+    }
+    assert!(capable.finish().await);
+}

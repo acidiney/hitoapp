@@ -33,6 +33,7 @@ pub enum Reply {
 
 struct State_ {
     declared: bool,
+    descriptor_failure: Option<StatusCode>,
     reply: Reply,
     delay: Duration,
     observed: Vec<ObservedRequest>,
@@ -50,6 +51,7 @@ impl SimilarityServer {
     pub async fn start() -> Self {
         let state = Arc::new(Mutex::new(State_ {
             declared: true,
+            descriptor_failure: None,
             reply: Reply::Similar(Vec::new()),
             delay: Duration::ZERO,
             observed: Vec::new(),
@@ -77,6 +79,10 @@ impl SimilarityServer {
 
     pub fn declare_similarity(&self, declared: bool) {
         self.state.lock().unwrap().declared = declared;
+    }
+
+    pub fn fail_descriptor(&self, status: Option<StatusCode>) {
+        self.state.lock().unwrap().descriptor_failure = status;
     }
 
     pub fn reply(&self, reply: Reply) {
@@ -149,7 +155,7 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
         return reject(&state);
     }
     let path = parts.uri.path().to_owned();
-    let (declared, reply, delay) = {
+    let (declared, reply, delay, descriptor_failure) = {
         let mut guard = state.lock().unwrap();
         if guard.observed.len() >= 32 {
             guard.unexpected += 1;
@@ -160,7 +166,12 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             path: path.clone(),
             body: body.clone(),
         });
-        (guard.declared, guard.reply.clone(), guard.delay)
+        (
+            guard.declared,
+            guard.reply.clone(),
+            guard.delay,
+            guard.descriptor_failure,
+        )
     };
     match (parts.method.as_str(), path.as_str()) {
         ("GET", "/prefix/v1/manifest") => Json(Manifest {
@@ -172,6 +183,9 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             content_policy: None,
         })
         .into_response(),
+        ("GET", "/prefix/v1/catalog/similarity/capabilities") if descriptor_failure.is_some() => {
+            descriptor_failure.unwrap().into_response()
+        }
         ("GET", "/prefix/v1/catalog/similarity/capabilities") if declared => {
             Json(CatalogSimilarityCapabilities {
                 similarity_version: CATALOG_SIMILARITY_VERSION,
