@@ -34,7 +34,10 @@ export function useAccounts(account: string) {
       });
   }, [account, notice, scope]);
 
-  async function create(username: string, password: string) {
+  async function create(
+    username: string,
+    password: string,
+  ): Promise<string | null> {
     const request = scope.capture();
     setPendingScope(scope);
     try {
@@ -44,16 +47,15 @@ export function useAccounts(account: string) {
         password,
         request.signal,
       );
-      if (!request.active()) return false;
+      if (!request.active()) return null;
       setListing((current) => ({
         scope,
         users: [...(current.scope === scope ? current.users : []), user],
       }));
       notice(`Created account ${user.username}. Grant library access below.`);
-      return true;
+      return null;
     } catch (error) {
-      if (request.active()) notice(errorMessage(error));
-      return false;
+      return request.active() ? errorMessage(error) : null;
     } finally {
       if (request.active()) setPendingScope(null);
     }

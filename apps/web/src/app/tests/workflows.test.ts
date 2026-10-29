@@ -249,7 +249,7 @@ test("account management ignores a creation response after changing accounts", a
     { initialProps: { account: "alice" }, wrapper },
   );
   await act(async () => {});
-  let creating!: Promise<boolean>;
+  let creating!: Promise<string | null>;
   act(() => {
     creating = result.current.create("private-account", "private-password");
   });

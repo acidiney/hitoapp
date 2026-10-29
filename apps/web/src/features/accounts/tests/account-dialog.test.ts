@@ -88,3 +88,29 @@ test("the account list offers no public sign-up or invite link", async () => {
   await screen.findByText("admin");
   expect(screen.queryByRole("link")).toBeNull();
 });
+
+test.each([
+  ["a duplicate username", "That username is already taken."],
+  ["an invalid password", "Password must be at least 12 characters."],
+])("%s is reported inside the open dialog", async (_name, message) => {
+  vi.mocked(accountsApi.create).mockRejectedValue(new Error(message));
+  view();
+  await screen.findByText("admin");
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+  const dialog = await screen.findByRole("dialog", { name: "Create account" });
+  fireEvent.change(within(dialog).getByLabelText("Username"), {
+    target: { value: "listener" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Password"), {
+    target: { value: "a long enough passphrase" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Create account" }),
+  );
+  const alert = await within(dialog).findByRole("alert");
+  expect(alert.textContent).toContain(message);
+  expect(dialog.hasAttribute("open")).toBe(true);
+  expect(
+    (within(dialog).getByLabelText("Username") as HTMLInputElement).value,
+  ).toBe("listener");
+});

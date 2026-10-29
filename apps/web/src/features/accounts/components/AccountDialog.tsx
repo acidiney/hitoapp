@@ -8,14 +8,18 @@ export default function AccountDialog({
   onClose,
 }: {
   pending: boolean;
-  onCreate: (username: string, password: string) => Promise<boolean>;
+  onCreate: (username: string, password: string) => Promise<string | null>;
   onClose: () => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!pending && (await onCreate(username, password))) onClose();
+    if (pending) return;
+    const failure = await onCreate(username, password);
+    if (failure === null) onClose();
+    else setError(failure);
   }
   return (
     <Dialog title="Create account" busy={pending} onClose={onClose}>
@@ -45,6 +49,11 @@ export default function AccountDialog({
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="dialog-actions">
           <Button disabled={pending} onClick={onClose}>
             Cancel
