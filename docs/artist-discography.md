@@ -68,7 +68,7 @@ One full frontend run was stopped at its 120-second watchdog after 157 passing f
 
 ## Types and library availability
 
-The chosen-artist page splits the loaded release groups into Albums, EPs, Singles and Other releases (broadcasts, other types and groups with no type). Each section shows ten releases and offers a local "Show more" action. A "... only" filter narrows the page to one type. Sections are built from the pages already loaded; the provider contract has no type filter, so "Load more releases" still pages the whole catalog. Recording Details keeps its flat list and makes no availability request.
+The chosen-artist page splits the loaded release groups into Albums, EPs, Singles and Other releases (broadcasts, other types and groups with no type). Each section shows ten releases and offers a local "Show more" action. A "... only" filter narrows the page to one type. Sections are built from the pages already loaded plus the pages read for one type ([below](#provider-side-type-paging)). "Load more releases" still pages the whole catalog in provider order. Recording Details keeps its flat list and makes no availability request.
 
 Availability is a library-only read, separate from the provider read, so it still works when a catalog is down and never contacts a provider.
 
@@ -93,7 +93,55 @@ The browser keeps the answers for the life of the loaded page: a release group i
 
 Cost: one transaction and a scan of the account's saved choices (no index on the release group; a migration was avoided), plus one pass over the linked albums' tracks. A work-budget test measures 13,700 SQLite VM steps with 100 saved choices and 93,200 with 3,000, and fails when growth exceeds 60 steps per added choice. The route is `POST /api/v1/recordings/{id}/artist-associations/{association}/discography/library`, returns `private, no-store` and answers 423 to a locked session. The browser requests only identities it has not checked, never retries by itself and shows "Library availability could not be checked" with "Check library again" when the read fails, leaving the catalog visible.
 
-Evidence: core workflows for an exact link, same-group lookalikes, invalid requests, another account (including one with its own readable association), an unlinked request association, an unlinked choice association, a choice whose album no longer lists its recording, a deselected provider and three stale newer choices; a playable-audio workflow with owned WAV files; one HTTP workflow including the locked-session answer; two work-budget tests; and five DOM cases pass. Limits: no provider-side type filter or per-type paging, so a very large catalog is still read in provider order; no "partly in library" level, because that needs the edition's full track list; credit pages without a chosen artist show no catalog (the credit page links to the chosen page); live MusicBrainz returns HTTP 503, so the live gate still fails.
+Evidence: core workflows for an exact link, same-group lookalikes, invalid requests, another account (including one with its own readable association), an unlinked request association, an unlinked choice association, a choice whose album no longer lists its recording, a deselected provider and three stale newer choices; a playable-audio workflow with owned WAV files; one HTTP workflow including the locked-session answer; two work-budget tests; and five DOM cases pass. Limits: the library read itself stays library-only; the "partly in library" level needs the edition's track list and is a separate, explicit read ([below](#comparing-a-linked-album-with-its-edition)); credit pages without a chosen artist show no catalog (the credit page links to the chosen page); live MusicBrainz returns HTTP 503, so the live gate still fails.
+
+## Provider-side type paging
+
+A provider may page one release type at a time. The SDK adds an optional `release_type` (`album`, `ep`, `single` or `other`) to the discography request and a separate `GET v1/catalog/discography/capabilities` descriptor that declares `release_type_filter` ([contract](plugin-catalog.md#provider-side-release-type-filter)). A request without a type keeps its exact earlier wire bytes, and a provider that does not declare the descriptor keeps today's behaviour.
+
+```mermaid
+flowchart LR
+    Click[Show more albums] --> Local{Loaded albums still hidden?}
+    Local -->|yes| Reveal[Reveal ten more with no request]
+    Local -->|no| Catalog{Whole catalog already loaded?}
+    Catalog -->|yes| Nothing[No button]
+    Catalog -->|no| Read[POST discography with release_type album]
+    Read --> Negotiate[Core negotiates the filter descriptor]
+    Negotiate -->|declared| Page[One bounded typed page]
+    Negotiate -->|absent| Fallback[type_filter_unsupported]
+    Fallback --> Local2[UI keeps the local filter and says so once]
+```
+
+Core negotiates the descriptor only when a type is requested, after the existing discography negotiation, so whole-catalog reads add no request. A provider without it answers `type_filter_unsupported` and no typed page is requested. The built-in adapter always supports it. The sealed continuation carries the type, so a token from one type cannot continue another type or the whole catalog; core rejects a mismatch before any provider request. A typed page may only hold groups of that type, and the SDK validator rejects a page that does not. `other` is the provider's "other" type for MusicBrainz (`type=other`), so it does not include broadcasts or groups without a type. The page's Other section merges the loaded broadcasts and untyped groups with what that type read adds.
+
+The built-in MusicBrainz client sends `release-group?artist=<id>&type=album|ep|single|other` with the same limit, pacing and 1 MiB body cap as the whole-catalog browse, one request per read. Its typed cursor (`mb-release-groups-typed-v1`) binds artist, type, limit and offset; the whole-catalog cursor keeps its earlier form and neither can continue the other.
+
+In the browser each section pages independently. "Show more albums" first reveals albums that are already loaded, then (only while the whole catalog is not fully loaded and the provider has not said it cannot) reads the next 20 albums, merging by exact release group identity so duplicates never appear. A typed read failure keeps every known row and offers "Try again" for that type only. A retired continuation offers "Restart albums". Unmounting, an account change or a changed artist cancels the held request; each request has the same 20-second deadline. Nothing starts automatically, and the library availability read only asks about groups it has not checked.
+
+Evidence: three SDK cases (descriptor negotiation, unchanged wire bytes, per-type page validation) plus one generated-schema case; three MusicBrainz client cases against the owned fake (typed paging with exactly one request per read and the expected query, cursor isolation in both directions, other-type rejection and an HTTP 503); four core cases with an owned HTTP catalog (negotiated typed paging with continuation fencing, unfiltered reads that never negotiate, a provider without the filter, a typed outage that leaves the whole catalog readable) and one core case against the built-in client and a fake MusicBrainz; one HTTP workflow; six DOM cases. Limits: only MusicBrainz and providers that declare the descriptor page by type, live MusicBrainz still returns HTTP 503, and the Other section's provider read covers only the provider's other type.
+
+## Comparing a linked album with its edition
+
+A linked release group can show how much of its remembered edition the account holds. The comparison is a separate, explicit read: the discography page never fetches editions by itself. Each linked album offers "Compare with the saved edition". That action reads the edition the account remembered for the album ([remembered edition](catalog-browsing.md#remembered-edition)) through the same reviewed provider read as the album page and classifies the result.
+
+```mermaid
+flowchart LR
+    Ask[Compare with the saved edition] --> Saved{Edition remembered for this album and group?}
+    Saved -->|no| Needs[needs_choice, no provider request]
+    Saved -->|yes| Read[Reviewed edition track-list read]
+    Read -->|outage| Out[unavailable, retry]
+    Read --> Match[Exact provider recording identity per audio track]
+    Match --> All{All audio tracks matched?}
+    All -->|yes| In[In library]
+    All -->|some| Partly[Partly in library]
+    All -->|none| Linked[Linked]
+```
+
+`POST /api/v1/albums/{id}/edition/library-level` takes the release group and answers `compared` with a `level` (`in_library`, `partly` or `linked`), `matched_tracks` and `edition_tracks`, or one of `needs_choice`, `disabled`, `unsupported`, `unavailable` or `cancelled`. Only the audio tracks of the edition count: pregaps and data tracks are not tracks, and an audio track without a provider recording identity can never match, so such an edition cannot read In library. A track matches only through an active, current provider binding of the same installation, which is the rule of the album page. Titles are never compared, personal titles stay as the user set them, and nothing is imported, saved, played or downloaded. A request for a release group other than the remembered one answers `needs_choice` without provider traffic. An album that is linked but has no matching track reads "Linked" with zero tracks (the built-in provider has no library recording bindings, so its editions read Linked).
+
+The browser shows `In library`, `Partly in library` or `Linked` with "n of m tracks" using the same availability marker as release cards (library, available and catalog states). One comparison costs one edition track-list read and one query pair over at most 4,096 provider identities, the same as opening the album page; a comparison is never started by loading or paging the discography, so there is no per-group query to budget. The result lives only in the open page, and "Try again" repeats only that album's comparison. A missing remembered edition asks the user to choose one on the album page.
+
+Evidence: four core cases through the public capability with owned fixtures (an edition that is missing, other groups and invalid identities, exact classification as the library changes including a retired binding and an unchanged album, an outage, unsupported editions and disabled metadata, and cancellation) plus two unit cases for Linked and audio-less editions; one HTTP workflow with the guards and the generated contract; six DOM cases. Limits: the comparison does not run for many albums at once, the Linked state cannot distinguish "none held" from "identities not yet bound", and live provider acceptance is still open.
 
 ## Packaged browsing acceptance
 

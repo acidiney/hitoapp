@@ -73,6 +73,12 @@ A present credit has 1 to 32 members. Each member retains a nullable identified 
 
 Cursors are limited to 2,048 bytes. Complete encoded discography pages are limited to 262,144 bytes. Validation counts serialized bytes through a bounded writer and stops on overflow without constructing another full response buffer. All object shapes reject unknown fields. Validation errors are static messages and do not echo provider content.
 
+## Provider-side release-type filter
+
+A provider may page one release type at a time. The separate `GET v1/catalog/discography/capabilities` descriptor contains `discography_version: 1` and exactly one operation, `release_type_filter`. It is independent of the catalog, discovery and edition descriptors, whose bytes are unchanged, so a strict older client never loses profile or discography reads. A missing descriptor means unsupported; hosts must not send a type to such a provider.
+
+`ArtistDiscographyRequest` gains an optional `release_type` of `album`, `ep`, `single` or `other`. An absent type is omitted from the wire, so every earlier request and fixture keeps its exact bytes. `other` means every group that is not an album, EP or single, including broadcasts and groups with no known type. For a typed request, `ArtistDiscographyPage::validate_for` rejects any item whose kind the type does not admit. Cursors, snapshots, limits, size bounds and unknown-field rules are unchanged. A continuation must carry the same type as the request that produced it; the host enforces that, and a provider treats each type as its own paged collection.
+
 ## Editions and complete track lists
 
 The SDK defines a separate `v1/catalog/editions/capabilities` descriptor with `edition_version: 1`. Its unique, nonempty `operations` array may contain `release_group_editions`, `edition_track_list`, or both. Existing catalog and discovery descriptor bytes remain unchanged. The host must negotiate each operation independently; edition negotiation is not yet connected to core.

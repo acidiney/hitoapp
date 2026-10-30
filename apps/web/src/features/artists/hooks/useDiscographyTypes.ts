@@ -26,7 +26,7 @@ export type TypePaging = {
   restartRequired: boolean;
 };
 
-type Owner = { pending: boolean };
+type Owner = { pending: boolean; scope: unknown };
 type State = {
   owner: Owner;
   unsupported: boolean;
@@ -69,7 +69,7 @@ export function useDiscographyTypes(
   const scope = useRequestScope(
     JSON.stringify([account, recording, association, profile]),
   );
-  const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
+  const owner = useMemo<Owner>(() => ({ pending: false, scope }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 

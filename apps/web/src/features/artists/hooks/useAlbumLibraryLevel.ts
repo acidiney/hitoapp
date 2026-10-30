@@ -9,7 +9,7 @@ import { DeadlineError, withDeadline } from "./withDeadline";
 
 const REQUEST_DEADLINE_MS = 20_000;
 
-type Owner = { pending: boolean };
+type Owner = { pending: boolean; scope: unknown };
 type State = {
   owner: Owner;
   pending: boolean;
@@ -44,7 +44,7 @@ export function useAlbumLibraryLevel(
   const scope = useRequestScope(
     JSON.stringify([account, release, releaseGroup]),
   );
-  const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
+  const owner = useMemo<Owner>(() => ({ pending: false, scope }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 

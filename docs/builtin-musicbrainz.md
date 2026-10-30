@@ -33,7 +33,7 @@ Profile lookups require a canonical MusicBrainz artist identifier. The returned 
 
 Discography calls request one release-group page with artist credits. They preserve separate group identities, canonical credited members, credited aliases, join phrases, secondary types and partial dates. A release group does not select an edition or supply that edition's track list. Artist relationships are not treated as similarity recommendations.
 
-Continuation tokens bind the artist, page limit and next numeric offset. They never become URLs. Offsets advance by the number of returned groups, including short pages. The adapter does not crawl subsequent pages. Upstream browse is live, so responses report no immutable snapshot. An unknown total continues after a nonempty page and ends at an empty page.
+A typed request (`album`, `ep`, `single` or `other`) adds `type=<name>` to the same browse and is bounded and paced like the whole-catalog browse. Its continuation token also binds the type, uses its own version prefix and cannot continue the whole catalog or another type. Returned groups must match the requested type. Continuation tokens bind the artist, page limit and next numeric offset. They never become URLs. Offsets advance by the number of returned groups, including short pages. The adapter does not crawl subsequent pages. Upstream browse is live, so responses report no immutable snapshot. An unknown total continues after a nonempty page and ends at an empty page.
 
 ## Identifier lookups
 
