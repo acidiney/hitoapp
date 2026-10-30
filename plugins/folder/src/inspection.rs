@@ -155,6 +155,9 @@ fn inspect_file(
     let album_artist = tag
         .and_then(|tag| text(tag.get_string(&lofty::tag::ItemKey::AlbumArtist)))
         .unwrap_or_else(|| artist.clone());
+    let isrc = tag
+        .and_then(|tag| tag.get_string(&lofty::tag::ItemKey::Isrc))
+        .and_then(|value| hito_plugin_sdk::normalize_isrc(value.trim()));
     let duration_ms = tagged
         .properties()
         .duration()
@@ -177,6 +180,7 @@ fn inspect_file(
         album,
         release_id: None,
         album_artist,
+        isrc,
         duration_ms,
         track_number,
         disc_number,

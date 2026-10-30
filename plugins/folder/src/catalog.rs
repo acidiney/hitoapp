@@ -93,6 +93,7 @@ pub(crate) struct Track {
     pub album: Option<String>,
     pub release_id: Option<String>,
     pub album_artist: String,
+    pub isrc: Option<String>,
     pub duration_ms: u64,
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
@@ -104,7 +105,7 @@ pub(crate) struct Track {
 impl Track {
     pub fn recording(&self) -> ProviderRecording {
         ProviderRecording {
-            isrc: None,
+            isrc: self.isrc.clone(),
             id: self.id.clone(),
             title: self.title.clone(),
             artist: self.artist.clone(),
