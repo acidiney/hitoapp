@@ -122,7 +122,8 @@ async fn unavailable_plugin_requests_expire_and_release_admission_for_retry() {
             .installations
             .is_empty()
     );
-    gate.add_permits(2);
+    gate.release();
+    gate.release();
     hito.plugins
         .install(
             &actor,

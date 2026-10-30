@@ -136,7 +136,7 @@ async fn logout_during_manifest_lookup_prevents_an_automatic_service_offer() {
     .await
     .expect("Logout must not wait for provider HTTP to finish")
     .unwrap();
-    gate.add_permits(1);
+    gate.release();
 
     assert!(matches!(offering.await.unwrap(), Err(Error::Unauthorized)));
     let settings = hito.plugins.settings(&admin).await.unwrap();

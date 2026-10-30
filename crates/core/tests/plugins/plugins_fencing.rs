@@ -59,7 +59,7 @@ async fn withdrawing_a_service_fences_inflight_installs_and_reoffering_uses_a_ne
         .await
         .unwrap();
     assert_ne!(replacement.id, service.id);
-    gate.add_permits(1);
+    gate.release();
     assert!(matches!(connecting.await.unwrap(), Err(Error::Conflict(_))));
     assert!(
         hito.plugins
@@ -123,7 +123,7 @@ async fn a_delayed_refresh_cannot_restore_a_removed_personal_installation() {
         .remove(&actor, &installed.id, installed.revision)
         .await
         .unwrap();
-    gate.add_permits(1);
+    gate.release();
     assert!(matches!(refreshing.await.unwrap(), Err(Error::NotFound)));
     assert!(
         hito.plugins
@@ -174,7 +174,8 @@ async fn one_account_cannot_occupy_multiple_manifest_connections() {
         ),
     )
     .await;
-    gate.add_permits(2);
+    gate.release();
+    gate.release();
     assert!(matches!(result, Ok(Err(Error::ProviderBusy(_)))));
     assert!(task.await.unwrap().is_ok());
     assert_eq!(server.hits(), 1);
