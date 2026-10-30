@@ -11,7 +11,9 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use hito_core::{AuthSession, Credentials, LockStatus, RemovePin, Services, SetPin, Unlock, User};
+use hito_core::{
+    AuthSession, Credentials, DeleteAccount, LockStatus, RemovePin, Services, SetPin, Unlock, User,
+};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -185,6 +187,26 @@ pub async fn create_user(
         StatusCode::CREATED,
         Json(services.identity.create_user(&actor, credentials).await?),
     ))
+}
+
+#[utoipa::path(delete, path = "/api/v1/users/{id}", operation_id = "delete_user", params(("id" = String, Path)),
+    request_body = DeleteAccount, security(("session" = []), ("bearer" = [])), responses(
+    (status = 204), (status = 401, body = ErrorResponse), (status = 403, body = ErrorResponse),
+    (status = 404, body = ErrorResponse), (status = 409, body = ErrorResponse),
+    (status = 400, body = ErrorResponse), (status = 413, body = ErrorResponse), (status = 415, body = ErrorResponse),
+    (status = 422, body = ErrorResponse), (status = 423, body = ErrorResponse),
+))]
+pub async fn delete_user(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path(id): Path<String>,
+    JsonBody(request): JsonBody<DeleteAccount>,
+) -> ApiResult<StatusCode> {
+    services
+        .identity
+        .delete_account(&actor, &id, request)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(put, path = "/api/v1/libraries/{library}/members/{member}",

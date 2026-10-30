@@ -125,3 +125,79 @@ async fn authenticated_api_and_inertia_requests_reject_the_wrong_account() {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 }
+
+#[tokio::test]
+async fn administrator_deletes_an_account_and_its_sessions_end() {
+    let (_dir, app) = app().await;
+    let admin = admin(&app).await;
+    let account = json!({"username":"bob","password":"another long password"});
+    let (_, bob) = call(&app, "POST", "/api/v1/users", account.clone(), Some(&admin)).await;
+    let (_, session) = call(&app, "POST", "/api/v1/login", account, None).await;
+    let bob_token = session["token"].as_str().unwrap();
+    let bob_path = format!("/api/v1/users/{}", bob["id"].as_str().unwrap());
+    let (_, me) = call(&app, "GET", "/api/v1/me", Value::Null, Some(&admin)).await;
+    let own_path = format!("/api/v1/users/{}", me["id"].as_str().unwrap());
+
+    let name = |username: &str| json!({ "username": username });
+    let status = |response: (StatusCode, Value)| response.0;
+    assert_eq!(
+        status(call(&app, "DELETE", &bob_path, name("bob"), None).await),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        status(call(&app, "DELETE", &own_path, name("bob"), Some(bob_token)).await),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        status(
+            call(
+                &app,
+                "DELETE",
+                "/api/v1/users/unknown",
+                name("bob"),
+                Some(&admin)
+            )
+            .await
+        ),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        status(call(&app, "DELETE", &own_path, name("admin"), Some(&admin)).await),
+        StatusCode::CONFLICT
+    );
+    let (mismatch, body) = call(&app, "DELETE", &bob_path, name("robert"), Some(&admin)).await;
+    assert_eq!(mismatch, StatusCode::CONFLICT);
+    assert!(body["error"].as_str().unwrap().contains("changed"));
+    assert_eq!(
+        status(
+            call(
+                &app,
+                "DELETE",
+                &bob_path,
+                json!({"username":"bob","extra":1}),
+                Some(&admin)
+            )
+            .await
+        ),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        status(call(&app, "GET", "/api/v1/me", Value::Null, Some(bob_token)).await),
+        StatusCode::OK
+    );
+
+    assert_eq!(
+        status(call(&app, "DELETE", &bob_path, name("bob"), Some(&admin)).await),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        status(call(&app, "GET", "/api/v1/me", Value::Null, Some(bob_token)).await),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        status(call(&app, "DELETE", &bob_path, name("bob"), Some(&admin)).await),
+        StatusCode::NOT_FOUND
+    );
+    let (_, users) = call(&app, "GET", "/api/v1/users", Value::Null, Some(&admin)).await;
+    assert_eq!(users.as_array().unwrap().len(), 1);
+}
