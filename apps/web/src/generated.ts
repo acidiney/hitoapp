@@ -356,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-matching/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["artist_matching_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artists": {
         parameters: {
             query?: never;
@@ -573,6 +589,22 @@ export interface paths {
         };
         get: operations["community_ranking_preferences"];
         put: operations["update_community_ranking_preferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cover-art/{kind}/{mbid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["cover_art"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2337,6 +2369,14 @@ export interface components {
             installation_revision: number;
             provider_recording_id: string;
         };
+        AlbumArtistInference: {
+            /** @enum {string} */
+            kind: "named";
+            name: string;
+        } | {
+            /** @enum {string} */
+            kind: "various";
+        };
         AlbumCatalogAnchor: {
             association_id: string;
             recording_id: string;
@@ -2738,6 +2778,28 @@ export interface components {
             /** @description The dismissed suggestions that could still apply to undecided tracks, so each can be restored. */
             dismissed_items: components["schemas"]["ArtistMatchSuggestion"][];
             items: components["schemas"]["ArtistMatchSuggestion"][];
+        };
+        /** @enum {string} */
+        ArtistMatchingState: "idle" | "queued" | "running";
+        ArtistMatchingStatus: {
+            /** @description Whether the account's settings allow automatic matching. */
+            enabled: boolean;
+            /**
+             * Format: int64
+             * @description Unix seconds when the last walk finished, if one has.
+             */
+            last_finished_at: number | null;
+            /**
+             * Format: int64
+             * @description Recordings the last finished walk matched.
+             */
+            last_matched: number;
+            /**
+             * Format: int64
+             * @description Recordings matched so far by the walk in progress.
+             */
+            matched_so_far: number;
+            state: components["schemas"]["ArtistMatchingState"];
         };
         ArtistPage: components["schemas"]["Page_Artist"];
         ArtistPageProps: components["schemas"]["SharedPageProps"] & {
@@ -3213,6 +3275,7 @@ export interface components {
             inherited_artist: string;
             inherited_title: string;
             liked: boolean;
+            plays_from_services: boolean;
             /** Format: int64 */
             position_ms: number;
             /** Format: double */
@@ -3476,6 +3539,8 @@ export interface components {
             automatic_artist_lookup: boolean;
             /** @description Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier. */
             automatic_artwork: boolean;
+            /** @description Search connected services for playable sources of saved recordings without being asked. */
+            automatic_service_search: boolean;
             enabled: boolean;
             providers: components["schemas"]["MetadataProvider"][];
             /** Format: int64 */
@@ -3530,7 +3595,7 @@ export interface components {
             value: string | null;
         };
         /** @enum {string} */
-        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage";
+        PageComponent: "LoginPage" | "LockPage" | "HomePage" | "SearchPage" | "CatalogPage" | "AlbumIndexPage" | "AlbumPage" | "ArtistIndexPage" | "ArtistIdentityGroupPage" | "ArtistPage" | "RecordingDetailsPage" | "AlbumDetailsPage" | "LikesPage" | "PlaylistIndexPage" | "PlaylistPage" | "AudiobookIndexPage" | "AudiobookPage" | "HistoryPage" | "SettingsPage" | "QueuePage" | "DiscoverPage" | "PodcastIndexPage" | "PodcastPage" | "NotFoundPage";
         Page_Artist: {
             items: {
                 artwork_recording_id?: string | null;
@@ -3611,6 +3676,8 @@ export interface components {
                 inherited_title: string;
                 library_id: string;
                 liked: boolean;
+                /** @description A connected, enabled service of this account can resolve sources for the recording. */
+                plays_from_services: boolean;
                 release_id?: string | null;
                 title: string;
             }[];
@@ -3629,6 +3696,7 @@ export interface components {
                 /** Format: int64 */
                 duration_ms: number;
                 id: string;
+                inferred_artist: components["schemas"]["AlbumArtistInference"] | null;
                 library_id: string;
                 title: string;
                 /** Format: int64 */
@@ -3967,6 +4035,7 @@ export interface components {
             inherited_title: string;
             liked: boolean;
             origin?: components["schemas"]["ImportedPlaylistEntryOrigin"] | null;
+            plays_from_services: boolean;
             /** Format: int64 */
             position: number;
             recording_id?: string | null;
@@ -4282,6 +4351,8 @@ export interface components {
             inherited_title: string;
             library_id: string;
             liked: boolean;
+            /** @description A connected, enabled service of this account can resolve sources for the recording. */
+            plays_from_services: boolean;
             release_id?: string | null;
             title: string;
         };
@@ -4368,6 +4439,7 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             id: string;
+            inferred_artist: components["schemas"]["AlbumArtistInference"] | null;
             library_id: string;
             title: string;
             /** Format: int64 */
@@ -4472,6 +4544,8 @@ export interface components {
             next_cursor?: string | null;
         };
         SearchPageProps: components["schemas"]["SharedPageProps"] & {
+            /** @description Chosen artists matching the search, exact names first. */
+            artist_groups: components["schemas"]["ArtistIdentityGroupPage"];
             artists: components["schemas"]["ArtistPage"];
             connections: components["schemas"]["PluginInstallation"][];
             query: string;
@@ -4791,6 +4865,7 @@ export interface components {
         UpdateAutomaticLookups: {
             automatic_artist_lookup?: boolean | null;
             automatic_artwork?: boolean | null;
+            automatic_service_search?: boolean | null;
         };
         UpdateCommunityPreferences: {
             metadata_corrections: boolean;
@@ -6552,6 +6627,49 @@ export interface operations {
             };
         };
     };
+    artist_matching_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistMatchingStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     artists: {
         parameters: {
             query?: {
@@ -7654,6 +7772,76 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cover_art: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description release or release-group */
+                kind: string;
+                mbid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Front cover fetched from the Cover Art Archive for this MusicBrainz identifier */
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/jpeg": unknown;
+                };
+            };
+            /** @description The cover is queued or being retrieved; ask again shortly */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The archive has no cover, or none was asked for */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The archive could not be reached; it is asked again later */
             502: {
                 headers: {
                     [name: string]: unknown;

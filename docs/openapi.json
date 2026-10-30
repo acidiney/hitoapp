@@ -2283,6 +2283,57 @@
         ]
       }
     },
+    "/api/v1/artist-matching/status": {
+      "get": {
+        "operationId": "artist_matching_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistMatchingStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artists": {
       "get": {
         "operationId": "artists",
@@ -3740,6 +3791,103 @@
             }
           },
           "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cover-art/{kind}/{mbid}": {
+      "get": {
+        "operationId": "cover_art",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "description": "release or release-group",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Front cover fetched from the Cover Art Archive for this MusicBrainz identifier",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "image/png": {},
+              "image/jpeg": {}
+            }
+          },
+          "202": {
+            "description": "The cover is queued or being retrieved; ask again shortly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The archive has no cover, or none was asked for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The archive could not be reached; it is asked again later",
             "content": {
               "application/json": {
                 "schema": {
@@ -14988,6 +15136,44 @@
         },
         "additionalProperties": false
       },
+      "AlbumArtistInference": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Every track names this one artist.",
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "named"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The tracks name different artists.",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "various"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "AlbumCatalogAnchor": {
         "type": "object",
         "required": [
@@ -16579,6 +16765,51 @@
             "items": {
               "$ref": "#/components/schemas/ArtistMatchSuggestion"
             }
+          }
+        }
+      },
+      "ArtistMatchingState": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "queued",
+          "running"
+        ]
+      },
+      "ArtistMatchingStatus": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "state",
+          "matched_so_far",
+          "last_finished_at",
+          "last_matched"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the account's settings allow automatic matching."
+          },
+          "last_finished_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Unix seconds when the last walk finished, if one has."
+          },
+          "last_matched": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings the last finished walk matched."
+          },
+          "matched_so_far": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings matched so far by the walk in progress."
+          },
+          "state": {
+            "$ref": "#/components/schemas/ArtistMatchingState"
           }
         }
       },
@@ -18506,6 +18737,7 @@
           "speed",
           "updated_at",
           "available",
+          "plays_from_services",
           "liked"
         ],
         "properties": {
@@ -18529,6 +18761,9 @@
             "type": "string"
           },
           "liked": {
+            "type": "boolean"
+          },
+          "plays_from_services": {
             "type": "boolean"
           },
           "position_ms": {
@@ -19651,7 +19886,8 @@
           "enabled",
           "providers",
           "automatic_artist_lookup",
-          "automatic_artwork"
+          "automatic_artwork",
+          "automatic_service_search"
         ],
         "properties": {
           "automatic_artist_lookup": {
@@ -19661,6 +19897,10 @@
           "automatic_artwork": {
             "type": "boolean",
             "description": "Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier."
+          },
+          "automatic_service_search": {
+            "type": "boolean",
+            "description": "Search connected services for playable sources of saved recordings without being asked."
           },
           "enabled": {
             "type": "boolean"
@@ -19907,7 +20147,8 @@
           "QueuePage",
           "DiscoverPage",
           "PodcastIndexPage",
-          "PodcastPage"
+          "PodcastPage",
+          "NotFoundPage"
         ]
       },
       "Page_Artist": {
@@ -20154,6 +20395,7 @@
                 "artist",
                 "duration_ms",
                 "available",
+                "plays_from_services",
                 "liked"
               ],
               "properties": {
@@ -20187,6 +20429,10 @@
                 },
                 "liked": {
                   "type": "boolean"
+                },
+                "plays_from_services": {
+                  "type": "boolean",
+                  "description": "A connected, enabled service of this account can resolve sources for the recording."
                 },
                 "release_id": {
                   "type": [
@@ -20234,7 +20480,8 @@
                 "artist",
                 "artist_id",
                 "track_count",
-                "duration_ms"
+                "duration_ms",
+                "inferred_artist"
               ],
               "properties": {
                 "artist": {
@@ -20261,6 +20508,17 @@
                 },
                 "id": {
                   "type": "string"
+                },
+                "inferred_artist": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AlbumArtistInference",
+                      "description": "Display album artist derived from the tracks when the release has no album artist. It is\nnever stored and never replaces a stated or personal album artist."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "library_id": {
                   "type": "string"
@@ -21568,7 +21826,8 @@
           "inherited_artist",
           "artist",
           "duration_ms",
-          "available"
+          "available",
+          "plays_from_services"
         ],
         "properties": {
           "artist": {
@@ -21602,6 +21861,9 @@
                 "type": "null"
               }
             ]
+          },
+          "plays_from_services": {
+            "type": "boolean"
           },
           "position": {
             "type": "integer",
@@ -22760,6 +23022,7 @@
           "artist",
           "duration_ms",
           "available",
+          "plays_from_services",
           "liked"
         ],
         "properties": {
@@ -22793,6 +23056,10 @@
           },
           "liked": {
             "type": "boolean"
+          },
+          "plays_from_services": {
+            "type": "boolean",
+            "description": "A connected, enabled service of this account can resolve sources for the recording."
           },
           "release_id": {
             "type": [
@@ -23117,7 +23384,8 @@
           "artist",
           "artist_id",
           "track_count",
-          "duration_ms"
+          "duration_ms",
+          "inferred_artist"
         ],
         "properties": {
           "artist": {
@@ -23144,6 +23412,17 @@
           },
           "id": {
             "type": "string"
+          },
+          "inferred_artist": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AlbumArtistInference",
+                "description": "Display album artist derived from the tracks when the release has no album artist. It is\nnever stored and never replaces a stated or personal album artist."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "library_id": {
             "type": "string"
@@ -23583,10 +23862,15 @@
               "recordings",
               "releases",
               "artists",
+              "artist_groups",
               "connections",
               "service_names"
             ],
             "properties": {
+              "artist_groups": {
+                "$ref": "#/components/schemas/ArtistIdentityGroupPage",
+                "description": "Chosen artists matching the search, exact names first."
+              },
               "artists": {
                 "$ref": "#/components/schemas/ArtistPage"
               },
@@ -24784,6 +25068,12 @@
             ]
           },
           "automatic_artwork": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "automatic_service_search": {
             "type": [
               "boolean",
               "null"
