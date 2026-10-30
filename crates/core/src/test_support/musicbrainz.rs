@@ -21,6 +21,8 @@ pub enum Reply {
     Artists(Vec<String>),
     /// Artists found by a name search, each with its identifier and name.
     Candidates(Vec<(String, String)>),
+    /// A search page with a stated total that may exceed the page.
+    CandidatesOf(Vec<(String, String)>, u32),
     /// The first page of an artist's recordings: the total MusicBrainz states, then each title
     /// with its length in milliseconds.
     Discography(u32, Vec<(String, Option<u64>)>),
@@ -83,6 +85,15 @@ impl FakeMusicBrainz {
             .unwrap()
             .replies
             .insert(format!("search/{name}"), reply);
+    }
+
+    /// Answers an artist search whose total exceeds the returned page.
+    pub fn search_total(&self, name: &str, found: Vec<(String, String)>, total: u32) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("search/{name}"), Reply::CandidatesOf(found, total));
     }
 
     /// Answers the recordings browse of one artist.
@@ -186,6 +197,16 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
                 StatusCode::OK,
                 json!({"id": "0f700000-0000-4000-8000-0000000000ff",
                     "resource": key.trim_start_matches("url/"), "relations": relations}),
+            )
+        }
+        (_, Some(Reply::CandidatesOf(artists, total))) => {
+            let found: Vec<Value> = artists
+                .iter()
+                .map(|(id, name)| json!({"id": id, "name": name, "type": "Person", "disambiguation": ""}))
+                .collect();
+            (
+                StatusCode::OK,
+                json!({"count": total, "offset": 0, "artists": found}),
             )
         }
         (_, Some(Reply::Candidates(artists))) => {

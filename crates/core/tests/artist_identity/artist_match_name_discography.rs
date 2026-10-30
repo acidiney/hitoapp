@@ -421,3 +421,36 @@ async fn one_request_performs_at_most_eight_lookups_and_the_walk_resumes_by_curs
     assert!(batches >= 3);
     library.origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn unknown_library_lengths_never_corroborate() {
+    let library =
+        NameLibrary::prepare(&[(CREDIT, "Morning Light", 0), (CREDIT, "Second Wind", 500)]).await;
+    library
+        .musicbrainz
+        .search(CREDIT, candidates(&[(NOVA, CREDIT)]));
+    library.musicbrainz.recordings_of(
+        NOVA,
+        nova_discography(&[("Morning Light", Some(0)), ("Second Wind", Some(500))]),
+    );
+    let receipt = library.run().await;
+    assert_eq!((receipt.matched, receipt.uncertain), (0, 2));
+    library.origin.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_search_with_more_results_than_the_page_is_never_conclusive() {
+    let library = NameLibrary::nova().await;
+    let mut found: Vec<(String, String)> = vec![(NOVA.into(), CREDIT.into())];
+    for index in 0..9 {
+        found.push((
+            format!("0f700000-0000-4000-8000-{:012x}", 100 + index),
+            format!("Nova Quartet Tribute {index}"),
+        ));
+    }
+    library.musicbrainz.search_total(CREDIT, found, 11);
+    library.musicbrainz.recordings_of(NOVA, corroborating());
+    let receipt = library.run().await;
+    assert_eq!((receipt.matched, receipt.uncertain), (0, 4));
+    library.origin.shutdown().await;
+}

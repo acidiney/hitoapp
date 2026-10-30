@@ -25,7 +25,9 @@ const SEARCH_LIMIT: u16 = 10;
 const MAX_NAMESAKES: usize = 3;
 const MAX_CREDIT_LOOKUPS: usize = 1 + MAX_NAMESAKES;
 const LENGTH_TOLERANCE_MS: u64 = 2000;
-/// Distinct MusicBrainz recordings a library must share with an artist to corroborate it.
+/// A shorter length is a placeholder, not a measurement.
+const MIN_KNOWN_LENGTH_MS: u64 = 1000;
+/// Distinct normalized titles a library must share with an artist to corroborate it.
 const MIN_CORROBORATING: usize = 2;
 
 struct Credit {
@@ -57,17 +59,12 @@ fn normalize(text: &str) -> String {
 }
 
 /// The ordinary artists whose name equals the credit, or `None` when the search cannot prove it
-/// saw every one of them: too many namesakes, or a truncated page that still ends on an exact
-/// name.
+/// saw every one of them: too many namesakes, or any further page (ranking is not exact-name
+/// first, so a namesake may sit beyond the page).
 fn namesakes(page: &ArtistSearchPage, credit: &str) -> Option<Vec<String>> {
     let wanted = normalize(credit);
     let exact = |name: &str| normalize(name) == wanted;
-    if page.next_cursor.is_some()
-        && page
-            .items
-            .last()
-            .is_some_and(|last| exact(&last.artist.name))
-    {
+    if page.next_cursor.is_some() {
         return None;
     }
     let found: Vec<String> = page
@@ -81,10 +78,10 @@ fn namesakes(page: &ArtistSearchPage, credit: &str) -> Option<Vec<String>> {
 }
 
 /// Library tracks that equal a listed recording by normalized title and by length within the
-/// tolerance, with how many distinct MusicBrainz recordings they matched.
+/// tolerance, with how many distinct normalized titles they matched.
 fn corroborated(tracks: &[Track], listed: &ArtistRecordings) -> (Vec<usize>, usize) {
     let mut indices = Vec::new();
-    let mut recordings: Vec<&str> = Vec::new();
+    let mut titles: Vec<String> = Vec::new();
     for (index, track) in tracks.iter().enumerate() {
         let Some(length) = track.length_ms else {
             continue;
@@ -94,16 +91,17 @@ fn corroborated(tracks: &[Track], listed: &ArtistRecordings) -> (Vec<usize>, usi
             normalize(&item.title) == title
                 && item
                     .length_ms
+                    .and_then(|other| known_length(i64::try_from(other).ok()))
                     .is_some_and(|other| other.abs_diff(length) <= LENGTH_TOLERANCE_MS)
         });
-        if let Some(hit) = hit {
+        if hit.is_some() {
             indices.push(index);
-            if !recordings.contains(&hit.id.as_str()) {
-                recordings.push(&hit.id);
+            if !titles.contains(&title) {
+                titles.push(title);
             }
         }
     }
-    (indices, recordings.len())
+    (indices, titles.len())
 }
 
 /// Accepts an artist only when exactly one namesake corroborates the library, and no namesake
@@ -360,6 +358,12 @@ async fn credits(
     Ok((credits, more))
 }
 
+fn known_length(length: Option<i64>) -> Option<u64> {
+    length
+        .and_then(|length| u64::try_from(length).ok())
+        .filter(|length| *length >= MIN_KNOWN_LENGTH_MS)
+}
+
 #[derive(sqlx::FromRow)]
 struct TrackRow {
     id: String,
@@ -397,11 +401,14 @@ async fn credit_tracks(
 
 #[cfg(test)]
 mod tests {
-    use super::{Answers, Budget, Credit, Track, Verdict, namesakes, normalize};
+    use super::{
+        Answers, Budget, Credit, Track, Verdict, corroborated, known_length, namesakes, normalize,
+    };
     use crate::test_support::{
         musicbrainz::{FakeMusicBrainz, Reply},
         support,
     };
+    use hito_metadata_musicbrainz::{ArtistRecording, ArtistRecordings};
     use hito_plugin_sdk::{
         ArtistSearchCandidate, ArtistSearchPage, CatalogArtistKind, CatalogArtistRef,
     };
@@ -448,8 +455,8 @@ mod tests {
         let tail = [(ID, "Nova Quartet"), (OTHER, "Nova Quartet Tribute")];
         assert_eq!(
             namesakes(&page(&tail, true), "Nova Quartet"),
-            Some(vec![ID.into()]),
-            "A truncated page that ends on another name has shown every exact name"
+            None,
+            "A truncated page may hide an exact namesake ranked below it"
         );
         assert_eq!(namesakes(&page(&exact, true), "Nova Quartet"), None);
         let many = [
@@ -466,6 +473,55 @@ mod tests {
             ),
             Some(vec![])
         );
+    }
+
+    fn track(title: &str, length: u64) -> Track {
+        Track {
+            recording: title.into(),
+            title: title.into(),
+            length_ms: Some(length),
+            observation: "o".into(),
+            operation: None,
+        }
+    }
+
+    fn listed(items: &[(&str, &str, u64)]) -> ArtistRecordings {
+        ArtistRecordings {
+            total: items.len() as u32,
+            items: items
+                .iter()
+                .map(|(id, title, length)| ArtistRecording {
+                    id: (*id).into(),
+                    title: (*title).into(),
+                    length_ms: Some(*length),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn two_recordings_sharing_one_title_do_not_corroborate() {
+        let tracks = [track("Intro", 30_000), track("Intro", 90_000)];
+        let (_, distinct) = corroborated(
+            &tracks,
+            &listed(&[("a", "Intro", 30_000), ("b", "Intro", 90_000)]),
+        );
+        assert_eq!(distinct, 1);
+        let tracks = [track("Intro", 30_000), track("Outro", 90_000)];
+        let (_, distinct) = corroborated(
+            &tracks,
+            &listed(&[("a", "Intro", 30_000), ("b", "outro", 90_000)]),
+        );
+        assert_eq!(distinct, 2);
+    }
+
+    #[test]
+    fn a_missing_or_implausibly_short_library_length_is_unknown() {
+        assert_eq!(known_length(Some(0)), None);
+        assert_eq!(known_length(Some(999)), None);
+        assert_eq!(known_length(Some(-5)), None);
+        assert_eq!(known_length(None), None);
+        assert_eq!(known_length(Some(1000)), Some(1000));
     }
 
     fn credit() -> Credit {
