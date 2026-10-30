@@ -78,12 +78,7 @@ pub(crate) async fn enqueue(
     mbid: &str,
 ) -> Result<()> {
     canonical(mbid)?;
-    let allowed: Option<bool> =
-        sqlx::query_scalar("SELECT artwork FROM account_metadata_automation WHERE user_id = ?")
-            .bind(account)
-            .fetch_optional(&mut *connection)
-            .await?;
-    if !allowed.unwrap_or(true) {
+    if !super::availability::automatic_artwork_allowed(connection, account).await? {
         return Ok(());
     }
     let pending: i64 = sqlx::query_scalar(

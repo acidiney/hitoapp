@@ -82,7 +82,11 @@ impl Catalog {
         if let Some(retained) = self.retained_release_artwork(actor, release).await? {
             return Ok(Some(retained));
         }
-        self.library_cover_art(actor, release).await
+        if let Some(cover) = self.library_cover_art(actor, release).await? {
+            return Ok(Some(cover));
+        }
+        self.queue_provider_release_artwork(actor, release).await?;
+        Ok(None)
     }
 
     async fn read_source_artwork(

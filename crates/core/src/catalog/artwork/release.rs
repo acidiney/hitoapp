@@ -122,6 +122,37 @@ impl Catalog {
         Ok(fetch)
     }
 
+    /// Queues the provider cover for an album that has none, when the account allows automatic
+    /// artwork. A pending or failed request for the album is not repeated.
+    pub(super) async fn queue_provider_release_artwork(
+        &self,
+        actor: &Actor,
+        release: &str,
+    ) -> Result<()> {
+        let mut tx = self.store.pool.begin().await?;
+        actor.check_session_on(&mut tx).await?;
+        let wanted = availability::automatic_artwork_allowed(&mut tx, actor.id()).await?
+            && !sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM artwork_fetches WHERE user_id = ? AND release_id = ?
+                 AND entity_kind = 'release' AND status IN ('queued','running','failed'))",
+            )
+            .bind(actor.id())
+            .bind(release)
+            .fetch_one(&mut *tx)
+            .await?
+            && availability::approved_release_provider(&mut tx, actor.id(), release)
+                .await?
+                .is_some();
+        tx.commit().await?;
+        if !wanted {
+            return Ok(());
+        }
+        match self.enqueue_release_artwork(actor, release).await {
+            Ok(_) | Err(Error::Conflict(_) | Error::Invalid(_)) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
     pub(super) async fn retained_release_artwork(
         &self,
         actor: &Actor,

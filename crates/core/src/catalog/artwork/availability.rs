@@ -57,9 +57,10 @@ impl Catalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         super::release::access_on(&mut tx, actor, release).await?;
-        let can_fetch = approved_release_provider(&mut tx, actor.id(), release)
-            .await?
-            .is_some();
+        let can_fetch = automatic_artwork_allowed(&mut tx, actor.id()).await?
+            && approved_release_provider(&mut tx, actor.id(), release)
+                .await?
+                .is_some();
         tx.commit().await?;
         actor.check_session(&self.store).await?;
         tracing::debug!(
@@ -69,6 +70,18 @@ impl Catalog {
         );
         Ok(ArtworkAvailability { can_fetch })
     }
+}
+
+pub(super) async fn automatic_artwork_allowed(
+    connection: &mut SqliteConnection,
+    account: &str,
+) -> Result<bool> {
+    let allowed: Option<bool> =
+        sqlx::query_scalar("SELECT artwork FROM account_metadata_automation WHERE user_id = ?")
+            .bind(account)
+            .fetch_optional(connection)
+            .await?;
+    Ok(allowed.unwrap_or(true))
 }
 
 pub(super) async fn approved_provider(

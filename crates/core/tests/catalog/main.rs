@@ -20,6 +20,7 @@ mod home_summary;
 mod pin_lock_authority;
 mod pin_locks;
 mod pin_locks_upgrade;
+mod provider_album_artwork;
 mod recording_credits_migration_scale;
 mod recording_credits_upgrade;
 mod release_credits_upgrade;
