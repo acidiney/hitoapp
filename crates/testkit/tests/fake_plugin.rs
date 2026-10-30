@@ -543,3 +543,52 @@ async fn hold_next_outlives_a_client_that_gives_up() {
         .await
         .expect("a released hold must retire");
 }
+
+#[tokio::test]
+async fn stalled_bodies_send_a_prefix_then_wait_for_release() {
+    let plugin = echo().await;
+    let gate = plugin.stall_body("v1/ping", 1);
+    let mut response = client()
+        .get(format!("{}v1/ping", plugin.url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()["content-length"],
+        r#"{"pong":true}"#.len().to_string()
+    );
+    assert_eq!(response.chunk().await.unwrap().unwrap().as_ref(), b"{");
+    gate.entered().await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), response.chunk())
+            .await
+            .is_err()
+    );
+    gate.release();
+    assert_eq!(
+        response.chunk().await.unwrap().unwrap().as_ref(),
+        br#""pong":true}"#
+    );
+    drop(response);
+    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+        .await
+        .expect("a finished body must retire");
+}
+
+#[tokio::test]
+async fn stalled_bodies_retire_when_the_client_drops_them() {
+    let plugin = echo().await;
+    let gate = plugin.stall_body("v1/ping", 1);
+    let mut response = client()
+        .get(format!("{}v1/ping", plugin.url))
+        .send()
+        .await
+        .unwrap();
+    response.chunk().await.unwrap();
+    gate.entered().await;
+    drop(response);
+    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+        .await
+        .expect("a dropped body must retire");
+}

@@ -2,7 +2,10 @@ use axum::{
     Json, Router,
     body::{Body, Bytes, to_bytes},
     extract::{Request, State},
-    http::{HeaderMap, Method, StatusCode, header::CONTENT_TYPE},
+    http::{
+        HeaderMap, Method, StatusCode,
+        header::{CONTENT_LENGTH, CONTENT_TYPE},
+    },
     response::{IntoResponse, Response},
 };
 use hito_plugin_sdk::{
@@ -45,6 +48,11 @@ pub enum Fault {
     Hold(Arc<Gate>),
     /// Parks the next accepted request in a worker that outlives its connection.
     HoldNext(Arc<Gate>),
+    /// Sends the first `prefix` body bytes, then waits for the gate to be released.
+    StallBody {
+        gate: Arc<Gate>,
+        prefix: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,8 +125,8 @@ impl Gate {
         self.retired.acquire().await.unwrap().forget();
     }
 
-    async fn wait(&self) {
-        let _retiring = Retiring(self);
+    async fn wait(self: Arc<Self>) {
+        let _retiring = Retiring(self.clone());
         self.entered.add_permits(1);
         if let Ok(permit) = self.release.acquire().await {
             permit.forget();
@@ -126,9 +134,9 @@ impl Gate {
     }
 }
 
-struct Retiring<'a>(&'a Gate);
+struct Retiring(Arc<Gate>);
 
-impl Drop for Retiring<'_> {
+impl Drop for Retiring {
     fn drop(&mut self) {
         self.0.retired.add_permits(1);
     }
@@ -249,6 +257,18 @@ impl FakePlugin {
     pub fn hold(&self, operation: &str) -> Arc<Gate> {
         let gate = Gate::new();
         self.fault(operation, Fault::Hold(gate.clone()));
+        gate
+    }
+
+    pub fn stall_body(&self, operation: &str, prefix: usize) -> Arc<Gate> {
+        let gate = Gate::new();
+        self.fault(
+            operation,
+            Fault::StallBody {
+                gate: gate.clone(),
+                prefix,
+            },
+        );
         gate
     }
 
@@ -434,12 +454,16 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
                 .into_response();
         }
         Some(Fault::DropConnection) => return dropped_connection(),
-        Some(Fault::Delay(_) | Fault::Hold(_) | Fault::HoldNext(_)) | None => {}
+        Some(Fault::Delay(_) | Fault::Hold(_) | Fault::HoldNext(_) | Fault::StallBody { .. })
+        | None => {}
     }
     let reply = handler(&recorded);
     if matches!(reply, Reply::Refuse) {
         shared.log.lock().unwrap()[index].handled = Handled::Refused;
         return into_response(reply);
+    }
+    if let Some(Fault::StallBody { gate, prefix }) = fault {
+        return stalled_response(reply, prefix, gate);
     }
     match fault {
         Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
@@ -509,6 +533,52 @@ fn into_response(reply: Reply) -> Response {
     }
 }
 
+struct StalledBody {
+    first: Option<Bytes>,
+    rest: Option<Bytes>,
+    gate: Arc<Gate>,
+    _retiring: Retiring,
+}
+
+fn stalled_response(reply: Reply, prefix: usize, gate: Arc<Gate>) -> Response {
+    let (status, mut headers, bytes) = match reply {
+        Reply::Json(value) => (
+            StatusCode::OK,
+            HeaderMap::from_iter([(CONTENT_TYPE, "application/json".parse().unwrap())]),
+            serde_json::to_vec(&value).unwrap(),
+        ),
+        Reply::Raw {
+            status,
+            headers,
+            body,
+            ..
+        } => (status, headers, body),
+        Reply::Status(status) => (status, HeaderMap::new(), Vec::new()),
+        Reply::Refuse => (StatusCode::BAD_REQUEST, HeaderMap::new(), Vec::new()),
+    };
+    headers.insert(CONTENT_LENGTH, bytes.len().into());
+    let mut first = Bytes::from(bytes);
+    let rest = first.split_off(prefix.min(first.len()));
+    let body = StalledBody {
+        first: Some(first),
+        rest: Some(rest),
+        _retiring: Retiring(gate.clone()),
+        gate,
+    };
+    let stream = futures_util::stream::unfold(body, |mut body| async move {
+        if let Some(first) = body.first.take() {
+            body.gate.entered.add_permits(1);
+            return Some((Ok::<_, std::convert::Infallible>(first), body));
+        }
+        let rest = body.rest.take()?;
+        if let Ok(permit) = body.gate.release.acquire().await {
+            permit.forget();
+        }
+        Some((Ok(rest), body))
+    });
+    (status, headers, Body::from_stream(stream)).into_response()
+}
+
 fn dropped_connection() -> Response {
     let stream = futures_util::stream::iter([
         Ok(Bytes::from_static(b"{")),
@@ -518,10 +588,7 @@ fn dropped_connection() -> Response {
     ]);
     (
         StatusCode::OK,
-        [
-            (CONTENT_TYPE, "application/json"),
-            (axum::http::header::CONTENT_LENGTH, "1024"),
-        ],
+        [(CONTENT_TYPE, "application/json"), (CONTENT_LENGTH, "1024")],
         Body::from_stream(stream),
     )
         .into_response()
