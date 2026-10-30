@@ -14,6 +14,10 @@ export type QuickTile = {
   coverArtist?: string;
 };
 
+function albumSubtitle(artist: string): string {
+  return artist ? `Album · ${artist}` : "Album";
+}
+
 function trackCount(count: number): string {
   if (count >= LIKED_CAP) return `${LIKED_CAP.toLocaleString("en-US")}+ tracks`;
   return `${count} ${count === 1 ? "track" : "tracks"}`;
@@ -29,7 +33,7 @@ export function quickAccess(
       key: `album-${album.id}`,
       href: `/albums/${album.id}`,
       title: album.title,
-      subtitle: `Album · ${album.artist}`,
+      subtitle: albumSubtitle(album.artist),
       kind: "release",
       coverId: album.id,
       coverArtist: album.artist,
@@ -58,7 +62,7 @@ export function quickAccess(
       key: `album-${album.id}`,
       href: `/albums/${album.id}`,
       title: album.title,
-      subtitle: `Album · ${album.artist}`,
+      subtitle: albumSubtitle(album.artist),
       kind: "release",
       coverId: album.id,
       coverArtist: album.artist,

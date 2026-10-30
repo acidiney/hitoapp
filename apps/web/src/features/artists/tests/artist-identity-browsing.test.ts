@@ -74,7 +74,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   const table = screen.getByRole("table", { name: "Tracks" });
   const rows = within(table).getAllByRole("row").slice(1);
   expect(rows).toHaveLength(2);
-  expect(within(rows[1]).getByText("Unavailable on this device")).toBeTruthy();
+  expect(within(rows[1]).getByText("Plays from your services")).toBeTruthy();
   for (const [index, member] of detail.detail.recordings.items.entries()) {
     expect(
       within(rows[index]).getByRole("button", { name: member.recording.title }),
@@ -93,7 +93,7 @@ test("a chosen artist uses its saved credit and original recordings with indepen
   expect(
     screen.getByRole("link", { name: "Open Local album" }).getAttribute("href"),
   ).toBe("/albums/owned-local-album");
-  expect(screen.getByText("Album artist not provided")).toBeTruthy();
+  expect(screen.queryByText(/not provided/)).toBeNull();
   for (const [label, parameter] of [
     ["Library pages", "library_offset"],
     ["Track pages", "recording_offset"],

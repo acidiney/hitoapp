@@ -24,7 +24,7 @@ export default function AlbumDetailsPage({
         <div>
           <span>Album details</span>
           <h1>{detail.title.value}</h1>
-          <p>{detail.artist.value ?? "Album artist not provided"}</p>
+          {detail.artist.value && <p>{detail.artist.value}</p>}
         </div>
       </section>
       <ArtworkStatus release={target.id} />

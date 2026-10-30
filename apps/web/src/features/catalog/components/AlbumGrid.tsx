@@ -42,9 +42,7 @@ export default function AlbumGrid({
             >
               {release.artist}
             </Link>
-          ) : (
-            <span className="muted">Album artist not provided</span>
-          )}
+          ) : null}
           <small>
             {release.track_count}{" "}
             {release.track_count === 1 ? "track" : "tracks"}

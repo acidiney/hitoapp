@@ -149,9 +149,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     },
   ];
   const card = render(createElement(AlbumGrid, { releases: [release] }));
-  expect(
-    screen.getByText("Album artist not provided", { exact: true }),
-  ).toBeTruthy();
+  expect(screen.queryByText(/not provided/)).toBeNull();
   expect(
     screen
       .getByRole("link", { name: `Open ${release.title}` })
@@ -184,9 +182,8 @@ test("an album with unknown credit keeps its card and detail links without inven
     }),
   );
   expect(screen.getByRole("heading", { name: release.title })).toBeTruthy();
-  expect(
-    screen.getByText("Album artist not provided", { exact: true }),
-  ).toBeTruthy();
+  expect(screen.getByText("Various artists", { exact: true })).toBeTruthy();
+  expect(screen.queryByText(/not provided/)).toBeNull();
   expect(document.querySelectorAll('a[href^="/artists/"]')).toHaveLength(0);
   expect(
     document.querySelectorAll(
@@ -214,7 +211,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     ),
   ).toEqual(["1", "2.1"]);
   expect(
-    screen.getAllByText("Unavailable on this device", { exact: true }),
+    screen.getAllByText("Plays from your services", { exact: true }),
   ).toHaveLength(2);
   expect(player.playQueue).not.toHaveBeenCalled();
   expect(release.artist).toBeNull();

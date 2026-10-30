@@ -13,6 +13,7 @@ import TrackTable, {
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
+import { albumCreditLabel } from "../model/albumCredit";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
@@ -27,6 +28,10 @@ export default function AlbumPage({
     ...track,
     row_id: track.entry_id,
   }));
+  const credit = albumCreditLabel(
+    release.artist,
+    tracks.map((track) => track.artist),
+  );
   const listing = releaseTracksListing(user.id, release.id, page);
   return (
     <>
@@ -60,7 +65,7 @@ export default function AlbumPage({
                 {release.artist}
               </Link>
             ) : (
-              <span className="muted">Album artist not provided</span>
+              credit && <span className="album-artist">{credit}</span>
             )}
             <span className="album-stats">
               {release.track_count}{" "}
@@ -92,11 +97,6 @@ export default function AlbumPage({
             listing={listing}
             label="album"
             withPlay={false}
-            description={
-              page.items.some((track) => track.track_number != null)
-                ? "Ordered by disc and track tags"
-                : "Track numbers unavailable"
-            }
           />
           <TrackTable
             rows={tracks.map<TrackTableRow>((track) => ({
