@@ -19,6 +19,10 @@ import {
 } from "../components/LibraryResults";
 import ProviderResultsSection from "../components/ProviderResultsSection";
 import { useProviderSearch } from "../hooks/useProviderSearch";
+import { useAutomaticServiceSearch } from "../model/autoSearch";
+import { rankArtists, topResultKind } from "../model/ranking";
+
+const FEW_LIBRARY_RESULTS = 3;
 
 type Scope = "all" | "library" | "providers";
 
@@ -35,7 +39,15 @@ export default function SearchPage({
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
   const [asked, setAsked] = useState<string | null>(null);
-  const requested = scope === "providers" || (asked === query && query !== "");
+  const [automatic] = useAutomaticServiceSearch(user.id);
+  const libraryTotal =
+    recordings.items.length + releases.items.length + artists.items.length;
+  const sentAutomatically =
+    automatic && query !== "" && libraryTotal < FEW_LIBRARY_RESULTS;
+  const requested =
+    scope === "providers" ||
+    (asked === query && query !== "") ||
+    sentAutomatically;
   const providers = useProviderSearch(
     user.id,
     connections,
@@ -44,8 +56,13 @@ export default function SearchPage({
     player,
   );
   const library = scope !== "providers";
-  const found =
-    recordings.items.length + releases.items.length + artists.items.length > 0;
+  const found = libraryTotal > 0;
+  const rankedArtists = rankArtists(query, artists.items);
+  const topKind = topResultKind(query, {
+    tracks: recordings.items.length,
+    releases: releases.items.length,
+    artists: rankedArtists,
+  });
   function play(track: Schema<"Recording">) {
     const playable = recordings.items.filter((item) => item.available);
     void player.playQueue(playable, Math.max(0, playable.indexOf(track)));
@@ -85,17 +102,13 @@ export default function SearchPage({
           {library && found && (
             <>
               <TopResult
-                track={recordings.items[0]}
-                release={recordings.items[0] ? undefined : releases.items[0]}
-                artist={
-                  recordings.items[0] || releases.items[0]
-                    ? undefined
-                    : artists.items[0]
-                }
+                track={topKind === "track" ? recordings.items[0] : undefined}
+                release={topKind === "release" ? releases.items[0] : undefined}
+                artist={topKind === "artist" ? rankedArtists[0] : undefined}
               />
               <TrackResults tracks={recordings.items} onPlay={play} />
               <AlbumResults releases={releases.items} />
-              <ArtistResults artists={artists.items} />
+              <ArtistResults artists={rankedArtists} />
             </>
           )}
           {library && !found && (
@@ -112,6 +125,7 @@ export default function SearchPage({
               query={query}
               full={scope === "providers"}
               requested={requested}
+              automatic={sentAutomatically && scope !== "providers"}
               onRequest={() => setAsked(query)}
               onSeeAll={() => setScope("providers")}
             />

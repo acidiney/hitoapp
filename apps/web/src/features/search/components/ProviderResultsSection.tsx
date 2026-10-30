@@ -26,6 +26,7 @@ export default function ProviderResultsSection({
   query,
   full,
   requested,
+  automatic,
   onRequest,
   onSeeAll,
 }: {
@@ -34,6 +35,7 @@ export default function ProviderResultsSection({
   query: string;
   full: boolean;
   requested: boolean;
+  automatic: boolean;
   onRequest: () => void;
   onSeeAll: () => void;
 }) {
@@ -68,6 +70,15 @@ export default function ProviderResultsSection({
   return (
     <section className="search-group" aria-labelledby="search-providers">
       <h2 id="search-providers">From your services</h2>
+      {automatic && (
+        <p className="muted">
+          Your query is sent to your connected services because your library has
+          few matches.{" "}
+          <Link className="text-link" href="/settings?section=privacy">
+            Change in Settings
+          </Link>
+        </p>
+      )}
       {full && providers.length > 1 && (
         <FilterPills
           label="Music service"

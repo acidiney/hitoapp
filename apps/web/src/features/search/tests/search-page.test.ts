@@ -265,3 +265,99 @@ test("submitting the field searches again", () => {
   fireEvent.submit(field.closest("form") as HTMLFormElement);
   expect(router.get).toHaveBeenCalledWith("/search", { q: "glass" });
 });
+
+test("an exact artist name match is the top result and is listed first", () => {
+  const artistOf = (id: string, name: string) => ({
+    id,
+    library_id: "library",
+    name,
+    recording_count: 2,
+    release_count: 1,
+  });
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "shore",
+        artists: page([
+          artistOf("shore-band", "Shore Band"),
+          artistOf("shore", "Shore"),
+        ]),
+      }),
+    ),
+  );
+  const top = screen.getByRole("region", { name: "Top result" });
+  expect(
+    within(top).getByRole("link", { name: /Shore/ }).getAttribute("href"),
+  ).toBe("/artists/shore");
+  const artists = screen.getByRole("region", { name: "Artists" });
+  expect(
+    within(artists)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/artists/shore", "/artists/shore-band"]);
+});
+
+test("few library results search the connected services without another click", async () => {
+  const hit = { id: "remote", title: "Provider joe", artist: "Remote" };
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
+  vi.stubGlobal("fetch", fetch);
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "joe",
+        recordings: empty,
+        releases: empty,
+        artists: page([
+          {
+            id: "joe",
+            library_id: "library",
+            name: "Joe",
+            recording_count: 1,
+            release_count: 1,
+          },
+        ]),
+        connections: [connection],
+        service_names: { service: "Home" },
+      }),
+    ),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Play Provider joe" }),
+  ).toBeTruthy();
+  expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("joe");
+  expect(screen.getByText(/query is sent to your connected services/i)).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "Change in Settings" })
+      .getAttribute("href"),
+  ).toBe("/settings?section=privacy");
+  expect(screen.queryByRole("button", { name: "Search your services" })).toBeNull();
+});
+
+test("turning automatic service search off restores the explicit button", async () => {
+  localStorage.setItem("hito:search-services-auto:alice", "off");
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "joe",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+        connections: [connection],
+        service_names: { service: "Home" },
+      }),
+    ),
+  );
+  await Promise.resolve();
+  expect(fetch).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Search your services" })).toBeTruthy();
+});
