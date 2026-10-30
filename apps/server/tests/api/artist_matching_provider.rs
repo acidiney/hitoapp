@@ -62,6 +62,22 @@ async fn matched_pair() -> (
     .await;
     hito.storage.run_next_job().await.unwrap();
 
+    let entry = json!({"occurrence_id": "only", "item": {"kind": "recording", "recording": {
+        "id": "imported", "title": "Imported song", "artist": "C4 Pedro", "duration_ms": 1000,
+        "release": null, "disc_number": null, "track_number": null, "revision": "v1",
+        "isrc": "us-rc1-76-07839"
+    }}});
+    let (origin, imported) = import(&app, &token, vec![entry]).await;
+    (dir, app, token, musicbrainz, origin, imported[0].clone())
+}
+
+/// Imports one playlist of recordings through an owned provider and returns their identifiers.
+async fn import(
+    app: &axum::Router,
+    token: &str,
+    entries: Vec<Value>,
+) -> (provider::ProviderServer, Vec<String>) {
+    let token = Some(token);
     let origin = provider::ProviderServer::start().await;
     origin
         .reply(
@@ -70,35 +86,25 @@ async fn matched_pair() -> (
                 "protocol_version": 1, "capabilities": ["playlists"]}),
         )
         .await;
-    provider::playlist(
-        &origin,
-        "isrc-list",
-        "isrc-v1",
-        vec![json!({"occurrence_id": "only", "item": {"kind": "recording", "recording": {
-            "id": "imported", "title": "Imported song", "artist": "C4 Pedro", "duration_ms": 1000,
-            "release": null, "disc_number": null, "track_number": null, "revision": "v1",
-            "isrc": "us-rc1-76-07839"
-        }}})],
-    )
-    .await;
+    provider::playlist(&origin, "isrc-list", "isrc-v1", entries).await;
     let (_, service) = call(
-        &app,
+        app,
         "POST",
         "/api/v1/plugins/services",
         json!({"name": "ISRC fixture", "base_url": origin.url}),
-        Some(&token),
+        token,
     )
     .await;
     let (_, installation) = call(
-        &app,
+        app,
         "POST",
         "/api/v1/plugins",
         json!({"service_id": service["id"], "service_revision": service["revision"]}),
-        Some(&token),
+        token,
     )
     .await;
     let (status, receipt) = call(
-        &app,
+        app,
         "POST",
         &format!(
             "/api/v1/plugins/{}/playlists/import",
@@ -109,26 +115,28 @@ async fn matched_pair() -> (
             "installation_revision": installation["revision"],
             "playlist_reference": "https://provider.invalid/isrc-list"
         }),
-        Some(&token),
+        token,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let (_, detail) = call(
-        &app,
+        app,
         "GET",
         &format!(
             "/api/v1/playlists/{}",
             receipt["playlist_id"].as_str().unwrap()
         ),
         Value::Null,
-        Some(&token),
+        token,
     )
     .await;
-    let imported = detail["entries"][0]["recording_id"]
-        .as_str()
+    let recordings = detail["entries"]
+        .as_array()
         .unwrap()
-        .to_owned();
-    (dir, app, token, musicbrainz, origin, imported)
+        .iter()
+        .map(|entry| entry["recording_id"].as_str().unwrap().to_owned())
+        .collect();
+    (origin, recordings)
 }
 
 #[tokio::test]
@@ -158,7 +166,7 @@ async fn an_imported_track_with_an_isrc_joins_the_tagged_local_artist_through_th
             &receipt["unavailable"],
             &receipt["next_after"]
         ),
-        (&json!(1), &json!(0), &json!(0), &json!(0), &Value::Null)
+        (&json!(1), &json!(0), &json!(0), &json!(0), &json!("name:"))
     );
     let lookups = musicbrainz.requests().len();
     assert_eq!(
@@ -252,5 +260,109 @@ async fn provider_evidence_matching_validates_input_access_and_locks() {
         .await
         .0,
         StatusCode::LOCKED
+    );
+}
+
+#[tokio::test]
+async fn a_credit_is_matched_by_name_only_when_the_artists_recordings_corroborate_it_through_the_api()
+ {
+    let musicbrainz = FakeMusicBrainz::start().await;
+    musicbrainz.search(
+        "Nova Quartet",
+        Reply::Candidates(vec![(ARTIST.into(), "Nova Quartet".into())]),
+    );
+    musicbrainz.recordings_of(
+        ARTIST,
+        Reply::Discography(
+            2,
+            vec![
+                ("First Song".into(), Some(100_500)),
+                ("second song".into(), Some(120_000)),
+            ],
+        ),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let music = dir.path().join("music");
+    std::fs::create_dir(&music).unwrap();
+    let mut config = hito_core::CoreConfig::new(
+        dir.path().join("hito.db"),
+        music,
+        hito_core::HostDeviceId::new("api-test-host").unwrap(),
+    );
+    config.musicbrainz_loopback_endpoint = Some(musicbrainz.endpoint.clone());
+    let hito = hito_core::open(config).await.unwrap();
+    let app = hito_server::router(hito);
+    let token = admin(&app).await;
+    let token = Some(token.as_str());
+    let entry = |id: &str, title: &str, length: u64| {
+        json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
+            "id": id, "title": title, "artist": "Nova Quartet", "duration_ms": length,
+            "release": null, "disc_number": null, "track_number": null, "revision": "v1"
+        }}})
+    };
+    let (_origin, recordings) = import(
+        &app,
+        token.unwrap(),
+        vec![
+            entry("one", "First Song", 100_000),
+            entry("two", "Second Song", 120_500),
+        ],
+    )
+    .await;
+
+    let path = "/api/v1/artist-matching/provider-evidence";
+    let (status, evidence) = call(
+        &app,
+        "POST",
+        path,
+        json!({"request_id": Uuid::new_v4()}),
+        token,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(evidence["matched"], 0);
+    assert_eq!(evidence["next_after"], "name:");
+    assert!(
+        musicbrainz.requests().is_empty(),
+        "The evidence phase sends no name"
+    );
+
+    let body = json!({"request_id": Uuid::new_v4(), "after": evidence["next_after"]});
+    let (status, names) = call(&app, "POST", path, body.clone(), token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        (&names["matched"], &names["uncertain"], &names["next_after"]),
+        (&json!(2), &json!(0), &Value::Null)
+    );
+    let asked = musicbrainz.requests().len();
+    assert_eq!(asked, 2);
+    assert_eq!(
+        call(&app, "POST", path, body, token).await,
+        (StatusCode::OK, names),
+        "An exact retry replays the receipt"
+    );
+    assert_eq!(musicbrainz.requests().len(), asked);
+    let (_, associations) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/recordings/{}/artist-associations", recordings[0]),
+        Value::Null,
+        token,
+    )
+    .await;
+    assert_eq!(associations[0]["evidence"], "matched_name_discography");
+    assert_eq!(associations[0]["provider_artist_id"], ARTIST);
+    let long = "x".repeat(65);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            path,
+            json!({"request_id": Uuid::new_v4(), "after": long}),
+            token
+        )
+        .await
+        .0,
+        StatusCode::UNPROCESSABLE_ENTITY
     );
 }
