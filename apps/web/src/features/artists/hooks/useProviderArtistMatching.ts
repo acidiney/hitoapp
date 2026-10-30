@@ -4,7 +4,6 @@ import type { Schema } from "../../../shared/schema";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
-import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
 import { artistMatchingApi } from "../api/artistMatchingApi";
 
 const MAX_BATCHES = 200;
@@ -17,42 +16,9 @@ export type ProviderMatchCounts = {
 };
 
 export type ProviderMatchState =
-  | { status: "checking" | "disabled" | "ready" | "failed" }
+  | { status: "ready" | "failed" }
   | { status: "running"; matched: number }
   | { status: "finished"; counts: ProviderMatchCounts; complete: boolean };
-
-function builtinEnabled(settings: Schema<"MetadataSettings">) {
-  return (
-    settings.enabled &&
-    settings.providers.some(
-      (provider) => provider.kind === "builtin_musicbrainz",
-    )
-  );
-}
-
-const PAUSE_MS = 10 * 60 * 1000;
-
-function recentlyRun(account: string) {
-  try {
-    const at = Number(
-      localStorage.getItem(`hito:artist-provider-match:${account}`),
-    );
-    return Number.isFinite(at) && at > 0 && Date.now() - at < PAUSE_MS;
-  } catch {
-    return false;
-  }
-}
-
-function remember(account: string) {
-  try {
-    localStorage.setItem(
-      `hito:artist-provider-match:${account}`,
-      String(Date.now()),
-    );
-  } catch {
-    log.debug("artist_matching.provider_pause_unavailable");
-  }
-}
 
 const NAME_PHASE = "name:";
 
@@ -65,37 +31,17 @@ function advances(previous: string | undefined, next: string) {
 }
 
 /**
- * The provider pass sends ISRC codes, provider artist links and credit names to MusicBrainz, so it
- * runs only while the account's metadata settings allow the built-in provider. It starts by itself
- * when the page opens (at most once every ten minutes) or when the listener asks again. It walks
- * the server's cursor through the evidence phase and then the name phase, and leaving the page
- * cancels whatever is in flight.
+ * The manual provider pass behind "Match again". The server already matches in the background; this
+ * walks the same cursor on request (evidence phase, then name phase), stops when the provider is
+ * unavailable or a cursor does not advance, and is cancelled when the page is left. It never starts
+ * by itself.
  */
-export function useProviderArtistMatching(account: string) {
+export function useProviderArtistMatching(account: string, onDone: () => void) {
   const scope = useRequestScope(account);
-  const [state, setState] = useState<ProviderMatchState>({
-    status: "checking",
-  });
+  const [state, setState] = useState<ProviderMatchState>({ status: "ready" });
   const running = useRef<AbortController | null>(null);
-  const start = useRef<() => Promise<void>>(async () => {});
 
-  useEffect(() => {
-    const request = scope.capture();
-    setState({ status: "checking" });
-    void metadataPreferencesApi
-      .settings(account, request.signal)
-      .then((settings) => {
-        if (!request.active()) return;
-        if (!builtinEnabled(settings)) return setState({ status: "disabled" });
-        setState({ status: "ready" });
-        if (recentlyRun(account)) return;
-        void start.current();
-      })
-      .catch(() => {
-        if (request.active()) setState({ status: "failed" });
-      });
-    return () => running.current?.abort();
-  }, [account, scope]);
+  useEffect(() => () => running.current?.abort(), [account, scope]);
 
   const run = useCallback(async () => {
     if (running.current) return;
@@ -138,10 +84,10 @@ export function useProviderArtistMatching(account: string) {
         count: counts.matched,
         duration_ms: Math.round(performance.now() - started),
       });
-      if (complete) remember(account);
       setState({ status: "finished", counts, complete });
       if (counts.matched > 0)
         router.reload({ only: ["artists", "identity_groups"] });
+      onDone();
     } catch {
       log.debug("artist_matching.provider_stopped", {
         reason: signal.aborted ? "cancelled" : "failed",
@@ -156,8 +102,7 @@ export function useProviderArtistMatching(account: string) {
       clearTimeout(timer);
       if (running.current === controller) running.current = null;
     }
-  }, [account, scope]);
+  }, [account, onDone, scope]);
 
-  start.current = run;
   return { state, run };
 }

@@ -26,6 +26,13 @@ async function json<T>(
 }
 
 export const artistMatchingApi = {
+  status(account: string, signal: AbortSignal) {
+    return json<Schema<"ArtistMatchingStatus">>("/artist-matching/status", {
+      action: "artist_matching.status",
+      account,
+      signal,
+    });
+  },
   run(
     account: string,
     body: Schema<"MatchArtistsFromTags">,

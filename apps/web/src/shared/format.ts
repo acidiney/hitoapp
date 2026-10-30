@@ -50,3 +50,23 @@ export function friendlyTime(
   });
   return `${day}, ${clock}`;
 }
+
+const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["day", 86_400],
+  ["hour", 3_600],
+  ["minute", 60],
+];
+
+/** "5 minutes ago" for a Unix timestamp in seconds; under a minute reads "just now". */
+export function relativeTime(
+  unixSeconds: number,
+  now: number = Date.now(),
+  locale?: string,
+) {
+  const elapsed = Math.round(now / 1000 - unixSeconds);
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  for (const [unit, size] of RELATIVE_UNITS)
+    if (Math.abs(elapsed) >= size)
+      return formatter.format(-Math.trunc(elapsed / size), unit);
+  return "just now";
+}

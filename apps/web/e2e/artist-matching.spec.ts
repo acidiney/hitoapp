@@ -1,37 +1,40 @@
 import { expect, test } from "@playwright/test";
 
-test("the Artists page runs one silent tag-matching pass without any provider request and stays usable", async ({
+test("the Artists page shows the server's matching status, starts no pass of its own and stays usable", async ({
   page,
 }) => {
   const errors: string[] = [];
-  const outbound: string[] = [];
+  const writes: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("request", (request) => {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/api/v1/") && request.method() !== "GET")
-      outbound.push(`${request.method()} ${url.pathname}`);
+      writes.push(`${request.method()} ${url.pathname}`);
   });
 
-  const pass = page.waitForResponse(
+  const read = page.waitForResponse(
     (response) =>
-      new URL(response.url()).pathname === "/api/v1/artist-matching" &&
-      response.request().method() === "POST",
+      new URL(response.url()).pathname === "/api/v1/artist-matching/status" &&
+      response.request().method() === "GET",
   );
   await page.goto("/artists");
-  const response = await pass;
+  const response = await read;
   expect(response.status()).toBe(200);
-  const receipt = await response.json();
-  expect(Object.keys(receipt).sort()).toEqual([
-    "matched",
-    "next_after",
-    "request_id",
-    "skipped_ambiguous",
-    "skipped_declined",
+  const status = await response.json();
+  expect(Object.keys(status).sort()).toEqual([
+    "enabled",
+    "last_finished_at",
+    "last_matched",
+    "matched_so_far",
+    "state",
   ]);
-  expect(receipt.next_after).toBeNull();
   await expect(
     page.getByRole("heading", { name: "Artists", exact: true }),
   ).toBeVisible();
+  if (status.enabled)
+    await expect(page.locator(".artist-matching-status")).toContainText(
+      /Matching artists…|matched|No run yet/,
+    );
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   await page.reload();
@@ -39,12 +42,6 @@ test("the Artists page runs one silent tag-matching pass without any provider re
     page.getByRole("heading", { name: "Artists", exact: true }),
   ).toBeVisible();
   await page.waitForTimeout(500);
-  expect(
-    outbound.filter((entry) => entry === "POST /api/v1/artist-matching"),
-    "A pass that just finished is not repeated within ten minutes",
-  ).toHaveLength(1);
-  expect(outbound.every((entry) => entry.endsWith("/artist-matching"))).toBe(
-    true,
-  );
+  expect(writes, "Opening the page never starts a matching pass").toEqual([]);
   expect(errors).toEqual([]);
 });
