@@ -111,7 +111,7 @@ test.describe("explicit persistent playlist download", () => {
         exact: true,
       });
       const audio = page.locator("audio");
-      const download = section.getByRole("button", {
+      const download = page.getByRole("button", {
         name: "Download",
         exact: true,
       });
@@ -199,7 +199,7 @@ test.describe("explicit persistent playlist download", () => {
       await section
         .getByRole("button", { name: "Retry failed downloads", exact: true })
         .click();
-      const recoverRequest = section.getByRole("button", {
+      const recoverRequest = page.getByRole("button", {
         name: "Retry download request",
         exact: true,
       });
@@ -334,14 +334,14 @@ test.describe("explicit persistent playlist download", () => {
             response.request().method() === "DELETE",
         )
         .catch(() => null);
-      await section
+      await page
         .getByRole("button", { name: "Remove download", exact: true })
         .click();
       const removed = await removedResponse;
       if (removed === null) throw new Error("The removal response must arrive");
       expect(removed.status()).toBe(204);
       await expect(
-        section.getByRole("button", { name: "Download", exact: true }),
+        page.getByRole("button", { name: "Download", exact: true }),
       ).toBeEnabled();
       expect((await page.request.get(downloadPath)).status()).toBe(404);
       await expect

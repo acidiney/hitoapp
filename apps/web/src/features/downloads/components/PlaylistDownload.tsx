@@ -1,9 +1,11 @@
 import type { Schema } from "../../../shared/schema";
+import { createContext, useContext, type ReactNode } from "react";
+import { Download } from "lucide-react";
 
-import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
 import Button from "../../../shared/ui/Button";
+import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
 
-type ViewProps = {
+export type PlaylistDownloadState = {
   download: Schema<"PlaylistDownloadStatus"> | null;
   checking: boolean;
   pending: boolean;
@@ -12,7 +14,6 @@ type ViewProps = {
   retryKind: "create" | "remove" | null;
   error: string;
   statusError: string;
-  local: boolean;
   start(): Promise<void>;
   remove(): Promise<void>;
   retryFailed(): Promise<void>;
@@ -20,43 +21,49 @@ type ViewProps = {
   check(): Promise<void>;
 };
 
-export default function PlaylistDownload({
+const DownloadContext = createContext<PlaylistDownloadState | null>(null);
+
+function useDownloadState() {
+  const state = useContext(DownloadContext);
+  if (!state) throw new Error("Playlist download state is not provided.");
+  return state;
+}
+
+/** Owns the download workflow so polling re-renders only its consumers. */
+export function PlaylistDownloadProvider({
   account,
   playlist,
-  local,
+  children,
 }: {
   account: string;
   playlist: string;
-  local: boolean;
+  children: ReactNode;
 }) {
-  const workflow = usePlaylistDownload(account, playlist);
-  return <PlaylistDownloadView {...workflow} local={local} />;
+  const state = usePlaylistDownload(account, playlist);
+  return (
+    <DownloadContext.Provider value={state}>
+      {children}
+    </DownloadContext.Provider>
+  );
 }
 
-function PlaylistDownloadView({
-  download,
-  checking,
-  pending,
-  requested,
-  hasRetainedFailures,
-  retryKind,
-  error,
-  statusError,
-  local,
-  start,
-  remove,
-  retryFailed,
-  retry,
-  check,
-}: ViewProps) {
+function summary(download: PlaylistDownloadState["download"]) {
   const entries = download?.entries.items ?? [];
   const count = (state: string) =>
     entries.filter((entry) => entry.status === state).length;
-  const ready = count("ready");
-  const waiting = count("waiting_for_source");
-  const failed = count("failed");
-  const unavailable = count("unavailable");
-  const partial = download?.entries.next_cursor != null;
+  return {
+    entries,
+    ready: count("ready"),
+    waiting: count("waiting_for_source"),
+    failed: count("failed"),
+    unavailable: count("unavailable"),
+    partial: download?.entries.next_cursor != null,
+  };
+}
+
+export function PlaylistDownloadButton() {
+  const { checking, pending, requested, retryKind, start, remove, retry } =
+    useDownloadState();
   const retrying = retryKind !== null && !pending;
   const label = retrying
     ? retryKind === "remove"
@@ -67,84 +74,132 @@ function PlaylistDownloadView({
       : "Download";
   const action = retryKind ? retry : requested ? remove : start;
   return (
-    <section aria-labelledby="playlist-download-heading">
-      <h2 id="playlist-download-heading">Playlist download</h2>
-      <p>Copies are saved on this {local ? "device" : "server"}.</p>
-      {!local && (
-        <p>This browser still needs a connection to this server to listen.</p>
-      )}
-      <p role="status">
-        {download
-          ? entries.length === 0
-            ? "No playlist entries to download."
-            : `${ready} of ${entries.length} ${partial ? "checked entries" : "entries"} saved.`
-          : checking
-            ? "Checking saved copies…"
-            : requested
-              ? "Download requested."
-              : null}
-      </p>
-      {download && entries.length > 0 && (
-        <progress
-          aria-label="Playlist download progress"
-          max={entries.length}
-          value={ready}
-        />
-      )}
-      {partial && (
-        <p>
-          Only the first {entries.length} entries are checked here. More entries
-          have not been checked.
+    <Button
+      className="tint-secondary"
+      disabled={checking || pending}
+      onClick={() => void action()}
+    >
+      {!requested && !retrying && <Download size={17} aria-hidden="true" />}
+      {label}
+    </Button>
+  );
+}
+
+export function PlaylistDownloadStrip({ local }: { local: boolean }) {
+  const {
+    download,
+    checking,
+    pending,
+    requested,
+    hasRetainedFailures,
+    retryKind,
+    error,
+    statusError,
+    retryFailed,
+    check,
+  } = useDownloadState();
+  const { entries, ready, waiting, failed, unavailable, partial } =
+    summary(download);
+  const visible = download || checking || requested || error || statusError;
+  if (!visible) return null;
+  return (
+    <section
+      className="status-strip download-strip"
+      aria-labelledby="playlist-download-heading"
+    >
+      <h2 id="playlist-download-heading" className="sr-only">
+        Playlist download
+      </h2>
+      <div className="status-strip-main">
+        <p className="status-strip-note">
+          Copies are saved on this {local ? "device" : "server"}.
+          {!local && (
+            <>
+              {" "}
+              <span>
+                This browser still needs a connection to this server to listen.
+              </span>
+            </>
+          )}
         </p>
-      )}
-      {download && download.reconciled_revision < download.desired_revision && (
-        <p>Updating playlist download membership…</p>
-      )}
-      {waiting > 0 && (
-        <p>
-          {waiting} {waiting === 1 ? "entry" : "entries"} waiting for a source.
+        <p role="status" className="status-strip-line">
+          {download
+            ? entries.length === 0
+              ? "No playlist entries to download."
+              : `${ready} of ${entries.length} ${partial ? "checked entries" : "entries"} saved.`
+            : checking
+              ? "Checking saved copies…"
+              : requested
+                ? "Download requested."
+                : null}
         </p>
-      )}
-      {failed > 0 && (
-        <p>
-          {failed} {failed === 1 ? "entry could" : "entries could"} not be
-          downloaded.
-        </p>
-      )}
-      {unavailable > 0 && (
-        <p>
-          {unavailable} {unavailable === 1 ? "entry is" : "entries are"}{" "}
-          unavailable.
-        </p>
-      )}
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {statusError && (
-        <div>
+        {download && entries.length > 0 && (
+          <progress
+            aria-label="Playlist download progress"
+            max={entries.length}
+            value={ready}
+          />
+        )}
+        {partial && (
+          <p className="status-strip-note">
+            Only the first {entries.length} entries are checked here. More
+            entries have not been checked.
+          </p>
+        )}
+        {download &&
+          download.reconciled_revision < download.desired_revision && (
+            <p className="status-strip-note">
+              Updating playlist download membership…
+            </p>
+          )}
+        {waiting > 0 && (
+          <p className="status-strip-note">
+            {waiting} {waiting === 1 ? "entry" : "entries"} waiting for a
+            source.
+          </p>
+        )}
+        {failed > 0 && (
+          <p className="status-strip-note">
+            {failed} {failed === 1 ? "entry could" : "entries could"} not be
+            downloaded.
+          </p>
+        )}
+        {unavailable > 0 && (
+          <p className="status-strip-note">
+            {unavailable} {unavailable === 1 ? "entry is" : "entries are"}{" "}
+            unavailable.
+          </p>
+        )}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        {statusError && (
           <p className="form-error" role="alert">
             {statusError}
           </p>
-          <Button
-            disabled={checking || pending || retryKind !== null}
-            onClick={() => void check()}
-          >
-            Check download
-          </Button>
+        )}
+      </div>
+      {(statusError || (hasRetainedFailures && failed > 0)) && (
+        <div className="status-strip-actions">
+          {statusError && (
+            <Button
+              disabled={checking || pending || retryKind !== null}
+              onClick={() => void check()}
+            >
+              Check download
+            </Button>
+          )}
+          {hasRetainedFailures && failed > 0 && (
+            <Button
+              disabled={checking || pending || retryKind !== null}
+              onClick={() => void retryFailed()}
+            >
+              Retry failed downloads
+            </Button>
+          )}
         </div>
-      )}
-      <Button disabled={checking || pending} onClick={() => void action()}>
-        {label}
-      </Button>
-      {hasRetainedFailures && failed > 0 && (
-        <Button
-          disabled={checking || pending || retryKind !== null}
-          onClick={() => void retryFailed()}
-        >
-          Retry failed downloads
-        </Button>
       )}
     </section>
   );

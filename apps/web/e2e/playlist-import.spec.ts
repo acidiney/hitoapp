@@ -340,7 +340,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         ...(await rows.getByRole("button", { name: /^Remove / }).all()),
         ...(await rows.getByRole("button", { name: /^Like / }).all()),
         ...(await rows.getByRole("link", { name: /^Details for / }).all()),
-        page.getByRole("button", { name: "Delete playlist", exact: true }),
+        page.getByRole("button", { name: "More options", exact: true }),
       ],
       targets,
     );
@@ -430,7 +430,10 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       expect(request.cookie).toBeUndefined();
     }
     await page
-      .getByRole("button", { name: "Delete playlist", exact: true })
+      .getByRole("button", { name: "More options", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Delete playlist", exact: true })
       .click();
     await expect(page).toHaveURL(new URL("/playlists", baseURL).href);
     expect((await page.request.get(detailPath)).status()).toBe(404);

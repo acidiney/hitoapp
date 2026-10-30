@@ -5,7 +5,7 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
-import { tintFor } from "../../../shared/ui/collectionTint";
+import { headerCoverId, tintFor } from "../../../shared/ui/collectionTint";
 import PlayShuffle from "../../playback/components/PlayShuffle";
 import PlaylistRename from "../components/PlaylistRename";
 import { usePlaylistEdit } from "../hooks/usePlaylistEdit";
@@ -14,11 +14,15 @@ import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import TrackTable, {
   type TrackTableRow,
 } from "../../playback/components/TrackTable";
-import TrackToolbar from "../../playback/components/TrackToolbar";
 import PlaylistFollowStatus from "../components/PlaylistFollowStatus";
 import PlaylistFollowResume from "../components/PlaylistFollowResume";
 import PlaylistMetadataRefresh from "../components/PlaylistMetadataRefresh";
-import PlaylistDownload from "../../downloads/components/PlaylistDownload";
+import {
+  PlaylistDownloadProvider,
+  PlaylistDownloadButton,
+  PlaylistDownloadStrip,
+} from "../../downloads/components/PlaylistDownload";
+import ActionMenu from "../../../shared/ui/ActionMenu";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
@@ -77,11 +81,8 @@ export default function PlaylistPage({
     });
     if (result.ok) router.visit("/playlists");
   }
-  const deletion = (
-    <Button className="danger" disabled={pending} onClick={() => void remove()}>
-      Delete playlist
-    </Button>
-  );
+  const readOnlyNotice =
+    "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play.";
   const edit = usePlaylistEdit(user.id, detail.playlist.id, detail.entries);
   const editable = detail.playlist.kind === "local";
   const ready = detail.entries.filter(
@@ -91,7 +92,7 @@ export default function PlaylistPage({
     entryCount > ready ? ` · ${entryCount - ready} unavailable` : ""
   }`;
   return (
-    <>
+    <PlaylistDownloadProvider account={user.id} playlist={detail.playlist.id}>
       <CollectionHeader
         tint={tintFor(detail.playlist.id)}
         size="playlist"
@@ -109,7 +110,7 @@ export default function PlaylistPage({
             playlistId={copied ? detail.playlist.id : undefined}
             recording={copied ? undefined : tracks[0]?.id}
             fallback={{
-              id: detail.playlist.id,
+              id: headerCoverId(detail.playlist.id),
               title: detail.playlist.name,
               artist: "Playlist",
             }}
@@ -138,17 +139,29 @@ export default function PlaylistPage({
                 {edit.editing ? "Done" : "Edit"}
               </Button>
             )}
+            <PlaylistDownloadButton />
+            <ActionMenu
+              label="More options"
+              triggerClassName="tint-secondary"
+              items={[
+                {
+                  label: "Delete playlist",
+                  destructive: true,
+                  disabled: pending,
+                  onSelect: () => void remove(),
+                },
+              ]}
+            />
           </>
         }
       />
-      {detail.origin && (
+      {detail.origin && !followed && (
         <p className="origin-note">
           <span>{detail.origin.attribution.label}</span>
           {" · "}
           <span>
-            {followed
-              ? "Read-only playlist. Its provider updates its name, tracks and order. Tracks need an available source to play."
-              : "Editable copy. Provider changes will not update it. Tracks need an available source to play."}
+            Editable copy. Provider changes will not update it. Tracks need an
+            available source to play.
           </span>
         </p>
       )}
@@ -161,12 +174,15 @@ export default function PlaylistPage({
         />
       )}
       {copied && <ArtworkStatus playlistId={detail.playlist.id} />}
-      <PlaylistDownload
-        account={user.id}
-        playlist={detail.playlist.id}
-        local={native_playback}
-      />
-      {followed && <PlaylistFollowStatus {...follow} />}
+      {followed && (
+        <PlaylistFollowStatus
+          {...follow}
+          provider={detail.origin?.provider ?? "provider"}
+          attribution={detail.origin?.attribution.label ?? "Provider playlist"}
+          notice={readOnlyNotice}
+        />
+      )}
+      <PlaylistDownloadStrip local={native_playback} />
       {copied && <PlaylistMetadataRefresh {...metadata} />}
       {followed && detail.origin && (
         <PlaylistFollowResume
@@ -176,9 +192,6 @@ export default function PlaylistPage({
       )}
       {entryCount > 0 ? (
         <>
-          <TrackToolbar tracks={tracks} label="playlist" withPlay={false}>
-            {deletion}
-          </TrackToolbar>
           <TrackTable
             rows={rows}
             playlists={playlists}
@@ -193,7 +206,6 @@ export default function PlaylistPage({
         </>
       ) : (
         <>
-          <div className="list-toolbar">{deletion}</div>
           <EmptyState
             title={
               followed
@@ -208,6 +220,6 @@ export default function PlaylistPage({
           />
         </>
       )}
-    </>
+    </PlaylistDownloadProvider>
   );
 }

@@ -82,7 +82,8 @@ test("failed playlist deletion stays on the current page", async () => {
     }),
     { wrapper },
   );
-  fireEvent.click(screen.getByRole("button", { name: "Delete playlist" }));
+  fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete playlist" }));
   await screen.findByText("Delete failed");
   expect(router.visit).not.toHaveBeenCalled();
   expect(screen.getByRole("heading", { name: "Keep me" })).toBeTruthy();

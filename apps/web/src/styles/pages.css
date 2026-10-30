@@ -609,9 +609,7 @@ section[aria-label="Discography"] > section ul {
   content: attr(data-text);
 }
 
-/* status cards on collection pages */
-section[aria-labelledby="playlist-download-heading"],
-section[aria-label="Playlist updates"],
+/* collection page cards */
 section[aria-label="Complete track list"] {
   margin-bottom: 18px;
   padding: 14px 18px;
@@ -624,16 +622,156 @@ section[aria-label="Complete track list"] {
   gap: 6px 14px;
   font-size: 13px;
 }
-section[aria-labelledby="playlist-download-heading"] > h2,
-section[aria-label="Playlist updates"] > h2 {
-  flex: 1 1 100%;
-  font-size: 15px;
-  font-weight: 800;
-}
 section[aria-label="Complete track list"] > h2 {
   flex: 1 1 100%;
   font-size: 18px;
   font-weight: 800;
+}
+/* status strips under a collection header */
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--subtle);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.status-strip-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.status-strip-main p {
+  margin: 0;
+  max-width: none;
+}
+.status-strip-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.status-strip-line strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.status-strip-muted,
+.status-strip-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.status-strip .health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.follow-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 20px;
+  margin: 0;
+  font-size: 13px;
+}
+.follow-times > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.follow-times dt {
+  color: var(--muted);
+}
+.follow-times dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.status-strip progress {
+  width: 100%;
+  max-width: 320px;
+}
+.status-strip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.status-strip-actions .button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 9px;
+}
+@media (max-width: 767px) {
+  .status-strip-actions {
+    flex: 1 1 100%;
+    flex-direction: column;
+  }
+  .status-strip-actions .button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+.action-menu {
+  position: relative;
+}
+@media (max-width: 767px) {
+  .tinted-header .tinted-actions {
+    gap: 8px;
+  }
+  .tinted-header .tinted-actions .button {
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 14px;
+  }
+}
+.tinted-header .action-menu-trigger {
+  padding: 0 14px;
+}
+.action-menu-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+.action-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+.action-menu-item:hover:not(:disabled),
+.action-menu-item:focus-visible {
+  background: var(--subtle);
+}
+.action-menu-item[data-tone="destructive"] {
+  color: var(--error);
+}
+.action-menu-item:disabled {
+  color: var(--muted);
 }
 .discography-heading {
   margin-top: 32px;
