@@ -141,7 +141,7 @@ test("retained playlists remain editable and known recordings resolve audio only
         const titlePlay = row.getByRole("button", { name: entry.title });
         expect(rowPlay.hasAttribute("disabled")).toBe(false);
         expect(titlePlay.hasAttribute("disabled")).toBe(false);
-        expect(row.getByText("Unavailable on this device")).toBeTruthy();
+        expect(row.getByText("Plays from your services")).toBeTruthy();
         expect(
           row
             .getByRole("link", { name: `Details for ${entry.title}` })

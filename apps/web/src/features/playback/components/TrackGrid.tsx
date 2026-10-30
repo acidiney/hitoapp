@@ -7,6 +7,7 @@ import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
 import Artwork from "../../artwork/components/Artwork";
 import TrackActions from "./TrackActions";
+import TrackAvailabilityNote from "./TrackAvailabilityNote";
 
 export default function TrackGrid({
   tracks,
@@ -44,7 +45,7 @@ export default function TrackGrid({
           <div className="track-card-copy">
             <h3>{track.title}</h3>
             <p>{track.artist}</p>
-            {!track.available && <small>Unavailable on this device</small>}
+            {!track.available && <TrackAvailabilityNote trackId={track.id} />}
           </div>
           <TrackActions track={track} playlists={playlists} mutate={mutate} />
         </article>

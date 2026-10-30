@@ -286,7 +286,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       await expect(
         rows
           .nth(index)
-          .getByText("Unavailable on this device", { exact: true }),
+          .getByText("Plays from your services", { exact: true }),
       ).toBeVisible();
     }
     for (const [index, status] of [

@@ -163,7 +163,7 @@ export async function browseArtistGroups(
     checkpoint(24);
     if (!recording.available)
       await expect(
-        tracks.getByText("Unavailable on this device", { exact: true }),
+        tracks.getByText("Plays from your services", { exact: true }),
       ).toBeVisible();
     return detail;
   };
@@ -320,7 +320,7 @@ export async function browseArtistGroups(
   await expect(
     page
       .getByRole("table", { name: "Tracks", exact: true })
-      .getByText("Unavailable on this device", { exact: true }),
+      .getByText("Plays from your services", { exact: true }),
   ).toHaveCount(1);
   return { groupId, namesakeId: other.groupId };
 }

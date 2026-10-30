@@ -9,6 +9,7 @@ import type { PlaybackStart, Track } from "../model";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
 import EntryMoves from "./EntryMoves";
+import TrackAvailabilityNote from "./TrackAvailabilityNote";
 import Artwork from "../../artwork/components/Artwork";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
@@ -160,14 +161,7 @@ export default function TrackTable({
                       </small>
                     ) : (
                       !row.track.available && (
-                        <small className="availability" data-state="catalog">
-                          <span
-                            className="ring"
-                            data-ring="catalog"
-                            aria-hidden="true"
-                          />
-                          Unavailable on this device
-                        </small>
+                        <TrackAvailabilityNote trackId={row.track.id} />
                       )
                     )}
                     <span className="mobile-artist">{display.artist}</span>
