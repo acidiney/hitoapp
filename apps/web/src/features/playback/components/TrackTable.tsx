@@ -160,9 +160,7 @@ export default function TrackTable({
                             : "Unavailable recording"}
                       </small>
                     ) : (
-                      !row.track.available && (
-                        <TrackAvailabilityNote trackId={row.track.id} />
-                      )
+                      <TrackAvailabilityNote track={row.track} />
                     )}
                     <span className="mobile-artist">{display.artist}</span>
                   </div>

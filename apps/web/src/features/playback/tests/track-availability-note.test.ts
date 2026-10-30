@@ -22,17 +22,55 @@ vi.mock("../components/PlaybackProvider", () => ({
   usePlayer: () => player,
 }));
 
-test("a track that is not stored here says it plays from the services", () => {
-  player.state.current = null;
-  render(createElement(TrackAvailabilityNote, { trackId: "t1" }));
-  expect(screen.getByText("Plays from your services")).toBeTruthy();
-  expect(screen.queryByText("Unavailable on this device")).toBeNull();
+const remote = (id: string, plays_from_services: boolean) => ({
+  id,
+  available: false,
+  plays_from_services,
 });
 
-test("the warning disappears while the track is the current one", () => {
+test("a track not stored here that a service can resolve says it plays from the services", () => {
+  player.state.current = null;
+  render(createElement(TrackAvailabilityNote, { track: remote("t1", true) }));
+  expect(screen.getByText("Plays from your services")).toBeTruthy();
+  expect(screen.queryByText("Not playable yet")).toBeNull();
+});
+
+test("a track not stored here that no service can resolve is muted as not playable yet", () => {
   player.state.current = null;
   const { container } = render(
-    createElement(TrackAvailabilityNote, { trackId: "t2" }),
+    createElement(TrackAvailabilityNote, { track: remote("t3", false) }),
+  );
+  expect(screen.getByText("Not playable yet")).toBeTruthy();
+  expect(screen.queryByText("Plays from your services")).toBeNull();
+  expect(
+    container.querySelector(".availability")?.getAttribute("data-state"),
+  ).toBe("catalog");
+});
+
+test("a local track shows no note whatever the services say", () => {
+  player.state.current = null;
+  const { container } = render(
+    createElement(TrackAvailabilityNote, {
+      track: { id: "t4", available: true, plays_from_services: true },
+    }),
+  );
+  expect(container.textContent).toBe("");
+});
+
+test("a track without the server answer claims nothing", () => {
+  player.state.current = null;
+  const { container } = render(
+    createElement(TrackAvailabilityNote, {
+      track: { id: "t5", available: false },
+    }),
+  );
+  expect(container.textContent).toBe("");
+});
+
+test("the services note disappears while the track is the current one", () => {
+  player.state.current = null;
+  const { container } = render(
+    createElement(TrackAvailabilityNote, { track: remote("t2", true) }),
   );
   act(() => {
     player.state.current = { id: "t2" };

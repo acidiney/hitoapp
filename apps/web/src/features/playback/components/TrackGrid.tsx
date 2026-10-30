@@ -45,7 +45,7 @@ export default function TrackGrid({
           <div className="track-card-copy">
             <h3>{track.title}</h3>
             <p>{track.artist}</p>
-            {!track.available && <TrackAvailabilityNote trackId={track.id} />}
+            <TrackAvailabilityNote track={track} />
           </div>
           <TrackActions track={track} playlists={playlists} mutate={mutate} />
         </article>

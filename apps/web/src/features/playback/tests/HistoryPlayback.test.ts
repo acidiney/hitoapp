@@ -43,6 +43,7 @@ test("History row playback carries saved intent while toolbar playback starts no
           speed: 2,
           updated_at: 1,
           available: true,
+          plays_from_services: false,
           liked: false,
         },
       ],

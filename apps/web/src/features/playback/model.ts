@@ -7,7 +7,10 @@ export type Track = Pick<
   Partial<
     Pick<
       Schema<"Recording">,
-      "inherited_title" | "inherited_artist" | "release_id"
+      | "inherited_title"
+      | "inherited_artist"
+      | "release_id"
+      | "plays_from_services"
     >
   >;
 
