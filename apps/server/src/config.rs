@@ -159,17 +159,11 @@ impl RuntimeConfig {
             Sha256::digest(tokio::fs::read(web_dir.join("assets/app.js")).await?)
         );
         Ok(Self {
-            core: CoreConfig {
-                database: database.clone(),
+            core: CoreConfig::with_storage(
+                database.clone(),
                 storage,
-                host_device: crate::host_identity::load(&database, host_device).await?,
-                media_tools: Default::default(),
-                podcast_network: Default::default(),
-                community: None,
-                community_rankings: None,
-                folder_watching: Default::default(),
-                musicbrainz_loopback_endpoint: None,
-            },
+                crate::host_identity::load(&database, host_device).await?,
+            ),
             http: Config {
                 origin: Config::default().origin,
                 additional_origins: Vec::new(),

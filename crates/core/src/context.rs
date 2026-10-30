@@ -51,23 +51,18 @@ pub struct CoreConfig {
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
     pub folder_watching: crate::FolderWatchSettings,
-    /// Redirects built-in MusicBrainz requests to an owned loopback fake. Production leaves it unset.
+    /// Redirects built-in MusicBrainz requests to an owned loopback fake. Exists only in tests.
+    #[cfg(any(test, feature = "test-support"))]
     pub musicbrainz_loopback_endpoint: Option<url::Url>,
 }
 
 impl CoreConfig {
     pub fn new(database: PathBuf, music_root: PathBuf, host_device: HostDeviceId) -> Self {
-        Self {
+        Self::with_storage(
             database,
-            storage: StorageConfig::LegacyFolder(music_root),
+            StorageConfig::LegacyFolder(music_root),
             host_device,
-            media_tools: MediaTools::default(),
-            podcast_network: Default::default(),
-            community: None,
-            community_rankings: None,
-            folder_watching: Default::default(),
-            musicbrainz_loopback_endpoint: None,
-        }
+        )
     }
 
     pub fn with_shared_directories(
@@ -75,15 +70,28 @@ impl CoreConfig {
         host_device: HostDeviceId,
         directories: Vec<SharedDirectoryConfig>,
     ) -> Self {
+        Self::with_storage(
+            database,
+            StorageConfig::SharedDirectories(directories),
+            host_device,
+        )
+    }
+
+    pub fn with_storage(
+        database: PathBuf,
+        storage: StorageConfig,
+        host_device: HostDeviceId,
+    ) -> Self {
         Self {
             database,
-            storage: StorageConfig::SharedDirectories(directories),
+            storage,
             host_device,
             media_tools: MediaTools::default(),
             podcast_network: Default::default(),
             community: None,
             community_rankings: None,
             folder_watching: Default::default(),
+            #[cfg(any(test, feature = "test-support"))]
             musicbrainz_loopback_endpoint: None,
         }
     }

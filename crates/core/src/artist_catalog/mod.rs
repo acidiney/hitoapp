@@ -84,13 +84,16 @@ impl ArtistCatalog {
         store: Store,
         plugins: Plugins,
         host: HostDeviceId,
-        musicbrainz_loopback_endpoint: Option<url::Url>,
+        #[cfg(any(test, feature = "test-support"))] musicbrainz_loopback_endpoint: Option<url::Url>,
     ) -> Result<Self> {
+        #[cfg(any(test, feature = "test-support"))]
         let builtin = match musicbrainz_loopback_endpoint {
             Some(endpoint) => MusicBrainzClient::with_loopback_endpoint(endpoint),
             None => MusicBrainzClient::new(),
-        }
-        .map_err(|_| {
+        };
+        #[cfg(not(any(test, feature = "test-support")))]
+        let builtin = MusicBrainzClient::new();
+        let builtin = builtin.map_err(|_| {
             Error::Internal("The built-in metadata client could not be initialized".into())
         })?;
         Ok(Self {

@@ -31,6 +31,7 @@ impl MusicBrainzClient {
     }
 
     /// Targets an owned fake service on a literal loopback address. Any other origin is refused.
+    #[cfg(any(test, feature = "test-support"))]
     pub fn with_loopback_endpoint(endpoint: reqwest::Url) -> Result<Self, Error> {
         let loopback = endpoint
             .host_str()

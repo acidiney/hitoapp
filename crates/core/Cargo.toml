@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-test-support = ["dep:axum", "dep:hito-testkit", "dep:tokio-util", "dep:tracing-subscriber"]
+test-support = ["hito-metadata-musicbrainz/test-support", "dep:axum", "dep:hito-testkit", "dep:tokio-util", "dep:tracing-subscriber"]
 
 [dependencies]
 axum = { workspace = true, optional = true }
