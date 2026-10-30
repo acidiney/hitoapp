@@ -19,8 +19,11 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: docker/plugin-folder.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
+        PLUGIN: hito-plugin-folder
+        PORT: "8090"
+        EXTRAS: folder
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-folder
       labels:
         org.opencontainers.image.revision: ${HITO_VPS_REVISION:?Set the full clean source commit}
@@ -31,8 +34,10 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: docker/plugin-spotify.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
+        PLUGIN: hito-plugin-spotify
+        PORT: "8092"
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-spotify
       labels:
         org.opencontainers.image.revision: ${HITO_VPS_REVISION:?Set the full clean source commit}
@@ -43,8 +48,11 @@ services:
     platform: linux/amd64
     build:
       context: ../..
-      dockerfile: docker/plugin-youtube.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
+        PLUGIN: hito-plugin-youtube
+        PORT: "8093"
+        EXTRAS: youtube
         HITO_PLUGIN_CACHE_ID: hito-vps-${HITO_VPS_REVISION:?Set the full clean source commit}-amd64-youtube
       labels:
         org.opencontainers.image.revision: ${HITO_VPS_REVISION:?Set the full clean source commit}

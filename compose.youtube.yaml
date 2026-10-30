@@ -4,9 +4,15 @@ services:
     image: hito-plugin-youtube:latest
     build:
       context: .
-      dockerfile: docker/plugin-youtube.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-youtube-${COMPOSE_PROJECT_NAME:-hito}
+        PLUGIN: hito-plugin-youtube
+        PORT: "8093"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+        EXTRAS: youtube
+    command:
+      - --listen
+      - 0.0.0.0:8093
     ports:
       - "127.0.0.1:${HITO_YOUTUBE_PORT:-8093}:8093"
     environment:

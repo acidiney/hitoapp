@@ -40,6 +40,26 @@ Run application builds and tests through Docker Compose. Host tools may edit and
 
 Dockerfiles live in `docker/`. The root `compose.yaml` and the `compose.<plugin>.yaml` overlays select them with `dockerfile:` and keep the repository root as the build context.
 
+### Plugin images
+
+Every plugin image is built from `docker/plugin.Dockerfile`. The recipe compiles one plugin in a release build with two Rust jobs and no debug information, then copies the binary into a Debian slim image that runs as UID/GID 10001 with a read-only root filesystem. The image adds no shell tools beyond `curl`, which the health check uses against `/v1/manifest`.
+
+| Build argument | Meaning |
+| --- | --- |
+| `PLUGIN` (required) | Cargo package and binary name, for example `hito-plugin-spotify` |
+| `PORT` (required) | Port the plugin listens on. It sets `EXPOSE` and the health check. The container command must pass the same `--listen 0.0.0.0:<PORT>` |
+| `EXTRAS` | `none` (default), `folder` (generated demo audio in `/demo`) or `youtube` (pinned yt-dlp and Deno) |
+| `STATE_DIR` | Private writable directory created in the image, default `/state` |
+| `SOURCE_ID`, `INPUT_SHA256` | Optional frozen source and input identities. When set they must be 40 and 64 lowercase hex characters, and they become image labels |
+| `HITO_PLUGIN_CACHE_ID` | Cargo target cache name. The build appends the target architecture. Give each source snapshot its own value |
+
+```sh
+docker build -f docker/plugin.Dockerfile --build-arg PLUGIN=hito-plugin-premiumize --build-arg PORT=8099 \
+  --build-arg HITO_PLUGIN_CACHE_ID=hito-plugin-mycheckout -t hito-plugin-premiumize:dev .
+```
+
+The image has no default command, so run it with the plugin's own arguments. The `compose.<plugin>.yaml` overlays carry the build arguments, ports, commands and credential volumes for `folder` (in `compose.plugins.yaml`), `spotify`, `youtube`, `jamendo`, `listenbrainz`, `real-debrid`, `all-debrid`, `torbox` and `premiumize`.
+
 ## Worktrees and isolated projects
 
 Give each source snapshot and worktree its own Compose project and its own Cargo target. Two source trees mounted at `/workspace` over one shared target can reuse stale artifacts, because cargo compares file timestamps.

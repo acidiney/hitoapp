@@ -42,9 +42,9 @@ def resolve(manifest):
     configuration = json.loads(resolved.stdout)
     service = configuration["services"]["plugin-all-debrid"]
     expected_build = {
-        "context": str(context), "dockerfile": "docker/plugin-all-debrid.Dockerfile",
-        "args": {"HITO_ALL_DEBRID_SOURCE_ID": revision, "HITO_ALL_DEBRID_INPUT_SHA256": digest,
-                 "HITO_PLUGIN_CACHE_ID": "hito-plugin-all-debrid-" + project},
+        "context": str(context), "dockerfile": "docker/plugin.Dockerfile",
+        "args": {"PLUGIN": "hito-plugin-all-debrid", "PORT": "8097", "SOURCE_ID": revision,
+                 "INPUT_SHA256": digest, "HITO_PLUGIN_CACHE_ID": "hito-plugin-" + project},
     }
     if service["build"] != expected_build or service["image"] != "hito-plugin-all-debrid:" + digest:
         raise ValueError("Resolved Compose build inputs differ from the verified manifest")

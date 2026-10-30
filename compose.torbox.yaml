@@ -4,11 +4,14 @@ services:
     image: hito-plugin-torbox:${HITO_TORBOX_IMAGE_TAG:-development}
     build:
       context: ${HITO_TORBOX_BUILD_CONTEXT:-.}
-      dockerfile: docker/plugin-torbox.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-torbox-package-${COMPOSE_PROJECT_NAME:-standalone}
-        HITO_TORBOX_SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}
-        HITO_TORBOX_INPUT_SHA256: ${HITO_TORBOX_INPUT_SHA256:?Set the frozen input digest}
+        PLUGIN: hito-plugin-torbox
+        PORT: "8100"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+        STATE_DIR: /var/lib/hito-torbox
+        SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}
+        INPUT_SHA256: ${HITO_TORBOX_INPUT_SHA256:?Set the frozen input digest}
     user: "10001:10001"
     command:
       - --listen

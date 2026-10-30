@@ -4,10 +4,17 @@ services:
     image: hito-plugin-jamendo:${HITO_JAMENDO_IMAGE_TAG:-development}
     build:
       context: .
-      dockerfile: docker/plugin-jamendo.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-jamendo-${COMPOSE_PROJECT_NAME:-standalone}
+        PLUGIN: hito-plugin-jamendo
+        PORT: "8093"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
     user: "10001:10001"
+    command:
+      - --client-id-file
+      - /run/secrets/jamendo-client-id
+      - --listen
+      - 0.0.0.0:8093
     ports:
       - "127.0.0.1:${HITO_JAMENDO_PORT:-8094}:8093"
     environment:

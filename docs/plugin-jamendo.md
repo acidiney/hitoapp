@@ -49,7 +49,7 @@ JSON logs include lifecycle outcomes and correlated request outcomes. The execut
 
 ## Development container
 
-[docker/plugin-jamendo.Dockerfile](../docker/plugin-jamendo.Dockerfile) builds a separate executable image. [compose.jamendo.yaml](../compose.jamendo.yaml) can run alone in an isolated development project. Its default host address is `http://localhost:8094/v1/manifest`; the container listens on port 8093. The example mounts no Hito application data and provides no account-connection setup. Generic attribution and persistence policy remain prerequisites for offering this service to accounts.
+[docker/plugin.Dockerfile](../docker/plugin.Dockerfile) builds the shared plugin image with `PLUGIN=hito-plugin-jamendo`. [compose.jamendo.yaml](../compose.jamendo.yaml) can run alone in an isolated development project. Its default host address is `http://localhost:8094/v1/manifest`; the container listens on port 8093. The example mounts no Hito application data and provides no account-connection setup. Generic attribution and persistence policy remain prerequisites for offering this service to accounts.
 
 The image uses pinned Rust and Debian bases. The build disables debug information and incremental compilation, uses two compiler jobs and has a Jamendo-specific cache separated by project and architecture. Give each source snapshot a separate project/cache identity. Before and during large builds, retain at least 40 GiB of host headroom and keep combined Hito Cargo targets within 10 GiB. Run compiler-heavy work sequentially.
 

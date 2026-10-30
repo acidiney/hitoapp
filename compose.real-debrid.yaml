@@ -4,11 +4,22 @@ services:
     image: hito-plugin-real-debrid:${HITO_REAL_DEBRID_IMAGE_TAG:-development}
     build:
       context: .
-      dockerfile: docker/plugin-real-debrid.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-real-debrid-${COMPOSE_PROJECT_NAME:-standalone}
-        HITO_REAL_DEBRID_SOURCE_ID: ${HITO_REAL_DEBRID_SOURCE_ID:-}
+        PLUGIN: hito-plugin-real-debrid
+        PORT: "8096"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+        SOURCE_ID: ${HITO_REAL_DEBRID_SOURCE_ID:-}
     user: "10001:10001"
+    command:
+      - --provider-token-file
+      - /run/secrets/real-debrid-provider-token
+      - --service-token-file
+      - /run/secrets/real-debrid-service-token
+      - --catalog-file
+      - /run/secrets/real-debrid-catalog.json
+      - --listen
+      - 0.0.0.0:8096
     ports:
       - "127.0.0.1:${HITO_REAL_DEBRID_PORT:-8096}:8096"
     environment:

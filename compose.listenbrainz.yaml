@@ -1,0 +1,49 @@
+services:
+  plugin-listenbrainz:
+    profiles: [plugins]
+    image: hito-plugin-listenbrainz:${HITO_LISTENBRAINZ_IMAGE_TAG:-development}
+    build:
+      context: .
+      dockerfile: docker/plugin.Dockerfile
+      args:
+        PLUGIN: hito-plugin-listenbrainz
+        PORT: "8095"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+    user: "10001:10001"
+    command:
+      - --contact
+      - ${HITO_LISTENBRAINZ_CONTACT:?Set the operator contact sent to ListenBrainz}
+      - --service-token-file
+      - /run/secrets/listenbrainz-service-token
+      - --listen
+      - 0.0.0.0:8095
+    ports:
+      - "127.0.0.1:${HITO_LISTENBRAINZ_PORT:-8095}:8095"
+    environment:
+      RUST_LOG: ${HITO_LISTENBRAINZ_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: listenbrainz-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  listenbrainz-credentials:
+    external: true
+    name: ${HITO_LISTENBRAINZ_CREDENTIAL_VOLUME:?Set HITO_LISTENBRAINZ_CREDENTIAL_VOLUME to a provisioned private volume}

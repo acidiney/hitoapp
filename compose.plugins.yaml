@@ -2,9 +2,19 @@ services:
   plugin-folder:
     build:
       context: .
-      dockerfile: docker/plugin-folder.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-cargo-${COMPOSE_PROJECT_NAME:-hito-plugin-folder}
+        PLUGIN: hito-plugin-folder
+        PORT: "8090"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+        EXTRAS: folder
+    command:
+      - --music
+      - /demo
+      - --state
+      - /state
+      - --listen
+      - 0.0.0.0:8090
     ports:
       - "127.0.0.1:8091:8090"
     volumes:

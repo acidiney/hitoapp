@@ -85,6 +85,7 @@ services:
   plugin-spotify:
     <<: *runtime
     image: ${HITO_SPOTIFY_IMAGE:?Set the loaded immutable amd64 Spotify-plugin image ID}
+    command: [--listen, "0.0.0.0:8092"]
     environment:
       RUST_LOG: info
     pids_limit: 64

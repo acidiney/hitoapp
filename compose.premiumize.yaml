@@ -1,0 +1,55 @@
+services:
+  plugin-premiumize:
+    profiles: [plugins]
+    image: hito-plugin-premiumize:${HITO_PREMIUMIZE_IMAGE_TAG:-development}
+    build:
+      context: ${HITO_PREMIUMIZE_BUILD_CONTEXT:-.}
+      dockerfile: docker/plugin.Dockerfile
+      args:
+        PLUGIN: hito-plugin-premiumize
+        PORT: "8099"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+        SOURCE_ID: ${HITO_PREMIUMIZE_SOURCE_ID:?Set the frozen source revision}
+        INPUT_SHA256: ${HITO_PREMIUMIZE_INPUT_SHA256:?Set the frozen input digest}
+    user: "10001:10001"
+    command:
+      - --provider-token-file
+      - /run/secrets/premiumize-provider-token
+      - --service-token-file
+      - /run/secrets/premiumize-service-token
+      - --receipt-key-file
+      - /run/secrets/premiumize-receipt-key
+      - --catalog-file
+      - /run/secrets/premiumize-catalog.json
+      - --listen
+      - 0.0.0.0:8099
+    ports:
+      - "127.0.0.1:${HITO_PREMIUMIZE_PORT:-8099}:8099"
+    environment:
+      RUST_LOG: ${HITO_PREMIUMIZE_LOG_LEVEL:-info}
+    volumes:
+      - type: volume
+        source: premiumize-credentials
+        target: /run/secrets
+        read_only: true
+        volume:
+          nocopy: true
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "1.0"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  premiumize-credentials:
+    external: true
+    name: ${HITO_PREMIUMIZE_CREDENTIAL_VOLUME:?Set a provisioned private volume}

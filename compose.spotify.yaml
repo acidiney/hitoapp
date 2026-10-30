@@ -4,9 +4,14 @@ services:
     image: hito-plugin-spotify:latest
     build:
       context: .
-      dockerfile: docker/plugin-spotify.Dockerfile
+      dockerfile: docker/plugin.Dockerfile
       args:
-        HITO_PLUGIN_CACHE_ID: hito-plugin-spotify-public-${COMPOSE_PROJECT_NAME:-hito}
+        PLUGIN: hito-plugin-spotify
+        PORT: "8092"
+        HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
+    command:
+      - --listen
+      - 0.0.0.0:8092
     ports:
       - "127.0.0.1:${HITO_SPOTIFY_PORT:-8092}:8092"
     environment:

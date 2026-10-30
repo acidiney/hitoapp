@@ -73,7 +73,7 @@ The service does not submit torrents or magnets, discover a provider library, in
 
 ## Container package
 
-[docker/plugin-torbox.Dockerfile](../../docker/plugin-torbox.Dockerfile) builds the locked release executable from pinned Rust and Debian bases. [compose.torbox.yaml](../../compose.torbox.yaml) runs it as UID/GID `10001`, with a read-only root, dropped capabilities, bounded resources and logs, a manifest health check and a loopback-only port. It does not provision private inputs or automatically restart a failed process.
+[docker/plugin.Dockerfile](../../docker/plugin.Dockerfile) builds the locked release executable from pinned Rust and Debian bases. [compose.torbox.yaml](../../compose.torbox.yaml) runs it as UID/GID `10001`, with a read-only root, dropped capabilities, bounded resources and logs, a manifest health check and a loopback-only port. It does not provision private inputs or automatically restart a failed process.
 
 Set `HITO_TORBOX_SOURCE_ID` and `HITO_TORBOX_INPUT_SHA256` to the frozen build's commit and input digest. `HITO_TORBOX_IMAGE_TAG` selects the image tag. These labels identify the build inputs; they do not authenticate an image. Use separate, operator-provisioned external volumes selected by `HITO_TORBOX_CREDENTIAL_VOLUME` and `HITO_TORBOX_STATE_VOLUME`. Both roots must be owned by `10001:10001` with mode `0700`. Compose's `nocopy` mounts do not create or repair that ownership.
 

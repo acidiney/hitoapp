@@ -77,7 +77,7 @@ crates/
   testkit/     Shared test helpers: log capture, TLS, plugin HTTP server, WAV fixtures
   debrid/      Provider clients: real-debrid, all-debrid, torbox, premiumize
 plugins/       Plugin services: folder, spotify, youtube, jamendo, real-debrid, all-debrid, torbox, premiumize
-docker/        Dockerfiles for the server, community service and plugin images
+docker/        Dockerfiles for the server, community service and plugin images (one shared plugin recipe)
 deploy/        VPS deployment files
 scripts/       Verification, setup, packaging and audio fixture tools
 docs/          Architecture, API contracts, operations, release scope and evidence
