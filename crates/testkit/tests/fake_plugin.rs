@@ -356,9 +356,7 @@ async fn waiting_for_requests_returns_once_the_log_has_that_many() {
             client().get(&url).send().await.unwrap();
         }
     });
-    tokio::time::timeout(Duration::from_secs(3), plugin.wait_for_requests(2))
-        .await
-        .expect("both requests must be logged");
+    plugin.wait_for_requests(2).await;
     sender.await.unwrap();
     assert_eq!(plugin.requests().len(), 2);
 }
@@ -396,17 +394,14 @@ async fn held_gate_reports_when_the_parked_request_is_retired() {
     gate.entered().await;
     gate.release();
     assert_eq!(released.await.unwrap(), StatusCode::OK);
-    tokio::time::timeout(Duration::from_secs(3), gate.retired())
-        .await
-        .expect("a released request must retire");
+    gate.retired().await;
 
+    plugin.clear_fault("v1/ping");
     let gate = plugin.hold("v1/ping");
     let abandoned = tokio::spawn(async move { client().get(url).send().await });
     gate.entered().await;
     abandoned.abort();
-    tokio::time::timeout(Duration::from_secs(3), gate.retired())
-        .await
-        .expect("an abandoned request must retire");
+    gate.retired().await;
 }
 
 #[tokio::test]
@@ -517,31 +512,35 @@ async fn hold_next_parks_only_the_next_accepted_request() {
     assert!(!gate.has_retired());
     gate.release();
     assert_eq!(parked.await.unwrap(), StatusCode::OK);
-    tokio::time::timeout(Duration::from_secs(3), async {
-        while !gate.has_retired() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("the released request must retire");
+    gate.retired().await;
 }
 
 #[tokio::test]
 async fn hold_next_outlives_a_client_that_gives_up() {
-    let plugin = echo().await;
-    let gate = plugin.hold_next("v1/ping");
-    let url = format!("{}v1/ping", plugin.url);
-    let abandoned = tokio::spawn(async move { client().get(url).send().await });
-    gate.entered().await;
+    let plugin = FakePlugin::builder(manifest())
+        .get("v1/next", |_| Reply::Json(json!({})))
+        .get("v1/plain", |_| Reply::Json(json!({})))
+        .start()
+        .await;
+    let next = plugin.hold_next("v1/next");
+    let plain = plugin.hold("v1/plain");
+    let (next_url, plain_url) = (
+        format!("{}v1/next", plugin.url),
+        format!("{}v1/plain", plugin.url),
+    );
+    let abandoned = tokio::spawn(async move {
+        tokio::join!(
+            client().get(next_url).send(),
+            client().get(plain_url).send()
+        )
+    });
+    next.entered().await;
+    plain.entered().await;
     abandoned.abort();
-    let _ = abandoned.await;
-    tokio::task::yield_now().await;
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(!gate.has_retired());
-    gate.release();
-    tokio::time::timeout(Duration::from_secs(3), gate.retired())
-        .await
-        .expect("a released hold must retire");
+    plain.retired().await;
+    assert!(!next.has_retired());
+    next.release();
+    next.retired().await;
 }
 
 #[tokio::test]
@@ -571,9 +570,7 @@ async fn stalled_bodies_send_a_prefix_then_wait_for_release() {
         br#""pong":true}"#
     );
     drop(response);
-    tokio::time::timeout(Duration::from_secs(3), gate.retired())
-        .await
-        .expect("a finished body must retire");
+    gate.retired().await;
 }
 
 #[tokio::test]
@@ -588,7 +585,114 @@ async fn stalled_bodies_retire_when_the_client_drops_them() {
     response.chunk().await.unwrap();
     gate.entered().await;
     drop(response);
-    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+    gate.retired().await;
+}
+
+#[tokio::test]
+async fn json_requirement_rejects_posts_without_a_json_content_type_or_body() {
+    let plugin = FakePlugin::builder(manifest())
+        .post("v1/search", |_| Reply::Json(json!({})))
+        .get("v1/ping", |_| Reply::Json(json!({})))
+        .require_json()
+        .start()
+        .await;
+    let url = format!("{}v1/search", plugin.url);
+    let status =
+        |request: reqwest::RequestBuilder| async move { request.send().await.unwrap().status() };
+    let json_header = ("content-type", "application/json");
+    assert_eq!(
+        status(client().post(&url).body("{}")).await,
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+    assert_eq!(
+        status(
+            client()
+                .post(&url)
+                .header("content-type", "text/plain")
+                .body("{}")
+        )
+        .await,
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+    assert_eq!(
+        status(
+            client()
+                .post(&url)
+                .header(json_header.0, json_header.1)
+                .body("{nope")
+        )
+        .await,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        status(client().post(&url).header(json_header.0, json_header.1)).await,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        status(client().post(&url).json(&json!({}))).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status(client().get(format!("{}v1/ping", plugin.url))).await,
+        StatusCode::OK
+    );
+    assert_eq!(plugin.unexpected(), 4);
+}
+
+#[tokio::test]
+async fn logged_requests_are_final_by_the_time_waiters_are_woken() {
+    let plugin = FakePlugin::builder(manifest())
+        .post("v1/search", |_| Reply::Refuse)
+        .start()
+        .await;
+    for round in 1..=40 {
+        let url = format!("{}v1/search", plugin.url);
+        let sender = tokio::spawn(async move { client().post(url).send().await.unwrap() });
+        plugin.wait_for_requests(round).await;
+        assert_eq!(plugin.unexpected(), round);
+        sender.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn gate_waits_have_bounded_forms() {
+    let plugin = echo().await;
+    let gate = plugin.hold("v1/ping");
+    assert!(!gate.entered_within(Duration::from_millis(50)).await);
+    assert!(!gate.retired_within(Duration::from_millis(50)).await);
+}
+
+#[tokio::test]
+async fn held_requests_time_out_with_a_gateway_error_and_retire() {
+    let plugin = echo().await;
+    plugin.set_hold_limit(Duration::from_millis(100));
+    let gate = plugin.hold("v1/ping");
+    let status = client()
+        .get(format!("{}v1/ping", plugin.url))
+        .send()
         .await
-        .expect("a dropped body must retire");
+        .unwrap()
+        .status();
+    assert_eq!(status, StatusCode::GATEWAY_TIMEOUT);
+    gate.retired().await;
+}
+
+#[tokio::test]
+async fn finishing_ends_one_shot_holds_instead_of_leaving_them_parked() {
+    let mut plugin = echo().await;
+    let gate = plugin.hold_next("v1/ping");
+    let url = format!("{}v1/ping", plugin.url);
+    let pending = tokio::spawn(async move { client().get(url).send().await.unwrap().status() });
+    gate.entered().await;
+    assert!(plugin.finish().await);
+    gate.retired().await;
+    assert_eq!(pending.await.unwrap(), StatusCode::GATEWAY_TIMEOUT);
+}
+
+#[tokio::test]
+#[should_panic(expected = "already has a fault")]
+async fn a_second_fault_on_one_operation_needs_the_first_to_be_cleared() {
+    let plugin = echo().await;
+    plugin.hold("v1/ping");
+    plugin.fault("v1/ping", Fault::Malformed);
 }

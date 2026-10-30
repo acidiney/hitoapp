@@ -1,5 +1,5 @@
 use axum::{
-    Json, Router,
+    Router,
     body::{Body, Bytes, to_bytes},
     extract::{Request, State},
     http::{
@@ -25,6 +25,7 @@ use tokio::{
 
 const PREFIX: &str = "/prefix/";
 const BODY_LIMIT: usize = 1 << 20;
+const WAIT_LIMIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub enum Reply {
@@ -110,7 +111,14 @@ impl Gate {
     }
 
     pub async fn entered(&self) {
-        self.entered.acquire().await.unwrap().forget();
+        assert!(
+            self.entered_within(WAIT_LIMIT).await,
+            "no request reached the gate within {WAIT_LIMIT:?}"
+        );
+    }
+
+    pub async fn entered_within(&self, limit: Duration) -> bool {
+        take(&self.entered, limit).await
     }
 
     pub fn release(&self) {
@@ -122,15 +130,41 @@ impl Gate {
     }
 
     pub async fn retired(&self) {
-        self.retired.acquire().await.unwrap().forget();
+        assert!(
+            self.retired_within(WAIT_LIMIT).await,
+            "no held request retired within {WAIT_LIMIT:?}"
+        );
     }
 
-    async fn wait(self: Arc<Self>) {
+    pub async fn retired_within(&self, limit: Duration) -> bool {
+        take(&self.retired, limit).await
+    }
+
+    async fn wait(self: Arc<Self>, limit: Duration) -> bool {
         let _retiring = Retiring(self.clone());
         self.entered.add_permits(1);
-        if let Ok(permit) = self.release.acquire().await {
+        wait_release(&self.release, limit).await
+    }
+}
+
+async fn take(semaphore: &Semaphore, limit: Duration) -> bool {
+    match tokio::time::timeout(limit, semaphore.acquire()).await {
+        Ok(Ok(permit)) => {
             permit.forget();
+            true
         }
+        _ => false,
+    }
+}
+
+async fn wait_release(release: &Semaphore, limit: Duration) -> bool {
+    match tokio::time::timeout(limit, release.acquire()).await {
+        Ok(Ok(permit)) => {
+            permit.forget();
+            true
+        }
+        Ok(Err(_)) => true,
+        Err(_) => false,
     }
 }
 
@@ -159,6 +193,8 @@ struct Shared {
     auth: Mutex<Option<ServiceAuth>>,
     require_protocol: bool,
     strict_limit: Option<usize>,
+    require_json: bool,
+    hold_limit: Mutex<Duration>,
 }
 
 pub struct FakePluginBuilder {
@@ -166,6 +202,7 @@ pub struct FakePluginBuilder {
     auth: Option<ServiceAuth>,
     require_protocol: bool,
     strict_limit: Option<usize>,
+    require_json: bool,
 }
 
 pub struct FakePlugin {
@@ -183,6 +220,7 @@ impl FakePlugin {
             auth: None,
             require_protocol: false,
             strict_limit: None,
+            require_json: false,
         }
         .get(MANIFEST_PATH, move |_| Reply::Json(manifest.clone()))
     }
@@ -200,9 +238,11 @@ impl FakePlugin {
 
     pub async fn wait_for_requests(&self, count: usize) {
         let mut logged = self.shared.logged.subscribe();
-        logged
-            .wait_for(|logged| *logged >= count)
+        tokio::time::timeout(WAIT_LIMIT, logged.wait_for(|logged| *logged >= count))
             .await
+            .unwrap_or_else(|_| {
+                panic!("the fake plugin did not log {count} requests within {WAIT_LIMIT:?}")
+            })
             .expect("the fake plugin log must stay open");
     }
 
@@ -243,11 +283,20 @@ impl FakePlugin {
     }
 
     pub fn fault(&self, operation: &str, fault: Fault) {
-        self.shared
+        let previous = self
+            .shared
             .faults
             .lock()
             .unwrap()
             .insert(operation.to_owned(), fault);
+        assert!(
+            previous.is_none(),
+            "{operation} already has a fault; clear it first"
+        );
+    }
+
+    pub fn set_hold_limit(&self, limit: Duration) {
+        *self.shared.hold_limit.lock().unwrap() = limit;
     }
 
     pub fn clear_fault(&self, operation: &str) {
@@ -279,6 +328,9 @@ impl FakePlugin {
     }
 
     pub async fn finish(&mut self) -> bool {
+        let mut workers = std::mem::take(&mut *self.shared.workers.lock().unwrap());
+        workers.abort_all();
+        while workers.join_next().await.is_some() {}
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
@@ -335,6 +387,11 @@ impl FakePluginBuilder {
         self
     }
 
+    pub fn require_json(mut self) -> Self {
+        self.require_json = true;
+        self
+    }
+
     pub fn strict(mut self, request_limit: usize) -> Self {
         self.strict_limit = Some(request_limit);
         self
@@ -350,6 +407,8 @@ impl FakePluginBuilder {
             auth: Mutex::new(self.auth),
             require_protocol: self.require_protocol,
             strict_limit: self.strict_limit,
+            require_json: self.require_json,
+            hold_limit: Mutex::new(WAIT_LIMIT),
         });
         let router = Router::new().fallback(dispatch).with_state(shared.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -422,30 +481,45 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         body: body.to_vec(),
         handled,
     };
-    let (index, count) = {
+    let mut refusal = None;
+    let index = {
         let mut log = shared.log.lock().unwrap();
-        if handled == Handled::Yes && refuses(&shared, log.len(), &recorded) {
-            recorded.handled = Handled::Refused;
+        if handled == Handled::Yes {
+            refusal = refusal_status(&shared, log.len(), &recorded);
+            if refusal.is_some() {
+                recorded.handled = Handled::Refused;
+            }
         }
         log.push(recorded.clone());
-        (log.len() - 1, log.len())
+        log.len() - 1
     };
-    shared.logged.send_replace(count);
     let Some(handler) = handler else {
+        announce(&shared);
         return StatusCode::NOT_FOUND.into_response();
     };
     match rejection {
-        Err(AuthFailure::Unauthorized) => return StatusCode::UNAUTHORIZED.into_response(),
-        Err(AuthFailure::InvalidProtocol) => return StatusCode::BAD_REQUEST.into_response(),
+        Err(AuthFailure::Unauthorized) => {
+            announce(&shared);
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
+        Err(AuthFailure::InvalidProtocol) => {
+            announce(&shared);
+            return StatusCode::BAD_REQUEST.into_response();
+        }
         Ok(()) => {}
     }
-    if recorded.handled == Handled::Refused {
-        return StatusCode::BAD_REQUEST.into_response();
+    if let Some(status) = refusal {
+        announce(&shared);
+        return status.into_response();
     }
     let fault = shared.faults.lock().unwrap().get(&operation).cloned();
     match fault {
-        Some(Fault::Status(status)) => return status.into_response(),
+        Some(Fault::Status(status)) => {
+            announce(&shared);
+            return status.into_response();
+        }
         Some(Fault::Malformed) => {
+            announce(&shared);
             return (
                 StatusCode::OK,
                 [(CONTENT_TYPE, "application/json")],
@@ -453,32 +527,53 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
             )
                 .into_response();
         }
-        Some(Fault::DropConnection) => return dropped_connection(),
+        Some(Fault::DropConnection) => {
+            announce(&shared);
+            return dropped_connection();
+        }
         Some(Fault::Delay(_) | Fault::Hold(_) | Fault::HoldNext(_) | Fault::StallBody { .. })
         | None => {}
     }
     let reply = handler(&recorded);
     if matches!(reply, Reply::Refuse) {
         shared.log.lock().unwrap()[index].handled = Handled::Refused;
+    }
+    announce(&shared);
+    if matches!(reply, Reply::Refuse) {
         return into_response(reply);
     }
+    let limit = *shared.hold_limit.lock().unwrap();
     if let Some(Fault::StallBody { gate, prefix }) = fault {
-        return stalled_response(reply, prefix, gate);
+        return stalled_response(reply, prefix, gate, limit);
     }
-    match fault {
-        Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
-        Some(Fault::Hold(gate)) => gate.wait().await,
+    let released = match fault {
+        Some(Fault::Delay(delay)) => {
+            tokio::time::sleep(delay).await;
+            true
+        }
+        Some(Fault::Hold(gate)) => gate.wait(limit).await,
         Some(Fault::HoldNext(gate)) if claim_next(&shared, &operation, &gate) => {
             let (done, completed) = oneshot::channel();
-            shared.workers.lock().unwrap().spawn(async move {
-                gate.wait().await;
-                let _ = done.send(());
-            });
-            let _ = completed.await;
+            {
+                let mut workers = shared.workers.lock().unwrap();
+                while workers.try_join_next().is_some() {}
+                workers.spawn(async move {
+                    let _ = done.send(gate.wait(limit).await);
+                });
+            }
+            completed.await.unwrap_or(false)
         }
-        _ => {}
+        _ => true,
+    };
+    if !released {
+        return StatusCode::GATEWAY_TIMEOUT.into_response();
     }
     into_response(reply)
+}
+
+fn announce(shared: &Shared) {
+    let count = shared.log.lock().unwrap().len();
+    shared.logged.send_replace(count);
 }
 
 fn claim_next(shared: &Shared, operation: &str, gate: &Arc<Gate>) -> bool {
@@ -492,12 +587,30 @@ fn claim_next(shared: &Shared, operation: &str, gate: &Arc<Gate>) -> bool {
     }
 }
 
-fn refuses(shared: &Shared, prior: usize, request: &RecordedRequest) -> bool {
-    shared.strict_limit.is_some_and(|limit| {
-        prior >= limit
-            || request.query.is_some()
-            || (!request.body.is_empty() && serde_json::from_slice::<Value>(&request.body).is_err())
-    })
+fn refusal_status(shared: &Shared, prior: usize, request: &RecordedRequest) -> Option<StatusCode> {
+    let json_body = serde_json::from_slice::<Value>(&request.body).is_ok();
+    if shared.require_json && request.method == Method::POST {
+        let json_type = request
+            .headers
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| {
+                value
+                    .split(';')
+                    .next()
+                    .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
+            });
+        if !json_type {
+            return Some(StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        }
+        if !json_body {
+            return Some(StatusCode::BAD_REQUEST);
+        }
+    }
+    let strict = shared.strict_limit.is_some_and(|limit| {
+        prior >= limit || request.query.is_some() || (!request.body.is_empty() && !json_body)
+    });
+    strict.then_some(StatusCode::BAD_REQUEST)
 }
 
 fn authorize(shared: &Shared, headers: &HeaderMap) -> Result<(), AuthFailure> {
@@ -508,69 +621,68 @@ fn authorize(shared: &Shared, headers: &HeaderMap) -> Result<(), AuthFailure> {
     }
 }
 
-fn into_response(reply: Reply) -> Response {
+fn parts(reply: Reply) -> (StatusCode, HeaderMap, Vec<u8>, bool) {
     match reply {
-        Reply::Json(value) => Json(value).into_response(),
-        Reply::Status(status) => status.into_response(),
-        Reply::Refuse => StatusCode::BAD_REQUEST.into_response(),
+        Reply::Json(value) => (
+            StatusCode::OK,
+            HeaderMap::from_iter([(CONTENT_TYPE, "application/json".parse().unwrap())]),
+            serde_json::to_vec(&value).unwrap(),
+            false,
+        ),
+        Reply::Status(status) => (status, HeaderMap::new(), Vec::new(), false),
+        Reply::Refuse => (StatusCode::BAD_REQUEST, HeaderMap::new(), Vec::new(), false),
         Reply::Raw {
             status,
             headers,
             body,
             chunked,
-        } => {
-            let body = if chunked {
-                Body::from_stream(futures_util::stream::once(async move {
-                    Ok::<_, std::convert::Infallible>(Bytes::from(body))
-                }))
-            } else {
-                Body::from(body)
-            };
-            (status, headers, body).into_response()
-        }
+        } => (status, headers, body, chunked),
     }
+}
+
+fn into_response(reply: Reply) -> Response {
+    let (status, headers, body, chunked) = parts(reply);
+    let body = if chunked {
+        Body::from_stream(futures_util::stream::once(async move {
+            Ok::<_, std::convert::Infallible>(Bytes::from(body))
+        }))
+    } else {
+        Body::from(body)
+    };
+    (status, headers, body).into_response()
 }
 
 struct StalledBody {
     first: Option<Bytes>,
     rest: Option<Bytes>,
     gate: Arc<Gate>,
+    limit: Duration,
     _retiring: Retiring,
 }
 
-fn stalled_response(reply: Reply, prefix: usize, gate: Arc<Gate>) -> Response {
-    let (status, mut headers, bytes) = match reply {
-        Reply::Json(value) => (
-            StatusCode::OK,
-            HeaderMap::from_iter([(CONTENT_TYPE, "application/json".parse().unwrap())]),
-            serde_json::to_vec(&value).unwrap(),
-        ),
-        Reply::Raw {
-            status,
-            headers,
-            body,
-            ..
-        } => (status, headers, body),
-        Reply::Status(status) => (status, HeaderMap::new(), Vec::new()),
-        Reply::Refuse => (StatusCode::BAD_REQUEST, HeaderMap::new(), Vec::new()),
-    };
+fn stalled_response(reply: Reply, prefix: usize, gate: Arc<Gate>, limit: Duration) -> Response {
+    let (status, mut headers, bytes, _) = parts(reply);
     headers.insert(CONTENT_LENGTH, bytes.len().into());
     let mut first = Bytes::from(bytes);
     let rest = first.split_off(prefix.min(first.len()));
     let body = StalledBody {
         first: Some(first),
         rest: Some(rest),
+        limit,
         _retiring: Retiring(gate.clone()),
         gate,
     };
     let stream = futures_util::stream::unfold(body, |mut body| async move {
         if let Some(first) = body.first.take() {
             body.gate.entered.add_permits(1);
-            return Some((Ok::<_, std::convert::Infallible>(first), body));
+            return Some((Ok::<_, std::io::Error>(first), body));
         }
         let rest = body.rest.take()?;
-        if let Ok(permit) = body.gate.release.acquire().await {
-            permit.forget();
+        if !wait_release(&body.gate.release, body.limit).await {
+            return Some((
+                Err(std::io::Error::other("the stalled body timed out")),
+                body,
+            ));
         }
         Some((Ok(rest), body))
     });
