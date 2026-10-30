@@ -3,7 +3,7 @@ import type { Schema } from "../../../shared/schema";
 import CommunitySettings from "../../community/components/CommunitySettings";
 import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
 import LyricsAutoSetting from "../../lyrics/components/LyricsAutoSetting";
-import SearchServicesSetting from "../../search/components/SearchServicesSetting";
+import AutomaticLookupsSettings from "../../metadata/components/AutomaticLookupsSettings";
 import ScreenLockSettings from "../../session/components/ScreenLockSettings";
 
 export default function PrivacySection({
@@ -17,8 +17,8 @@ export default function PrivacySection({
         account={user.id}
         lock={lock}
       />
-      <SearchServicesSetting
-        key={`search-services:${user.id}`}
+      <AutomaticLookupsSettings
+        key={`automatic-lookups:${user.id}`}
         account={user.id}
       />
       <LyricsAutoSetting key={`lyrics-auto:${user.id}`} account={user.id} />

@@ -25,4 +25,17 @@ export const metadataPreferencesApi = {
       signal,
     });
   },
+  async updateAutomation(
+    account: string,
+    body: Schema<"UpdateAutomaticLookups">,
+    signal: AbortSignal,
+  ): Promise<Schema<"MetadataSettings">> {
+    return requestJson<Schema<"MetadataSettings">>("/metadata/automation", {
+      action: "metadata.automation.update",
+      method: "PUT",
+      account,
+      body,
+      signal,
+    });
+  },
 };
