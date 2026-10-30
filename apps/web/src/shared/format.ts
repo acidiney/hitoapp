@@ -17,3 +17,36 @@ export function longDuration(seconds: number) {
     ? `${Math.floor(minutes / 60)} h ${minutes % 60} min`
     : `${minutes} min`;
 }
+
+function dayNumber(date: Date) {
+  return Math.round(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000,
+  );
+}
+
+export function friendlyTime(
+  date: Date,
+  now: Date = new Date(),
+  locale?: string,
+) {
+  const clock = date.toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const days = dayNumber(date) - dayNumber(now);
+  const name =
+    days === 0
+      ? "Today"
+      : days === 1
+        ? "Tomorrow"
+        : days === -1
+          ? "Yesterday"
+          : null;
+  if (name) return `${name}, ${clock}`;
+  const day = date.toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+  return `${day}, ${clock}`;
+}
