@@ -30,6 +30,8 @@ pub mod community_service;
 #[cfg(feature = "test-support")]
 pub mod content_service;
 #[cfg(feature = "test-support")]
+pub mod correction_erasure;
+#[cfg(feature = "test-support")]
 pub mod covers;
 #[cfg(feature = "test-support")]
 pub mod media_tool;

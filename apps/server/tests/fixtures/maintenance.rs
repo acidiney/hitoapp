@@ -514,6 +514,20 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         .unwrap();
     for object in &prior {
         let mut declared = object.clone();
+        if declared.0 == "trigger" && declared.1 == "recording_artist_association_retained" {
+            assert!(
+                expected.iter().any(|current| {
+                    current.0 == declared.0
+                        && current.1 == declared.1
+                        && current.3.as_deref().is_some_and(|ddl| {
+                            ddl.contains("correction_erasure_scopes")
+                                && ddl.contains("Artist association evidence must be retained")
+                        })
+                }),
+                "migration 0065 alone narrows the 0047 association delete guard to the erasure scopes"
+            );
+            continue;
+        }
         if declared.0 == "table" && declared.1 == "source_resolutions" {
             declared.3 = declared.3.map(|ddl| {
                 ddl.replace(
@@ -695,6 +709,9 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "recording_musicbrainz_observation_recording"),
         ("trigger", "recording_musicbrainz_observation_immutable"),
         ("trigger", "recording_musicbrainz_observation_retained"),
+        ("table", "correction_erasure_scopes"),
+        ("index", "sqlite_autoindex_correction_erasure_scopes_1"),
+        ("trigger", "shared_artist_correction_source"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();

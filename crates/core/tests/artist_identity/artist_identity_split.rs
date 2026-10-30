@@ -25,7 +25,7 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
     }
 }
 
-async fn review(library: &library::Library, recording: &str, identity: &str) -> String {
+pub(super) async fn review(library: &library::Library, recording: &str, identity: &str) -> String {
     let artist_catalog = &library.hito.artist_catalog;
     let context = artist_catalog
         .begin_artist_review(&library.actor, recording, library.metadata_provider.clone())
@@ -87,7 +87,7 @@ fn group_of(choice: &RecordingArtistIdentityChoice) -> Option<&str> {
     }
 }
 
-async fn merged(library: &library::Library) -> String {
+pub(super) async fn merged(library: &library::Library) -> String {
     let alpha = choose(library, &library.local, catalog::ALPHA).await;
     let credit = credit_of_imported(library).await;
     library
@@ -133,7 +133,7 @@ async fn credits(library: &library::Library) -> Vec<hito_core::Artist> {
         .items
 }
 
-fn request(
+pub(super) fn request(
     revision: i64,
     recordings: &[&str],
     destination: SplitDestination,
@@ -150,14 +150,14 @@ fn request(
     }
 }
 
-fn beta(library: &library::Library) -> SplitDestination {
+pub(super) fn beta(library: &library::Library) -> SplitDestination {
     SplitDestination::Identity {
         provider: library.metadata_provider.clone(),
         provider_artist_id: catalog::BETA.into(),
     }
 }
 
-async fn split(
+pub(super) async fn split(
     library: &library::Library,
     actor: &Actor,
     group: &str,

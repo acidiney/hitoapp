@@ -483,7 +483,7 @@ impl RetainedState {
     }
 
     async fn expecting_collection_artwork(mut self) -> Self {
-        let mut reference = collection_artwork_schema::reference_64().await;
+        let mut reference = collection_artwork_schema::reference_65().await;
         let declared = schema(&mut reference).await;
         let mut declared_indexes = indexes(&mut reference).await;
         for &(kind, name) in collection_artwork_schema::REPLACED {
@@ -515,6 +515,7 @@ impl RetainedState {
             .chain(collection_artwork_schema::provider_url_schema::ADDED)
             .chain(collection_artwork_schema::name_match_schema::ADDED)
             .chain(collection_artwork_schema::tag_identity_schema::ADDED)
+            .chain(collection_artwork_schema::erasure_schema::ADDED)
         {
             let key = (kind.to_owned(), name.to_owned());
             assert!(
@@ -530,6 +531,15 @@ impl RetainedState {
                 self.indexes
                     .insert(key.clone(), declared_indexes.remove(&key).unwrap());
             }
+        }
+        for &(kind, name) in collection_artwork_schema::erasure_schema::REPLACED {
+            let key = (kind.to_owned(), name.to_owned());
+            assert!(
+                self.schema.contains_key(&key),
+                "the baseline must contain {kind} {name}"
+            );
+            self.schema
+                .insert(key.clone(), declared.get(&key).unwrap().clone());
         }
         for name in collection_artwork_schema::NEW_TABLES
             .iter()
@@ -577,6 +587,11 @@ impl RetainedState {
             )
             .chain(
                 collection_artwork_schema::tag_identity_schema::TABLES
+                    .iter()
+                    .copied(),
+            )
+            .chain(
+                collection_artwork_schema::erasure_schema::NEW_TABLES
                     .iter()
                     .copied(),
             )

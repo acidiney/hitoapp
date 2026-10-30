@@ -60,7 +60,12 @@ async fn historical_artwork_upgrade_preserves_ready_references_pending_authority
         .unwrap();
     let mut connection = upgrade::connect(&database).await;
     snapshot::assert_preserved(&mut connection, &before).await;
-    upgrade::assert_schema_preserved(&mut connection, &before_schema).await;
+    upgrade::assert_schema_preserved(
+        &mut connection,
+        &before_schema,
+        schema::erasure_schema::REPLACED,
+    )
+    .await;
     upgrade::assert_integrity(&mut connection).await;
     let migrated_job_keys = upgrade::foreign_keys(&mut connection, "artwork_fetches").await;
     assert!(

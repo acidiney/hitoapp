@@ -1,7 +1,7 @@
 use hito_core::test_support::artist_identity_selection_catalog as catalog;
 #[allow(dead_code)]
 #[path = "../fixtures/artist_identity_selection_library.rs"]
-mod library;
+pub(super) mod library;
 #[allow(unused_imports)]
 use hito_core::test_support::support;
 
@@ -16,10 +16,10 @@ use hito_core::{
 use std::panic::{AssertUnwindSafe, resume_unwind};
 use uuid::Uuid;
 
-const M1: &str = "11111111-1111-4111-8111-111111111111";
-const M2: &str = "22222222-2222-4222-8222-222222222222";
+pub(super) const M1: &str = "11111111-1111-4111-8111-111111111111";
+pub(super) const M2: &str = "22222222-2222-4222-8222-222222222222";
 
-async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
+pub(super) async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
     let mut library = library::Library::prepare().await;
     let settings = library
         .hito
@@ -51,7 +51,7 @@ async fn run(exercise: for<'a> fn(&'a library::Library) -> BoxFuture<'a, ()>) {
     }
 }
 
-async fn account(library: &library::Library, name: &str) -> Actor {
+pub(super) async fn account(library: &library::Library, name: &str) -> Actor {
     let user = library
         .hito
         .identity
@@ -87,7 +87,7 @@ async fn account(library: &library::Library, name: &str) -> Actor {
         .unwrap()
 }
 
-async fn link(
+pub(super) async fn link(
     library: &library::Library,
     actor: &Actor,
     recording: &str,
@@ -116,7 +116,7 @@ async fn link(
         .unwrap()
 }
 
-async fn choose(
+pub(super) async fn choose(
     library: &library::Library,
     actor: &Actor,
     recording: &str,
@@ -151,7 +151,7 @@ async fn choose(
         .group_id
 }
 
-async fn listed(library: &library::Library, actor: &Actor, recording: &str) -> usize {
+pub(super) async fn listed(library: &library::Library, actor: &Actor, recording: &str) -> usize {
     library
         .hito
         .artist_catalog
@@ -184,7 +184,7 @@ async fn groups(library: &library::Library, actor: &Actor) -> i64 {
         .total
 }
 
-async fn unlink(library: &library::Library, recording: &str, association: &str) {
+pub(super) async fn unlink(library: &library::Library, recording: &str, association: &str) {
     let revision = library
         .hito
         .artist_catalog
@@ -208,7 +208,7 @@ async fn unlink(library: &library::Library, recording: &str, association: &str) 
         .unwrap();
 }
 
-fn promote(revision: i64, source: PromotionSource) -> PromoteArtistCorrection {
+pub(super) fn promote(revision: i64, source: PromotionSource) -> PromoteArtistCorrection {
     PromoteArtistCorrection {
         request_id: Uuid::new_v4(),
         expected_revision: revision,
@@ -216,7 +216,7 @@ fn promote(revision: i64, source: PromotionSource) -> PromoteArtistCorrection {
     }
 }
 
-fn unlinked(recording: &str, association: &str) -> PromotionSource {
+pub(super) fn unlinked(recording: &str, association: &str) -> PromotionSource {
     PromotionSource::Unlink {
         recording_id: recording.into(),
         association_id: Uuid::parse_str(association).unwrap(),

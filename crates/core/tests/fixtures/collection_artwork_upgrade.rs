@@ -148,7 +148,11 @@ pub async fn schema(connection: &mut SqliteConnection) -> Schema {
         .unwrap()
 }
 
-pub async fn assert_schema_preserved(connection: &mut SqliteConnection, before: &Schema) {
+pub async fn assert_schema_preserved(
+    connection: &mut SqliteConnection,
+    before: &Schema,
+    replaced: &[(&str, &str)],
+) {
     let changed = [
         "artwork_fetches",
         "artwork_pending_recording",
@@ -158,10 +162,12 @@ pub async fn assert_schema_preserved(connection: &mut SqliteConnection, before: 
         "recording_artwork_update",
     ];
     let after = schema(connection).await;
-    for object in before
-        .iter()
-        .filter(|object| !changed.contains(&object.1.as_str()))
-    {
+    for object in before.iter().filter(|object| {
+        !changed.contains(&object.1.as_str())
+            && !replaced
+                .iter()
+                .any(|(kind, name)| *kind == object.0 && *name == object.1)
+    }) {
         let mut expected = object.clone();
         if expected.0 == "table" && expected.1 == "source_resolutions" {
             expected.3 = expected.3.map(|ddl| {

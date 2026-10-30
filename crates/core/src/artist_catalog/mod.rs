@@ -10,6 +10,7 @@ mod continuation;
 mod discography;
 mod discovery;
 mod editions;
+pub(crate) mod erasure;
 pub(crate) mod identity;
 mod library_availability;
 mod matching;
