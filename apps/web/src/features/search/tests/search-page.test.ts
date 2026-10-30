@@ -489,3 +489,39 @@ test("the disclosure sits next to the search field before any result", async () 
     ),
   ).toBeTruthy();
 });
+
+test("album results without an album artist show the server's inferred credit", () => {
+  render(
+    createElement(
+      SearchPage,
+      props({
+        releases: page([
+          {
+            id: "mix",
+            library_id: "library",
+            title: "Mix",
+            artist: null,
+            artist_id: null,
+            duration_ms: 1000,
+            track_count: 3,
+            inferred_artist: { kind: "various" },
+          },
+          {
+            id: "solo",
+            library_id: "library",
+            title: "Solo",
+            artist: null,
+            artist_id: null,
+            duration_ms: 1000,
+            track_count: 3,
+            inferred_artist: { kind: "named", name: "Shore" },
+          },
+        ]),
+      }),
+    ),
+  );
+  const albums = screen.getByRole("region", { name: "Albums" });
+  expect(within(albums).getByText(/^Various artists · 3 tracks/)).toBeTruthy();
+  expect(within(albums).getByText(/^Shore · 3 tracks/)).toBeTruthy();
+  expect(within(albums).queryByText(/Unknown artist/)).toBeNull();
+});

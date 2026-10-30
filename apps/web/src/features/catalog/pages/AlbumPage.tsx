@@ -13,7 +13,7 @@ import TrackTable, {
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import Pagination from "../../../shared/ui/Pagination";
 import EmptyState from "../../../shared/ui/EmptyState";
-import { albumCreditLabel } from "../model/albumCredit";
+import { releaseCreditLabel } from "../model/albumCredit";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
@@ -28,8 +28,8 @@ export default function AlbumPage({
     ...track,
     row_id: track.entry_id,
   }));
-  const credit = albumCreditLabel(
-    release.artist,
+  const credit = releaseCreditLabel(
+    release,
     tracks.map((track) => track.artist),
   );
   const listing = releaseTracksListing(user.id, release.id, page);

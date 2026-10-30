@@ -6,6 +6,7 @@ import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Button from "../../../shared/ui/Button";
+import { releaseCreditLabel } from "../../catalog/model/albumCredit";
 import ListRow from "../../../shared/ui/ListRow";
 import type { ArtistHit } from "../model/artistHits";
 
@@ -91,7 +92,9 @@ export function TopResult({
           />
           <span className="search-card-copy">
             <strong>{release.title}</strong>
-            <span>Album · {release.artist ?? "Unknown artist"}</span>
+            <span>
+              Album · {releaseCreditLabel(release) ?? "Unknown artist"}
+            </span>
           </span>
         </Link>
       ) : artist ? (
@@ -147,7 +150,8 @@ export function AlbumResults({ releases }: { releases: Schema<"Release">[] }) {
             <span className="search-card-copy">
               <strong>{release.title}</strong>
               <span>
-                {release.artist ?? "Unknown artist"} · {release.track_count}{" "}
+                {releaseCreditLabel(release) ?? "Unknown artist"} ·{" "}
+                {release.track_count}{" "}
                 {release.track_count === 1 ? "track" : "tracks"}
                 {release.duration_ms > 0 &&
                   ` · ${time(release.duration_ms / 1000)}`}

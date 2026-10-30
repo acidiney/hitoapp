@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 
 import Artwork from "../../artwork/components/Artwork";
+import { releaseCreditLabel } from "../model/albumCredit";
 
 export default function AlbumGrid({
   releases,
@@ -42,7 +43,9 @@ export default function AlbumGrid({
             >
               {release.artist}
             </Link>
-          ) : null}
+          ) : (
+            <CreditText release={release} />
+          )}
           <small>
             {release.track_count}{" "}
             {release.track_count === 1 ? "track" : "tracks"}
@@ -51,4 +54,9 @@ export default function AlbumGrid({
       ))}
     </div>
   );
+}
+
+function CreditText({ release }: { release: Schema<"Release"> }) {
+  const credit = releaseCreditLabel(release);
+  return credit ? <span className="muted">{credit}</span> : null;
 }
