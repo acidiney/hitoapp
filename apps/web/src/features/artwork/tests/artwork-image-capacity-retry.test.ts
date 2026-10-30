@@ -1,11 +1,11 @@
 import { createElement } from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
 
-test("a mounted image can explicitly retry private bytes after 129 settled targets retire its bounded cache entry", async () => {
+test("with no provider, 129 failed covers stay quiet and the availability checks stay bounded", async () => {
   vi.useFakeTimers();
   const ids = Array.from(
     { length: 129 },
@@ -43,40 +43,23 @@ test("a mounted image can explicitly retry private bytes after 129 settled targe
   );
   const card = (index: number) =>
     container.querySelector<HTMLElement>(`[data-target="${ids[index]}"]`)!;
-  const retryButtons = () => screen.getAllByText("Retry artwork");
   const cover = (index: number) => card(index).querySelector("img");
   await act(async () => {
     for (let index = 0; index < 128; index++) fireEvent.error(cover(index)!);
   });
   expect(fetch).toHaveBeenCalledTimes(128);
-  expect(retryButtons()).toHaveLength(128);
   expect(active).toBe(0);
   expect(cover(128)).toBeTruthy();
   await act(async () => {
     fireEvent.error(cover(128)!);
   });
   expect(fetch).toHaveBeenCalledTimes(129);
-  expect(retryButtons()).toHaveLength(129);
-  const retry = within(card(0)).getByText("Retry artwork");
+  expect(screen.queryAllByText("Retry artwork")).toHaveLength(0);
   expect(cover(0)).toBeNull();
-  const image = `/api/v1/playlists/${ids[0]}/artwork`;
-  await act(async () => {
-    fireEvent.click(retry);
-  });
-  expect(cover(0)?.getAttribute("src")).toBe(image);
-  expect(fetch).toHaveBeenCalledTimes(130);
-  expect(fetch.mock.calls[129][0]).toBe(`${image}/availability`);
-  await act(async () => {
-    fireEvent.load(cover(0)!);
-  });
-  expect(
-    within(card(0)).queryByRole("button", { name: "Retry artwork" }),
-  ).toBeNull();
-  expect(retryButtons()).toHaveLength(128);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(60_000);
   });
-  expect(fetch).toHaveBeenCalledTimes(130);
+  expect(fetch).toHaveBeenCalledTimes(129);
   expect(active).toBe(0);
   expect(peak).toBeLessThanOrEqual(2);
   expect(

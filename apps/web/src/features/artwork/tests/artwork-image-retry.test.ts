@@ -30,7 +30,7 @@ const targets = [
 
 test.each(
   targets.flatMap((target) =>
-    (["ready", "unavailable"] as const).map((phase) => ({ ...target, phase })),
+    (["ready"] as const).map((phase) => ({ ...target, phase })),
   ),
 )(
   "a second $kind renderer cannot clear a hidden renderer's $phase failure before explicit Retry",
@@ -158,7 +158,7 @@ test.each(targets)(
       fireEvent.error(cover()!);
     });
     expect(cover()).toBeNull();
-    expect(screen.getByRole("button", { name: "Retry artwork" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
     const oldSignal = fetch.mock.calls[0][1]?.signal;
     rerender(view("bob"));
     expect(cover()?.getAttribute("src")).toBe(image);
@@ -247,79 +247,6 @@ test.each(targets)(
     expect(cover()?.getAttribute("src")).toBe(image);
     expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
-    unmount();
-    expect(vi.getTimerCount()).toBe(0);
-  },
-);
-
-test.each(targets)(
-  "a disconnected $kind provider does not prevent retrying retained image bytes before availability settles",
-  async (target) => {
-    vi.useFakeTimers();
-    const image = `/api/v1/${target.collection}/${id}/artwork`;
-    let finishAvailability!: (response: Response) => void;
-    const pending = new Promise<Response>((resolve) => {
-      finishAvailability = resolve;
-    });
-    let checks = 0;
-    const fetch = vi.fn((path: string, options?: RequestInit) => {
-      if (path === `${image}/availability` && options?.method === "GET") {
-        checks++;
-        return checks === 1
-          ? Promise.resolve(Response.json({ can_fetch: false }))
-          : pending;
-      }
-      throw new Error("Retained image recovery must not enqueue provider work");
-    });
-    vi.stubGlobal("fetch", fetch);
-    const { container, unmount } = render(
-      createElement(ArtworkProvider, {
-        account: "alice",
-        children: createElement(
-          Fragment,
-          null,
-          createElement(Artwork, target.props),
-          createElement(ArtworkStatus, target.props),
-        ),
-      }),
-    );
-    const cover = () => container.querySelector(".artwork img");
-    const failed = cover();
-    await act(async () => {
-      fireEvent.error(failed!);
-    });
-    expect(cover()).toBeNull();
-    expect(checks).toBe(1);
-    const retry = screen.getByRole("button", { name: "Retry artwork" });
-    await act(async () => {
-      fireEvent.click(retry);
-    });
-    expect(cover()?.getAttribute("src")).toBe(image);
-    expect(cover()).not.toBe(failed);
-    await act(async () => {
-      fireEvent.load(cover()!);
-    });
-    await act(async () => {
-      finishAvailability(Response.json({ can_fetch: false }));
-    });
-    expect(cover()?.getAttribute("src")).toBe(image);
-    expect(screen.queryByRole("button", { name: "Retry artwork" })).toBeNull();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    expect(
-      fetch.mock.calls
-        .map(([path]) => path)
-        .every((path) => path === `${image}/availability`),
-    ).toBe(true);
-    expect(fetch.mock.calls.length).toBeLessThanOrEqual(2);
-    for (const [, options] of fetch.mock.calls) {
-      expect(options?.headers).toEqual(
-        expect.objectContaining({ "x-hito-account": "alice" }),
-      );
-      expect(options?.credentials).toBe("same-origin");
-      expect(options?.signal).toBeInstanceOf(AbortSignal);
-    }
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   },

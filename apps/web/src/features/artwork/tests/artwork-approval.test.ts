@@ -45,7 +45,8 @@ test("accepting artwork capability retries a cached unavailable cover without re
   await act(async () => {
     fireEvent.error(cover()!);
   });
-  await screen.findByText("No artwork provider is available for this track.");
+  await waitFor(() => expect(requestsFor(availability)).toHaveLength(1));
+  expect(screen.queryByText(/No artwork provider/)).toBeNull();
   expect(cover()).toBeNull();
   expect(requestsFor(availability)).toHaveLength(1);
   expect(requestsFor(enqueue)).toHaveLength(0);
@@ -144,13 +145,12 @@ test("an old account approval cannot refresh the new account's unavailable cover
   await act(async () => {
     fireEvent.error(cover()!);
   });
-  const unavailable = "No artwork provider is available for this track.";
-  await screen.findByText(unavailable);
   const otherRequests = () =>
     fetch.mock.calls.filter(
       ([, options]) =>
         new Headers(options?.headers).get("x-hito-account") === other.account,
     );
+  await waitFor(() => expect(otherRequests()).toHaveLength(1));
   expect(otherRequests().map(([path]) => path)).toEqual([other.availability]);
   expect(cover()).toBeNull();
 
@@ -160,7 +160,7 @@ test("an old account approval cannot refresh the new account's unavailable cover
   expect(fixture.artworkApproved).toBe(true);
   expect(otherRequests().map(([path]) => path)).toEqual([other.availability]);
   expect(cover()).toBeNull();
-  expect(screen.getByText(unavailable)).toBeTruthy();
+  expect(screen.queryByText(/No artwork provider/)).toBeNull();
   expect(screen.queryByText("Connection checked.")).toBeNull();
   expect(
     fetch.mock.calls.filter(([path]) => path === other.enqueue),
@@ -174,6 +174,6 @@ test("an old account approval cannot refresh the new account's unavailable cover
     fireEvent.error(cover()!);
   });
   expect(cover()).toBeNull();
-  expect(screen.getByText(unavailable)).toBeTruthy();
+  expect(screen.queryByText(/No artwork provider/)).toBeNull();
   expect(otherRequests().map(([path]) => path)).toEqual([other.availability]);
 });

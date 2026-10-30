@@ -23,9 +23,7 @@ export default function ArtworkStatus({
         ? "Artwork could not be retrieved."
         : artwork.phase === "cancelled"
           ? "Artwork retrieval was cancelled."
-          : artwork.phase === "unavailable"
-            ? `No artwork provider is available for this ${playlistId ? "playlist" : release ? "album" : "track"}.`
-            : null;
+          : null;
   if (!message) return null;
   return (
     <div className="artwork-status">
