@@ -99,11 +99,14 @@ impl ArtistCatalog {
         count.push("SELECT count(*) FROM summary");
         filter_member_names(&mut count, actor, &terms);
         let total = count.build_query_scalar().fetch_one(&mut *tx).await?;
+        let exact = exact_names(&mut *tx, actor, &query, &terms).await?;
         let mut selected = visible(actor, query.library.as_deref(), None);
         selected.push("SELECT * FROM summary");
         filter_member_names(&mut selected, actor, &terms);
         selected
-            .push(" ORDER BY name COLLATE NOCASE,id LIMIT ")
+            .push(" ORDER BY id IN (SELECT value FROM json_each(")
+            .push_bind(exact)
+            .push(")) DESC,name COLLATE NOCASE,id LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
@@ -218,6 +221,83 @@ impl ArtistCatalog {
             },
             group,
         })
+    }
+}
+
+const MAX_EXACT_CANDIDATES: i64 = 500;
+
+/// Identifiers (as a JSON array) of the matching groups whose name equals the search text
+/// without regard to case, spacing or common accents.
+async fn exact_names(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    query: &ArtistIdentityGroupQuery,
+    terms: &str,
+) -> Result<String> {
+    let wanted = fold(query.q.as_deref().unwrap_or_default());
+    if terms.is_empty() || wanted.is_empty() {
+        return Ok("[]".into());
+    }
+    let mut candidates = visible(actor, query.library.as_deref(), None);
+    candidates.push("SELECT id,name FROM summary");
+    filter_member_names(&mut candidates, actor, terms);
+    candidates
+        .push(" ORDER BY name COLLATE NOCASE,id LIMIT ")
+        .push_bind(MAX_EXACT_CANDIDATES);
+    let rows: Vec<(String, String)> = candidates.build_query_as().fetch_all(connection).await?;
+    let exact: Vec<String> = rows
+        .into_iter()
+        .filter(|(_, name)| fold(name) == wanted)
+        .map(|(id, _)| id)
+        .collect();
+    serde_json::to_string(&exact)
+        .map_err(|_| Error::Internal("Artist search could not be ordered".into()))
+}
+
+/// Lowercases, collapses spacing and removes the accents of common Latin letters.
+fn fold(text: &str) -> String {
+    let mut folded = String::with_capacity(text.len());
+    for letter in text
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+    {
+        match letter {
+            'à'..='å' | 'À'..='Å' | 'ā' | 'ă' | 'ą' | 'Ā' | 'Ă' | 'Ą' => folded.push('a'),
+            'ç' | 'ć' | 'č' | 'Ç' | 'Ć' | 'Č' => folded.push('c'),
+            'ď' | 'đ' | 'Ď' | 'Đ' => folded.push('d'),
+            'è'..='ë' | 'È'..='Ë' | 'ē' | 'ę' | 'ě' | 'Ē' | 'Ę' | 'Ě' => folded.push('e'),
+            'ğ' | 'Ğ' => folded.push('g'),
+            'ì'..='ï' | 'Ì'..='Ï' | 'ī' | 'İ' | 'ı' => folded.push('i'),
+            'ł' | 'Ł' => folded.push('l'),
+            'ñ' | 'ń' | 'ň' | 'Ñ' | 'Ń' | 'Ň' => folded.push('n'),
+            'ò'..='ö' | 'ø' | 'Ò'..='Ö' | 'Ø' | 'ō' | 'ő' | 'Ō' | 'Ő' => folded.push('o'),
+            'ř' | 'Ř' => folded.push('r'),
+            'ś' | 'š' | 'ş' | 'Ś' | 'Š' | 'Ş' => folded.push('s'),
+            'ť' | 'Ť' => folded.push('t'),
+            'ù'..='ü' | 'Ù'..='Ü' | 'ū' | 'ů' | 'ű' | 'Ū' | 'Ů' | 'Ű' => folded.push('u'),
+            'ý' | 'ÿ' | 'Ý' => folded.push('y'),
+            'ź' | 'ż' | 'ž' | 'Ź' | 'Ż' | 'Ž' => folded.push('z'),
+            'ß' => folded.push_str("ss"),
+            'æ' | 'Æ' => folded.push_str("ae"),
+            'œ' | 'Œ' => folded.push_str("oe"),
+            other => folded.extend(other.to_lowercase()),
+        }
+    }
+    folded
+}
+
+#[cfg(test)]
+mod fold_tests {
+    use super::fold;
+
+    #[test]
+    fn folds_case_spacing_and_accents() {
+        assert_eq!(fold("  Björk   Guðmundsdóttir "), "bjork guðmundsdottir");
+        assert_eq!(fold("Sigur Rós"), fold("sigur  ros"));
+        assert_eq!(fold("Mötley Crüe"), "motley crue");
+        assert_eq!(fold("Beyoncé"), "beyonce");
     }
 }
 
