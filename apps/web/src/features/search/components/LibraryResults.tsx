@@ -7,6 +7,7 @@ import Artwork from "../../artwork/components/Artwork";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Button from "../../../shared/ui/Button";
 import ListRow from "../../../shared/ui/ListRow";
+import type { ArtistHit } from "../model/artistHits";
 
 function trackCover(track: Schema<"Recording">) {
   return {
@@ -61,7 +62,7 @@ export function TopResult({
 }: {
   track?: Schema<"Recording">;
   release?: Schema<"Release">;
-  artist?: Schema<"Artist">;
+  artist?: ArtistHit;
 }) {
   if (!track && !release && !artist) return null;
   return (
@@ -94,7 +95,7 @@ export function TopResult({
           </span>
         </Link>
       ) : artist ? (
-        <Link className="search-card" href={`/artists/${artist.id}`}>
+        <Link className="search-card" href={artist.href}>
           <span className="search-card-copy">
             <strong>{artist.name}</strong>
             <span>Artist</span>
@@ -159,25 +160,19 @@ export function AlbumResults({ releases }: { releases: Schema<"Release">[] }) {
   );
 }
 
-export function ArtistResults({ artists }: { artists: Schema<"Artist">[] }) {
+export function ArtistResults({ artists }: { artists: ArtistHit[] }) {
   if (artists.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-artists">
       <h2 id="search-artists">Artists</h2>
       <div className="search-cards">
         {artists.map((artist) => (
-          <Link
-            key={artist.id}
-            className="search-card"
-            href={`/artists/${artist.id}`}
-          >
+          <Link key={artist.key} className="search-card" href={artist.href}>
             <span className="search-card-copy">
               <strong>{artist.name}</strong>
               <span>
-                {artist.release_count}{" "}
-                {artist.release_count === 1 ? "album" : "albums"} ·{" "}
-                {artist.recording_count}{" "}
-                {artist.recording_count === 1 ? "track" : "tracks"}
+                {artist.albums} {artist.albums === 1 ? "album" : "albums"} ·{" "}
+                {artist.tracks} {artist.tracks === 1 ? "track" : "tracks"}
               </span>
             </span>
           </Link>

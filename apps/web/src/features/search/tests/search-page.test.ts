@@ -36,6 +36,7 @@ const recording = (
   duration_ms: 63000,
   available,
   liked: false,
+  plays_from_services: false,
 });
 const connection: Schema<"PluginInstallation"> = {
   id: "connection",
@@ -50,6 +51,44 @@ const connection: Schema<"PluginInstallation"> = {
     capabilities: ["search", "sources"],
   },
 };
+const SETTINGS = "/api/v1/metadata/settings";
+const SEARCH = "/api/v1/plugins/connection/search";
+
+function stubServices(
+  options: {
+    automatic?: boolean | "unreadable";
+    items?: unknown[];
+    status?: number;
+  } = {},
+) {
+  const searches: { query: string }[] = [];
+  const fetch = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === SETTINGS) {
+      if (options.automatic === "unreadable")
+        return new Response("{}", { status: 500 });
+      return Response.json({
+        revision: 1,
+        enabled: true,
+        providers: [],
+        automatic_artist_lookup: true,
+        automatic_artwork: true,
+        automatic_service_search: options.automatic ?? true,
+      });
+    }
+    expect(path).toBe(SEARCH);
+    searches.push(JSON.parse(init?.body as string));
+    return Response.json(
+      options.status && options.status !== 200
+        ? { error: "The service is unavailable." }
+        : { items: options.items ?? [] },
+      { status: options.status ?? 200 },
+    );
+  });
+  vi.stubGlobal("fetch", fetch);
+  return searches;
+}
+const settled = () => new Promise((resolve) => setTimeout(resolve, 30));
+
 const page = <T>(items: T[]) => ({
   items,
   total: items.length,
@@ -79,6 +118,7 @@ const props = (
       artist_id: "shore",
       duration_ms: 1000,
       track_count: 3,
+      inferred_artist: null,
     },
   ]),
   artists: page([
@@ -90,6 +130,7 @@ const props = (
       release_count: 1,
     },
   ]),
+  artist_groups: page([]),
   connections: [],
   service_names: {},
   ...over,
@@ -121,10 +162,7 @@ test("library results are grouped with a top result, availability and one action
 });
 
 test("scope pills narrow the results to the library or to providers", () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }))),
-  );
+  stubServices();
   render(
     createElement(
       SearchPage,
@@ -150,25 +188,21 @@ test("scope pills narrow the results to the library or to providers", () => {
 
 test("a plain search sends nothing to a provider until the listener asks", async () => {
   const hit = { id: "remote", title: "Provider tide", artist: "Remote" };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
-  vi.stubGlobal("fetch", fetch);
+  const searches = stubServices({ items: [hit] });
   render(
     createElement(
       SearchPage,
       props({ connections: [connection], service_names: { service: "Home" } }),
     ),
   );
-  await Promise.resolve();
-  expect(fetch).not.toHaveBeenCalled();
+  await settled();
+  expect(searches).toEqual([]);
   expect(screen.getByRole("region", { name: "Tracks" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Search your services" }));
   expect(
     await screen.findByRole("button", { name: "Play Provider tide" }),
   ).toBeTruthy();
-  expect(fetch).toHaveBeenCalledTimes(1);
-  expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("tide");
+  expect(searches.map((body) => body.query)).toEqual(["tide"]);
 });
 
 test("provider results use the connected service with explicit listen and add actions", async () => {
@@ -178,10 +212,7 @@ test("provider results use the connected service with explicit listen and add ac
     artist: "Remote",
     duration_ms: 1000,
   };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
-  vi.stubGlobal("fetch", fetch);
+  const searches = stubServices({ items: [hit] });
   render(
     createElement(
       SearchPage,
@@ -195,19 +226,11 @@ test("provider results use the connected service with explicit listen and add ac
   expect(
     screen.getByRole("button", { name: "Add Provider tide to library" }),
   ).toBeTruthy();
-  expect(fetch.mock.calls[0][0]).toBe("/api/v1/plugins/connection/search");
-  expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("tide");
+  expect(searches.map((body) => body.query)).toEqual(["tide"]);
 });
 
 test("a provider outage warns inside its section and keeps library results", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: "The service is unavailable." }), {
-        status: 502,
-      }),
-    ),
-  );
+  stubServices({ status: 502 });
   render(
     createElement(
       SearchPage,
@@ -266,44 +289,79 @@ test("submitting the field searches again", () => {
   expect(router.get).toHaveBeenCalledWith("/search", { q: "glass" });
 });
 
-test("an exact artist name match is the top result and is listed first", () => {
-  const artistOf = (id: string, name: string) => ({
-    id,
-    library_id: "library",
-    name,
-    recording_count: 2,
-    release_count: 1,
-  });
+const group = (id: string, name: string): Schema<"ArtistIdentityGroup"> => ({
+  id,
+  name: { value: name, recording_id: "r1" } as never,
+  provider: { kind: "builtin_musicbrainz" },
+  provider_artist_id: `mb-${id}`,
+  recording_count: 4,
+  release_count: 2,
+  library_count: 1,
+});
+
+test("chosen artists come from the server in its order and an exact match is the top result", () => {
   render(
     createElement(
       SearchPage,
       props({
         query: "shore",
-        artists: page([
-          artistOf("shore-band", "Shore Band"),
-          artistOf("shore", "Shore"),
+        artist_groups: page([
+          group("g-shore", "Shore"),
+          group("g-band", "Shore Band"),
         ]),
+        artists: page([]),
       }),
     ),
   );
   const top = screen.getByRole("region", { name: "Top result" });
   expect(
     within(top).getByRole("link", { name: /Shore/ }).getAttribute("href"),
-  ).toBe("/artists/shore");
+  ).toBe("/artist-groups/g-shore");
   const artists = screen.getByRole("region", { name: "Artists" });
   expect(
     within(artists)
       .getAllByRole("link")
       .map((link) => link.getAttribute("href")),
-  ).toEqual(["/artists/shore", "/artists/shore-band"]);
+  ).toEqual(["/artist-groups/g-shore", "/artist-groups/g-band"]);
+});
+
+test("library credits follow the chosen artists without repeating a chosen name", () => {
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "shore",
+        artist_groups: page([group("g-shore", "Shore")]),
+        artists: page([
+          {
+            id: "shore",
+            library_id: "library",
+            name: "Shore",
+            recording_count: 3,
+            release_count: 1,
+          },
+          {
+            id: "shore-band",
+            library_id: "library",
+            name: "Shore Band",
+            recording_count: 1,
+            release_count: 1,
+          },
+        ]),
+      }),
+    ),
+  );
+  const artists = screen.getByRole("region", { name: "Artists" });
+  expect(
+    within(artists)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")),
+  ).toEqual(["/artist-groups/g-shore", "/artists/shore-band"]);
 });
 
 test("few library results search the connected services without another click", async () => {
   const hit = { id: "remote", title: "Provider joe", artist: "Remote" };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ items: [hit] })));
-  vi.stubGlobal("fetch", fetch);
+  const searches = stubServices({ items: [hit] });
   const empty = { items: [], total: 0, offset: 0, limit: 8 };
   render(
     createElement(
@@ -329,7 +387,7 @@ test("few library results search the connected services without another click", 
   expect(
     await screen.findByRole("button", { name: "Play Provider joe" }),
   ).toBeTruthy();
-  expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("joe");
+  expect(searches.map((body) => body.query)).toEqual(["joe"]);
   expect(
     screen.getByText(/query is sent to your connected services/i),
   ).toBeTruthy();
@@ -345,41 +403,38 @@ test("few library results search the connected services without another click", 
   ).toBeNull();
 });
 
-test("turning automatic service search off restores the explicit button", async () => {
-  localStorage.setItem("hito:search-services-auto:alice", "off");
-  const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
+const fewResults = () => {
   const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "joe",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-        connections: [connection],
-        service_names: { service: "Home" },
-      }),
-    ),
-  );
-  await Promise.resolve();
-  expect(fetch).not.toHaveBeenCalled();
+  return props({
+    query: "joe",
+    recordings: empty,
+    releases: empty,
+    artists: empty,
+    connections: [connection],
+    service_names: { service: "Home" },
+  });
+};
+
+test("the server turning automatic service search off restores the explicit button", async () => {
+  const searches = stubServices({ automatic: false });
+  render(createElement(SearchPage, fewResults()));
+  await settled();
+  expect(searches).toEqual([]);
   expect(
     screen.getByRole("button", { name: "Search your services" }),
   ).toBeTruthy();
+  expect(screen.queryByText(/query is sent to your connected/i)).toBeNull();
 });
 
 test("the Library scope never sends the query to a service", async () => {
-  const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  const searches = stubServices();
   const connected = {
     connections: [connection],
     service_names: { service: "Home" },
   };
   const view = render(createElement(SearchPage, props(connected)));
   fireEvent.click(screen.getByRole("button", { name: "Library" }));
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
   view.rerender(
     createElement(
       SearchPage,
@@ -392,40 +447,36 @@ test("the Library scope never sends the query to a service", async () => {
       }),
     ),
   );
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(fetch).not.toHaveBeenCalled();
+  await settled();
+  expect(searches).toEqual([]);
 });
 
-test("when storage is unavailable automatic service search stays off", async () => {
-  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-    throw new Error("blocked");
-  });
-  const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
-  const empty = { items: [], total: 0, offset: 0, limit: 8 };
-  render(
-    createElement(
-      SearchPage,
-      props({
-        query: "joe",
-        recordings: empty,
-        releases: empty,
-        artists: empty,
-        connections: [connection],
-        service_names: { service: "Home" },
-      }),
-    ),
-  );
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(fetch).not.toHaveBeenCalled();
+test("when the choice cannot be read automatic service search stays off", async () => {
+  const searches = stubServices({ automatic: "unreadable" });
+  render(createElement(SearchPage, fewResults()));
+  await settled();
+  expect(searches).toEqual([]);
   expect(
     screen.getByRole("button", { name: "Search your services" }),
   ).toBeTruthy();
-  vi.restoreAllMocks();
 });
 
-test("the disclosure sits next to the search field before any result", () => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}")));
+test("nothing is sent before the choice has been read", async () => {
+  const searches: unknown[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((path: string) => {
+      if (path !== SETTINGS) searches.push(path);
+      return new Promise<Response>(() => {});
+    }),
+  );
+  render(createElement(SearchPage, fewResults()));
+  await settled();
+  expect(searches).toEqual([]);
+});
+
+test("the disclosure sits next to the search field before any result", async () => {
+  stubServices();
   render(
     createElement(
       SearchPage,
@@ -433,7 +484,7 @@ test("the disclosure sits next to the search field before any result", () => {
     ),
   );
   expect(
-    screen.getByText(
+    await screen.findByText(
       /few matches in your library, your search is sent to your connected services/i,
     ),
   ).toBeTruthy();

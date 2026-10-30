@@ -19,8 +19,9 @@ import {
 } from "../components/LibraryResults";
 import ProviderResultsSection from "../components/ProviderResultsSection";
 import { useProviderSearch } from "../hooks/useProviderSearch";
-import { useAutomaticServiceSearch } from "../model/autoSearch";
-import { rankArtists, topResultKind } from "../model/ranking";
+import { useAutomaticLookups } from "../../metadata/hooks/useAutomaticLookups";
+import { artistHits, topArtistHit } from "../model/artistHits";
+import { topResultKind } from "../model/ranking";
 
 const FEW_LIBRARY_RESULTS = 3;
 
@@ -32,6 +33,7 @@ export default function SearchPage({
   recordings,
   releases,
   artists,
+  artist_groups,
   connections,
   service_names,
 }: Schema<"SearchPageProps">) {
@@ -39,9 +41,11 @@ export default function SearchPage({
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
   const [asked, setAsked] = useState<string | null>(null);
-  const [automatic] = useAutomaticServiceSearch(user.id);
+  const automatic =
+    useAutomaticLookups(user.id).choices?.automatic_service_search ?? false;
+  const artistResults = artistHits(artist_groups.items, artists.items);
   const libraryTotal =
-    recordings.items.length + releases.items.length + artists.items.length;
+    recordings.items.length + releases.items.length + artistResults.length;
   const sentAutomatically =
     automatic && query !== "" && libraryTotal < FEW_LIBRARY_RESULTS;
   const requested =
@@ -58,11 +62,10 @@ export default function SearchPage({
   );
   const library = scope !== "providers";
   const found = libraryTotal > 0;
-  const rankedArtists = rankArtists(query, artists.items);
   const topKind = topResultKind(query, {
     tracks: recordings.items.length,
     releases: releases.items.length,
-    artists: rankedArtists,
+    artistNames: artistResults.map((artist) => artist.name),
   });
   function play(track: Schema<"Recording">) {
     const playable = recordings.items.filter((item) => item.available);
@@ -114,11 +117,15 @@ export default function SearchPage({
               <TopResult
                 track={topKind === "track" ? recordings.items[0] : undefined}
                 release={topKind === "release" ? releases.items[0] : undefined}
-                artist={topKind === "artist" ? rankedArtists[0] : undefined}
+                artist={
+                  topKind === "artist"
+                    ? topArtistHit(query, artistResults)
+                    : undefined
+                }
               />
               <TrackResults tracks={recordings.items} onPlay={play} />
               <AlbumResults releases={releases.items} />
-              <ArtistResults artists={rankedArtists} />
+              <ArtistResults artists={artistResults} />
             </>
           )}
           {library && !found && (
