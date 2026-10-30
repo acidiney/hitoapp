@@ -61,13 +61,15 @@ function retainedCollection(
       ...state.playlist,
       entries: state.playlist.entries.map((entry) =>
         entry.recording_id === recording
-          ? { ...entry, available: false }
+          ? { ...entry, available: false, plays_from_services: false }
           : entry,
       ),
     },
     activity: {
       history: state.activity.history.map((entry) =>
-        entry.id === recording ? { ...entry, available: false } : entry,
+        entry.id === recording
+          ? { ...entry, available: false, plays_from_services: false }
+          : entry,
       ),
     },
   };
@@ -454,7 +456,11 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       const attached = await attachedResponse;
       expect(attached.status()).toBe(200);
       const result: Schema<"Recording"> = await attached.json();
-      expect(result).toEqual({ ...primary, available: true });
+      expect(result).toEqual({
+        ...primary,
+        available: true,
+        plays_from_services: true,
+      });
       expect(attachments[index]).toEqual({
         candidate: {
           installation_id: candidates[index].id,
@@ -488,7 +494,9 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       expect({
         ...currentCatalog,
         items: currentCatalog.items.map((item) =>
-          item.id === recording ? { ...item, available: false } : item,
+          item.id === recording
+            ? { ...item, available: false, plays_from_services: false }
+            : item,
         ),
       }).toEqual(catalog);
       if (index === 0) {

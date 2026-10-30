@@ -189,7 +189,11 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
       tracksBefore,
     );
     expect(
-      calls.filter((path) => !path.includes("/artist-identity-groups/")),
+      calls.filter(
+        (path) =>
+          !path.includes("/artist-identity-groups/") &&
+          !path.endsWith("/discography"),
+      ),
     ).toEqual([]);
     await page.goto("/settings");
     await page

@@ -425,7 +425,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         has: page.getByRole("button", { name: `Play ${title}`, exact: true }),
       });
       await expect(
-        row.getByText("Plays from your services", { exact: true }),
+        row.getByText("Not playable yet", { exact: true }),
       ).toBeVisible();
     }
     expect(errors).toEqual([]);
