@@ -11,7 +11,6 @@ async function json<T>(
     signal: AbortSignal;
     method?: "GET" | "POST";
     body?:
-      | Schema<"MatchArtistsFromTags">
       | Schema<"MatchArtistsFromProviderEvidence">
       | Schema<"DismissArtistMatchSuggestion">
       | Schema<"RestoreArtistMatchSuggestion">;
@@ -31,19 +30,6 @@ export const artistMatchingApi = {
       action: "artist_matching.status",
       account,
       signal,
-    });
-  },
-  run(
-    account: string,
-    body: Schema<"MatchArtistsFromTags">,
-    signal: AbortSignal,
-  ) {
-    return json<Schema<"ArtistMatchReceipt">>("/artist-matching", {
-      action: "artist_matching.run",
-      account,
-      signal,
-      method: "POST",
-      body,
     });
   },
   runProviderEvidence(

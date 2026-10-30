@@ -35,17 +35,11 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", props, children),
 }));
 function expectOnlyMatching(fetch: { mock: { calls: unknown[][] } }) {
-  const calls = fetch.mock.calls.filter(
-    ([path]) => path !== "/api/v1/metadata/settings",
-  );
-  expect(calls.length, "at most one silent matching pass").toBeLessThanOrEqual(
-    1,
-  );
-  for (const [path, options] of calls) {
-    expect(path, "no provider request without a click").toBe(
-      "/api/v1/artist-matching",
+  for (const [path, options] of fetch.mock.calls) {
+    expect(path, "only the status read, never a pass or provider request").toBe(
+      "/api/v1/artist-matching/status",
     );
-    expect((options as RequestInit | undefined)?.method).toBe("POST");
+    expect((options as RequestInit | undefined)?.method ?? "GET").toBe("GET");
   }
 }
 afterEach(() => {
