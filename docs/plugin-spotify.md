@@ -91,6 +91,8 @@ The overlay binds the host port to loopback, runs the plugin as a non-root user 
 
 ## Artwork in verified source
 
+Albums imported from a Spotify playlist now get their covers through this release request automatically when read; see [imported album covers](plugin-artwork.md#provider-covers-for-imported-albums). The container must run an image that declares `artwork`, and the listener approves the added capability.
+
 The current deployed image also declares `artwork` and returns validated PNG/JPEG bytes for recording, release and playlist requests. It accepts the exact Spotify ak/fa image CDN origins and playlist mosaics on `mosaic.scdn.co`, with separate canonical path rules. URLs with aliases, credentials, explicit ports, query strings, fragments or redirects are rejected before fetching image bytes. The browser receives Hito's authorized image route, not a Spotify URL.
 
 Twenty fixture cases and strict all-target Clippy pass. New regressions first reproduced rejected valid mosaics and accepted normalized dot paths, then passed the fixes. Public HTTP tests verify raster bytes, independent admission and rejection before network I/O. A 22-case policy table exercises the actual URL validator with production origins. The focused URL change passed two independent review rounds.

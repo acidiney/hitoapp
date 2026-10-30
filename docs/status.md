@@ -412,6 +412,8 @@ Web switch (implemented in source, not deployed): Settings, Privacy has the thre
 
 Open: live acceptance; deployment; a work-budget measurement of a very large first walk.
 
+Provider album covers for imported albums (source only, not deployed; no migration): reading an album cover queues the approved provider's release request when no local, retained or archive cover exists, governed by the same default-on artwork choice, bounded by the existing artwork limits and never repeated for a pending or failed request. Two core cases (owned fake provider) and one HTTP case cover it. A live Spotify album cover from this source has not been fetched; the running Spotify container needs a rebuilt image. See [imported album covers](plugin-artwork.md#provider-covers-for-imported-albums).
+
 ## Release work still required
 
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:
