@@ -656,12 +656,34 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("index", "sqlite_autoindex_artist_match_dismissals_1"),
         ("table", "artist_match_checks"),
         ("index", "sqlite_autoindex_artist_match_checks_1"),
+        ("table", "recording_isrc_observations"),
+        ("index", "sqlite_autoindex_recording_isrc_observations_1"),
+        ("index", "recording_isrc_observation_recording"),
+        ("trigger", "recording_isrc_observation_immutable"),
+        ("trigger", "recording_isrc_observation_retained"),
+        ("table", "artist_association_provider_matches"),
+        (
+            "index",
+            "sqlite_autoindex_artist_association_provider_matches_1",
+        ),
+        ("trigger", "artist_association_provider_match_immutable"),
+        ("trigger", "artist_association_provider_match_retained"),
+        ("table", "artist_provider_checks"),
+        ("index", "sqlite_autoindex_artist_provider_checks_1"),
+        ("table", "recording_artist_url_observations"),
+        (
+            "index",
+            "sqlite_autoindex_recording_artist_url_observations_1",
+        ),
+        ("index", "recording_artist_url_observation_recording"),
+        ("trigger", "recording_artist_url_observation_immutable"),
+        ("trigger", "recording_artist_url_observation_retained"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
     assert_eq!(
         added, declared_additions,
-        "only the exact ranking preference, artist identity, album edition, artist association, PIN lock, artist correction and artist matching objects may extend 0052"
+        "only the exact ranking preference, artist identity, album edition, artist association, PIN lock, artist correction, artist matching and provider evidence objects may extend 0052"
     );
     assert!(
         actual == expected,
