@@ -64,11 +64,11 @@ async fn exact_core_detail_budget_is_served_and_one_extra_byte_is_rejected_at_st
 
 fn recording_bytes(bytes: usize) -> ProviderRecording {
     let mut value = recording(false);
-    value.attribution = Some(RecordingAttribution {
+    value.attribution = Some(Box::new(RecordingAttribution {
         creators: vec!["a".repeat(2048); 16],
         provider_label: "owned-private-detail-budget-attribution".into(),
         content_url: "https://example.invalid/owned-public-attribution".into(),
-    });
+    }));
     let encoded = serde_json::to_vec(&value).unwrap().len();
     assert!(encoded > bytes && encoded - bytes < 2048);
     value.attribution.as_mut().unwrap().creators[15].truncate(2048 - (encoded - bytes));

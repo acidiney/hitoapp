@@ -115,11 +115,11 @@ fn recording(track: &Track) -> Result<ProviderRecording, Error> {
         release,
         disc_number: None,
         revision: None,
-        attribution: Some(RecordingAttribution {
+        attribution: Some(Box::new(RecordingAttribution {
             creators: vec![track.artist_name.clone()],
             provider_label: "Jamendo".into(),
             content_url: format!("https://www.jamendo.com/track/{owner}"),
-        }),
+        })),
     };
     recording.validate().map_err(|_| Error::InvalidResponse)?;
     Ok(recording)

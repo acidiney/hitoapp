@@ -265,11 +265,11 @@ async fn exact_detail(server: &http::Server, expected: &ProviderRecording) {
 
 fn recording_bytes(bytes: usize) -> CuratedWavRecording {
     let mut entry = curated_recording();
-    entry.recording.attribution = Some(RecordingAttribution {
+    entry.recording.attribution = Some(Box::new(RecordingAttribution {
         creators: vec!["a".repeat(2048); 16],
         provider_label: "owned-private-detail-budget-attribution".into(),
         content_url: "https://example.invalid/owned-public-attribution".into(),
-    });
+    }));
     let encoded = serde_json::to_vec(&entry.recording).unwrap().len();
     assert!(encoded > bytes && encoded - bytes < 2048);
     entry.recording.attribution.as_mut().unwrap().creators[15].truncate(2048 - (encoded - bytes));

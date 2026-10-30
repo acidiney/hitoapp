@@ -334,13 +334,22 @@ impl ArtistCatalog {
     }
 }
 
+/// Recording, ISRC, lone artist page, current observation and personal artist operation.
+type Row = (
+    String,
+    Option<String>,
+    Option<String>,
+    String,
+    Option<String>,
+);
+
 async fn candidates(
     connection: &mut SqliteConnection,
     actor: &Actor,
     after: Option<&str>,
     limit: i64,
 ) -> Result<(Vec<Candidate>, Option<String>)> {
-    let mut rows: Vec<(String, Option<String>, Option<String>, String, Option<String>)> =
+    let mut rows: Vec<Row> =
         sqlx::query_as(&format!(
         "SELECT r.id,i.isrc,
             (SELECT u.url FROM recording_artist_url_observations u

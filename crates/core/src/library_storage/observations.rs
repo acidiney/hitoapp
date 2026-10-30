@@ -112,7 +112,7 @@ async fn observe(
         .and_then(|tags| serde_json::from_str::<serde_json::Value>(tags).ok())
         .and_then(|tags| tags["isrc"]["value"].as_str().map(str::to_owned));
     crate::metadata::retain_isrc(
-        &mut **tx,
+        tx,
         &observation,
         recording,
         stated.as_deref(),

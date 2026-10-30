@@ -43,11 +43,11 @@ fn small(index: usize) -> Entry {
 
 fn sized(index: usize, bytes: usize) -> Entry {
     let mut entry = small(index);
-    entry.recording.attribution = Some(RecordingAttribution {
+    entry.recording.attribution = Some(Box::new(RecordingAttribution {
         creators: vec!["a".into()],
         provider_label: "owned-attribution".into(),
         content_url: "https://example.invalid/owned".into(),
-    });
+    }));
     loop {
         let encoded = serde_json::to_vec(&entry.recording).unwrap().len();
         let missing = bytes.checked_sub(encoded).expect("the base recording fits");

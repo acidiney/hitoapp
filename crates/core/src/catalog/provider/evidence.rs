@@ -26,7 +26,7 @@ pub(super) async fn observe(
     let observation: String = sqlx::query_scalar("SELECT id FROM metadata_observations WHERE provider_binding_id = ? AND provider_digest = ?")
         .bind(&binding.id).bind(digest).fetch_one(&mut **tx).await?;
     crate::metadata::retain_isrc(
-        &mut **tx,
+        tx,
         &observation,
         &binding.recording_id,
         details.isrc.as_deref(),
@@ -34,7 +34,7 @@ pub(super) async fn observe(
     )
     .await?;
     crate::metadata::retain_artist_pages(
-        &mut **tx,
+        tx,
         &observation,
         &binding.recording_id,
         &details.artist_urls,

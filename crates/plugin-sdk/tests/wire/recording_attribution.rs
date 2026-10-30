@@ -36,11 +36,11 @@ fn typed_attribution_round_trips_without_reordering_or_deduplicating_creator_nam
     let decoded: RecordingAttribution = serde_json::from_slice(wire).unwrap();
     assert!(decoded == expected);
     let mut recording: ProviderRecording = serde_json::from_slice(LEGACY_RECORDING).unwrap();
-    recording.attribution = Some(expected.clone());
+    recording.attribution = Some(Box::new(expected.clone()));
     recording.validate().unwrap();
     let decoded: ProviderRecording =
         serde_json::from_slice(&serde_json::to_vec(&recording).unwrap()).unwrap();
-    assert!(decoded.attribution == Some(expected));
+    assert!(decoded.attribution == Some(Box::new(expected)));
     assert_eq!(decoded.artist, "Owned performer");
 }
 

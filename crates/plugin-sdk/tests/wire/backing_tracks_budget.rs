@@ -31,11 +31,11 @@ fn complete_encoded_backings_accept_the_exact_budget_and_reject_one_more_valid_b
                 disc_number: Some(1),
                 track_number: Some(index + 1),
                 revision: Some("v".repeat(256)),
-                attribution: Some(RecordingAttribution {
+                attribution: Some(Box::new(RecordingAttribution {
                     creators: vec!["Owned é \"creator\" \\ ensemble".into(); 16],
                     provider_label: "p".repeat(256),
                     content_url: "https://backings.example/owned".into(),
-                }),
+                })),
             })
             .collect(),
     };

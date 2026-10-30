@@ -37,7 +37,7 @@ pub struct ProviderRecording {
     pub track_number: Option<u32>,
     pub revision: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attribution: Option<crate::RecordingAttribution>,
+    pub attribution: Option<Box<crate::RecordingAttribution>>,
     /// ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isrc: Option<String>,

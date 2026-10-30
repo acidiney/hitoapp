@@ -197,9 +197,7 @@ async fn a_url_lookup_returns_the_distinct_related_artists_and_ignores_other_rel
     );
     assert_eq!(
         requests,
-        vec![format!(
-            "/ws/2/url?resource=https%3A%2F%2Fopen.spotify.com%2Fartist%2F0000000000000000000001&inc=artist-rels&fmt=json"
-        )]
+        vec!["/ws/2/url?resource=https%3A%2F%2Fopen.spotify.com%2Fartist%2F0000000000000000000001&inc=artist-rels&fmt=json".to_string()]
     );
     let logs = capture.text();
     assert!(logs.contains("MusicBrainz URL lookup completed"));

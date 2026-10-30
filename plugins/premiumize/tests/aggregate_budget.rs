@@ -84,11 +84,11 @@ fn entries<const N: usize>(sizes: [usize; N]) -> Vec<CuratedWavRecording> {
 }
 
 fn padded(mut value: ProviderRecording, bytes: usize) -> ProviderRecording {
-    value.attribution = Some(RecordingAttribution {
+    value.attribution = Some(Box::new(RecordingAttribution {
         creators: vec!["a".into()],
         provider_label: "owned-attribution".into(),
         content_url: "https://example.invalid/owned".into(),
-    });
+    }));
     loop {
         let encoded = serde_json::to_vec(&value).unwrap().len();
         let missing = bytes.checked_sub(encoded).expect("the base recording fits");

@@ -103,13 +103,13 @@ async fn recording_detail_admits_exact_transport_budget_and_rejects_one_more_byt
 
 fn metadata(bytes: usize) -> ProviderRecording {
     let mut value = recording();
-    value.attribution = Some(RecordingAttribution {
+    value.attribution = Some(Box::new(RecordingAttribution {
         creators: (0..16)
             .map(|index| format!("owned-private-ad-detail-creator-{index:02}-"))
             .collect(),
         provider_label: "owned-private-ad-detail-provider-label".into(),
         content_url: "https://attribution.hito-fixture.invalid/recording".into(),
-    });
+    }));
     let mut remaining = bytes
         .checked_sub(serde_json::to_vec(&value).unwrap().len())
         .unwrap();
