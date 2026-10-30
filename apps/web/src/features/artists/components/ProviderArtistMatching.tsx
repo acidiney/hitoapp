@@ -36,8 +36,8 @@ export default function ProviderArtistMatching({
         Match with MusicBrainz
       </h2>
       <p className="muted" id="provider-matching-help">
-        Sends ISRC codes and provider artist links from your library to
-        MusicBrainz.
+        Sends ISRC codes, provider artist links and the artist names of tracks
+        it cannot place otherwise from your library to MusicBrainz.
       </p>
       <Button
         aria-describedby="provider-matching-help"

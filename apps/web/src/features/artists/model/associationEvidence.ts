@@ -9,6 +9,8 @@ const matched: Record<
   matched_isrc: "Matched automatically from the recording's ISRC.",
   matched_provider_url:
     "Matched automatically from the provider's artist page.",
+  matched_name_discography:
+    "Matched automatically from the artist's name, corroborated by its recordings.",
 };
 
 /** How an automatic match was made, or null for a review the account confirmed itself. */

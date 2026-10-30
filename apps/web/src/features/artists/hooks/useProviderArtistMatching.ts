@@ -29,9 +29,21 @@ function builtinEnabled(settings: Schema<"MetadataSettings">) {
   );
 }
 
+const NAME_PHASE = "name:";
+
+/** A cursor moves forward within a phase; entering the name phase is always progress. */
+function advances(previous: string | undefined, next: string) {
+  if (previous === undefined) return true;
+  if (previous.startsWith(NAME_PHASE) !== next.startsWith(NAME_PHASE))
+    return next.startsWith(NAME_PHASE);
+  return next > previous;
+}
+
 /**
- * The provider pass sends ISRC codes and provider artist links to MusicBrainz, so it starts only
- * when the account asks for it and only while its metadata settings allow the built-in provider.
+ * The provider pass sends ISRC codes, provider artist links and credit names to MusicBrainz, so it
+ * starts only when the account asks for it and only while its metadata settings allow the
+ * built-in provider. It walks the server's cursor through the evidence phase and then the name
+ * phase, and leaving the page cancels whatever is in flight.
  */
 export function useProviderArtistMatching(account: string) {
   const scope = useRequestScope(account);
@@ -86,7 +98,7 @@ export function useProviderArtistMatching(account: string) {
           break;
         }
         if (receipt.unavailable > 0) break;
-        if (after && receipt.next_after <= after) break;
+        if (!advances(after, receipt.next_after)) break;
         after = receipt.next_after;
       }
       if (!request.active()) return;
