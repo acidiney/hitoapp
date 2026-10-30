@@ -9,15 +9,15 @@ test("cover text keeps 4.5:1 against the cover colour", () => {
     );
 });
 
-test("cover shapes stay in the free band between the artist and the title", () => {
+test("cover shapes stay out of the title block", () => {
   const css = stylesheet("primitives.css");
-  for (const shape of ["circle", "band"]) {
-    const block = rule(css, `.fallback-cover[data-shape="${shape}"]::before`);
-    const top = parseFloat(block.match(/top:\s*([\d.]+)%/)![1]);
-    const size = parseFloat(block.match(/(?:height|width):\s*([\d.]+)%/)![1]);
-    expect(top).toBeGreaterThanOrEqual(20);
-    expect(top + size).toBeLessThanOrEqual(40);
-  }
+  const circle = rule(css, '.fallback-cover[data-shape="circle"]::before');
+  const top = parseFloat(circle.match(/top:\s*([\d.]+)%/)![1]);
+  const size = parseFloat(circle.match(/width:\s*([\d.]+)%/)![1]);
+  expect(top + size).toBeLessThanOrEqual(25);
+  const band = rule(css, '.fallback-cover[data-shape="band"]::before');
+  const width = parseFloat(band.match(/width:\s*([\d.]+)%/)![1]);
+  expect(width).toBeLessThanOrEqual(9);
 });
 
 test("a switch that is off is at least 3:1 against its surroundings in both schemes", () => {

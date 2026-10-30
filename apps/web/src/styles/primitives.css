@@ -241,18 +241,19 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.85;
+  max-width: 74%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .fallback-cover-title {
-  font-size: max(9px, 17cqw);
+  font-size: max(9px, 15cqw);
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.04em;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .fallback-cover[data-shape="circle"]::before,
@@ -263,14 +264,14 @@
 }
 .fallback-cover[data-shape="circle"]::before {
   right: 9%;
-  top: 20%;
-  width: 18%;
+  top: 9%;
+  width: 14%;
   aspect-ratio: 1;
   border-radius: 50%;
 }
 .fallback-cover[data-shape="band"]::before {
   left: 0;
-  right: 0;
-  top: 22%;
-  height: 14%;
+  top: 0;
+  bottom: 0;
+  width: 5%;
 }
