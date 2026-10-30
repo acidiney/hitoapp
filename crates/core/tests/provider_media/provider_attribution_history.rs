@@ -301,6 +301,7 @@ async fn private_state(hito: &Services, actor: &Actor, recording: &str, playlist
 fn retained_display(value: impl Serialize) -> Value {
     let mut value = serde_json::to_value(value).unwrap();
     value.as_object_mut().unwrap().remove("available");
+    value.as_object_mut().unwrap().remove("plays_from_services");
     value
 }
 

@@ -278,6 +278,7 @@ fn without_availability(mut page: Value, field: &str) -> Value {
         item.as_object_mut()
             .unwrap_or_else(|| panic!("the public saved-state item must be an object"))
             .remove("available");
+        item.as_object_mut().unwrap().remove("plays_from_services");
     }
     page
 }

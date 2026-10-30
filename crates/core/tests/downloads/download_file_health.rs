@@ -431,6 +431,7 @@ async fn retained_state(fixture: &AudioLibrary, playlist: Uuid) -> Value {
     ] {
         for row in rows.as_array_mut().unwrap() {
             row.as_object_mut().unwrap().remove("available");
+            row.as_object_mut().unwrap().remove("plays_from_services");
         }
     }
     let metadata = fixture

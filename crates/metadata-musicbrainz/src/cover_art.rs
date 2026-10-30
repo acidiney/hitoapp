@@ -1,5 +1,8 @@
 use crate::Error;
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 use tokio::{sync::Mutex, time::Instant};
 use uuid::Uuid;
 
@@ -32,7 +35,7 @@ pub struct CoverArt {
 /// leaves the host.
 #[derive(Clone)]
 pub struct CoverArtClient {
-    client: reqwest::Client,
+    client: Arc<OnceLock<reqwest::Client>>,
     endpoint: reqwest::Url,
     loopback: bool,
     next_start: Arc<Mutex<Option<Instant>>>,
@@ -63,6 +66,19 @@ impl CoverArtClient {
     }
 
     fn build(endpoint: reqwest::Url, loopback: bool) -> Result<Self, Error> {
+        Ok(Self {
+            client: Default::default(),
+            endpoint,
+            loopback,
+            next_start: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    /// Built on first use, so hosts that never fetch covers pay nothing at startup.
+    fn client(&self) -> Result<&reqwest::Client, Error> {
+        if let Some(client) = self.client.get() {
+            return Ok(client);
+        }
         if rustls::crypto::CryptoProvider::get_default().is_none() {
             let _ = rustls::crypto::ring::default_provider().install_default();
         }
@@ -79,12 +95,7 @@ impl CoverArtClient {
             ))
             .build()
             .map_err(|_| Error::Configuration)?;
-        Ok(Self {
-            client,
-            endpoint,
-            loopback,
-            next_start: Arc::new(Mutex::new(None)),
-        })
+        Ok(self.client.get_or_init(|| client))
     }
 
     /// The front cover at 500 pixels, or nothing when the archive holds none.
@@ -103,7 +114,7 @@ impl CoverArtClient {
         for _ in 0..=MAX_REDIRECTS {
             self.wait_for_start().await;
             let response = self
-                .client
+                .client()?
                 .get(url.clone())
                 .header("accept", "image/jpeg, image/png")
                 .header("accept-encoding", "identity")

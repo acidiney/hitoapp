@@ -455,6 +455,7 @@ async fn stable_state(
 fn without_availability(mut page: Value, field: &str) -> Value {
     for item in page[field].as_array_mut().unwrap() {
         item.as_object_mut().unwrap().remove("available");
+        item.as_object_mut().unwrap().remove("plays_from_services");
     }
     page
 }

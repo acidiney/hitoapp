@@ -61,6 +61,8 @@ async fn exercise(
         settings
             == json!({
                 "revision": 0, "enabled": true, "providers": [MetadataProvider::BuiltinMusicBrainz],
+                "automatic_artist_lookup": true, "automatic_artwork": true,
+                "automatic_service_search": true,
             })
     );
     assert!(provider.requests().is_empty());
