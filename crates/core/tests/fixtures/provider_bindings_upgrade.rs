@@ -1,5 +1,6 @@
 #[path = "legacy_library.rs"]
 mod legacy;
+use super::support;
 pub use legacy::{LIBRARY, Legacy, PLAYLIST, RECORDING, SOURCE};
 
 use sqlx::{SqlitePool, migrate::Migrator, sqlite::SqliteConnectOptions};

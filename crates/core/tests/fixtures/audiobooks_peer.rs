@@ -1,4 +1,4 @@
-use crate::library::{self, Library};
+use super::library::{self, Library};
 use hito_core::{
     Action, Actor, Browse, Credentials, Error, MetadataHistoryQuery, PlaylistDownloadQuery, Search,
 };

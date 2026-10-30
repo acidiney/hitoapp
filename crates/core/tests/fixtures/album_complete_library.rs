@@ -1,5 +1,5 @@
-use crate::provider::{self, AlbumProvider};
-use crate::support;
+use super::provider::{self, AlbumProvider};
+use super::support;
 
 use hito_core::{
     Action, Actor, AdoptProviderRecording, AlbumEditionTrackListAvailability, ArtistAssociation,

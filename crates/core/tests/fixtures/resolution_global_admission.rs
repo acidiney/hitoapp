@@ -1,4 +1,4 @@
-use crate::provider::Provider;
+use super::provider::Provider;
 use hito_core::{
     Actor, AdoptProviderRecording, Credentials, Error, InstallPlugin, OfferPluginService,
     PluginInstallation, Services,

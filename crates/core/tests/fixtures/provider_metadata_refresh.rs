@@ -1,6 +1,7 @@
 #[allow(dead_code)]
 #[path = "provider_metadata_backfill.rs"]
 mod backfill;
+use super::support;
 pub use backfill::Library;
 
 use hito_core::{Action, Error};
@@ -17,7 +18,7 @@ pub async fn seed_private_state(f: &Library) -> String {
     let recording = copy.entries[0].recording_id.clone().unwrap();
     f.select_owned_alternate_source(&recording).await;
     let recording_id = Uuid::parse_str(&recording).unwrap();
-    crate::support::synchronize(
+    super::support::synchronize(
         &f.hito,
         &f.actor,
         vec![

@@ -21,7 +21,7 @@ impl Legacy {
         let music = directory.path().join("music");
         std::fs::create_dir(&music).unwrap();
         let original = music.join("z-original.wav");
-        let bytes = crate::support::write_wav(&original, 0);
+        let bytes = super::support::write_wav(&original, 0);
         let pool = sqlx::SqlitePool::connect_with(
             SqliteConnectOptions::new()
                 .filename(directory.path().join("hito.db"))

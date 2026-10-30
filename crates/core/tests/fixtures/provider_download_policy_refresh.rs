@@ -1,4 +1,4 @@
-use crate::{fixture::ProviderServer, support};
+use super::{fixture::ProviderServer, support};
 use axum::http::{HeaderMap, StatusCode};
 use hito_core::{
     Action, Actor, AdoptProviderRecording, Credentials, Error, InstallPlugin, OfferPluginService,

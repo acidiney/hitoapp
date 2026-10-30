@@ -1,0 +1,28 @@
+#![allow(clippy::duplicate_mod)]
+
+mod artist_association_bulk;
+mod artist_association_changes;
+mod artist_association_changes_upgrade;
+mod artist_correction_promotion;
+mod artist_correction_reconcile;
+mod artist_identity_bulk;
+mod artist_identity_corrections_upgrade;
+mod artist_identity_selection;
+mod artist_identity_selection_concurrency;
+mod artist_identity_selection_logs;
+mod artist_identity_selection_metadata;
+mod artist_identity_selection_namespaces;
+mod artist_identity_selection_offline;
+mod artist_identity_selection_order;
+mod artist_identity_selection_paging;
+mod artist_identity_selection_receipts;
+mod artist_identity_selection_reset;
+mod artist_identity_selection_retention;
+mod artist_identity_selection_search;
+mod artist_identity_split;
+mod artist_identity_unified_index;
+mod artist_identity_unified_index_edges;
+mod artist_match_guards;
+mod artist_match_suggestions;
+mod artist_match_tags;
+mod artist_matching_upgrade;

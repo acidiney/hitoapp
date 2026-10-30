@@ -1,6 +1,6 @@
 use hito_core::test_support::playlist_service as provider;
 
-use crate::{catalog, support};
+use super::{catalog, support};
 use hito_core::{
     Action, Actor, Credentials, Error, ImportProviderPlaylist, InstallPlugin, MetadataProvider,
     OfferPluginService, PlaylistImportReceipt, Services, UpdateMetadataSettings,

@@ -1,0 +1,23 @@
+#![allow(clippy::duplicate_mod)]
+
+mod manual_source_choice_upgrade;
+mod source_choice_reset_upgrade;
+mod source_preparation_foreign_keys;
+mod source_preparation_history;
+mod source_preparation_query_plans;
+mod source_resolution_admission;
+mod source_resolution_bound_candidate;
+mod source_resolution_canonical_live;
+mod source_resolution_capacity_outcome;
+mod source_resolution_evidence_upgrade;
+mod source_resolution_failover;
+mod source_resolution_global_admission;
+mod source_resolution_musical_evidence;
+mod source_resolution_revocation;
+mod source_resolution_search_order;
+mod source_resolution_unavailable;
+mod source_resolution_unavailable_upgrade;
+mod source_resolution_upgrade;
+mod source_resolution_upgrade_work;
+mod source_resolution_versions;
+mod source_resolution_video_versions;

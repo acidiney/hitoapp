@@ -1,4 +1,4 @@
-use crate::support;
+use super::support;
 use hito_core::{
     Action, Actor, ArtistAssociation, ArtistCreditRole, AssociateRecordingArtist, Browse,
     Credentials, InstallPlugin, MetadataHistoryQuery, MetadataProvider, OfferPluginService, Search,

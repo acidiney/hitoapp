@@ -1,7 +1,7 @@
 #[path = "provider_attachment.rs"]
 mod provider;
 
-use crate::support;
+use super::support;
 use hito_core::{
     Actor, AttachReviewedProviderSource, ChooseSource, ImportProviderPlaylist,
     PlaylistImportReceipt, PluginInstallation, ProviderCandidate, Services,

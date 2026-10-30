@@ -1,7 +1,7 @@
 #[path = "source_preparation_history.rs"]
 mod provider;
 
-use crate::support;
+use super::support;
 use hito_core::{AdoptProviderRecording, InstallPlugin, OfferPluginService, PrepareSource};
 use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use uuid::Uuid;

@@ -209,7 +209,7 @@ pub fn append_wav_id3_chunk(path: &Path, tag: &[u8]) {
 pub fn write_mp3_with_tag(scratch: &Path, path: &Path, tag: &[u8]) {
     let source = scratch.join("id3-source.wav");
     let plain = scratch.join("id3-plain.mp3");
-    crate::support::write_wav(&source, 0);
+    super::support::write_wav(&source, 0);
     assert!(
         Command::new("ffmpeg")
             .args(["-nostdin", "-v", "error", "-y", "-i"])

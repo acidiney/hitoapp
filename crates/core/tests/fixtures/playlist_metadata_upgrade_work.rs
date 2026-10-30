@@ -1,4 +1,4 @@
-use crate::{provider, support};
+use super::{provider, support};
 use hito_core::{
     Action, Credentials, FollowProviderPlaylist, ImportProviderPlaylist, InstallPlugin,
     OfferPluginService, PlaylistFollowInterval,

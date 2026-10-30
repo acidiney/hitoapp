@@ -1,7 +1,7 @@
 pub use content::ProviderServer;
 use hito_core::test_support::content_service as content;
 
-use crate::support;
+use super::support;
 use hito_core::{
     Action, Actor, Browse, Error, ImportProviderPlaylist, InstallPlugin, ObservationOrigin,
     OfferPluginService, PlaylistImportReceipt, Services,

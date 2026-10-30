@@ -2,7 +2,7 @@
 mod provider;
 pub use provider::ProviderServer;
 
-use crate::support;
+use super::support;
 use hito_core::{Action, Actor, ImportProviderPlaylist, Services};
 use serde_json::{Value, json};
 use std::path::PathBuf;

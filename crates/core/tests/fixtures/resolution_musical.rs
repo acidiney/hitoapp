@@ -3,7 +3,7 @@
 mod provider;
 pub use provider::ProviderServer;
 
-use crate::support;
+use super::support;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use hito_core::{Action, Actor, ImportProviderPlaylist, PluginInstallation, Services};
 use hito_plugin_sdk::{Capability, ProviderRecording, RecordingMetadata, SourcePage};

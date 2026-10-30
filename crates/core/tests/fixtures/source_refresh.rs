@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::support;
+use super::support;
 use hito_core::test_support::content_service as provider;
 
 use hito_core::{

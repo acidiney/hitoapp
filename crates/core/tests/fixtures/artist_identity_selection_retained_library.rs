@@ -1,4 +1,4 @@
-use crate::{catalog, support};
+use super::{catalog, support};
 use hito_core::{
     Action, Actor, Credentials, InstallPlugin, MetadataProvider, OfferPluginService, Services,
     UpdateMetadataSettings,

@@ -1,0 +1,25 @@
+#![allow(clippy::duplicate_mod)]
+
+mod provider_adoption;
+mod provider_adoption_fences;
+mod provider_binding_authority;
+mod provider_binding_refresh;
+mod provider_binding_releases;
+mod provider_download_policy;
+mod provider_download_policy_refresh;
+mod provider_metadata_backfill;
+mod provider_metadata_only_adoption;
+mod provider_metadata_refresh_admission;
+mod provider_metadata_refresh_atomicity;
+mod provider_metadata_refresh_authority;
+mod provider_metadata_refresh_membership;
+mod provider_metadata_refresh_noop;
+mod provider_metadata_refresh_replay;
+mod provider_metadata_refresh_revocation;
+mod provider_playlist_policy;
+mod provider_policy_capacity;
+mod provider_release_credit_refresh;
+mod provider_release_credits;
+mod provider_source_refresh;
+mod provider_source_refresh_fences;
+mod provider_upgrade;

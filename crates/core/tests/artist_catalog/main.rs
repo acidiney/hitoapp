@@ -1,0 +1,23 @@
+#![allow(clippy::duplicate_mod)]
+
+mod album_complete_matching;
+mod album_complete_track_list;
+mod album_edition_choice;
+mod album_edition_upgrade;
+mod album_track_audio;
+mod artist_catalog_credit_review;
+mod artist_catalog_descriptor_compatibility;
+mod artist_catalog_discography;
+mod artist_catalog_discovery;
+mod artist_catalog_discovery_cancellation;
+mod artist_catalog_discovery_confirmation_context;
+mod artist_catalog_discovery_context;
+mod artist_catalog_discovery_review;
+mod artist_catalog_editions;
+mod artist_catalog_library_availability;
+mod artist_catalog_library_playable;
+mod artist_catalog_metadata_only;
+mod artist_catalog_metadata_privacy;
+mod artist_catalog_playback_isolation;
+mod artist_catalog_profile_lifecycle;
+mod artist_catalog_profiles;
