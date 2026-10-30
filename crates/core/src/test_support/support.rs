@@ -5,16 +5,23 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub async fn library(host: &str) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
+    library_with_musicbrainz(host, None).await
+}
+
+pub async fn library_with_musicbrainz(
+    host: &str,
+    musicbrainz: Option<url::Url>,
+) -> (tempfile::TempDir, Services, Actor, String, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let music = dir.path().join("music");
     std::fs::create_dir(&music).unwrap();
-    let hito = open(CoreConfig::new(
+    let mut config = CoreConfig::new(
         dir.path().join("hito.db"),
         music.clone(),
         HostDeviceId::new(host).unwrap(),
-    ))
-    .await
-    .unwrap();
+    );
+    config.musicbrainz_loopback_endpoint = musicbrainz;
+    let hito = open(config).await.unwrap();
     let session = hito
         .identity
         .setup(Credentials {

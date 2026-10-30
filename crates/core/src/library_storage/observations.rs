@@ -104,6 +104,20 @@ async fn observe(
         inspection_version = METADATA_VERSION,
         "Source observation retained"
     );
-    Ok(sqlx::query_scalar("SELECT id FROM metadata_observations WHERE source_id = ? AND file_checksum = ? AND inspection_version = ?")
-        .bind(source).bind(&file.checksum).bind(METADATA_VERSION).fetch_one(&mut **tx).await?)
+    let observation: String = sqlx::query_scalar("SELECT id FROM metadata_observations WHERE source_id = ? AND file_checksum = ? AND inspection_version = ?")
+        .bind(source).bind(&file.checksum).bind(METADATA_VERSION).fetch_one(&mut **tx).await?;
+    let stated = file
+        .tag_details
+        .as_deref()
+        .and_then(|tags| serde_json::from_str::<serde_json::Value>(tags).ok())
+        .and_then(|tags| tags["isrc"]["value"].as_str().map(str::to_owned));
+    crate::metadata::retain_isrc(
+        &mut **tx,
+        &observation,
+        recording,
+        stated.as_deref(),
+        crate::metadata::IsrcOrigin::FileTag,
+    )
+    .await?;
+    Ok(observation)
 }

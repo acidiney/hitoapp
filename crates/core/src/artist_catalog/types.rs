@@ -41,6 +41,7 @@ pub enum ArtistCreditRole {
 pub enum ArtistAssociationEvidence {
     UserConfirmed,
     MatchedFileTagArtistId,
+    MatchedIsrc,
 }
 
 #[derive(Deserialize, ToSchema)]

@@ -20,6 +20,27 @@ pub struct ArtistMatchReceipt {
     pub next_after: Option<String>,
 }
 
+#[derive(Clone, Deserialize, Serialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MatchArtistsFromProviderEvidence {
+    pub request_id: Uuid,
+    pub after: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+pub struct ArtistProviderMatchReceipt {
+    pub request_id: Uuid,
+    pub matched: i64,
+    /// Provider answers that name no artist, several recordings or several artists.
+    pub uncertain: i64,
+    /// Recordings with an earlier personal decision or unlinked association.
+    pub declined: i64,
+    /// Recordings whose lookup could not be completed; they are asked again by a later pass.
+    pub unavailable: i64,
+    pub next_after: Option<String>,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct ArtistMatchSuggestion {
     pub group: ArtistIdentityGroup,

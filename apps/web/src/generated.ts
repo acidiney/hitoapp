@@ -2431,7 +2431,7 @@ export interface components {
             undo?: components["schemas"]["ArtistAssociationUndo"] | null;
         };
         /** @enum {string} */
-        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id";
+        ArtistAssociationEvidence: "user_confirmed" | "matched_file_tag_artist_id" | "matched_isrc";
         ArtistAssociationRetirement: {
             association_id: string;
             reason: components["schemas"]["ArtistCorrectionRetirement"];

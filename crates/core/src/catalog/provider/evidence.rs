@@ -23,6 +23,15 @@ pub(super) async fn observe(
         .bind(details.duration_ms.unwrap_or(0) as i64).bind(details.disc_number.map(i64::from)).bind(details.track_number.map(i64::from))
         .bind(&binding.installation_id).bind(&details.id).bind(&details.revision).bind(metadata).bind(&digest).bind(&binding.id).execute(&mut **tx).await?.rows_affected();
     tracing::debug!(created = inserted == 1, "Provider observation retained");
-    Ok(sqlx::query_scalar("SELECT id FROM metadata_observations WHERE provider_binding_id = ? AND provider_digest = ?")
-        .bind(&binding.id).bind(digest).fetch_one(&mut **tx).await?)
+    let observation: String = sqlx::query_scalar("SELECT id FROM metadata_observations WHERE provider_binding_id = ? AND provider_digest = ?")
+        .bind(&binding.id).bind(digest).fetch_one(&mut **tx).await?;
+    crate::metadata::retain_isrc(
+        &mut **tx,
+        &observation,
+        &binding.recording_id,
+        details.isrc.as_deref(),
+        crate::metadata::IsrcOrigin::ProviderResponse,
+    )
+    .await?;
+    Ok(observation)
 }
