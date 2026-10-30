@@ -1,16 +1,15 @@
 use crate::Result;
-use sqlx::{QueryBuilder, Sqlite, Transaction};
+use crate::metadata::RecordingScope;
+use sqlx::{Sqlite, Transaction};
 
-/// Marks corrections whose recording no longer carries the credit they were made for.
-///
-/// `targets` builds a `WITH targets AS (...)` prefix naming the refreshed recordings. Retired
+/// Marks corrections whose recording no longer carries the credit they were made for. Retired
 /// corrections are never revived and never create or merge identities; they stay readable so the
 /// account can see that they no longer apply.
 pub(crate) async fn retire_stale(
     tx: &mut Transaction<'_, Sqlite>,
-    targets: impl Fn() -> QueryBuilder<'static, Sqlite>,
+    scope: &RecordingScope<'_>,
 ) -> Result<()> {
-    let mut unlinks = targets();
+    let mut unlinks = scope.recordings();
     unlinks.push(
         "INSERT OR IGNORE INTO artist_association_change_retirements(user_id,association_id,reason)
          SELECT assoc.user_id,assoc.id,'credit_changed' FROM recording_artist_associations assoc INDEXED BY recording_artist_association_recording
@@ -23,7 +22,7 @@ pub(crate) async fn retire_stale(
                     AND credit.artist_id=assoc.artist_id)",
     );
     let retired = unlinks.build().execute(&mut **tx).await?.rows_affected();
-    let mut splits = targets();
+    let mut splits = scope.recordings();
     splits.push(
         "UPDATE artist_identity_change_items SET retired_reason='credit_changed'
          WHERE retired_reason IS NULL AND recording_id IN (SELECT recording_id FROM targets)
@@ -34,7 +33,7 @@ pub(crate) async fn retire_stale(
                 WHERE change.id=artist_identity_change_items.change_id)",
     );
     let items = splits.build().execute(&mut **tx).await?.rows_affected();
-    let mut shared = targets();
+    let mut shared = scope.recordings();
     shared.push(
         "UPDATE shared_artist_correction_subjects SET retired_reason=CASE
             WHEN raw_artist IS NOT (SELECT artist FROM recordings r WHERE r.id=shared_artist_correction_subjects.recording_id)
