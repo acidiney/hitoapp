@@ -128,3 +128,58 @@ async fn provider_artist_pages_are_added_immutably_without_implying_any() {
     }
     connection.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn name_discography_provenance_and_checks_are_added_immutably_without_implying_any() {
+    let directory = tempfile::tempdir().unwrap();
+    let options = SqliteConnectOptions::new()
+        .filename(directory.path().join("name-match-upgrade.db"))
+        .create_if_missing(true)
+        .foreign_keys(true);
+    let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+    schema::through(62).run(&mut connection).await.unwrap();
+    let before = schema::schema(&mut connection).await;
+    connection.close().await.unwrap();
+
+    let mut connection = SqliteConnection::connect_with(&options.clone().create_if_missing(false))
+        .await
+        .unwrap();
+    schema::through(63).run(&mut connection).await.unwrap();
+    let after = schema::schema(&mut connection).await;
+    assert!(before.iter().all(|object| after.contains(object)));
+    schema::assert_version(&mut connection, 63).await;
+    for statement in [
+        "INSERT INTO artist_association_name_matches(association_id,evidence_kind,receipt_order) VALUES('missing','name_discography',1)",
+        "INSERT INTO artist_association_name_matches(association_id,evidence_kind,receipt_order) VALUES('missing','isrc',1)",
+        "INSERT INTO artist_name_checks(user_id,recording_id,observation_id) VALUES('missing','recording','observation')",
+    ] {
+        assert!(
+            sqlx::query(statement)
+                .execute(&mut connection)
+                .await
+                .is_err(),
+            "{statement} must be rejected"
+        );
+    }
+    for table in ["artist_association_name_matches", "artist_name_checks"] {
+        let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM {table}"))
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "Historical accounts must not imply a {table} row");
+    }
+    let triggers: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_schema WHERE type='trigger' AND tbl_name='artist_association_name_matches' ORDER BY name",
+    )
+    .fetch_all(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(
+        triggers,
+        [
+            "artist_association_name_match_immutable",
+            "artist_association_name_match_retained"
+        ]
+    );
+    connection.close().await.unwrap();
+}
