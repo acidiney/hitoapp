@@ -395,6 +395,19 @@ Limits: only Chromium, and screenshots at 1440 and 390 px were read by eye, not 
 
 Review fixes after phase 3: unheard tracks follow album order (disc, track, title), only while playable, and Listen queues up to 25 of them instead of the first five alphabetically; Search no longer sends the query to a provider until the listener chooses Providers or "Search your services"; the provider outage warning stays when earlier results remain; quick-access tiles lost their misleading play icon; podcast-episode recordings no longer count as music for the empty-state guidance; the settings page test no longer lets the real Inertia router run. New cases failed first (`red-ui3fix-rust.log`: album order; `red-ui3fix-web.log`: no automatic provider request, action-first outage) and revoked library access, a removed source and the locked session for `/home` and `/search` were added and pass.
 
+## Automatic artist matching, cover art and related server reads
+
+Implemented in source, not deployed (migration 0066; owned fakes only, no live MusicBrainz or Cover Art Archive run from this source):
+
+- A background job matches artists after scans, playlist imports and follow refreshes, resumable from a stored cursor, single flight per account, cancellable on shutdown, skipped when the account's choices or policy forbid it. See [automatic matching](artist-matching.md#automatic-matching-and-consent).
+- Per-account choices for automatic artist lookup, artwork and service search, default on. See [preferences](metadata-preferences.md#automatic-lookups).
+- A typed inferred album artist for releases with none. See [catalog browsing](catalog-browsing.md#provider-albums-with-unknown-album-artists).
+- Front covers from the Cover Art Archive for library albums and discography cards. See [cover art](plugin-artwork.md#cover-art-archive).
+- Unknown paths answer a `NotFoundPage` with 404 (API paths keep JSON), chosen artists with exact-name matches first in search page props and the group list, `plays_from_services` on track reads (stored bindings and connection state only), and `GET /api/v1/artist-matching/status`.
+- Correction erasure scopes are written inside a savepoint and cleared at startup (review fix for [deletion and retention](artist-catalog-host.md#deletion-and-retention)).
+
+Open: the web app still shows its manual button and local-storage pause until it is switched to the status read; live acceptance; deployment; a work-budget measurement of a very large first walk.
+
 ## Release work still required
 
 The full scope remains in [release-plan.md](release-plan.md). The checklist in [TODO.md](../TODO.md) stays open for:

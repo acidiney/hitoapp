@@ -92,3 +92,13 @@ The normal deployed host currently retrieves recording covers; the collection so
 ## YouTube thumbnails in source
 
 The YouTube plugin supplies a recording's `hqdefault.jpg` thumbnail through this same capability, in full and metadata-only modes. A saved YouTube recording becomes fetchable only after the listener approves the added capability (Check connection, then Accept changes). A core test confirms a YouTube-shaped manifest makes availability true and that one without `artwork` stays false. Live thumbnail retrieval from the VPS is unverified. See [YouTube plugin](plugin-youtube.md#thumbnails-as-artwork).
+
+## Cover Art Archive
+
+Albums and discography cards can show a front cover without any plugin. When a release or release group has a MusicBrainz identifier, Hito reads `front-500` from coverartarchive.org. Only the identifier is sent (no title, artist, path or account). This is a built-in client in `hito-metadata-musicbrainz`, not a plugin capability: it follows redirects only to https `archive.org` hosts (at most three), accepts only JPEG or PNG up to 2 MiB, and makes at most one request per second. The image then goes through the same validation as provider artwork (format, dimensions, decode) and is stored in the account's artwork store.
+
+Where identifiers come from: the current MusicBrainz release or release-group tags of a library album (see [tag identifiers](artist-matching.md#release-and-recording-identifiers-from-tags)) and the release groups of a built-in MusicBrainz discography page. Requests are queued in `cover_art_lookups` when an album without artwork is read, after an automatic matching walk for albums with no local files, and when a discography page is read, at most 64 pending per account. A worker runs them one at a time.
+
+Honest states per identifier: `queued`/`running` (pending), `ready`, `missing` (the archive has no cover, or sent an invalid image), `unavailable` (four failed attempts with growing delay). Missing and unavailable answers are asked again only after a day, and only when something asks again. `GET /api/v1/cover-art/{kind}/{mbid}` (kind `release` or `release-group`) never contacts the archive: it returns the image (200), 202 while pending, 404 when missing or never asked, or 502 when unavailable. `GET /api/v1/releases/{id}/artwork` falls back to this cover after embedded and provider artwork.
+
+The choice **Fetch album artwork automatically** (default on, see [preferences](metadata-preferences.md#automatic-lookups)) governs all of this; turning it off queues nothing and drops pending work. Covered by an owned loopback archive fake (core, client and HTTP cases). The live archive has not been reached from this source, and nothing here is deployed.

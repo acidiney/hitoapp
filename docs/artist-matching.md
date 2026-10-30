@@ -1,6 +1,6 @@
 # Artist matching
 
-Hito can now group recordings under one reviewed artist without a user clicking through every track, but only when the data itself names that artist. Everything else stays a suggestion that the account accepts or dismisses. Equal names alone never merge artists: the one automatic use of a name is a MusicBrainz search that must be corroborated by the artist's own recordings.
+Hito can now group recordings under one reviewed artist without a user clicking through every track, but only when the data itself names that artist. Everything else stays a suggestion that the account accepts or dismisses. Since the move to automatic matching below, a background job does the walking. Equal names alone never merge artists: the one automatic use of a name is a MusicBrainz search that must be corroborated by the artist's own recordings.
 
 This page separates what runs today from what is planned. Current behavior is implemented in core, the authenticated API and the shared web app. It is not deployed to the normal local server. Matching from provider evidence (ISRC, artist pages and name searches corroborated by recordings) is covered by owned protocol fakes only: the built-in MusicBrainz service has not been reached for this feature, and live acceptance remains blocked; see [what is verified](#verification) and [open work](#open-work).
 
@@ -132,9 +132,33 @@ flowchart LR
 
 Nothing is merged or applied from these rows: releases with the same identifier stay separate, no recording is grouped by them, and personal edits are untouched. They are the verified starting point for later release and recording matching.
 
-## Consent for provider lookups
+## Automatic matching and consent
 
-The tag pass reads local files only, so the Artists page runs it silently. The provider pass sends ISRC codes, provider artist links and, in its name phase, credit names to a third party, so it runs only while the account's metadata settings select the built-in MusicBrainz provider with enrichment on; choosing that provider is the consent, and the server enforces the same rule. The Artists page starts the pass by itself when it opens (at most once every ten minutes per account in one browser; the pause is kept in local storage and starts only after a pass finishes, never after a cancelled or failed one) and shows one muted status line instead of a section: "Matching artists… N matched" while it runs, then "N matched." or "N matched so far." with a **Match again** text button. The line also says "Looks up artists on MusicBrainz" with a link to the Settings. When the settings do not allow it, the page shows nothing. Leaving the page cancels a run. The backend is expected to take this over; until then the page walks the cursors itself.
+Product direction: the app does this by itself. A listener who has not turned it off never presses a button. The tag pass reads local files only. The provider pass sends ISRC codes, provider artist links and, in its name phase, credit names to MusicBrainz, so the account's consent is a saved setting: **Look up artists on MusicBrainz automatically** (Settings, Privacy; `automatic_artist_lookup`, default on, stored per account in `account_metadata_automation`, changed through `PUT /api/v1/metadata/automation` and read in `GET /api/v1/metadata/settings`). It applies only while metadata enrichment is enabled and the built-in MusicBrainz provider is selected. Off means no automatic job and no automatic lookup. The manual walk (`POST /api/v1/artist-matching` and `/provider-evidence`) is unchanged and still works, because the listener asks for it explicitly.
+
+```mermaid
+flowchart LR
+    Scan[Folder scan completes] --> Request
+    Import[Playlist import or follow refresh] --> Request
+    Request[Upsert one job row per account] --> Jobs[(artist_matching_jobs)]
+    Jobs --> Worker[Matching worker, one step per second]
+    Worker --> Tags[Tag pass]
+    Tags --> Evidence[Provider evidence pass]
+    Evidence --> Names[Name pass]
+    Names --> Done[Delete job, record result]
+    Worker -.->|settings off| Drop[Drop job, no lookup]
+    Done --> Covers[Queue covers for albums without local files]
+```
+
+How the job works (current behavior, covered by owned fakes):
+
+- A trigger is an upsert of the account's row in `artist_matching_jobs` inside the transaction that adds the recordings: scan completion (every account with access to the scanned library), playlist import and follow create/refresh. The row is skipped when the account's settings forbid automatic matching. Repeated triggers share one row (single flight per account). A trigger that arrives while the walk is under way sets a rerun flag, so one more walk follows.
+- The server runs one worker. Each second it claims the oldest due row with a 90 second lease, runs exactly one batch (the tag pass, then the evidence and name passes through the same cursor the web app used), stores the phase and cursor, and releases the row. The batch uses the same bounds, admission slots, per-recording remembered checks and the one request per second MusicBrainz limiter as a manual run. The cursor is in SQLite, so a restart resumes and an expired lease is simply claimed again.
+- A shutdown drops the step in flight (cancelling any lookup), clears the lease and keeps the position. A busy admission slot retries in two seconds. An internal failure backs off (one to sixty minutes, six attempts) and then abandons the row. A walk whose lookups were unavailable is repeated later with exponential backoff, up to six times.
+- The worker acts as the account without a browser session (an unattended actor limited to core). It still goes through the same policy read, so a disabled provider, a removed account or the setting turned off drops the row without any request.
+- `GET /api/v1/artist-matching/status` reports `enabled`, `state` (`idle`, `queued` or `running`), `matched_so_far`, `last_finished_at` and `last_matched`, so the Artists page can show a status line instead of running its own pass.
+
+Logs carry the phase, a safe outcome and elapsed time only; never an account, a name, a title, an identifier or a search term. Until the web app drops its own button and local-storage pause, both can run; they are safe together because applying is revalidated per recording.
 
 Applying. Recordings are re-validated inside one immediate transaction exactly like the tag pass: the current observation must still be the one examined, a personal choice, reset, split, unlink, personal artist edit or hiding shared correction leaves it alone (and is never looked up in the first place), and a stale automatic match whose observation changed may be matched again. A match writes a reviewed association for the recording's own credit and the chosen artist; a new association gets a row in `artist_association_provider_matches` with `isrc` or `provider_url`, returned by the association API as `matched_isrc` or `matched_provider_url`. Exact retries replay the stored receipt without another lookup, only a request that matched something stores a receipt, and the receipt counts `matched`, `uncertain`, `declined` and `unavailable`.
 
@@ -155,6 +179,8 @@ Accepting uses the existing confirmation and `POST /api/v1/artists/{id}/artist-i
 Restoring. The read also returns `dismissed_items`: the dismissed suggestions that could still apply to undecided tracks, each with the same evidence as a listed suggestion (`dismissed` is their count). `POST /api/v1/artists/{id}/match-suggestions/restore` with the same `{group_id}` body deletes that one dismissal row for this account, credit and chosen artist and returns the refreshed list, so the suggestion is offered again. Restoring is idempotent: restoring a suggestion that was not dismissed, or restoring twice, changes nothing. A restore never applies a choice. It does not use a request receipt or revision, like the dismissal it undoes, because it deletes one row that only hides a suggestion. An unknown credit or chosen artist, or one of another account, is a 404; a locked session is a 423. The credit page shows a collapsed "Dismissed suggestions" disclosure with a **Restore** button per row, also when every suggestion is dismissed.
 
 ## Web behavior
+
+This section describes the interface before the server ran the walk itself. The web app is being switched to the status read and the privacy setting above, so its button and local-storage pause are expected to go.
 
 The Artists page starts one silent tag pass per account at most every ten minutes across tabs of one browser (the pause is kept in local storage and starts with the pass, so a cancelled or failing pass is not retried by every tab). It walks the cursor, stops after 200 batches or 60 seconds, is cancelled when the page is left, ignores failures, and refreshes the artist lists only if something matched. It sends no provider request. The provider pass starts on page open or from **Match again**, walks its cursor (at most 200 batches or two minutes), stops when a batch reports an unavailable provider and refreshes the lists once if something matched. The walk continues from the evidence cursor into the `name:` cursor and ends when the server returns no cursor; a cursor that does not advance ends it. The saved artist reviews of a recording say how an automatic match was made (file tag identifier, ISRC, provider artist page or name corroborated by recordings); reviews the account confirmed itself carry no such note. The credit page loads suggestions without blocking the rest of the page; a failed read shows nothing and leaves the manual flow untouched. Neither workflow subscribes to playback position.
 
@@ -187,6 +213,8 @@ HTTP cases use the real router for statuses, validation, replay, access, a secon
 
 ## Open work
 
+- Automatic matching is covered by owned fakes only; a live MusicBrainz run succeeded manually (sixteen recordings matched) but the automatic job has not been run against the live service or deployed. A per-account job runs one batch per second at most, so a very large library takes a long time by design.
+- Account deletion is not built: when it is, it must erase `account_metadata_automation`, `artist_matching_jobs` and `cover_art_lookups` rows with the other private rows.
 - A persistent cache of MusicBrainz answers shared across accounts, re-checking of "unknown" answers when MusicBrainz gains data, and a work-budget measurement of the provider candidate query on a large library.
 - Providers that expose ISRCs or artist pages. The folder plugin publishes ISRC tags. The public Spotify response states no ISRC. No other bundled plugin has an ISRC field in its source API that Hito could verify; none was invented. Existing imported copies receive artist pages only when their metadata is refreshed from the provider.
 - Name matching is implemented against owned fakes only. Still open: live acceptance, a persistent cache of search and recordings answers shared across accounts, release-based corroboration (release groups carry no track lengths), reading beyond one page of an artist's recordings or search results, and a work-budget measurement of the name candidate query on a large library. Timer-driven lookups outside a visit to the Artists page are not planned.
