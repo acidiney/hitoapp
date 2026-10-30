@@ -1,21 +1,22 @@
-use axum::{
-    Json, Router,
-    body::to_bytes,
-    extract::{Request, State},
-    http::{Method, StatusCode},
-    response::{IntoResponse, Response},
-};
+use axum::http::{Method, StatusCode};
 use hito_plugin_sdk::{
     ArtistSimilarityPage, ArtistSimilarityRequest, CATALOG_SIMILARITY_VERSION, Capability,
     CatalogArtistRef, CatalogSimilarityCapabilities, CatalogSimilarityIdentity,
     CatalogSimilarityOperation, Manifest, PROTOCOL_VERSION, SimilarArtist,
 };
+use hito_testkit::fake_plugin::{self as fake, FakePlugin, Fault, RecordedRequest};
 use serde_json::Value;
 use std::{
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
-use tokio::{sync::oneshot, task::JoinHandle};
+
+const CAPABILITIES: &str = "v1/catalog/similarity/capabilities";
+const ARTISTS: &str = "v1/catalog/similarity/artists";
+const REQUEST_LIMIT: usize = 32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservedRequest {
@@ -31,150 +32,40 @@ pub enum Reply {
     Status(StatusCode),
 }
 
-struct State_ {
+struct Behavior {
     declared: bool,
-    descriptor_failure: Option<StatusCode>,
     reply: Reply,
-    delay: Duration,
-    observed: Vec<ObservedRequest>,
-    unexpected: usize,
 }
 
 pub struct SimilarityServer {
     pub url: String,
-    state: Arc<Mutex<State_>>,
-    stop: Option<oneshot::Sender<()>>,
-    task: Option<JoinHandle<bool>>,
+    plugin: FakePlugin,
+    behavior: Arc<Mutex<Behavior>>,
+    rejected: Arc<AtomicUsize>,
 }
 
 impl SimilarityServer {
     pub async fn start() -> Self {
-        let state = Arc::new(Mutex::new(State_ {
+        let behavior = Arc::new(Mutex::new(Behavior {
             declared: true,
-            descriptor_failure: None,
             reply: Reply::Similar(Vec::new()),
-            delay: Duration::ZERO,
-            observed: Vec::new(),
-            unexpected: 0,
         }));
-        let router = Router::new().fallback(respond).with_state(state.clone());
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}/prefix/", listener.local_addr().unwrap());
-        let (stop, stopped) = oneshot::channel();
-        let task = tokio::spawn(async move {
-            axum::serve(listener, router)
-                .with_graceful_shutdown(async {
-                    let _ = stopped.await;
-                })
-                .await
-                .is_ok()
-        });
-        Self {
-            url,
-            state,
-            stop: Some(stop),
-            task: Some(task),
-        }
-    }
-
-    pub fn declare_similarity(&self, declared: bool) {
-        self.state.lock().unwrap().declared = declared;
-    }
-
-    pub fn fail_descriptor(&self, status: Option<StatusCode>) {
-        self.state.lock().unwrap().descriptor_failure = status;
-    }
-
-    pub fn reply(&self, reply: Reply) {
-        self.state.lock().unwrap().reply = reply;
-    }
-
-    pub fn delay(&self, delay: Duration) {
-        self.state.lock().unwrap().delay = delay;
-    }
-
-    pub fn requests(&self) -> Vec<ObservedRequest> {
-        self.state.lock().unwrap().observed.clone()
-    }
-
-    pub fn similarity_requests(&self) -> Vec<Value> {
-        self.requests()
-            .into_iter()
-            .filter(|request| request.path == "/prefix/v1/catalog/similarity/artists")
-            .map(|request| request.body)
-            .collect()
-    }
-
-    pub fn unexpected(&self) -> usize {
-        self.state.lock().unwrap().unexpected
-    }
-
-    pub async fn finish(&mut self) -> bool {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        let Some(mut task) = self.task.take() else {
-            return true;
-        };
-        match tokio::time::timeout(Duration::from_secs(3), &mut task).await {
-            Ok(result) => matches!(result, Ok(true)),
-            Err(_) => {
-                task.abort();
-                let _ = task.await;
-                false
+        let rejected = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::new(AtomicUsize::new(0));
+        let guard = {
+            let (rejected, seen) = (rejected.clone(), seen.clone());
+            move |request: &RecordedRequest| {
+                let over_limit = seen.fetch_add(1, Ordering::SeqCst) >= REQUEST_LIMIT;
+                let malformed = !request.body.is_empty()
+                    && serde_json::from_slice::<Value>(&request.body).is_err();
+                let rejects = over_limit || malformed || request.query.is_some();
+                if rejects {
+                    rejected.fetch_add(1, Ordering::SeqCst);
+                }
+                rejects
             }
-        }
-    }
-}
-
-impl Drop for SimilarityServer {
-    fn drop(&mut self) {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        if let Some(task) = self.task.take() {
-            task.abort();
-        }
-    }
-}
-
-async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> Response {
-    let (parts, body) = request.into_parts();
-    let Ok(bytes) = to_bytes(body, 4096).await else {
-        return reject(&state);
-    };
-    let body = if bytes.is_empty() {
-        Value::Null
-    } else {
-        let Ok(value) = serde_json::from_slice(&bytes) else {
-            return reject(&state);
         };
-        value
-    };
-    if parts.uri.query().is_some() {
-        return reject(&state);
-    }
-    let path = parts.uri.path().to_owned();
-    let (declared, reply, delay, descriptor_failure) = {
-        let mut guard = state.lock().unwrap();
-        if guard.observed.len() >= 32 {
-            guard.unexpected += 1;
-            return StatusCode::BAD_REQUEST.into_response();
-        }
-        guard.observed.push(ObservedRequest {
-            method: parts.method.clone(),
-            path: path.clone(),
-            body: body.clone(),
-        });
-        (
-            guard.declared,
-            guard.reply.clone(),
-            guard.delay,
-            guard.descriptor_failure,
-        )
-    };
-    match (parts.method.as_str(), path.as_str()) {
-        ("GET", "/prefix/v1/manifest") => Json(Manifest {
+        let plugin = FakePlugin::builder(Manifest {
             id: "org.hito.artist-similarity-fixture".into(),
             name: "Owned artist similarity".into(),
             protocol_version: PROTOCOL_VERSION,
@@ -182,53 +73,122 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
             authorization: None,
             content_policy: None,
         })
-        .into_response(),
-        ("GET", "/prefix/v1/catalog/similarity/capabilities") if descriptor_failure.is_some() => {
-            descriptor_failure.unwrap().into_response()
-        }
-        ("GET", "/prefix/v1/catalog/similarity/capabilities") if declared => {
-            Json(CatalogSimilarityCapabilities {
-                similarity_version: CATALOG_SIMILARITY_VERSION,
-                operations: vec![CatalogSimilarityOperation::ArtistSimilarity],
-                artist_identity: CatalogSimilarityIdentity::MusicbrainzArtist,
-            })
-            .into_response()
-        }
-        ("GET", "/prefix/v1/catalog/similarity/capabilities") => {
-            StatusCode::NOT_FOUND.into_response()
-        }
-        ("POST", "/prefix/v1/catalog/similarity/artists") if declared => {
-            let Ok(request) = serde_json::from_value::<ArtistSimilarityRequest>(body) else {
-                return reject(&state);
-            };
-            if request.validate().is_err() {
-                return reject(&state);
-            }
-            if !delay.is_zero() {
-                tokio::time::sleep(delay).await;
-            }
-            match reply {
-                Reply::Similar(items) => Json(ArtistSimilarityPage {
-                    artist_id: request.artist_id,
-                    items: items
-                        .into_iter()
-                        .take(usize::from(request.limit))
-                        .map(|(id, name, score)| SimilarArtist {
-                            artist: CatalogArtistRef { id, name },
-                            score,
+        .get(CAPABILITIES, {
+            let (behavior, guard) = (behavior.clone(), guard.clone());
+            move |request| {
+                if guard(request) {
+                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                }
+                if behavior.lock().unwrap().declared {
+                    fake::Reply::Json(
+                        serde_json::to_value(CatalogSimilarityCapabilities {
+                            similarity_version: CATALOG_SIMILARITY_VERSION,
+                            operations: vec![CatalogSimilarityOperation::ArtistSimilarity],
+                            artist_identity: CatalogSimilarityIdentity::MusicbrainzArtist,
                         })
-                        .collect(),
-                })
-                .into_response(),
-                Reply::Raw(value) => Json(value).into_response(),
-                Reply::Status(status) => status.into_response(),
+                        .unwrap(),
+                    )
+                } else {
+                    fake::Reply::Status(StatusCode::NOT_FOUND)
+                }
             }
+        })
+        .post(ARTISTS, {
+            let (behavior, rejected) = (behavior.clone(), rejected.clone());
+            move |request| {
+                if guard(request) {
+                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                }
+                let behavior = behavior.lock().unwrap();
+                let parsed = serde_json::from_value::<ArtistSimilarityRequest>(request.json())
+                    .ok()
+                    .filter(|parsed| behavior.declared && parsed.validate().is_ok());
+                let Some(parsed) = parsed else {
+                    rejected.fetch_add(1, Ordering::SeqCst);
+                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                };
+                match &behavior.reply {
+                    Reply::Similar(items) => fake::Reply::Json(
+                        serde_json::to_value(ArtistSimilarityPage {
+                            artist_id: parsed.artist_id,
+                            items: items
+                                .iter()
+                                .take(usize::from(parsed.limit))
+                                .map(|(id, name, score)| SimilarArtist {
+                                    artist: CatalogArtistRef {
+                                        id: id.clone(),
+                                        name: name.clone(),
+                                    },
+                                    score: *score,
+                                })
+                                .collect(),
+                        })
+                        .unwrap(),
+                    ),
+                    Reply::Raw(value) => fake::Reply::Json(value.clone()),
+                    Reply::Status(status) => fake::Reply::Status(*status),
+                }
+            }
+        })
+        .start()
+        .await;
+        Self {
+            url: plugin.url.clone(),
+            plugin,
+            behavior,
+            rejected,
         }
-        _ => reject(&state),
     }
-}
 
-fn reject(state: &Mutex<State_>) -> Response {
-    state.lock().unwrap().unexpected += 1;
-    StatusCode::BAD_REQUEST.into_response()
+    pub fn declare_similarity(&self, declared: bool) {
+        self.behavior.lock().unwrap().declared = declared;
+    }
+
+    pub fn fail_descriptor(&self, status: Option<StatusCode>) {
+        match status {
+            Some(status) => self.plugin.fault(CAPABILITIES, Fault::Status(status)),
+            None => self.plugin.clear_fault(CAPABILITIES),
+        }
+    }
+
+    pub fn reply(&self, reply: Reply) {
+        self.behavior.lock().unwrap().reply = reply;
+    }
+
+    pub fn delay(&self, delay: Duration) {
+        if delay.is_zero() {
+            self.plugin.clear_fault(ARTISTS);
+        } else {
+            self.plugin.fault(ARTISTS, Fault::Delay(delay));
+        }
+    }
+
+    pub fn requests(&self) -> Vec<ObservedRequest> {
+        self.plugin
+            .requests()
+            .into_iter()
+            .take(REQUEST_LIMIT)
+            .map(|request| ObservedRequest {
+                path: format!("/prefix/{}", request.operation),
+                body: request.json(),
+                method: request.method,
+            })
+            .collect()
+    }
+
+    pub fn similarity_requests(&self) -> Vec<Value> {
+        self.requests()
+            .into_iter()
+            .filter(|request| request.path == format!("/prefix/{ARTISTS}"))
+            .map(|request| request.body)
+            .collect()
+    }
+
+    pub fn unexpected(&self) -> usize {
+        self.rejected.load(Ordering::SeqCst) + self.plugin.unmatched()
+    }
+
+    pub async fn finish(&mut self) -> bool {
+        self.plugin.finish().await
+    }
 }
