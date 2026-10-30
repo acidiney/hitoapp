@@ -21,7 +21,7 @@ async function renderDock() {
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   await vi.waitFor(() => expect(service.subscriptions.position).toBe(1));

@@ -187,7 +187,7 @@ Current behaviour, covered by `apps/web` unit tests, the browser specs that open
 - Left: cover (artwork, else the generated cover), 30/800 title, artist (a link to Search), a 6 px seek bar with mono elapsed and remaining time, shuffle, previous, a 76 px play button, next, repeat, and the player status.
 - Right: tabs Up next, Lyrics and Source (arrow keys, Home and End move between tabs).
   - **Up next**: the next four queued tracks, which play when chosen, and "See full queue".
-  - **Lyrics**: a pointer to the track details page. Lyrics are fetched from a provider only after an explicit request there, so nothing is sent from here.
+  - **Lyrics**: opening the tab loads the lyrics of the playing track from the account's first lyrics provider, without a click. "Choose another provider" lists the other providers for the track. With no lyrics provider connected the tab says so and links to Settings → Plugins. Leaving the tab or changing the track cancels the request.
   - **Source**: what the player exposes: browser or desktop player, the speed the source plays at, the speeds it supports, and a link to track details where the source is chosen. The speed is a SegmentedControl on the same speed command as the player bar. Choices outside the source's range are hidden. Rapid choices (for example arrow keys) show at once and are sent as one command after 250 ms, or on closing.
 - Any link inside the dialog (artist, track details, See full queue) closes it first. After the new page loads, focus moves to its `h1`. The Queue button in the player bar does the same.
 - Seek and time are small components that subscribe to position. A test checks that position ticks cause no queue reads.
@@ -207,7 +207,7 @@ Current behaviour, covered by `apps/web` unit tests, the browser specs that open
 - Like on Now playing: the player has no like state.
 - An artist page link: a track carries only an artist name.
 - Source format, sample rate, conversion and an alternative source with "Switch": the player does not carry them.
-- Timed lyrics inside Now playing: the lyrics feature needs a loaded recording record and a provider choice.
+- Timed (synchronised) lyrics inside Now playing: lines are listed, not highlighted with the position.
 - "From <context>", total duration and per-entry preparation state in the queue: the queue stores no origin, only loaded entries have lengths, and the player does not expose preparation per entry.
 - "Save as playlist": no queue-to-playlist capability.
 - Invite-link account creation and a display-name field: the server has neither.

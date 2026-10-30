@@ -18,7 +18,7 @@ test("native Previous remains available after queue completion without current m
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   await vi.waitFor(() => expect(service.subscriptions.position).toBe(1));
@@ -67,7 +67,7 @@ test("native authority suspension explains stopped output and retains the progre
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   await screen.findByText("Track 0");
@@ -139,7 +139,7 @@ test.each(["delayed", "failed"])(
       createElement(PlaybackProvider, {
         account: "alice",
         native: true,
-        children: createElement(PlayerDock),
+        children: createElement(PlayerDock, { account: "alice" }),
       }),
     );
     await vi.waitFor(() => expect(service.subscriptions.position).toBe(1));
@@ -175,7 +175,7 @@ test("native preparation remains pausable with ordered speed controls", async ()
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   const pause = await screen.findByRole("button", {
@@ -235,7 +235,7 @@ test("native shuffle and repeat cycle at the owner without stale UI toggles", as
     createElement(PlaybackProvider, {
       account: "alice",
       native: true,
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   await screen.findByText("Track 0");

@@ -29,7 +29,7 @@ test("the dock does not claim a source for the playing track", async () => {
   const view = render(
     createElement(ArtworkProvider, {
       account: "source-account",
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   expect(view.container.textContent).not.toMatch(

@@ -29,7 +29,7 @@ test("the dock cover tries the release image before the recording image", async 
   const view = render(
     createElement(ArtworkProvider, {
       account: "dock-account",
-      children: createElement(PlayerDock),
+      children: createElement(PlayerDock, { account: "alice" }),
     }),
   );
   expect(

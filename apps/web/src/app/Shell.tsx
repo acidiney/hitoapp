@@ -67,7 +67,10 @@ export default function Shell({ children }: { children: ReactNode }) {
               </main>
             </div>
           </div>
-          <PlayerDock queueActive={url.pathname === "/queue"} />
+          <PlayerDock
+            account={user.id}
+            queueActive={url.pathname === "/queue"}
+          />
         </PlaybackProvider>
       </ArtworkProvider>
     </NoticeProvider>

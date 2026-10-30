@@ -51,7 +51,7 @@ test("position updates move the seek control without rendering any of a thousand
     available: true,
   }));
   await player.playQueue(tracks);
-  render(createElement(PlayerDock));
+  render(createElement(PlayerDock, { account: "alice" }));
   render(createElement(QueueScreen));
   const queue = screen.getByRole("region", { name: "Up next" });
   await waitFor(() =>

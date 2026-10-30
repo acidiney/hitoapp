@@ -9,9 +9,11 @@ import NowPlayingTabs from "./NowPlayingTabs";
 import RouteLink from "../../../shared/ui/RouteLink";
 
 export default function NowPlaying({
+  account,
   close,
   openQueue,
 }: {
+  account: string;
   close: () => void;
   openQueue: () => void;
 }) {
@@ -75,7 +77,12 @@ export default function NowPlaying({
           <PlaybackStatus className="now-playing-status" />
         </section>
         <aside aria-label="Details" className="np-details">
-          <NowPlayingTabs track={current} openQueue={openQueue} leave={close} />
+          <NowPlayingTabs
+            account={account}
+            track={current}
+            openQueue={openQueue}
+            leave={close}
+          />
         </aside>
       </div>
     </dialog>

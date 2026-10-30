@@ -17,6 +17,14 @@ import { QueueMedia, queueTrack } from "../fixtures/browserQueueMedia";
 let player: Playback;
 let media: QueueMedia;
 const close = vi.fn();
+const fetch = vi.fn(async (path: string) =>
+  path.endsWith("/lyrics/providers")
+    ? Response.json({ recording_id: "r0", items: [] })
+    : Response.json({
+        installations: [{ manifest: { capabilities: ["lyrics"] } }],
+        services: [],
+      }),
+);
 const openQueue = vi.fn();
 vi.mock("@inertiajs/react", () => ({ router: { visit: vi.fn() } }));
 vi.mock("../components/PlaybackProvider", () => ({ usePlayer: () => player }));
@@ -25,6 +33,7 @@ vi.mock("../../artwork/components/Artwork", () => ({
 }));
 
 beforeEach(async () => {
+  vi.stubGlobal("fetch", fetch);
   HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
     this.open = true;
   };
@@ -39,7 +48,7 @@ beforeEach(async () => {
       queueTrack(`r${index}`, `Track ${index}`),
     ),
   );
-  render(createElement(NowPlaying, { close, openQueue }));
+  render(createElement(NowPlaying, { account: "alice", close, openQueue }));
 });
 
 afterEach(() => {
@@ -84,13 +93,12 @@ test("arrow keys move between the tabs", () => {
   expect(document.activeElement).toBe(lyrics);
 });
 
-test("Lyrics says where lyrics can be found instead of inventing lines", () => {
+test("Lyrics asks the account for a lyrics provider instead of waiting for a click", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
-  const panel = within(dialog).getByRole("tabpanel");
-  expect(panel.textContent).toMatch(/track details/i);
+  expect(await within(dialog).findByText("No lyrics found for this track.")).toBeTruthy();
   expect(
-    within(panel).getByRole("link", { name: "Track details" }),
+    within(dialog).getByRole("link", { name: "Track details" }),
   ).toHaveProperty("pathname", "/recordings/r0");
 });
 
@@ -129,14 +137,16 @@ test("rapid speed choices coalesce into one command", () => {
   expect(command).toHaveBeenCalledWith(2);
 });
 
-test("following a link inside the player closes it and then focuses the new page", () => {
+test("following a link inside the player closes it and then focuses the new page", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   fireEvent.click(
     within(dialog).getByRole("link", { name: "Owned performer" }),
   );
   expect(close).toHaveBeenCalledTimes(1);
   fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
-  fireEvent.click(within(dialog).getByRole("link", { name: "Track details" }));
+  fireEvent.click(
+    await within(dialog).findByRole("link", { name: "Track details" }),
+  );
   expect(close).toHaveBeenCalledTimes(2);
   const visit = vi.mocked(router.visit);
   const options = visit.mock.calls.at(-1)?.[1] as { onSuccess(): void };

@@ -6,10 +6,12 @@ const TABS = ["Up next", "Lyrics", "Source"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function NowPlayingTabs({
+  account,
   track,
   openQueue,
   leave,
 }: {
+  account: string;
   track: Track | null;
   openQueue: () => void;
   leave: () => void;
@@ -63,7 +65,9 @@ export default function NowPlayingTabs({
         tabIndex={active === "Lyrics" && !track ? 0 : undefined}
       >
         {active === "Up next" && <UpNextPanel openQueue={openQueue} />}
-        {active === "Lyrics" && <LyricsPanel track={track} leave={leave} />}
+        {active === "Lyrics" && (
+          <LyricsPanel account={account} track={track} leave={leave} />
+        )}
         {active === "Source" && <SourcePanel track={track} leave={leave} />}
       </div>
     </>

@@ -300,3 +300,13 @@
     align-self: stretch;
   }
 }
+.np-lyric-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 18px;
+  line-height: 1.4;
+}

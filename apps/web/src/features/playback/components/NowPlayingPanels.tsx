@@ -8,6 +8,7 @@ import RouteLink from "../../../shared/ui/RouteLink";
 import { time } from "../../../shared/format";
 import { SPEED_CHOICES } from "./SpeedControl";
 import type { Track } from "../model";
+export { LyricsPanel } from "./NowPlayingLyrics";
 
 export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
   const player = usePlayer();
@@ -60,32 +61,6 @@ export function UpNextPanel({ openQueue }: { openQueue: () => void }) {
       <RouteLink href="/queue" className="np-queue-link" onNavigate={openQueue}>
         See full queue
       </RouteLink>
-    </div>
-  );
-}
-
-export function LyricsPanel({
-  track,
-  leave,
-}: {
-  track: Track | null;
-  leave: () => void;
-}) {
-  return (
-    <div className="np-lyrics">
-      <p>Lyrics are not shown here.</p>
-      <p className="muted">
-        Nothing is sent to a lyrics provider until you ask. Open the track
-        details to choose a provider and load lyrics.
-      </p>
-      {track && (
-        <RouteLink
-          href={`/recordings/${encodeURIComponent(track.id)}`}
-          onNavigate={leave}
-        >
-          Track details
-        </RouteLink>
-      )}
     </div>
   );
 }

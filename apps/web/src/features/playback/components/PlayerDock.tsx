@@ -18,8 +18,10 @@ import { log } from "../../../shared/log";
 import { visitFromPlayer } from "../../../shared/ui/RouteLink";
 
 export default function PlayerDock({
+  account,
   queueActive = false,
 }: {
+  account: string;
   queueActive?: boolean;
 }) {
   const player = usePlayer();
@@ -68,7 +70,11 @@ export default function PlayerDock({
   return (
     <>
       {expanded && (
-        <NowPlaying close={closeExpanded} openQueue={closeExpanded} />
+        <NowPlaying
+          account={account}
+          close={closeExpanded}
+          openQueue={closeExpanded}
+        />
       )}
       <footer className="player" aria-label="Audio player" hidden={expanded}>
         <div className="now-playing">
