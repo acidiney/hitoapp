@@ -382,3 +382,51 @@ async fn bearer_requirement_can_change_while_running() {
     assert_eq!(status("first").await, StatusCode::UNAUTHORIZED);
     assert_eq!(status("second").await, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn held_gate_reports_when_the_parked_request_is_retired() {
+    let plugin = echo().await;
+    let url = format!("{}v1/ping", plugin.url);
+
+    let gate = plugin.hold("v1/ping");
+    let released = tokio::spawn({
+        let url = url.clone();
+        async move { client().get(url).send().await.unwrap().status() }
+    });
+    gate.entered().await;
+    gate.release();
+    assert_eq!(released.await.unwrap(), StatusCode::OK);
+    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+        .await
+        .expect("a released request must retire");
+
+    let gate = plugin.hold("v1/ping");
+    let abandoned = tokio::spawn(async move { client().get(url).send().await });
+    gate.entered().await;
+    abandoned.abort();
+    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+        .await
+        .expect("an abandoned request must retire");
+}
+
+#[tokio::test]
+async fn handlers_run_on_arrival_even_while_the_reply_is_held() {
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let plugin = FakePlugin::builder(manifest())
+        .get("v1/ping", {
+            let calls = calls.clone();
+            move |_| {
+                calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Reply::Json(json!({}))
+            }
+        })
+        .start()
+        .await;
+    let gate = plugin.hold("v1/ping");
+    let url = format!("{}v1/ping", plugin.url);
+    let pending = tokio::spawn(async move { client().get(url).send().await.unwrap().status() });
+    gate.entered().await;
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    gate.release();
+    assert_eq!(pending.await.unwrap(), StatusCode::OK);
+}

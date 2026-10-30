@@ -81,6 +81,7 @@ impl RecordedRequest {
 pub struct Gate {
     entered: Semaphore,
     release: Semaphore,
+    retired: Semaphore,
 }
 
 impl Gate {
@@ -96,11 +97,24 @@ impl Gate {
         self.release.close();
     }
 
+    pub async fn retired(&self) {
+        self.retired.acquire().await.unwrap().forget();
+    }
+
     async fn wait(&self) {
+        let _retiring = Retiring(self);
         self.entered.add_permits(1);
         if let Ok(permit) = self.release.acquire().await {
             permit.forget();
         }
+    }
+}
+
+struct Retiring<'a>(&'a Gate);
+
+impl Drop for Retiring<'_> {
+    fn drop(&mut self) {
+        self.0.retired.add_permits(1);
     }
 }
 
@@ -209,6 +223,7 @@ impl FakePlugin {
         let gate = Arc::new(Gate {
             entered: Semaphore::new(0),
             release: Semaphore::new(0),
+            retired: Semaphore::new(0),
         });
         self.fault(operation, Fault::Hold(gate.clone()));
         gate
@@ -376,11 +391,15 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
                 .into_response();
         }
         Some(Fault::DropConnection) => return dropped_connection(),
+        Some(Fault::Delay(_) | Fault::Hold(_)) | None => {}
+    }
+    let reply = handler(&recorded);
+    match fault {
         Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
         Some(Fault::Hold(gate)) => gate.wait().await,
-        None => {}
+        _ => {}
     }
-    into_response(handler(&recorded))
+    into_response(reply)
 }
 
 fn authorize(shared: &Shared, headers: &HeaderMap) -> Result<(), AuthFailure> {
