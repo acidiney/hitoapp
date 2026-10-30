@@ -192,3 +192,47 @@ async fn folder_artwork_skips_a_fifo_without_waiting_for_a_writer() {
     let response = response.expect("A special file must not block an artwork request");
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn cover_art_reads_are_private_validated_and_honest_about_unknown_covers() {
+    let (_dir, app, token, _recording) = indexed_app().await;
+    let mbid = "0f700000-0000-4000-8000-0000000000b1";
+    for kind in ["release", "release-group"] {
+        let uri = format!("/api/v1/cover-art/{kind}/{mbid}");
+        let anonymous = app
+            .clone()
+            .oneshot(Request::builder().uri(&uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED);
+        let unknown = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&uri)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
+    }
+    for uri in [
+        "/api/v1/cover-art/artist/0f700000-0000-4000-8000-0000000000b1".to_string(),
+        "/api/v1/cover-art/release/not-an-id".to_string(),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&uri)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(response.status().is_client_error(), "{uri}");
+    }
+}

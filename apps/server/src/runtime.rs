@@ -96,6 +96,7 @@ async fn serve_owned(
     let indexing = indexing_worker(services.storage.clone(), stopped.clone());
     let watching = folder_watching_worker(services.storage.clone(), stopped.clone());
     let artwork = artwork_worker(services.catalog.clone(), stopped.clone());
+    let covers = cover_art_worker(services.catalog.clone(), stopped.clone());
     let matching = matching_worker(services.artist_catalog.clone(), stopped.clone());
     let reports = community::worker(services.community, stopped.clone());
     let preparation_catalog = services.catalog;
@@ -136,12 +137,13 @@ async fn serve_owned(
         );
     };
     let http = crate::connections::serve(listener, app, stop, shutdown);
-    let (result, (), (), (), (), (), (), (), (), ()) = tokio::join!(
+    let (result, (), (), (), (), (), (), (), (), (), ()) = tokio::join!(
         http,
         indexing,
         watching,
         artwork,
         matching,
+        covers,
         follows,
         transfers,
         preparations,
@@ -235,6 +237,52 @@ async fn artwork_worker(
         }
     }
     tracing::info!(event = "artwork_worker_stopped", "Artwork worker stopped");
+}
+
+async fn cover_art_worker(
+    catalog: hito_core::Catalog,
+    mut stopped: tokio::sync::watch::Receiver<bool>,
+) {
+    tracing::info!(
+        event = "cover_art_worker_started",
+        "Cover art worker started"
+    );
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped.changed() => break,
+            _ = interval.tick() => {}
+        }
+        let started = Instant::now();
+        let result = catalog
+            .run_next_cover_art_lookup_until(async {
+                let _ = stopped.changed().await;
+            })
+            .await;
+        match result {
+            Ok(claimed) => tracing::debug!(
+                event = "cover_art_worker_polled",
+                claimed,
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Cover art worker checked pending work"
+            ),
+            Err(error) => tracing::error!(
+                event = "cover_art_worker_failed",
+                error_kind = error.code(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
+                "Cover art worker failed"
+            ),
+        }
+        if *stopped.borrow() {
+            break;
+        }
+    }
+    tracing::info!(
+        event = "cover_art_worker_stopped",
+        "Cover art worker stopped"
+    );
 }
 
 async fn matching_worker(

@@ -176,6 +176,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artwork::fetch_recording_artwork))
         .routes(routes!(api::artwork::artwork_fetch))
         .routes(routes!(api::artwork::release_artwork))
+        .routes(routes!(api::artwork::cover_art))
         .routes(routes!(api::collection_artwork::release_availability))
         .routes(routes!(api::collection_artwork::fetch_release))
         .routes(routes!(api::collection_artwork::release_fetch))

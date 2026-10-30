@@ -8,7 +8,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use hito_core::{ArtworkAvailability, ArtworkFetch, Error, Services};
+use hito_core::{ArtworkAvailability, ArtworkFetch, CoverArtKind, CoverArtLookup, Error, Services};
 
 #[utoipa::path(get, path = "/api/v1/recordings/{id}/artwork/availability", operation_id = "artwork_availability",
     params(("id" = String, Path)), security(("session" = []), ("bearer" = [])), responses(
@@ -104,4 +104,39 @@ pub(super) fn image_response(artwork: Option<hito_core::Artwork>) -> ApiResult<R
         artwork.bytes,
     )
         .into_response())
+}
+
+#[utoipa::path(get, path = "/api/v1/cover-art/{kind}/{mbid}", operation_id = "cover_art",
+    params(("kind" = String, Path, description = "release or release-group"), ("mbid" = String, Path)),
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, description = "Front cover fetched from the Cover Art Archive for this MusicBrainz identifier",
+        content(("image/png"), ("image/jpeg")),
+        headers(("Cache-Control" = String, description = "private, no-store"))),
+    (status = 202, description = "The cover is queued or being retrieved; ask again shortly", body = ErrorResponse),
+    (status = 401, body = ErrorResponse),
+    (status = 404, description = "The archive has no cover, or none was asked for", body = ErrorResponse),
+    (status = 422, body = ErrorResponse),
+    (status = 502, description = "The archive could not be reached; it is asked again later", body = ErrorResponse),
+))]
+pub async fn cover_art(
+    State(services): State<Services>,
+    Account(actor): Account,
+    Path((kind, mbid)): Path<(String, String)>,
+) -> ApiResult<Response> {
+    let kind = CoverArtKind::from_path(&kind).ok_or(Error::NotFound)?;
+    match services.catalog.cover_art(&actor, kind, &mbid).await? {
+        CoverArtLookup::Ready(artwork) => image_response(Some(artwork)),
+        CoverArtLookup::Pending => Ok((
+            StatusCode::ACCEPTED,
+            Json(ErrorResponse {
+                error: "The cover is being retrieved".into(),
+                code: None,
+            }),
+        )
+            .into_response()),
+        CoverArtLookup::Unavailable => {
+            Err(Error::Upstream("The Cover Art Archive could not be reached").into())
+        }
+        CoverArtLookup::Missing | CoverArtLookup::Unknown => Err(Error::NotFound.into()),
+    }
 }
