@@ -1,10 +1,8 @@
-import type {
-  PreparationReason,
-  SourcePreparationPhase,
-  SourcePreparationStatus,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
-const phases: Record<SourcePreparationPhase, string> = {
+import Button from "../../../shared/ui/Button";
+
+const phases: Record<Schema<"SourcePreparationPhase">, string> = {
   queued: "Audio preparation is queued.",
   submitting: "Requesting audio preparation…",
   preparing: "Preparing audio…",
@@ -14,7 +12,7 @@ const phases: Record<SourcePreparationPhase, string> = {
   submission_unknown: "The music service request could not be confirmed.",
   cancelled: "Audio preparation stopped because access changed.",
 };
-const reasons: Record<PreparationReason, string> = {
+const reasons: Record<Schema<"PreparationReason">, string> = {
   authorization_required: "Reconnect your music service to continue.",
   quota_reached: "Your music service quota has been reached.",
   rate_limited: "Your music service is limiting requests.",
@@ -27,7 +25,7 @@ const reasons: Record<PreparationReason, string> = {
 };
 
 type Props = {
-  status: SourcePreparationStatus | null;
+  status: Schema<"SourcePreparationStatus"> | null;
   checking: boolean;
   pending: boolean;
   retrying: boolean;
@@ -91,22 +89,20 @@ export default function SourcePreparation({
         </p>
       )}
       {(retrying || canStart) && (
-        <button
-          className="button"
+        <Button
           disabled={pending || checking}
           onClick={() => void (retrying ? retry() : start())}
         >
           {retrying ? "Retry preparation request" : "Prepare audio"}
-        </button>
+        </Button>
       )}
       {statusError && !halted && status?.phase !== "ready" && (
-        <button
-          className="button"
+        <Button
           disabled={checking || pending || retrying}
           onClick={() => void check()}
         >
           Check preparation
-        </button>
+        </Button>
       )}
     </div>
   );

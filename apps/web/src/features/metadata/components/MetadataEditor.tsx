@@ -1,4 +1,4 @@
-import type { MetadataEditorInput } from "../metadata";
+import type { MetadataEditorInput } from "../model/metadata";
 import { useMetadataEditor } from "../hooks/useMetadataEditor";
 import MetadataFieldEditor from "./MetadataFieldEditor";
 

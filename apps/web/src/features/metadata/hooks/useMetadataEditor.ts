@@ -4,7 +4,7 @@ import {
   metadataAction,
   type MetadataField,
   type MetadataEditorInput,
-} from "../metadata";
+} from "../model/metadata";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { log } from "../../../shared/log";
 import {

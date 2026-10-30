@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { releaseCreditReader } from "./fixtures/release-credits";
 import { playlistMetadataProvider } from "./fixtures/playlist-metadata-provider";
@@ -12,7 +12,6 @@ import {
 } from "./fixtures/playlist-metadata-workflow";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -58,7 +57,7 @@ test("a lost album lookup acknowledgement retries its original receipt offline w
     expect(baseURL === "http://127.0.0.1:8080").toBe(true);
     const origin = new URL(baseURL!).origin;
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     fixture = await playlistMetadataProvider();
     const owned = fixture;
@@ -121,7 +120,7 @@ test("a lost album lookup acknowledgement retries its original receipt offline w
     ).toBe(true);
     const sent = JSON.parse(
       bodies[0],
-    ) as Schema["RefreshImportedPlaylistMetadata"];
+    ) as Schema<"RefreshImportedPlaylistMetadata">;
     expect(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
         sent.request_id,
@@ -203,7 +202,7 @@ test("a lost album lookup acknowledgement retries its original receipt offline w
         [saved.personal.artist, owned.recordings[1].artist],
       ),
     ).toBe(true);
-    const album = await read<Schema["ReleaseDetail"]>(
+    const album = await read<Schema<"ReleaseDetail">>(
       `/api/v1/releases/${albumId}`,
     );
     expect(

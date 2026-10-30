@@ -1,16 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PluginActions } from "./usePlugins";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
-import type {
-  PluginInstallationPreview,
-  PluginService,
-} from "../../../shared/types";
+
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 
 export function usePluginInstallation(
-  services: PluginService[],
+  services: Schema<"PluginService">[],
   actions: PluginActions,
 ) {
   const [draft, setDraft] = useState({
@@ -32,7 +30,7 @@ export function usePluginInstallation(
   const [review, setReview] = useState<{
     owner: typeof owner;
     generation: number;
-    preview: PluginInstallationPreview;
+    preview: Schema<"PluginInstallationPreview">;
     operationId: string;
   } | null>(null);
   const [pending, setPending] = useState<typeof owner | null>(null);

@@ -1,13 +1,12 @@
-import type {
-  ArtistMatchSuggestion,
-  ArtistIdentityGroup,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
+import Button from "../../../shared/ui/Button";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-function evidence(item: ArtistMatchSuggestion) {
+function evidence(item: Schema<"ArtistMatchSuggestion">) {
   const parts = ["same name"];
   if (item.shared_albums > 0)
     parts.push(plural(item.shared_albums, "shared album", "shared albums"));
@@ -29,10 +28,10 @@ export default function ArtistMatchSuggestionList({
   onChoose,
   onDismiss,
 }: {
-  items: ArtistMatchSuggestion[];
+  items: Schema<"ArtistMatchSuggestion">[];
   dismissed: number;
   busy: boolean;
-  onChoose: (group: ArtistIdentityGroup) => void;
+  onChoose: (group: Schema<"ArtistIdentityGroup">) => void;
   onDismiss: (group: string) => void;
 }) {
   if (items.length === 0) return null;
@@ -52,24 +51,22 @@ export default function ArtistMatchSuggestionList({
             {item.group.name.value} ·{" "}
             {plural(item.undecided_tracks, "track", "tracks")} here would use it
             · {evidence(item)}{" "}
-            <button
+            <Button
               type="button"
-              className="button"
               disabled={busy}
               aria-label={`Review suggested artist: ${item.group.name.value}`}
               onClick={() => onChoose(item.group)}
             >
               Review suggestion
-            </button>{" "}
-            <button
+            </Button>{" "}
+            <Button
               type="button"
-              className="button"
               disabled={busy}
               aria-label={`Dismiss suggested artist: ${item.group.name.value}`}
               onClick={() => onDismiss(item.group.id)}
             >
               Not the same artist
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

@@ -1,14 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
-import type {
-  AlbumEditionTrackListAvailability,
-  AlbumTrackAudio,
-  FindAlbumTrackAudio,
-  ReadAlbumEditionTrackList,
-} from "../../../shared/types";
 
 const INVALID_RESPONSE =
   "Hito returned an invalid edition response. Try again.";
-const statuses: Record<AlbumEditionTrackListAvailability["status"], true> = {
+const statuses: Record<
+  Schema<"AlbumEditionTrackListAvailability">["status"],
+  true
+> = {
   available: true,
   disabled: true,
   unsupported: true,
@@ -17,7 +15,7 @@ const statuses: Record<AlbumEditionTrackListAvailability["status"], true> = {
   needs_choice: true,
 };
 
-const audioStatuses: Record<AlbumTrackAudio["status"], true> = {
+const audioStatuses: Record<Schema<"AlbumTrackAudio">["status"], true> = {
   saved: true,
   no_match: true,
   insufficient_evidence: true,
@@ -51,19 +49,19 @@ async function statusBody(response: Response): Promise<{ status: string }> {
 
 export async function availability(
   response: Response,
-): Promise<AlbumEditionTrackListAvailability> {
+): Promise<Schema<"AlbumEditionTrackListAvailability">> {
   const value = await statusBody(response);
   if (!Object.hasOwn(statuses, value.status)) throw new Error(INVALID_RESPONSE);
-  return value as AlbumEditionTrackListAvailability;
+  return value as Schema<"AlbumEditionTrackListAvailability">;
 }
 
 export const albumEditionApi = {
   async tracks(
     account: string,
     release: string,
-    body: ReadAlbumEditionTrackList,
+    body: Schema<"ReadAlbumEditionTrackList">,
     signal: AbortSignal,
-  ): Promise<AlbumEditionTrackListAvailability> {
+  ): Promise<Schema<"AlbumEditionTrackListAvailability">> {
     const response = await request(
       `/albums/${encodeURIComponent(release)}/edition-track-list`,
       {
@@ -80,9 +78,9 @@ export const albumEditionApi = {
   async audio(
     account: string,
     release: string,
-    body: FindAlbumTrackAudio,
+    body: Schema<"FindAlbumTrackAudio">,
     signal: AbortSignal,
-  ): Promise<AlbumTrackAudio> {
+  ): Promise<Schema<"AlbumTrackAudio">> {
     const response = await request(
       `/albums/${encodeURIComponent(release)}/edition-track-audio`,
       {
@@ -96,6 +94,6 @@ export const albumEditionApi = {
     const value = await statusBody(response);
     if (!Object.hasOwn(audioStatuses, value.status))
       throw new Error(INVALID_RESPONSE);
-    return value as AlbumTrackAudio;
+    return value as Schema<"AlbumTrackAudio">;
   },
 };

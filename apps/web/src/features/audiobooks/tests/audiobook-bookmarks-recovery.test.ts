@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,7 +17,6 @@ import {
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "../fixtures/audiobooks";
-import type { SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -75,7 +75,7 @@ test.each(["acknowledgement", "read"] as const)(
       expect(options?.signal).toBeInstanceOf(AbortSignal);
       if (input === "/api/v1/sync" && options?.method === "POST") {
         writes.push(String(options.body));
-        const batch = JSON.parse(writes[0]) as SyncBatch;
+        const batch = JSON.parse(writes[0]) as Schema<"SyncBatch">;
         if (failure === "acknowledgement" && writes.length === 1)
           throw new TypeError(diagnostics);
         return Response.json({
@@ -89,7 +89,10 @@ test.each(["acknowledgement", "read"] as const)(
         reads += 1;
         if (failure === "read" && reads === 1) throw new TypeError(diagnostics);
         held = heldAudiobookBody(
-          bookmarkResult(page.detail, JSON.parse(writes[0]) as SyncBatch),
+          bookmarkResult(
+            page.detail,
+            JSON.parse(writes[0]) as Schema<"SyncBatch">,
+          ),
         );
         return held.response;
       }
@@ -147,7 +150,7 @@ test.each(["acknowledgement", "read"] as const)(
       await within(markers).findByText(label, { exact: true });
       expect(within(markers).getAllByRole("listitem")).toHaveLength(3);
       expect(screen.getByText("Bookmark saved.", { exact: true })).toBeTruthy();
-      const original = JSON.parse(writes[0]) as SyncBatch;
+      const original = JSON.parse(writes[0]) as Schema<"SyncBatch">;
       expect(original.operations).toHaveLength(1);
       expect(original.operations[0].action).toEqual({
         kind: "audiobook_bookmark_create",

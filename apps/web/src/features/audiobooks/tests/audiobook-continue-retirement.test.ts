@@ -4,14 +4,13 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { Playback } from "../../playback/playback";
 import {
   PlaybackProvider,
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 
-type Schema = components["schemas"];
 beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -129,7 +128,7 @@ async function playingBook() {
     entry_id: chapters[index].entry_id,
     recording_id: chapters[index].recording_id!,
   });
-  const fresh: Schema["AudiobookPlayback"] = {
+  const fresh: Schema<"AudiobookPlayback"> = {
     audiobook_id: page.detail.playlist.id,
     chapter: anchor(2),
     progress: {
@@ -142,7 +141,7 @@ async function playingBook() {
   const service = {
     requests: [] as { path: string; account: string | null }[],
     reads: [] as AbortSignal[],
-    writes: [] as Schema["SyncBatch"][],
+    writes: [] as Schema<"SyncBatch">[],
     read: async (): Promise<Response> => Response.json(fresh),
   };
   vi.stubGlobal(
@@ -156,7 +155,7 @@ async function playingBook() {
       expect(options?.credentials).toBe("same-origin");
       expect(options?.signal).toBeInstanceOf(AbortSignal);
       if (path === "/api/v1/sync") {
-        const batch: Schema["SyncBatch"] = JSON.parse(String(options?.body));
+        const batch: Schema<"SyncBatch"> = JSON.parse(String(options?.body));
         service.writes.push(batch);
         return Response.json({
           acknowledged: batch.operations.map(({ id }) => id),
@@ -184,7 +183,7 @@ async function playingBook() {
           ready: true,
           can_prepare: false,
           label: "Owned fixture source",
-        } satisfies Schema["Source"],
+        } satisfies Schema<"Source">,
       ]);
     }),
   );
@@ -245,7 +244,7 @@ async function playingBook() {
   };
 }
 
-function heldPlayback(value: Schema["AudiobookPlayback"]) {
+function heldPlayback(value: Schema<"AudiobookPlayback">) {
   const bytes = new TextEncoder().encode(JSON.stringify(value));
   let stream!: ReadableStreamDefaultController<Uint8Array>;
   let released = false;

@@ -3,6 +3,7 @@ import { Play, Shuffle } from "lucide-react";
 import type { Track } from "../model";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
+import Button from "../../../shared/ui/Button";
 
 export default function TrackToolbar({
   tracks,
@@ -23,25 +24,24 @@ export default function TrackToolbar({
   return (
     <div className="list-toolbar">
       {withPlay && (
-        <button
-          className="button primary"
+        <Button
+          variant="primary"
           disabled={tracks.length === 0}
           onClick={() => void play.playAll()}
         >
           <Play size={17} />
           Play {label}
-        </button>
+        </Button>
       )}
       {withPlay && (
-        <button
-          className="button"
+        <Button
           disabled={tracks.length === 0}
           aria-label={`Shuffle ${label}`}
           onClick={() => void play.shuffleAll()}
         >
           <Shuffle size={17} />
           Shuffle
-        </button>
+        </Button>
       )}
       {description && <span className="toolbar-note">{description}</span>}
       {children}

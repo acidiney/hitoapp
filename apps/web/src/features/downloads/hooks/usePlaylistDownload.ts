@@ -1,19 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useState } from "react";
 import { playlistDownloadApi } from "../api/playlistDownloadApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  DownloadRequest,
-  PlaylistDownloadStatus,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
-  | { kind: "create"; body: Readonly<DownloadRequest> }
+  | { kind: "create"; body: Readonly<Schema<"DownloadRequest">> }
   | { kind: "remove"; retention: string };
 type View = {
-  download: PlaylistDownloadStatus | null;
+  download: Schema<"PlaylistDownloadStatus"> | null;
   retention: string | null;
   checking: boolean;
   pending: boolean;
@@ -34,7 +32,7 @@ const fastWindowMs = 30_000;
 const fastPollMs = 1000;
 const slowPollMs = 30_000;
 
-function busy(download: PlaylistDownloadStatus) {
+function busy(download: Schema<"PlaylistDownloadStatus">) {
   return (
     download.desired_revision !== download.reconciled_revision ||
     download.entries.items.some((entry) =>
@@ -43,7 +41,7 @@ function busy(download: PlaylistDownloadStatus) {
   );
 }
 
-function progressSignature(download: PlaylistDownloadStatus) {
+function progressSignature(download: Schema<"PlaylistDownloadStatus">) {
   return JSON.stringify([
     download.retention_id,
     download.desired_revision,
@@ -59,7 +57,7 @@ function progressSignature(download: PlaylistDownloadStatus) {
 }
 
 function hasFailedEntries(
-  download: PlaylistDownloadStatus | null,
+  download: Schema<"PlaylistDownloadStatus"> | null,
   retention: string | null,
 ) {
   return (

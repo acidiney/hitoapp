@@ -1,10 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import SettingsPage from "../pages/SettingsPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { SettingsPageProps } from "../../../shared/types";
 
 const location = { url: "/settings" };
 vi.mock("@inertiajs/react", async (importOriginal) => {
@@ -52,7 +52,7 @@ vi.mock("../../artists/components/SharedCorrectionsSettings", async () => {
   return { default: () => h("p", null, "Corrections stub") };
 });
 
-const admin: SettingsPageProps = {
+const admin: Schema<"SettingsPageProps"> = {
   user: { id: "alice", username: "alice", admin: true },
   errors: {},
   native_playback: false,
@@ -60,12 +60,12 @@ const admin: SettingsPageProps = {
   libraries: [],
   playlists: [],
 };
-const member: SettingsPageProps = {
+const member: Schema<"SettingsPageProps"> = {
   ...admin,
   user: { id: "bob", username: "bob", admin: false },
 };
 
-function open(url: string, props: SettingsPageProps = admin) {
+function open(url: string, props: Schema<"SettingsPageProps"> = admin) {
   location.url = url;
   return render(
     createElement(NoticeProvider, null, createElement(SettingsPage, props)),

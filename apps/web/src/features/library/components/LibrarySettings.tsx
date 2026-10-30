@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Folder } from "lucide-react";
-import type { SettingsPageProps } from "../../../shared/types";
+
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -9,7 +10,7 @@ import MusicFolders from "./MusicFolders";
 export default function LibrarySettings({
   user,
   libraries,
-}: SettingsPageProps) {
+}: Schema<"SettingsPageProps">) {
   const shared = libraries.filter((library) => !library.personal);
   const [selected, select] = useState(shared[0]?.id);
   const library = shared.find((item) => item.id === selected) ?? shared[0];

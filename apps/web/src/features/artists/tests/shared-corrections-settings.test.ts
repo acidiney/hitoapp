@@ -8,9 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import SharedCorrectionsSettings from "../components/SharedCorrectionsSettings";
-import type { components } from "../../../generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../../shared/schema";
 
 afterEach(() => cleanup());
 
@@ -19,7 +17,7 @@ function item(
   applied: boolean,
   revision: number,
   retired = 0,
-): Schema["SharedArtistCorrection"] {
+): Schema<"SharedArtistCorrection"> {
   return {
     id,
     kind: id.startsWith("split") ? "split" : "unlink",
@@ -49,7 +47,7 @@ function owned(options: { total?: number; lostFirst?: boolean } = {}) {
         total: options.total ?? 2,
         offset,
         limit: 25,
-      } satisfies Schema["SharedArtistCorrections"]);
+      } satisfies Schema<"SharedArtistCorrections">);
     }
     if (method === "POST") {
       const body = JSON.parse(init?.body as string);
@@ -69,7 +67,7 @@ function owned(options: { total?: number; lostFirst?: boolean } = {}) {
         revision: current.revision,
         applied: current.applied,
         recordings: 2,
-      } satisfies Schema["SharedArtistCorrectionReceipt"]);
+      } satisfies Schema<"SharedArtistCorrectionReceipt">);
     }
     throw new Error(`Unexpected request ${method} ${path}`);
   });
@@ -98,7 +96,7 @@ test("an administrator withdraws and restores shared corrections from the list",
   expect(bodies[0].body).toEqual({
     request_id: expect.any(String),
     expected_revision: 1,
-  } satisfies Schema["UndoSharedArtistCorrection"]);
+  } satisfies Schema<"UndoSharedArtistCorrection">);
   expect(JSON.stringify(bodies)).not.toContain("title");
 });
 

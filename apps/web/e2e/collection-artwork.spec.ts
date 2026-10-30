@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { savedState, signIn } from "./fixtures/artwork-browser-checks";
 import {
   action,
@@ -34,8 +34,6 @@ import {
 } from "./fixtures/collection-artwork-retry";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
-
 test("packaged albums and independent imported copies retain exact private covers across retry and revocation", async ({
   page,
   browser,
@@ -53,7 +51,7 @@ test("packaged albums and independent imported copies retain exact private cover
   try {
     await signIn(page);
     await evidence.captureSession(page.context());
-    const owner = await json<Schema["User"]>(page, "/api/v1/me");
+    const owner = await json<Schema<"User">>(page, "/api/v1/me");
     const api = await page.request.get("/api/v1/openapi.json", {
       timeout: 10_000,
     });
@@ -92,7 +90,7 @@ test("packaged albums and independent imported copies retain exact private cover
     expect(
       copies[1].entries.every((entry) => entry.recording_id === recording),
     ).toBe(true);
-    const catalog = await json<Schema["RecordingPage"]>(
+    const catalog = await json<Schema<"RecordingPage">>(
       page,
       "/api/v1/recordings",
     );
@@ -121,8 +119,8 @@ test("packaged albums and independent imported copies retain exact private cover
     );
     const saved = async () => ({
       ...(await savedState(page, copyIds, recording)),
-      albums: await json<Schema["ReleasePage"]>(page, "/api/v1/releases"),
-      albumMetadata: await json<Schema["ReleaseMetadata"]>(
+      albums: await json<Schema<"ReleasePage">>(page, "/api/v1/releases"),
+      albumMetadata: await json<Schema<"ReleaseMetadata">>(
         page,
         `/api/v1/releases/${release}/metadata`,
       ),
@@ -145,7 +143,7 @@ test("packaged albums and independent imported copies retain exact private cover
     expect(
       fixture.requests.filter((request) => request.path.endsWith("/artwork")),
     ).toEqual([]);
-    const accepted = await action<Schema["PluginRefresh"]>(
+    const accepted = await action<Schema<"PluginRefresh">>(
       page,
       approval.path,
       200,

@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -23,8 +23,6 @@ import {
   selectedArtistIdentity,
   unselectedArtistIdentity,
 } from "../fixtures/artistIdentity";
-
-type Schema = components["schemas"];
 
 test("the current-choice deadline releases its owner and cancels late headers without exposing a choice", async () => {
   vi.useFakeTimers();
@@ -130,7 +128,7 @@ test("a malformed acknowledgement cannot authorize a current read or replace the
       written = true;
       const body = JSON.parse(
         options?.body as string,
-      ) as Schema["ChooseRecordingArtistIdentity"];
+      ) as Schema<"ChooseRecordingArtistIdentity">;
       return Response.json({
         request_id: body.request_id,
         recording_id: artistReviewDetail.recording_id,
@@ -331,7 +329,7 @@ test("a valid acknowledgement cannot leave the old choice writable when the requ
       written = true;
       const body = JSON.parse(
         options?.body as string,
-      ) as Schema["ChooseRecordingArtistIdentity"];
+      ) as Schema<"ChooseRecordingArtistIdentity">;
       return Response.json({
         request_id: body.request_id,
         recording_id: artistReviewDetail.recording_id,
@@ -340,7 +338,7 @@ test("a valid acknowledgement cannot leave the old choice writable when the requ
           association_id: artistAssociation.id,
           group_id: artistIdentityGroup,
         },
-      } satisfies Schema["ArtistIdentityChoiceReceipt"]);
+      } satisfies Schema<"ArtistIdentityChoiceReceipt">);
     }
     throw new Error(
       "Unexpected request outside current artist choice validation",

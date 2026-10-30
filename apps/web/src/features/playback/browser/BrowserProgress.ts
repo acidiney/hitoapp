@@ -1,12 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { prepareChange, submitChange } from "../../../shared/sync";
 import { log } from "../../../shared/log";
 import { HttpError } from "../../../shared/http";
 import { createUuid } from "../../../shared/uuid";
-import type { SyncBatch } from "../../../shared/types";
+
 import type { BrowserCheckpoint } from "./BrowserObservation";
 
 type Scope = { signal: AbortSignal; active(): boolean };
-type Pending = { sequence: number; batch: SyncBatch };
+type Pending = { sequence: number; batch: Schema<"SyncBatch"> };
 type Lane = {
   scope: Scope;
   issued: number;

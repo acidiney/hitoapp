@@ -1,4 +1,5 @@
-import type { PluginService } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import type { PluginActions } from "../hooks/usePlugins";
 import { usePluginInstallation } from "../hooks/usePluginInstallation";
 import Button from "../../../shared/ui/Button";
@@ -10,7 +11,7 @@ export default function ConnectPlugin({
   actions,
   storageReady,
 }: {
-  services: PluginService[];
+  services: Schema<"PluginService">[];
   actions: PluginActions;
   storageReady: boolean;
 }) {

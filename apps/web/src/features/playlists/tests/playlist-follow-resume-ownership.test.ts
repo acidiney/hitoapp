@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,10 +9,8 @@ import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import { playlistConnection } from "../fixtures/playlistImports";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-import { heldResponse } from "../../../test/async";
 
-type Schema = components["schemas"];
+import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -19,7 +18,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: PlaylistPageProps) {
+function page(props: Schema<"PlaylistPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -48,25 +47,27 @@ test.each(["account", "playlist"] as const)(
       "88fefb77-e103-4c73-8e6b-bdf6ee867184",
       "4aeebd10-09bf-4988-9012-705dbd78c1d2",
     ];
-    const pages: PlaylistPageProps[] = accounts.map((account, index) => ({
-      ...copiedPlaylistPage,
-      user:
-        change === "account"
-          ? { ...copiedPlaylistPage.user, id: account, username: account }
-          : copiedPlaylistPage.user,
-      detail: {
-        ...copiedPlaylistPage.detail,
-        playlist: {
-          ...copiedPlaylistPage.detail.playlist,
-          id: change === "playlist" ? playlists[index] : playlists[0],
-          name: `Owned selection ${index + 1}`,
-          kind: "followed",
+    const pages: Schema<"PlaylistPageProps">[] = accounts.map(
+      (account, index) => ({
+        ...copiedPlaylistPage,
+        user:
+          change === "account"
+            ? { ...copiedPlaylistPage.user, id: account, username: account }
+            : copiedPlaylistPage.user,
+        detail: {
+          ...copiedPlaylistPage.detail,
+          playlist: {
+            ...copiedPlaylistPage.detail.playlist,
+            id: change === "playlist" ? playlists[index] : playlists[0],
+            name: `Owned selection ${index + 1}`,
+            kind: "followed",
+          },
+          follow_content_revision: 1,
+          entries: copiedPlaylistPage.detail.entries.slice(0, index + 2),
         },
-        follow_content_revision: 1,
-        entries: copiedPlaylistPage.detail.entries.slice(0, index + 2),
-      },
-    }));
-    const settings = (index: number): Schema["PluginSettings"] => ({
+      }),
+    );
+    const settings = (index: number): Schema<"PluginSettings"> => ({
       credential_storage_ready: true,
       installations: [
         {
@@ -90,7 +91,7 @@ test.each(["account", "playlist"] as const)(
         },
       ],
     });
-    const paused = (index: number): Schema["PlaylistFollow"] => ({
+    const paused = (index: number): Schema<"PlaylistFollow"> => ({
       playlist_id: pages[index].detail.playlist.id,
       generation: 3 + index,
       content_revision: 1,
@@ -101,9 +102,9 @@ test.each(["account", "playlist"] as const)(
       status: "paused",
       error: "authority_changed",
     });
-    const statusPath = (props: PlaylistPageProps) =>
+    const statusPath = (props: Schema<"PlaylistPageProps">) =>
       `/api/v1/playlists/${props.detail.playlist.id}/follow`;
-    const downloadPath = (props: PlaylistPageProps) =>
+    const downloadPath = (props: Schema<"PlaylistPageProps">) =>
       `/api/v1/playlists/${props.detail.playlist.id}/download`;
     const accountOf = (options?: RequestInit) =>
       new Headers(options?.headers).get("x-hito-account");
@@ -152,7 +153,7 @@ test.each(["account", "playlist"] as const)(
       throw new Error("Unexpected request outside Resume ownership checks");
     });
     vi.stubGlobal("fetch", fetch);
-    const statusCalls = (props: PlaylistPageProps) =>
+    const statusCalls = (props: Schema<"PlaylistPageProps">) =>
       fetch.mock.calls.filter(
         ([path, options]) =>
           path === statusPath(props) && accountOf(options) === props.user.id,
@@ -214,7 +215,7 @@ test.each(["account", "playlist"] as const)(
     });
     const posts = fetch.mock.calls.filter(([path]) => path === "/api/v1/sync");
     expect(posts).toHaveLength(1);
-    const body: Schema["SyncBatch"] = JSON.parse(String(posts[0][1]?.body));
+    const body: Schema<"SyncBatch"> = JSON.parse(String(posts[0][1]?.body));
     expect(body.operations).toHaveLength(1);
     expect(body.operations[0].action).toEqual({
       kind: "playlist_follow_resume",
@@ -222,7 +223,7 @@ test.each(["account", "playlist"] as const)(
       expected_generation: paused(1).generation,
       installation_revision: settings(1).installations[0].revision,
       service_revision: settings(1).services[0].revision,
-    } satisfies Schema["Action"]);
+    } satisfies Schema<"Action">);
     const submissionSignal = posts[0][1]?.signal;
     expect(submissionSignal?.aborted).toBe(false);
     visible = 2;
@@ -237,7 +238,7 @@ test.each(["account", "playlist"] as const)(
       oldSubmission.resolve(
         Response.json({
           acknowledged: [body.operations[0].id],
-        } satisfies Schema["SyncReceipt"]),
+        } satisfies Schema<"SyncReceipt">),
       );
     });
     expect(fetch).toHaveBeenCalledTimes(requestsBeforeLateAcknowledgement);

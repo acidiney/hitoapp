@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,9 +8,6 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -26,7 +24,7 @@ test("a lost refresh retries its original request and reloads once when the firs
   const logs = (["debug", "info", "warn", "error"] as const).map((level) =>
     vi.spyOn(console, level).mockImplementation(() => {}),
   );
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -34,7 +32,7 @@ test("a lost refresh retries its original request and reloads once when the firs
       follow_content_revision: 1,
     },
   };
-  const ready: Schema["PlaylistFollow"] = {
+  const ready: Schema<"PlaylistFollow"> = {
     playlist_id: props.detail.playlist.id,
     generation: 1,
     content_revision: 1,
@@ -97,7 +95,7 @@ test("a lost refresh retries its original request and reloads once when the firs
   expect(refreshes).toBe(1);
   const posts = () => fetch.mock.calls.filter(([path]) => path === refreshPath);
   const originalBody = String(posts()[0][1]?.body);
-  const request: Schema["RefreshFollowedPlaylist"] = JSON.parse(originalBody);
+  const request: Schema<"RefreshFollowedPlaylist"> = JSON.parse(originalBody);
   expect(request).toEqual({
     request_id: expect.stringMatching(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -136,7 +134,7 @@ test("a lost refresh retries its original request and reloads once when the firs
           request_id: request.request_id,
           playlist_id: ready.playlist_id,
           job_id: "bca57b45-02b4-4786-aac5-e69d14b06843",
-        } satisfies Schema["PlaylistFollowRefresh"],
+        } satisfies Schema<"PlaylistFollowRefresh">,
         { status: 202 },
       ),
     );

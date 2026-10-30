@@ -1,6 +1,7 @@
-import type { SettingsPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import PluginSettings from "../../plugins/components/PluginSettings";
-import type { SectionId } from "../sections";
+import type { SectionId } from "../model/sections";
 import AccountsSection from "./AccountsSection";
 import MusicSection from "./MusicSection";
 import PrivacySection from "./PrivacySection";
@@ -15,7 +16,7 @@ import {
 export default function SettingsSectionBody({
   section,
   ...props
-}: SettingsPageProps & { section: SectionId }) {
+}: Schema<"SettingsPageProps"> & { section: SectionId }) {
   switch (section) {
     case "profile":
       return <ProfileSection {...props} />;

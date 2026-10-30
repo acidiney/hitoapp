@@ -5,7 +5,7 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   connectLiveProvider,
   setUpSpotifyYouTubeLiveAccount as setUpDisposableAccount,
@@ -17,7 +17,6 @@ import {
 } from "./fixtures/spotify-follow-live";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -28,7 +27,7 @@ async function read<T>(page: Page, path: string): Promise<T> {
   return response.json();
 }
 
-async function visibleFollow(page: Page, detail: Schema["PlaylistDetail"]) {
+async function visibleFollow(page: Page, detail: Schema<"PlaylistDetail">) {
   expect(
     (await page.getByRole("heading", { level: 1 }).textContent()) ===
       detail.playlist.name,
@@ -63,9 +62,9 @@ async function visibleFollow(page: Page, detail: Schema["PlaylistDetail"]) {
 
 async function createFollow(
   page: Page,
-  connection: Schema["PluginInstallation"],
+  connection: Schema<"PluginInstallation">,
   reference: string,
-  interval: Schema["PlaylistFollowInterval"],
+  interval: Schema<"PlaylistFollowInterval">,
 ) {
   await openLibrarySection(page, "Playlists");
   const form = page.getByRole("region", {
@@ -99,10 +98,10 @@ async function createFollow(
     .click();
   const followed = await followedResponse;
   expect(followed.status()).toBe(200);
-  const submitted: Schema["FollowProviderPlaylist"] = followed
+  const submitted: Schema<"FollowProviderPlaylist"> = followed
     .request()
     .postDataJSON();
-  const receipt: Schema["PlaylistFollowReceipt"] = await followed.json();
+  const receipt: Schema<"PlaylistFollowReceipt"> = await followed.json();
   expect(
     uuid.test(receipt.playlist_id) &&
       uuid.test(submitted.request_id) &&
@@ -119,11 +118,11 @@ async function createFollow(
         new URL(page.url()).pathname === `/playlists/${receipt.playlist_id}`,
     )
     .toBe(true);
-  const detail = await read<Schema["PlaylistDetail"]>(
+  const detail = await read<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
-  const status = await read<Schema["PlaylistFollow"]>(
+  const status = await read<Schema<"PlaylistFollow">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}/follow`,
   );
@@ -187,8 +186,8 @@ test.describe("isolated live public Spotify Follow", () => {
       external: 0,
     };
     const accepted: {
-      detail: Schema["PlaylistDetail"];
-      status: Schema["PlaylistFollow"];
+      detail: Schema<"PlaylistDetail">;
+      status: Schema<"PlaylistFollow">;
       verified: Awaited<ReturnType<typeof verifySpotifyFollowSnapshot>>;
     }[] = [];
     let sharedRecordings = 0;
@@ -228,10 +227,10 @@ test.describe("isolated live public Spotify Follow", () => {
       } catch {
         throw new SpotifyFollowLiveFailure(1);
       }
-      const setup = await read<Schema["SetupStatus"]>(page, "/api/v1/setup");
+      const setup = await read<Schema<"SetupStatus">>(page, "/api/v1/setup");
       expect(setup.needs_setup === true).toBe(true);
       await setUpDisposableAccount(page);
-      const beforeActivity = await read<Schema["Activity"]>(
+      const beforeActivity = await read<Schema<"Activity">>(
         page,
         "/api/v1/activity",
       );
@@ -262,7 +261,7 @@ test.describe("isolated live public Spotify Follow", () => {
       expect(
         connection.manifest.authorization == null && !connection.credential_set,
       ).toBe(true);
-      const settings = await read<Schema["PluginSettings"]>(
+      const settings = await read<Schema<"PluginSettings">>(
         page,
         "/api/v1/plugins",
       );
@@ -305,7 +304,7 @@ test.describe("isolated live public Spotify Follow", () => {
           expect(recording === existing).toBe(true);
         }
       }
-      const beforeFeed = await read<Schema["SyncPage"]>(
+      const beforeFeed = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
@@ -329,10 +328,10 @@ test.describe("isolated live public Spotify Follow", () => {
         .click();
       const refreshed = await refreshResponse;
       expect(refreshed.status()).toBe(202);
-      const submitted: Schema["RefreshFollowedPlaylist"] = refreshed
+      const submitted: Schema<"RefreshFollowedPlaylist"> = refreshed
         .request()
         .postDataJSON();
-      const receipt: Schema["PlaylistFollowRefresh"] = await refreshed.json();
+      const receipt: Schema<"PlaylistFollowRefresh"> = await refreshed.json();
       expect(
         receipt.request_id === submitted.request_id &&
           receipt.playlist_id === daily.detail.playlist.id &&
@@ -342,7 +341,7 @@ test.describe("isolated live public Spotify Follow", () => {
         .poll(
           async () =>
             (
-              await read<Schema["PlaylistFollow"]>(
+              await read<Schema<"PlaylistFollow">>(
                 page,
                 `/api/v1/playlists/${daily.detail.playlist.id}/follow`,
               )
@@ -350,7 +349,7 @@ test.describe("isolated live public Spotify Follow", () => {
           { timeout: 75_000, intervals: [200, 500, 1000] },
         )
         .toBe("ready");
-      const afterStatus = await read<Schema["PlaylistFollow"]>(
+      const afterStatus = await read<Schema<"PlaylistFollow">>(
         page,
         `/api/v1/playlists/${daily.detail.playlist.id}/follow`,
       );
@@ -365,12 +364,12 @@ test.describe("isolated live public Spotify Follow", () => {
         afterStatus.last_refreshed_at >= daily.status.last_refreshed_at &&
           afterStatus.next_refresh_at - afterStatus.last_refreshed_at === 86400,
       ).toBe(true);
-      const afterDetail = await read<Schema["PlaylistDetail"]>(
+      const afterDetail = await read<Schema<"PlaylistDetail">>(
         page,
         `/api/v1/playlists/${daily.detail.playlist.id}`,
       );
       expect(isDeepStrictEqual(afterDetail, daily.detail)).toBe(true);
-      const afterFeed = await read<Schema["SyncPage"]>(
+      const afterFeed = await read<Schema<"SyncPage">>(
         page,
         `/api/v1/sync?cursor=${beforeFeed.cursor}`,
       );
@@ -392,7 +391,7 @@ test.describe("isolated live public Spotify Follow", () => {
           recordings
             .slice(offset, offset + 10)
             .map((id) =>
-              read<Schema["Source"][]>(
+              read<Schema<"Source">[]>(
                 page,
                 `/api/v1/recordings/${id}/sources`,
               ),
@@ -402,7 +401,7 @@ test.describe("isolated live public Spotify Follow", () => {
       }
       expect(
         isDeepStrictEqual(
-          await read<Schema["Activity"]>(page, "/api/v1/activity"),
+          await read<Schema<"Activity">>(page, "/api/v1/activity"),
           beforeActivity,
         ),
       ).toBe(true);

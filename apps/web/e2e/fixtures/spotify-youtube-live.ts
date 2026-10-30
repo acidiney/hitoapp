@@ -1,8 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { reviewPluginInstallation } from "./plugin-installation-review";
-
-type Schema = components["schemas"];
 
 export class SpotifyYouTubeLiveFailure extends Error {}
 
@@ -82,7 +80,7 @@ export async function connectLiveProvider(
   page: Page,
   address: string,
   name: string,
-  offered: (service: Schema["PluginService"]) => void,
+  offered: (service: Schema<"PluginService">) => void,
 ) {
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
@@ -114,10 +112,10 @@ export async function connectLiveProvider(
     throw new SpotifyYouTubeLiveFailure(
       `Service offer returned HTTP ${offer.status()}`,
     );
-  const body: Schema["OfferPluginService"] = offer.request().postDataJSON();
+  const body: Schema<"OfferPluginService"> = offer.request().postDataJSON();
   expect(Object.keys(body).join(",") === "base_url").toBe(true);
   expect(body.base_url === address).toBe(true);
-  const service: Schema["PluginService"] = await offer.json();
+  const service: Schema<"PluginService"> = await offer.json();
   offered(service);
   expect(service.name === name).toBe(true);
   await page
@@ -141,9 +139,9 @@ export async function connectLiveProvider(
       `Personal connection returned HTTP ${installed.status()}`,
     );
   expect(installed.request().postDataJSON().bearer_token === null).toBe(true);
-  const accepted: Schema["InstallPlugin"] = installed.request().postDataJSON();
+  const accepted: Schema<"InstallPlugin"> = installed.request().postDataJSON();
   expect(accepted.accept_manifest_digest === reviewed.body.digest).toBe(true);
-  const connection: Schema["PluginInstallation"] = await installed.json();
+  const connection: Schema<"PluginInstallation"> = await installed.json();
   expect(!connection.credential_set && connection.manifest.name === name).toBe(
     true,
   );
@@ -160,8 +158,8 @@ function normalized(value: string) {
 }
 
 export function conservativeCandidate(
-  original: Schema["MetadataObservation"],
-  items: Schema["ProviderRecording"][],
+  original: Schema<"MetadataObservation">,
+  items: Schema<"ProviderRecording">[],
 ) {
   const title = normalized(original.title);
   const artist = normalized(original.artist)
@@ -235,8 +233,8 @@ export async function reviewLiveCandidate(
     panel: Locator;
     result: Locator;
     recording: string;
-    selection: { candidate: Schema["ProviderRecording"] };
-    original: Schema["MetadataObservation"];
+    selection: { candidate: Schema<"ProviderRecording"> };
+    original: Schema<"MetadataObservation">;
     personalTitle: string;
     personalArtist: string;
   },
@@ -255,7 +253,7 @@ export async function reviewLiveCandidate(
     throw new SpotifyYouTubeLiveFailure(
       `Source review returned HTTP ${reviewed.status()}`,
     );
-  const review: Schema["ProviderSourceReview"] = await reviewed.json();
+  const review: Schema<"ProviderSourceReview"> = await reviewed.json();
   expect(review.candidate.id === selection.candidate.id).toBe(true);
   conservativeCandidate(original, [review.candidate]);
   const comparison = panel.getByRole("region", {
@@ -302,8 +300,8 @@ export async function searchLiveCandidate(
     youtube,
     original,
   }: {
-    youtube: Schema["PluginInstallation"];
-    original: Schema["MetadataObservation"];
+    youtube: Schema<"PluginInstallation">;
+    original: Schema<"MetadataObservation">;
   },
 ) {
   const panel = page.getByRole("region", {
@@ -336,7 +334,7 @@ export async function searchLiveCandidate(
     throw new SpotifyYouTubeLiveFailure(
       `Source search returned HTTP ${searched.status()}`,
     );
-  const results: Schema["SearchPage"] = await searched.json();
+  const results: Schema<"SearchPage"> = await searched.json();
   const selection = conservativeCandidate(original, results.items);
   const result = panel
     .getByRole("list", { name: "Source search results" })

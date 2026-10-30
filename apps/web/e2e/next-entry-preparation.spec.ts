@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { nextEntryFixture } from "./fixtures/next-entry";
 import {
@@ -7,7 +7,6 @@ import {
   type CapturedAudioBody,
 } from "./fixtures/next-entry-audio";
 
-type Schema = components["schemas"];
 type Phase =
   | "configuration"
   | "fresh_setup"
@@ -222,20 +221,20 @@ test("playlist Play prepares the next distinct recording while current audio pla
       data: {
         name: "Owned next-entry service",
         base_url: provider.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: provider.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
-    const connection: Schema["PluginInstallation"] = await installed.json();
+    const connection: Schema<"PluginInstallation"> = await installed.json();
 
     phase = "playlist_import";
     await page.goto("/playlists");
@@ -263,11 +262,11 @@ test("playlist Play prepares the next distinct recording while current audio pla
       .click();
     const imported = await importing;
     expect(imported.status()).toBe(200);
-    const receipt: Schema["PlaylistImportReceipt"] = await imported.json();
+    const receipt: Schema<"PlaylistImportReceipt"> = await imported.json();
     await expect
       .poll(() => new URL(page.url()).pathname)
       .toBe(`/playlists/${receipt.playlist_id}`);
-    const before = await read<Schema["PlaylistDetail"]>(
+    const before = await read<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${receipt.playlist_id}`,
     );
@@ -289,12 +288,12 @@ test("playlist Play prepares the next distinct recording while current audio pla
         data: {
           installation_revision: connection.revision,
           provider_recording_id: provider.first.id,
-        } satisfies Schema["AdoptProviderRecording"],
+        } satisfies Schema<"AdoptProviderRecording">,
       },
     );
     firstAdmissionStatus = admitted.status();
     expect(firstAdmissionStatus).toBe(200);
-    const admittedRecording: Schema["Recording"] = await admitted.json();
+    const admittedRecording: Schema<"Recording"> = await admitted.json();
     firstAdmissionIdentity = admittedRecording.id === firstRecording;
     expect(firstAdmissionIdentity).toBe(true);
 
@@ -305,7 +304,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
     );
     firstSourcesStatus = firstSourcesResponse.status();
     expect(firstSourcesStatus).toBe(200);
-    const firstSources: Schema["Source"][] = await firstSourcesResponse.json();
+    const firstSources: Schema<"Source">[] = await firstSourcesResponse.json();
     firstSourceCount = firstSources.length;
     firstReadyCount = firstSources.filter((source) => source.ready).length;
     expect(firstReadyCount).toBe(1);
@@ -318,7 +317,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
     );
     nextSourcesStatus = nextSourcesResponse.status();
     expect(nextSourcesStatus).toBe(200);
-    const nextSources: Schema["Source"][] = await nextSourcesResponse.json();
+    const nextSources: Schema<"Source">[] = await nextSourcesResponse.json();
     nextReadyCount = nextSources.filter((source) => source.ready).length;
     expect(nextReadyCount).toBe(0);
 
@@ -420,7 +419,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
     await expect
       .poll(
         async () => {
-          const sources = await read<Schema["Source"][]>(
+          const sources = await read<Schema<"Source">[]>(
             page,
             `/api/v1/recordings/${nextRecording}/sources`,
           );
@@ -477,7 +476,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
     );
     preservationEvidence.playlistStatus = afterResponse.status();
     expect(preservationEvidence.playlistStatus).toBe(200);
-    const after: Schema["PlaylistDetail"] = await afterResponse.json();
+    const after: Schema<"PlaylistDetail"> = await afterResponse.json();
     preservationStep = "playlist_identity";
     preservationEvidence.playlistEntries = after.entries.length;
     preservationEvidence.playlistIdentity =

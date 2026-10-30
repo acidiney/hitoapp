@@ -1,7 +1,8 @@
+import type { Schema } from "../shared/schema";
 import { useEffect, type ReactNode } from "react";
 import { usePage } from "@inertiajs/react";
 import type { PageProps } from "@inertiajs/core";
-import type { SharedPageProps } from "../shared/types";
+
 import { log } from "../shared/log";
 import AccountMenu from "./AccountMenu";
 import LibrarySearch from "./LibrarySearch";
@@ -22,7 +23,7 @@ const OWN_SEARCH = new Set([
 ]);
 
 export default function Shell({ children }: { children: ReactNode }) {
-  const page = usePage<SharedPageProps & PageProps>();
+  const page = usePage<Schema<"SharedPageProps"> & PageProps>();
   const { user, playlists, lock } = page.props;
   const url = new URL(page.url, "http://hito.local");
   useEffect(() => {

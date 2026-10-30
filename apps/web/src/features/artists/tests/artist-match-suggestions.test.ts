@@ -2,14 +2,12 @@ import { createElement, type AnchorHTMLAttributes } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
     createElement("a", props, children),
 }));
-
-type Schema = components["schemas"];
 
 const account = "10000000-0000-4000-8000-000000000001";
 const credit = { id: "credit-one", name: "C4 Pedro" };
@@ -19,7 +17,7 @@ const suggestionsPath = `/api/v1/artists/${credit.id}/match-suggestions`;
 const dismissPath = `${suggestionsPath}/dismiss`;
 const applyPath = `/api/v1/artists/${credit.id}/artist-identity`;
 
-function group(id: string, artist: string): Schema["ArtistIdentityGroup"] {
+function group(id: string, artist: string): Schema<"ArtistIdentityGroup"> {
   return {
     id,
     provider: { kind: "builtin_musicbrainz" },
@@ -36,7 +34,7 @@ function group(id: string, artist: string): Schema["ArtistIdentityGroup"] {
   };
 }
 
-const both: Schema["ArtistMatchSuggestions"] = {
+const both: Schema<"ArtistMatchSuggestions"> = {
   artist_id: credit.id,
   dismissed: 0,
   items: [

@@ -1,13 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
-import type {
-  ResolveSource,
-  Source,
-  SourceResolution,
-  SyncBatch,
-} from "../../../shared/types";
+
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import {
@@ -26,7 +22,7 @@ const track = (id: string): Track => ({
 const first = track("f88f701f-a352-41a0-abda-21fc76b8a387");
 const next = track("74aa28ac-1583-4df0-8252-484e6c5ce069");
 const after = track("68d155c9-2894-4980-b22b-8855dafb6095");
-const source = (recording: Track, id: string): Source => ({
+const source = (recording: Track, id: string): Schema<"Source"> => ({
   id,
   recording_id: recording.id,
   provider: "plugin",
@@ -162,7 +158,7 @@ test("an account remount aborts next-source acquisition and ignores its late res
     await expectEmptyAccount(bob);
 
     await act(async () => {
-      const body = pending.body as ResolveSource;
+      const body = pending.body as Schema<"ResolveSource">;
       acknowledgement.resolve(
         Response.json({
           request_id: body.request_id,
@@ -170,7 +166,7 @@ test("an account remount aborts next-source acquisition and ignores its late res
           recording_id: next.id,
           outcome: "ready",
           sources: [nextSource],
-        } satisfies SourceResolution),
+        } satisfies Schema<"SourceResolution">),
       );
       await acknowledgement.promise;
     });
@@ -188,7 +184,9 @@ test("an account remount aborts next-source acquisition and ignores its late res
     ]);
     expect(requests.every((request) => request.account === "alice")).toBe(true);
     expect(requests[2].body).toEqual({ purpose: "playback" });
-    expect(Object.keys(pending.body as ResolveSource)).toEqual(["request_id"]);
+    expect(Object.keys(pending.body as Schema<"ResolveSource">)).toEqual([
+      "request_id",
+    ]);
     await expectEmptyAccount(bob);
     expect(alice.snapshot().current).toBeNull();
     expect((await alice.queuePage(0, 10)).entries).toEqual([]);
@@ -216,7 +214,7 @@ test("an adopted next buffer is released on account change and late media and pr
     const audio = ready.get(request.path);
     if (audio && request.method === "GET") return Response.json([audio]);
     if (request.path === "/api/v1/sync" && request.method === "POST") {
-      const batch = request.body as SyncBatch;
+      const batch = request.body as Schema<"SyncBatch">;
       const action = batch.operations[0].action;
       if (action.kind === "progress_set" && action.recording_id === next.id) {
         progress.resolve(request);
@@ -277,13 +275,13 @@ test("an adopted next buffer is released on account change and late media and pr
     const completed = requests.filter((request) => {
       if (request.path !== "/api/v1/sync" || request.method !== "POST")
         return false;
-      const action = (request.body as SyncBatch).operations[0].action;
+      const action = (request.body as Schema<"SyncBatch">).operations[0].action;
       return action.kind === "progress_set" && action.recording_id === first.id;
     });
     expect(completed).toHaveLength(1);
     const completedProgress = completed[0];
     expect(completedProgress.body).toEqual({
-      device_id: (pendingProgress.body as SyncBatch).device_id,
+      device_id: (pendingProgress.body as Schema<"SyncBatch">).device_id,
       operations: [
         {
           id: expect.stringMatching(
@@ -298,9 +296,9 @@ test("an adopted next buffer is released on account change and late media and pr
         },
       ],
     });
-    expect((completedProgress.body as SyncBatch).operations[0].id).not.toBe(
-      (pendingProgress.body as SyncBatch).operations[0].id,
-    );
+    expect(
+      (completedProgress.body as Schema<"SyncBatch">).operations[0].id,
+    ).not.toBe((pendingProgress.body as Schema<"SyncBatch">).operations[0].id);
     expect(requests.indexOf(completedProgress)).toBeLessThan(
       requests.indexOf(pendingProgress),
     );
@@ -355,7 +353,7 @@ test("an adopted next buffer is released on account change and late media and pr
     expect(
       requests
         .filter((request) => request.path === "/api/v1/sync")
-        .flatMap((request) => (request.body as SyncBatch).operations)
+        .flatMap((request) => (request.body as Schema<"SyncBatch">).operations)
         .map((operation) => operation.action),
     ).toEqual([
       {

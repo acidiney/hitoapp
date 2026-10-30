@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 class ProtocolFailure extends Error {
   constructor(readonly status = 400) {
     super("Owned next-entry fixture rejected the protocol");
@@ -76,14 +75,14 @@ export async function nextEntryFixture() {
     artist,
     duration_ms: 20000,
     revision: "first-one",
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const next = {
     ...first,
     id: "original/next",
     title: `Second orbit ${suffix}`,
     duration_ms: 8000,
     revision: "next-one",
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const candidate = { ...next, id: "alternate/next" };
   const recordings = new Map(
     [first, next, candidate].map((recording) => [recording.id, recording]),
@@ -234,7 +233,7 @@ export async function nextEntryFixture() {
           name: "Owned next-entry service",
           protocol_version: 1,
           capabilities: ["playlists", "search", "sources"],
-        } satisfies Schema["Manifest"];
+        } satisfies Schema<"Manifest">;
       } else {
         if (request.method !== "POST") throw new ProtocolFailure(405);
         switch (url.pathname) {

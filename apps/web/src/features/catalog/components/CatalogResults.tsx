@@ -1,4 +1,5 @@
-import type { CatalogPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
@@ -21,7 +22,10 @@ export default function CatalogResults({
   emptyTitle,
   emptyText,
   browse = false,
-}: Pick<CatalogPageProps, "user" | "playlists" | "query" | "recordings"> & {
+}: Pick<
+  Schema<"CatalogPageProps">,
+  "user" | "playlists" | "query" | "recordings"
+> & {
   path: string;
   emptyTitle: string;
   emptyText: string;

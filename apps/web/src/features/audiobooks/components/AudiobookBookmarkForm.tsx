@@ -1,6 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import type { FormEvent } from "react";
 import Button from "../../../shared/ui/Button";
-import type { PlaylistEntry } from "../../../shared/types";
 
 export default function AudiobookBookmarkForm({
   chapters,
@@ -15,7 +15,7 @@ export default function AudiobookBookmarkForm({
   save,
   retry,
 }: {
-  chapters: PlaylistEntry[];
+  chapters: Schema<"PlaylistEntry">[];
   draft: { entry: string; position: string; label: string };
   pending: boolean;
   hasAttempt: boolean;

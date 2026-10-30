@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -9,7 +10,6 @@ import {
   queueTrack,
 } from "../../playback/fixtures/browserQueueMedia";
 import { deferred } from "../../../test/async";
-import type { AlbumPageProps } from "../../../shared/types";
 
 let player: Playback;
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -232,7 +232,7 @@ test("a paged album queues all of its tracks in tag order", async () => {
       catalog_anchor: null,
       saved_edition: null,
     },
-  } as unknown as AlbumPageProps;
+  } as unknown as Schema<"AlbumPageProps">;
   render(createElement(AlbumPage, props));
   fireEvent.click(screen.getByRole("button", { name: "Play album" }));
   await vi.waitFor(() => expect(player.queueSnapshot().total).toBe(450));

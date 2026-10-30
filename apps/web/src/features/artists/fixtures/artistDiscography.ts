@@ -1,7 +1,5 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { artistAssociation, reviewedArtistProfile } from "./artistReview";
-
-type Schema = components["schemas"];
 
 export const hostDiscographyContinuation =
   "private-hito-discography-continuation:2";
@@ -42,7 +40,7 @@ export const firstDiscographyPage = {
       },
     ],
   },
-} satisfies Schema["ArtistDiscographyAvailability"];
+} satisfies Schema<"ArtistDiscographyAvailability">;
 
 export const lastDiscographyPage = {
   status: "available",
@@ -65,4 +63,4 @@ export const lastDiscographyPage = {
       },
     ],
   },
-} satisfies Schema["ArtistDiscographyAvailability"];
+} satisfies Schema<"ArtistDiscographyAvailability">;

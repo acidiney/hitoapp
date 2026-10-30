@@ -1,4 +1,5 @@
 import type { SignInFlow } from "../hooks/useSignIn";
+import Button from "../../../shared/ui/Button";
 
 export default function SignInForm({
   username,
@@ -33,9 +34,9 @@ export default function SignInForm({
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
-      <button className="button primary" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         {busy ? "Connecting…" : "Sign in"}
-      </button>
+      </Button>
       {error && (
         <p className="auth-error" role="alert">
           {error}

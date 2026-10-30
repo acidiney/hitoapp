@@ -1,8 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import HomePage from "../pages/HomePage";
-import type { HomePageProps, Recording } from "../../../shared/types";
 
 const { player, router } = vi.hoisted(() => ({
   player: { playQueue: vi.fn().mockResolvedValue(undefined) },
@@ -17,7 +17,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href, ...rest }, children),
 }));
 
-const track = (id: string, title: string): Recording => ({
+const track = (id: string, title: string): Schema<"Recording"> => ({
   id,
   title,
   artist: "Shore",
@@ -30,7 +30,9 @@ const track = (id: string, title: string): Recording => ({
   available: true,
   liked: false,
 });
-const props = (home: Partial<HomePageProps["home"]> = {}): HomePageProps => ({
+const props = (
+  home: Partial<Schema<"HomePageProps">["home"]> = {},
+): Schema<"HomePageProps"> => ({
   errors: {},
   native_playback: false,
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },

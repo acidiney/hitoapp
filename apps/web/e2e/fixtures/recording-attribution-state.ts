@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import type { artistReviewReader } from "./artist-review-state";
 import {
@@ -9,7 +9,6 @@ import {
 } from "./metadata-preferences-state";
 import type { recordingAttributionProvider } from "./recording-attribution-provider";
 
-type Schema = components["schemas"];
 type Reader = ReturnType<typeof artistReviewReader>;
 type Provider = Awaited<ReturnType<typeof recordingAttributionProvider>>;
 
@@ -17,7 +16,7 @@ export async function connectRecordingProvider(page: Page, owned: Provider) {
   await page.goto("/settings?section=plugins");
   await page.getByText("Services for this server", { exact: true }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
-  const offered = await preferencesAction<Schema["PluginService"]>(
+  const offered = await preferencesAction<Schema<"PluginService">>(
     page,
     page.getByRole("button", { name: "Offer service", exact: true }),
     "POST",
@@ -42,7 +41,7 @@ export async function connectRecordingProvider(page: Page, owned: Provider) {
     offered.body,
     owned.manifest.name,
   );
-  const installed = await preferencesAction<Schema["PluginInstallation"]>(
+  const installed = await preferencesAction<Schema<"PluginInstallation">>(
     page,
     page.getByRole("button", { name: "Accept and connect", exact: true }),
     "POST",
@@ -65,15 +64,15 @@ export async function connectRecordingProvider(page: Page, owned: Provider) {
 export async function discoverRecording(
   page: Page,
   query: string,
-  connection: Schema["PluginInstallation"],
-  expected: Schema["ProviderRecording"],
+  connection: Schema<"PluginInstallation">,
+  expected: Schema<"ProviderRecording">,
 ) {
   await page.goto("/discover");
   await page
     .getByRole("combobox", { name: "Music service", exact: true })
     .selectOption(connection.id);
   await page.getByLabel("Search music", { exact: true }).fill(query);
-  const searched = await preferencesAction<Schema["SearchPage"]>(
+  const searched = await preferencesAction<Schema<"SearchPage">>(
     page,
     page.getByRole("button", { name: "Search", exact: true }),
     "POST",
@@ -97,7 +96,7 @@ export async function discoverRecording(
     exact: true,
   });
   await expect(results.getByRole("listitem")).toHaveCount(1);
-  const adopted = await preferencesAction<Schema["Recording"]>(
+  const adopted = await preferencesAction<Schema<"Recording">>(
     page,
     results.getByRole("button", {
       name: `Add ${expected.title} to library`,
@@ -122,7 +121,7 @@ export async function discoverRecording(
 
 export async function openSavedRecording(
   page: Page,
-  recording: Schema["Recording"],
+  recording: Schema<"Recording">,
   title: string,
 ) {
   const link = page.getByRole("link", {
@@ -136,7 +135,7 @@ export async function openSavedRecording(
 
 export async function verifyCredits(
   region: Locator,
-  credit: Schema["RecordingAttribution"],
+  credit: Schema<"RecordingAttribution">,
 ) {
   await expect(region).toBeVisible();
   const creators = region.getByRole("list", { name: "Creators", exact: true });
@@ -180,57 +179,57 @@ export async function localRecordingState(
 ) {
   const response = await page.request.post("/api/v1/recordings/progress", {
     headers: { "x-hito-request": "1", Origin: new URL(page.url()).origin },
-    data: { recording_ids: saved.ids } satisfies Schema["SavedPlaybackRequest"],
+    data: { recording_ids: saved.ids } satisfies Schema<"SavedPlaybackRequest">,
     timeout: 10_000,
   });
-  let progress: Schema["RecordingProgress"][];
+  let progress: Schema<"RecordingProgress">[];
   try {
     const body = await response.body();
     if (response.status() !== 200 || body.length > 16_384)
       throw new Error("Owned recording progress read failed");
-    progress = JSON.parse(body.toString()) as Schema["RecordingProgress"][];
+    progress = JSON.parse(body.toString()) as Schema<"RecordingProgress">[];
   } finally {
     await response.dispose();
   }
-  const catalog = await read<Schema["RecordingPage"]>("/api/v1/recordings");
+  const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
   return {
     catalog: catalog.items.filter((recording) =>
       saved.ids.includes(recording.id),
     ),
-    playlist: await read<Schema["PlaylistDetail"]>(
+    playlist: await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${saved.playlist}`,
     ),
     metadata: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     sources: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+        read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
       ),
     ),
-    activity: await read<Schema["Activity"]>("/api/v1/activity"),
-    events: await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0"),
+    activity: await read<Schema<"Activity">>("/api/v1/activity"),
+    events: await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0"),
     progress,
   };
 }
 
 export async function retainedProviderState(read: Reader, recording: string) {
-  const metadata = await read<Schema["RecordingMetadata"]>(
+  const metadata = await read<Schema<"RecordingMetadata">>(
     `/api/v1/recordings/${recording}/metadata`,
   );
   return {
     title: metadata.title,
     artist: metadata.artist,
-    choice: await read<Schema["SourceChoice"]>(
+    choice: await read<Schema<"SourceChoice">>(
       `/api/v1/recordings/${recording}/source-choice`,
     ),
-    sources: await read<Schema["Source"][]>(
+    sources: await read<Schema<"Source">[]>(
       `/api/v1/recordings/${recording}/sources`,
     ),
-    settings: await read<Schema["PluginSettings"]>("/api/v1/plugins"),
-    preferences: await read<Schema["MetadataSettings"]>(
+    settings: await read<Schema<"PluginSettings">>("/api/v1/plugins"),
+    preferences: await read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     ),
   };

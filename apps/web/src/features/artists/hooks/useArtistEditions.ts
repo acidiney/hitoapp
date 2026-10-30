@@ -1,16 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { artistEditionApi } from "../api/artistEditionApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  ArtistAssociation,
-  CatalogArtistProfile,
-  CatalogEditionSummary,
-  CatalogReleaseGroup,
-  ReleaseGroupEditionsAvailability,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -21,18 +15,18 @@ const REQUEST_DEADLINE_MS = 20_000;
 export type ArtistEditionContext = {
   account: string;
   recording: string;
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
-  group: CatalogReleaseGroup;
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
+  group: Schema<"CatalogReleaseGroup">;
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
+  onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 };
 type Owner = { pending: boolean };
 type State = {
   owner: Owner;
   opened: boolean;
-  editions: CatalogEditionSummary[];
-  chosen: CatalogEditionSummary | null;
+  editions: Schema<"CatalogEditionSummary">[];
+  chosen: Schema<"CatalogEditionSummary"> | null;
   continuation: string | null;
   pages: number;
   pending: boolean;
@@ -57,7 +51,10 @@ function empty(owner: Owner): State {
 }
 
 function unavailable(
-  status: Exclude<ReleaseGroupEditionsAvailability["status"], "available">,
+  status: Exclude<
+    Schema<"ReleaseGroupEditionsAvailability">["status"],
+    "available"
+  >,
 ) {
   switch (status) {
     case "disabled":

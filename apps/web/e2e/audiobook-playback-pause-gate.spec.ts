@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { audiobookPlaybackEvidence } from "./fixtures/audiobook-playback-evidence";
 import { audiobookPlaybackGateFixture } from "./fixtures/audiobook-playback-gates";
 import { audiobookMediaState } from "./fixtures/audiobook-playback-state";
 
-type Schema = components["schemas"];
 type PauseControl = {
   native: number;
   exact: number;
@@ -91,7 +90,7 @@ test("pause checkpoint waits for native progress submission and its exact held a
       })
       .toBe(true);
     await expect.poll(() => evidence.pending()).toBe(0);
-    const batch: Schema["SyncBatch"] = {
+    const batch: Schema<"SyncBatch"> = {
       device_id: randomUUID(),
       operations: [
         {

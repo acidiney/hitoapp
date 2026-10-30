@@ -13,7 +13,7 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistPreview,
   artistQuery,
@@ -28,8 +28,6 @@ import {
 } from "../fixtures/artistReview";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -195,7 +193,7 @@ test("track details offers lazy artist review without replacing unsaved personal
     expect(JSON.parse(writes[1][1]?.body as string)).toEqual({
       context: artistReviewContext,
       search: artistSearch,
-    } satisfies Schema["SearchArtistCandidates"]);
+    } satisfies Schema<"SearchArtistCandidates">);
     expect(JSON.parse(writes[2][1]?.body as string)).toEqual(artistSelection);
     expect(fetch.mock.calls.slice(2).map(([path]) => path)).toEqual([
       "/api/v1/metadata/settings",

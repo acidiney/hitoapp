@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
-import type { LockStatus } from "../../../shared/types";
+
 import { useReportUnsaved } from "../../../shared/unsavedChanges";
 import Button from "../../../shared/ui/Button";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
@@ -18,7 +19,7 @@ export default function ScreenLockSettings({
   lock,
 }: {
   account: string;
-  lock: LockStatus;
+  lock: Schema<"LockStatus">;
 }) {
   const settings = usePinSettings(account, lock);
   const id = useId();

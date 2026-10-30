@@ -1,9 +1,13 @@
-import type { SettingsPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import CommunitySettings from "../../community/components/CommunitySettings";
 import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
 import ScreenLockSettings from "../../session/components/ScreenLockSettings";
 
-export default function PrivacySection({ user, lock }: SettingsPageProps) {
+export default function PrivacySection({
+  user,
+  lock,
+}: Schema<"SettingsPageProps">) {
   return (
     <>
       <ScreenLockSettings

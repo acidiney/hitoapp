@@ -9,10 +9,9 @@ import {
   type APIResponse,
   type Page,
 } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { preferencesLibraryState } from "./fixtures/metadata-preferences-state";
 
-type Schema = components["schemas"];
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.skip(
   process.env.HITO_METADATA_STATE_GATES_E2E !== "1",
@@ -40,7 +39,7 @@ async function verifyProgressBody(api: APIRequest, oversized: boolean) {
   };
   const expected = [
     { recording_id: saved.ids[0], position_ms: 400, speed: 1.25 },
-  ] satisfies Schema["RecordingProgress"][];
+  ] satisfies Schema<"RecordingProgress">[];
   const json = JSON.stringify(expected);
   const body = oversized ? json.padEnd(524_289, " ") : json;
   const counts = {

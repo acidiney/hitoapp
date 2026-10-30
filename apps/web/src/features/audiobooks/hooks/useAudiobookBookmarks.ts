@@ -1,26 +1,27 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { prepareChange, submitChange } from "../../../shared/sync";
 import { audiobookApi } from "../api/audiobookApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { Action, AudiobookDetail, SyncBatch } from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type BookmarkAction = Extract<
-  Action,
+  Schema<"Action">,
   { kind: "audiobook_bookmark_create" | "audiobook_bookmark_remove" }
 >;
 type Draft = { entry: string; position: string; label: string };
 type Attempt = {
   action: BookmarkAction;
-  batch: SyncBatch;
+  batch: Schema<"SyncBatch">;
   acknowledged: boolean;
 };
 type ReadRun = { controller: AbortController; revision: number };
 type Owner = {
-  rendered: AudiobookDetail;
-  detail: AudiobookDetail;
+  rendered: Schema<"AudiobookDetail">;
+  detail: Schema<"AudiobookDetail">;
   draft: Draft;
   attempt: Attempt | null;
   pending: boolean;
@@ -35,7 +36,7 @@ type Owner = {
 
 export function useAudiobookBookmarks(
   account: string,
-  rendered: AudiobookDetail,
+  rendered: Schema<"AudiobookDetail">,
 ) {
   const book = rendered.playlist.id;
   const scope = useRequestScope(JSON.stringify([account, book]));
@@ -360,7 +361,10 @@ function milliseconds(value: string): number | null {
   return Number.isSafeInteger(result) && result >= 0 ? result : null;
 }
 
-function confirms(detail: AudiobookDetail, action: BookmarkAction): boolean {
+function confirms(
+  detail: Schema<"AudiobookDetail">,
+  action: BookmarkAction,
+): boolean {
   const bookmark = detail.bookmarks.find(
     (value) => value.id === action.bookmark_id,
   );

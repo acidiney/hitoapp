@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
-import type { PluginInstallation } from "../../../shared/types";
+
 import Button from "../../../shared/ui/Button";
 import FilterPills from "../../../shared/ui/FilterPills";
 
@@ -13,7 +14,7 @@ export default function DiscoverySearch({
   onSearch,
   pills = false,
 }: {
-  connections: PluginInstallation[];
+  connections: Schema<"PluginInstallation">[];
   names: Record<string, string>;
   selected: string;
   pending: boolean;
@@ -26,7 +27,7 @@ export default function DiscoverySearch({
     event.preventDefault();
     void onSearch(query);
   }
-  const label = (connection: PluginInstallation) => {
+  const label = (connection: Schema<"PluginInstallation">) => {
     const name = names[connection.service_id];
     return name && name !== connection.manifest.name
       ? `${name} · ${connection.manifest.name}`

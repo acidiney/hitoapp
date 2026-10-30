@@ -1,14 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
-import type {
-  ApplyArtistIdentityToCredit,
-  ArtistIdentityChoiceReceipt,
-  ArtistIdentityCreditReceipt,
-  ArtistIdentityGroupDetail,
-  ArtistIdentityGroupList,
-  ChooseRecordingArtistIdentity,
-  RecordingArtistIdentityChoice,
-  ResetRecordingArtistIdentity,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -17,9 +8,9 @@ async function json<T>(
   account: string,
   signal: AbortSignal,
   body?:
-    | ChooseRecordingArtistIdentity
-    | ResetRecordingArtistIdentity
-    | ApplyArtistIdentityToCredit,
+    | Schema<"ChooseRecordingArtistIdentity">
+    | Schema<"ResetRecordingArtistIdentity">
+    | Schema<"ApplyArtistIdentityToCredit">,
   method: "GET" | "PUT" | "POST" = "GET",
   action?: string,
 ): Promise<T> {
@@ -45,7 +36,7 @@ async function json<T>(
 
 export const artistIdentityApi = {
   read(account: string, recording: string, signal: AbortSignal) {
-    return json<RecordingArtistIdentityChoice>(
+    return json<Schema<"RecordingArtistIdentityChoice">>(
       `/recordings/${part(recording)}/artist-identity`,
       account,
       signal,
@@ -54,10 +45,10 @@ export const artistIdentityApi = {
   choose(
     account: string,
     recording: string,
-    body: ChooseRecordingArtistIdentity,
+    body: Schema<"ChooseRecordingArtistIdentity">,
     signal: AbortSignal,
   ) {
-    return json<ArtistIdentityChoiceReceipt>(
+    return json<Schema<"ArtistIdentityChoiceReceipt">>(
       `/recordings/${part(recording)}/artist-identity`,
       account,
       signal,
@@ -68,10 +59,10 @@ export const artistIdentityApi = {
   reset(
     account: string,
     recording: string,
-    body: ResetRecordingArtistIdentity,
+    body: Schema<"ResetRecordingArtistIdentity">,
     signal: AbortSignal,
   ) {
-    return json<ArtistIdentityChoiceReceipt>(
+    return json<Schema<"ArtistIdentityChoiceReceipt">>(
       `/recordings/${part(recording)}/artist-identity/reset`,
       account,
       signal,
@@ -80,7 +71,7 @@ export const artistIdentityApi = {
     );
   },
   group(account: string, group: string, signal: AbortSignal) {
-    return json<ArtistIdentityGroupDetail>(
+    return json<Schema<"ArtistIdentityGroupDetail">>(
       `/artist-identity-groups/${part(group)}?limit=1`,
       account,
       signal,
@@ -88,7 +79,7 @@ export const artistIdentityApi = {
   },
   groupsForCredit(account: string, credit: string, signal: AbortSignal) {
     const query = new URLSearchParams({ q: credit, limit: "20" });
-    return json<ArtistIdentityGroupList>(
+    return json<Schema<"ArtistIdentityGroupPage">>(
       `/artist-identity-groups?${query}`,
       account,
       signal,
@@ -97,10 +88,10 @@ export const artistIdentityApi = {
   applyToCredit(
     account: string,
     artist: string,
-    body: ApplyArtistIdentityToCredit,
+    body: Schema<"ApplyArtistIdentityToCredit">,
     signal: AbortSignal,
   ) {
-    return json<ArtistIdentityCreditReceipt>(
+    return json<Schema<"ArtistIdentityCreditReceipt">>(
       `/artists/${part(artist)}/artist-identity`,
       account,
       signal,

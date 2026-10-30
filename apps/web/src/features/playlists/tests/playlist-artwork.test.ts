@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,10 +10,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistArtworkFetch,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import { copiedPlaylistPage, recordingA } from "../fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({
@@ -27,13 +25,13 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const warn = vi.spyOn(console, "warn");
-  let props: PlaylistPageProps = structuredClone(copiedPlaylistPage);
+  let props: Schema<"PlaylistPageProps"> = structuredClone(copiedPlaylistPage);
   const playlist = props.detail.playlist.id;
   const replacement = "93bc0ccf-84ea-4918-8081-ac744e847d96";
   const image = `/api/v1/playlists/${playlist}/artwork`;
   const availability = `${image}/availability`;
   const enqueue = `${image}/fetch`;
-  const first: PlaylistArtworkFetch = {
+  const first: Schema<"PlaylistArtworkFetch"> = {
     id: "first-playlist-cover",
     playlist_id: playlist,
     status: "queued",
@@ -48,7 +46,7 @@ test("an imported playlist retrieves its own cover, retries failures and cancels
     created_at: 2,
     updated_at: 2,
   };
-  const ready: PlaylistArtworkFetch = {
+  const ready: Schema<"PlaylistArtworkFetch"> = {
     ...retry,
     status: "ready",
     attempts: 1,

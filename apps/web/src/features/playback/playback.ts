@@ -1,3 +1,4 @@
+import type { Schema } from "../../shared/schema";
 import {
   MAX_QUEUE_ENTRIES,
   type MediaPort,
@@ -10,7 +11,7 @@ import {
   type Player,
   type Track,
 } from "./model";
-import type { AudiobookChapterAnchor } from "../../shared/types";
+
 export type { MediaPort, Track } from "./model";
 import { log } from "../../shared/log";
 import {
@@ -37,7 +38,7 @@ import {
   successorAfterRemove,
 } from "./browser/QueueModel";
 import { BrowserCommunityObservation } from "./browser/BrowserCommunityObservation";
-import type { SuccessfulPlayback } from "../../shared/types";
+
 import {
   BrowserPreparation,
   type BrowserMediaOwner,
@@ -95,11 +96,11 @@ export class Playback implements Player {
       track: Track,
       position: number,
       speed: number,
-      chapter?: AudiobookChapterAnchor,
+      chapter?: Schema<"AudiobookChapterAnchor">,
     ) => boolean | void,
     private mediaOwner?: BrowserMediaOwner,
     prepareAudiobook?: AudiobookPreparer,
-    onSuccess?: (source: string, claim: SuccessfulPlayback) => void,
+    onSuccess?: (source: string, claim: Schema<"SuccessfulPlayback">) => void,
     sourcePreparer?: SourcePreparer,
   ) {
     this.community = onSuccess

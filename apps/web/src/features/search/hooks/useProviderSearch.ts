@@ -1,9 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef, useState } from "react";
-import type { PluginInstallation } from "../../../shared/types";
+
 import type { Player } from "../../playback/model";
 import { useDiscovery } from "../../discovery/hooks/useDiscovery";
 
-export function searchableConnections(connections: PluginInstallation[]) {
+export function searchableConnections(
+  connections: Schema<"PluginInstallation">[],
+) {
   return connections.filter((connection) =>
     connection.manifest.capabilities.includes("search"),
   );
@@ -11,7 +14,7 @@ export function searchableConnections(connections: PluginInstallation[]) {
 
 export function useProviderSearch(
   account: string,
-  connections: PluginInstallation[],
+  connections: Schema<"PluginInstallation">[],
   query: string,
   enabled: boolean,
   player: Pick<Player, "prepareSelection">,

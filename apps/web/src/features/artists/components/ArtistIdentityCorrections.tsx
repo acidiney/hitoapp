@@ -1,7 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { router } from "@inertiajs/react";
 import { useArtistIdentityCorrections } from "../hooks/useArtistIdentityCorrections";
-import type { ArtistIdentityGroupDetail } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 export default function ArtistIdentityCorrections({
   account,
@@ -10,7 +12,7 @@ export default function ArtistIdentityCorrections({
 }: {
   account: string;
   admin: boolean;
-  detail: ArtistIdentityGroupDetail;
+  detail: Schema<"ArtistIdentityGroupDetail">;
 }) {
   const [opened, setOpened] = useState(false);
   const [recordings, setRecordings] = useState<string[]>([]);
@@ -48,13 +50,9 @@ export default function ArtistIdentityCorrections({
         <h2 className="discography-heading" id="group-corrections-title">
           Corrections
         </h2>
-        <button
-          type="button"
-          className="button"
-          onClick={() => setOpened(true)}
-        >
+        <Button type="button" onClick={() => setOpened(true)}>
           Correct this artist
-        </button>
+        </Button>
       </section>
     );
 
@@ -112,9 +110,9 @@ export default function ArtistIdentityCorrections({
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>{" "}
-        <button type="submit" className="button" disabled={busy}>
+        <Button type="submit" disabled={busy}>
           Search artists
-        </button>
+        </Button>
       </form>
       <label>
         Move to{" "}
@@ -134,29 +132,26 @@ export default function ArtistIdentityCorrections({
       </label>
       {corrections.groupTotal > 20 && (
         <nav aria-label="Destination artist pages">
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={corrections.groupPage.offset === 0}
             onClick={() => corrections.moveGroupPage(-1)}
           >
             Earlier artists
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="button"
             disabled={
               corrections.groupPage.offset + 20 >= corrections.groupTotal
             }
             onClick={() => corrections.moveGroupPage(1)}
           >
             More artists
-          </button>
+          </Button>
         </nav>
       )}
-      <button
+      <Button
         type="button"
-        className="button"
         disabled={busy || retrying || !ready}
         onClick={() =>
           corrections.split({
@@ -173,7 +168,7 @@ export default function ArtistIdentityCorrections({
         }
       >
         Move selected tracks
-      </button>
+      </Button>
       {latest && (
         <p>
           Latest change: {latest.kind === "split" ? "moved" : "restored"}{" "}
@@ -183,36 +178,33 @@ export default function ArtistIdentityCorrections({
         </p>
       )}
       {latest?.undoable && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={busy || retrying}
           onClick={() => corrections.undo()}
         >
           Undo last artist change
-        </button>
+        </Button>
       )}
       {admin && latest?.shareable && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={busy || retrying}
           onClick={() => corrections.share()}
         >
           Apply this correction for everyone
-        </button>
+        </Button>
       )}
       {admin && latest?.shared && (
         <>
           <p>This correction applies to every account.</p>
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={busy || retrying}
             onClick={() => corrections.withdraw()}
           >
             Withdraw the shared correction
-          </button>
+          </Button>
         </>
       )}
       {admin && shared && shared.items.some((item) => item.retired > 0) && (
@@ -220,14 +212,13 @@ export default function ArtistIdentityCorrections({
       )}
       {error && <p role="alert">{error}</p>}
       {retrying && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={busy}
           onClick={() => corrections.retry()}
         >
           Retry the same artist correction request
-        </button>
+        </Button>
       )}
       {notice && <p role="status">{notice}</p>}
     </section>

@@ -1,13 +1,16 @@
+import type { Schema } from "../schema";
 import { useCallback, useState } from "react";
 import { change, changeMany } from "../sync";
 import { errorMessage } from "../format";
 import { useNotice } from "../ui/Notices";
-import type { Action } from "../types";
+
 import { useRequestScope } from "./useRequestScope";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
-export type Mutate = (action: Action) => Promise<MutationResult>;
-export type MutateMany = (actions: Action[]) => Promise<MutationResult>;
+export type Mutate = (action: Schema<"Action">) => Promise<MutationResult>;
+export type MutateMany = (
+  actions: Schema<"Action">[],
+) => Promise<MutationResult>;
 
 export function useMutation(account: string) {
   const notice = useNotice();

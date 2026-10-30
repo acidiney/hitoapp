@@ -1,12 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page, type Request } from "@playwright/test";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function reviewPluginInstallation(
   page: Page,
-  service: Schema["PluginService"],
+  service: Schema<"PluginService">,
   expectedName = service.name,
   activate = () =>
     page
@@ -32,10 +30,10 @@ export async function reviewPluginInstallation(
     const bytes = await response.body();
     if (bytes.length > 524_288)
       throw new Error("The service preview exceeded its response bound");
-    const body: Schema["PluginInstallationPreview"] = JSON.parse(
+    const body: Schema<"PluginInstallationPreview"> = JSON.parse(
       bytes.toString(),
     );
-    const sent: Schema["PreviewPluginInstallation"] = response
+    const sent: Schema<"PreviewPluginInstallation"> = response
       .request()
       .postDataJSON();
     expect(
@@ -101,7 +99,7 @@ export function observePluginInstallations(
 ) {
   const maxSamples = limits.maxSamples ?? 8;
   const maxBodyBytes = limits.maxBodyBytes ?? 32_768;
-  const samples: Schema["InstallPlugin"][] = [];
+  const samples: Schema<"InstallPlugin">[] = [];
   const evidence = {
     total: 0,
     samples,
@@ -124,7 +122,7 @@ export function observePluginInstallations(
       return;
     }
     try {
-      const sample: Schema["InstallPlugin"] = JSON.parse(raw);
+      const sample: Schema<"InstallPlugin"> = JSON.parse(raw);
       evidence.samples.push(sample);
     } catch {
       evidence.overflow = true;

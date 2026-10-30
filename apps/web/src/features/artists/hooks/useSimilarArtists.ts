@@ -1,10 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  ArtistIdentityGroupDetail,
-  SimilarArtistsAvailability,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { similarArtistsApi } from "../api/similarArtistsApi";
@@ -15,7 +13,7 @@ const LIMIT = 10;
 type Owner = { pending: boolean };
 type State = {
   owner: Owner;
-  result: SimilarArtistsAvailability | null;
+  result: Schema<"SimilarArtistsAvailability"> | null;
   pending: boolean;
   error: string;
 };
@@ -26,7 +24,7 @@ function empty(owner: Owner): State {
 
 export function useSimilarArtists(
   account: string,
-  group: ArtistIdentityGroupDetail["group"],
+  group: Schema<"ArtistIdentityGroupDetail">["group"],
 ) {
   const scope = useRequestScope(
     JSON.stringify([

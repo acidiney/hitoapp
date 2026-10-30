@@ -1,8 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import type { components } from "../../../generated";
-import type {
-  MetadataObservation,
-  RecordingDetailsPageProps,
-} from "../../../shared/types";
+
 import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 
 export const selectedRecordingAttribution = {
@@ -19,7 +17,7 @@ const original = sourceAttachmentPage.detail.selected_observation;
 if (!original) throw new Error("The owned recording needs provider metadata");
 
 export const uncreditedRecordingObservation = original;
-export const selectedRecordingObservation: MetadataObservation = {
+export const selectedRecordingObservation: Schema<"MetadataObservation"> = {
   ...original,
   attribution: selectedRecordingAttribution,
 };
@@ -30,7 +28,7 @@ export const historicalRecordingAttribution = {
   content_url: "https://credits.example.invalid/recordings/earlier",
 } satisfies components["schemas"]["RecordingAttribution"];
 
-export const historicalRecordingObservation: MetadataObservation = {
+export const historicalRecordingObservation: Schema<"MetadataObservation"> = {
   ...original,
   id: "0dd52f94-cd8e-47ce-bb32-d6cd29ac5204",
   title: "Owned earlier observed title",
@@ -40,7 +38,7 @@ export const historicalRecordingObservation: MetadataObservation = {
   attribution: historicalRecordingAttribution,
 };
 
-export const attributedRecordingPage: RecordingDetailsPageProps = {
+export const attributedRecordingPage: Schema<"RecordingDetailsPageProps"> = {
   ...sourceAttachmentPage,
   detail: {
     ...sourceAttachmentPage.detail,
@@ -49,7 +47,7 @@ export const attributedRecordingPage: RecordingDetailsPageProps = {
   },
 };
 
-export const historicalRecordingPage: RecordingDetailsPageProps = {
+export const historicalRecordingPage: Schema<"RecordingDetailsPageProps"> = {
   ...attributedRecordingPage,
   detail: {
     ...attributedRecordingPage.detail,

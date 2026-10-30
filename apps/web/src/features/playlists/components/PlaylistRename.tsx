@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import Button from "../../../shared/ui/Button";
 
 export default function PlaylistRename({
   name,
@@ -25,13 +26,9 @@ export default function PlaylistRename({
           onChange={(event) => setValue(event.target.value)}
         />
       </label>
-      <button
-        type="submit"
-        className="button primary"
-        disabled={!changed || pending}
-      >
+      <Button variant="primary" type="submit" disabled={!changed || pending}>
         Save name
-      </button>
+      </Button>
       <p className="muted">
         Use the arrows to change the order. Changes stay in Hito; a provider
         playlist is not changed.

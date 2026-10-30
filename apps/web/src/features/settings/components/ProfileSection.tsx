@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { LogOut, Lock } from "lucide-react";
-import type { SettingsPageProps } from "../../../shared/types";
+
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
@@ -7,7 +8,10 @@ import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useLockSession } from "../../session/hooks/useLockSession";
 import { useSignOut } from "../../session/hooks/useSignOut";
 
-export default function ProfileSection({ user, lock }: SettingsPageProps) {
+export default function ProfileSection({
+  user,
+  lock,
+}: Schema<"SettingsPageProps">) {
   const player = usePlayer();
   const signOut = useSignOut(user.id, () => player.clear());
   const locking = useLockSession(user.id, () => player.clear());

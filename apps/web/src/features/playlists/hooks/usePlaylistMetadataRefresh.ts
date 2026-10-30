@@ -1,33 +1,30 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { playlistMetadataApi } from "../api/playlistMetadataApi";
 import { HttpError } from "../../../shared/http";
 import { createUuid } from "../../../shared/uuid";
 import { log } from "../../../shared/log";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  PlaylistDetail,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { usePlaylistMetadataDetail } from "./usePlaylistMetadataDetail";
 
 type MetadataOwner = {
   run: AbortController | null;
-  attempt: Readonly<RefreshImportedPlaylistMetadata> | null;
+  attempt: Readonly<Schema<"RefreshImportedPlaylistMetadata">> | null;
 };
 type MetadataState = {
   owner: MetadataOwner;
   pending: boolean;
   hasAttempt: boolean;
-  receipt: ImportedPlaylistMetadataRefresh | null;
+  receipt: Schema<"ImportedPlaylistMetadataRefresh"> | null;
   error: string;
 };
 
 export function usePlaylistMetadataRefresh(
   account: string,
   playlist: string | null,
-  origin: PlaylistDetail["origin"],
+  origin: Schema<"PlaylistDetail">["origin"],
 ) {
   const key = JSON.stringify([account, playlist, origin]);
   const scope = useRequestScope(key);

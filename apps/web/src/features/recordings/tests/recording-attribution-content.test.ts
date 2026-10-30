@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,9 +8,8 @@ import {
   selectedRecordingAttribution,
   uncreditedRecordingObservation,
 } from "../fixtures/recordingAttribution";
-import type { RecordingAttribution } from "../../../shared/types";
 
-function renderCredits(attribution: RecordingAttribution) {
+function renderCredits(attribution: Schema<"RecordingAttribution">) {
   const logs = (["debug", "info", "log", "warn", "error"] as const).map(
     (level) => vi.spyOn(console, level).mockImplementation(() => {}),
   );
@@ -58,7 +58,7 @@ test("retained creator and provider markup remains literal text without creating
   const creator =
     '<img src="https://images.example.invalid/pixel" onerror="owned()">';
   const provider = "<script>ownedProvider()</script>";
-  const attribution: RecordingAttribution = {
+  const attribution: Schema<"RecordingAttribution"> = {
     ...selectedRecordingAttribution,
     creators: [creator, "Owned literal collaborator", creator],
     provider_label: provider,
@@ -179,7 +179,7 @@ test.each([
 ])(
   "$label backlink keeps provider text and follows the canonical link contract",
   ({ url, linked }) => {
-    const attribution: RecordingAttribution = {
+    const attribution: Schema<"RecordingAttribution"> = {
       ...selectedRecordingAttribution,
       content_url: url,
     };

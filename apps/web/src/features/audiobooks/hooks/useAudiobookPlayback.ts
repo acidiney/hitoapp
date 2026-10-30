@@ -1,16 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { audiobookApi } from "../api/audiobookApi";
 import { log } from "../../../shared/log";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
-import type { AudiobookDetail, PlaylistEntry } from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 
-type Bookmark = AudiobookDetail["bookmarks"][number];
+type Bookmark = Schema<"AudiobookDetail">["bookmarks"][number];
 
 export function useAudiobookPlayback(
   account: string,
-  detail: AudiobookDetail,
-  rendered: AudiobookDetail,
+  detail: Schema<"AudiobookDetail">,
+  rendered: Schema<"AudiobookDetail">,
 ) {
   const player = usePlayer();
   const owner = useMemo(
@@ -35,7 +36,7 @@ export function useAudiobookPlayback(
   }, [owner]);
 
   async function play(
-    chapter: PlaylistEntry,
+    chapter: Schema<"PlaylistEntry">,
     bookmark?: Bookmark,
   ): Promise<void> {
     if (owner.pending || !chapter.recording_id || !chapter.available) return;
@@ -137,7 +138,7 @@ export function useAudiobookPlayback(
     }
   }
 
-  function playChapter(chapter: PlaylistEntry) {
+  function playChapter(chapter: Schema<"PlaylistEntry">) {
     return play(chapter);
   }
 

@@ -1,8 +1,10 @@
-import type { PlaylistDownloadStatus } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
+import Button from "../../../shared/ui/Button";
 
 type ViewProps = {
-  download: PlaylistDownloadStatus | null;
+  download: Schema<"PlaylistDownloadStatus"> | null;
   checking: boolean;
   pending: boolean;
   requested: boolean;
@@ -125,30 +127,24 @@ function PlaylistDownloadView({
           <p className="form-error" role="alert">
             {statusError}
           </p>
-          <button
-            className="button"
+          <Button
             disabled={checking || pending || retryKind !== null}
             onClick={() => void check()}
           >
             Check download
-          </button>
+          </Button>
         </div>
       )}
-      <button
-        className="button"
-        disabled={checking || pending}
-        onClick={() => void action()}
-      >
+      <Button disabled={checking || pending} onClick={() => void action()}>
         {label}
-      </button>
+      </Button>
       {hasRetainedFailures && failed > 0 && (
-        <button
-          className="button"
+        <Button
           disabled={checking || pending || retryKind !== null}
           onClick={() => void retryFailed()}
         >
           Retry failed downloads
-        </button>
+        </Button>
       )}
     </section>
   );

@@ -1,12 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { useSimilarArtists } from "../hooks/useSimilarArtists";
-import type {
-  ArtistIdentityGroupDetail,
-  SimilarArtistsAvailability,
-} from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 const NOTES: Record<
-  Exclude<SimilarArtistsAvailability["status"], "available" | "unavailable">,
+  Exclude<
+    Schema<"SimilarArtistsAvailability">["status"],
+    "available" | "unavailable"
+  >,
   string
 > = {
   unsupported:
@@ -20,7 +22,7 @@ export default function SimilarArtists({
   group,
 }: {
   account: string;
-  group: ArtistIdentityGroupDetail["group"];
+  group: Schema<"ArtistIdentityGroupDetail">["group"];
 }) {
   const workflow = useSimilarArtists(account, group);
   if (group.provider.kind !== "builtin_musicbrainz") return null;
@@ -91,13 +93,9 @@ export default function SimilarArtists({
           </p>
         ))}
       {!workflow.pending && !(result && !workflow.error) && (
-        <button
-          type="button"
-          className="button"
-          onClick={() => void workflow.load()}
-        >
+        <Button type="button" onClick={() => void workflow.load()}>
           {workflow.error ? "Try again" : "Show similar artists"}
-        </button>
+        </Button>
       )}
     </section>
   );

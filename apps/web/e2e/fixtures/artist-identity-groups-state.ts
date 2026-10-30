@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { artistReviewReader } from "./artist-review-state";
 import {
   openPreferences,
@@ -14,7 +14,6 @@ import { reviewPluginInstallation } from "./plugin-installation-review";
 import type { artistIdentityGroupsProvider } from "./artist-identity-groups-provider";
 import { openLibrarySection } from "./library-sections";
 
-type Schema = components["schemas"];
 export type GroupReader = ReturnType<typeof artistReviewReader>;
 type Provider = Awaited<ReturnType<typeof artistIdentityGroupsProvider>>;
 
@@ -33,7 +32,7 @@ export async function prepareArtistGroups(
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  const user = await read<Schema["User"]>("/api/v1/me");
+  const user = await read<Schema<"User">>("/api/v1/me");
   const saved = await seedPreferencesLibrary(page, read, user);
   await page
     .getByRole("navigation", { name: "Settings sections" })
@@ -43,7 +42,7 @@ export async function prepareArtistGroups(
   await page
     .getByLabel("Service address", { exact: true })
     .fill(provider.address);
-  const offered = await preferencesAction<Schema["PluginService"]>(
+  const offered = await preferencesAction<Schema<"PluginService">>(
     page,
     page.getByRole("button", { name: "Offer service", exact: true }),
     "POST",
@@ -67,7 +66,7 @@ export async function prepareArtistGroups(
     offered.body,
     provider.manifest.name,
   );
-  const installed = await preferencesAction<Schema["PluginInstallation"]>(
+  const installed = await preferencesAction<Schema<"PluginInstallation">>(
     page,
     page.getByRole("button", { name: "Accept and connect", exact: true }),
     "POST",
@@ -89,7 +88,7 @@ export async function prepareArtistGroups(
   const selected = {
     kind: "http_plugin",
     installation_id: connection.id,
-  } satisfies Schema["MetadataProvider"];
+  } satisfies Schema<"MetadataProvider">;
   const panel = await openPreferences(page);
   await panel
     .getByRole("button", { name: "Remove MusicBrainz", exact: true })
@@ -116,7 +115,7 @@ export async function prepareArtistGroups(
   await form
     .getByRole("textbox", { name: "Playlist link or identifier", exact: true })
     .fill(provider.reference);
-  const imported = await preferencesAction<Schema["PlaylistImportReceipt"]>(
+  const imported = await preferencesAction<Schema<"PlaylistImportReceipt">>(
     page,
     form.getByRole("button", { name: "Import a copy", exact: true }),
     "POST",
@@ -124,7 +123,7 @@ export async function prepareArtistGroups(
     200,
   );
   if (!imported.body) throw new Error("The owned playlist import is missing");
-  const request = imported.sent as Schema["ImportProviderPlaylist"];
+  const request = imported.sent as Schema<"ImportProviderPlaylist">;
   expect(
     request.playlist_reference === provider.reference &&
       request.installation_revision === connection.revision &&
@@ -132,7 +131,7 @@ export async function prepareArtistGroups(
   ).toBe(true);
   const playlist = imported.body.playlist_id;
   await expect(page).toHaveURL(new RegExp(`/playlists/${playlist}$`));
-  const copy = await read<Schema["PlaylistDetail"]>(
+  const copy = await read<Schema<"PlaylistDetail">>(
     `/api/v1/playlists/${playlist}`,
   );
   const importedIds = copy.entries
@@ -157,7 +156,7 @@ export async function prepareArtistGroups(
       recording_id: importedIds[1],
       artist: saved.privateValues[1],
     },
-  } satisfies Schema["Operation"];
+  } satisfies Schema<"Operation">;
   const response = await page.request.post("/api/v1/sync", {
     headers: {
       "x-hito-request": "1",
@@ -167,14 +166,14 @@ export async function prepareArtistGroups(
     data: {
       device_id: "owned-artist-groups-preparation",
       operations: [operation],
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
     timeout: 10_000,
   });
   try {
     const bytes = await response.body();
     if (bytes.length > 4096)
       throw new Error("Owned namesake preparation exceeded its bound");
-    const receipt = JSON.parse(bytes.toString()) as Schema["SyncReceipt"];
+    const receipt = JSON.parse(bytes.toString()) as Schema<"SyncReceipt">;
     expect(
       response.status() === 200 &&
         isDeepStrictEqual(receipt.acknowledged, [operation.id]),
@@ -183,7 +182,7 @@ export async function prepareArtistGroups(
     await response.dispose();
   }
   const ids = [...saved.ids, importedIds[0], importedIds[1]];
-  const catalog = await read<Schema["RecordingPage"]>("/api/v1/recordings");
+  const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
   expect(
     catalog.total === 4 &&
       new Set(ids).size === 4 &&
@@ -227,10 +226,10 @@ export async function artistGroupsState(
   expect(imported.length === 2 && prepared.local.ids.length === 2).toBe(true);
   const progress = await page.request.post("/api/v1/recordings/progress", {
     headers: { "x-hito-request": "1", Origin: new URL(page.url()).origin },
-    data: { recording_ids: imported } satisfies Schema["SavedPlaybackRequest"],
+    data: { recording_ids: imported } satisfies Schema<"SavedPlaybackRequest">,
     timeout: 10_000,
   });
-  let importedProgress: Schema["RecordingProgress"][];
+  let importedProgress: Schema<"RecordingProgress">[];
   try {
     const bytes = await progress.body();
     if (bytes.length > 524_288)
@@ -238,23 +237,23 @@ export async function artistGroupsState(
     expect(progress.status()).toBe(200);
     importedProgress = JSON.parse(
       bytes.toString(),
-    ) as Schema["RecordingProgress"][];
+    ) as Schema<"RecordingProgress">[];
   } finally {
     await progress.dispose();
   }
-  const metadata: Schema["RecordingMetadata"][] = [];
-  const sources: Schema["Source"][][] = [];
-  const choices: { status: 200; choice: Schema["SourceChoice"] }[] = [];
+  const metadata: Schema<"RecordingMetadata">[] = [];
+  const sources: Schema<"Source">[][] = [];
+  const choices: { status: 200; choice: Schema<"SourceChoice"> }[] = [];
   for (const id of imported) {
     metadata.push(
-      await read<Schema["RecordingMetadata"]>(
+      await read<Schema<"RecordingMetadata">>(
         `/api/v1/recordings/${id}/metadata`,
       ),
     );
     sources.push(
-      await read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+      await read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
     );
-    const choice = await read<Schema["SourceChoice"]>(
+    const choice = await read<Schema<"SourceChoice">>(
       `/api/v1/recordings/${id}/source-choice`,
     );
     expect(
@@ -263,7 +262,7 @@ export async function artistGroupsState(
         revision: 0,
         mode: "automatic",
         sources: [],
-      } satisfies Schema["SourceChoice"]),
+      } satisfies Schema<"SourceChoice">),
     ).toBe(true);
     choices.push({ status: 200, choice });
   }
@@ -275,17 +274,17 @@ export async function artistGroupsState(
       choices: [...local.choices, ...choices],
       progress: [...local.progress, ...importedProgress],
     },
-    imported: await read<Schema["PlaylistDetail"]>(
+    imported: await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${prepared.playlist}`,
     ),
     associations: await Promise.all(
       prepared.saved.ids.map((id) =>
-        read<Schema["ArtistAssociation"][]>(
+        read<Schema<"ArtistAssociation">[]>(
           `/api/v1/recordings/${id}/artist-associations`,
         ),
       ),
     ),
-    policy: await read<Schema["MetadataSettings"]>("/api/v1/metadata/settings"),
-    plugins: await read<Schema["PluginSettings"]>("/api/v1/plugins"),
+    policy: await read<Schema<"MetadataSettings">>("/api/v1/metadata/settings"),
+    plugins: await read<Schema<"PluginSettings">>("/api/v1/plugins"),
   };
 }

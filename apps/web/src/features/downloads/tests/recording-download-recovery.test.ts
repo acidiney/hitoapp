@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -14,11 +15,6 @@ import {
   attachedPage,
   savedRecording,
 } from "../../sources/fixtures/sourceAttachment";
-import type {
-  DownloadReceipt,
-  DownloadRequest,
-  DownloadStatus,
-} from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -34,7 +30,7 @@ test("a lost download acknowledgement retries the exact request with a new live 
   const path = `/api/v1/recordings/${savedRecording.id}/download`;
   const sourceChoice = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const privateFailure = "private signed download response failure";
-  const ready: DownloadStatus = {
+  const ready: Schema<"DownloadStatus"> = {
     status: "ready",
     intent_id: "2e98962a-29a4-4e53-ad1c-b4c13c010cda",
     recording_id: savedRecording.id,
@@ -100,7 +96,7 @@ test("a lost download acknowledgement retries the exact request with a new live 
     fetch.mock.calls.filter(([, options]) => options?.method === "POST");
   expect(posted()).toHaveLength(1);
   const original = posted()[0][1]!;
-  const body: DownloadRequest = JSON.parse(String(original.body));
+  const body: Schema<"DownloadRequest"> = JSON.parse(String(original.body));
   expect(body).toEqual({
     request_id: expect.stringMatching(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -144,7 +140,7 @@ test("a lost download acknowledgement retries the exact request with a new live 
           request_id: body.request_id,
           intent_id: ready.intent_id,
           recording_id: savedRecording.id,
-        } satisfies DownloadReceipt,
+        } satisfies Schema<"DownloadReceipt">,
         { status: 202 },
       ),
     ),

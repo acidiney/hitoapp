@@ -5,9 +5,7 @@ import {
   type Request,
   type Response,
 } from "@playwright/test";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 // Allow media-clock quantization, without adding transport time to saved progress.
 const mediaPrecisionMs = 100;
@@ -17,7 +15,7 @@ const uuid =
 type HeardMedia = { position_ms: number; prefix_ms: number; paused: boolean };
 type HttpReceipt = { request_id: string; status: number; route: string };
 export type OwnedProgressWrite = {
-  batch: Schema["SyncBatch"];
+  batch: Schema<"SyncBatch">;
   observed: Promise<HeardMedia>;
   receipt?: HttpReceipt;
 };
@@ -67,7 +65,7 @@ async function heardMedia(page: Page, source: string): Promise<HeardMedia> {
 }
 
 export function assertHeardProgress(
-  batch: Schema["SyncBatch"],
+  batch: Schema<"SyncBatch">,
   recording: string,
   heard: HeardMedia,
 ) {
@@ -104,7 +102,7 @@ export function observeOwnedProgress(
     episode.writes.length >= 4
   )
     throw new Error("Unexpected owned progress request");
-  const batch: Schema["SyncBatch"] = JSON.parse(raw);
+  const batch: Schema<"SyncBatch"> = JSON.parse(raw);
   const observed = heardMedia(page, episode.source).then((sample) => {
     assertHeardProgress(batch, episode.recording, sample);
     return sample;
@@ -134,7 +132,7 @@ export async function acknowledgeOwnedProgress(
       }),
     ]);
     expect(response.status() === 200 && bytes.length <= 4096).toBe(true);
-    const receipt: Schema["SyncReceipt"] = JSON.parse(bytes.toString("utf8"));
+    const receipt: Schema<"SyncReceipt"> = JSON.parse(bytes.toString("utf8"));
     expect(
       isDeepStrictEqual(
         receipt.acknowledged,

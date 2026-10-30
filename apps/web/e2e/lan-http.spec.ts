@@ -1,5 +1,6 @@
+import type { Schema } from "../src/shared/schema";
 import { expect, test, type Page } from "@playwright/test";
-import type { SyncBatch } from "../src/shared/types";
+
 import { openLibrarySection } from "./fixtures/library-sections";
 
 // Requires a fresh e2e-server with scripts/audio-fixtures.mjs --e2e fixtures.
@@ -258,7 +259,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
         new URL(outgoing.url()).pathname !== "/api/v1/sync"
       )
         return false;
-      const batch = outgoing.postDataJSON() as SyncBatch;
+      const batch = outgoing.postDataJSON() as Schema<"SyncBatch">;
       return batch.operations.some(
         (operation) => operation.action.kind === "playlist_create",
       );
@@ -266,7 +267,7 @@ test("LAN HTTP first-run, private navigation, mutations, playback, and localhost
     await page
       .getByRole("button", { name: "Create playlist", exact: true })
       .click();
-    const batch = (await mutation).postDataJSON() as SyncBatch;
+    const batch = (await mutation).postDataJSON() as Schema<"SyncBatch">;
     expect(batch.device_id).toMatch(uuidV4);
     expect(batch.operations).toHaveLength(1);
     expect(batch.operations[0].id).toMatch(uuidV4);

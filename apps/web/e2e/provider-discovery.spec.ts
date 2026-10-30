@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { openLibrarySection } from "./fixtures/library-sections";
-type Schema = components["schemas"];
 
 async function signIn(page: Page, username: string, password: string) {
   await page.goto("/discover");
@@ -23,7 +22,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
   const headers = { "x-hito-request": "1", origin: new URL(baseURL!).origin };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  let connection: Schema["PluginInstallation"] | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
   try {
     await page.goto("/discover");
     await page
@@ -37,17 +36,17 @@ test("provider discovery saves, pages and plays privately with stale selection p
       data: {
         name: "Discovery collection",
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
     connection = await installed.json();
@@ -142,7 +141,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         headers,
         data: {
           revision: connection!.revision,
-        } satisfies Schema["RefreshPlugin"],
+        } satisfies Schema<"RefreshPlugin">,
       },
     );
     expect(refreshed.status()).toBe(200);
@@ -166,7 +165,7 @@ test("provider discovery saves, pages and plays privately with stale selection p
         headers,
         data: {
           revision: connection!.revision,
-        } satisfies Schema["RefreshPlugin"],
+        } satisfies Schema<"RefreshPlugin">,
       },
     );
     expect(changedAgain.status()).toBe(200);

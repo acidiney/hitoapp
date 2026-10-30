@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { signIn } from "./artwork-browser-checks";
 import type { mediaSessionProvider } from "./media-session-provider";
-
-type Schema = components["schemas"];
 
 export async function prepareMediaSessionLibrary(
   page: Page,
@@ -18,21 +16,21 @@ export async function prepareMediaSessionLibrary(
     data: {
       name: "Owned media session service",
       base_url: fixture.address,
-    } satisfies Schema["OfferPluginService"],
+    } satisfies Schema<"OfferPluginService">,
   });
   expect(offered.status()).toBe(201);
-  const service: Schema["PluginService"] = await offered.json();
+  const service: Schema<"PluginService"> = await offered.json();
   const installed = await page.request.post("/api/v1/plugins", {
     headers,
     data: {
       service_id: service.id,
       service_revision: service.revision,
       bearer_token: fixture.token,
-    } satisfies Schema["InstallPlugin"],
+    } satisfies Schema<"InstallPlugin">,
   });
   expect(installed.status()).toBe(201);
-  const installation: Schema["PluginInstallation"] = await installed.json();
-  const records: Schema["Recording"][] = [];
+  const installation: Schema<"PluginInstallation"> = await installed.json();
+  const records: Schema<"Recording">[] = [];
   const expectedSources: string[] = [];
   for (const track of fixture.tracks) {
     const response = await page.request.post(
@@ -42,11 +40,11 @@ export async function prepareMediaSessionLibrary(
         data: {
           installation_revision: installation.revision,
           provider_recording_id: track.id,
-        } satisfies Schema["AdoptProviderRecording"],
+        } satisfies Schema<"AdoptProviderRecording">,
       },
     );
     expect(response.status()).toBe(200);
-    const record: Schema["Recording"] = await response.json();
+    const record: Schema<"Recording"> = await response.json();
     expect(
       record.title === track.title &&
         record.artist === track.artist &&
@@ -57,7 +55,7 @@ export async function prepareMediaSessionLibrary(
       `/api/v1/recordings/${record.id}/sources`,
     );
     expect(cached.status()).toBe(200);
-    const sources: Schema["Source"][] = await cached.json();
+    const sources: Schema<"Source">[] = await cached.json();
     expect(
       sources.length === 1 &&
         sources[0].ready &&
@@ -67,7 +65,7 @@ export async function prepareMediaSessionLibrary(
     expectedSources.push(sources[0].id);
   }
   const playlist = randomUUID();
-  const operations: Schema["SyncBatch"]["operations"] = [
+  const operations: Schema<"SyncBatch">["operations"] = [
     {
       id: randomUUID(),
       action: {
@@ -92,10 +90,10 @@ export async function prepareMediaSessionLibrary(
     data: {
       device_id: "owned-browser-media-session",
       operations,
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
   });
   expect(saved.status()).toBe(200);
-  const receipt: Schema["SyncReceipt"] = await saved.json();
+  const receipt: Schema<"SyncReceipt"> = await saved.json();
   expect(
     operations.every((operation) =>
       receipt.acknowledged.includes(operation.id),

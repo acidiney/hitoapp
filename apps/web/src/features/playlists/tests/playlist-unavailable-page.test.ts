@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,11 +17,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  ResolveSource,
-  SourceResolution,
-  SyncBatch,
-} from "../../../shared/types";
+
 import { unavailablePlaylistPages } from "../fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({
@@ -72,7 +69,9 @@ test("retained playlists remain editable and known recordings resolve audio only
             return Response.json([]);
           }
           if (path === `${sourcePath}/resolve` && options.method === "POST") {
-            const body: ResolveSource = JSON.parse(String(options.body));
+            const body: Schema<"ResolveSource"> = JSON.parse(
+              String(options.body),
+            );
             expect(Object.keys(body)).toEqual(["request_id"]);
             expect(body.request_id).toMatch(
               /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
@@ -83,12 +82,12 @@ test("retained playlists remain editable and known recordings resolve audio only
               recording_id: recording,
               outcome: "no_suitable_source",
               sources: [],
-            } satisfies SourceResolution);
+            } satisfies Schema<"SourceResolution">);
           }
         }
         if (path !== "/api/v1/sync")
           throw new Error("Unexpected owned playlist request");
-        const batch: SyncBatch = JSON.parse(String(options.body));
+        const batch: Schema<"SyncBatch"> = JSON.parse(String(options.body));
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
         });

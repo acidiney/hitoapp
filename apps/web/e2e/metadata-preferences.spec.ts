@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type BrowserContext } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { metadataPreferencesProvider } from "./fixtures/metadata-preferences-provider";
 import { preferencesEvidence } from "./fixtures/metadata-preferences-evidence";
@@ -13,10 +13,9 @@ import {
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
 
-type Schema = components["schemas"];
 const builtin = {
   kind: "builtin_musicbrainz",
-} satisfies Schema["MetadataProvider"];
+} satisfies Schema<"MetadataProvider">;
 test.use({
   trace: "off",
   screenshot: "off",
@@ -66,7 +65,7 @@ test("account metadata preferences persist ordered personal providers without to
   try {
     expect(baseURL === "http://localhost:8080").toBe(true);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     await evidence.observe(context);
     provider = await metadataPreferencesProvider();
@@ -85,7 +84,7 @@ test("account metadata preferences persist ordered personal providers without to
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
     privateValues.push(
       ...(await context.cookies()).map((cookie) => cookie.value),
     );
@@ -127,7 +126,7 @@ test("account metadata preferences persist ordered personal providers without to
       revision: 0,
       enabled: true,
       providers: [builtin],
-    } satisfies Schema["MetadataSettings"];
+    } satisfies Schema<"MetadataSettings">;
     expect(
       isDeepStrictEqual(await read("/api/v1/metadata/settings"), defaults),
     ).toBe(true);
@@ -165,10 +164,10 @@ test("account metadata preferences persist ordered personal providers without to
       .getByRole("link", { name: "Plugins", exact: true })
       .click();
     await page.getByText("Services for this server", { exact: true }).click();
-    const connections: Schema["PluginInstallation"][] = [];
+    const connections: Schema<"PluginInstallation">[] = [];
     for (const [index, address] of owned.addresses.entries()) {
       await page.getByLabel("Service address", { exact: true }).fill(address);
-      const offered = await preferencesAction<Schema["PluginService"]>(
+      const offered = await preferencesAction<Schema<"PluginService">>(
         page,
         page.getByRole("button", { name: "Offer service", exact: true }),
         "POST",
@@ -189,7 +188,7 @@ test("account metadata preferences persist ordered personal providers without to
         offered.body,
         owned.name,
       );
-      const installed = await preferencesAction<Schema["PluginInstallation"]>(
+      const installed = await preferencesAction<Schema<"PluginInstallation">>(
         page,
         page.getByRole("button", { name: "Accept and connect", exact: true }),
         "POST",
@@ -225,11 +224,11 @@ test("account metadata preferences persist ordered personal providers without to
     const first = {
       kind: "http_plugin",
       installation_id: connections[0].id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     const second = {
       kind: "http_plugin",
       installation_id: connections[1].id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     panel = await openPreferences(page);
     const selected = panel.getByRole("list", {
       name: "Selected metadata providers",
@@ -304,7 +303,7 @@ test("account metadata preferences persist ordered personal providers without to
       .getByLabel("Username", { exact: true })
       .fill("preferences-listener");
     await dialog.getByLabel("Password", { exact: true }).fill(otherPassword);
-    const created = await preferencesAction<Schema["User"]>(
+    const created = await preferencesAction<Schema<"User">>(
       page,
       dialog.getByRole("button", { name: "Create account", exact: true }),
       "POST",
@@ -336,12 +335,12 @@ test("account metadata preferences persist ordered personal providers without to
     stage = "read second account defaults and private catalog";
     const otherRead = preferencesReader(other);
     const otherBefore = {
-      preferences: await otherRead<Schema["MetadataSettings"]>(
+      preferences: await otherRead<Schema<"MetadataSettings">>(
         "/api/v1/metadata/settings",
       ),
-      catalog: await otherRead<Schema["RecordingPage"]>("/api/v1/recordings"),
-      playlists: await otherRead<Schema["Playlist"][]>("/api/v1/playlists"),
-      activity: await otherRead<Schema["Activity"]>("/api/v1/activity"),
+      catalog: await otherRead<Schema<"RecordingPage">>("/api/v1/recordings"),
+      playlists: await otherRead<Schema<"Playlist">[]>("/api/v1/playlists"),
+      activity: await otherRead<Schema<"Activity">>("/api/v1/activity"),
     };
     expect(
       isDeepStrictEqual(otherBefore.preferences, defaults) &&
@@ -369,7 +368,7 @@ test("account metadata preferences persist ordered personal providers without to
       }),
     ).toBeDisabled();
     const otherPlugins =
-      await otherRead<Schema["PluginSettings"]>("/api/v1/plugins");
+      await otherRead<Schema<"PluginSettings">>("/api/v1/plugins");
     expect(
       otherPlugins.installations.length === 0 &&
         otherPlugins.services.length === 2,
@@ -391,7 +390,7 @@ test("account metadata preferences persist ordered personal providers without to
       .getByRole("link", { name: "Plugins", exact: true })
       .click();
     const installedSettings =
-      await read<Schema["PluginSettings"]>("/api/v1/plugins");
+      await read<Schema<"PluginSettings">>("/api/v1/plugins");
     const selectedIndex = installedSettings.installations.findIndex(
       (item) => item.id === connections[1].id,
     );
@@ -425,7 +424,7 @@ test("account metadata preferences persist ordered personal providers without to
     ).toBe(true);
     await expect(page.locator(".plugin-connection")).toHaveCount(1);
     const afterRemoval =
-      await read<Schema["PluginSettings"]>("/api/v1/plugins");
+      await read<Schema<"PluginSettings">>("/api/v1/plugins");
     expect(
       afterRemoval.installations.length === 1 &&
         afterRemoval.installations.every(

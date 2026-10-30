@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -10,11 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  PlaylistPageProps,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import {
   metadataDownloadPath,
   metadataOrigin,
@@ -41,7 +38,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
   async (change) => {
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
-    const next: PlaylistPageProps = {
+    const next: Schema<"PlaylistPageProps"> = {
       ...metadataProps,
       ...(change === "account"
         ? { user: { ...metadataProps.user, id: "bob", username: "Bob" } }
@@ -79,7 +76,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
       if (path === "/api/v1/plugins" && method === "GET")
         return Promise.resolve(Response.json(metadataSettings));
       if (path === metadataPath && method === "POST") {
-        const body: RefreshImportedPlaylistMetadata = JSON.parse(
+        const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
           String(options?.body),
         );
         return Promise.resolve(
@@ -89,7 +86,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
             updated_recordings: 1,
             unchanged_recordings: 1,
             unavailable_recordings: 0,
-          } satisfies ImportedPlaylistMetadataRefresh),
+          } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
         );
       }
       throw new Error("Unexpected request outside metadata detail ownership");

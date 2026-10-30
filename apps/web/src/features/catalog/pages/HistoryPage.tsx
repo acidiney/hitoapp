@@ -1,4 +1,5 @@
-import type { HistoryPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import PageHeading from "../../../shared/ui/PageHeading";
@@ -11,7 +12,7 @@ export default function HistoryPage({
   user,
   playlists,
   activity,
-}: HistoryPageProps) {
+}: Schema<"HistoryPageProps">) {
   const { mutate } = useMutation(user.id);
   const tracks = activity.history.map((track) => ({
     ...track,

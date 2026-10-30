@@ -6,7 +6,7 @@ import {
   type Request,
   type Response,
 } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { captureConsolePrivacy } from "./console-privacy";
 import { audiobookProgressObservation } from "./audiobook-playback-progress";
 import { audiobookPlaybackDiagnostics } from "./audiobook-playback-diagnostics";
@@ -21,12 +21,11 @@ import {
   type AudiobookSeekWitness,
 } from "./audiobook-playback-seek";
 
-type Schema = components["schemas"];
 type Target = {
   account: string;
-  book: Schema["AudiobookDetail"];
+  book: Schema<"AudiobookDetail">;
   recordings: string[];
-  sources: Schema["Source"][][];
+  sources: Schema<"Source">[][];
   audio: { path: string; bytes: Buffer }[];
 };
 type Kind =
@@ -39,7 +38,7 @@ type Kind =
   | "progress"
   | "audio"
   | "forbidden";
-type Started = { armed: boolean; kind: Kind; batch?: Schema["SyncBatch"] };
+type Started = { armed: boolean; kind: Kind; batch?: Schema<"SyncBatch"> };
 type Audio = AudiobookAudioEvidence;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
@@ -121,7 +120,7 @@ export async function audiobookPlaybackEvidence(
     Awaited<ReturnType<typeof audiobookSeekCheckpoint>>
   >();
   let seekArmed = false;
-  const accepted: Schema["SyncBatch"][] = [];
+  const accepted: Schema<"SyncBatch">[] = [];
   const operationIds = new Set<string>();
   const logs = new Map<string, string>();
   const texts: string[] = [];
@@ -176,7 +175,7 @@ export async function audiobookPlaybackEvidence(
       headers.origin === origin &&
       body
     ) {
-      const batch = JSON.parse(body) as Schema["SyncBatch"];
+      const batch = JSON.parse(body) as Schema<"SyncBatch">;
       const operation = batch.operations?.[0];
       const action = operation?.action;
       if (
@@ -460,7 +459,7 @@ export async function audiobookPlaybackEvidence(
       } else if (start.kind === "navigation") {
         const inertia = value as {
           component: string;
-          props: { user: Schema["User"]; detail?: Schema["AudiobookDetail"] };
+          props: { user: Schema<"User">; detail?: Schema<"AudiobookDetail"> };
         };
         if (
           inertia.props.user.id !== target!.account ||

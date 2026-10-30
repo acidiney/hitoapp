@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -6,12 +7,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { attachedPage } from "../../sources/fixtures/sourceAttachment";
 import { recordingA, recordingB } from "../../playlists/fixtures/playlistPages";
-import type {
-  DownloadReceipt,
-  DownloadRequest,
-  DownloadStatus,
-  RecordingDetailsPageProps,
-} from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -24,7 +20,7 @@ function props(
   account: string,
   recording: string,
   title: string,
-): RecordingDetailsPageProps {
+): Schema<"RecordingDetailsPageProps"> {
   const observation = { ...attachedPage.detail.selected_observation!, title };
   return {
     ...attachedPage,
@@ -44,7 +40,7 @@ function props(
   };
 }
 
-function page(props: RecordingDetailsPageProps) {
+function page(props: Schema<"RecordingDetailsPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -79,7 +75,7 @@ test.each(["account", "recording"] as const)(
     const oldRead = heldResponse();
     const oldWrite = heldResponse();
     const currentRead = heldResponse();
-    const running: DownloadStatus = {
+    const running: Schema<"DownloadStatus"> = {
       status: "running",
       intent_id: "0179f572-d7b4-4cdb-9b20-640598546657",
       recording_id: current.detail.recording_id,
@@ -92,7 +88,7 @@ test.each(["account", "recording"] as const)(
       error: null,
     };
     const owned = (
-      page: RecordingDetailsPageProps,
+      page: Schema<"RecordingDetailsPageProps">,
       account: string | null,
       url: string,
     ) =>
@@ -154,7 +150,9 @@ test.each(["account", "recording"] as const)(
     const posted = fetch.mock.calls.find(
       ([, options]) => options?.method === "POST",
     )!;
-    const request: DownloadRequest = JSON.parse(String(posted[1]?.body));
+    const request: Schema<"DownloadRequest"> = JSON.parse(
+      String(posted[1]?.body),
+    );
     const oldWriteSignal = posted[1]?.signal;
     expect(oldWriteSignal?.aborted).toBe(false);
     view.rerender(page(current));
@@ -184,7 +182,7 @@ test.each(["account", "recording"] as const)(
           source_id: "6e6b0cee-92a3-4198-b4cf-9473e91c5ca2",
           status: "ready",
           bytes_received: 256,
-        } satisfies DownloadStatus),
+        } satisfies Schema<"DownloadStatus">),
       );
       oldWrite.resolve(
         Response.json(
@@ -192,7 +190,7 @@ test.each(["account", "recording"] as const)(
             request_id: request.request_id,
             recording_id: middle.detail.recording_id,
             intent_id: "1e9a88a0-ed61-48c2-82ed-31f96329c8f0",
-          } satisfies DownloadReceipt,
+          } satisfies Schema<"DownloadReceipt">,
           { status: 202 },
         ),
       );
@@ -259,7 +257,7 @@ test.each(["account", "recording"] as const)(
           bytes_received: 256,
           status: "ready",
           source_id: "4d39da6f-4c7c-4b10-9851-ccfd5f85d69d",
-        } satisfies DownloadStatus),
+        } satisfies Schema<"DownloadStatus">),
       );
       await vi.advanceTimersByTimeAsync(60_000);
       window.dispatchEvent(new Event("focus"));

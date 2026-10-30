@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function playlistMetadataProvider() {
   if (process.env.HITO_PLAYLIST_METADATA_E2E !== "1")
@@ -17,11 +15,11 @@ export async function playlistMetadataProvider() {
     name: `${prefix} provider`,
     protocol_version: 1,
     capabilities: ["playlists"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const album = {
     id: "release/verified",
     title: `${prefix} album`,
-  } satisfies Schema["ProviderRelease"];
+  } satisfies Schema<"ProviderRelease">;
   const recordings = [
     {
       id: "recording/one",
@@ -37,7 +35,7 @@ export async function playlistMetadataProvider() {
       duration_ms: 234_000,
       revision: "albumless-one",
     },
-  ] satisfies Schema["ProviderRecording"][];
+  ] satisfies Schema<"ProviderRecording">[];
   const verified = recordings.map((recording, index) => ({
     ...recording,
     title: `${recording.title} verified`,

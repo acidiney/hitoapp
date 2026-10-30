@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,10 +8,8 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-import { heldResponse } from "../../../test/async";
 
-type Schema = components["schemas"];
+import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -18,7 +17,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: PlaylistPageProps) {
+function page(props: Schema<"PlaylistPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -35,7 +34,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const first: PlaylistPageProps = {
+  const first: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -43,7 +42,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
       follow_content_revision: 1,
     },
   };
-  const second: PlaylistPageProps = {
+  const second: Schema<"PlaylistPageProps"> = {
     ...first,
     user: { id: "bob", username: "Bob", admin: false },
     detail: {
@@ -55,7 +54,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
       },
     },
   };
-  const current: PlaylistPageProps = {
+  const current: Schema<"PlaylistPageProps"> = {
     ...second,
     detail: {
       ...second.detail,
@@ -67,7 +66,9 @@ test("account and playlist changes fence held Follow responses and keep polling 
       entries: second.detail.entries.slice(0, 2),
     },
   };
-  const ready = (props: PlaylistPageProps): Schema["PlaylistFollow"] => {
+  const ready = (
+    props: Schema<"PlaylistPageProps">,
+  ): Schema<"PlaylistFollow"> => {
     const interval = props.user.id === first.user.id ? "hourly" : "daily";
     return {
       playlist_id: props.detail.playlist.id,
@@ -85,9 +86,9 @@ test("account and playlist changes fence held Follow responses and keep polling 
   const firstReady = ready(first);
   const secondReady = ready(second);
   const currentReady = ready(current);
-  const statusPath = (props: PlaylistPageProps) =>
+  const statusPath = (props: Schema<"PlaylistPageProps">) =>
     `/api/v1/playlists/${props.detail.playlist.id}/follow`;
-  const downloadPath = (props: PlaylistPageProps) =>
+  const downloadPath = (props: Schema<"PlaylistPageProps">) =>
     `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const owners = [first, second, current];
   const accountOf = (options?: RequestInit) =>
@@ -166,7 +167,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
   expect(posted![1]?.headers).toMatchObject({
     "x-hito-account": second.user.id,
   });
-  const request: Schema["RefreshFollowedPlaylist"] = JSON.parse(
+  const request: Schema<"RefreshFollowedPlaylist"> = JSON.parse(
     String(posted![1]?.body),
   );
   await act(async () => {
@@ -175,7 +176,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
         ...firstReady,
         status: "failed",
         error: "refresh_failed",
-      } satisfies Schema["PlaylistFollow"]),
+      } satisfies Schema<"PlaylistFollow">),
     );
   });
   expect(screen.getByText("Every day", { exact: true })).toBeTruthy();
@@ -222,7 +223,7 @@ test("account and playlist changes fence held Follow responses and keep polling 
           request_id: request.request_id,
           playlist_id: second.detail.playlist.id,
           job_id: "24bb3ab0-f41d-43e1-9828-87a1d35f2bbc",
-        } satisfies Schema["PlaylistFollowRefresh"],
+        } satisfies Schema<"PlaylistFollowRefresh">,
         { status: 202 },
       ),
     );

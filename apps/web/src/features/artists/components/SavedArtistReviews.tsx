@@ -1,4 +1,6 @@
-import type { ArtistAssociation } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
+import Button from "../../../shared/ui/Button";
 
 export default function SavedArtistReviews({
   associations,
@@ -12,14 +14,14 @@ export default function SavedArtistReviews({
   onUndo,
   onRetry,
 }: {
-  associations: ArtistAssociation[];
+  associations: Schema<"ArtistAssociation">[];
   disabled: boolean;
   ready: boolean;
   canUndo: boolean;
   retrying: boolean;
   error: string;
-  onView(association: ArtistAssociation): void;
-  onUnlink(association: ArtistAssociation): void;
+  onView(association: Schema<"ArtistAssociation">): void;
+  onUnlink(association: Schema<"ArtistAssociation">): void;
   onUndo(): void;
   onRetry(): void;
 }) {
@@ -30,45 +32,33 @@ export default function SavedArtistReviews({
       <ul>
         {associations.map((association, index) => (
           <li key={association.id}>
-            <button
+            <Button
               type="button"
-              className="button"
               disabled={disabled}
               onClick={() => onView(association)}
             >
               View saved artist review {index + 1}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button"
               disabled={disabled || !ready || retrying}
               onClick={() => onUnlink(association)}
             >
               Unlink saved artist review {index + 1}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
       {error && <p role="alert">{error}</p>}
       {retrying && (
-        <button
-          type="button"
-          className="button"
-          disabled={disabled}
-          onClick={onRetry}
-        >
+        <Button type="button" disabled={disabled} onClick={onRetry}>
           Retry the same artist review change request
-        </button>
+        </Button>
       )}
       {canUndo && (
-        <button
-          type="button"
-          className="button"
-          disabled={disabled}
-          onClick={onUndo}
-        >
+        <Button type="button" disabled={disabled} onClick={onUndo}>
           Undo last artist review change
-        </button>
+        </Button>
       )}
     </section>
   );

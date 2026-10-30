@@ -1,9 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { sourceAttachmentPage } from "../fixtures/sourceAttachment";
-import type { Source } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({ Link: "a" }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -32,7 +32,7 @@ vi.mock("../components/SourceAttachment", () => ({
 test("local metadata provenance does not hide an eligible plugin audio source", async () => {
   const detail = sourceAttachmentPage.detail;
   const sourceChoice = `/api/v1/recordings/${detail.recording_id}/source-choice`;
-  const source: Source = {
+  const source: Schema<"Source"> = {
     id: "99f1ecbe-613b-4170-a8fe-26f80eb1d6fa",
     recording_id: detail.recording_id,
     provider: "plugin",

@@ -1,5 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type { RefreshSources, Source } from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -8,19 +8,22 @@ export const sourcesApi = {
     account: string,
     recording: string,
     signal?: AbortSignal,
-  ): Promise<Source[]> {
-    return requestJson<Source[]>(`/recordings/${part(recording)}/sources`, {
-      action: "sources.list",
-      account,
-      signal,
-    });
+  ): Promise<Schema<"Source">[]> {
+    return requestJson<Schema<"Source">[]>(
+      `/recordings/${part(recording)}/sources`,
+      {
+        action: "sources.list",
+        account,
+        signal,
+      },
+    );
   },
   async playbackSources(
     account: string,
     recording: string,
     signal?: AbortSignal,
-  ): Promise<Source[]> {
-    return requestJson<Source[]>(
+  ): Promise<Schema<"Source">[]> {
+    return requestJson<Schema<"Source">[]>(
       `/recordings/${part(recording)}/playback-sources`,
       {
         action: "sources.playback",
@@ -33,8 +36,8 @@ export const sourcesApi = {
     account: string,
     recording: string,
     signal?: AbortSignal,
-  ): Promise<Source[]> {
-    return requestJson<Source[]>(
+  ): Promise<Schema<"Source">[]> {
+    return requestJson<Schema<"Source">[]>(
       `/recordings/${part(recording)}/sources/refresh`,
       {
         action: "sources.refresh",
@@ -48,13 +51,13 @@ export const sourcesApi = {
     account: string,
     recording: string,
     signal?: AbortSignal,
-  ): Promise<Source[]> {
-    return requestJson<Source[]>(
+  ): Promise<Schema<"Source">[]> {
+    return requestJson<Schema<"Source">[]>(
       `/recordings/${part(recording)}/sources/refresh`,
       {
         action: "sources.recover",
         method: "POST",
-        body: { purpose: "playback" } satisfies RefreshSources,
+        body: { purpose: "playback" } satisfies Schema<"RefreshSources">,
         account,
         signal,
       },

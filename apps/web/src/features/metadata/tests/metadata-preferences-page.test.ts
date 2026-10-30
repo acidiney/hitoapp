@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { isOn } from "../../../test/switch";
 import { createElement } from "react";
 import { act, render, screen, within } from "@testing-library/react";
@@ -7,7 +8,6 @@ import SettingsPage from "../../settings/pages/SettingsPage";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { connections, settings } from "../fixtures/metadataPreferences";
-import type { SettingsPageProps } from "../../../shared/types";
 
 const location = vi.hoisted(() => ({ url: "/settings?section=metadata" }));
 vi.mock("@inertiajs/react", async (importOriginal) => {
@@ -26,7 +26,7 @@ vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 
-const props: SettingsPageProps = {
+const props: Schema<"SettingsPageProps"> = {
   user: { id: "alice", username: "Alice", admin: true },
   errors: {},
   native_playback: false,

@@ -1,19 +1,16 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { lyricsApi } from "../api/lyricsApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
-import type {
-  LyricsLookup,
-  RecordingLyricsProvider,
-  RecordingMetadata,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { useLyricProviderChoices } from "./useLyricProviderChoices";
 
 type Target = Pick<
-  RecordingLyricsProvider,
+  Schema<"RecordingLyricsProvider">,
   "observation_id" | "installation_id" | "provider_recording"
 > & { installation_revision: number | null };
 
@@ -25,7 +22,7 @@ type Owner = {
 type State = {
   owner: Owner;
   pending: boolean;
-  result: LyricsLookup | null;
+  result: Schema<"LyricsLookup"> | null;
   error: string;
   refresh: boolean;
 };
@@ -34,7 +31,10 @@ function empty(owner: Owner): State {
   return { owner, pending: false, result: null, error: "", refresh: false };
 }
 
-export function useRecordingLyrics(account: string, detail: RecordingMetadata) {
+export function useRecordingLyrics(
+  account: string,
+  detail: Schema<"RecordingMetadata">,
+) {
   const providers = useLyricProviderChoices(account, detail);
   const selected = detail.selected_observation;
   const observation =

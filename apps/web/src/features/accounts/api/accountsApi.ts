@@ -1,12 +1,13 @@
-import type { Credentials, User } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { request, requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 const part = encodeURIComponent;
 
 export const accountsApi = {
-  async list(account: string, signal?: AbortSignal): Promise<User[]> {
-    return requestJson<User[]>("/users", {
+  async list(account: string, signal?: AbortSignal): Promise<Schema<"User">[]> {
+    return requestJson<Schema<"User">[]>("/users", {
       action: "accounts.list",
       account,
       signal,
@@ -17,12 +18,12 @@ export const accountsApi = {
     username: string,
     password: string,
     signal?: AbortSignal,
-  ): Promise<User> {
-    const user: User = await requestJson<User>("/users", {
+  ): Promise<Schema<"User">> {
+    const user: Schema<"User"> = await requestJson<Schema<"User">>("/users", {
       action: "accounts.create",
       method: "POST",
       account,
-      body: { username, password } satisfies Credentials,
+      body: { username, password } satisfies Schema<"Credentials">,
       signal,
     });
     log.info("account.created", { account_id: user.id });

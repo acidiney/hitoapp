@@ -1,13 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useArtistGroupDiscography } from "../hooks/useArtistGroupDiscography";
-import type { ArtistIdentityGroupDetail } from "../../../shared/types";
+
 import ArtistDiscography from "./ArtistDiscography";
+import Button from "../../../shared/ui/Button";
 
 export default function ArtistGroupDiscography({
   account,
   group,
 }: {
   account: string;
-  group: ArtistIdentityGroupDetail["group"];
+  group: Schema<"ArtistIdentityGroupDetail">["group"];
 }) {
   const workflow = useArtistGroupDiscography(account, group);
   return (
@@ -26,14 +28,13 @@ export default function ArtistGroupDiscography({
           showLibrary
         />
       ) : (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.browse()}
         >
           {workflow.error ? "Try again" : "Browse full discography"}
-        </button>
+        </Button>
       )}
     </section>
   );

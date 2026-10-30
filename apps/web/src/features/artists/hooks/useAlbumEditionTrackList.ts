@@ -1,20 +1,18 @@
+import type { Schema } from "../../../shared/schema";
 import { albumEditionApi } from "../api/albumEditionApi";
-import type {
-  AlbumEditionTrackListAvailability,
-  CatalogEditionSummary,
-} from "../../../shared/types";
+
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useEditionTrackRead } from "./useEditionTrackRead";
 
 type Available = Extract<
-  AlbumEditionTrackListAvailability,
+  Schema<"AlbumEditionTrackListAvailability">,
   { status: "available" }
 >;
 
 export function useAlbumEditionTrackList(
   context: ArtistEditionContext,
   release: string,
-  chosen: CatalogEditionSummary | null,
+  chosen: Schema<"CatalogEditionSummary"> | null,
 ) {
   const { account, recording, association, group } = context;
   const { result, ...state } = useEditionTrackRead<Available>(

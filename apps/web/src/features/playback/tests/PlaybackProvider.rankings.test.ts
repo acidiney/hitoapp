@@ -4,15 +4,14 @@ import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import TrackToolbar from "../components/TrackToolbar";
 import { audiobookContinuationMedia } from "../../audiobooks/fixtures/audiobookContinuationMedia";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import type { Player } from "../model";
 
-type Schema = components["schemas"];
 test("ordinary browser Play consumes the authenticated playback-source order while the legacy list remains deterministic", async () => {
   const media = audiobookContinuationMedia();
   const recording = "18d29dd6-fc1f-4452-b41a-95c69526e9fb";
-  const baseline: Schema["Source"][] = [
+  const baseline: Schema<"Source">[] = [
     {
       id: "fcd91730-056b-4452-a120-70f7086f8d15",
       recording_id: recording,

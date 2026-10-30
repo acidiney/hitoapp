@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import {
@@ -18,7 +19,6 @@ import {
   uncreditedRecordingObservation,
 } from "../fixtures/recordingAttribution";
 import { recordingAttributionView } from "../fixtures/recordingAttributionView";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -33,7 +33,7 @@ test.each(["absent", "null"] as const)(
       presence === "absent"
         ? uncreditedRecordingObservation
         : { ...uncreditedRecordingObservation, attribution: null };
-    const page: RecordingDetailsPageProps = {
+    const page: Schema<"RecordingDetailsPageProps"> = {
       ...attributedRecordingPage,
       detail: {
         ...attributedRecordingPage.detail,
@@ -126,7 +126,7 @@ test("metadata history keeps each observation's retained credits while personal 
 test.each(["account", "recording"] as const)(
   "replacing the %s removes old credits and ignores a late history response",
   async (owner) => {
-    const initial: RecordingDetailsPageProps = {
+    const initial: Schema<"RecordingDetailsPageProps"> = {
       ...attributedRecordingPage,
       detail: {
         ...attributedRecordingPage.detail,
@@ -142,7 +142,7 @@ test.each(["account", "recording"] as const)(
         content_url: "https://credits.example.invalid/recordings/replacement",
       },
     };
-    const replacement: RecordingDetailsPageProps = {
+    const replacement: Schema<"RecordingDetailsPageProps"> = {
       ...initial,
       user:
         owner === "account"

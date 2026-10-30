@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { artistReviewReader } from "./artist-review-state";
 import { seedPreferencesLibrary } from "./metadata-preferences-state";
 import {
@@ -9,8 +9,6 @@ import {
 import type { recordingLyricsProvider } from "./recording-lyrics-provider";
 import { connectLyricsProvider, lyricState } from "./recording-lyrics-state";
 
-type Schema = components["schemas"];
-
 export async function prepareLyricsLibrary(
   page: Page,
   owned: Awaited<ReturnType<typeof recordingLyricsProvider>>,
@@ -18,11 +16,11 @@ export async function prepareLyricsLibrary(
   privateValues: string[],
 ) {
   const read = artistReviewReader(page);
-  const user = await read<Schema["User"]>("/api/v1/me");
+  const user = await read<Schema<"User">>("/api/v1/me");
   const local = await seedPreferencesLibrary(page, read, user);
   privateValues.push(...local.privateValues);
   const connection = await connectLyricsProvider(page, owned);
-  const saved: Schema["Recording"][] = [];
+  const saved: Schema<"Recording">[] = [];
   for (const index of [0, 1]) {
     const origin = new URL(page.url()).origin;
     const known = new Set(
@@ -86,7 +84,7 @@ export async function prepareLyricsLibrary(
   expect((await page.evaluate(() => performance.timeOrigin)) === document).toBe(
     true,
   );
-  const metadata = await read<Schema["RecordingMetadata"]>(
+  const metadata = await read<Schema<"RecordingMetadata">>(
     `/api/v1/recordings/${recording.id}/metadata`,
   );
   const observation = metadata.selected_observation;

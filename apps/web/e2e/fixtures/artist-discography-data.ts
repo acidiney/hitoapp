@@ -1,8 +1,6 @@
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
-
-export function artistDiscographyData(artist: Schema["CatalogArtistRef"]) {
+export function artistDiscographyData(artist: Schema<"CatalogArtistRef">) {
   const cursor = "private-owned-provider-discography:next?edição=二";
   const title = "Sessão do catálogo";
   const credit = "O conjunto da sessão & Voz convidada";
@@ -29,7 +27,7 @@ export function artistDiscographyData(artist: Schema["CatalogArtistRef"]) {
         revision: null,
       },
     ],
-  } satisfies Schema["ArtistDiscographyPage"];
+  } satisfies Schema<"ArtistDiscographyPage">;
   const last = {
     artist_id: artist.id,
     snapshot: null,
@@ -46,6 +44,6 @@ export function artistDiscographyData(artist: Schema["CatalogArtistRef"]) {
         revision: null,
       },
     ],
-  } satisfies Schema["ArtistDiscographyPage"];
+  } satisfies Schema<"ArtistDiscographyPage">;
   return { cursor, title, credit, first, last };
 }

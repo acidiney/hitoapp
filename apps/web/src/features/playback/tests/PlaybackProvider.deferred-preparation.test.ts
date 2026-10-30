@@ -1,14 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { act, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import type {
-  Source,
-  SourcePreparationPhase,
-  SourcePreparationReceipt,
-  SourcePreparationStatus,
-  SourceResolution,
-  ResolveSource,
-  SyncBatch,
-} from "../../../shared/types";
+
 import {
   audioPath,
   browserPreparationMedia,
@@ -31,7 +24,7 @@ const firstSource = ownedSource(first, "34aa1ecf-d01b-4b1f-9dab-2f3e40aff28b");
 const nextSource = ownedSource(next, "563864ed-08b8-41eb-94c3-2948e17d0b0e");
 const chosenSource = ownedSource(next, "9f3b6d52-6a2a-4f4a-9a55-5d3b0a9d8c11");
 const afterSource = ownedSource(after, "2b77f558-ac64-4431-a097-9d141f80f0f9");
-const waitingSource: Source = {
+const waitingSource: Schema<"Source"> = {
   ...nextSource,
   ready: false,
   can_prepare: true,
@@ -43,7 +36,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function status(phase: SourcePreparationPhase): SourcePreparationStatus {
+function status(
+  phase: Schema<"SourcePreparationPhase">,
+): Schema<"SourcePreparationStatus"> {
   return {
     preparation_id: preparationId,
     recording_id: next.id,
@@ -55,7 +50,7 @@ function status(phase: SourcePreparationPhase): SourcePreparationStatus {
 }
 
 type Workflow = {
-  nextSources: () => Source[];
+  nextSources: () => Schema<"Source">[];
   prepare?: (request: OwnedPlaybackRequest) => Response | Promise<Response>;
   poll?: (request: OwnedPlaybackRequest) => Response | Promise<Response>;
 };
@@ -76,20 +71,20 @@ function workflow(handlers: Workflow) {
       if (request.path === `${sourcesPath(next)}/refresh`)
         return Response.json(handlers.nextSources());
       if (request.path === `${sourcesPath(next)}/resolve`) {
-        const body = request.body as ResolveSource;
+        const body = request.body as Schema<"ResolveSource">;
         return Response.json({
           request_id: body.request_id,
           resolution_id: "6065e385-46bb-47cc-ac68-2cadf61b6d7c",
           recording_id: next.id,
           outcome: "no_suitable_source",
           sources: handlers.nextSources(),
-        } satisfies SourceResolution);
+        } satisfies Schema<"SourceResolution">);
       }
       if (request.path === preparationPath && handlers.prepare)
         return handlers.prepare(request);
       if (request.path === "/api/v1/sync")
         return Response.json({
-          acknowledged: (request.body as SyncBatch).operations.map(
+          acknowledged: (request.body as Schema<"SyncBatch">).operations.map(
             (operation) => operation.id,
           ),
         });
@@ -105,7 +100,7 @@ const accepted = (request: OwnedPlaybackRequest) =>
       recording_id: next.id,
       source_id: nextSource.id,
       request_id: (request.body as { request_id: string }).request_id,
-    } satisfies SourcePreparationReceipt,
+    } satisfies Schema<"SourcePreparationReceipt">,
     { status: 202 },
   );
 
@@ -200,7 +195,7 @@ test("a preparing source is checked on the server's cadence while the current tr
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const media = browserPreparationMedia();
   let prepared = false;
-  let phase: SourcePreparationPhase = "preparing";
+  let phase: Schema<"SourcePreparationPhase"> = "preparing";
   const { requests } = workflow({
     nextSources: () => [prepared ? nextSource : waitingSource],
     prepare: (request) => {
@@ -492,7 +487,7 @@ test.each([
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const media = browserPreparationMedia();
   let prepared = false;
-  let phase: SourcePreparationPhase = "preparing";
+  let phase: Schema<"SourcePreparationPhase"> = "preparing";
   const { requests } = workflow({
     nextSources: () => [prepared ? nextSource : waitingSource],
     prepare: accepted,
@@ -574,7 +569,7 @@ test("a boundary reached during a slow resolution waits at most ten seconds and 
     }
     if (request.path === "/api/v1/sync")
       return Response.json({
-        acknowledged: (request.body as SyncBatch).operations.map(
+        acknowledged: (request.body as Schema<"SyncBatch">).operations.map(
           (operation) => operation.id,
         ),
       });

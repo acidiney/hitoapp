@@ -1,10 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
-import type {
-  ArtistMatchReceipt,
-  ArtistMatchSuggestions,
-  DismissArtistMatchSuggestion,
-  MatchArtistsFromTags,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -15,7 +10,9 @@ async function json<T>(
     account: string;
     signal: AbortSignal;
     method?: "GET" | "POST";
-    body?: MatchArtistsFromTags | DismissArtistMatchSuggestion;
+    body?:
+      | Schema<"MatchArtistsFromTags">
+      | Schema<"DismissArtistMatchSuggestion">;
   },
 ): Promise<T> {
   const response = await request(path, options);
@@ -27,8 +24,12 @@ async function json<T>(
 }
 
 export const artistMatchingApi = {
-  run(account: string, body: MatchArtistsFromTags, signal: AbortSignal) {
-    return json<ArtistMatchReceipt>("/artist-matching", {
+  run(
+    account: string,
+    body: Schema<"MatchArtistsFromTags">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistMatchReceipt">>("/artist-matching", {
       action: "artist_matching.run",
       account,
       signal,
@@ -37,7 +38,7 @@ export const artistMatchingApi = {
     });
   },
   suggestions(account: string, artist: string, signal: AbortSignal) {
-    return json<ArtistMatchSuggestions>(
+    return json<Schema<"ArtistMatchSuggestions">>(
       `/artists/${part(artist)}/match-suggestions`,
       { action: "artist_matching.suggestions", account, signal },
     );
@@ -45,10 +46,10 @@ export const artistMatchingApi = {
   dismiss(
     account: string,
     artist: string,
-    body: DismissArtistMatchSuggestion,
+    body: Schema<"DismissArtistMatchSuggestion">,
     signal: AbortSignal,
   ) {
-    return json<ArtistMatchSuggestions>(
+    return json<Schema<"ArtistMatchSuggestions">>(
       `/artists/${part(artist)}/match-suggestions/dismiss`,
       {
         action: "artist_matching.dismiss",

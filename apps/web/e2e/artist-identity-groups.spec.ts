@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   artistReviewDownloadAbsence,
   artistReviewOriginals,
@@ -25,7 +25,6 @@ import { browseArtistGroups } from "./fixtures/artist-identity-groups-browsing";
 import { artistGroupsEvidence } from "./fixtures/artist-identity-groups-evidence";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -69,7 +68,7 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
   try {
     expect(
       baseURL === "http://localhost:8080" &&
-        (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+        (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     evidence = await artistGroupsEvidence(context, baseURL!, privateValues);
     provider = await artistIdentityGroupsProvider(query);
@@ -101,7 +100,7 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
         await reviewGroupMember(page, read, prepared, provider, member),
       );
     stage = "empty groups before choosing";
-    const empty = await read<Schema["ArtistIdentityGroupPage"]>(
+    const empty = await read<Schema<"ArtistIdentityGroupPage">>(
       "/api/v1/artist-identity-groups",
     );
     expect(empty.total === 0 && empty.items.length === 0).toBe(true);
@@ -174,7 +173,7 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
     for (const [index, member] of chosen.entries()) {
       await resetGroupMember(page, read, member);
       if (index < 2) {
-        const remaining = await read<Schema["ArtistIdentityGroupDetail"]>(
+        const remaining = await read<Schema<"ArtistIdentityGroupDetail">>(
           `/api/v1/artist-identity-groups/${groups.groupId}?limit=200`,
         );
         expect(
@@ -203,7 +202,7 @@ test("reviewed choices group local and imported appearances, preserve namesakes 
     await expect(
       page.getByRole("heading", { name: "Library credits", exact: true }),
     ).toBeVisible();
-    const finalGroups = await read<Schema["ArtistIdentityGroupPage"]>(
+    const finalGroups = await read<Schema<"ArtistIdentityGroupPage">>(
       "/api/v1/artist-identity-groups",
     );
     expect(finalGroups.total === 0 && finalGroups.items.length === 0).toBe(
@@ -333,7 +332,7 @@ async function absentGroup(page: Page, group: string) {
       response.status() === 404 &&
         isDeepStrictEqual(JSON.parse(bytes.toString()), {
           error: "Resource not found",
-        } satisfies Schema["ErrorResponse"]),
+        } satisfies Schema<"ErrorResponse">),
     ).toBe(true);
   } finally {
     await response.dispose();

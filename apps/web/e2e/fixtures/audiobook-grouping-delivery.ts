@@ -6,9 +6,8 @@ import type {
   Response,
   Route,
 } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
 export type FailureDetails = {
@@ -72,7 +71,7 @@ export async function audiobookGroupingDelivery(
   }[] = [];
   let target: {
     account: string;
-    detail: Schema["AudiobookDetail"];
+    detail: Schema<"AudiobookDetail">;
     downloads: Set<string>;
     recordings: string[];
     libraries: string[];
@@ -105,8 +104,8 @@ export async function audiobookGroupingDelivery(
   const state = {
     failed: false,
     bodies: [] as string[],
-    batch: null as Schema["SyncBatch"] | null,
-    receipt: null as Schema["SyncReceipt"] | null,
+    batch: null as Schema<"SyncBatch"> | null,
+    receipt: null as Schema<"SyncReceipt"> | null,
     order: [] as string[],
   };
   function track(task: Promise<void>) {
@@ -318,7 +317,7 @@ export async function audiobookGroupingDelivery(
       await route.abort();
       return;
     }
-    const batch = JSON.parse(body) as Schema["SyncBatch"];
+    const batch = JSON.parse(body) as Schema<"SyncBatch">;
     if (
       !uuid.test(batch.device_id) ||
       batch.operations?.length !== 1 ||
@@ -360,7 +359,7 @@ export async function audiobookGroupingDelivery(
         response.headers()["cache-control"] !== "private, no-store"
       )
         throw new Error("The owned original sync response was not accepted");
-      const receipt = JSON.parse(bytes.toString()) as Schema["SyncReceipt"];
+      const receipt = JSON.parse(bytes.toString()) as Schema<"SyncReceipt">;
       if (
         !isDeepStrictEqual(receipt, { acknowledged: [batch.operations[0].id] })
       )
@@ -517,7 +516,7 @@ export async function audiobookGroupingDelivery(
     counts,
     arm(
       account: string,
-      detail: Schema["AudiobookDetail"],
+      detail: Schema<"AudiobookDetail">,
       recordings: string[],
       libraries: string[],
     ) {
@@ -566,7 +565,7 @@ export async function audiobookDownloadAbsence(page: Page, playlist: string) {
       body.toString() !==
         JSON.stringify({
           error: "Resource not found",
-        } satisfies Schema["ErrorResponse"])
+        } satisfies Schema<"ErrorResponse">)
     )
       throw new Error("The owned audiobook must have no implicit download");
     return { status: 404, absent: true };

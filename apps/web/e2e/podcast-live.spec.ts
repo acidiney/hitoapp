@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   audioPath,
   liveAudio,
@@ -11,7 +11,6 @@ import {
 } from "./fixtures/podcast-live";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -82,7 +81,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     });
     stage = "fresh setup";
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     await page.goto("/");
     await page.getByLabel("Username", { exact: true }).fill("admin");
@@ -100,7 +99,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     stage = "initial podcasts navigation";
     await openLibrarySection(page, "Podcasts");
     expect(
-      (await read<Schema["PodcastSubscription"][]>("/api/v1/podcasts")).length,
+      (await read<Schema<"PodcastSubscription">[]>("/api/v1/podcasts")).length,
     ).toBe(0);
     stage = "public feed subscription";
     await page
@@ -117,20 +116,20 @@ test("a public RSS episode plays through the packaged server without an implicit
       page.getByRole("button", { name: "Subscribe", exact: true }).click(),
     ]);
     expect(response.status()).toBe(202);
-    const receipt: Schema["PodcastSubscriptionReceipt"] = await response.json();
-    const submitted: Schema["SubscribePodcast"] = response
+    const receipt: Schema<"PodcastSubscriptionReceipt"> = await response.json();
+    const submitted: Schema<"SubscribePodcast"> = response
       .request()
       .postDataJSON();
     expect(
       receipt.request_id === submitted.request_id &&
         submitted.feed_url === feed,
     ).toBe(true);
-    let subscription: Schema["PodcastSubscription"] | undefined;
+    let subscription: Schema<"PodcastSubscription"> | undefined;
     await expect
       .poll(
         async () => {
           const subscriptions =
-            await read<Schema["PodcastSubscription"][]>("/api/v1/podcasts");
+            await read<Schema<"PodcastSubscription">[]>("/api/v1/podcasts");
           expect(subscriptions.length).toBe(1);
           subscription = subscriptions.find(
             (item) => item.subscription_id === receipt.subscription_id,
@@ -164,14 +163,14 @@ test("a public RSS episode plays through the packaged server without an implicit
     stage = "imported podcast navigation";
     await podcast.click();
     stage = "imported episode archive read";
-    const archive = await read<Schema["PodcastEpisodePage"]>(
+    const archive = await read<Schema<"PodcastEpisodePage">>(
       `/api/v1/podcasts/${receipt.subscription_id}/episodes`,
     );
     expect(archive.total > 0 && archive.items.length > 0).toBe(true);
     const episode = archive.items[0];
     const recording = episode.recording.id;
     privacy.forbid(episode.recording.title, episode.recording.artist);
-    const sources = await read<Schema["Source"][]>(
+    const sources = await read<Schema<"Source">[]>(
       `/api/v1/recordings/${recording}/sources`,
     );
     expect(
@@ -293,7 +292,7 @@ test("a public RSS episode plays through the packaged server without an implicit
       )
       .toBe(true);
     stage = "recording metadata read";
-    const metadata = await read<Schema["RecordingMetadata"]>(
+    const metadata = await read<Schema<"RecordingMetadata">>(
       `/api/v1/recordings/${recording}/metadata`,
     );
     stage = "recording metadata identity";
@@ -356,7 +355,7 @@ test("a public RSS episode plays through the packaged server without an implicit
     expect(
       (await page.request.get(downloadPath, { timeout: 10_000 })).status(),
     ).toBe(404);
-    const finalSources = await read<Schema["Source"][]>(
+    const finalSources = await read<Schema<"Source">[]>(
       `/api/v1/recordings/${recording}/sources`,
     );
     expect(

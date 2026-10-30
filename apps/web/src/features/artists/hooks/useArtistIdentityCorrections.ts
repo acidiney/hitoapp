@@ -1,27 +1,22 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useState } from "react";
 import { artistCorrectionApi } from "../api/artistCorrectionApi";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { useRetainedCommand } from "./useRetainedCommand";
-import type {
-  ArtistIdentityGroup,
-  ArtistIdentityGroupChanges,
-  SharedArtistCorrections,
-  SplitDestination,
-} from "../../../shared/types";
 
 export type Selection = {
   recordings: string[];
   releases: string[];
-  destination: SplitDestination;
+  destination: Schema<"SplitDestination">;
 };
 type State = {
   key: string;
-  changes: ArtistIdentityGroupChanges | null;
-  groups: ArtistIdentityGroup[];
+  changes: Schema<"ArtistIdentityGroupChanges"> | null;
+  groups: Schema<"ArtistIdentityGroup">[];
   groupTotal: number;
-  shared: SharedArtistCorrections | null;
+  shared: Schema<"SharedArtistCorrections"> | null;
   loadError: string;
 };
 

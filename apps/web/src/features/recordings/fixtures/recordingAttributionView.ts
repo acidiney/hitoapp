@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { expect, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
@@ -5,10 +6,6 @@ import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import RecordingDetailsPage from "../pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type {
-  RecordingDetailsPageProps,
-  SourceChoice,
-} from "../../../shared/types";
 
 type HistoryRead = {
   account: string;
@@ -17,7 +14,7 @@ type HistoryRead = {
 };
 
 export function recordingAttributionView(
-  pages: RecordingDetailsPageProps[],
+  pages: Schema<"RecordingDetailsPageProps">[],
   history?: HistoryRead,
 ) {
   const logs = (["debug", "info", "log", "warn", "error"] as const).map(
@@ -43,12 +40,12 @@ export function recordingAttributionView(
           revision: 0,
           mode: "automatic",
           sources: [],
-        } satisfies SourceChoice);
+        } satisfies Schema<"SourceChoice">);
     }
     throw new Error("Unexpected request outside the owned attribution view");
   });
   vi.stubGlobal("fetch", fetch);
-  const tree = (page: RecordingDetailsPageProps) =>
+  const tree = (page: Schema<"RecordingDetailsPageProps">) =>
     createElement(
       NoticeProvider,
       null,
@@ -78,7 +75,8 @@ export function recordingAttributionView(
   return {
     ...view,
     fetch,
-    replace: (page: RecordingDetailsPageProps) => view.rerender(tree(page)),
+    replace: (page: Schema<"RecordingDetailsPageProps">) =>
+      view.rerender(tree(page)),
     async settled(count: number, includeHistory = false) {
       const expected = expectedReads(count);
       if (includeHistory && history)

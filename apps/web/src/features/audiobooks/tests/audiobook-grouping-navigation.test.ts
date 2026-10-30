@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -11,12 +12,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
-import type {
-  AudiobookDetail,
-  AudiobookIndexPageProps,
-  AudiobookPageProps,
-  SyncBatch,
-} from "../../../shared/types";
+
 import { openAddAudiobookDialog } from "../../../test/media";
 
 type NavigationOptions = NonNullable<Parameters<typeof router.visit>[1]>;
@@ -82,7 +78,7 @@ test("a failed book navigation recovers through an authoritative read without re
     );
     if (input === "/api/v1/sync" && options?.method === "POST") {
       writes.push(String(options.body));
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });
@@ -154,20 +150,20 @@ test("a cancelled book navigation can recover while late old-account callbacks c
     name: "Bob navigation selection",
     kind: "local",
   };
-  const bob: AudiobookIndexPageProps = {
+  const bob: Schema<"AudiobookIndexPageProps"> = {
     ...alice.index,
     user: { id: "bob", username: "Bob", admin: false },
     books: [],
     playlists: [bobPlaylist],
     grouping_playlists: [bobPlaylist],
   };
-  const writes: SyncBatch[] = [];
+  const writes: Schema<"SyncBatch">[] = [];
   request.mockImplementation(async (input, options) => {
     expect(new Headers(options?.headers).get("x-hito-account")).toBe(
       alice.index.user.id,
     );
     if (input === "/api/v1/sync" && options?.method === "POST") {
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       writes.push(batch);
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
@@ -262,10 +258,10 @@ function navigation(index: number): NavigationOptions {
 }
 
 function page(
-  index: AudiobookIndexPageProps,
-  detail: AudiobookDetail,
+  index: Schema<"AudiobookIndexPageProps">,
+  detail: Schema<"AudiobookDetail">,
 ): NavigationPage {
-  const props: AudiobookPageProps = {
+  const props: Schema<"AudiobookPageProps"> = {
     errors: index.errors,
     native_playback: index.native_playback,
     lock: index.lock,

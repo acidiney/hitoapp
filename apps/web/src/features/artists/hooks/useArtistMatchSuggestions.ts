@@ -1,13 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { artistMatchingApi } from "../api/artistMatchingApi";
 import { log } from "../../../shared/log";
-import type { ArtistMatchSuggestions } from "../../../shared/types";
 
 const DEADLINE_MS = 15000;
 
 type View = {
   status: "loading" | "ready" | "failed";
-  suggestions: ArtistMatchSuggestions | null;
+  suggestions: Schema<"ArtistMatchSuggestions"> | null;
   busy: boolean;
 };
 
@@ -21,7 +21,7 @@ export function useArtistMatchSuggestions(account: string, artist: string) {
 
   const load = useCallback(
     async (
-      work: (signal: AbortSignal) => Promise<ArtistMatchSuggestions>,
+      work: (signal: AbortSignal) => Promise<Schema<"ArtistMatchSuggestions">>,
       reason: string,
     ) => {
       active.current?.abort();

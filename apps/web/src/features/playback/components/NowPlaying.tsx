@@ -1,7 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { ChevronDown } from "lucide-react";
 import { usePlayer } from "./PlaybackProvider";
-import { coverIdentity } from "../../artwork/coverIdentity";
+import { coverIdentity } from "../../artwork/model/coverIdentity";
 import Artwork from "../../artwork/components/Artwork";
 import { SeekBar, TransportButtons } from "./PlaybackControls";
 import PlaybackStatus from "./PlaybackStatus";

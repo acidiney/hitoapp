@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import {
@@ -27,7 +28,7 @@ import {
   choiceSourceA,
   choiceSourceB,
 } from "../fixtures/sourceChoice";
-import type { SourceChoice } from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -61,7 +62,7 @@ test("attaching a reviewed source refreshes sibling choices and fences an older 
   const attachPath = `${sourcesPath}/attach`;
   const query = "Owned track audio";
   const draft = "Unsent attached-source title";
-  const originalChoice: SourceChoice = {
+  const originalChoice: Schema<"SourceChoice"> = {
     ...automaticChoice,
     sources: automaticChoice.sources.filter(
       (entry) => entry.source.id === choiceSourceA.id,

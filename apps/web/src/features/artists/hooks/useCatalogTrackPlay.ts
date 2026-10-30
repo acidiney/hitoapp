@@ -1,31 +1,33 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { albumEditionApi } from "../api/albumEditionApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  AlbumTrackAudio,
-  CatalogAdoption,
-  FindAlbumTrackAudio,
-  Recording,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import type { Player } from "../../playback/model";
 
-type Owner = { pending: string | null; saved: ReadonlyMap<string, Recording> };
+type Owner = {
+  pending: string | null;
+  saved: ReadonlyMap<string, Schema<"Recording">>;
+};
 type State = {
   owner: Owner;
-  saved: ReadonlyMap<string, Recording>;
+  saved: ReadonlyMap<string, Schema<"Recording">>;
   pending: string | null;
   failed: { id: string; message: string } | null;
 };
-type Obtain = (signal: AbortSignal) => Promise<Recording>;
+type Obtain = (signal: AbortSignal) => Promise<Schema<"Recording">>;
 
-export type AudioSearch = { release: string; request: FindAlbumTrackAudio };
+export type AudioSearch = {
+  release: string;
+  request: Schema<"FindAlbumTrackAudio">;
+};
 
 const searchMessages: Record<
-  Exclude<AlbumTrackAudio["status"], "saved">,
+  Exclude<Schema<"AlbumTrackAudio">["status"], "saved">,
   string
 > = {
   no_match:
@@ -50,7 +52,7 @@ export const foundKey = (edition: string, occurrence: string) =>
 
 export function useCatalogTrackPlay(
   account: string,
-  adoption: CatalogAdoption | null,
+  adoption: Schema<"CatalogAdoption"> | null,
   player: Pick<Player, "prepareSelection">,
   edition: string,
 ) {

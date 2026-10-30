@@ -1,11 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page, type Route } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { preferencesAction } from "./metadata-preferences-state";
 import type { GroupReader } from "./artist-identity-groups-state";
 import type { ReviewedGroupMember } from "./artist-identity-groups-review";
-
-type Schema = components["schemas"];
 
 export async function chooseGroupMember(
   page: Page,
@@ -35,9 +33,9 @@ export async function chooseGroupMember(
     exact: true,
   });
   await expect(choose).toBeEnabled();
-  let receipt: Schema["ArtistIdentityChoiceReceipt"] | null = null;
-  let body: Schema["ChooseRecordingArtistIdentity"] | null = null;
-  let lostCurrent: Schema["RecordingArtistIdentityChoice"] | null = null;
+  let receipt: Schema<"ArtistIdentityChoiceReceipt"> | null = null;
+  let body: Schema<"ChooseRecordingArtistIdentity"> | null = null;
+  let lostCurrent: Schema<"RecordingArtistIdentityChoice"> | null = null;
   let invalid = false;
   const attempts: string[] = [];
   const intercept = async (route: Route) => {
@@ -57,9 +55,9 @@ export async function chooseGroupMember(
           throw new Error("Invalid owned acknowledgement");
         receipt = JSON.parse(
           bytes.toString(),
-        ) as Schema["ArtistIdentityChoiceReceipt"];
-        body = JSON.parse(raw) as Schema["ChooseRecordingArtistIdentity"];
-        lostCurrent = await read<Schema["RecordingArtistIdentityChoice"]>(path);
+        ) as Schema<"ArtistIdentityChoiceReceipt">;
+        body = JSON.parse(raw) as Schema<"ChooseRecordingArtistIdentity">;
+        lostCurrent = await read<Schema<"RecordingArtistIdentityChoice">>(path);
       } finally {
         await response.dispose();
       }
@@ -78,16 +76,15 @@ export async function chooseGroupMember(
       await expect(
         choice.getByRole("link", { name: "Open chosen artist", exact: true }),
       ).toHaveCount(0);
-      const accepted = lostCurrent as
-        | Schema["RecordingArtistIdentityChoice"]
-        | null;
+      const accepted =
+        lostCurrent as Schema<"RecordingArtistIdentityChoice"> | null;
       expect(
         !invalid &&
           accepted?.revision === 1 &&
           accepted.state.status === "selected",
       ).toBe(true);
       const retried = await preferencesAction<
-        Schema["ArtistIdentityChoiceReceipt"]
+        Schema<"ArtistIdentityChoiceReceipt">
       >(
         page,
         choice.getByRole("button", {
@@ -106,15 +103,14 @@ export async function chooseGroupMember(
       ).toBe(true);
     } else {
       const chosen = await preferencesAction<
-        Schema["ArtistIdentityChoiceReceipt"]
+        Schema<"ArtistIdentityChoiceReceipt">
       >(page, choose, "PUT", path, 200);
       receipt = chosen.body;
-      body = chosen.sent as Schema["ChooseRecordingArtistIdentity"];
+      body = chosen.sent as Schema<"ChooseRecordingArtistIdentity">;
     }
-    const sent = body as Schema["ChooseRecordingArtistIdentity"] | null;
-    const acknowledgement = receipt as
-      | Schema["ArtistIdentityChoiceReceipt"]
-      | null;
+    const sent = body as Schema<"ChooseRecordingArtistIdentity"> | null;
+    const acknowledgement =
+      receipt as Schema<"ArtistIdentityChoiceReceipt"> | null;
     expect(
       !invalid &&
         !!sent &&
@@ -131,7 +127,7 @@ export async function chooseGroupMember(
       choice.getByRole("link", { name: "Open chosen artist", exact: true }),
     ).toBeVisible();
     await expect(choice).toHaveAttribute("aria-busy", "false");
-    const current = await read<Schema["RecordingArtistIdentityChoice"]>(path);
+    const current = await read<Schema<"RecordingArtistIdentityChoice">>(path);
     if (current.state.status !== "selected")
       throw new Error("The current artist choice is missing");
     expect(
@@ -177,7 +173,7 @@ export async function resetGroupMember(
   await expect(
     choice.getByRole("link", { name: "Open chosen artist", exact: true }),
   ).toBeVisible();
-  const reset = await preferencesAction<Schema["ArtistIdentityChoiceReceipt"]>(
+  const reset = await preferencesAction<Schema<"ArtistIdentityChoiceReceipt">>(
     page,
     choice.getByRole("button", {
       name: "Reset artist choice for this track",
@@ -187,7 +183,7 @@ export async function resetGroupMember(
     `/api/v1/recordings/${id}/artist-identity/reset`,
     200,
   );
-  const sent = reset.sent as Schema["ResetRecordingArtistIdentity"];
+  const sent = reset.sent as Schema<"ResetRecordingArtistIdentity">;
   expect(
     sent.expected_revision === 1 &&
       reset.body?.request_id === sent.request_id &&

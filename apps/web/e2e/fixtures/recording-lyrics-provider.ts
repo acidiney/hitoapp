@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 async function body(request: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -30,7 +28,7 @@ export async function recordingLyricsProvider(query: string) {
     protocol_version: 1,
     capabilities: ["search", "sources", "lyrics"],
     content_policy: { source_persistence: "playback_only" },
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const recordings = ["first", "second"].map((name) => ({
     id: `recording/${name}?owned=${nonce}`,
     title: `Owned lyric ${name} ${nonce}`,
@@ -40,12 +38,12 @@ export async function recordingLyricsProvider(query: string) {
     disc_number: null,
     track_number: null,
     revision: `owned-recording-revision:"${name}"`,
-  })) satisfies Schema["ProviderRecording"][];
+  })) satisfies Schema<"ProviderRecording">[];
   const attribution = {
     creators: [`Owned lyric creator ${nonce}`, `Owned lyric creator ${nonce}`],
     provider_label: `Owned lyric credits ${nonce}`,
     content_url: `https://credits.example.invalid/lyrics/${nonce}`,
-  } satisfies Schema["RecordingAttribution"];
+  } satisfies Schema<"RecordingAttribution">;
   const lines = [
     { start_ms: 0, end_ms: 1200, text: `Owned lyric opening ${nonce}` },
     {
@@ -63,7 +61,7 @@ export async function recordingLyricsProvider(query: string) {
     duration_ms: 3000,
     attribution,
     lines,
-  } satisfies Schema["TimedLyrics"];
+  } satisfies Schema<"TimedLyrics">;
   const calls = {
     total: 0,
     publicManifest: 0,
@@ -152,7 +150,7 @@ export async function recordingLyricsProvider(query: string) {
           reply = {
             recording: { id: selected.id, revision: selected.revision },
             lyrics: mode === "null" ? null : lyric,
-          } satisfies Schema["LyricsResponse"];
+          } satisfies Schema<"LyricsResponse">;
           if (mode === "held") {
             const bytes = JSON.stringify(reply);
             calls.held++;

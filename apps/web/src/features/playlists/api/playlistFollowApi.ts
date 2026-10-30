@@ -1,9 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  PlaylistFollow,
-  PlaylistFollowRefresh,
-  RefreshFollowedPlaylist,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -12,20 +8,23 @@ export const playlistFollowApi = {
     account: string,
     playlist: string,
     signal: AbortSignal,
-  ): Promise<PlaylistFollow> {
-    return requestJson<PlaylistFollow>(`/playlists/${part(playlist)}/follow`, {
-      action: "playlists.follow.status",
-      account,
-      signal,
-    });
+  ): Promise<Schema<"PlaylistFollow">> {
+    return requestJson<Schema<"PlaylistFollow">>(
+      `/playlists/${part(playlist)}/follow`,
+      {
+        action: "playlists.follow.status",
+        account,
+        signal,
+      },
+    );
   },
   async refresh(
     account: string,
     playlist: string,
-    body: Readonly<RefreshFollowedPlaylist>,
+    body: Readonly<Schema<"RefreshFollowedPlaylist">>,
     signal: AbortSignal,
-  ): Promise<PlaylistFollowRefresh> {
-    return requestJson<PlaylistFollowRefresh>(
+  ): Promise<Schema<"PlaylistFollowRefresh">> {
+    return requestJson<Schema<"PlaylistFollowRefresh">>(
       `/playlists/${part(playlist)}/follow/refresh`,
       {
         action: "playlists.follow.refresh",

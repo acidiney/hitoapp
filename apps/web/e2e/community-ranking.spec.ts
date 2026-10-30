@@ -18,9 +18,8 @@ import {
   exchange,
   prepareRankingLibrary,
 } from "./fixtures/community-ranking-journey";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 
-type Schema = components["schemas"];
 const artworkResponseCeiling = 3 * 4 + 2 * 1;
 type Checkpoint =
   | "guard"
@@ -374,7 +373,7 @@ test("a separately saved community ranking preference changes ordinary browser P
     const providerBaseline = providers.snapshot();
     const identity = await library.identity();
     const peer = await library.peerState();
-    const oldFlags = await exchange<Schema["CommunityPreferences"]>(
+    const oldFlags = await exchange<Schema<"CommunityPreferences">>(
       page,
       "/community/preferences",
       library.account,
@@ -388,7 +387,7 @@ test("a separately saved community ranking preference changes ordinary browser P
     ).toBe(true);
     expect(
       isDeepStrictEqual(
-        await exchange<Schema["CommunityRankingPreferences"]>(
+        await exchange<Schema<"CommunityRankingPreferences">>(
           page,
           "/community/ranking-preferences",
           library.account,
@@ -503,7 +502,7 @@ test("a separately saved community ranking preference changes ordinary browser P
     ).toBe(true);
     expect(
       isDeepStrictEqual(
-        await exchange<Schema["CommunityPreferences"]>(
+        await exchange<Schema<"CommunityPreferences">>(
           page,
           "/community/preferences",
           library.account,

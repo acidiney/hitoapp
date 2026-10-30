@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import {
   creditAction,
@@ -11,7 +11,6 @@ import {
 import type { playlistMetadataProvider } from "./playlist-metadata-provider";
 import { openLibrarySection } from "./library-sections";
 
-type Schema = components["schemas"];
 type Reader = ReturnType<typeof releaseCreditReader>;
 type Provider = Awaited<ReturnType<typeof playlistMetadataProvider>>;
 
@@ -30,7 +29,7 @@ export async function prepareMetadataCopy(
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  const user = await read<Schema["User"]>("/api/v1/me");
+  const user = await read<Schema<"User">>("/api/v1/me");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await page
     .getByRole("link", { name: "Account and settings", exact: true })
@@ -41,7 +40,7 @@ export async function prepareMetadataCopy(
     .click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
-  const offered = await creditPost<Schema["PluginService"]>(
+  const offered = await creditPost<Schema<"PluginService">>(
     page,
     "/api/v1/plugins/services",
     201,
@@ -63,7 +62,7 @@ export async function prepareMetadataCopy(
     offered.body,
     owned.manifest.name,
   );
-  const installed = await creditPost<Schema["PluginInstallation"]>(
+  const installed = await creditPost<Schema<"PluginInstallation">>(
     page,
     "/api/v1/plugins",
     201,
@@ -90,14 +89,14 @@ export async function prepareMetadataCopy(
   await form
     .getByRole("textbox", { name: "Playlist link or identifier" })
     .fill(owned.reference);
-  const imported = await creditPost<Schema["PlaylistImportReceipt"]>(
+  const imported = await creditPost<Schema<"PlaylistImportReceipt">>(
     page,
     `/api/v1/plugins/${connection.id}/playlists/import`,
     200,
     () =>
       form.getByRole("button", { name: "Import a copy", exact: true }).click(),
   );
-  const importRequest = imported.sent as Schema["ImportProviderPlaylist"];
+  const importRequest = imported.sent as Schema<"ImportProviderPlaylist">;
   expect(
     importRequest.playlist_reference === owned.reference &&
       importRequest.installation_revision === connection.revision &&
@@ -105,7 +104,7 @@ export async function prepareMetadataCopy(
   ).toBe(true);
   const playlist = imported.body.playlist_id;
   await expect(page).toHaveURL(new RegExp(`/playlists/${playlist}$`));
-  const copy = await read<Schema["PlaylistDetail"]>(
+  const copy = await read<Schema<"PlaylistDetail">>(
     `/api/v1/playlists/${playlist}`,
   );
   const first = copy.entries[1]?.recording_id;
@@ -206,18 +205,18 @@ export async function prepareMetadataCopy(
       entry_id: copy.entries[1].entry_id,
       position: -10,
     },
-  ] satisfies Schema["Action"][];
+  ] satisfies Schema<"Action">[];
   const batch = {
     device_id: "owned-metadata-browser",
     operations: operations.map((action) => ({ id: randomUUID(), action })),
-  } satisfies Schema["SyncBatch"];
+  } satisfies Schema<"SyncBatch">;
   const response = await page.request.post("/api/v1/sync", {
     headers: { "x-hito-request": "1", "x-hito-account": user.id },
     data: batch,
     timeout: 10_000,
   });
   expect(response.status()).toBe(200);
-  const receipt = (await response.json()) as Schema["SyncReceipt"];
+  const receipt = (await response.json()) as Schema<"SyncReceipt">;
   expect(
     isDeepStrictEqual(
       receipt.acknowledged,
@@ -248,24 +247,24 @@ export async function metadataState(
   ids: string[],
 ) {
   return {
-    copy: await read<Schema["PlaylistDetail"]>(`/api/v1/playlists/${playlist}`),
-    catalog: await read<Schema["RecordingPage"]>("/api/v1/recordings"),
-    albums: await read<Schema["ReleasePage"]>("/api/v1/releases"),
-    activity: await read<Schema["Activity"]>("/api/v1/activity"),
-    events: await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0"),
+    copy: await read<Schema<"PlaylistDetail">>(`/api/v1/playlists/${playlist}`),
+    catalog: await read<Schema<"RecordingPage">>("/api/v1/recordings"),
+    albums: await read<Schema<"ReleasePage">>("/api/v1/releases"),
+    activity: await read<Schema<"Activity">>("/api/v1/activity"),
+    events: await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0"),
     metadata: await Promise.all(
       ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     sources: await Promise.all(
       ids.map((id) =>
-        read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+        read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
       ),
     ),
     choices: await Promise.all(
       ids.map((id) =>
-        read<Schema["SourceChoice"]>(`/api/v1/recordings/${id}/source-choice`),
+        read<Schema<"SourceChoice">>(`/api/v1/recordings/${id}/source-choice`),
       ),
     ),
   };
@@ -277,7 +276,7 @@ export function verifyMetadataRepair(
   ids: string[],
   owned: Provider,
 ) {
-  const copyIdentity = (copy: Schema["PlaylistDetail"]) => ({
+  const copyIdentity = (copy: Schema<"PlaylistDetail">) => ({
     playlist: copy.playlist,
     origin: copy.origin,
     entries: copy.entries.map((entry) => [

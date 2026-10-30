@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import {
   act,
@@ -10,10 +11,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import PluginSettings from "../components/PluginSettings";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { pluginsApi } from "../api/pluginsApi";
-import type {
-  PluginInstallation,
-  PluginSettings as Settings,
-} from "../../../shared/types";
+
 vi.mock("../api/pluginsApi", () => ({
   pluginsApi: {
     settings: vi.fn(),
@@ -32,7 +30,7 @@ const service = {
   base_url: "https://plugin.example/",
   revision: 1,
 };
-const plugin: PluginInstallation = {
+const plugin: Schema<"PluginInstallation"> = {
   id: "installation",
   service_id: service.id,
   revision: 1,
@@ -45,7 +43,7 @@ const plugin: PluginInstallation = {
     capabilities: ["search", "sources"],
   },
 };
-const initial: Settings = {
+const initial: Schema<"PluginSettings"> = {
   services: [service],
   installations: [],
   credential_storage_ready: true,
@@ -225,7 +223,7 @@ test("manifest changes are reviewed before accepting new capabilities", async ()
 });
 
 test("old account responses cannot add private connections after an account change", async () => {
-  let resolve!: (plugin: PluginInstallation) => void;
+  let resolve!: (plugin: Schema<"PluginInstallation">) => void;
   vi.mocked(pluginsApi.install).mockImplementation(
     () =>
       new Promise((done) => {
@@ -294,7 +292,7 @@ test("a delayed settings reload cannot remove a newly accepted connection", asyn
   render(settingsPage("bob", false));
   await reviewAndAccept();
   await screen.findByRole("alert");
-  let finish!: (settings: Settings) => void;
+  let finish!: (settings: Schema<"PluginSettings">) => void;
   vi.mocked(pluginsApi.settings).mockImplementation(
     () =>
       new Promise((resolve) => {

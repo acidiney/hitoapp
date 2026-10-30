@@ -5,11 +5,9 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { artistDiscographyData } from "./artist-discography-data";
 import { artistEditionsData } from "./artist-editions-data";
-
-type Schema = components["schemas"];
 
 export async function artistReviewProvider(
   query: string,
@@ -32,7 +30,7 @@ export async function artistReviewProvider(
     name: "Owned browser artist catalog",
     protocol_version: 1,
     capabilities: ["catalog"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const candidates = [
     {
       artist: {
@@ -50,20 +48,20 @@ export async function artistReviewProvider(
       kind: "person",
       disambiguation: "Acoustic singer from Luanda",
     },
-  ] satisfies Schema["ArtistSearchCandidate"][];
+  ] satisfies Schema<"ArtistSearchCandidate">[];
   const profile = {
     artist: candidates[1].artist,
     sort_name: "Namesake, Owned",
     kind: "person",
     disambiguation: "Acoustic singer from Luanda, established in 2012",
     revision: "owned-browser-artist-profile:1",
-  } satisfies Schema["CatalogArtistProfile"];
+  } satisfies Schema<"CatalogArtistProfile">;
   const search = {
     query,
     cursor: null,
     snapshot: null,
     limit: 20,
-  } satisfies Schema["ArtistSearchRequest"];
+  } satisfies Schema<"ArtistSearchRequest">;
   const discography = options.discography
     ? artistDiscographyData(profile.artist)
     : null;
@@ -162,7 +160,7 @@ export async function artistReviewProvider(
           isDeepStrictEqual(body, {
             release_group_id: editions.group.id,
             edition_id: editions.bonus.id,
-          } satisfies Schema["ReadEditionTrackList"])
+          } satisfies Schema<"ReadEditionTrackList">)
         )
           return reply("edition_tracks", editions.tracks);
         return reject();
@@ -195,7 +193,7 @@ export async function artistReviewProvider(
           items: candidates,
           total_count: 2,
           next_cursor: null,
-        } satisfies Schema["ArtistSearchPage"];
+        } satisfies Schema<"ArtistSearchPage">;
         return reply("search", page);
       }
       if (

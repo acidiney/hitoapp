@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -9,7 +10,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import Shell from "../../../app/Shell";
 import AlbumPage from "../../catalog/pages/AlbumPage";
-import type { AlbumPageProps } from "../../../shared/types";
+
 import type { components } from "../../../generated";
 
 type ReleaseArtworkFetch = components["schemas"]["ReleaseArtworkFetch"];
@@ -132,7 +133,7 @@ test("album covers retrieve exact release artwork, retry failures and reject an 
           catalog_anchor: null,
           saved_edition: null,
         },
-      } satisfies AlbumPageProps),
+      } satisfies Schema<"AlbumPageProps">),
     });
   const { container, rerender } = render(view());
   const cover = () => container.querySelector(`img[src="${artwork}"]`);

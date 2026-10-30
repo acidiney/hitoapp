@@ -1,4 +1,5 @@
-import type { AlbumIndexPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import PageHeading from "../../../shared/ui/PageHeading";
 import AlbumGrid from "../components/AlbumGrid";
 import EmptyState from "../../../shared/ui/EmptyState";
@@ -7,7 +8,7 @@ import Pagination from "../../../shared/ui/Pagination";
 export default function AlbumIndexPage({
   releases,
   query,
-}: AlbumIndexPageProps) {
+}: Schema<"AlbumIndexPageProps">) {
   return (
     <>
       <PageHeading

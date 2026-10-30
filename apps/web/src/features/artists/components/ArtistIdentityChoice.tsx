@@ -1,5 +1,7 @@
-import type { RecordingArtistIdentityChoice } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { Link } from "@inertiajs/react";
+import Button from "../../../shared/ui/Button";
 
 export default function ArtistIdentityChoice({
   choice,
@@ -14,7 +16,7 @@ export default function ArtistIdentityChoice({
   onRetry,
   onRefresh,
 }: {
-  choice: RecordingArtistIdentityChoice | null;
+  choice: Schema<"RecordingArtistIdentityChoice"> | null;
   name: string | null;
   pending: string | null;
   error: string;
@@ -55,29 +57,24 @@ export default function ArtistIdentityChoice({
         )}
       {error && <p role="alert">{error}</p>}
       {retrying && (
-        <button
-          type="button"
-          className="button"
-          disabled={pending !== null}
-          onClick={onRetry}
-        >
+        <Button type="button" disabled={pending !== null} onClick={onRetry}>
           Retry the same artist choice request
-        </button>
+        </Button>
       )}
       {canChoose && (
-        <button type="button" className="button" onClick={onChoose}>
+        <Button type="button" onClick={onChoose}>
           Choose this reviewed artist
-        </button>
+        </Button>
       )}
       {canReset && (
-        <button type="button" className="button" onClick={onReset}>
+        <Button type="button" onClick={onReset}>
           Reset artist choice for this track
-        </button>
+        </Button>
       )}
       {!choice && pending === null && (
-        <button type="button" className="button" onClick={onRefresh}>
+        <Button type="button" onClick={onRefresh}>
           Check current artist choice
-        </button>
+        </Button>
       )}
     </section>
   );

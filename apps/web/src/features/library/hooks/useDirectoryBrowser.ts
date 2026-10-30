@@ -1,20 +1,19 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useState } from "react";
 import { storageApi } from "../api/storageApi";
 import { errorMessage } from "../../../shared/format";
-import type {
-  DirectoryPage,
-  DirectoryRef,
-  SharedDirectory,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useDirectoryBrowser(account: string) {
-  const [directories, setDirectories] = useState<SharedDirectory[]>([]);
-  const [selection, select] = useState<DirectoryRef | null>(null);
+  const [directories, setDirectories] = useState<Schema<"SharedDirectory">[]>(
+    [],
+  );
+  const [selection, select] = useState<Schema<"DirectoryRef"> | null>(null);
   const scope = useRequestScope(`${account}\0${JSON.stringify(selection)}`);
   const [page, setPage] = useState<{
-    selection: DirectoryRef;
-    data: DirectoryPage;
+    selection: Schema<"DirectoryRef">;
+    data: Schema<"DirectoryPage">;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

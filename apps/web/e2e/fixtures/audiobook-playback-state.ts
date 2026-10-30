@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import {
   artistReviewDownloadAbsence,
   artistReviewReader,
@@ -12,7 +12,6 @@ import {
   seedPreferencesLibrary,
 } from "./metadata-preferences-state";
 
-type Schema = components["schemas"];
 type Saved = Awaited<ReturnType<typeof seedPreferencesLibrary>>;
 
 export const audiobookPlaybackUsername = "playback-admin";
@@ -45,7 +44,7 @@ export function audiobookPlaybackState(page: Page, account: () => string) {
     budget();
     return rawRead<T>(path);
   };
-  async function post<T>(path: string, data: Schema["SyncBatch"]): Promise<T> {
+  async function post<T>(path: string, data: Schema<"SyncBatch">): Promise<T> {
     budget();
     if (Buffer.byteLength(JSON.stringify(data)) > 16_384)
       throw new Error("The audiobook preparation request exceeded its bound");
@@ -72,7 +71,7 @@ export function audiobookPlaybackState(page: Page, account: () => string) {
   return {
     read,
     requests: () => requests,
-    async prepare(user: Schema["User"]) {
+    async prepare(user: Schema<"User">) {
       const saved = await seedPreferencesLibrary(page, read, user);
       budget();
       const middle = randomUUID();
@@ -120,14 +119,14 @@ export function audiobookPlaybackState(page: Page, account: () => string) {
           position_ms: 35_125,
           label,
         },
-      ] satisfies Schema["Action"][];
+      ] satisfies Schema<"Action">[];
       const batch = {
         device_id: "owned-audiobook-playback-preparation",
         operations: actions.map((action) => ({ id: randomUUID(), action })),
-      } satisfies Schema["SyncBatch"];
+      } satisfies Schema<"SyncBatch">;
       expect(
         isDeepStrictEqual(
-          await post<Schema["SyncReceipt"]>("/api/v1/sync", batch),
+          await post<Schema<"SyncReceipt">>("/api/v1/sync", batch),
           { acknowledged: batch.operations.map((operation) => operation.id) },
         ),
       ).toBe(true);
@@ -142,11 +141,11 @@ export function audiobookPlaybackState(page: Page, account: () => string) {
       budget(1 + saved.ids.length);
       return {
         ...(await preferencesLibraryState(page, read, saved)),
-        settings: await read<Schema["MetadataSettings"]>(
+        settings: await read<Schema<"MetadataSettings">>(
           "/api/v1/metadata/settings",
         ),
-        playlists: await read<Schema["Playlist"][]>("/api/v1/playlists"),
-        book: await read<Schema["AudiobookDetail"]>(
+        playlists: await read<Schema<"Playlist">[]>("/api/v1/playlists"),
+        book: await read<Schema<"AudiobookDetail">>(
           `/api/v1/audiobooks/${saved.playlist}`,
         ),
       };
@@ -428,7 +427,7 @@ export async function audiobookNavigationCheck(
 export function preservedAudiobookPlayback(
   before: Snapshot,
   after: Snapshot,
-  accepted: readonly Schema["SyncBatch"][],
+  accepted: readonly Schema<"SyncBatch">[],
   diagnose?: (reason: number, detail: number[]) => void,
 ) {
   const fail = (reason: number, detail: number[] = []) => {
@@ -480,7 +479,7 @@ export function preservedAudiobookPlayback(
   );
   if (!appended.length || appended.length !== expected.size)
     return fail(4, [appended.length, expected.size]);
-  const latest = new Map<string, Schema["RecordingProgress"]>();
+  const latest = new Map<string, Schema<"RecordingProgress">>();
   for (const event of appended) {
     if (!("operation" in event)) return fail(5);
     const batch = expected.get(event.operation.id);

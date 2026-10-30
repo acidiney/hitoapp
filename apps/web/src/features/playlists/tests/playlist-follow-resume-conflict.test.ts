@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,9 +9,6 @@ import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import { playlistConnection } from "../fixtures/playlistImports";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -29,7 +27,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
   );
   const origin = copiedPlaylistPage.detail.origin;
   if (!origin) throw new Error("The playlist fixture must have its origin");
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -37,7 +35,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
       follow_content_revision: 1,
     },
   };
-  const installation: Schema["PluginInstallation"] = {
+  const installation: Schema<"PluginInstallation"> = {
     ...playlistConnection,
     id: origin.installation_id,
     service_id: origin.service_id,
@@ -48,18 +46,18 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
       name: "Connection before the conflict",
     },
   };
-  const service: Schema["PluginService"] = {
+  const service: Schema<"PluginService"> = {
     id: origin.service_id,
     name: "Provider before the conflict",
     base_url: "https://reviewed-provider.invalid/before/",
     revision: 5,
   };
-  const settings: Schema["PluginSettings"] = {
+  const settings: Schema<"PluginSettings"> = {
     credential_storage_ready: true,
     installations: [installation],
     services: [service],
   };
-  const changedSettings: Schema["PluginSettings"] = {
+  const changedSettings: Schema<"PluginSettings"> = {
     ...settings,
     installations: [
       {
@@ -80,7 +78,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
       },
     ],
   };
-  const paused: Schema["PlaylistFollow"] = {
+  const paused: Schema<"PlaylistFollow"> = {
     playlist_id: props.detail.playlist.id,
     generation: 3,
     content_revision: 1,
@@ -91,8 +89,8 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
     status: "paused",
     error: "authority_changed",
   };
-  const firstReview: Schema["PlaylistFollow"] = { ...paused, generation: 4 };
-  const freshReview: Schema["PlaylistFollow"] = { ...paused, generation: 5 };
+  const firstReview: Schema<"PlaylistFollow"> = { ...paused, generation: 4 };
+  const freshReview: Schema<"PlaylistFollow"> = { ...paused, generation: 5 };
   const rawConflict =
     "Stale approval at https://private-provider.invalid/?secret=private-value";
   let resolveApproval!: (response: Response) => void;
@@ -165,7 +163,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
   expect(syncRequests).toBe(1);
   const posts = () =>
     fetch.mock.calls.filter(([path]) => path === "/api/v1/sync");
-  const first: Schema["SyncBatch"] = JSON.parse(String(posts()[0][1]?.body));
+  const first: Schema<"SyncBatch"> = JSON.parse(String(posts()[0][1]?.body));
   expect(first.operations).toHaveLength(1);
   expect(first.operations[0].action).toEqual({
     kind: "playlist_follow_resume",
@@ -173,7 +171,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
     expected_generation: firstReview.generation,
     installation_revision: installation.revision,
     service_revision: service.revision,
-  } satisfies Schema["Action"]);
+  } satisfies Schema<"Action">);
   const approval = within(
     screen.getByRole("region", { name: "Resume playlist updates" }),
   );
@@ -206,7 +204,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
     fireEvent.click(screen.getByRole("button", { name: "Resume updates" }));
   });
   expect(posts()).toHaveLength(2);
-  const second: Schema["SyncBatch"] = JSON.parse(String(posts()[1][1]?.body));
+  const second: Schema<"SyncBatch"> = JSON.parse(String(posts()[1][1]?.body));
   expect(second.device_id).toBe(first.device_id);
   expect(first.device_id.length).toBeGreaterThan(0);
   expect(second.operations).toHaveLength(1);
@@ -221,7 +219,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
     expected_generation: freshReview.generation,
     installation_revision: changedSettings.installations[0].revision,
     service_revision: changedSettings.services[0].revision,
-  } satisfies Schema["Action"]);
+  } satisfies Schema<"Action">);
   expect(posts()[1][1]).toMatchObject({
     credentials: "same-origin",
     headers: { "x-hito-account": props.user.id },
@@ -240,7 +238,7 @@ test("a definite Resume conflict requires a fresh review and a new operation wit
     resolveApproval(
       Response.json({
         acknowledged: [second.operations[0].id],
-      } satisfies Schema["SyncReceipt"]),
+      } satisfies Schema<"SyncReceipt">),
     );
   });
   expect(statusReads).toBe(4);

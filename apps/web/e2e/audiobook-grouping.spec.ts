@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   artistReviewDownloadAbsence,
   artistReviewOriginals,
@@ -18,7 +18,6 @@ import {
 import { audiobookGroupingEvidence } from "./fixtures/audiobook-grouping-evidence";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -134,7 +133,7 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
   try {
     expect(baseURL === "http://localhost:8080").toBe(true);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     evidence = await audiobookGroupingEvidence(
       context,
@@ -156,7 +155,7 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
     privateValues.push(
       ...(await context.cookies()).map((cookie) => cookie.value),
     );
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
 
     stage = "owned originals and private duplicate playlist";
     const saved = await seedPreferencesLibrary(page, read, user);
@@ -198,13 +197,13 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
         before.sources.every((sources) => sources.length === 1),
     ).toBe(true);
     expect(
-      (await read<Schema["Playlist"][]>("/api/v1/audiobooks")).length,
+      (await read<Schema<"Playlist">[]>("/api/v1/audiobooks")).length,
     ).toBe(0);
     const expectedDetail = {
       playlist: before.playlist.playlist,
       chapters: before.playlist.entries,
       bookmarks: [],
-    } satisfies Schema["AudiobookDetail"];
+    } satisfies Schema<"AudiobookDetail">;
     delivery.arm(
       user.id,
       expectedDetail,
@@ -264,7 +263,7 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
     const original = delivery.state.batch;
     if (!original || !delivery.state.receipt)
       throw new Error("The owned original sync receipt is missing");
-    const committed = await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0");
+    const committed = await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0");
     expect(singleGroupingEvent(before.events, committed, original)).toBe(true);
     expect(
       isDeepStrictEqual(
@@ -306,7 +305,7 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
     ).toBe(true);
     expect(
       isDeepStrictEqual(
-        await read<Schema["Playlist"][]>("/api/v1/audiobooks"),
+        await read<Schema<"Playlist">[]>("/api/v1/audiobooks"),
         [before.playlist.playlist],
       ),
     ).toBe(true);
@@ -500,9 +499,9 @@ test("a lost grouping acknowledgement retries one exact operation and retains pr
 });
 
 function singleGroupingEvent(
-  before: Schema["SyncPage"],
-  after: Schema["SyncPage"],
-  batch: Schema["SyncBatch"],
+  before: Schema<"SyncPage">,
+  after: Schema<"SyncPage">,
+  batch: Schema<"SyncBatch">,
 ) {
   const events = after.operations;
   const appended = events[before.operations.length];

@@ -1,7 +1,11 @@
 import { Link } from "@inertiajs/react";
 import { ChevronRight } from "lucide-react";
 import { log } from "../../../shared/log";
-import { sectionHref, type SectionGroup, type SectionId } from "../sections";
+import {
+  sectionHref,
+  type SectionGroup,
+  type SectionId,
+} from "../model/sections";
 
 export default function SettingsNav({
   groups,

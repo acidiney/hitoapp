@@ -9,7 +9,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistQuery,
   artistReviewAccount,
@@ -22,8 +22,6 @@ import {
   secondCatalog,
   noAssociationChanges,
 } from "../fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 test.each(["credited artist", "same-name artist operation"] as const)(
   "a changed server %s requires refreshed track details before artist candidates are requested",
@@ -43,7 +41,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
       ...artistReviewContext,
       artist_operation_id: detail.artist.operation_id,
       credited_name: detail.artist.value,
-    } satisfies Schema["ArtistReviewContext"];
+    } satisfies Schema<"ArtistReviewContext">;
     expect(context.account_id).toBe(artistReviewAccount);
     expect(context.recording_id).toBe(artistReviewDetail.recording_id);
     expect(context.observation_id).toBe(
@@ -78,7 +76,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
         return reply({
           ...artistSearchResult,
           context,
-        } satisfies Schema["ArtistCandidateSearchAvailability"]);
+        } satisfies Schema<"ArtistCandidateSearchAvailability">);
       throw new Error(
         "Unexpected HTTP request outside the owned rendered-credit review",
       );
@@ -182,7 +180,7 @@ test.each(["credited artist", "same-name artist operation"] as const)(
       expect(JSON.parse(currentCalls[6][1]?.body as string)).toEqual({
         context,
         search: artistSearch,
-      } satisfies Schema["SearchArtistCandidates"]);
+      } satisfies Schema<"SearchArtistCandidates">);
       for (const [, options] of fetch.mock.calls) {
         expect(new Headers(options?.headers).get("x-hito-account")).toBe(
           artistReviewAccount,

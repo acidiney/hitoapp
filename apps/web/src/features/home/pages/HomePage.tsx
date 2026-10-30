@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
-import type { HomePageProps, UnheardOnAlbum } from "../../../shared/types";
+
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import SearchField from "../../../shared/ui/SearchField";
 import {
@@ -8,17 +9,21 @@ import {
   SHELL_SEARCH_ID,
   shortcutLabel,
 } from "../../../app/searchShortcut";
-import { greeting, quickAccess } from "../quickAccess";
+import { greeting, quickAccess } from "../model/quickAccess";
 import QuickAccess from "../components/QuickAccess";
 import UnheardNearby from "../components/UnheardNearby";
 import HomeEmpty from "../components/HomeEmpty";
 
-export default function HomePage({ user, playlists, home }: HomePageProps) {
+export default function HomePage({
+  user,
+  playlists,
+  home,
+}: Schema<"HomePageProps">) {
   const player = usePlayer();
   const [query, setQuery] = useState("");
   const tiles = quickAccess(home, playlists);
   const empty = !home.has_music && tiles.length === 0;
-  function listen(album: UnheardOnAlbum) {
+  function listen(album: Schema<"UnheardOnAlbum">) {
     void player.playQueue(album.tracks);
   }
   return (

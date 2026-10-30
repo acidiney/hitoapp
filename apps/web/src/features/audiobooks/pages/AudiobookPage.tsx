@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { useRef } from "react";
 import Artwork from "../../artwork/components/Artwork";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
@@ -13,12 +14,13 @@ import { longDuration, time } from "../../../shared/format";
 import { useAudiobookBookmarks } from "../hooks/useAudiobookBookmarks";
 import { useAudiobookPlayback } from "../hooks/useAudiobookPlayback";
 import { audiobookProgress } from "../model/audiobookProgress";
-import type { AudiobookPageProps } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 export default function AudiobookPage({
   user,
   detail: rendered,
-}: AudiobookPageProps) {
+}: Schema<"AudiobookPageProps">) {
   const bookmarks = useAudiobookBookmarks(user.id, rendered);
   const detail = bookmarks.detail;
   const playback = useAudiobookPlayback(user.id, detail, rendered);
@@ -98,9 +100,9 @@ export default function AudiobookPage({
         actions={
           <>
             {continuing && (
-              <button
+              <Button
+                className="tint-primary"
                 type="button"
-                className="button tint-primary"
                 disabled={playback.pending}
                 onClick={() => void playback.continueAudiobook()}
               >
@@ -108,11 +110,11 @@ export default function AudiobookPage({
                   ? `Continue ch. ${continuingNumber} · `
                   : "Continue · "}
                 {time(continuing.position_ms / 1000)}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              className="tint-secondary"
               type="button"
-              className="button tint-secondary"
               disabled={bookmarkReason !== undefined}
               title={bookmarkReason}
               onClick={() =>
@@ -120,7 +122,7 @@ export default function AudiobookPage({
               }
             >
               Bookmark
-            </button>
+            </Button>
             <Link
               className="button tint-secondary"
               href={`/playlists/${encodeURIComponent(detail.playlist.id)}`}

@@ -1,13 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef } from "react";
 import { ChevronRight, Folder, X } from "lucide-react";
 import { useDirectoryBrowser } from "../hooks/useDirectoryBrowser";
-import type { DirectoryRef } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 type Props = {
   account: string;
   pending: boolean;
   error: string;
-  onSelect: (directory: DirectoryRef) => Promise<boolean>;
+  onSelect: (directory: Schema<"DirectoryRef">) => Promise<boolean>;
   onClose: () => void;
 };
 
@@ -154,13 +156,12 @@ export default function FolderPicker({
             </p>
           )}
         {browser.page?.next_offset != null && (
-          <button
-            className="button"
+          <Button
             disabled={browser.loading || pending}
             onClick={() => void browser.more()}
           >
             Show more folders
-          </button>
+          </Button>
         )}
         {browser.error && (
           <div role="alert">
@@ -178,8 +179,8 @@ export default function FolderPicker({
       )}
       <footer>
         <p>Your originals stay in place. Hito only reads them.</p>
-        <button
-          className="button primary"
+        <Button
+          variant="primary"
           disabled={
             pending ||
             browser.loading ||
@@ -190,7 +191,7 @@ export default function FolderPicker({
           onClick={() => void choose()}
         >
           {pending ? "Adding folder…" : "Use this folder"}
-        </button>
+        </Button>
       </footer>
     </dialog>
   );

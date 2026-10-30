@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -6,7 +7,6 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import PlaylistIndexPage from "../pages/PlaylistIndexPage";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import { playlistImportPage } from "../fixtures/playlistImports";
-import type { Playlist, PlaylistArtworkFetch } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -16,23 +16,23 @@ vi.mock("@inertiajs/react", () => ({
 
 test("playlist rows retrieve imported covers by playlist identity and keep unsupported rows as icons", async () => {
   vi.useFakeTimers();
-  const copied: Playlist = {
+  const copied: Schema<"Playlist"> = {
     ...copiedPlaylistPage.detail.playlist,
     name: "My renamed copy",
   };
-  const manual: Playlist = {
+  const manual: Schema<"Playlist"> = {
     id: "manual-selection",
     name: "My local playlist",
     kind: "local",
   };
-  const followed: Playlist = {
+  const followed: Schema<"Playlist"> = {
     id: "followed-selection",
     name: "My followed playlist",
     kind: "followed",
   };
   const image = `/api/v1/playlists/${copied.id}/artwork`;
   const manualImage = `/api/v1/playlists/${manual.id}/artwork`;
-  const ready: PlaylistArtworkFetch = {
+  const ready: Schema<"PlaylistArtworkFetch"> = {
     id: "retained-playlist-cover",
     playlist_id: copied.id,
     status: "ready",

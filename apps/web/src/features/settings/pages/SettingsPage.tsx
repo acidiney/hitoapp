@@ -1,7 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, type MouseEvent } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
-import type { SettingsPageProps } from "../../../shared/types";
+
 import PageHeading from "../../../shared/ui/PageHeading";
 import {
   UnsavedContext,
@@ -14,9 +15,9 @@ import {
   sectionHref,
   sectionMeta,
   visibleGroups,
-} from "../sections";
+} from "../model/sections";
 
-export default function SettingsPage(props: SettingsPageProps) {
+export default function SettingsPage(props: Schema<"SettingsPageProps">) {
   const { url } = usePage();
   const { section, chosen, requested } = readLocation(url, props.user.admin);
   const meta = sectionMeta(section);

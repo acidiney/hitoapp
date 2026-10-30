@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -25,7 +25,6 @@ import {
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import { flush } from "../../../test/async";
 
-type Schema = components["schemas"];
 type Props = ComponentProps<typeof ArtistDiscography>;
 const initial: Props = {
   account: artistReviewAccount,
@@ -51,7 +50,7 @@ function page(props: Props, title: string) {
         },
       ],
     },
-  } satisfies Schema["ArtistDiscographyAvailability"];
+  } satisfies Schema<"ArtistDiscographyAvailability">;
 }
 
 function path(props: Props) {
@@ -182,7 +181,7 @@ for (const mode of ["headers", "body"] as const) {
           {
             limit: 20,
             continuation: null,
-          } satisfies Schema["ReadArtistDiscography"],
+          } satisfies Schema<"ReadArtistDiscography">,
         );
         expect(
           new Headers(http.fetch.mock.calls[2][1]?.headers).get(
@@ -271,7 +270,7 @@ test("a temporary later-page failure keeps known releases and retries the same h
       expect(JSON.parse(options?.body as string)).toEqual({
         limit: 20,
         continuation: hostDiscographyContinuation,
-      } satisfies Schema["ReadArtistDiscography"]);
+      } satisfies Schema<"ReadArtistDiscography">);
     expect(screen.queryByRole("alert")).toBeNull();
   } finally {
     await act(async () => {
@@ -318,7 +317,7 @@ test.each([403, 404])(
         expect(JSON.parse(options?.body as string)).toEqual({
           limit: 20,
           continuation: hostDiscographyContinuation,
-        } satisfies Schema["ReadArtistDiscography"]);
+        } satisfies Schema<"ReadArtistDiscography">);
       expect(
         screen.queryByRole("button", {
           name: /play|download|import|add to library/i,
@@ -342,7 +341,7 @@ test.each([
   "a %s catalog result stays truthful and read-only",
   async (status, message) => {
     const http = discographyHttp();
-    http.reply({ status } satisfies Schema["ArtistDiscographyAvailability"]);
+    http.reply({ status } satisfies Schema<"ArtistDiscographyAvailability">);
     const view = render(createElement(ArtistDiscography, initial));
     try {
       fireEvent.click(

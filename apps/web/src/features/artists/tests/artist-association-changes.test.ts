@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import {
   artistAssociation,
@@ -17,8 +17,6 @@ import {
   artistReviewDetail,
   artistReviewSettings,
 } from "../fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 function owned(
   options: {
@@ -55,7 +53,7 @@ function owned(
         retired: [],
         shared_hidden: 0,
         shareable: false,
-      } satisfies Schema["ArtistAssociationChanges"]);
+      } satisfies Schema<"ArtistAssociationChanges">);
     if (method === "POST" && path.startsWith(`${associations}/`)) {
       const body = JSON.parse(options?.body as string);
       bodies.push(body);
@@ -77,7 +75,7 @@ function owned(
         revision,
         association_id: artistAssociation.id,
         linked,
-      } satisfies Schema["ArtistAssociationChangeReceipt"]);
+      } satisfies Schema<"ArtistAssociationChangeReceipt">);
     }
     throw new Error("Unexpected HTTP request outside the association changes");
   });
@@ -127,7 +125,7 @@ test("unlinking a saved artist review removes it and undo restores it without pr
     request_id: expect.any(String),
     expected_revision: 0,
     association_id: artistAssociation.id,
-  } satisfies Schema["UnlinkRecordingArtist"] & Record<string, unknown>);
+  } satisfies Schema<"UnlinkRecordingArtist"> & Record<string, unknown>);
   expect(
     screen.queryByRole("button", { name: /View saved artist review/ }),
   ).toBeNull();
@@ -137,7 +135,7 @@ test("unlinking a saved artist review removes it and undo restores it without pr
   expect(bodies[1]).toEqual({
     request_id: expect.any(String),
     expected_revision: 1,
-  } satisfies Schema["UndoRecordingArtistChange"]);
+  } satisfies Schema<"UndoRecordingArtistChange">);
   expect(bodies[1].request_id).not.toBe(bodies[0].request_id);
   expect(
     fetch.mock.calls.filter(([path]) => path.endsWith("/profile")),
@@ -220,7 +218,7 @@ test("an administrator can share the latest built-in unlink and sees retired unl
           shared_hidden: 2,
           shareable: bodies.length === 0,
           shared: bodies.length ? { id: "shared-unlink", revision: 1 } : null,
-        } satisfies Schema["ArtistAssociationChanges"]);
+        } satisfies Schema<"ArtistAssociationChanges">);
       if (method === "GET" && path.startsWith("/api/v1/artist-corrections?"))
         return Response.json({
           revision: 4,
@@ -228,7 +226,7 @@ test("an administrator can share the latest built-in unlink and sees retired unl
           total: 0,
           offset: 0,
           limit: 25,
-        } satisfies Schema["SharedArtistCorrections"]);
+        } satisfies Schema<"SharedArtistCorrections">);
       if (method === "POST") {
         const body = JSON.parse(options?.body as string);
         bodies.push({ path, body });
@@ -238,7 +236,7 @@ test("an administrator can share the latest built-in unlink and sees retired unl
           revision: 1,
           applied: true,
           recordings: 1,
-        } satisfies Schema["SharedArtistCorrectionReceipt"]);
+        } satisfies Schema<"SharedArtistCorrectionReceipt">);
       }
       throw new Error(`Unexpected request ${method} ${path}`);
     }),

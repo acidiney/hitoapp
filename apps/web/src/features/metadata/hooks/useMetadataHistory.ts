@@ -1,14 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useRef, useState } from "react";
 import { metadataApi } from "../api/metadataApi";
 import { errorMessage } from "../../../shared/format";
-import type { ObservationPage } from "../../../shared/types";
-import type { MetadataTarget } from "../metadata";
+
+import type { MetadataTarget } from "../model/metadata";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useMetadataHistory(
   account: string,
   target: MetadataTarget,
-  initial: ObservationPage,
+  initial: Schema<"ObservationPage">,
 ) {
   const scope = useRequestScope(`${account}\0${target.kind}\0${target.id}`);
   const [state, setState] = useState({ scope, page: initial });

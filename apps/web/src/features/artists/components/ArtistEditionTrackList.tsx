@@ -1,5 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { time } from "../../../shared/format";
-import type { CatalogEditionTrackList } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 const kinds = { audio: "Audio", pregap: "Pregap", data: "Data" };
 
@@ -9,7 +11,7 @@ export default function ArtistEditionTrackList({
   error,
   retry,
 }: {
-  edition: CatalogEditionTrackList | null;
+  edition: Schema<"CatalogEditionTrackList"> | null;
   pending: boolean;
   error: string;
   retry: () => Promise<void>;
@@ -20,14 +22,9 @@ export default function ArtistEditionTrackList({
       {error && (
         <>
           <p role="alert">{error}</p>
-          <button
-            type="button"
-            className="button"
-            disabled={pending}
-            onClick={() => void retry()}
-          >
+          <Button type="button" disabled={pending} onClick={() => void retry()}>
             Try track list again
-          </button>
+          </Button>
         </>
       )}
       {edition && (

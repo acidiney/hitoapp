@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function playlistFixture() {
   const unique = randomUUID();
@@ -15,13 +14,13 @@ export async function playlistFixture() {
     name: `${prefix} provider`,
     protocol_version: 1,
     capabilities: ["playlists"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const recording = {
     id: "recording/known",
     title: `${prefix} recording`,
     artist: "Hito playlist fixtures",
     duration_ms: 123000,
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const detail = {
     id: "playlist/canonical",
     name: `${prefix} copy`,
@@ -29,7 +28,7 @@ export async function playlistFixture() {
     total_count: 4,
     attribution: {
       label: `${prefix} curated attribution`,
-    } satisfies Schema["PlaylistAttribution"],
+    } satisfies Schema<"PlaylistAttribution">,
   };
   const withdrawn = `${prefix} withdrawn`;
   const items = {

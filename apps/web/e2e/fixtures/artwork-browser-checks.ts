@@ -5,24 +5,23 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 type SavedState = {
-  playlists: Schema["Playlist"][];
-  copies: Schema["PlaylistDetail"][];
-  catalog: Schema["RecordingPage"];
-  metadata: Schema["RecordingMetadata"];
-  activity: Schema["Activity"];
-  feed: Schema["SyncPage"];
-  sources: Schema["Source"][];
+  playlists: Schema<"Playlist">[];
+  copies: Schema<"PlaylistDetail">[];
+  catalog: Schema<"RecordingPage">;
+  metadata: Schema<"RecordingMetadata">;
+  activity: Schema<"Activity">;
+  feed: Schema<"SyncPage">;
+  sources: Schema<"Source">[];
 };
 
 export async function signIn(page: Page, username?: string, password?: string) {
   const firstRun = username === undefined && password === undefined;
   const setupResponse = await page.request.get("/api/v1/setup");
   expect(setupResponse.status()).toBe(200);
-  const setup: Schema["SetupStatus"] = await setupResponse.json();
+  const setup: Schema<"SetupStatus"> = await setupResponse.json();
   expect(setup.needs_setup).toBe(firstRun);
   await page.goto("/playlists");
   await page.getByLabel("Username", { exact: true }).fill(username ?? "admin");
@@ -55,7 +54,7 @@ export async function savedState(
     playlists: await get(page, "/api/v1/playlists"),
     copies: await Promise.all(
       copies.map((id) =>
-        get<Schema["PlaylistDetail"]>(page, `/api/v1/playlists/${id}`),
+        get<Schema<"PlaylistDetail">>(page, `/api/v1/playlists/${id}`),
       ),
     ),
     catalog: await get(page, "/api/v1/recordings"),
@@ -72,7 +71,7 @@ export async function savePersonalState(
   recordingId: string,
   title: string,
   artist: string,
-  initial: Schema["Playlist"][],
+  initial: Schema<"Playlist">[],
   headers: Record<string, string>,
 ): Promise<SavedState> {
   const edited = await page.request.post("/api/v1/sync", {
@@ -114,7 +113,7 @@ export async function savePersonalState(
           },
         },
       ],
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
   });
   expect(edited.status()).toBe(200);
   const before = await savedState(page, copies, recordingId);

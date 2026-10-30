@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { audiobookPlaybackEvidence } from "./fixtures/audiobook-playback-evidence";
 import {
   audiobookPlaybackGateFixture,
@@ -13,7 +13,6 @@ import {
   audiobookPlaybackUsername,
 } from "./fixtures/audiobook-playback-state";
 
-type Schema = components["schemas"];
 type Fixture = Awaited<ReturnType<typeof audiobookPlaybackGateFixture>>;
 type Evidence = Awaited<ReturnType<typeof audiobookPlaybackEvidence>>;
 type Browser = { context: BrowserContext; page: Page; browserName: string };
@@ -389,7 +388,7 @@ test.describe("audiobook playback gate regressions", () => {
   });
 });
 
-function batch(recording_id: string, position_ms: number): Schema["SyncBatch"] {
+function batch(recording_id: string, position_ms: number): Schema<"SyncBatch"> {
   return {
     device_id: randomUUID(),
     operations: [
@@ -421,7 +420,7 @@ async function startAudio(page: Page, path: string) {
 async function submitProgress(
   page: Page,
   fixture: Fixture,
-  value: Schema["SyncBatch"],
+  value: Schema<"SyncBatch">,
 ) {
   return page.evaluate(
     async ({ account, value }) => {

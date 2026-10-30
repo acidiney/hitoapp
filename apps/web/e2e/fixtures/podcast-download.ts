@@ -1,7 +1,6 @@
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-export type Schema = components["schemas"];
 export type PodcastFixtureStatus = {
   kind: string;
   feed_url: string;
@@ -37,10 +36,10 @@ export async function progress(page: Page, recording: string, origin: string) {
     headers: { origin, "x-hito-request": "1" },
     data: {
       recording_ids: [recording],
-    } satisfies Schema["SavedPlaybackRequest"],
+    } satisfies Schema<"SavedPlaybackRequest">,
   });
   expect(response.status()).toBe(200);
-  const items: Schema["RecordingProgress"][] = await response.json();
+  const items: Schema<"RecordingProgress">[] = await response.json();
   expect(items).toHaveLength(1);
   return items[0];
 }
@@ -73,14 +72,14 @@ export async function prepareOwnedOriginal(page: Page) {
   await expect(
     page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
   ).toHaveCount(1, { timeout: 20_000 });
-  const recordings = await read<Schema["RecordingPage"]>(
+  const recordings = await read<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings",
   );
   expect(recordings.items).toHaveLength(1);
   const recording = recordings.items[0];
   const sourcePath = `/api/v1/recordings/${recording.id}/sources`;
-  const sources = await read<Schema["Source"][]>(page, sourcePath);
+  const sources = await read<Schema<"Source">[]>(page, sourcePath);
   expect(sources).toHaveLength(1);
   expect(sources[0].provider === "local" && sources[0].ready).toBe(true);
   const audio = await sourceAudio(page, sources[0].id);
@@ -90,11 +89,11 @@ export async function prepareOwnedOriginal(page: Page) {
     recording,
     audio,
     async assertRetained(reader: Page) {
-      const current = await read<Schema["RecordingPage"]>(
+      const current = await read<Schema<"RecordingPage">>(
         reader,
         `/api/v1/recordings?library=${recording.library_id}`,
       );
-      const currentSources = await read<Schema["Source"][]>(reader, sourcePath);
+      const currentSources = await read<Schema<"Source">[]>(reader, sourcePath);
       expect(JSON.stringify(current) === JSON.stringify(recordings)).toBe(true);
       expect(JSON.stringify(currentSources) === JSON.stringify(sources)).toBe(
         true,

@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
 import {
@@ -10,7 +10,6 @@ import {
 } from "./audiobook-library-navigation";
 import { openLibrarySection } from "./library-sections";
 
-type Schema = components["schemas"];
 const navigation = (page: Page) =>
   page.getByRole("navigation", { name: "Audiobook pages", exact: true });
 async function nextHref(page: Page) {
@@ -23,7 +22,7 @@ async function nextHref(page: Page) {
 async function failedPage(
   page: Page,
   href: string,
-  books: Schema["Playlist"][],
+  books: Schema<"Playlist">[],
 ) {
   await expect(
     page
@@ -139,7 +138,7 @@ export async function recoverLibrary(
   return { operations, renamed, deleted, books: current };
 }
 
-function order(left: Schema["Playlist"], right: Schema["Playlist"]) {
+function order(left: Schema<"Playlist">, right: Schema<"Playlist">) {
   return left.name < right.name
     ? -1
     : left.name > right.name
@@ -153,7 +152,7 @@ function order(left: Schema["Playlist"], right: Schema["Playlist"]) {
 async function rejectedAnchor(
   page: Page,
   href: string,
-  books: Schema["Playlist"][],
+  books: Schema<"Playlist">[],
   delivery: LibraryDelivery,
 ) {
   delivery.expectAnchorConflict(href);

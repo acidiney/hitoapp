@@ -1,11 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import {
   heldMetadataResponse,
   metadataDownloadPath,
@@ -72,7 +70,7 @@ test("a busy retry after a lost album lookup response retains the original reque
   fireEvent.click(lookup);
   await metadata.findByRole("alert");
   expect(bodies).toHaveLength(1);
-  const body: RefreshImportedPlaylistMetadata = JSON.parse(bodies[0]);
+  const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(bodies[0]);
   expect(body).toEqual({
     request_id: expect.any(String),
     installation_revision: metadataInstallation.revision,
@@ -108,7 +106,7 @@ test("a busy retry after a lost album lookup response retains the original reque
         updated_recordings: 1,
         unchanged_recordings: 1,
         unavailable_recordings: 0,
-      } satisfies ImportedPlaylistMetadataRefresh),
+      } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
     ),
   );
   expect(metadata.queryByRole("alert")).toBeNull();

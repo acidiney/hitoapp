@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -11,15 +12,7 @@ import {
   choiceSourceA,
   choiceSourceB,
 } from "../fixtures/sourceChoice";
-import type {
-  ChooseSource,
-  PrepareSource,
-  Source,
-  SourceChoice,
-  SourceChoiceReceipt,
-  SourcePreparationReceipt,
-  SourcePreparationStatus,
-} from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -51,13 +44,17 @@ test("confirming an unavailable choice invalidates old readiness without losing 
   const choicePath = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const downloadPath = `/api/v1/recordings/${savedRecording.id}/download`;
   const preparationPath = `${sourcesPath}/${choiceSourceB.id}/preparation`;
-  const sourceB: Source = { ...choiceSourceB, ready: false, can_prepare: true };
-  const initialSources: Source[] = [choiceSourceA, sourceB];
-  const unavailableSources: Source[] = [
+  const sourceB: Schema<"Source"> = {
+    ...choiceSourceB,
+    ready: false,
+    can_prepare: true,
+  };
+  const initialSources: Schema<"Source">[] = [choiceSourceA, sourceB];
+  const unavailableSources: Schema<"Source">[] = [
     { ...choiceSourceA, ready: false },
     sourceB,
   ];
-  const automatic: SourceChoice = {
+  const automatic: Schema<"SourceChoice"> = {
     ...automaticChoice,
     sources: initialSources.map((source) => ({
       source,
@@ -65,7 +62,7 @@ test("confirming an unavailable choice invalidates old readiness without losing 
       selectable: true,
     })),
   };
-  const manual: SourceChoice = {
+  const manual: Schema<"SourceChoice"> = {
     ...automatic,
     revision: 1,
     mode: "manual",
@@ -76,7 +73,7 @@ test("confirming an unavailable choice invalidates old readiness without losing 
     })),
   };
   const preparationId = "b4019d4f-8bb7-44b7-9930-cf34f23ba41d";
-  const preparing: SourcePreparationStatus = {
+  const preparing: Schema<"SourcePreparationStatus"> = {
     preparation_id: preparationId,
     recording_id: savedRecording.id,
     source_id: sourceB.id,
@@ -101,7 +98,10 @@ test("confirming an unavailable choice invalidates old readiness without losing 
   const choiceAcknowledgement = heldResponse();
   const currentChoice = heldResponse();
   const finalDownload = heldResponse();
-  const accepted: { receipt?: SourcePreparationReceipt; body?: string } = {};
+  const accepted: {
+    receipt?: Schema<"SourcePreparationReceipt">;
+    body?: string;
+  } = {};
   let refreshCount = 0;
   let sourceReadCount = 0;
   let choiceReadCount = 0;
@@ -144,7 +144,7 @@ test("confirming an unavailable choice invalidates old readiness without losing 
         preparationWriteCount++;
         const body = String(options?.body);
         if (preparationWriteCount === 1) {
-          const request = JSON.parse(body) as PrepareSource;
+          const request = JSON.parse(body) as Schema<"PrepareSource">;
           accepted.body = body;
           accepted.receipt = {
             request_id: request.request_id,
@@ -249,12 +249,12 @@ test("confirming an unavailable choice invalidates old readiness without losing 
   expect(choiceWriteCount).toBe(1);
   const chosen = requests(choicePath, "POST")[0][1];
   expectOwnedRequest(chosen);
-  const chosenBody = JSON.parse(String(chosen?.body)) as ChooseSource;
+  const chosenBody = JSON.parse(String(chosen?.body)) as Schema<"ChooseSource">;
   expect(chosenBody).toEqual({
     request_id: expect.stringMatching(uuid),
     source_id: sourceB.id,
   });
-  const choiceReceipt: SourceChoiceReceipt = {
+  const choiceReceipt: Schema<"SourceChoiceReceipt"> = {
     request_id: chosenBody.request_id,
     recording_id: savedRecording.id,
     source_id: sourceB.id,

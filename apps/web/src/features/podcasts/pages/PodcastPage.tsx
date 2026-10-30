@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Play } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
@@ -18,7 +19,6 @@ import { useMutation } from "../../../shared/hooks/useMutation";
 import { useEpisodeRows } from "../hooks/useEpisodeRows";
 import { usePodcastEpisodes } from "../hooks/usePodcastEpisodes";
 import { usePodcastLifecycle } from "../hooks/usePodcastLifecycle";
-import type { PodcastPageProps } from "../../../shared/types";
 
 type Filter = "unplayed" | "all";
 
@@ -28,7 +28,7 @@ export default function PodcastPage({
   subscription,
   episodes,
   progress,
-}: PodcastPageProps) {
+}: Schema<"PodcastPageProps">) {
   const { mutate } = useMutation(user.id);
   const workflow = usePodcastEpisodes(
     user.id,
@@ -76,16 +76,16 @@ export default function PodcastPage({
         actions={
           <>
             {lead && (
-              <button
+              <Button
+                className="tint-primary"
                 type="button"
-                className="button tint-primary"
                 onClick={() => play(lead.index, lead.track.playback_start)}
               >
                 <Play size={17} fill="currentColor" />
                 {resumable
                   ? `Continue · ${resumable.state.label}`
                   : "Play latest"}
-              </button>
+              </Button>
             )}
             <span className="tint-status">
               Following <span aria-hidden="true">✓</span>
@@ -149,8 +149,7 @@ export default function PodcastPage({
           )}
           {(workflow.offset > 0 || workflow.page.next_cursor) && (
             <nav className="pagination" aria-label="Episode pages">
-              <button
-                className="button"
+              <Button
                 disabled={
                   workflow.loading ||
                   workflow.refreshing ||
@@ -159,14 +158,13 @@ export default function PodcastPage({
                 onClick={() => void workflow.first()}
               >
                 First episodes
-              </button>
+              </Button>
               <span>
                 {workflow.offset + 1} to{" "}
                 {workflow.offset + workflow.page.items.length} of{" "}
                 {workflow.page.total}
               </span>
-              <button
-                className="button"
+              <Button
                 disabled={
                   workflow.loading ||
                   workflow.refreshing ||
@@ -176,7 +174,7 @@ export default function PodcastPage({
                 onClick={() => void workflow.next()}
               >
                 Next episodes
-              </button>
+              </Button>
             </nav>
           )}
         </section>

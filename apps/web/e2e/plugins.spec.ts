@@ -2,13 +2,12 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   observePluginInstallations,
   reviewPluginInstallation,
 } from "./fixtures/plugin-installation-review";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -16,7 +15,7 @@ test.use({
   launchOptions: { args: [] },
 });
 
-async function pluginSettings(page: Page): Promise<Schema["PluginSettings"]> {
+async function pluginSettings(page: Page): Promise<Schema<"PluginSettings">> {
   const response = await page.request.get("/api/v1/plugins");
   try {
     expect(response.status()).toBe(200);
@@ -140,7 +139,7 @@ test("an administrator offers only an address before connecting with the plugin 
     expect((await offered).postDataJSON()).toEqual({ base_url: address });
     const acceptedOffer = await offerResponse;
     expect(acceptedOffer.status()).toBe(201);
-    const offeredService: Schema["PluginService"] = await acceptedOffer.json();
+    const offeredService: Schema<"PluginService"> = await acceptedOffer.json();
     const selector = page.getByRole("combobox", {
       name: "Service",
       exact: true,
@@ -263,7 +262,7 @@ test.describe("account switching", () => {
         .click();
       const acceptedOffer = await offerResponse;
       expect(acceptedOffer.status()).toBe(201);
-      const offeredService: Schema["PluginService"] =
+      const offeredService: Schema<"PluginService"> =
         await acceptedOffer.json();
       await expect(
         page.getByRole("combobox", { name: "Service", exact: true }),

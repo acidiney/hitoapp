@@ -3,7 +3,7 @@ import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { lockApi } from "../api/lockApi";
-import { notifySessionChanged } from "../session";
+import { notifySessionChanged } from "../api/session";
 
 export function useUnlock(account: string) {
   const [pin, setPin] = useState("");

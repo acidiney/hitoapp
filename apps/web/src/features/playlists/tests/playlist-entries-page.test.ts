@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   fireEvent,
@@ -15,7 +16,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { SyncBatch } from "../../../shared/types";
+
 import {
   copiedPlaylistPage as props,
   recordingA,
@@ -63,7 +64,7 @@ test("copied playlist keeps unknown occurrences out of recording actions and the
         );
       }
       if (path === "/api/v1/sync") {
-        const batch: SyncBatch = JSON.parse(String(options.body));
+        const batch: Schema<"SyncBatch"> = JSON.parse(String(options.body));
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
         });

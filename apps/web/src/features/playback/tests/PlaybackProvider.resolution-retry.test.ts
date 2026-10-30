@@ -1,9 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import TrackToolbar from "../components/TrackToolbar";
-import type { ResolveSource, SourceResolution } from "../../../shared/types";
+
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 
@@ -23,7 +24,7 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
   const requests: { path: string; method: string; account: string | null }[] =
     [];
   const attempts: { body: string; signal: AbortSignal }[] = [];
-  let accepted: SourceResolution | null = null;
+  let accepted: Schema<"SourceResolution"> | null = null;
   let release!: (value: Response) => void;
   const acknowledgement = new Promise<Response>((resolve) => {
     release = resolve;
@@ -55,7 +56,7 @@ test("a lost automatic-resolution acknowledgement retries the same request and p
         throw new Error("Unexpected owned playback request");
       attempts.push({ body: options.body, signal: options.signal });
       if (accepted === null) {
-        const body: ResolveSource = JSON.parse(options.body);
+        const body: Schema<"ResolveSource"> = JSON.parse(options.body);
         accepted = {
           request_id: body.request_id,
           resolution_id: "fcff73a7-3a51-495e-a666-6de3460edd8c",

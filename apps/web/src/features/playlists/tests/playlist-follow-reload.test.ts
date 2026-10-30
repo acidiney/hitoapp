@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,9 +8,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
 
-type Schema = components["schemas"];
 type ReloadOptions = NonNullable<Parameters<typeof router.reload>[0]>;
 type ReloadVisit = Parameters<NonNullable<ReloadOptions["onFinish"]>>[0];
 type ReloadPage = Parameters<NonNullable<ReloadOptions["onSuccess"]>>[0];
@@ -20,7 +19,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: PlaylistPageProps) {
+function page(props: Schema<"PlaylistPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -87,7 +86,7 @@ test("a failed detail reload retries completed Follow content until updated prop
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const before: PlaylistPageProps = {
+  const before: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -99,7 +98,7 @@ test("a failed detail reload retries completed Follow content until updated prop
     ...before.detail.playlist,
     name: "Selection after recovered refresh",
   };
-  const after: PlaylistPageProps = {
+  const after: Schema<"PlaylistPageProps"> = {
     ...before,
     playlists: [updatedPlaylist],
     detail: {
@@ -111,7 +110,7 @@ test("a failed detail reload retries completed Follow content until updated prop
       ),
     },
   };
-  const ready: Schema["PlaylistFollow"] = {
+  const ready: Schema<"PlaylistFollow"> = {
     playlist_id: before.detail.playlist.id,
     generation: 1,
     content_revision: 1,
@@ -122,7 +121,7 @@ test("a failed detail reload retries completed Follow content until updated prop
     status: "ready",
     error: null,
   };
-  const completedReady: Schema["PlaylistFollow"] = {
+  const completedReady: Schema<"PlaylistFollow"> = {
     ...ready,
     content_revision: 2,
   };
@@ -137,7 +136,7 @@ test("a failed detail reload retries completed Follow content until updated prop
       );
     }
     if (path === refreshPath && options?.method === "POST") {
-      const request: Schema["RefreshFollowedPlaylist"] = JSON.parse(
+      const request: Schema<"RefreshFollowedPlaylist"> = JSON.parse(
         String(options.body),
       );
       return Promise.resolve(
@@ -146,7 +145,7 @@ test("a failed detail reload retries completed Follow content until updated prop
             request_id: request.request_id,
             playlist_id: ready.playlist_id,
             job_id: "f6014caa-e942-4cea-87ce-f3107133b843",
-          } satisfies Schema["PlaylistFollowRefresh"],
+          } satisfies Schema<"PlaylistFollowRefresh">,
           { status: 202 },
         ),
       );

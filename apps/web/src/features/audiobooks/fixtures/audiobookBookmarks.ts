@@ -1,12 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { fireEvent, screen } from "@testing-library/react";
-import type {
-  AudiobookDetail,
-  AudiobookPageProps,
-  SyncBatch,
-} from "../../../shared/types";
+
 import { audiobookPages } from "./audiobooks";
 
-export function bookmarkPage(): AudiobookPageProps {
+export function bookmarkPage(): Schema<"AudiobookPageProps"> {
   const { detail, bookmark, removedChapterBookmark } = audiobookPages();
   return {
     ...detail,
@@ -18,7 +15,7 @@ export function bookmarkPage(): AudiobookPageProps {
 }
 
 export function enterBookmark(
-  page: AudiobookPageProps,
+  page: Schema<"AudiobookPageProps">,
   label: string,
   position = "35.5",
   entry = page.detail.chapters[2].entry_id,
@@ -36,9 +33,9 @@ export function enterBookmark(
 }
 
 export function bookmarkResult(
-  detail: AudiobookDetail,
-  batch: SyncBatch,
-): AudiobookDetail {
+  detail: Schema<"AudiobookDetail">,
+  batch: Schema<"SyncBatch">,
+): Schema<"AudiobookDetail"> {
   const action = batch.operations[0]?.action;
   if (action?.kind !== "audiobook_bookmark_create")
     throw new Error("A bookmark fixture requires an explicit create action");

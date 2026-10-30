@@ -1,6 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import Button from "../../../shared/ui/Button";
 import { time } from "../../../shared/format";
-import type { AudiobookDetail } from "../../../shared/types";
 
 export default function AudiobookBookmarkList({
   detail,
@@ -9,10 +9,12 @@ export default function AudiobookBookmarkList({
   play,
   playbackPending,
 }: {
-  detail: AudiobookDetail;
+  detail: Schema<"AudiobookDetail">;
   disabled: boolean;
   remove: (id: string) => Promise<void>;
-  play: (bookmark: AudiobookDetail["bookmarks"][number]) => Promise<void>;
+  play: (
+    bookmark: Schema<"AudiobookDetail">["bookmarks"][number],
+  ) => Promise<void>;
   playbackPending: boolean;
 }) {
   const chapters = new Map(

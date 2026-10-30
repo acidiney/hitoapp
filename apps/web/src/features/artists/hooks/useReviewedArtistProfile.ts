@@ -1,11 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  ArtistAssociation,
-  CatalogArtistProfile,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -15,8 +13,8 @@ const CHANGED_ARTIST =
 
 type Owner = { pending: boolean };
 export type ReviewedArtist = {
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
 };
 type State = {
   owner: Owner;

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   noAssociationChanges,
   artistAssociation,
@@ -21,8 +21,6 @@ import {
   reviewedArtistProfile,
   secondCatalog,
 } from "../fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 test("artist information is searched and previewed before its exact selected identity is explicitly confirmed", async () => {
   const errors = vi.spyOn(console, "error");
@@ -144,11 +142,11 @@ test("artist information is searched and previewed before its exact selected ide
   ]);
   expect(JSON.parse(writes()[0][1]?.body as string)).toEqual({
     provider: artistReviewContext.provider,
-  } satisfies Schema["BeginArtistReview"]);
+  } satisfies Schema<"BeginArtistReview">);
   expect(JSON.parse(writes()[1][1]?.body as string)).toEqual({
     context: artistReviewContext,
     search: artistSearch,
-  } satisfies Schema["SearchArtistCandidates"]);
+  } satisfies Schema<"SearchArtistCandidates">);
   expect(persisted).toBe(false);
   expect(screen.queryByRole("button", { name: "Use this artist" })).toBeNull();
 

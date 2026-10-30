@@ -10,7 +10,7 @@ import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import AudiobookPage from "../pages/AudiobookPage";
 import {
   PlaybackProvider,
@@ -19,7 +19,6 @@ import {
 import type { Player } from "../../playback/model";
 import { nativeService } from "../../playback/fixtures/native/service";
 
-type Schema = components["schemas"];
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
     createElement("a", { href }, children),
@@ -50,7 +49,7 @@ test.each([
         speed: 1.25,
       },
     };
-    const fresh: Schema["AudiobookPlayback"] = {
+    const fresh: Schema<"AudiobookPlayback"> = {
       audiobook_id: page.detail.playlist.id,
       chapter: anchor(2),
       progress: {
@@ -179,13 +178,13 @@ test.each([
           cancellations++;
           expect(JSON.parse(String(options?.body))).toEqual({
             lease: "lease-1",
-            id: (preparations[0].body as Schema["PlayerAudiobookRequest"]).id,
+            id: (preparations[0].body as Schema<"PlayerAudiobookRequest">).id,
           });
           return new Response(null, { status: 204 });
         }
         if (nativeRequest) return nativeRequest(input, options);
         if (path === "/api/v1/sync") {
-          const batch: Schema["SyncBatch"] = JSON.parse(String(options?.body));
+          const batch: Schema<"SyncBatch"> = JSON.parse(String(options?.body));
           return Response.json({
             acknowledged: batch.operations.map(({ id }) => id),
           });
@@ -209,7 +208,7 @@ test.each([
             ready: true,
             can_prepare: false,
             label: "Owned fixture source",
-          } satisfies Schema["Source"],
+          } satisfies Schema<"Source">,
         ]);
       }),
     );

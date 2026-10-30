@@ -1,14 +1,13 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { artistAssociation, artistReviewDetail } from "./artistReview";
 import { savedRecording } from "../../sources/fixtures/sourceAttachment";
 
-type Schema = components["schemas"];
 export const artistIdentityGroup = "70000000-0000-4000-8000-000000000001";
 export const unselectedArtistIdentity = {
   recording_id: artistReviewDetail.recording_id,
   revision: 0,
   state: { status: "unselected" },
-} satisfies Schema["RecordingArtistIdentityChoice"];
+} satisfies Schema<"RecordingArtistIdentityChoice">;
 export const selectedArtistIdentity = {
   recording_id: artistReviewDetail.recording_id,
   revision: 1,
@@ -17,7 +16,7 @@ export const selectedArtistIdentity = {
     group_id: artistIdentityGroup,
     association_id: artistAssociation.id,
   },
-} satisfies Schema["RecordingArtistIdentityChoice"];
+} satisfies Schema<"RecordingArtistIdentityChoice">;
 export const artistIdentityGroupDetail = {
   group: {
     id: artistIdentityGroup,
@@ -59,4 +58,4 @@ export const artistIdentityGroupDetail = {
     total: 1,
   },
   releases: { items: [], offset: 0, limit: 1, total: 0 },
-} satisfies Schema["ArtistIdentityGroupDetail"];
+} satisfies Schema<"ArtistIdentityGroupDetail">;

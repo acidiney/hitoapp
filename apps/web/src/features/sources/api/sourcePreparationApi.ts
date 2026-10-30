@@ -1,18 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { HttpError, request, requestJson } from "../../../shared/http";
-import type {
-  PreparationReason,
-  PrepareSource,
-  SourcePreparationPhase,
-  SourcePreparationReceipt,
-  SourcePreparationStatus,
-} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
   typeof value === "string" &&
   uuid.test(value) &&
   value !== "00000000-0000-0000-0000-000000000000";
-const phases = new Set<SourcePreparationPhase>([
+const phases = new Set<Schema<"SourcePreparationPhase">>([
   "queued",
   "submitting",
   "preparing",
@@ -22,7 +16,7 @@ const phases = new Set<SourcePreparationPhase>([
   "submission_unknown",
   "cancelled",
 ]);
-const reasons = new Set<PreparationReason>([
+const reasons = new Set<Schema<"PreparationReason">>([
   "authorization_required",
   "quota_reached",
   "rate_limited",
@@ -40,7 +34,7 @@ const integer = (value: unknown, maximum = Number.MAX_SAFE_INTEGER) =>
   value <= maximum;
 
 function validStatus(
-  value: SourcePreparationStatus,
+  value: Schema<"SourcePreparationStatus">,
   recording: string,
   source: string,
 ) {
@@ -68,9 +62,9 @@ export const sourcePreparationApi = {
     account: string,
     recording: string,
     source: string,
-    body: Readonly<PrepareSource>,
+    body: Readonly<Schema<"PrepareSource">>,
     signal: AbortSignal,
-  ): Promise<SourcePreparationReceipt> {
+  ): Promise<Schema<"SourcePreparationReceipt">> {
     const response = await request(path(recording, source), {
       action: "source_preparation.create",
       method: "POST",
@@ -80,7 +74,7 @@ export const sourcePreparationApi = {
     });
     if (response.status !== 202)
       throw new Error("Hito did not confirm source preparation");
-    const receipt: SourcePreparationReceipt = await response.json();
+    const receipt: Schema<"SourcePreparationReceipt"> = await response.json();
     if (
       receipt?.request_id !== body.request_id ||
       receipt.recording_id !== recording ||
@@ -95,14 +89,15 @@ export const sourcePreparationApi = {
     recording: string,
     source: string,
     signal: AbortSignal,
-  ): Promise<SourcePreparationStatus | null> {
+  ): Promise<Schema<"SourcePreparationStatus"> | null> {
     try {
-      const status: SourcePreparationStatus =
-        await requestJson<SourcePreparationStatus>(path(recording, source), {
-          action: "source_preparation.status",
-          account,
-          signal,
-        });
+      const status: Schema<"SourcePreparationStatus"> = await requestJson<
+        Schema<"SourcePreparationStatus">
+      >(path(recording, source), {
+        action: "source_preparation.status",
+        account,
+        signal,
+      });
       if (!validStatus(status, recording, source))
         throw new Error("Hito returned an invalid preparation status");
       return status;

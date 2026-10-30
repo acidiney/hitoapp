@@ -1,28 +1,20 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { metadataPreferencesApi } from "../../metadata/api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
-import type {
-  ArtistAssociation,
-  ArtistCandidatePreviewAvailability,
-  ArtistCandidateSearchAvailability,
-  ArtistProfileAvailability,
-  ArtistReviewContext,
-  ArtistSearchCandidate,
-  MetadataProvider,
-  RecordingMetadata,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Found = Extract<
-  ArtistCandidateSearchAvailability,
+  Schema<"ArtistCandidateSearchAvailability">,
   { status: "available" }
 >;
 type Preview = Extract<
-  ArtistCandidatePreviewAvailability,
+  Schema<"ArtistCandidatePreviewAvailability">,
   { status: "available" }
 >;
 type Phase = "load" | "search" | "preview" | "confirm" | "profile" | "refresh";
@@ -34,7 +26,7 @@ type Owner = {
 type Provider = {
   key: string;
   label: string;
-  value: MetadataProvider;
+  value: Schema<"MetadataProvider">;
   available: boolean;
 };
 type State = {
@@ -46,8 +38,8 @@ type State = {
   query: string;
   results: Found | null;
   preview: Preview | null;
-  associations: ArtistAssociation[];
-  profile: ArtistProfileAvailability | null;
+  associations: Schema<"ArtistAssociation">[];
+  profile: Schema<"ArtistProfileAvailability"> | null;
   saved: boolean;
   pending: Phase | null;
   error: string;
@@ -71,7 +63,7 @@ function empty(owner: Owner, query: string): State {
   };
 }
 
-function providerKey(provider: MetadataProvider) {
+function providerKey(provider: Schema<"MetadataProvider">) {
   return provider.kind === "builtin_musicbrainz"
     ? provider.kind
     : provider.installation_id;
@@ -92,7 +84,10 @@ function unavailable(
   }
 }
 
-export function useArtistReview(account: string, detail: RecordingMetadata) {
+export function useArtistReview(
+  account: string,
+  detail: Schema<"RecordingMetadata">,
+) {
   const recording = detail.recording_id;
   const scope = useRequestScope(
     JSON.stringify([
@@ -202,7 +197,10 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
     }
   }
 
-  function requireContext(context: ArtistReviewContext, selected: Provider) {
+  function requireContext(
+    context: Schema<"ArtistReviewContext">,
+    selected: Provider,
+  ) {
     if (
       context.account_id !== account ||
       context.recording_id !== recording ||
@@ -319,7 +317,7 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
     );
   }
 
-  async function previewCandidate(candidate: ArtistSearchCandidate) {
+  async function previewCandidate(candidate: Schema<"ArtistSearchCandidate">) {
     const results = current.results;
     if (
       !provider?.available ||
@@ -354,7 +352,7 @@ export function useArtistReview(account: string, detail: RecordingMetadata) {
     );
   }
 
-  async function loadProfile(association: ArtistAssociation) {
+  async function loadProfile(association: Schema<"ArtistAssociation">) {
     if (
       !scope.capture().active() ||
       owner.phase ||

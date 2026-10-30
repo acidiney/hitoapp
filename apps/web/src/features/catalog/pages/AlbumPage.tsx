@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { AlbumPageProps } from "../../../shared/types";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { time } from "../../../shared/format";
 import Breadcrumbs from "../../../shared/ui/Breadcrumbs";
@@ -15,7 +16,11 @@ import EmptyState from "../../../shared/ui/EmptyState";
 import { releaseTracksListing } from "../api/trackListings";
 import AlbumCompleteTrackList from "../components/AlbumCompleteTrackList";
 
-export default function AlbumPage({ user, playlists, detail }: AlbumPageProps) {
+export default function AlbumPage({
+  user,
+  playlists,
+  detail,
+}: Schema<"AlbumPageProps">) {
   const { release, tracks: page } = detail;
   const { mutate } = useMutation(user.id);
   const tracks = page.items.map((track) => ({

@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import type { components } from "../../../generated";
-import type { Source } from "../../../shared/types";
+
 import { savedRecording } from "./sourceAttachment";
 
-export const choiceSourceA: Source = {
+export const choiceSourceA: Schema<"Source"> = {
   id: "1fa4df60-a272-4168-98ce-e451278beb29",
   recording_id: savedRecording.id,
   provider: "plugin",
@@ -12,7 +13,7 @@ export const choiceSourceA: Source = {
   can_prepare: false,
 };
 
-export const choiceSourceB: Source = {
+export const choiceSourceB: Schema<"Source"> = {
   ...choiceSourceA,
   id: "2c0bbef6-d372-455e-85b7-e9722a2c2da5",
   label: "Owned source B",

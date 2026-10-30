@@ -1,10 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  ArtistDiscographyAvailability,
-  DiscographyLibrary,
-  ReadDiscographyLibrary,
-  ReadArtistDiscography,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -13,10 +8,10 @@ export const artistDiscographyApi = {
     account: string,
     recording: string,
     association: string,
-    body: ReadArtistDiscography,
+    body: Schema<"ReadArtistDiscography">,
     signal: AbortSignal,
-  ): Promise<ArtistDiscographyAvailability> {
-    return requestJson<ArtistDiscographyAvailability>(
+  ): Promise<Schema<"ArtistDiscographyAvailability">> {
+    return requestJson<Schema<"ArtistDiscographyAvailability">>(
       `/recordings/${part(recording)}/artist-associations/${part(association)}/discography`,
       {
         action: "artist_discography.read",
@@ -31,10 +26,10 @@ export const artistDiscographyApi = {
     account: string,
     recording: string,
     association: string,
-    body: ReadDiscographyLibrary,
+    body: Schema<"ReadDiscographyLibrary">,
     signal: AbortSignal,
-  ): Promise<DiscographyLibrary> {
-    return requestJson<DiscographyLibrary>(
+  ): Promise<Schema<"DiscographyLibrary">> {
+    return requestJson<Schema<"DiscographyLibrary">>(
       `/recordings/${part(recording)}/artist-associations/${part(association)}/discography/library`,
       {
         action: "artist_discography.library",

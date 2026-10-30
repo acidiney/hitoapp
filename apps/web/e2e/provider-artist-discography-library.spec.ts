@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   artistLibrary,
   artistLibraryProvider,
 } from "./fixtures/artist-library-provider";
-
-type Schema = components["schemas"];
 
 test("a chosen artist's full discography is grouped by type and marks only exactly linked albums", async ({
   page,
@@ -17,8 +15,8 @@ test("a chosen artist's full discography is grouped by type and marks only exact
   const headers = { "x-hito-request": "1", origin: new URL(baseURL!).origin };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  let connection: Schema["PluginInstallation"] | null = null;
-  let original: Schema["MetadataSettings"] | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
+  let original: Schema<"MetadataSettings"> | null = null;
   let chosenRecording: string | null = null;
   let chosenRelease: string | null = null;
   const send = async <T>(
@@ -32,32 +30,32 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     return (await response.json()) as T;
   };
   try {
-    const service = await send<Schema["PluginService"]>(
+    const service = await send<Schema<"PluginService">>(
       "POST",
       "/api/v1/plugins/services",
       {
         name: `Artist library ${label}`,
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
       201,
     );
-    connection = await send<Schema["PluginInstallation"]>(
+    connection = await send<Schema<"PluginInstallation">>(
       "POST",
       "/api/v1/plugins",
       {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
       201,
     );
-    const recording = await send<Schema["Recording"]>(
+    const recording = await send<Schema<"Recording">>(
       "POST",
       `/api/v1/plugins/${connection.id}/recordings`,
       {
         installation_revision: connection.revision,
         provider_recording_id: artistLibrary.recording,
-      } satisfies Schema["AdoptProviderRecording"],
+      } satisfies Schema<"AdoptProviderRecording">,
     );
     original = await (
       await page.request.get("/api/v1/metadata/settings")
@@ -65,21 +63,21 @@ test("a chosen artist's full discography is grouped by type and marks only exact
     const provider = {
       kind: "http_plugin",
       installation_id: connection.id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     await send("PUT", "/api/v1/metadata/settings", {
       revision: original!.revision,
       enabled: true,
       providers: [provider],
-    } satisfies Schema["UpdateMetadataSettings"]);
+    } satisfies Schema<"UpdateMetadataSettings">);
     chosenRecording = recording.id;
     chosenRelease = recording.release_id!;
     const base = `/api/v1/recordings/${recording.id}`;
-    const context = await send<Schema["ArtistReviewContext"]>(
+    const context = await send<Schema<"ArtistReviewContext">>(
       "POST",
       `${base}/artist-review/context`,
       { provider },
     );
-    const association = await send<Schema["ArtistAssociation"]>(
+    const association = await send<Schema<"ArtistAssociation">>(
       "POST",
       `${base}/artist-review/confirm`,
       {
@@ -94,7 +92,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
       ).revision,
       association_id: association.id,
       context,
-    } satisfies Schema["ChooseRecordingArtistIdentity"]);
+    } satisfies Schema<"ChooseRecordingArtistIdentity">);
     await send("PUT", `/api/v1/albums/${recording.release_id}/edition`, {
       request_id: randomUUID(),
       expected_revision: 0,
@@ -102,10 +100,10 @@ test("a chosen artist's full discography is grouped by type and marks only exact
       association_id: association.id,
       release_group_id: artistLibrary.linkedGroup,
       edition_id: "e2e:edition/linked",
-    } satisfies Schema["ChooseAlbumEdition"]);
+    } satisfies Schema<"ChooseAlbumEdition">);
     const groups = (await (
       await page.request.get("/api/v1/artist-identity-groups")
-    ).json()) as Schema["ArtistIdentityGroupPage"];
+    ).json()) as Schema<"ArtistIdentityGroupPage">;
     const chosen = groups.items.find(
       (group) => group.provider_artist_id === artistLibrary.artist,
     )!;
@@ -198,7 +196,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
           data: {
             request_id: randomUUID(),
             expected_revision: saved.saved_edition.revision,
-          } satisfies Schema["ClearAlbumEdition"],
+          } satisfies Schema<"ClearAlbumEdition">,
         },
       );
       cleanup.push(["clear edition", response.status()]);
@@ -211,7 +209,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
         data: {
           request_id: randomUUID(),
           expected_revision: current.revision,
-        } satisfies Schema["ResetRecordingArtistIdentity"],
+        } satisfies Schema<"ResetRecordingArtistIdentity">,
       });
       cleanup.push(["reset identity", response.status()]);
     }
@@ -225,7 +223,7 @@ test("a chosen artist's full discography is grouped by type and marks only exact
           revision: latest.revision,
           enabled: original.enabled,
           providers: original.providers,
-        } satisfies Schema["UpdateMetadataSettings"],
+        } satisfies Schema<"UpdateMetadataSettings">,
       });
       cleanup.push(["restore settings", response.status()]);
     }

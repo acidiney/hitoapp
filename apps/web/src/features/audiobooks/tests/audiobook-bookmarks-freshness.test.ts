@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,7 +17,6 @@ import {
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "../fixtures/audiobooks";
-import type { SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -58,7 +58,7 @@ test("stale same-book props retain a checked bookmark until an authoritative emp
   const page = bookmarkPage();
   const label = "Confirmed private bookmark must survive old page props";
   const empty = heldAudiobookBody({ ...page.detail, bookmarks: [] });
-  let batch: SyncBatch | undefined;
+  let batch: Schema<"SyncBatch"> | undefined;
   let reads = 0;
   request.mockImplementation(async (input, options) => {
     expect(options?.credentials).toBe("same-origin");
@@ -68,7 +68,7 @@ test("stale same-book props retain a checked bookmark until an authoritative emp
     expect(new Headers(options?.headers).get("x-hito-request")).toBe("1");
     expect(options?.signal).toBeInstanceOf(AbortSignal);
     if (input === "/api/v1/sync" && options?.method === "POST" && !batch) {
-      batch = JSON.parse(String(options.body)) as SyncBatch;
+      batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });

@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { Link, router } from "@inertiajs/react";
-import type { Recording, SearchPageProps } from "../../../shared/types";
+
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import EmptyState from "../../../shared/ui/EmptyState";
 import FilterPills from "../../../shared/ui/FilterPills";
@@ -29,7 +30,7 @@ export default function SearchPage({
   artists,
   connections,
   service_names,
-}: SearchPageProps) {
+}: Schema<"SearchPageProps">) {
   const player = usePlayer();
   const [draft, setDraft] = useState(query);
   const [scope, setScope] = useState<Scope>("all");
@@ -45,7 +46,7 @@ export default function SearchPage({
   const library = scope !== "providers";
   const found =
     recordings.items.length + releases.items.length + artists.items.length > 0;
-  function play(track: Recording) {
+  function play(track: Schema<"Recording">) {
     const playable = recordings.items.filter((item) => item.available);
     void player.playQueue(playable, Math.max(0, playable.indexOf(track)));
   }

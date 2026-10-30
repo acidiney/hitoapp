@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -9,11 +10,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  PlaylistPageProps,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import {
   heldMetadataResponse,
   metadataDownloadPath,
@@ -38,7 +35,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
     const play = vi
       .spyOn(HTMLMediaElement.prototype, "play")
       .mockResolvedValue();
-    const next: PlaylistPageProps = {
+    const next: Schema<"PlaylistPageProps"> = {
       ...metadataProps,
       ...(change === "account"
         ? { user: { ...metadataProps.user, id: "bob", username: "Bob" } }
@@ -87,7 +84,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
       fetch.mock.calls.filter(([path]) => path === metadataPath);
     await waitFor(() => expect(posts()).toHaveLength(1));
     const oldOptions = posts()[0][1];
-    const body: RefreshImportedPlaylistMetadata = JSON.parse(
+    const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
       String(oldOptions?.body),
     );
     expect(oldOptions?.signal?.aborted).toBe(false);
@@ -103,7 +100,7 @@ test.each(["account", "playlist", "canonical origin", "unmount"] as const)(
           updated_recordings: 1,
           unchanged_recordings: 1,
           unavailable_recordings: 0,
-        } satisfies ImportedPlaylistMetadataRefresh),
+        } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
       ),
     );
     expect(router.reload).not.toHaveBeenCalled();

@@ -7,7 +7,7 @@ import {
   type Route,
 } from "@playwright/test";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
 import {
   connectLiveProvider,
@@ -16,7 +16,6 @@ import {
 import { openLibrarySection } from "./fixtures/library-sections";
 import { enterEditMode } from "./fixtures/playlist-edit";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -147,9 +146,9 @@ test.describe("isolated provider playlist Follow", () => {
         .click();
       const copiedResponse = await copyResponse;
       expect(copiedResponse.status()).toBe(200);
-      const copyReceipt: Schema["PlaylistImportReceipt"] =
+      const copyReceipt: Schema<"PlaylistImportReceipt"> =
         await copiedResponse.json();
-      const copyRequest: Schema["ImportProviderPlaylist"] = copiedResponse
+      const copyRequest: Schema<"ImportProviderPlaylist"> = copiedResponse
         .request()
         .postDataJSON();
       expect(
@@ -165,7 +164,7 @@ test.describe("isolated provider playlist Follow", () => {
         )
         .toBe(true);
       const copyPath = `/api/v1/playlists/${copyReceipt.playlist_id}`;
-      const copied = await read<Schema["PlaylistDetail"]>(page, copyPath);
+      const copied = await read<Schema<"PlaylistDetail">>(page, copyPath);
       expect(
         copied.playlist.kind === "local" && copied.entries.length === 5,
       ).toBe(true);
@@ -216,7 +215,7 @@ test.describe("isolated provider playlist Follow", () => {
         ).toBeVisible();
       }
       const metadataPath = `/api/v1/recordings/${recording}/metadata`;
-      const metadataBefore = await read<Schema["RecordingMetadata"]>(
+      const metadataBefore = await read<Schema<"RecordingMetadata">>(
         page,
         metadataPath,
       );
@@ -226,7 +225,7 @@ test.describe("isolated provider playlist Follow", () => {
       expect(
         metadataBefore.artist.personal === "My retained Follow artist",
       ).toBe(true);
-      const copyBefore = await read<Schema["PlaylistDetail"]>(page, copyPath);
+      const copyBefore = await read<Schema<"PlaylistDetail">>(page, copyPath);
 
       phase = 4;
       await openPlaylists(page);
@@ -251,9 +250,9 @@ test.describe("isolated provider playlist Follow", () => {
         .click();
       const created = await followedResponse;
       expect(created.status()).toBe(200);
-      const followReceipt: Schema["PlaylistFollowReceipt"] =
+      const followReceipt: Schema<"PlaylistFollowReceipt"> =
         await created.json();
-      const followRequest: Schema["FollowProviderPlaylist"] = created
+      const followRequest: Schema<"FollowProviderPlaylist"> = created
         .request()
         .postDataJSON();
       expect(
@@ -275,7 +274,7 @@ test.describe("isolated provider playlist Follow", () => {
       const detailPath = `/api/v1/playlists/${followReceipt.playlist_id}`;
       ownedFollowPath = `/playlists/${followReceipt.playlist_id}`;
       const statusPath = `${detailPath}/follow`;
-      const before = await read<Schema["PlaylistDetail"]>(page, detailPath);
+      const before = await read<Schema<"PlaylistDetail">>(page, detailPath);
       expect(before.playlist.kind === "followed").toBe(true);
       expect(before.entries.length).toBe(5);
       expect(
@@ -318,10 +317,10 @@ test.describe("isolated provider playlist Follow", () => {
       await expect(
         page.getByRole("button", { name: "Play playlist", exact: true }),
       ).toBeDisabled();
-      const ready = await read<Schema["PlaylistFollow"]>(page, statusPath);
+      const ready = await read<Schema<"PlaylistFollow">>(page, statusPath);
       expect(ready.status === "ready" && ready.interval === "daily").toBe(true);
       expect(ready.next_refresh_at - ready.last_refreshed_at).toBe(86400);
-      const feedBefore = await read<Schema["SyncPage"]>(
+      const feedBefore = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
@@ -352,10 +351,10 @@ test.describe("isolated provider playlist Follow", () => {
         })(),
       ]);
       outageCheckpoint = 2;
-      const failedRequest: Schema["RefreshFollowedPlaylist"] = failedResponse
+      const failedRequest: Schema<"RefreshFollowedPlaylist"> = failedResponse
         .request()
         .postDataJSON();
-      const failedReceipt: Schema["PlaylistFollowRefresh"] =
+      const failedReceipt: Schema<"PlaylistFollowRefresh"> =
         await failedResponse.json();
       expect(
         uuid.test(failedReceipt.job_id) &&
@@ -372,7 +371,7 @@ test.describe("isolated provider playlist Follow", () => {
       samePrivateState(retained.props.detail, before);
       outageCheckpoint = 5;
       expect([outage.failures, outage.remaining, refreshes]).toEqual([3, 0, 1]);
-      const unavailable = await read<Schema["PlaylistFollow"]>(
+      const unavailable = await read<Schema<"PlaylistFollow">>(
         page,
         statusPath,
       );
@@ -399,19 +398,19 @@ test.describe("isolated provider playlist Follow", () => {
       );
       outageCheckpoint = 7;
       samePrivateState(
-        await read<Schema["PlaylistDetail"]>(page, detailPath),
+        await read<Schema<"PlaylistDetail">>(page, detailPath),
         before,
       );
       samePrivateState(
-        await read<Schema["PlaylistDetail"]>(page, copyPath),
+        await read<Schema<"PlaylistDetail">>(page, copyPath),
         copyBefore,
       );
       samePrivateState(
-        await read<Schema["RecordingMetadata"]>(page, metadataPath),
+        await read<Schema<"RecordingMetadata">>(page, metadataPath),
         metadataBefore,
       );
       samePrivateState(
-        await read<Schema["SyncPage"]>(page, "/api/v1/sync?cursor=0"),
+        await read<Schema<"SyncPage">>(page, "/api/v1/sync?cursor=0"),
         feedBefore,
       );
       outageCheckpoint = 8;
@@ -433,10 +432,10 @@ test.describe("isolated provider playlist Follow", () => {
       await refresh.click();
       const queued = await refreshResponse;
       expect(queued.status()).toBe(202);
-      const request: Schema["RefreshFollowedPlaylist"] = queued
+      const request: Schema<"RefreshFollowedPlaylist"> = queued
         .request()
         .postDataJSON();
-      const receipt: Schema["PlaylistFollowRefresh"] = await queued.json();
+      const receipt: Schema<"PlaylistFollowRefresh"> = await queued.json();
       expect(
         uuid.test(receipt.job_id) &&
           receipt.request_id === request.request_id &&
@@ -455,15 +454,15 @@ test.describe("isolated provider playlist Follow", () => {
         before.entries.map((entry) => entry.title),
       );
       samePrivateState(
-        await read<Schema["PlaylistDetail"]>(page, detailPath),
+        await read<Schema<"PlaylistDetail">>(page, detailPath),
         before,
       );
-      const running = await read<Schema["PlaylistFollow"]>(page, statusPath);
+      const running = await read<Schema<"PlaylistFollow">>(page, statusPath);
       expect(
         running.status === "running" && running.snapshot === ready.snapshot,
       ).toBe(true);
       samePrivateState(
-        await read<Schema["PlaylistDetail"]>(page, copyPath),
+        await read<Schema<"PlaylistDetail">>(page, copyPath),
         copyBefore,
       );
 
@@ -474,12 +473,12 @@ test.describe("isolated provider playlist Follow", () => {
       await expect
         .poll(
           async () =>
-            (await read<Schema["PlaylistFollow"]>(page, statusPath)).status ===
+            (await read<Schema<"PlaylistFollow">>(page, statusPath)).status ===
             "ready",
           { timeout: 10000 },
         )
         .toBe(true);
-      const completedStatus = await read<Schema["PlaylistFollow"]>(
+      const completedStatus = await read<Schema<"PlaylistFollow">>(
         page,
         statusPath,
       );
@@ -551,7 +550,7 @@ test.describe("isolated provider playlist Follow", () => {
       ).toBe(true);
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(4);
       await expect(refresh).toBeEnabled();
-      const after = await read<Schema["PlaylistDetail"]>(page, detailPath);
+      const after = await read<Schema<"PlaylistDetail">>(page, detailPath);
       expect(
         after.playlist.id === before.playlist.id &&
           after.playlist.kind === "followed",
@@ -611,14 +610,14 @@ test.describe("isolated provider playlist Follow", () => {
         after.entries.map((entry) => entry.title),
       );
       samePrivateState(
-        await read<Schema["PlaylistDetail"]>(page, copyPath),
+        await read<Schema<"PlaylistDetail">>(page, copyPath),
         copyBefore,
       );
       samePrivateState(
-        await read<Schema["RecordingMetadata"]>(page, metadataPath),
+        await read<Schema<"RecordingMetadata">>(page, metadataPath),
         metadataBefore,
       );
-      const feed = await read<Schema["SyncPage"]>(
+      const feed = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
@@ -643,7 +642,7 @@ test.describe("isolated provider playlist Follow", () => {
         expect(uuid.test(id)).toBe(true);
         expect(
           (
-            await read<Schema["Source"][]>(
+            await read<Schema<"Source">[]>(
               page,
               `/api/v1/recordings/${id}/sources`,
             )

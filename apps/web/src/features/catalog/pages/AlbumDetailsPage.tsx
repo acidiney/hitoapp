@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { AlbumDetailsPageProps } from "../../../shared/types";
+
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import MetadataEditor from "../../metadata/components/MetadataEditor";
@@ -8,7 +9,7 @@ import MetadataObservations from "../../metadata/components/MetadataObservations
 export default function AlbumDetailsPage({
   user,
   detail,
-}: AlbumDetailsPageProps) {
+}: Schema<"AlbumDetailsPageProps">) {
   const target = { kind: "release", id: detail.release_id } as const;
   return (
     <div className="recording-details">

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import {
   artistReviewDownloadAbsence,
   artistReviewReader,
@@ -11,7 +11,6 @@ import { preferencesAction } from "./metadata-preferences-state";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import type { recordingLyricsProvider } from "./recording-lyrics-provider";
 
-type Schema = components["schemas"];
 type Provider = Awaited<ReturnType<typeof recordingLyricsProvider>>;
 
 export async function lyricDeadline<T>(
@@ -44,7 +43,7 @@ export async function connectLyricsProvider(page: Page, owned: Provider) {
     .click();
   await page.getByText("Services for this server", { exact: true }).click();
   await page.getByLabel("Service address", { exact: true }).fill(owned.address);
-  const offered = await preferencesAction<Schema["PluginService"]>(
+  const offered = await preferencesAction<Schema<"PluginService">>(
     page,
     page.getByRole("button", { name: "Offer service", exact: true }),
     "POST",
@@ -69,7 +68,7 @@ export async function connectLyricsProvider(page: Page, owned: Provider) {
     offered.body,
     owned.manifest.name,
   );
-  const installed = await preferencesAction<Schema["PluginInstallation"]>(
+  const installed = await preferencesAction<Schema<"PluginInstallation">>(
     page,
     page.getByRole("button", { name: "Accept and connect", exact: true }),
     "POST",
@@ -94,10 +93,10 @@ export async function lyricState(page: Page, ids: string[], playlist: string) {
   const read = artistReviewReader(page);
   const response = await page.request.post("/api/v1/recordings/progress", {
     headers: { "x-hito-request": "1", Origin: new URL(page.url()).origin },
-    data: { recording_ids: ids } satisfies Schema["SavedPlaybackRequest"],
+    data: { recording_ids: ids } satisfies Schema<"SavedPlaybackRequest">,
     timeout: 10_000,
   });
-  let progress: Schema["RecordingProgress"][];
+  let progress: Schema<"RecordingProgress">[];
   try {
     const bytes = await response.body();
     expect(response.status() === 200 && bytes.length <= 16_384).toBe(true);
@@ -107,21 +106,21 @@ export async function lyricState(page: Page, ids: string[], playlist: string) {
   }
   return {
     progress,
-    catalog: await read<Schema["RecordingPage"]>("/api/v1/recordings"),
-    plugins: await read<Schema["PluginSettings"]>("/api/v1/plugins"),
-    playlist: await read<Schema["PlaylistDetail"]>(
+    catalog: await read<Schema<"RecordingPage">>("/api/v1/recordings"),
+    plugins: await read<Schema<"PluginSettings">>("/api/v1/plugins"),
+    playlist: await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${playlist}`,
     ),
-    activity: await read<Schema["Activity"]>("/api/v1/activity"),
-    events: await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0"),
+    activity: await read<Schema<"Activity">>("/api/v1/activity"),
+    events: await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0"),
     metadata: await Promise.all(
       ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     sources: await Promise.all(
       ids.map((id) =>
-        read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+        read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
       ),
     ),
     downloads: await artistReviewDownloadAbsence(page, ids),
@@ -187,5 +186,5 @@ export async function assertLyricReply(
         installation_revision: revision,
       }),
   ).toBe(true);
-  return JSON.parse(bytes.toString()) as Schema["LyricsLookup"];
+  return JSON.parse(bytes.toString()) as Schema<"LyricsLookup">;
 }

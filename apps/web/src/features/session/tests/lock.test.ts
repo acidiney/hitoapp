@@ -38,7 +38,7 @@ vi.mock("../api/lockApi", () => ({
 vi.mock("../api/sessionApi", () => ({
   sessionApi: { signIn: vi.fn(), signOut: vi.fn() },
 }));
-vi.mock("../session", () => ({ notifySessionChanged: vi.fn() }));
+vi.mock("../api/session", () => ({ notifySessionChanged: vi.fn() }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: vi.fn(),
 }));

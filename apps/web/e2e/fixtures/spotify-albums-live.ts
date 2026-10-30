@@ -1,12 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 type ObjectValue = Record<string, unknown>;
 type LiveEntry = {
   occurrence_id: string | null;
-  kind: Schema["ImportedPlaylistEntryKind"];
+  kind: Schema<"ImportedPlaylistEntryKind">;
   provider_recording_id: string | null;
   title: string | null;
   artist: string | null;
@@ -55,7 +54,7 @@ function number(value: unknown, maximum: number, minimum = 0): number {
 
 export function normalizedLiveRecording(
   value: unknown,
-): Schema["ProviderRecording"] {
+): Schema<"ProviderRecording"> {
   const recording = object(value);
   const id = text(recording.id, 256);
   liveCheck(/^[A-Za-z0-9]{22}$/.test(id));
@@ -181,7 +180,7 @@ export async function readSpotifyAlbumsLive(
     await json("v1/playlists/detail", 32_768, { kind: "reference", reference }),
   );
   const entries: LiveEntry[] = [];
-  const recordings = new Map<string, Schema["ProviderRecording"]>();
+  const recordings = new Map<string, Schema<"ProviderRecording">>();
   const occurrences = new Set<string>();
   const cursors = new Set<string>();
   let cursor: string | null = null;
@@ -280,10 +279,10 @@ export async function readSpotifyAlbumsLive(
 
 export function verifySpotifyAlbumsPublication(
   expected: Awaited<ReturnType<typeof readSpotifyAlbumsLive>>,
-  playlist: Schema["PlaylistDetail"],
-  publication: Schema["ImportedPlaylistSnapshot"],
-  connection: Schema["PluginInstallation"],
-  service: Schema["PluginService"],
+  playlist: Schema<"PlaylistDetail">,
+  publication: Schema<"ImportedPlaylistSnapshot">,
+  connection: Schema<"PluginInstallation">,
+  service: Schema<"PluginService">,
 ) {
   liveCheck(
     playlist.playlist.kind === "local" &&
@@ -304,7 +303,7 @@ export function verifySpotifyAlbumsPublication(
       ),
   );
   liveCheck(publication.recordings.length === expected.recordings.size);
-  const recordings = new Map<string, Schema["ImportedPlaylistRecording"]>();
+  const recordings = new Map<string, Schema<"ImportedPlaylistRecording">>();
   const releases = new Map<string, string>();
   for (const item of publication.recordings) {
     const metadata = normalizedLiveRecording(item.metadata);

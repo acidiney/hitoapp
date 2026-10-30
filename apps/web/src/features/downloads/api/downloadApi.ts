@@ -1,18 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { HttpError, request, requestJson } from "../../../shared/http";
-import type {
-  DownloadReceipt,
-  DownloadRequest,
-  DownloadStatus,
-} from "../../../shared/types";
 
 export const downloadApi = {
   async create(
     account: string,
     recording: string,
-    body: Readonly<DownloadRequest>,
+    body: Readonly<Schema<"DownloadRequest">>,
     signal: AbortSignal,
-  ): Promise<DownloadReceipt> {
-    return requestJson<DownloadReceipt>(
+  ): Promise<Schema<"DownloadReceipt">> {
+    return requestJson<Schema<"DownloadReceipt">>(
       `/recordings/${encodeURIComponent(recording)}/download`,
       {
         action: "downloads.create",
@@ -27,9 +23,9 @@ export const downloadApi = {
     account: string,
     recording: string,
     signal: AbortSignal,
-  ): Promise<DownloadStatus | null> {
+  ): Promise<Schema<"DownloadStatus"> | null> {
     try {
-      return await requestJson<DownloadStatus | null>(
+      return await requestJson<Schema<"DownloadStatus"> | null>(
         `/recordings/${encodeURIComponent(recording)}/download`,
         {
           action: "downloads.status",

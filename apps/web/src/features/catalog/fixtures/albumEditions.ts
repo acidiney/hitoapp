@@ -1,4 +1,4 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   editionGroup,
   firstEditionPage,
@@ -11,8 +11,6 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../../artists/fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 export {
   artistAssociation,
@@ -93,24 +91,24 @@ export const albumDetail = {
     association_id: artistAssociation.id,
   },
   saved_edition: { revision: 0, state: { status: "unset" } },
-} satisfies Schema["ReleaseDetail"];
+} satisfies Schema<"ReleaseDetail">;
 
 export const savedEdition = {
   recording_id: firstLibraryRecording.id,
   association_id: artistAssociation.id,
   release_group_id: editionGroup.id,
   edition_id: standardEdition.id,
-} satisfies Schema["SavedAlbumEdition"];
+} satisfies Schema<"SavedAlbumEdition">;
 
 export const readyChoice = {
   revision: 3,
   state: { status: "ready", edition: savedEdition },
-} satisfies Schema["AlbumEditionChoice"];
+} satisfies Schema<"AlbumEditionChoice">;
 
 export const staleChoice = {
   revision: 3,
   state: { status: "needs_choice" },
-} satisfies Schema["AlbumEditionChoice"];
+} satisfies Schema<"AlbumEditionChoice">;
 
 export const choiceReceipt = (revision: number, edition = savedEdition) =>
   ({
@@ -118,7 +116,7 @@ export const choiceReceipt = (revision: number, edition = savedEdition) =>
     release_id: albumId,
     revision,
     edition,
-  }) satisfies Schema["AlbumEditionChoiceReceipt"];
+  }) satisfies Schema<"AlbumEditionChoiceReceipt">;
 
 const occurrence = (
   id: string,
@@ -164,7 +162,7 @@ export const catalogTracks = {
       ],
     },
   ],
-} satisfies Schema["CatalogEditionTrackList"];
+} satisfies Schema<"CatalogEditionTrackList">;
 
 export const mergedTrackList = {
   status: "available",
@@ -181,19 +179,19 @@ export const mergedTrackList = {
     installation_revision: installation.revision,
   },
   is_album_release: true,
-} satisfies Schema["AlbumEditionTrackListAvailability"];
+} satisfies Schema<"AlbumEditionTrackListAvailability">;
 
 export const unsavableTrackList = {
   ...mergedTrackList,
   matches: [],
   adoption: null,
   is_album_release: false,
-} satisfies Schema["AlbumEditionTrackListAvailability"];
+} satisfies Schema<"AlbumEditionTrackListAvailability">;
 
 export const attachedTrackList = {
   ...mergedTrackList,
   attached_occurrences: ["occ-1-2"],
-} satisfies Schema["AlbumEditionTrackListAvailability"];
+} satisfies Schema<"AlbumEditionTrackListAvailability">;
 
 export const repeatedCatalogTrackList = {
   ...mergedTrackList,
@@ -217,4 +215,4 @@ export const repeatedCatalogTrackList = {
       },
     ],
   },
-} satisfies Schema["AlbumEditionTrackListAvailability"];
+} satisfies Schema<"AlbumEditionTrackListAvailability">;

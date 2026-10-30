@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -12,7 +13,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping } from "../fixtures/audiobooks";
-import type { SyncBatch } from "../../../shared/types";
+
 import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
@@ -74,10 +75,10 @@ afterEach(() => {
 test("adding an eligible playlist confirms its owned audiobook before navigating", async () => {
   const { index, playlist, followed, confirmed } = audiobookGrouping();
   const confirmation = deferredBody();
-  let batch!: SyncBatch;
+  let batch!: Schema<"SyncBatch">;
   request.mockImplementation(async (input, options) => {
     if (input === "/api/v1/sync" && options?.method === "POST") {
-      batch = JSON.parse(String(options.body)) as SyncBatch;
+      batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });
@@ -152,11 +153,11 @@ test("retrying a lost grouping acknowledgement resubmits the exact original oper
   const { index, playlist, confirmed } = audiobookGrouping();
   const retry = deferredResponse();
   const writes: string[] = [];
-  let batch!: SyncBatch;
+  let batch!: Schema<"SyncBatch">;
   request.mockImplementation(async (input, options) => {
     if (input === "/api/v1/sync" && options?.method === "POST") {
       writes.push(String(options.body));
-      batch = JSON.parse(writes[0]) as SyncBatch;
+      batch = JSON.parse(writes[0]) as Schema<"SyncBatch">;
       if (writes.length === 1) throw new TypeError("Connection interrupted");
       return retry.promise;
     }

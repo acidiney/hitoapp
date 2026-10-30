@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 import {
   openPreferences,
@@ -17,7 +17,6 @@ import {
 import type { OutageProvider, OutageTrack } from "./providerOutageProvider";
 import { openLibrarySection } from "./library-sections";
 
-type Schema = components["schemas"];
 export type OutageSetupPhase =
   | "administrator"
   | "preferences"
@@ -39,11 +38,11 @@ export type OutageResolutionDiagnostic = {
   target: "healthy" | "preserved" | "retry";
   route: "resolve";
   http_status?: number;
-  outcome?: Schema["SourceResolutionOutcome"];
+  outcome?: Schema<"SourceResolutionOutcome">;
   sources_count?: number;
   ready_sources_count?: number;
 };
-const resolutionOutcomes = new Set<Schema["SourceResolutionOutcome"]>([
+const resolutionOutcomes = new Set<Schema<"SourceResolutionOutcome">>([
   "ready",
   "no_suitable_source",
   "provider_unavailable",
@@ -111,7 +110,7 @@ export async function prepareOutageLibrary(
 ) {
   const recordResolution = (
     target: OutageResolutionDiagnostic["target"],
-    result: Schema["SourceResolution"],
+    result: Schema<"SourceResolution">,
   ) =>
     observeResolution({
       target,
@@ -133,9 +132,9 @@ export async function prepareOutageLibrary(
   await expect(
     page.getByRole("heading", { name: "Your library", exact: true }),
   ).toBeVisible();
-  const user = await read<Schema["User"]>("/api/v1/me");
+  const user = await read<Schema<"User">>("/api/v1/me");
   checkpoint("preferences");
-  const settings = await read<Schema["MetadataSettings"]>(
+  const settings = await read<Schema<"MetadataSettings">>(
     "/api/v1/metadata/settings",
   );
   const preferences = await openPreferences(page);
@@ -154,7 +153,7 @@ export async function prepareOutageLibrary(
   await page
     .getByLabel("Service address", { exact: true })
     .fill(provider.address);
-  const offered = await preferencesAction<Schema["PluginService"]>(
+  const offered = await preferencesAction<Schema<"PluginService">>(
     page,
     page.getByRole("button", { name: "Offer service", exact: true }),
     "POST",
@@ -180,7 +179,7 @@ export async function prepareOutageLibrary(
     provider.manifest.name,
   );
   checkpoint("plugin_connect");
-  const accepted = await preferencesAction<Schema["PluginInstallation"]>(
+  const accepted = await preferencesAction<Schema<"PluginInstallation">>(
     page,
     page.getByRole("button", { name: "Accept and connect", exact: true }),
     "POST",
@@ -198,7 +197,7 @@ export async function prepareOutageLibrary(
   )
     throw new Error("Owned provider approval mismatch");
   const connection = accepted.body;
-  const copies: Record<string, Schema["PlaylistDetail"]> = {};
+  const copies: Record<string, Schema<"PlaylistDetail">> = {};
   for (const key of ["retry", "queue", "preserved"] as const) {
     checkpoint(importPhases[key]);
     await openLibrarySection(page, "Playlists");
@@ -215,7 +214,7 @@ export async function prepareOutageLibrary(
         exact: true,
       })
       .fill(key);
-    const imported = await preferencesAction<Schema["PlaylistImportReceipt"]>(
+    const imported = await preferencesAction<Schema<"PlaylistImportReceipt">>(
       page,
       form.getByRole("button", { name: "Import a copy", exact: true }),
       "POST",
@@ -223,7 +222,7 @@ export async function prepareOutageLibrary(
       200,
     );
     if (!imported.body) throw new Error("Owned playlist import missing");
-    const sent = imported.sent as Schema["ImportProviderPlaylist"];
+    const sent = imported.sent as Schema<"ImportProviderPlaylist">;
     expect(
       sent.playlist_reference === key &&
         sent.installation_revision === connection.revision &&
@@ -232,7 +231,7 @@ export async function prepareOutageLibrary(
     await page.waitForURL(
       new RegExp(`/playlists/${imported.body.playlist_id}$`),
     );
-    copies[key] = await read<Schema["PlaylistDetail"]>(
+    copies[key] = await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${imported.body.playlist_id}`,
     );
     expect(copies[key].entries.every((entry) => !entry.available)).toBe(true);
@@ -283,12 +282,12 @@ export async function prepareOutageLibrary(
       position_ms: 431,
       speed: 1.25,
     },
-  ] satisfies Schema["Action"][];
+  ] satisfies Schema<"Action">[];
   const batch = {
     device_id: "owned-provider-outage-seed",
     operations: actions.map((action) => ({ id: randomUUID(), action })),
-  } satisfies Schema["SyncBatch"];
-  const receipt = await outageWrite<Schema["SyncReceipt"]>(
+  } satisfies Schema<"SyncBatch">;
+  const receipt = await outageWrite<Schema<"SyncReceipt">>(
     page,
     user.id,
     "post",
@@ -303,8 +302,8 @@ export async function prepareOutageLibrary(
   ).toBe(true);
   const legacyResolutions: {
     recording: string;
-    request: Schema["ResolveSource"];
-    receipt: Schema["SourceResolution"];
+    request: Schema<"ResolveSource">;
+    receipt: Schema<"SourceResolution">;
   }[] = [];
   for (const key of ["healthy", "preserved"] as const) {
     checkpoint(
@@ -312,8 +311,8 @@ export async function prepareOutageLibrary(
     );
     const request = {
       request_id: randomUUID(),
-    } satisfies Schema["ResolveSource"];
-    const result = await outageWrite<Schema["SourceResolution"]>(
+    } satisfies Schema<"ResolveSource">;
+    const result = await outageWrite<Schema<"SourceResolution">>(
       page,
       user.id,
       "post",
@@ -335,7 +334,7 @@ export async function prepareOutageLibrary(
     ).toBe(true);
     if (key === "preserved") {
       checkpoint("manual_choice");
-      await outageWrite<Schema["SourceChoiceReceipt"]>(
+      await outageWrite<Schema<"SourceChoiceReceipt">>(
         page,
         user.id,
         "post",
@@ -343,9 +342,9 @@ export async function prepareOutageLibrary(
         {
           request_id: randomUUID(),
           source_id: result.sources[0].id,
-        } satisfies Schema["ChooseSource"],
+        } satisfies Schema<"ChooseSource">,
       );
-      const choice = await read<Schema["SourceChoice"]>(
+      const choice = await read<Schema<"SourceChoice">>(
         `/api/v1/recordings/${ids[key]}/source-choice`,
       );
       expect(
@@ -358,8 +357,8 @@ export async function prepareOutageLibrary(
   checkpoint("empty_resolution");
   const oldRequest = {
     request_id: randomUUID(),
-  } satisfies Schema["ResolveSource"];
-  const oldReceipt = await outageWrite<Schema["SourceResolution"]>(
+  } satisfies Schema<"ResolveSource">;
+  const oldReceipt = await outageWrite<Schema<"SourceResolution">>(
     page,
     user.id,
     "post",
@@ -416,31 +415,31 @@ export async function outageLibraryState(
     originals: await artistReviewOriginals(),
     copies: await Promise.all(
       Object.values(library.copies).map((copy) =>
-        read<Schema["PlaylistDetail"]>(`/api/v1/playlists/${copy.playlist.id}`),
+        read<Schema<"PlaylistDetail">>(`/api/v1/playlists/${copy.playlist.id}`),
       ),
     ),
     metadata: await Promise.all(
       ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     choices: await Promise.all(
       ids.map((id) =>
-        read<Schema["SourceChoice"]>(`/api/v1/recordings/${id}/source-choice`),
+        read<Schema<"SourceChoice">>(`/api/v1/recordings/${id}/source-choice`),
       ),
     ),
-    progress: await outageWrite<Schema["RecordingProgress"][]>(
+    progress: await outageWrite<Schema<"RecordingProgress">[]>(
       page,
       library.user.id,
       "post",
       "/api/v1/recordings/progress",
-      { recording_ids: ids } satisfies Schema["SavedPlaybackRequest"],
+      { recording_ids: ids } satisfies Schema<"SavedPlaybackRequest">,
     ),
     absent: await artistReviewDownloadAbsence(page, [
       ...library.local.ids,
       ...ids,
     ]),
-    settings: await read<Schema["MetadataSettings"]>(
+    settings: await read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     ),
   };

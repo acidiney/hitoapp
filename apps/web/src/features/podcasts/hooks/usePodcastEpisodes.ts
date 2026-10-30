@@ -1,11 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type {
-  PodcastEpisodePage,
-  RecordingProgress,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Target = {
@@ -14,10 +12,10 @@ type Target = {
   minimumRevision?: number;
 };
 type Owner = {
-  page: PodcastEpisodePage;
-  progress: RecordingProgress[];
-  renderedPage: PodcastEpisodePage;
-  renderedProgress: RecordingProgress[];
+  page: Schema<"PodcastEpisodePage">;
+  progress: Schema<"RecordingProgress">[];
+  renderedPage: Schema<"PodcastEpisodePage">;
+  renderedProgress: Schema<"RecordingProgress">[];
   highestRevision: number;
   generation: object;
   offset: number;
@@ -29,8 +27,8 @@ type Owner = {
 };
 type State = {
   owner: Owner;
-  page: PodcastEpisodePage;
-  progress: RecordingProgress[];
+  page: Schema<"PodcastEpisodePage">;
+  progress: Schema<"RecordingProgress">[];
   offset: number;
   loading: boolean;
   stale: boolean;
@@ -41,8 +39,8 @@ type State = {
 export function usePodcastEpisodes(
   account: string,
   subscription: string,
-  renderedPage: PodcastEpisodePage,
-  renderedProgress: RecordingProgress[],
+  renderedPage: Schema<"PodcastEpisodePage">,
+  renderedProgress: Schema<"RecordingProgress">[],
 ) {
   const scope = useRequestScope(JSON.stringify([account, subscription]));
   const owner = useMemo<Owner>(

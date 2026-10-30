@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useArtistCreditIdentity } from "../hooks/useArtistCreditIdentity";
 import { useArtistMatchSuggestions } from "../hooks/useArtistMatchSuggestions";
 import ArtistMatchSuggestionList from "./ArtistMatchSuggestionList";
+import Button from "../../../shared/ui/Button";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
@@ -40,9 +41,9 @@ export default function ArtistCreditIdentity({
           />
         )}
       {identity.step === "closed" && (
-        <button type="button" className="button" onClick={identity.find}>
+        <Button type="button" onClick={identity.find}>
           Find reviewed artists for this credit
-        </button>
+        </Button>
       )}
       {identity.step === "choosing" && identity.groups.length === 0 && (
         <p>
@@ -56,14 +57,13 @@ export default function ArtistCreditIdentity({
             <li key={group.id}>
               {group.name.value} ·{" "}
               {plural(group.recording_count, "track", "tracks")}{" "}
-              <button
+              <Button
                 type="button"
-                className="button"
                 aria-label={`Use this identity for all tracks with this credit: ${group.name.value}`}
                 onClick={() => identity.choose(group)}
               >
                 Use this identity for all tracks with this credit
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -77,29 +77,23 @@ export default function ArtistCreditIdentity({
             artist's choice needs review. Tracks never chosen, reset, or needing
             review for this artist are updated. You can reset any track later.
           </p>
-          <button
+          <Button
             type="button"
-            className="button"
             onClick={() => identity.apply(identity.selected!)}
           >
             Confirm
-          </button>
-          <button type="button" className="button" onClick={identity.cancel}>
+          </Button>
+          <Button type="button" onClick={identity.cancel}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
       {identity.step === "applying" && <p>Applying the artist identity…</p>}
       {identity.error && <p role="alert">{identity.error}</p>}
       {identity.retrying && (
-        <button
-          type="button"
-          className="button"
-          disabled={busy}
-          onClick={identity.retry}
-        >
+        <Button type="button" disabled={busy} onClick={identity.retry}>
           Retry the same artist identity request
-        </button>
+        </Button>
       )}
       {identity.totals && identity.selected && (
         <div role="status">

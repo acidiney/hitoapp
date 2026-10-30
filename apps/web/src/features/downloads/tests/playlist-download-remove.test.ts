@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,7 +10,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { PlaylistDownloadStatus } from "../../../shared/types";
+
 import {
   copiedPlaylistPage as props,
   recordingA,
@@ -30,7 +31,7 @@ test("removing a playlist download releases only its displayed retention and pre
   const path = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const retention = "d813f9bf-c566-449c-9e8b-45a440225617";
   const removePath = `/api/v1/downloads/${retention}`;
-  const active: PlaylistDownloadStatus = {
+  const active: Schema<"PlaylistDownloadStatus"> = {
     retention_id: retention,
     playlist_id: props.detail.playlist.id,
     host_device_id: "owned-download-host",

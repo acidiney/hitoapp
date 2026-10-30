@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { expect, test as baseTest, type Page } from "@playwright/test";
 import { automaticSourceFixture } from "./fixtures/automatic-source";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 
-type Schema = components["schemas"];
 const optedIn = process.env.HITO_AUTOMATIC_SOURCE_E2E === "1";
 const test = baseTest.extend<{ automaticSourcePrivacy: void }>({
   automaticSourcePrivacy: [
@@ -55,7 +54,7 @@ async function read<T>(page: Page, path: string): Promise<T> {
   return response.json();
 }
 
-function retained(detail: Schema["PlaylistDetail"]) {
+function retained(detail: Schema<"PlaylistDetail">) {
   return {
     ...detail,
     entries: detail.entries.map((entry) => ({ ...entry, available: false })),
@@ -181,7 +180,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
 
     phase = "connections";
     const headers = { "x-hito-request": "1", origin };
-    const connections: Schema["PluginInstallation"][] = [];
+    const connections: Schema<"PluginInstallation">[] = [];
     for (const [name, address] of [
       ["Owned metadata fixture", provider.metadataAddress],
       ["Owned audio fixture", provider.audioAddress],
@@ -191,17 +190,17 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
         data: {
           name,
           base_url: address,
-        } satisfies Schema["OfferPluginService"],
+        } satisfies Schema<"OfferPluginService">,
       });
       expect(offered.status()).toBe(201);
-      const service: Schema["PluginService"] = await offered.json();
+      const service: Schema<"PluginService"> = await offered.json();
       const installed = await page.request.post("/api/v1/plugins", {
         headers,
         data: {
           service_id: service.id,
           service_revision: service.revision,
           bearer_token: provider.token,
-        } satisfies Schema["InstallPlugin"],
+        } satisfies Schema<"InstallPlugin">,
       });
       expect(installed.status()).toBe(201);
       connections.push(await installed.json());
@@ -236,7 +235,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
     const imported = await importing;
     if (imported === null) throw new Error("The import response must arrive");
     expect(imported.status()).toBe(200);
-    const receipt: Schema["PlaylistImportReceipt"] = await imported.json();
+    const receipt: Schema<"PlaylistImportReceipt"> = await imported.json();
     await expect
       .poll(
         () =>
@@ -245,7 +244,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
       .toBe(true);
 
     phase = "imported_identity";
-    const importedDetail = await read<Schema["PlaylistDetail"]>(
+    const importedDetail = await read<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${receipt.playlist_id}`,
     );
@@ -260,7 +259,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
         new Set(importedDetail.entries.map((entry) => entry.entry_id)).size ===
           2,
     ).toBe(true);
-    const initialSources = await read<Schema["Source"][]>(
+    const initialSources = await read<Schema<"Source">[]>(
       page,
       `/api/v1/recordings/${recording}/sources`,
     );
@@ -306,15 +305,15 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
             action: { kind: "like_set", recording_id: recording, liked: true },
           },
         ],
-      } satisfies Schema["SyncBatch"],
+      } satisfies Schema<"SyncBatch">,
     });
     expect(edited.status()).toBe(200);
     await page.reload();
-    const before = await read<Schema["PlaylistDetail"]>(
+    const before = await read<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${receipt.playlist_id}`,
     );
-    const metadataBefore = await read<Schema["RecordingMetadata"]>(
+    const metadataBefore = await read<Schema<"RecordingMetadata">>(
       page,
       `/api/v1/recordings/${recording}/metadata`,
     );
@@ -325,7 +324,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
         metadataBefore.artist.personal === personalArtist &&
         before.entries.every((entry) => entry.liked),
     ).toBe(true);
-    const initialCatalog = await read<Schema["RecordingPage"]>(
+    const initialCatalog = await read<Schema<"RecordingPage">>(
       page,
       "/api/v1/recordings?limit=100",
     );
@@ -385,7 +384,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
     expect(provider.counts.unsuitableAudio).toBe(0);
 
     phase = "preserved_collection";
-    const after = await read<Schema["PlaylistDetail"]>(
+    const after = await read<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${receipt.playlist_id}`,
     );
@@ -393,7 +392,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
       JSON.stringify(retained(after)) === JSON.stringify(retained(before)) &&
         after.entries.every((entry) => entry.available),
     ).toBe(true);
-    const metadataAfter = await read<Schema["RecordingMetadata"]>(
+    const metadataAfter = await read<Schema<"RecordingMetadata">>(
       page,
       `/api/v1/recordings/${recording}/metadata`,
     );
@@ -410,14 +409,14 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
         added.length === 1 &&
         added[0].provider_recording_id === provider.suitable.id,
     ).toBe(true);
-    const catalog = await read<Schema["RecordingPage"]>(
+    const catalog = await read<Schema<"RecordingPage">>(
       page,
       `/api/v1/recordings?library=${encodeURIComponent(library)}`,
     );
     expect(
       catalog.items.length === 1 && catalog.items[0].id === recording,
     ).toBe(true);
-    const resolvedSources = await read<Schema["Source"][]>(
+    const resolvedSources = await read<Schema<"Source">[]>(
       page,
       `/api/v1/recordings/${recording}/sources`,
     );

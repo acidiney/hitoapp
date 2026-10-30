@@ -1,11 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type {
-  ArtistAssociation,
-  CatalogArtistProfile,
-  CatalogReleaseGroup,
-  LibraryAlbum,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
@@ -23,7 +18,7 @@ function tracks(count: number) {
   return `${count} ${count === 1 ? "track" : "tracks"}`;
 }
 
-function Availability({ albums }: { albums: LibraryAlbum[] }) {
+function Availability({ albums }: { albums: Schema<"LibraryAlbum">[] }) {
   if (albums.length === 0) return <p>Not linked to a library album</p>;
   return (
     <ul aria-label="In your library">
@@ -61,13 +56,13 @@ export default function DiscographyRelease({
 }: {
   account: string;
   recording: string;
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
-  group: CatalogReleaseGroup;
-  library?: LibraryAlbum[];
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
+  group: Schema<"CatalogReleaseGroup">;
+  library?: Schema<"LibraryAlbum">[];
   heading?: "h4" | "h5";
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
+  onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
   return (
     <li className="release-card">

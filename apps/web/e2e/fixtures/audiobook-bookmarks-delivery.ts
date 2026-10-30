@@ -1,8 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { BrowserContext, Request, Route } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 type Policy = {
   allowed: (request: Request) => boolean;
   armed: (request: Request) => boolean;
@@ -21,16 +20,16 @@ export async function bookmarkDelivery(
   let closed = false;
   let target: {
     account: string;
-    detail: Schema["AudiobookDetail"];
-    entry: Schema["PlaylistEntry"];
+    detail: Schema<"AudiobookDetail">;
+    entry: Schema<"PlaylistEntry">;
     label: string;
   } | null = null;
   let original: {
     text: string;
-    batch: Schema["SyncBatch"];
+    batch: Schema<"SyncBatch">;
     receipt: Buffer;
   } | null = null;
-  let removal: Schema["SyncBatch"] | null = null;
+  let removal: Schema<"SyncBatch"> | null = null;
   async function deliver(route: Route) {
     if (closed) {
       await route.abort("aborted");
@@ -61,14 +60,14 @@ export async function bookmarkDelivery(
       request.headers()["x-hito-request"] !== "1"
     )
       throw new Error("The bookmark request has the wrong authority");
-    let batch: Schema["SyncBatch"] | null = null;
+    let batch: Schema<"SyncBatch"> | null = null;
     let text = "";
     let first = false;
     if (sync) {
       text = request.postData() ?? "";
       if (!text || Buffer.byteLength(text) > 4096)
         throw new Error("The bookmark mutation exceeded its bound");
-      batch = JSON.parse(text) as Schema["SyncBatch"];
+      batch = JSON.parse(text) as Schema<"SyncBatch">;
       const operation = batch.operations?.[0];
       if (
         batch.operations?.length !== 1 ||
@@ -152,7 +151,7 @@ export async function bookmarkDelivery(
           bytes.length > 4096 ||
           !isDeepStrictEqual(JSON.parse(bytes.toString()), {
             acknowledged: [batch.operations[0].id],
-          } satisfies Schema["SyncReceipt"])
+          } satisfies Schema<"SyncReceipt">)
         )
           throw new Error(
             "The bookmark acknowledgement did not match its operation",
@@ -176,7 +175,7 @@ export async function bookmarkDelivery(
           throw new Error("The bookmark read preceded its accepted operation");
         const detail = JSON.parse(
           bytes.toString(),
-        ) as Schema["AudiobookDetail"];
+        ) as Schema<"AudiobookDetail">;
         const action = original.batch.operations[0].action;
         if (action.kind !== "audiobook_bookmark_create")
           throw new Error("The accepted bookmark identity is missing");
@@ -190,7 +189,7 @@ export async function bookmarkDelivery(
                   recording_id: action.recording_id,
                   position_ms: action.position_ms,
                   label: action.label,
-                } satisfies Schema["AudiobookBookmark"],
+                } satisfies Schema<"AudiobookBookmark">,
               ]
             : [];
         if (!isDeepStrictEqual(detail, { ...target.detail, bookmarks }))
@@ -220,8 +219,8 @@ export async function bookmarkDelivery(
     counts,
     arm(
       account: string,
-      detail: Schema["AudiobookDetail"],
-      entry: Schema["PlaylistEntry"],
+      detail: Schema<"AudiobookDetail">,
+      entry: Schema<"PlaylistEntry">,
       label: string,
     ) {
       if (

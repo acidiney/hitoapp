@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import QueueList from "./QueueList";
 import Artwork from "../../artwork/components/Artwork";
-import { coverIdentity } from "../../artwork/coverIdentity";
+import { coverIdentity } from "../../artwork/model/coverIdentity";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
 import PageHeading from "../../../shared/ui/PageHeading";

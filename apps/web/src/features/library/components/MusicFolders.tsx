@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef, useState } from "react";
 import { Folder, FolderOpen, FolderPlus, FolderSync } from "lucide-react";
-import type { Library } from "../../../shared/types";
+
 import Button from "../../../shared/ui/Button";
 import SectionWarning from "../../../shared/ui/SectionWarning";
 import SettingRow from "../../../shared/ui/SettingRow";
@@ -15,7 +16,7 @@ export default function MusicFolders({
   library,
 }: {
   account: string;
-  library: Library;
+  library: Schema<"Library">;
 }) {
   const folders = useMusicFolders(account, library.id);
   const host = useHostFolders(

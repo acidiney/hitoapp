@@ -1,10 +1,11 @@
+import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Lock, LogOut } from "lucide-react";
 import { useSignOut } from "../features/session/hooks/useSignOut";
 import { useLockSession } from "../features/session/hooks/useLockSession";
 import { useIdleLock } from "../features/session/hooks/useIdleLock";
 import { usePlayer } from "../features/playback/components/PlaybackProvider";
-import type { LockStatus, User } from "../shared/types";
+
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
 
@@ -13,8 +14,8 @@ export default function AccountMenu({
   lock,
   path,
 }: {
-  user: User;
-  lock: LockStatus;
+  user: Schema<"User">;
+  lock: Schema<"LockStatus">;
   path: string;
 }) {
   const player = usePlayer();

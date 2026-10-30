@@ -1,4 +1,4 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   builtin,
   catalog,
@@ -10,8 +10,6 @@ import {
   savedRecording,
   sourceAttachmentPage,
 } from "../../sources/fixtures/sourceAttachment";
-
-type Schema = components["schemas"];
 
 export const artistReviewAccount = sourceAttachmentPage.user.id;
 export const artistReviewDetail = sourceAttachmentPage.detail;
@@ -58,14 +56,14 @@ export const artistReviewContext = {
     service_id: secondCatalog.service.id,
     service_revision: secondCatalog.service.revision,
   },
-} satisfies Schema["ArtistReviewContext"];
+} satisfies Schema<"ArtistReviewContext">;
 
 export const artistSearch = {
   query: artistQuery,
   cursor: null,
   snapshot: null,
   limit: 20,
-} satisfies Schema["ArtistSearchRequest"];
+} satisfies Schema<"ArtistSearchRequest">;
 export const artistSearchResult = {
   status: "available",
   context: artistReviewContext,
@@ -93,7 +91,7 @@ export const artistSearchResult = {
       },
     ],
   },
-} satisfies Schema["ArtistCandidateSearchAvailability"];
+} satisfies Schema<"ArtistCandidateSearchAvailability">;
 export const artistPreview = {
   status: "available",
   context: artistReviewContext,
@@ -104,11 +102,11 @@ export const artistPreview = {
     disambiguation: "Acoustic singer from Luanda, established in 2012",
     revision: "private-provider-profile:11",
   },
-} satisfies Schema["ArtistCandidatePreviewAvailability"];
+} satisfies Schema<"ArtistCandidatePreviewAvailability">;
 export const artistSelection = {
   context: artistReviewContext,
   provider_artist_id: artistPreview.profile.artist.id,
-} satisfies Schema["SelectArtistCandidate"];
+} satisfies Schema<"SelectArtistCandidate">;
 export const artistAssociation = {
   id: "60000000-0000-4000-8000-000000000001",
   account_id: artistReviewContext.account_id,
@@ -122,12 +120,12 @@ export const artistAssociation = {
   provider_artist_id: artistPreview.profile.artist.id,
   evidence: "user_confirmed",
   revision: 1,
-} satisfies Schema["ArtistAssociation"];
+} satisfies Schema<"ArtistAssociation">;
 export const reviewedArtistProfile = {
   status: "available",
   association_id: artistAssociation.id,
   profile: artistPreview.profile,
-} satisfies Schema["ArtistProfileAvailability"];
+} satisfies Schema<"ArtistProfileAvailability">;
 export const noAssociationChanges = {
   recording_id: artistReviewDetail.recording_id,
   revision: 0,
@@ -135,4 +133,4 @@ export const noAssociationChanges = {
   retired: [],
   shared_hidden: 0,
   shareable: false,
-} satisfies Schema["ArtistAssociationChanges"];
+} satisfies Schema<"ArtistAssociationChanges">;

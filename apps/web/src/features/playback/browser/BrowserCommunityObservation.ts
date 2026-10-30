@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import type { MediaPort } from "../model";
-import type { SuccessfulPlayback } from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { log } from "../../../shared/log";
 
@@ -18,7 +19,10 @@ export class BrowserCommunityObservation {
   private episode: Episode | null = null;
 
   constructor(
-    private admit: (source: string, claim: SuccessfulPlayback) => void,
+    private admit: (
+      source: string,
+      claim: Schema<"SuccessfulPlayback">,
+    ) => void,
   ) {}
 
   begin(media: MediaPort, source: string, current: () => boolean) {

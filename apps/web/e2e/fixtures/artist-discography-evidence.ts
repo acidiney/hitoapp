@@ -1,9 +1,8 @@
 import type { BrowserContext, Request } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { artistDiscographyLogs } from "./artist-discography-logs";
 import { captureConsolePrivacy } from "./console-privacy";
 
-type Schema = components["schemas"];
 type CatalogRead = "discography" | "editions" | "tracks";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
@@ -19,7 +18,7 @@ export async function artistDiscographyEvidence(
   const catalogRequests = new WeakMap<Request, CatalogRead>();
   let target: { account: string; recording: string } | null = null;
   let associationPath: string | null = null;
-  let selection: Schema["ReadEditionTrackList"] | undefined;
+  let selection: Schema<"ReadEditionTrackList"> | undefined;
   const logs = artistDiscographyLogs(editions);
   const counts = {
     requests: 0,
@@ -249,7 +248,7 @@ export async function artistDiscographyEvidence(
         throw new Error("Invalid owned observer target");
       target = { account, recording };
     },
-    arm(association: string, selected?: Schema["ReadEditionTrackList"]) {
+    arm(association: string, selected?: Schema<"ReadEditionTrackList">) {
       if (
         !target ||
         associationPath ||

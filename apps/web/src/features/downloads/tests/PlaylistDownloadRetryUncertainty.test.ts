@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,10 +10,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistDownloadStatus,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import {
   copiedPlaylistPage,
   recordingA,
@@ -31,7 +29,7 @@ test("a lost failed-download retry acknowledgement recovers only its exact new r
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -44,7 +42,7 @@ test("a lost failed-download retry acknowledgement recovers only its exact new r
   const retention = "9ec5e26d-e1bb-47cf-9b4f-d6a68dce4038";
   const privateFailure = "private signed playlist retry acknowledgement loss";
   let accepted = false;
-  function status(): PlaylistDownloadStatus {
+  function status(): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: props.detail.playlist.id,

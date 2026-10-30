@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { preferencesAction } from "./metadata-preferences-state";
 import type { artistIdentityGroupsProvider } from "./artist-identity-groups-provider";
 import type {
@@ -8,7 +8,6 @@ import type {
   PreparedArtistGroups,
 } from "./artist-identity-groups-state";
 
-type Schema = components["schemas"];
 type Provider = Awaited<ReturnType<typeof artistIdentityGroupsProvider>>;
 type Member = PreparedArtistGroups["members"][number];
 
@@ -36,7 +35,7 @@ export async function reviewGroupMember(
     .getByRole("searchbox", { name: "Search artists", exact: true })
     .fill(provider.query);
   const searched = await preferencesAction<
-    Schema["ArtistCandidateSearchAvailability"]
+    Schema<"ArtistCandidateSearchAvailability">
   >(
     page,
     artist.getByRole("button", { name: "Search artists", exact: true }),
@@ -67,14 +66,14 @@ export async function reviewGroupMember(
   const selection = {
     context,
     provider_artist_id: candidate.artist.id,
-  } satisfies Schema["SelectArtistCandidate"];
+  } satisfies Schema<"SelectArtistCandidate">;
   const results = artist.getByRole("list", {
     name: "Artist search results",
     exact: true,
   });
   await expect(results.getByRole("listitem")).toHaveCount(2);
   const previewed = await preferencesAction<
-    Schema["ArtistCandidatePreviewAvailability"]
+    Schema<"ArtistCandidatePreviewAvailability">
   >(
     page,
     results
@@ -92,10 +91,10 @@ export async function reviewGroupMember(
         previewed.body.profile,
         provider.profiles[member.candidate],
       ) &&
-      (await read<Schema["ArtistAssociation"][]>(`${path}/artist-associations`))
+      (await read<Schema<"ArtistAssociation">[]>(`${path}/artist-associations`))
         .length === 0,
   ).toBe(true);
-  const confirmed = await preferencesAction<Schema["ArtistAssociation"]>(
+  const confirmed = await preferencesAction<Schema<"ArtistAssociation">>(
     page,
     artist.getByRole("button", { name: "Use this artist", exact: true }),
     "POST",
@@ -121,7 +120,7 @@ export async function reviewGroupMember(
         exact: true,
       }),
   ).toBeVisible();
-  const choice = await read<Schema["RecordingArtistIdentityChoice"]>(
+  const choice = await read<Schema<"RecordingArtistIdentityChoice">>(
     `${path}/artist-identity`,
   );
   expect(

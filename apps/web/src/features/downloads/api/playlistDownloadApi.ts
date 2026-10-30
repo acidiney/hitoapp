@@ -1,9 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { HttpError, request, requestJson } from "../../../shared/http";
-import type {
-  DownloadRequest,
-  PlaylistDownloadReceipt,
-  PlaylistDownloadStatus,
-} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const states = new Set([
@@ -17,7 +13,10 @@ const states = new Set([
   "unavailable",
 ]);
 
-function validStatus(value: PlaylistDownloadStatus, playlist: string) {
+function validStatus(
+  value: Schema<"PlaylistDownloadStatus">,
+  playlist: string,
+) {
   return (
     value?.playlist_id === playlist &&
     uuid.test(value.retention_id) &&
@@ -53,9 +52,9 @@ export const playlistDownloadApi = {
   async create(
     account: string,
     playlist: string,
-    body: Readonly<DownloadRequest>,
+    body: Readonly<Schema<"DownloadRequest">>,
     signal: AbortSignal,
-  ): Promise<PlaylistDownloadReceipt> {
+  ): Promise<Schema<"PlaylistDownloadReceipt">> {
     const response = await request(
       `/playlists/${encodeURIComponent(playlist)}/download`,
       {
@@ -68,7 +67,7 @@ export const playlistDownloadApi = {
     );
     if (response.status !== 202)
       throw new Error("Hito did not confirm playlist download creation");
-    const receipt: PlaylistDownloadReceipt = await response.json();
+    const receipt: Schema<"PlaylistDownloadReceipt"> = await response.json();
     if (
       receipt?.request_id !== body.request_id ||
       receipt.playlist_id !== playlist ||
@@ -81,17 +80,15 @@ export const playlistDownloadApi = {
     account: string,
     playlist: string,
     signal: AbortSignal,
-  ): Promise<PlaylistDownloadStatus | null> {
+  ): Promise<Schema<"PlaylistDownloadStatus"> | null> {
     try {
-      const status: PlaylistDownloadStatus =
-        await requestJson<PlaylistDownloadStatus>(
-          `/playlists/${encodeURIComponent(playlist)}/download`,
-          {
-            action: "downloads.status",
-            account,
-            signal,
-          },
-        );
+      const status: Schema<"PlaylistDownloadStatus"> = await requestJson<
+        Schema<"PlaylistDownloadStatus">
+      >(`/playlists/${encodeURIComponent(playlist)}/download`, {
+        action: "downloads.status",
+        account,
+        signal,
+      });
       if (!validStatus(status, playlist))
         throw new Error("Hito returned an invalid playlist download status");
       return status;

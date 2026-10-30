@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,10 +10,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistDownloadStatus,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import {
   copiedPlaylistPage,
   recordingA,
@@ -30,7 +28,7 @@ test("retrying failed playlist downloads sends one fresh request and keeps the s
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -42,7 +40,7 @@ test("retrying failed playlist downloads sends one fresh request and keeps the s
   const path = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const retention = "f8f80ea5-1a30-455c-b528-90ef3201bede";
   let repaired = false;
-  function status(): PlaylistDownloadStatus {
+  function status(): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: props.detail.playlist.id,

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,7 +17,6 @@ import {
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "../fixtures/audiobooks";
-import type { SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -62,7 +62,7 @@ test("editing an unsent draft retains the failed refresh's independent GET-only 
   const label = "Private checked bookmark before a failed refresh";
   const nextLabel = "Private unsent draft after the read failure";
   const held = heldAudiobookBody({ ...page.detail, bookmarks: [] });
-  let batch: SyncBatch | undefined;
+  let batch: Schema<"SyncBatch"> | undefined;
   let reads = 0;
   request.mockImplementation(async (input, options) => {
     expect(options?.credentials).toBe("same-origin");
@@ -72,7 +72,7 @@ test("editing an unsent draft retains the failed refresh's independent GET-only 
     expect(new Headers(options?.headers).get("x-hito-request")).toBe("1");
     expect(options?.signal).toBeInstanceOf(AbortSignal);
     if (input === "/api/v1/sync" && options?.method === "POST" && !batch) {
-      batch = JSON.parse(String(options.body)) as SyncBatch;
+      batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });

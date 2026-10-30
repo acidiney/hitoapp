@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { prepareChange, submitChange } from "../../../shared/sync";
@@ -5,12 +6,12 @@ import { audiobookApi } from "../api/audiobookApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { Playlist, SyncBatch } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt = {
-  playlist: Playlist;
-  batch: SyncBatch;
+  playlist: Schema<"Playlist">;
+  batch: Schema<"SyncBatch">;
   acknowledged: boolean;
 };
 type Owner = {
@@ -33,8 +34,8 @@ type State = {
 
 export function useAudiobookGrouping(
   account: string,
-  playlists: Playlist[],
-  books: Playlist[],
+  playlists: Schema<"Playlist">[],
+  books: Schema<"Playlist">[],
 ) {
   const scope = useRequestScope(account);
   const owner = useMemo<Owner>(

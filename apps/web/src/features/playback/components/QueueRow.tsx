@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ChevronDown, ChevronUp, GripVertical, X } from "lucide-react";
 import Artwork from "../../artwork/components/Artwork";
-import { coverIdentity } from "../../artwork/coverIdentity";
+import { coverIdentity } from "../../artwork/model/coverIdentity";
 import { time } from "../../../shared/format";
 import type { PlaybackOccurrence } from "../model";
 import { QUEUE_ROW } from "../hooks/useQueueWindow";

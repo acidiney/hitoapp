@@ -1,32 +1,28 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import MetadataPreferences from "../components/MetadataPreferences";
-import type {
-  MetadataProvider,
-  MetadataSettings,
-  PluginInstallation,
-  PluginService,
-  PluginSettings,
-} from "../../../shared/types";
 
-export const builtin: MetadataProvider = { kind: "builtin_musicbrainz" };
+export const builtin: Schema<"MetadataProvider"> = {
+  kind: "builtin_musicbrainz",
+};
 
 export function settings(
-  providers: MetadataProvider[] = [builtin],
+  providers: Schema<"MetadataProvider">[] = [builtin],
   revision = 0,
   enabled = true,
-): MetadataSettings {
+): Schema<"MetadataSettings"> {
   return { revision, enabled, providers: [...providers] };
 }
 
 export function catalog(index: number, name = `Personal catalog ${index}`) {
   const suffix = String(index).padStart(12, "0");
-  const service: PluginService = {
+  const service: Schema<"PluginService"> = {
     id: `10000000-0000-4000-8000-${suffix}`,
     name,
     base_url: `https://catalog-${index}.invalid/`,
     revision: 1,
   };
-  const installation: PluginInstallation = {
+  const installation: Schema<"PluginInstallation"> = {
     id: `20000000-0000-4000-8000-${suffix}`,
     service_id: service.id,
     revision: 1,
@@ -44,7 +40,7 @@ export function catalog(index: number, name = `Personal catalog ${index}`) {
 
 export function connections(
   items: ReturnType<typeof catalog>[] = [],
-): PluginSettings {
+): Schema<"PluginSettings"> {
   return {
     credential_storage_ready: true,
     services: items.map((item) => item.service),
@@ -52,7 +48,9 @@ export function connections(
   };
 }
 
-export function reference(item: ReturnType<typeof catalog>): MetadataProvider {
+export function reference(
+  item: ReturnType<typeof catalog>,
+): Schema<"MetadataProvider"> {
   return { kind: "http_plugin", installation_id: item.installation.id };
 }
 

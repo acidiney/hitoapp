@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link, router } from "@inertiajs/react";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
+
 import Artwork from "../../artwork/components/Artwork";
 import ArtworkStatus from "../../artwork/components/ArtworkStatus";
 import MetadataEditor from "../../metadata/components/MetadataEditor";
@@ -19,7 +20,7 @@ export default function RecordingDetailsPage({
   user,
   detail,
   native_playback,
-}: RecordingDetailsPageProps) {
+}: Schema<"RecordingDetailsPageProps">) {
   const download = useRecordingDownload(user.id, detail.recording_id);
   const lyrics = useRecordingLyrics(user.id, detail);
   const choice = useSourceChoice(

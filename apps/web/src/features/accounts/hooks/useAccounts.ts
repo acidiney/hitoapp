@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useState } from "react";
 import { accountsApi } from "../api/accountsApi";
 import { errorMessage } from "../../../shared/format";
 import { useNotice } from "../../../shared/ui/Notices";
-import type { User } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export function useAccounts(account: string) {
@@ -10,7 +11,7 @@ export function useAccounts(account: string) {
   const scope = useRequestScope(account);
   const [listing, setListing] = useState<{
     scope: typeof scope;
-    users: User[];
+    users: Schema<"User">[];
   }>({ scope, users: [] });
   const [pendingScope, setPendingScope] = useState<typeof scope | null>(null);
   useEffect(() => {
@@ -61,7 +62,11 @@ export function useAccounts(account: string) {
     }
   }
 
-  async function access(library: string, user: User, allowed: boolean) {
+  async function access(
+    library: string,
+    user: Schema<"User">,
+    allowed: boolean,
+  ) {
     const request = scope.capture();
     try {
       await accountsApi.setLibraryAccess(

@@ -1,21 +1,23 @@
+import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import type { PluginInstallation, PluginRefresh } from "../../../shared/types";
+
 import type { PluginActions } from "../hooks/usePlugins";
 import Button from "../../../shared/ui/Button";
 import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
-type Review = Extract<PluginRefresh, { kind: "review_required" }>;
-const capabilities = (values: PluginInstallation["manifest"]["capabilities"]) =>
-  values.map((value) => value.replaceAll("_", " ")).join(", ");
+type Review = Extract<Schema<"PluginRefresh">, { kind: "review_required" }>;
+const capabilities = (
+  values: Schema<"PluginInstallation">["manifest"]["capabilities"],
+) => values.map((value) => value.replaceAll("_", " ")).join(", ");
 export default function PluginConnection({
   plugin,
   actions,
   storageReady,
   onRemoved,
 }: {
-  plugin: PluginInstallation;
+  plugin: Schema<"PluginInstallation">;
   actions: PluginActions;
   storageReady: boolean;
   onRemoved: () => void;

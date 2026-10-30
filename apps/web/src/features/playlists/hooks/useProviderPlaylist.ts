@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
@@ -5,17 +6,12 @@ import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  FollowProviderPlaylist,
-  ImportProviderPlaylist,
-  PlaylistFollowInterval,
-  PluginInstallation,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type PlaylistAttempt =
-  | { kind: "copy"; body: Readonly<ImportProviderPlaylist> }
-  | { kind: "follow"; body: Readonly<FollowProviderPlaylist> };
+  | { kind: "copy"; body: Readonly<Schema<"ImportProviderPlaylist">> }
+  | { kind: "follow"; body: Readonly<Schema<"FollowProviderPlaylist">> };
 
 export type PlaylistCreationMode = PlaylistAttempt["kind"];
 
@@ -27,7 +23,7 @@ type PlaylistOwner = {
 
 export function useProviderPlaylist(
   account: string,
-  connection: PluginInstallation | null,
+  connection: Schema<"PluginInstallation"> | null,
 ) {
   const scope = useRequestScope(
     JSON.stringify([account, connection?.id, connection?.revision]),
@@ -132,7 +128,7 @@ export function useProviderPlaylist(
   async function create(
     reference: string,
     kind: PlaylistCreationMode,
-    interval: PlaylistFollowInterval,
+    interval: Schema<"PlaylistFollowInterval">,
   ): Promise<boolean> {
     if (owner.run?.active() || !scope.capture().active() || !connection)
       return false;

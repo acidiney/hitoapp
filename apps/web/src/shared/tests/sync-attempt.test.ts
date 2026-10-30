@@ -1,8 +1,8 @@
+import type { Schema } from "../schema";
 import { beforeEach, expect, test, vi } from "vitest";
 import { prepareChange, submitChange } from "../sync";
-import type { Action, SyncBatch, SyncReceipt } from "../types";
 
-const action: Action = {
+const action: Schema<"Action"> = {
   kind: "playlist_follow_resume",
   playlist_id: "9fc57926-55f4-47ca-81e0-e8ca89c889cd",
   expected_generation: 3,
@@ -22,7 +22,7 @@ beforeEach(() => {
 test("a prepared Resume retries the same device, operation and action after a lost response", async () => {
   const fetch = vi.fn<typeof globalThis.fetch>();
   vi.stubGlobal("fetch", fetch);
-  const batch: SyncBatch = prepareChange(action);
+  const batch: Schema<"SyncBatch"> = prepareChange(action);
   expect(fetch).not.toHaveBeenCalled();
   expect(batch.device_id).toMatch(uuid);
   expect(localStorage.getItem("hito-device")).toBe(batch.device_id);
@@ -31,7 +31,9 @@ test("a prepared Resume retries the same device, operation and action after a lo
   ]);
   expect(batch.operations[0].id).not.toBe(batch.device_id);
   const prepared = JSON.stringify(batch);
-  const receipt: SyncReceipt = { acknowledged: [batch.operations[0].id] };
+  const receipt: Schema<"SyncReceipt"> = {
+    acknowledged: [batch.operations[0].id],
+  };
   const lost = new TypeError("Owned sync fixture lost its response");
   fetch
     .mockRejectedValueOnce(lost)
@@ -65,7 +67,7 @@ test("a prepared Resume retries the same device, operation and action after a lo
   expect(localStorage.getItem("hito-device")).toBe(batch.device_id);
 });
 
-test.each<SyncReceipt>([
+test.each<Schema<"SyncReceipt">>([
   { acknowledged: [] },
   { acknowledged: ["f54d4874-0039-4992-874a-fc26e4dd911b"] },
 ])(
@@ -77,7 +79,7 @@ test.each<SyncReceipt>([
       .fn<typeof globalThis.fetch>()
       .mockResolvedValue(Response.json(receipt));
     vi.stubGlobal("fetch", fetch);
-    const batch: SyncBatch = prepareChange(action);
+    const batch: Schema<"SyncBatch"> = prepareChange(action);
     expect(batch.device_id).toBe(savedDevice);
     const prepared = JSON.stringify(batch);
 

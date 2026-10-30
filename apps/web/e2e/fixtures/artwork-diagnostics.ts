@@ -1,7 +1,6 @@
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type Phase =
   | "sign-in"
   | "copies"
@@ -11,7 +10,7 @@ export type Phase =
   | "disconnected";
 
 export function artworkDiagnostics(origin: string, currentPhase: () => Phase) {
-  const imports: Schema["ImportProviderPlaylist"][] = [];
+  const imports: Schema<"ImportProviderPlaylist">[] = [];
   const artworkEnqueues: { phase: Phase; path: string }[] = [];
   const logs: Promise<string>[] = [];
   const urls: string[] = [];

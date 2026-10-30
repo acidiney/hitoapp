@@ -1,25 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  PodcastEpisodePage,
-  PodcastRefreshReceipt,
-  PodcastUnsubscribeReceipt,
-  PodcastSubscription,
-  PodcastSubscriptionReceipt,
-  RecordingProgress,
-  RefreshPodcast,
-  SavedPlaybackRequest,
-  SubscribePodcast,
-  UnsubscribePodcast,
-} from "../../../shared/types";
 
 export const podcastApi = {
   async unsubscribe(
     account: string,
     subscription: string,
-    body: Readonly<UnsubscribePodcast>,
+    body: Readonly<Schema<"UnsubscribePodcast">>,
     signal: AbortSignal,
-  ): Promise<PodcastUnsubscribeReceipt> {
-    return requestJson<PodcastUnsubscribeReceipt>(
+  ): Promise<Schema<"PodcastUnsubscribeReceipt">> {
+    return requestJson<Schema<"PodcastUnsubscribeReceipt">>(
       `/podcasts/${encodeURIComponent(subscription)}/unsubscribe`,
       {
         action: "podcasts.unsubscribe",
@@ -33,10 +22,10 @@ export const podcastApi = {
   async refresh(
     account: string,
     subscription: string,
-    body: Readonly<RefreshPodcast>,
+    body: Readonly<Schema<"RefreshPodcast">>,
     signal: AbortSignal,
-  ): Promise<PodcastRefreshReceipt> {
-    return requestJson<PodcastRefreshReceipt>(
+  ): Promise<Schema<"PodcastRefreshReceipt">> {
+    return requestJson<Schema<"PodcastRefreshReceipt">>(
       `/podcasts/${encodeURIComponent(subscription)}/refresh`,
       {
         action: "podcasts.refresh",
@@ -53,10 +42,10 @@ export const podcastApi = {
     limit: number,
     after: string | null,
     signal: AbortSignal,
-  ): Promise<PodcastEpisodePage> {
+  ): Promise<Schema<"PodcastEpisodePage">> {
     const query = new URLSearchParams({ limit: String(limit) });
     if (after !== null) query.set("after", after);
-    return requestJson<PodcastEpisodePage>(
+    return requestJson<Schema<"PodcastEpisodePage">>(
       `/podcasts/${encodeURIComponent(subscription)}/episodes?${query}`,
       { action: "podcasts.episodes", account, signal },
     );
@@ -65,20 +54,22 @@ export const podcastApi = {
     account: string,
     recordings: string[],
     signal: AbortSignal,
-  ): Promise<RecordingProgress[]> {
-    return requestJson<RecordingProgress[]>("/recordings/progress", {
+  ): Promise<Schema<"RecordingProgress">[]> {
+    return requestJson<Schema<"RecordingProgress">[]>("/recordings/progress", {
       action: "podcasts.progress",
       method: "POST",
       account,
       signal,
-      body: { recording_ids: recordings } satisfies SavedPlaybackRequest,
+      body: {
+        recording_ids: recordings,
+      } satisfies Schema<"SavedPlaybackRequest">,
     });
   },
   async subscriptions(
     account: string,
     signal: AbortSignal,
-  ): Promise<PodcastSubscription[]> {
-    return requestJson<PodcastSubscription[]>("/podcasts", {
+  ): Promise<Schema<"PodcastSubscription">[]> {
+    return requestJson<Schema<"PodcastSubscription">[]>("/podcasts", {
       action: "podcasts.status",
       account,
       signal,
@@ -86,10 +77,10 @@ export const podcastApi = {
   },
   async subscribe(
     account: string,
-    body: Readonly<SubscribePodcast>,
+    body: Readonly<Schema<"SubscribePodcast">>,
     signal: AbortSignal,
-  ): Promise<PodcastSubscriptionReceipt> {
-    return requestJson<PodcastSubscriptionReceipt>("/podcasts", {
+  ): Promise<Schema<"PodcastSubscriptionReceipt">> {
+    return requestJson<Schema<"PodcastSubscriptionReceipt">>("/podcasts", {
       action: "podcasts.subscribe",
       method: "POST",
       account,

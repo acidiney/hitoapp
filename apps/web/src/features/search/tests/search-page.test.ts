@@ -1,12 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SearchPage from "../pages/SearchPage";
-import type {
-  PluginInstallation,
-  Recording,
-  SearchPageProps,
-} from "../../../shared/types";
 
 const { player, router } = vi.hoisted(() => ({
   player: {
@@ -28,7 +24,7 @@ const recording = (
   id: string,
   title: string,
   available: boolean,
-): Recording => ({
+): Schema<"Recording"> => ({
   id,
   title,
   artist: "Shore",
@@ -41,7 +37,7 @@ const recording = (
   available,
   liked: false,
 });
-const connection: PluginInstallation = {
+const connection: Schema<"PluginInstallation"> = {
   id: "connection",
   service_id: "service",
   revision: 1,
@@ -60,7 +56,9 @@ const page = <T>(items: T[]) => ({
   offset: 0,
   limit: 8,
 });
-const props = (over: Partial<SearchPageProps> = {}): SearchPageProps => ({
+const props = (
+  over: Partial<Schema<"SearchPageProps">> = {},
+): Schema<"SearchPageProps"> => ({
   errors: {},
   native_playback: false,
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },

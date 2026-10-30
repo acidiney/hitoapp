@@ -1,8 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type GateAudioReply = {
   status: 200 | 206;
   start?: number;
@@ -35,7 +34,7 @@ export async function audiobookPlaybackGateFixture(
     length: number,
     request: { ordinal: number; range: string | undefined },
   ) => GateAudioReply | undefined,
-  beforeSyncReceipt?: (batch: Schema["SyncBatch"]) => Promise<void>,
+  beforeSyncReceipt?: (batch: Schema<"SyncBatch">) => Promise<void>,
 ) {
   const recordings = [
     "10000000-0000-4000-8000-000000000001",
@@ -51,9 +50,9 @@ export async function audiobookPlaybackGateFixture(
       ready: true,
       label: "Owned playback gate audio",
       can_prepare: false,
-    } satisfies Schema["Source"],
+    } satisfies Schema<"Source">,
   ]);
-  const book: Schema["AudiobookDetail"] = {
+  const book: Schema<"AudiobookDetail"> = {
     playlist: {
       id: "30000000-0000-4000-8000-000000000001",
       name: "Owned playback gate book",
@@ -160,7 +159,7 @@ export async function audiobookPlaybackGateFixture(
         }
         const batch = JSON.parse(
           Buffer.concat(chunks).toString(),
-        ) as Schema["SyncBatch"];
+        ) as Schema<"SyncBatch">;
         counts.sync++;
         await beforeSyncReceipt?.(batch);
         response

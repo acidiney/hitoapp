@@ -1,8 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { Release } from "../../../shared/types";
+
 import Artwork from "../../artwork/components/Artwork";
 
-export default function AlbumGrid({ releases }: { releases: Release[] }) {
+export default function AlbumGrid({
+  releases,
+}: {
+  releases: Schema<"Release">[];
+}) {
   return (
     <div className="album-grid">
       {releases.map((release) => (

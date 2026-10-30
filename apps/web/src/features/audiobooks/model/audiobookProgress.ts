@@ -1,4 +1,4 @@
-import type { AudiobookDetail } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export type AudiobookProgress = {
   chapterNumber: number;
@@ -11,7 +11,7 @@ export type AudiobookProgress = {
  * for every chapter.
  */
 export function audiobookProgress(
-  detail: AudiobookDetail,
+  detail: Schema<"AudiobookDetail">,
 ): AudiobookProgress | null {
   const continuation = detail.continuation;
   if (!continuation?.progress) return null;

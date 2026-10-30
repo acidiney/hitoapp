@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 function fields(
   value: unknown,
@@ -26,12 +24,12 @@ export async function playlistFollowFixture() {
     name: "Owned playlist Follow fixture",
     protocol_version: 1,
     capabilities: ["playlists"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const reviewedManifest = {
     ...manifest,
     name: "Reviewed playlist Follow fixture",
-  } satisfies Schema["Manifest"];
-  let currentManifest: Schema["Manifest"] = manifest;
+  } satisfies Schema<"Manifest">;
+  let currentManifest: Schema<"Manifest"> = manifest;
   const recordings = {
     a: {
       id: "recording/a",
@@ -51,7 +49,7 @@ export async function playlistFollowFixture() {
       artist: "Owned Follow fixture artist",
       duration_ms: 145000,
     },
-  } satisfies Record<string, Schema["ProviderRecording"]>;
+  } satisfies Record<string, Schema<"ProviderRecording">>;
   const first = {
     occurrence_id: "first-a",
     item: { kind: "recording", recording: recordings.a },

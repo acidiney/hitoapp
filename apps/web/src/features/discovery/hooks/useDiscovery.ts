@@ -1,20 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  PluginInstallation,
-  ProviderRecording,
-  Recording,
-} from "../../../shared/types";
+
 import type { Player } from "../../playback/model";
 
 type Work = {
   generation: number;
   search: AbortController | null;
   adoption: AbortController | null;
-  saved: ReadonlyMap<string, Recording>;
+  saved: ReadonlyMap<string, Schema<"Recording">>;
 };
 export type ProviderSelection = {
   id: string;
@@ -26,19 +23,19 @@ type Results = {
   owner: Work;
   generation: number;
   query: string;
-  items: ProviderRecording[];
+  items: Schema<"ProviderRecording">[];
   next: string | null;
   cursors: (string | null)[];
   page: number;
   pending: boolean;
   error: string;
-  saved: ReadonlyMap<string, Recording>;
+  saved: ReadonlyMap<string, Schema<"Recording">>;
   selection: ProviderSelection | null;
 };
 
 export function useDiscovery(
   account: string,
-  connection: PluginInstallation | null,
+  connection: Schema<"PluginInstallation"> | null,
   player: Pick<Player, "prepareSelection">,
 ) {
   const scope = useRequestScope(
@@ -142,7 +139,10 @@ export function useDiscovery(
         : current.cursors;
     return loadPage(current.query, cursors, page, current);
   }
-  async function select(hit: ProviderRecording, intent: "play" | "save") {
+  async function select(
+    hit: Schema<"ProviderRecording">,
+    intent: "play" | "save",
+  ) {
     const request = scope.capture();
     if (
       !request.active() ||
@@ -236,7 +236,7 @@ export function useDiscovery(
     hasPrevious: (current?.page ?? 0) > 0,
     pending: current?.pending ?? false,
     error: current?.error ?? "",
-    saved: current?.saved ?? new Map<string, Recording>(),
+    saved: current?.saved ?? new Map<string, Schema<"Recording">>(),
     selection: current?.selection ?? null,
     select,
     search: (query: string) => loadPage(query, [null], 0, null),

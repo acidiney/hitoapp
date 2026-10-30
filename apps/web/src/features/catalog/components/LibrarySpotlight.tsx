@@ -1,15 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { Play, ArrowUpRight, ListMusic } from "lucide-react";
 import { Link } from "@inertiajs/react";
-import type { Playlist, Recording } from "../../../shared/types";
+
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import Artwork from "../../artwork/components/Artwork";
+import Button from "../../../shared/ui/Button";
 
 export default function LibrarySpotlight({
   tracks,
   playlists,
 }: {
-  tracks: Recording[];
-  playlists: Playlist[];
+  tracks: Schema<"Recording">[];
+  playlists: Schema<"Playlist">[];
 }) {
   const player = usePlayer();
   const index = Math.max(
@@ -39,12 +41,12 @@ export default function LibrarySpotlight({
           {track.album && track.album !== "Unknown album" && (
             <span className="spotlight-album">{track.album}</span>
           )}
-          <button
-            className="button primary"
+          <Button
+            variant="primary"
             onClick={() => void player.playQueue(tracks, index)}
           >
             <Play size={17} fill="currentColor" /> Play featured track
-          </button>
+          </Button>
         </div>
       </section>
       <section className="collection-shortcuts" aria-label="Your collections">

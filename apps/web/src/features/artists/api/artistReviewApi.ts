@@ -1,14 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  ArtistAssociation,
-  ArtistCandidatePreviewAvailability,
-  ArtistCandidateSearchAvailability,
-  ArtistProfileAvailability,
-  ArtistReviewContext,
-  BeginArtistReview,
-  SearchArtistCandidates,
-  SelectArtistCandidate,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -16,10 +7,10 @@ export const artistReviewApi = {
   async context(
     account: string,
     recording: string,
-    body: BeginArtistReview,
+    body: Schema<"BeginArtistReview">,
     signal: AbortSignal,
-  ): Promise<ArtistReviewContext> {
-    return requestJson<ArtistReviewContext>(
+  ): Promise<Schema<"ArtistReviewContext">> {
+    return requestJson<Schema<"ArtistReviewContext">>(
       `/recordings/${part(recording)}/artist-review/context`,
       {
         action: "artist_review.context",
@@ -33,10 +24,10 @@ export const artistReviewApi = {
   async search(
     account: string,
     recording: string,
-    body: SearchArtistCandidates,
+    body: Schema<"SearchArtistCandidates">,
     signal: AbortSignal,
-  ): Promise<ArtistCandidateSearchAvailability> {
-    return requestJson<ArtistCandidateSearchAvailability>(
+  ): Promise<Schema<"ArtistCandidateSearchAvailability">> {
+    return requestJson<Schema<"ArtistCandidateSearchAvailability">>(
       `/recordings/${part(recording)}/artist-review/search`,
       {
         action: "artist_review.search",
@@ -50,10 +41,10 @@ export const artistReviewApi = {
   async preview(
     account: string,
     recording: string,
-    body: SelectArtistCandidate,
+    body: Schema<"SelectArtistCandidate">,
     signal: AbortSignal,
-  ): Promise<ArtistCandidatePreviewAvailability> {
-    return requestJson<ArtistCandidatePreviewAvailability>(
+  ): Promise<Schema<"ArtistCandidatePreviewAvailability">> {
+    return requestJson<Schema<"ArtistCandidatePreviewAvailability">>(
       `/recordings/${part(recording)}/artist-review/preview`,
       {
         action: "artist_review.preview",
@@ -67,10 +58,10 @@ export const artistReviewApi = {
   async confirm(
     account: string,
     recording: string,
-    body: SelectArtistCandidate,
+    body: Schema<"SelectArtistCandidate">,
     signal: AbortSignal,
-  ): Promise<ArtistAssociation> {
-    return requestJson<ArtistAssociation>(
+  ): Promise<Schema<"ArtistAssociation">> {
+    return requestJson<Schema<"ArtistAssociation">>(
       `/recordings/${part(recording)}/artist-review/confirm`,
       {
         action: "artist_review.confirm",
@@ -85,8 +76,8 @@ export const artistReviewApi = {
     account: string,
     recording: string,
     signal: AbortSignal,
-  ): Promise<ArtistAssociation[]> {
-    return requestJson<ArtistAssociation[]>(
+  ): Promise<Schema<"ArtistAssociation">[]> {
+    return requestJson<Schema<"ArtistAssociation">[]>(
       `/recordings/${part(recording)}/artist-associations`,
       {
         action: "artist_review.associations",
@@ -100,8 +91,8 @@ export const artistReviewApi = {
     recording: string,
     association: string,
     signal: AbortSignal,
-  ): Promise<ArtistProfileAvailability> {
-    return requestJson<ArtistProfileAvailability>(
+  ): Promise<Schema<"ArtistProfileAvailability">> {
+    return requestJson<Schema<"ArtistProfileAvailability">>(
       `/recordings/${part(recording)}/artist-associations/${part(association)}/profile`,
       {
         action: "artist_review.profile",

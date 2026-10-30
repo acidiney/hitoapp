@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistEditions from "../components/ArtistEditions";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
   bonusEdition,
@@ -27,7 +27,6 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 
-type Schema = components["schemas"];
 const props = {
   account: artistReviewAccount,
   recording: artistReviewDetail.recording_id,
@@ -179,7 +178,7 @@ test("edition browsing stops at fifty explicitly requested bounded pages", async
         ...firstEditionPage.page,
         items: [{ ...bonusEdition, id: `opaque:edition/cap/${page}` }],
       },
-    } satisfies Schema["ReleaseGroupEditionsAvailability"]);
+    } satisfies Schema<"ReleaseGroupEditionsAvailability">);
   const view = render(createElement(ArtistEditions, props));
   try {
     fireEvent.click(screen.getByRole("button", { name: "Browse editions" }));

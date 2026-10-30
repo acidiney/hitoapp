@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import {
@@ -19,7 +20,6 @@ import {
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -27,7 +27,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: RecordingDetailsPageProps) {
+function page(props: Schema<"RecordingDetailsPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -50,7 +50,7 @@ test("an account switch and return retire the original held lyric response befor
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const before = structuredClone(lyricRecordingPage);
   const owner = lyricRecordingPage.user.id;
-  const peer: RecordingDetailsPageProps = {
+  const peer: Schema<"RecordingDetailsPageProps"> = {
     ...lyricRecordingPage,
     user: {
       id: "b5a301e8-c8bd-480c-b5d5-ef4a33015e97",

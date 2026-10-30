@@ -1,29 +1,27 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useState } from "react";
 import { playlistFollowApi } from "../api/playlistFollowApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  PlaylistFollow,
-  RefreshFollowedPlaylist,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { useFollowDetail } from "./useFollowDetail";
 
 type RequestRun = { controller: AbortController };
 type FollowOwner = {
-  follow: PlaylistFollow | null;
+  follow: Schema<"PlaylistFollow"> | null;
   read: RequestRun | null;
   write: RequestRun | null;
   timer: ReturnType<typeof setTimeout> | null;
-  attempt: Readonly<RefreshFollowedPlaylist> | null;
+  attempt: Readonly<Schema<"RefreshFollowedPlaylist">> | null;
   waiting: boolean;
   statusError: string;
   refreshError: string;
 };
 type FollowState = {
   owner: FollowOwner;
-  follow: PlaylistFollow | null;
+  follow: Schema<"PlaylistFollow"> | null;
   loading: boolean;
   pending: boolean;
   hasAttempt: boolean;
@@ -31,7 +29,7 @@ type FollowState = {
   refreshError: string;
 };
 
-function busy(follow: PlaylistFollow | null) {
+function busy(follow: Schema<"PlaylistFollow"> | null) {
   return follow?.status === "queued" || follow?.status === "running";
 }
 
@@ -142,7 +140,7 @@ export function usePlaylistFollow(
   }
 
   async function perform(
-    body: Readonly<RefreshFollowedPlaylist>,
+    body: Readonly<Schema<"RefreshFollowedPlaylist">>,
     action: "refresh" | "retry",
   ): Promise<boolean> {
     const request = scope.capture();

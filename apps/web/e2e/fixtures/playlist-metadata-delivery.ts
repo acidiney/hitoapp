@@ -3,10 +3,8 @@ import type {
   Page,
   Request as BrowserRequest,
 } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { playlistMetadataProvider } from "./playlist-metadata-provider";
-
-type Schema = components["schemas"];
 
 export async function metadataDelivery(
   context: BrowserContext,
@@ -102,10 +100,10 @@ export async function metadataDelivery(
         throw new Error("The metadata receipt exceeded its bound");
       const receipt = JSON.parse(
         bytes.toString(),
-      ) as Schema["ImportedPlaylistMetadataRefresh"];
+      ) as Schema<"ImportedPlaylistMetadataRefresh">;
       const sent = JSON.parse(
         body,
-      ) as Schema["RefreshImportedPlaylistMetadata"];
+      ) as Schema<"RefreshImportedPlaylistMetadata">;
       if (
         receipt.request_id !== sent.request_id ||
         receipt.playlist_id !== playlist ||

@@ -1,10 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  CatalogEditionSummary,
-  CatalogEditionTrackList,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
@@ -13,7 +11,10 @@ const REQUEST_DEADLINE_MS = 20_000;
 const MAX_MEDIA = 256;
 const MAX_OCCURRENCES = 4_096;
 type Owner = { pending: boolean };
-type Available = { association_id: string; edition: CatalogEditionTrackList };
+type Available = {
+  association_id: string;
+  edition: Schema<"CatalogEditionTrackList">;
+};
 type Missing = {
   status:
     | "disabled"
@@ -51,7 +52,7 @@ function unavailable(status: Missing["status"]) {
   }
 }
 
-function occurrenceCount(edition: CatalogEditionTrackList) {
+function occurrenceCount(edition: Schema<"CatalogEditionTrackList">) {
   if (edition.media.length === 0 || edition.media.length > MAX_MEDIA)
     throw new Error("The provider returned an unsupported number of discs.");
   const known = new Set<string>();
@@ -79,7 +80,7 @@ function occurrenceCount(edition: CatalogEditionTrackList) {
 
 export function useEditionTrackRead<T extends Available>(
   context: ArtistEditionContext,
-  chosen: CatalogEditionSummary | null,
+  chosen: Schema<"CatalogEditionSummary"> | null,
   target: unknown,
   read: (signal: AbortSignal) => Promise<EditionRead<T>>,
 ) {

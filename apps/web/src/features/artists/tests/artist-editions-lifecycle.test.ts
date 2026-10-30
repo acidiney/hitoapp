@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistEditions from "../components/ArtistEditions";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
   bonusEdition,
@@ -28,7 +28,6 @@ import {
 import { log } from "../../../shared/log";
 import { flush } from "../../../test/async";
 
-type Schema = components["schemas"];
 type Props = ComponentProps<typeof ArtistEditions>;
 const initial: Props = {
   account: artistReviewAccount,
@@ -49,7 +48,7 @@ function currentPage(props: Props) {
       release_group_id: props.group.id,
       items: [{ ...bonusEdition, title: freshTitle }],
     },
-  } satisfies Schema["ReleaseGroupEditionsAvailability"];
+  } satisfies Schema<"ReleaseGroupEditionsAvailability">;
 }
 
 function currentTracks(props: Props) {
@@ -61,7 +60,7 @@ function currentTracks(props: Props) {
       release_group_id: props.group.id,
       title: freshTitle,
     },
-  } satisfies Schema["EditionTrackListAvailability"];
+  } satisfies Schema<"EditionTrackListAvailability">;
 }
 
 test.each(["listing", "chosen track list"] as const)(

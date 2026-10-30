@@ -8,9 +8,8 @@ import {
 } from "@playwright/test";
 import { manualSourceChoiceFixture } from "./fixtures/manual-source-choice";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 
-type Schema = components["schemas"];
 type Fixture = Awaited<ReturnType<typeof manualSourceChoiceFixture>>;
 type Phase =
   | "configuration"
@@ -73,12 +72,12 @@ async function clickResponse<T>(
 
 async function collection(page: Page, recording: string, playlist: string) {
   const [metadata, detail, activity] = await Promise.all([
-    read<Schema["RecordingMetadata"]>(
+    read<Schema<"RecordingMetadata">>(
       page,
       `/api/v1/recordings/${recording}/metadata`,
     ),
-    read<Schema["PlaylistDetail"]>(page, `/api/v1/playlists/${playlist}`),
-    read<Schema["Activity"]>(page, "/api/v1/activity"),
+    read<Schema<"PlaylistDetail">>(page, `/api/v1/playlists/${playlist}`),
+    read<Schema<"Activity">>(page, "/api/v1/activity"),
   ]);
   return { metadata, detail, activity };
 }
@@ -115,7 +114,7 @@ async function exactSavedBytes(page: Page, source: string, expected: Buffer) {
   expect((await response.body()).equals(expected)).toBe(true);
 }
 async function pause(page: Page) {
-  await clickResponse<Schema["SyncReceipt"]>(
+  await clickResponse<Schema<"SyncReceipt">>(
     page,
     page
       .getByRole("contentinfo", { name: "Audio player", exact: true })
@@ -161,9 +160,9 @@ test("manual source choice saves distinct B audio, plays it locally through prov
   const nestedProbe = "owned-console-nested-canary";
   const consoleProbes = { text: 0, plain: 0, nested: 0 };
   const writes = {
-    downloads: [] as Schema["DownloadRequest"][],
-    choices: [] as Schema["ChooseSource"][],
-    resets: [] as Schema["ResetSourceChoice"][],
+    downloads: [] as Schema<"DownloadRequest">[],
+    choices: [] as Schema<"ChooseSource">[],
+    resets: [] as Schema<"ResetSourceChoice">[],
     reviews: 0,
     attaches: 0,
     resolutions: 0,
@@ -177,11 +176,11 @@ test("manual source choice saves distinct B audio, plays it locally through prov
   const owner = {
     username: "manual-owner",
     password: "owned browser owner password",
-  } satisfies Schema["Credentials"];
+  } satisfies Schema<"Credentials">;
   const listener = {
     username: "manual-listener",
     password: "owned browser listener password",
-  } satisfies Schema["Credentials"];
+  } satisfies Schema<"Credentials">;
   const privateValues = [
     personalTitle,
     personalArtist,
@@ -360,24 +359,24 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     privateValues.push(...fixture.privateValues);
     expect(fixture.audio("a").equals(fixture.audio("b"))).toBe(false);
     const headers = { "x-hito-request": "1", origin };
-    const connections: Schema["PluginInstallation"][] = [];
+    const connections: Schema<"PluginInstallation">[] = [];
     for (const role of ["metadata", "a", "b"] as const) {
       const offered = await page.request.post("/api/v1/plugins/services", {
         headers,
         data: {
           name: `Owned ${role} service`,
           base_url: fixture.addresses[role],
-        } satisfies Schema["OfferPluginService"],
+        } satisfies Schema<"OfferPluginService">,
       });
       expect(offered.status()).toBe(201);
-      const service: Schema["PluginService"] = await offered.json();
+      const service: Schema<"PluginService"> = await offered.json();
       const installed = await page.request.post("/api/v1/plugins", {
         headers,
         data: {
           service_id: service.id,
           service_revision: service.revision,
           bearer_token: fixture.token,
-        } satisfies Schema["InstallPlugin"],
+        } satisfies Schema<"InstallPlugin">,
       });
       expect(installed.status()).toBe(201);
       connections.push(await installed.json());
@@ -398,7 +397,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         exact: true,
       })
       .fill(fixture.reference);
-    const imported = await clickResponse<Schema["PlaylistImportReceipt"]>(
+    const imported = await clickResponse<Schema<"PlaylistImportReceipt">>(
       page,
       form.getByRole("button", { name: "Import a copy", exact: true }),
       `/api/v1/plugins/${connections[0].id}/playlists/import`,
@@ -409,7 +408,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
           new URL(page.url()).pathname === `/playlists/${imported.playlist_id}`,
       )
       .toBe(true);
-    const initial = await read<Schema["PlaylistDetail"]>(
+    const initial = await read<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${imported.playlist_id}`,
     );
@@ -429,7 +428,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     const sourcesPath = `/api/v1/recordings/${recording}/sources`;
     const choicePath = `/api/v1/recordings/${recording}/source-choice`;
     const downloadPath = `/api/v1/recordings/${recording}/download`;
-    expect((await read<Schema["Source"][]>(page, sourcesPath)).length).toBe(0);
+    expect((await read<Schema<"Source">[]>(page, sourcesPath)).length).toBe(0);
     expect((await page.request.get(downloadPath)).status()).toBe(404);
     expect(
       writes.downloads.length +
@@ -439,7 +438,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     ).toBe(0);
 
     phase = "personal_state";
-    const operations: Schema["SyncBatch"] = {
+    const operations: Schema<"SyncBatch"> = {
       device_id: "manual-source-browser",
       operations: [
         {
@@ -512,7 +511,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         { timeout: 20_000 },
       )
       .toBe(true);
-    const autoSources = await read<Schema["Source"][]>(page, sourcesPath);
+    const autoSources = await read<Schema<"Source">[]>(page, sourcesPath);
     const sourceA = autoSources.find(
       (source) =>
         source.provider === "plugin" && source.label === fixture.labels.a,
@@ -570,7 +569,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       name: "Download",
       exact: true,
     });
-    const first = await clickResponse<Schema["DownloadReceipt"]>(
+    const first = await clickResponse<Schema<"DownloadReceipt">>(
       page,
       download.getByRole("button", { name: "Download", exact: true }),
       downloadPath,
@@ -580,7 +579,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       "Saved on this server",
       { timeout: 30_000 },
     );
-    const savedA = await read<Schema["DownloadStatus"]>(page, downloadPath);
+    const savedA = await read<Schema<"DownloadStatus">>(page, downloadPath);
     if (!savedA.source_id)
       throw new Error("The explicit A download must publish its saved source");
     expect(
@@ -596,7 +595,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       name: "Audio availability",
       exact: true,
     });
-    await clickResponse<Schema["Source"][]>(
+    await clickResponse<Schema<"Source">[]>(
       page,
       availability.getByRole("button", {
         name: "Check availability",
@@ -636,7 +635,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     await expect(
       attachment.getByRole("button", { name: "Review match", exact: true }),
     ).toBeEnabled();
-    const review = await clickResponse<Schema["ProviderSourceReview"]>(
+    const review = await clickResponse<Schema<"ProviderSourceReview">>(
       page,
       attachment.getByRole("button", { name: "Review match", exact: true }),
       `${sourcesPath}/review`,
@@ -649,7 +648,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     await expect(
       comparison.getByRole("button", { name: "Use this source", exact: true }),
     ).toBeEnabled();
-    const attached = await clickResponse<Schema["Recording"]>(
+    const attached = await clickResponse<Schema<"Recording">>(
       page,
       comparison.getByRole("button", { name: "Use this source", exact: true }),
       `${sourcesPath}/attach`,
@@ -673,7 +672,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         draftValue,
       ),
     ).toBe(true);
-    const afterAttachment = await read<Schema["SourceChoice"]>(
+    const afterAttachment = await read<Schema<"SourceChoice">>(
       page,
       choicePath,
     );
@@ -697,7 +696,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
 
     phase = "choose_b";
     await bRadio.check();
-    const chosen = await clickResponse<Schema["SourceChoiceReceipt"]>(
+    const chosen = await clickResponse<Schema<"SourceChoiceReceipt">>(
       page,
       choices.getByRole("button", { name: "Use source", exact: true }),
       choicePath,
@@ -718,7 +717,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         exact: true,
       }),
     ).toBeEnabled();
-    const mismatch = await read<Schema["DownloadStatus"]>(page, downloadPath);
+    const mismatch = await read<Schema<"DownloadStatus">>(page, downloadPath);
     expect(
       mismatch.intent_id === savedA.intent_id &&
         mismatch.source_id === savedA.source_id &&
@@ -748,7 +747,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     ).toBe(true);
 
     phase = "download_b";
-    const second = await clickResponse<Schema["DownloadReceipt"]>(
+    const second = await clickResponse<Schema<"DownloadReceipt">>(
       page,
       download.getByRole("button", {
         name: "Download selected source",
@@ -761,7 +760,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       "Saved on this server",
       { timeout: 30_000 },
     );
-    const savedB = await read<Schema["DownloadStatus"]>(page, downloadPath);
+    const savedB = await read<Schema<"DownloadStatus">>(page, downloadPath);
     if (!savedB.source_id)
       throw new Error(
         "The explicit B download must publish its own saved source",
@@ -789,7 +788,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     phase = "saved_b_playback";
     fixture.setReady("b", false);
     fixture.setAudioUnavailable("b", true);
-    await clickResponse<Schema["Source"][]>(
+    await clickResponse<Schema<"Source">[]>(
       page,
       availability.getByRole("button", { name: "Check again", exact: true }),
       `${sourcesPath}/refresh`,
@@ -797,7 +796,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     await expect(
       availability.getByRole("button", { name: "Play track", exact: true }),
     ).toBeEnabled();
-    const unavailable = await read<Schema["Source"][]>(page, sourcesPath);
+    const unavailable = await read<Schema<"Source">[]>(page, sourcesPath);
     expect(
       unavailable.some(
         (source) => source.id === entryB.source.id && !source.ready,
@@ -891,11 +890,11 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     ).toBe(true);
 
     phase = "reset";
-    const latest = await read<Schema["SourceChoice"]>(page, choicePath);
+    const latest = await read<Schema<"SourceChoice">>(page, choicePath);
     const mediaBeforeReset = await plays();
     const readsBeforeReset = audioReads.length;
     const resolutionsBeforeReset = writes.resolutions;
-    const reset = await clickResponse<Schema["SourceChoiceResetReceipt"]>(
+    const reset = await clickResponse<Schema<"SourceChoiceResetReceipt">>(
       page,
       choices.getByRole("button", { name: "Return to automatic", exact: true }),
       `${choicePath}/reset`,
@@ -908,7 +907,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         writes.resets[0].expected_revision === latest.revision &&
         writes.resets[0].request_id === reset.request_id,
     ).toBe(true);
-    const automatic = await read<Schema["SourceChoice"]>(page, choicePath);
+    const automatic = await read<Schema<"SourceChoice">>(page, choicePath);
     expect(
       automatic.mode === "automatic" &&
         automatic.revision === reset.revision &&
@@ -994,12 +993,12 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       other.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
     expect(
-      (await read<Schema["RecordingPage"]>(other, "/api/v1/recordings")).items
+      (await read<Schema<"RecordingPage">>(other, "/api/v1/recordings")).items
         .length +
-        (await read<Schema["Playlist"][]>(other, "/api/v1/playlists")).length +
-        (await read<Schema["Activity"]>(other, "/api/v1/activity")).history
+        (await read<Schema<"Playlist">[]>(other, "/api/v1/playlists")).length +
+        (await read<Schema<"Activity">>(other, "/api/v1/activity")).history
           .length +
-        (await read<Schema["PluginSettings"]>(other, "/api/v1/plugins"))
+        (await read<Schema<"PluginSettings">>(other, "/api/v1/plugins"))
           .installations.length,
     ).toBe(0);
     for (const path of [
@@ -1016,14 +1015,14 @@ test("manual source choice saves distinct B audio, plays it locally through prov
         {
           request_id: randomUUID(),
           source_id: entryB.source.id,
-        } satisfies Schema["ChooseSource"],
+        } satisfies Schema<"ChooseSource">,
       ],
       [
         `${choicePath}/reset`,
         {
           request_id: randomUUID(),
           expected_revision: reset.revision,
-        } satisfies Schema["ResetSourceChoice"],
+        } satisfies Schema<"ResetSourceChoice">,
       ],
     ] as const)
       expect((await other.request.post(path, { headers, data })).status()).toBe(
@@ -1035,8 +1034,8 @@ test("manual source choice saves distinct B audio, plays it locally through prov
     ).toBe(0);
 
     phase = "retained_state";
-    const finalChoice = await read<Schema["SourceChoice"]>(page, choicePath);
-    const finalDownload = await read<Schema["DownloadStatus"]>(
+    const finalChoice = await read<Schema<"SourceChoice">>(page, choicePath);
+    const finalDownload = await read<Schema<"DownloadStatus">>(
       page,
       downloadPath,
     );

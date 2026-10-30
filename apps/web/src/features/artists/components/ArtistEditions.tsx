@@ -7,14 +7,15 @@ import { useAlbumEditionTrackList } from "../hooks/useAlbumEditionTrackList";
 import { useArtistEditionTrackList } from "../hooks/useArtistEditionTrackList";
 import AlbumEditionTrackList from "./AlbumEditionTrackList";
 import ArtistEditionTrackList from "./ArtistEditionTrackList";
+import Button from "../../../shared/ui/Button";
 
 export default function ArtistEditions(context: ArtistEditionContext) {
   const [opened, setOpened] = useState(false);
   if (!opened)
     return (
-      <button type="button" className="button" onClick={() => setOpened(true)}>
+      <Button type="button" onClick={() => setOpened(true)}>
         Browse editions
-      </button>
+      </Button>
     );
   return <ArtistEditionBrowser {...context} />;
 }
@@ -45,13 +46,9 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
   }, [read]);
   if (!workflow.opened)
     return (
-      <button
-        type="button"
-        className="button"
-        onClick={() => void workflow.browse()}
-      >
+      <Button type="button" onClick={() => void workflow.browse()}>
         Browse editions
-      </button>
+      </Button>
     );
   return (
     <section aria-label="Editions" aria-busy={workflow.pending}>
@@ -76,15 +73,14 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
             </p>
             <p>{edition.release_date ?? "Release date not provided"}</p>
             <p>{edition.country ?? "Country not provided"}</p>
-            <button
+            <Button
               type="button"
-              className="button"
-              aria-pressed={workflow.chosen?.id === edition.id}
+              pressed={workflow.chosen?.id === edition.id}
               disabled={workflow.pending}
               onClick={() => workflow.choose(edition.id)}
             >
               Choose edition
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -96,34 +92,31 @@ function ArtistEditionBrowser(context: ArtistEditionContext) {
         )}
       {workflow.limited && <p>Showing the first 50 pages of editions.</p>}
       {workflow.error && !workflow.restartRequired && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.retry()}
         >
           Try editions again
-        </button>
+        </Button>
       )}
       {(workflow.restartRequired || (workflow.error && workflow.pages > 0)) && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.restart()}
         >
           Restart editions
-        </button>
+        </Button>
       )}
       {!workflow.error && workflow.continuation && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.more()}
         >
           Load more editions
-        </button>
+        </Button>
       )}
       {workflow.chosen &&
         (context.release === undefined ? (

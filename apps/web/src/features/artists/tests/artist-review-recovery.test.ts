@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   noAssociationChanges,
   artistAssociation,
@@ -20,8 +20,6 @@ import {
   secondCatalog,
 } from "../fixtures/artistReview";
 
-type Schema = components["schemas"];
-
 test("an expired artist confirmation is discarded until an explicit fresh review is confirmed", async () => {
   const errors = vi.spyOn(console, "error");
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -35,16 +33,16 @@ test("an expired artist confirmation is discarded until an explicit fresh review
       ...artistReviewContext.metadata_binding,
       revision: artistReviewContext.metadata_binding.revision + 1,
     },
-  } satisfies Schema["ArtistReviewContext"];
+  } satisfies Schema<"ArtistReviewContext">;
   const freshProfile = {
     ...artistPreview.profile,
     disambiguation: "Profile returned for the fresh artist review",
     revision: "private-provider-profile:12",
-  } satisfies Schema["CatalogArtistProfile"];
+  } satisfies Schema<"CatalogArtistProfile">;
   const freshSelection = {
     context: freshContext,
     provider_artist_id: freshProfile.artist.id,
-  } satisfies Schema["SelectArtistCandidate"];
+  } satisfies Schema<"SelectArtistCandidate">;
   const responses: Response[] = [];
   const reply = (value: unknown, status = 200) => {
     const response = Response.json(value, { status });
@@ -75,7 +73,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
       return reply({
         ...artistSearchResult,
         context: contextReads === 1 ? artistReviewContext : freshContext,
-      } satisfies Schema["ArtistCandidateSearchAvailability"]);
+      } satisfies Schema<"ArtistCandidateSearchAvailability">);
     if (method === "POST" && path === `${review}/preview`)
       return reply(
         contextReads === 1
@@ -84,7 +82,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
               status: "available",
               context: freshContext,
               profile: freshProfile,
-            } satisfies Schema["ArtistCandidatePreviewAvailability"]),
+            } satisfies Schema<"ArtistCandidatePreviewAvailability">),
       );
     if (method === "POST" && path === `${review}/confirm`) {
       confirmations++;
@@ -108,7 +106,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
         status: "available",
         association_id: artistAssociation.id,
         profile: freshProfile,
-      } satisfies Schema["ArtistProfileAvailability"]);
+      } satisfies Schema<"ArtistProfileAvailability">);
     throw new Error(
       "Unexpected HTTP request outside the owned artist review recovery",
     );
@@ -221,7 +219,7 @@ test("an expired artist confirmation is discarded until an explicit fresh review
     expect(JSON.parse(writes()[5][1]?.body as string)).toEqual({
       context: freshContext,
       search: artistSearch,
-    } satisfies Schema["SearchArtistCandidates"]);
+    } satisfies Schema<"SearchArtistCandidates">);
     expect(JSON.parse(writes()[6][1]?.body as string)).toEqual(freshSelection);
     fireEvent.click(
       within(freshPreview).getByRole("button", { name: "Use this artist" }),

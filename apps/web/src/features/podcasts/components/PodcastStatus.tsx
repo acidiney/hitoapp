@@ -1,6 +1,8 @@
-import type { PodcastSubscription } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
-export function checkedAt(subscription: PodcastSubscription): Date | null {
+export function checkedAt(
+  subscription: Schema<"PodcastSubscription">,
+): Date | null {
   return subscription.last_refreshed_at == null
     ? null
     : new Date(subscription.last_refreshed_at * 1000);
@@ -9,7 +11,7 @@ export function checkedAt(subscription: PodcastSubscription): Date | null {
 export default function PodcastStatus({
   subscription,
 }: {
-  subscription: PodcastSubscription;
+  subscription: Schema<"PodcastSubscription">;
 }) {
   const checked = checkedAt(subscription);
   return (

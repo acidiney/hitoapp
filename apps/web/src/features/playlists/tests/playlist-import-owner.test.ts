@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -15,11 +16,7 @@ import {
   playlistConnection,
   playlistImportPage,
 } from "../fixtures/playlistImports";
-import type {
-  ImportProviderPlaylist,
-  PlaylistImportReceipt,
-  PlaylistIndexPageProps,
-} from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -28,7 +25,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-const props: PlaylistIndexPageProps = {
+const props: Schema<"PlaylistIndexPageProps"> = {
   ...playlistImportPage,
   connections: [...playlistImportPage.connections, otherPlaylistConnection],
   service_names: {
@@ -37,7 +34,7 @@ const props: PlaylistIndexPageProps = {
   },
 };
 
-function renderPage(page: PlaylistIndexPageProps) {
+function renderPage(page: Schema<"PlaylistIndexPageProps">) {
   return render(createElement(PlaylistIndexPage, page), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
     reactStrictMode: true,
@@ -89,7 +86,7 @@ test.each(
     expect(fetch.mock.calls[0][1].headers).toMatchObject({
       "x-hito-account": props.user.id,
     });
-    const original: ImportProviderPlaylist = JSON.parse(
+    const original: Schema<"ImportProviderPlaylist"> = JSON.parse(
       String(fetch.mock.calls[0][1].body),
     );
     const oldSignal = fetch.mock.calls[0][1].signal;
@@ -149,7 +146,7 @@ test.each(
 
     submitTwice(currentReference);
     expect(fetch).toHaveBeenCalledTimes(2);
-    const replacement: ImportProviderPlaylist = JSON.parse(
+    const replacement: Schema<"ImportProviderPlaylist"> = JSON.parse(
       String(fetch.mock.calls[1][1].body),
     );
     expect(fetch.mock.calls[1][0]).toBe(
@@ -172,7 +169,7 @@ test.each(
     const obsoleteError = `Private obsolete failure for ${oldReference}`;
     await act(async () => {
       if (outcome === "success") {
-        const receipt: PlaylistImportReceipt = {
+        const receipt: Schema<"PlaylistImportReceipt"> = {
           request_id: original.request_id,
           playlist_id: "7c209e10-583d-4280-a6da-398d99d6cf7d",
         };
@@ -187,7 +184,7 @@ test.each(
         .hasAttribute("disabled"),
     ).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
-    const receipt: PlaylistImportReceipt = {
+    const receipt: Schema<"PlaylistImportReceipt"> = {
       request_id: replacement.request_id,
       playlist_id: "a85a0949-35e6-4c3f-af55-9dc0b718bd06",
     };

@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { createInertiaApp } from "@inertiajs/react";
 import ConnectionErrorPage from "./ConnectionErrorPage";
 import { resolvePage } from "./pages";
-import { installSessionBoundary } from "../features/session/session";
+import { installSessionBoundary } from "../features/session/api/session";
 import { installHistoryPolicy, prepareHistoryPage } from "./historyPolicy";
 import "../style.css";
 

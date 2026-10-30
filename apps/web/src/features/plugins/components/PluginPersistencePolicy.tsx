@@ -1,9 +1,9 @@
-import type { PluginInstallation } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export default function PluginPersistencePolicy({
   policy,
 }: {
-  policy: PluginInstallation["manifest"]["content_policy"];
+  policy: Schema<"PluginInstallation">["manifest"]["content_policy"];
 }) {
   if (policy?.source_persistence === "playback_only")
     return (

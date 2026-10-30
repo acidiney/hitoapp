@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -17,10 +18,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import { recordingA } from "../fixtures/playlistPages";
 import {
   metadataDownloadPath,
@@ -85,7 +83,7 @@ test.each(["request", "network"] as const)(
       if (path === "/api/v1/plugins" && method === "GET")
         return Promise.resolve(Response.json(metadataSettings));
       if (path === metadataPath && method === "POST") {
-        const body: RefreshImportedPlaylistMetadata = JSON.parse(
+        const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
           String(options?.body),
         );
         return Promise.resolve(
@@ -95,7 +93,7 @@ test.each(["request", "network"] as const)(
             updated_recordings: 1,
             unchanged_recordings: 1,
             unavailable_recordings: 0,
-          } satisfies ImportedPlaylistMetadataRefresh),
+          } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
         );
       }
       throw new Error("Unexpected request outside metadata detail recovery");

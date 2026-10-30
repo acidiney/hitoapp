@@ -3,9 +3,8 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type Entity = "recording" | "release" | "playlist";
 const images = {
   recording: "apps/web/e2e/fixtures/images/cover-a.png",
@@ -42,7 +41,7 @@ export async function collectionArtworkProvider() {
       ]),
     ),
   ) as Record<Entity, Buffer>;
-  const manifest: Schema["Manifest"] = {
+  const manifest: Schema<"Manifest"> = {
     id: "org.hito.collection-artwork-browser",
     name: `${prefix} provider`,
     protocol_version: 1,
@@ -67,7 +66,7 @@ export async function collectionArtworkProvider() {
         id: `private-release/${unique}/${label}`,
         title: `${prefix} ${label} album`,
       },
-    } satisfies Schema["ProviderRecording"],
+    } satisfies Schema<"ProviderRecording">,
   }));
   const requests: {
     method: string | undefined;

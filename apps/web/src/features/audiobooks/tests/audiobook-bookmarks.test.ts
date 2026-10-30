@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -11,7 +12,6 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookPage from "../pages/AudiobookPage";
 import { audiobookPages, heldAudiobookBody } from "../fixtures/audiobooks";
-import type { Action, AudiobookDetail, SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -68,16 +68,16 @@ afterEach(() => {
 
 test("explicitly saving and removing a bookmark preserves its exact repeated chapter and other private markers", async () => {
   const { detail: page, bookmark, removedChapterBookmark } = audiobookPages();
-  const original: AudiobookDetail = {
+  const original: Schema<"AudiobookDetail"> = {
     ...page.detail,
     bookmarks: [bookmark, removedChapterBookmark],
   };
   const chapter = original.chapters[2];
   const label = "My private second occurrence note";
-  const writes: SyncBatch[] = [];
+  const writes: Schema<"SyncBatch">[] = [];
   const held: ReturnType<typeof heldAudiobookBody>[] = [];
   let created:
-    | Extract<Action, { kind: "audiobook_bookmark_create" }>
+    | Extract<Schema<"Action">, { kind: "audiobook_bookmark_create" }>
     | undefined;
   request.mockImplementation(async (input, options) => {
     expect(options?.credentials).toBe("same-origin");
@@ -87,7 +87,7 @@ test("explicitly saving and removing a bookmark preserves its exact repeated cha
     expect(new Headers(options?.headers).get("x-hito-request")).toBe("1");
     expect(options?.signal).toBeInstanceOf(AbortSignal);
     if (input === "/api/v1/sync" && options?.method === "POST") {
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       writes.push(batch);
       const action = batch.operations[0].action;
       if (writes.length === 1 && action.kind === "audiobook_bookmark_create")
@@ -106,7 +106,7 @@ test("explicitly saving and removing a bookmark preserves its exact repeated cha
       options?.method === "GET" &&
       created
     ) {
-      const confirmed: AudiobookDetail = {
+      const confirmed: Schema<"AudiobookDetail"> = {
         ...original,
         bookmarks:
           writes.length === 1

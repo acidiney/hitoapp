@@ -1,52 +1,55 @@
+import type { Schema } from "../../../shared/schema";
 import { request, requestJson } from "../../../shared/http";
-import type {
-  CommunityCredentialReset,
-  CommunityPreferences,
-  CommunityRankingPreferences,
-  UpdateCommunityPreferences,
-  UpdateCommunityRankingPreferences,
-} from "../../../shared/types";
 
 export const communityApi = {
   preferences(
     account: string,
     signal: AbortSignal,
-  ): Promise<CommunityPreferences> {
-    return requestJson<CommunityPreferences>("/community/preferences", {
-      action: "community.preferences",
-      account,
-      signal,
-    });
+  ): Promise<Schema<"CommunityPreferences">> {
+    return requestJson<Schema<"CommunityPreferences">>(
+      "/community/preferences",
+      {
+        action: "community.preferences",
+        account,
+        signal,
+      },
+    );
   },
   updatePreferences(
     account: string,
-    preferences: UpdateCommunityPreferences,
+    preferences: Schema<"UpdateCommunityPreferences">,
     signal: AbortSignal,
-  ): Promise<CommunityPreferences> {
-    return requestJson<CommunityPreferences>("/community/preferences", {
-      action: "community.preferences.update",
-      method: "PUT",
-      account,
-      body: preferences,
-      signal,
-    });
+  ): Promise<Schema<"CommunityPreferences">> {
+    return requestJson<Schema<"CommunityPreferences">>(
+      "/community/preferences",
+      {
+        action: "community.preferences.update",
+        method: "PUT",
+        account,
+        body: preferences,
+        signal,
+      },
+    );
   },
   resetCredentials(
     account: string,
     signal: AbortSignal,
-  ): Promise<CommunityCredentialReset> {
-    return requestJson<CommunityCredentialReset>("/community/credentials", {
-      action: "community.credentials.reset",
-      method: "DELETE",
-      account,
-      signal,
-    });
+  ): Promise<Schema<"CommunityCredentialReset">> {
+    return requestJson<Schema<"CommunityCredentialReset">>(
+      "/community/credentials",
+      {
+        action: "community.credentials.reset",
+        method: "DELETE",
+        account,
+        signal,
+      },
+    );
   },
   async rankingPreferences(
     account: string,
-    update: UpdateCommunityRankingPreferences | null,
+    update: Schema<"UpdateCommunityRankingPreferences"> | null,
     signal: AbortSignal,
-  ): Promise<CommunityRankingPreferences> {
+  ): Promise<Schema<"CommunityRankingPreferences">> {
     const response = await request("/community/ranking-preferences", {
       action: update
         ? "community.rankings.preferences.update"
@@ -60,6 +63,6 @@ export const communityApi = {
       await response.body?.cancel();
       signal.throwIfAborted();
     }
-    return response.json() as Promise<CommunityRankingPreferences>;
+    return response.json() as Promise<Schema<"CommunityRankingPreferences">>;
   },
 };

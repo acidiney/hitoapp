@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -15,10 +16,6 @@ import {
   playlistConnection as connection,
   playlistImportPage as props,
 } from "../fixtures/playlistImports";
-import type {
-  FollowProviderPlaylist,
-  PlaylistFollowReceipt,
-} from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { visit: vi.fn(), reload: vi.fn() },
@@ -140,7 +137,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   await form.findByRole("alert");
   expect(fetch).toHaveBeenCalledTimes(1);
   const originalBody = String(fetch.mock.calls[0][1].body);
-  const original: FollowProviderPlaylist = JSON.parse(originalBody);
+  const original: Schema<"FollowProviderPlaylist"> = JSON.parse(originalBody);
   expect(original).toEqual({
     request_id: expect.stringMatching(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -204,7 +201,7 @@ test("a lost daily Follow retries its original operation after the draft and con
   const receipt = {
     request_id: original.request_id,
     playlist_id: "04c1711d-26ac-49b5-97c3-243910d42570",
-  } satisfies PlaylistFollowReceipt;
+  } satisfies Schema<"PlaylistFollowReceipt">;
   await act(async () => resolveRetry(new Response(JSON.stringify(receipt))));
   await waitFor(() =>
     expect(router.visit).toHaveBeenCalledExactlyOnceWith(

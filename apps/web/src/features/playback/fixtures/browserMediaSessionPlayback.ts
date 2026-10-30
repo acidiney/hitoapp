@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, StrictMode, type ReactNode } from "react";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { Source, SyncBatch } from "../../../shared/types";
+
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
@@ -21,7 +22,7 @@ export const otherRecording: Track = {
   title: "Second private owned title",
   album: null,
 };
-const source: Source = {
+const source: Schema<"Source"> = {
   id: "49858203-ce08-478f-95fe-482f34e376fb",
   recording_id: recording.id,
   provider: "local",
@@ -62,7 +63,7 @@ export function playbackRequests(
           },
         ]);
       if (path === "/api/v1/sync" && method === "POST") {
-        const batch = JSON.parse(String(options?.body)) as SyncBatch;
+        const batch = JSON.parse(String(options?.body)) as Schema<"SyncBatch">;
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
         });

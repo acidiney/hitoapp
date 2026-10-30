@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -23,8 +23,6 @@ import {
   lastDiscographyPage,
   providerDiscographyCursor,
 } from "../fixtures/artistDiscography";
-
-type Schema = components["schemas"];
 
 test("an expired discography continuation requires an explicit restart before replacing its known releases", async () => {
   const errors = vi.spyOn(console, "error");
@@ -48,7 +46,7 @@ test("an expired discography continuation requires an explicit restart before re
         },
       ],
     },
-  } satisfies Schema["ArtistDiscographyAvailability"];
+  } satisfies Schema<"ArtistDiscographyAvailability">;
   const responses: Response[] = [];
   const reply = (value: unknown, status = 200) => {
     const response = Response.json(value, { status });
@@ -130,15 +128,15 @@ test("an expired discography continuation requires an explicit restart before re
       {
         limit: 20,
         continuation: null,
-      } satisfies Schema["ReadArtistDiscography"],
+      } satisfies Schema<"ReadArtistDiscography">,
       {
         limit: 20,
         continuation: hostDiscographyContinuation,
-      } satisfies Schema["ReadArtistDiscography"],
+      } satisfies Schema<"ReadArtistDiscography">,
       {
         limit: 20,
         continuation: null,
-      } satisfies Schema["ReadArtistDiscography"],
+      } satisfies Schema<"ReadArtistDiscography">,
     ]);
     await act(async () => {
       releaseRestart(reply(fresh));

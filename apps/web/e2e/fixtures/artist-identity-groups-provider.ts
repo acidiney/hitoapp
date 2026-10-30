@@ -6,9 +6,7 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function artistIdentityGroupsProvider(query: string) {
   if (process.env.HITO_ARTIST_IDENTITY_GROUPS_E2E !== "1")
@@ -20,7 +18,7 @@ export async function artistIdentityGroupsProvider(query: string) {
     name: `Owned artist groups ${randomUUID()}`,
     protocol_version: 1,
     capabilities: ["catalog", "playlists"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const candidates = ["First namesake", "Second namesake"].map(
     (disambiguation, index) => ({
       artist: {
@@ -30,14 +28,14 @@ export async function artistIdentityGroupsProvider(query: string) {
       kind: "person" as const,
       disambiguation,
     }),
-  ) satisfies Schema["ArtistSearchCandidate"][];
+  ) satisfies Schema<"ArtistSearchCandidate">[];
   const profiles = candidates.map((candidate) => ({
     artist: candidate.artist,
     sort_name: null,
     kind: candidate.kind,
     disambiguation: `${candidate.disambiguation}, reviewed profile`,
     revision: "owned-profile:1",
-  })) satisfies Schema["CatalogArtistProfile"][];
+  })) satisfies Schema<"CatalogArtistProfile">[];
   const recordings = [0, 1].map((index) => ({
     id: `opaque:recording/${index}`,
     title: `Owned imported recording ${index} ${randomUUID()}`,
@@ -50,7 +48,7 @@ export async function artistIdentityGroupsProvider(query: string) {
     disc_number: 1,
     track_number: 1,
     revision: "owned-recording:1",
-  })) satisfies Schema["ProviderRecording"][];
+  })) satisfies Schema<"ProviderRecording">[];
   const playlist = {
     id: "opaque:playlist/identity-groups",
     name: `Owned imported selection ${randomUUID()}`,

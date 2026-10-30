@@ -1,8 +1,6 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { firstDiscographyPage } from "./artistDiscography";
 import { artistAssociation, reviewedArtistProfile } from "./artistReview";
-
-type Schema = components["schemas"];
 
 export const editionGroup = firstDiscographyPage.page.items[0];
 export const editionTitle = "Sessão nº 1";
@@ -22,7 +20,7 @@ export const standardEdition = {
   release_date: "2024-02",
   country: "PT",
   revision: null,
-} satisfies Schema["CatalogEditionSummary"];
+} satisfies Schema<"CatalogEditionSummary">;
 export const bonusEdition = {
   id: "opaque:edition/bónus?versão=二",
   title: editionTitle,
@@ -31,7 +29,7 @@ export const bonusEdition = {
   release_date: null,
   country: null,
   revision: "private-edition-revision:bonus",
-} satisfies Schema["CatalogEditionSummary"];
+} satisfies Schema<"CatalogEditionSummary">;
 
 export const firstEditionPage = {
   status: "available",
@@ -44,7 +42,7 @@ export const firstEditionPage = {
     total_count: null,
     next_cursor: providerEditionCursor,
   },
-} satisfies Schema["ReleaseGroupEditionsAvailability"];
+} satisfies Schema<"ReleaseGroupEditionsAvailability">;
 
 export const lastEditionPage = {
   ...firstEditionPage,
@@ -54,7 +52,7 @@ export const lastEditionPage = {
     items: [bonusEdition],
     next_cursor: null,
   },
-} satisfies Schema["ReleaseGroupEditionsAvailability"];
+} satisfies Schema<"ReleaseGroupEditionsAvailability">;
 
 export const bonusTrackList = {
   status: "available",
@@ -122,4 +120,4 @@ export const bonusTrackList = {
       },
     ],
   },
-} satisfies Schema["EditionTrackListAvailability"];
+} satisfies Schema<"EditionTrackListAvailability">;

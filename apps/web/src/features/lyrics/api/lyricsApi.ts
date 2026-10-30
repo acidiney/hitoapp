@@ -1,17 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  LyricsLookup,
-  ReadRecordingLyrics,
-  RecordingLyricsProviders,
-} from "../../../shared/types";
 
 export const lyricsApi = {
   async providers(
     account: string,
     recording: string,
     signal: AbortSignal,
-  ): Promise<RecordingLyricsProviders> {
-    return requestJson<RecordingLyricsProviders>(
+  ): Promise<Schema<"RecordingLyricsProviders">> {
+    return requestJson<Schema<"RecordingLyricsProviders">>(
       `/recordings/${encodeURIComponent(recording)}/lyrics/providers`,
       { action: "lyrics.providers", account, signal },
     );
@@ -19,10 +15,10 @@ export const lyricsApi = {
   async read(
     account: string,
     recording: string,
-    body: ReadRecordingLyrics,
+    body: Schema<"ReadRecordingLyrics">,
     signal: AbortSignal,
-  ): Promise<LyricsLookup> {
-    return requestJson<LyricsLookup>(
+  ): Promise<Schema<"LyricsLookup">> {
+    return requestJson<Schema<"LyricsLookup">>(
       `/recordings/${encodeURIComponent(recording)}/lyrics`,
       {
         action: "lyrics.read",

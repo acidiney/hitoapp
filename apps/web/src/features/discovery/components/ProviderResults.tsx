@@ -1,7 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import { Check, Play, Plus } from "lucide-react";
-import type { ProviderRecording, Recording } from "../../../shared/types";
+
 import type { ProviderSelection } from "../hooks/useDiscovery";
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
@@ -10,12 +11,12 @@ import Button from "../../../shared/ui/Button";
 
 type SelectionIntent = "play" | "save";
 type ResultProps = {
-  hit: ProviderRecording;
-  saved?: Recording;
+  hit: Schema<"ProviderRecording">;
+  saved?: Schema<"Recording">;
   selection: ProviderSelection | null;
   disabled: boolean;
   canPlay: boolean;
-  onSelect: (hit: ProviderRecording, intent: SelectionIntent) => void;
+  onSelect: (hit: Schema<"ProviderRecording">, intent: SelectionIntent) => void;
 };
 function ProviderResult({
   hit,
@@ -145,8 +146,8 @@ export default function ProviderResults({
   canPlay,
   onSelect,
 }: {
-  items: ProviderRecording[];
-  saved: ReadonlyMap<string, Recording>;
+  items: Schema<"ProviderRecording">[];
+  saved: ReadonlyMap<string, Schema<"Recording">>;
   selection: ProviderSelection | null;
   pending: boolean;
   canPlay: boolean;

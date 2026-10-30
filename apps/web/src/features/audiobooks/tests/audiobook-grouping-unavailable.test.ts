@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -11,7 +12,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
-import type { AudiobookDetail, SyncBatch } from "../../../shared/types";
+
 import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
@@ -72,7 +73,10 @@ afterEach(() => {
 test("only an acknowledged unavailable audiobook can be released before an explicit new playlist operation", async () => {
   const { index, playlist, confirmed } = audiobookGrouping();
   const other = index.playlists[1];
-  const otherDetail: AudiobookDetail = { ...confirmed, playlist: other };
+  const otherDetail: Schema<"AudiobookDetail"> = {
+    ...confirmed,
+    playlist: other,
+  };
   const held = heldAudiobookBody(otherDetail);
   const writes: string[] = [];
   request.mockImplementation(async (input, options) => {
@@ -86,7 +90,7 @@ test("only an acknowledged unavailable audiobook can be released before an expli
       writes.push(String(options.body));
       if (writes.length === 1)
         throw new TypeError("Acknowledgement connection interrupted");
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });
@@ -151,8 +155,8 @@ test("only an acknowledged unavailable audiobook can be released before an expli
     fireEvent.click(screen.getByRole("button", { name: "Add audiobook" }));
     await waitFor(() => expect(held.response.bodyUsed).toBe(true));
     expect(writes).toHaveLength(3);
-    const original = JSON.parse(writes[0]) as SyncBatch;
-    const next = JSON.parse(writes[2]) as SyncBatch;
+    const original = JSON.parse(writes[0]) as Schema<"SyncBatch">;
+    const next = JSON.parse(writes[2]) as Schema<"SyncBatch">;
     expect(original.operations.map((operation) => operation.action)).toEqual([
       { kind: "audiobook_create", playlist_id: playlist.id },
     ]);

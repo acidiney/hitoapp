@@ -10,7 +10,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   lyricObservation,
   lyricRecordingPage,
@@ -20,8 +20,6 @@ import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import { log } from "../../../shared/log";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -42,7 +40,7 @@ test("a stale chosen lyric provider refreshes current authority without losing t
   const before = structuredClone(page);
   const { user, detail } = page;
   const base = `/api/v1/recordings/${detail.recording_id}`;
-  const attached: Schema["RecordingLyricsProvider"] = {
+  const attached: Schema<"RecordingLyricsProvider"> = {
     observation_id: "8d49c593-d800-4c6d-b398-727d2f0f809f",
     installation_id: "cf7bac50-aaf2-42ed-9070-70c67531c91c",
     installation_revision: 17,
@@ -52,7 +50,7 @@ test("a stale chosen lyric provider refreshes current authority without losing t
     },
     label: "Attached lyric provider",
   };
-  const primary: Schema["RecordingLyricsProvider"] = {
+  const primary: Schema<"RecordingLyricsProvider"> = {
     observation_id: lyricObservation.id,
     installation_id: lyricObservation.plugin_installation_id,
     installation_revision: 9,
@@ -69,7 +67,7 @@ test("a stale chosen lyric provider refreshes current authority without losing t
       ...readyLyrics.document,
       recording: attached.provider_recording,
     },
-  } satisfies Schema["LyricsLookup"];
+  } satisfies Schema<"LyricsLookup">;
   const requests: { path: string; method: string; options?: RequestInit }[] =
     [];
   const responses: Response[] = [];
@@ -98,7 +96,7 @@ test("a stale chosen lyric provider refreshes current authority without losing t
             primary,
             { ...attached, installation_revision: listReads === 1 ? 17 : 18 },
           ],
-        } satisfies Schema["RecordingLyricsProviders"]);
+        } satisfies Schema<"RecordingLyricsProviders">);
       }
       if (method === "POST" && path === `${base}/lyrics`) {
         documentReads++;
@@ -185,7 +183,7 @@ test("a stale chosen lyric provider refreshes current authority without losing t
           ({
             observation_id: attached.observation_id,
             installation_revision,
-          }) satisfies Schema["ReadRecordingLyrics"],
+          }) satisfies Schema<"ReadRecordingLyrics">,
       ),
     );
     expect(listReads).toBe(2);

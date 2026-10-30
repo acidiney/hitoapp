@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -16,7 +17,7 @@ import {
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
 import { firstDiscographyPage } from "../fixtures/artistDiscography";
-import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
+
 import { flush } from "../../../test/async";
 
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -130,7 +131,8 @@ test.each([
       await act(async () => {
         await held.entered;
       });
-      const changed: ArtistIdentityGroupPageProps = structuredClone(detail);
+      const changed: Schema<"ArtistIdentityGroupPageProps"> =
+        structuredClone(detail);
       switch (field) {
         case "account":
           changed.user.id = "another-account";
@@ -215,7 +217,8 @@ test.each([
       const before = { ...http.calls };
       if (change === "unmount") view.unmount();
       else {
-        const changed: ArtistIdentityGroupPageProps = structuredClone(detail);
+        const changed: Schema<"ArtistIdentityGroupPageProps"> =
+          structuredClone(detail);
         if (change === "account") changed.user.id = "another-account";
         else changed.detail.group.name.association_id = "another-association";
         view.rerender(createElement(ArtistIdentityGroupPage, changed));

@@ -5,9 +5,8 @@ import {
   type ServerResponse,
 } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type Binding = "a" | "b";
 type Role = "metadata" | Binding;
 const roles: Role[] = ["metadata", "a", "b"];
@@ -105,7 +104,7 @@ export async function manualSourceChoiceFixture() {
     disc_number: 1,
     track_number: 1,
     revision: "metadata-one",
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const recordings = {
     metadata: original,
     a: {
@@ -120,7 +119,7 @@ export async function manualSourceChoiceFixture() {
       release: { ...original.release, id: "b/release" },
       revision: "b-one",
     },
-  } satisfies Record<Role, Schema["ProviderRecording"]>;
+  } satisfies Record<Role, Schema<"ProviderRecording">>;
   const sources = { a: "audio/a/studio", b: "audio/b/studio" };
   const labels = { a: "Owned studio A", b: "Owned studio B" };
   const bytes = { a: wav(440), b: wav(660) };
@@ -236,7 +235,7 @@ export async function manualSourceChoiceFixture() {
             role === "metadata"
               ? ["playlists", "metadata"]
               : ["search", "sources", "metadata"],
-        } satisfies Schema["Manifest"];
+        } satisfies Schema<"Manifest">;
       } else {
         if (request.method !== "POST") throw new ProtocolFailure(405);
         if (role === "metadata" && path === "playlists/detail") {
@@ -298,7 +297,7 @@ export async function manualSourceChoiceFixture() {
           reply = {
             items: role === "b" && !bSearchable ? [] : [recordings[role]],
             next_cursor: null,
-          } satisfies Schema["SearchPage"];
+          } satisfies Schema<"SearchPage">;
         } else if (
           ["recordings/detail", "recordings/metadata", "sources"].includes(path)
         ) {

@@ -1,3 +1,4 @@
+import type { Schema } from "../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -19,7 +20,7 @@ import PlaylistPage from "../../features/playlists/pages/PlaylistPage";
 import { useMutation } from "../../shared/hooks/useMutation";
 import { useScanJob } from "../../features/library/hooks/useScanJob";
 import { useAccounts } from "../../features/accounts/hooks/useAccounts";
-import type { Job, SyncReceipt } from "../../shared/types";
+
 import { deferred } from "../../test/async";
 
 vi.mock("../../shared/sync", () => ({ change: vi.fn() }));
@@ -98,8 +99,8 @@ test("only an accepted playlist creation clears its form", async () => {
 });
 
 test("an old account mutation cannot show an error or clear the new account's pending state", async () => {
-  const old = deferred<SyncReceipt>();
-  const current = deferred<SyncReceipt>();
+  const old = deferred<Schema<"SyncReceipt">>();
+  const current = deferred<Schema<"SyncReceipt">>();
   vi.mocked(change)
     .mockReturnValueOnce(old.promise)
     .mockReturnValueOnce(current.promise);
@@ -138,8 +139,8 @@ test("an old account mutation cannot show an error or clear the new account's pe
 });
 
 test("switching a scan account or library cancels stale completion and allows a new scan", async () => {
-  const old = deferred<Job[]>();
-  const finished: Job = {
+  const old = deferred<Schema<"Job">[]>();
+  const finished: Schema<"Job"> = {
     id: "new-job",
     library_id: "library",
     folder_id: "folder",
@@ -177,7 +178,7 @@ test("switching a scan account or library cancels stale completion and allows a 
 });
 
 test("unmounting a scan ignores a delayed job response", async () => {
-  const pending = deferred<Job[]>();
+  const pending = deferred<Schema<"Job">[]>();
   vi.mocked(libraryApi.scan).mockReturnValueOnce(pending.promise);
   const { result, unmount } = renderHook(() => useScanJob("alice", "library"), {
     wrapper,
@@ -206,8 +207,8 @@ test("unmounting a scan ignores a delayed job response", async () => {
 });
 
 test("a library scan waits for every folder before reporting completion", async () => {
-  const second = deferred<Job>();
-  const first: Job = {
+  const second = deferred<Schema<"Job">>();
+  const first: Schema<"Job"> = {
     id: "first",
     library_id: "library",
     folder_id: "one",

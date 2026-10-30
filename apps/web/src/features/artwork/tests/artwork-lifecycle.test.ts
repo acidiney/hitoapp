@@ -1,9 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import { act, fireEvent, render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import Shell from "../../../app/Shell";
 import Artwork from "../components/Artwork";
-import type { ArtworkFetch } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   usePage: () => ({
@@ -57,7 +57,7 @@ test("returning to a recording resumes artwork without accepting its abandoned r
             error: null,
             created_at: 1,
             updated_at: 2,
-          } satisfies ArtworkFetch,
+          } satisfies Schema<"ArtworkFetch">,
           { status: 202 },
         ),
       );

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,7 +17,6 @@ import {
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "../fixtures/audiobooks";
-import type { AudiobookPageProps, SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -142,7 +142,7 @@ test("an obsolete mutation confirmation preserves its acknowledged operation and
   const label = "Private acknowledged bookmark awaiting a current read";
   const held: ReturnType<typeof heldAudiobookBody>[] = [];
   const savedClaims: string[] = [];
-  let batch: SyncBatch | undefined;
+  let batch: Schema<"SyncBatch"> | undefined;
   let reads = 0;
   let writes = 0;
   request.mockImplementation(async (input, options) => {
@@ -151,7 +151,7 @@ test("an obsolete mutation confirmation preserves its acknowledged operation and
       writes += 1;
       if (writes !== 1)
         throw new Error("Acknowledged bookmarks must not rewrite");
-      batch = JSON.parse(String(options.body)) as SyncBatch;
+      batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });
@@ -260,7 +260,9 @@ function owned(options: RequestInit | undefined, account: string) {
   expect(options?.signal).toBeInstanceOf(AbortSignal);
 }
 
-function changed(page: AudiobookPageProps): AudiobookPageProps {
+function changed(
+  page: Schema<"AudiobookPageProps">,
+): Schema<"AudiobookPageProps"> {
   return {
     ...page,
     detail: {

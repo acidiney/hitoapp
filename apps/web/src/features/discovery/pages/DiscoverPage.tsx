@@ -1,7 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "@inertiajs/react";
 import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
-import type { DiscoverPageProps } from "../../../shared/types";
+
 import { useDiscovery } from "../hooks/useDiscovery";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import DiscoverySearch from "../components/DiscoverySearch";
@@ -15,7 +16,7 @@ export default function DiscoverPage({
   user,
   connections,
   service_names,
-}: DiscoverPageProps) {
+}: Schema<"DiscoverPageProps">) {
   const providers = connections.filter((connection) =>
     connection.manifest.capabilities.includes("search"),
   );

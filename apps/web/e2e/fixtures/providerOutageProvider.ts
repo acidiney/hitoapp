@@ -3,9 +3,8 @@ import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type OutageTrack = "retry" | "queue" | "healthy" | "preserved";
 type Availability = "empty" | "unavailable" | "ready";
 
@@ -36,15 +35,15 @@ export async function providerOutageProvider() {
           title: `Owned ${key} release`,
         },
         revision: "owned-outage:1",
-      } satisfies Schema["ProviderRecording"],
+      } satisfies Schema<"ProviderRecording">,
     ]),
-  ) as Record<OutageTrack, Schema["ProviderRecording"]>;
+  ) as Record<OutageTrack, Schema<"ProviderRecording">>;
   const sourceRecordings = Object.fromEntries(
     keys.map((key) => [
       key,
       { ...recordings[key], id: `opaque:outage-source/${key}/${suffix}` },
     ]),
-  ) as Record<OutageTrack, Schema["ProviderRecording"]>;
+  ) as Record<OutageTrack, Schema<"ProviderRecording">>;
   const availability: Record<OutageTrack, Availability> = {
     retry: "empty",
     queue: "unavailable",
@@ -74,7 +73,7 @@ export async function providerOutageProvider() {
     protocol_version: 1,
     capabilities: ["search", "metadata", "sources", "playlists"],
     content_policy: { source_persistence: "playback_only" },
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const counts = {
     requests: 0,
     search: 0,
@@ -230,7 +229,7 @@ export async function providerOutageProvider() {
             )
             .map((key) => sourceRecordings[key]),
           next_cursor: null,
-        } satisfies Schema["SearchPage"]);
+        } satisfies Schema<"SearchPage">);
       }
       const key = keys.find((key) =>
         exact(input, { recording_id: sourceRecordings[key].id }),

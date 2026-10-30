@@ -1,10 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookContinuationMedia } from "../../audiobooks/fixtures/audiobookContinuationMedia";
 import type { Player } from "../model";
-import type { Source, SyncBatch } from "../../../shared/types";
+
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import { nativeService } from "../fixtures/native/service";
 
@@ -64,7 +65,7 @@ test("account playback aborts progress and replaces its account-bound resources"
   const client = "dafd72fc-e5d2-4017-ad20-101a76b48259";
   const previousClient = localStorage.getItem("hito-device");
   localStorage.setItem("hito-device", client);
-  const source = (account: string): Source => ({
+  const source = (account: string): Schema<"Source"> => ({
     id:
       account === "alice"
         ? "2787c7c0-8aa0-4dab-a79b-9935aa7b2651"
@@ -82,8 +83,11 @@ test("account playback aborts progress and replaces its account-bound resources"
     account: string;
     signal: AbortSignal;
   }[] = [];
-  const writes: { account: string; batch: SyncBatch; signal: AbortSignal }[] =
-    [];
+  const writes: {
+    account: string;
+    batch: Schema<"SyncBatch">;
+    signal: AbortSignal;
+  }[] = [];
   const pending = new Set<Promise<Response>>();
   let failProgress: ((error: Error) => void) | undefined;
   vi.stubGlobal(
@@ -107,7 +111,7 @@ test("account playback aborts progress and replaces its account-bound resources"
         return Response.json([source(account)]);
       if (request.path !== "/api/v1/sync" || request.method !== "POST")
         throw new Error("Account playback requested an unexpected operation");
-      const batch = JSON.parse(String(options?.body)) as SyncBatch;
+      const batch = JSON.parse(String(options?.body)) as Schema<"SyncBatch">;
       writes.push({ account, batch, signal: request.signal });
       if (account === "bob")
         return Response.json({

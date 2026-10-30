@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SourceAvailability from "../components/SourceAvailability";
-import type { Source, SourcePreparationStatus } from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 const player = vi.hoisted(() => ({ playQueue: vi.fn() }));
@@ -23,7 +24,7 @@ const track = {
   duration_ms: 10_000,
   available: false,
 };
-const source: Source = {
+const source: Schema<"Source"> = {
   id: sourceId,
   recording_id: recording,
   provider: "plugin",
@@ -34,8 +35,8 @@ const source: Source = {
 };
 
 function status(
-  phase: SourcePreparationStatus["phase"],
-): SourcePreparationStatus {
+  phase: Schema<"SourcePreparationStatus">["phase"],
+): Schema<"SourcePreparationStatus"> {
   return {
     preparation_id: preparation,
     recording_id: recording,

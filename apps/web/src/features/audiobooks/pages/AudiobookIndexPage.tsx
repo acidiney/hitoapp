@@ -1,17 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import AudiobookPagination from "../components/AudiobookPagination";
 import AudiobookCreate from "../components/AudiobookCreate";
 import { useAudiobookPageNavigation } from "../hooks/useAudiobookPageNavigation";
 import { useAudiobookGrouping } from "../hooks/useAudiobookGrouping";
-import type { AudiobookIndexPageProps } from "../../../shared/types";
 
 export default function AudiobookIndexPage({
   user,
   books,
   book_pagination,
   grouping_playlists,
-}: AudiobookIndexPageProps) {
+}: Schema<"AudiobookIndexPageProps">) {
   const navigation = useAudiobookPageNavigation(user.id, book_pagination);
   const grouping = useAudiobookGrouping(user.id, grouping_playlists, books);
   return (

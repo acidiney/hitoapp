@@ -1,13 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import type { components } from "../../../generated";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
-import { lyricObservation, readyLyrics } from "./recordingLyrics";
 
-type Schema = components["schemas"];
+import { lyricObservation, readyLyrics } from "./recordingLyrics";
 
 export const attachedLyricProvider = {
   observation_id: "8d49c593-d800-4c6d-b398-727d2f0f809f",
@@ -18,7 +17,7 @@ export const attachedLyricProvider = {
     revision: 'opaque:"attached-version"',
   },
   label: "Attached lyric provider",
-} satisfies Schema["RecordingLyricsProvider"];
+} satisfies Schema<"RecordingLyricsProvider">;
 
 export const primaryLyricProvider = {
   observation_id: lyricObservation.id,
@@ -29,7 +28,7 @@ export const primaryLyricProvider = {
     revision: lyricObservation.provider_revision,
   },
   label: "Primary metadata provider",
-} satisfies Schema["RecordingLyricsProvider"];
+} satisfies Schema<"RecordingLyricsProvider">;
 
 export const attachedLyrics = {
   ...readyLyrics,
@@ -38,9 +37,9 @@ export const attachedLyrics = {
     ...readyLyrics.document,
     recording: attachedLyricProvider.provider_recording,
   },
-} satisfies Schema["LyricsLookup"];
+} satisfies Schema<"LyricsLookup">;
 
-export function lyricProviderPage(props: RecordingDetailsPageProps) {
+export function lyricProviderPage(props: Schema<"RecordingDetailsPageProps">) {
   return createElement(
     NoticeProvider,
     null,

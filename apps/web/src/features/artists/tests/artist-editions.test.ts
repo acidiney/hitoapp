@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import {
   bonusEdition,
@@ -28,8 +28,6 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 test("a catalog group browses edition pages and reads only the explicitly chosen edition's ordered occurrences", async () => {
   const errors = vi.spyOn(console, "error");
@@ -104,7 +102,7 @@ test("a catalog group browses edition pages and reads only the explicitly chosen
       release_group_id: editionGroup.id,
       limit: 20,
       continuation: null,
-    } satisfies Schema["ReadReleaseGroupEditions"]);
+    } satisfies Schema<"ReadReleaseGroupEditions">);
     expect(
       within(region).queryByRole("region", {
         name: "Selected edition track list",
@@ -120,7 +118,7 @@ test("a catalog group browses edition pages and reads only the explicitly chosen
       release_group_id: editionGroup.id,
       limit: 20,
       continuation: hostEditionContinuation,
-    } satisfies Schema["ReadReleaseGroupEditions"]);
+    } satisfies Schema<"ReadReleaseGroupEditions">);
     expect(fetch.mock.calls[2][1]?.body).not.toContain(providerEditionCursor);
     await act(async () => releaseMore(reply(lastEditionPage)));
     await waitFor(() =>
@@ -158,7 +156,7 @@ test("a catalog group browses edition pages and reads only the explicitly chosen
     expect(JSON.parse(fetch.mock.calls[3][1]?.body as string)).toEqual({
       release_group_id: editionGroup.id,
       edition_id: bonusEdition.id,
-    } satisfies Schema["ReadEditionTrackList"]);
+    } satisfies Schema<"ReadEditionTrackList">);
     const discOne = within(detail).getByRole("list", { name: "Disc 1 tracks" });
     const discTwo = within(detail).getByRole("list", { name: "Disc 2 tracks" });
     expect(

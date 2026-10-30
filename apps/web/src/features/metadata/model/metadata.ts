@@ -1,8 +1,4 @@
-import type {
-  Action,
-  RecordingMetadata,
-  ReleaseMetadata,
-} from "../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export type MetadataTarget = { kind: "recording" | "release"; id: string };
 export type MetadataField = "title" | "artist";
@@ -10,19 +6,19 @@ export type MetadataEditorInput =
   | {
       kind: "recording";
       id: string;
-      metadata: Pick<RecordingMetadata, "title" | "artist">;
+      metadata: Pick<Schema<"RecordingMetadata">, "title" | "artist">;
     }
   | {
       kind: "release";
       id: string;
-      metadata: Pick<ReleaseMetadata, "title" | "artist">;
+      metadata: Pick<Schema<"ReleaseMetadata">, "title" | "artist">;
     };
 
 export function metadataAction(
   target: MetadataTarget,
   field: MetadataField,
   personal: string | null,
-): Action {
+): Schema<"Action"> {
   if (target.kind === "recording") {
     const recording_id = target.id;
     if (field === "title")

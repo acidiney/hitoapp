@@ -1,11 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { artistEditionApi } from "../api/artistEditionApi";
-import type { CatalogEditionSummary } from "../../../shared/types";
+
 import type { ArtistEditionContext } from "./useArtistEditions";
 import { useEditionTrackRead } from "./useEditionTrackRead";
 
 export function useArtistEditionTrackList(
   context: ArtistEditionContext,
-  chosen: CatalogEditionSummary | null,
+  chosen: Schema<"CatalogEditionSummary"> | null,
 ) {
   const { account, recording, association, group } = context;
   const { result, ...state } = useEditionTrackRead(

@@ -1,8 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import HistoryPage from "../../catalog/pages/HistoryPage";
-import type { HistoryPageProps } from "../../../shared/types";
 
 const playQueue = vi.fn(async () => {});
 vi.mock("../components/PlaybackProvider", () => ({
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 test("History row playback carries saved intent while toolbar playback starts normally", () => {
-  const props: HistoryPageProps = {
+  const props: Schema<"HistoryPageProps"> = {
     user: { id: "account", username: "Fixture", admin: false },
     errors: {},
     libraries: [],

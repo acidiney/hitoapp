@@ -1,7 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
-import type { ReleaseMetadata, TextMetadata } from "../../../shared/types";
-import { type MetadataTarget, type MetadataField } from "../metadata";
+
+import { type MetadataTarget, type MetadataField } from "../model/metadata";
 import type { MutationResult } from "../../../shared/hooks/useMutation";
+import Button from "../../../shared/ui/Button";
 
 export default function MetadataFieldEditor({
   target,
@@ -12,7 +14,7 @@ export default function MetadataFieldEditor({
 }: {
   target: MetadataTarget;
   field: MetadataField;
-  metadata: TextMetadata | ReleaseMetadata["artist"];
+  metadata: Schema<"TextMetadata"> | Schema<"ReleaseMetadata">["artist"];
   pending: boolean;
   save: (personal: string | null) => Promise<MutationResult>;
 }) {
@@ -58,17 +60,17 @@ export default function MetadataFieldEditor({
       )}
       <div className="metadata-editor-actions">
         {metadata.personal !== null && (
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={pending}
             onClick={() => void save(true)}
           >
             Use source {field}
-          </button>
+          </Button>
         )}
-        <button
-          className="button primary"
+        <Button
+          variant="primary"
+          type="submit"
           disabled={
             pending ||
             !draft.trim() ||
@@ -76,7 +78,7 @@ export default function MetadataFieldEditor({
           }
         >
           {pending ? "Saving…" : `Save personal ${field}`}
-        </button>
+        </Button>
       </div>
     </form>
   );

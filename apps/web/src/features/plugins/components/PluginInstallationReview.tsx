@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import Button from "../../../shared/ui/Button";
-import type { PluginInstallationPreview } from "../../../shared/types";
+
 import PluginPersistencePolicy from "./PluginPersistencePolicy";
 
 export default function PluginInstallationReview({
@@ -8,7 +9,7 @@ export default function PluginInstallationReview({
   onAccept,
   onBack,
 }: {
-  manifest: PluginInstallationPreview["manifest"];
+  manifest: Schema<"PluginInstallationPreview">["manifest"];
   pending: boolean;
   onAccept: () => void;
   onBack: () => void;

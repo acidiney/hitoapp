@@ -1,11 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
-import type {
-  AlbumEditionChoice,
-  AlbumEditionChoiceReceipt,
-  AlbumEditionTrackListAvailability,
-  ReleaseDetail,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import { availability } from "../../artists/api/albumEditionApi";
 
 const album = (release: string) => `/albums/${encodeURIComponent(release)}`;
@@ -15,7 +10,7 @@ export const albumEditionChoiceApi = {
     account: string,
     release: string,
     signal: AbortSignal,
-  ): Promise<AlbumEditionChoice> {
+  ): Promise<Schema<"AlbumEditionChoice">> {
     const response = await request(
       `/releases/${encodeURIComponent(release)}?limit=1`,
       {
@@ -24,7 +19,7 @@ export const albumEditionChoiceApi = {
         signal,
       },
     );
-    const detail = (await response.json()) as ReleaseDetail;
+    const detail = (await response.json()) as Schema<"ReleaseDetail">;
     if (!detail.saved_edition)
       throw new Error("Hito returned an invalid album response. Try again.");
     return detail.saved_edition;
@@ -33,9 +28,12 @@ export const albumEditionChoiceApi = {
   async choose(
     account: string,
     release: string,
-    body: SavedAlbumEdition & { request_id: string; expected_revision: number },
+    body: Schema<"SavedAlbumEdition"> & {
+      request_id: string;
+      expected_revision: number;
+    },
     signal: AbortSignal,
-  ): Promise<AlbumEditionChoiceReceipt> {
+  ): Promise<Schema<"AlbumEditionChoiceReceipt">> {
     const response = await request(`${album(release)}/edition`, {
       action: "album_edition.choose",
       method: "PUT",
@@ -51,7 +49,7 @@ export const albumEditionChoiceApi = {
     release: string,
     body: { request_id: string; expected_revision: number },
     signal: AbortSignal,
-  ): Promise<AlbumEditionChoiceReceipt> {
+  ): Promise<Schema<"AlbumEditionChoiceReceipt">> {
     const response = await request(`${album(release)}/edition/clear`, {
       action: "album_edition.clear",
       method: "POST",
@@ -66,7 +64,7 @@ export const albumEditionChoiceApi = {
     account: string,
     release: string,
     signal: AbortSignal,
-  ): Promise<AlbumEditionTrackListAvailability> {
+  ): Promise<Schema<"AlbumEditionTrackListAvailability">> {
     const response = await request(`${album(release)}/edition/track-list`, {
       action: "album_edition.saved_track_list",
       method: "POST",

@@ -25,16 +25,16 @@ export function PodcastRefreshButton({
   refresh,
 }: Controls) {
   return (
-    <button
+    <Button
+      className="tint-secondary"
       type="button"
-      className="button tint-secondary"
       disabled={pending || waiting || checking || hasAttempt || leaving}
       onClick={() => void refresh()}
     >
       {pending && attemptKind === "refresh"
         ? "Requesting refresh…"
         : "Refresh feed"}
-    </button>
+    </Button>
   );
 }
 

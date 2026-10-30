@@ -1,10 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import AuthIntro from "../components/AuthIntro";
 import SetupForm from "../components/SetupForm";
 import SignInForm from "../components/SignInForm";
 import { useSignIn } from "../hooks/useSignIn";
-import type { LoginPageProps } from "../../../shared/types";
 
-export default function LoginPage({ needs_setup: setup }: LoginPageProps) {
+export default function LoginPage({
+  needs_setup: setup,
+}: Schema<"LoginPageProps">) {
   const flow = useSignIn(setup);
   return (
     <main className="auth-page">

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,7 +9,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { PlaylistDownloadStatus } from "../../../shared/types";
+
 import {
   copiedPlaylistPage as props,
   recordingA,
@@ -32,7 +33,7 @@ test("an unconfirmed removal retries its captured root while an independently re
   const newRoot = "d11efb2a-14a9-4c08-a145-eb11f389b2d9";
   const removePath = `/api/v1/downloads/${oldRoot}`;
   const privateFailure = "private signed playlist download removal failure";
-  function status(retention: string): PlaylistDownloadStatus {
+  function status(retention: string): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: props.detail.playlist.id,

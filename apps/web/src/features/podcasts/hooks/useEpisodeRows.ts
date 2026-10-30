@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { log } from "../../../shared/log";
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import type { TrackRow } from "../../playback/components/TrackTable";
 import type { PlaybackStart } from "../../playback/model";
-import type { PodcastEpisode, RecordingProgress } from "../../../shared/types";
+
 import { episodeState, type EpisodeState } from "../model/episodeState";
 
 export type EpisodeTrack = TrackRow & { playback_start: PlaybackStart };
@@ -14,8 +15,8 @@ export type EpisodeRow = {
 };
 
 export function useEpisodeRows(
-  episodes: PodcastEpisode[],
-  progress: RecordingProgress[],
+  episodes: Schema<"PodcastEpisode">[],
+  progress: Schema<"RecordingProgress">[],
 ) {
   const player = usePlayer();
   const saved = new Map(progress.map((item) => [item.recording_id, item]));

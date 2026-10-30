@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
-import type { UnheardOnAlbum } from "../../../shared/types";
+
 import Artwork from "../../artwork/components/Artwork";
 import Button from "../../../shared/ui/Button";
 
@@ -10,8 +11,8 @@ export default function UnheardNearby({
   albums,
   onListen,
 }: {
-  albums: UnheardOnAlbum[];
-  onListen: (album: UnheardOnAlbum) => void;
+  albums: Schema<"UnheardOnAlbum">[];
+  onListen: (album: Schema<"UnheardOnAlbum">) => void;
 }) {
   return (
     <section className="unheard" aria-labelledby="unheard-heading">

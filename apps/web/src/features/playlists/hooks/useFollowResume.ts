@@ -1,26 +1,22 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { prepareChange, submitChange } from "../../../shared/sync";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { playlistFollowApi } from "../api/playlistFollowApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  PlaylistDetail,
-  PluginInstallation,
-  PluginService,
-  SyncBatch,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 export type FollowResumeReview = {
-  installation: PluginInstallation;
-  service: PluginService;
+  installation: Schema<"PluginInstallation">;
+  service: Schema<"PluginService">;
   generation: number;
 };
 type ResumeOwner = {
   run: AbortController | null;
   review: FollowResumeReview | null;
-  attempt: SyncBatch | null;
+  attempt: Schema<"SyncBatch"> | null;
   error: string;
 };
 type ResumeState = {
@@ -38,7 +34,7 @@ function positiveRevision(value: number) {
 export function useFollowResume(
   account: string,
   playlist: string | null,
-  origin: PlaylistDetail["origin"],
+  origin: Schema<"PlaylistDetail">["origin"],
   recheckStatus: () => Promise<void>,
 ) {
   const key = JSON.stringify([
@@ -153,7 +149,10 @@ export function useFollowResume(
     }
   }
 
-  async function perform(batch: SyncBatch, retry: boolean): Promise<boolean> {
+  async function perform(
+    batch: Schema<"SyncBatch">,
+    retry: boolean,
+  ): Promise<boolean> {
     const request = scope.capture();
     if (!playlist || !origin || !request.active() || owner.run) return false;
     const run = new AbortController();

@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
-import type { components } from "../src/generated";
-type Schema = components["schemas"];
+import type { Schema } from "../src/shared/schema";
 type PublicState = {
-  playlists: Schema["Playlist"][];
-  catalog: Schema["RecordingPage"];
-  feed: Schema["SyncPage"];
+  playlists: Schema<"Playlist">[];
+  catalog: Schema<"RecordingPage">;
+  feed: Schema<"SyncPage">;
 };
 
 declare global {
@@ -45,7 +44,7 @@ test("a committed but lost import retries its original body while preserving an 
   const transmitted: string[] = [];
   const importBodies: string[] = [];
   const lost: {
-    receipt?: Schema["PlaylistImportReceipt"];
+    receipt?: Schema<"PlaylistImportReceipt">;
     serialized?: string;
     forwarded: number;
     bodyCompleted: boolean;
@@ -90,8 +89,8 @@ test("a committed but lost import retries its original body while preserving an 
       };
     }
   });
-  let service: Schema["PluginService"] | null = null;
-  let connection: Schema["PluginInstallation"] | null = null;
+  let service: Schema<"PluginService"> | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
   let copy: string | null = null;
   try {
     await page.goto("/library");
@@ -103,7 +102,7 @@ test("a committed but lost import retries its original body while preserving an 
       data: {
         name: `${fixture.prefix} replay collection`,
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
     service = await offered.json();
@@ -115,7 +114,7 @@ test("a committed but lost import retries its original body while preserving an 
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
     connection = await installed.json();
@@ -177,7 +176,7 @@ test("a committed but lost import retries its original body while preserving an 
       throw new Error(
         "The real server response must commit before client delivery is aborted",
       );
-    const original: Schema["ImportProviderPlaylist"] = JSON.parse(
+    const original: Schema<"ImportProviderPlaylist"> = JSON.parse(
       lost.serialized,
     );
     expect(original).toEqual({
@@ -195,7 +194,7 @@ test("a committed but lost import retries its original body while preserving an 
     const detailPath = `/api/v1/playlists/${copy}`;
     const detailResponse = await page.request.get(detailPath);
     expect(detailResponse.status()).toBe(200);
-    const detail: Schema["PlaylistDetail"] = await detailResponse.json();
+    const detail: Schema<"PlaylistDetail"> = await detailResponse.json();
     expect(detail.playlist.id).toBe(copy);
     expect(detail.entries).toHaveLength(4);
     expect(detail.entries.map((entry) => entry.origin?.occurrence_id)).toEqual([
@@ -243,7 +242,7 @@ test("a committed but lost import retries its original body while preserving an 
       .click();
     const replay = await retryResponse;
     expect(replay.status()).toBe(200);
-    const receipt: Schema["PlaylistImportReceipt"] = await replay.json();
+    const receipt: Schema<"PlaylistImportReceipt"> = await replay.json();
     expect(receipt).toEqual(lost.receipt);
     expect(replay.request().postData()).toBe(lost.serialized);
     expect(importBodies).toEqual([lost.serialized, lost.serialized]);

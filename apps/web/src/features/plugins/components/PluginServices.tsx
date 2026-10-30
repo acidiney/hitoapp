@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
-import type { PluginService } from "../../../shared/types";
+
 import type { PluginActions } from "../hooks/usePlugins";
 
 export default function PluginServices({
@@ -10,7 +11,7 @@ export default function PluginServices({
   actions,
   onWithdrawn,
 }: {
-  services: PluginService[];
+  services: Schema<"PluginService">[];
   actions: PluginActions;
   onWithdrawn: () => void;
 }) {

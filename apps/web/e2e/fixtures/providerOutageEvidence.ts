@@ -2,9 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { captureConsolePrivacy } from "./console-privacy";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export const outageMessage =
   "An audio service is unavailable. Select the track again to retry.";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -71,7 +70,7 @@ export async function providerOutageEvidence(
   let account = "";
   const heard = new Set<string>();
   const requests: { recording: string; body: string }[] = [];
-  const receipts: Schema["SourceResolution"][] = [];
+  const receipts: Schema<"SourceResolution">[] = [];
   const completions: Record<string, unknown>[] = [];
   const assets: Record<string, string> = {};
   const counts = {
@@ -173,7 +172,7 @@ export async function providerOutageEvidence(
       ) {
         return;
       } else if (url.pathname === "/api/v1/sync") {
-        const batch = data as Schema["SyncBatch"];
+        const batch = data as Schema<"SyncBatch">;
         if (
           !Array.isArray(batch.operations) ||
           !batch.operations.length ||
@@ -223,7 +222,7 @@ export async function providerOutageEvidence(
           counts.bounds++;
           return;
         }
-        const receipt: Schema["SourceResolution"] = JSON.parse(
+        const receipt: Schema<"SourceResolution"> = JSON.parse(
           bytes.toString(),
         );
         receipts.push(receipt);

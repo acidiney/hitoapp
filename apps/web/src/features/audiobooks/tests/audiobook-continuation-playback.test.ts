@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -19,7 +20,6 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
@@ -36,7 +36,7 @@ type Request = {
   raw: string | undefined;
   signal: AbortSignal;
 };
-type Submitted = Request & { batch: SyncBatch };
+type Submitted = Request & { batch: Schema<"SyncBatch"> };
 
 test("observed playback checkpoints the exact A, B, A chapter occurrences in account order", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -50,7 +50,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
   page.detail.bookmarks = [];
   const [first, middle, last] = page.detail.chapters;
   const bookPath = `/api/v1/audiobooks/${page.detail.playlist.id}`;
-  const source = (recording: string, id: string): Source => ({
+  const source = (recording: string, id: string): Schema<"Source"> => ({
     id,
     recording_id: recording,
     provider: "plugin",
@@ -97,7 +97,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
         )
           return Response.json([owned]);
       if (request.path === "/api/v1/sync" && request.method === "POST") {
-        const batch = JSON.parse(request.raw!) as SyncBatch;
+        const batch = JSON.parse(request.raw!) as Schema<"SyncBatch">;
         submitted.push({ ...request, batch });
         const receipt = () =>
           Response.json({
@@ -133,7 +133,7 @@ test("observed playback checkpoints the exact A, B, A chapter occurrences in acc
       }),
     ),
   );
-  const checkpoint = (chapter: typeof first): Action[] => [
+  const checkpoint = (chapter: typeof first): Schema<"Action">[] => [
     {
       kind: "progress_set",
       recording_id: chapter.recording_id!,

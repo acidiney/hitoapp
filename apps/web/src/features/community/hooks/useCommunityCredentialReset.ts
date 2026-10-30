@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
-import type { CommunityCredentialReset } from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -10,7 +11,7 @@ type Owner = { pending: boolean };
 type Snapshot = {
   owner: Owner;
   pending: boolean;
-  receipt: CommunityCredentialReset | null;
+  receipt: Schema<"CommunityCredentialReset"> | null;
   error: string;
 };
 
@@ -33,7 +34,7 @@ export function useCommunityCredentialReset(account: string) {
     const started = performance.now();
     let reason = "cancelled";
     try {
-      const receipt: CommunityCredentialReset =
+      const receipt: Schema<"CommunityCredentialReset"> =
         await communityApi.resetCredentials(account, captured.signal);
       if (!captured.active()) return;
       reason = "accepted";

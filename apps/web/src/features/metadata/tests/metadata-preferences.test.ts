@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { isOn } from "../../../test/switch";
 import { createElement } from "react";
 import {
@@ -11,7 +12,6 @@ import { beforeEach, expect, test, vi } from "vitest";
 import MetadataPreferences from "../components/MetadataPreferences";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
-import type { MetadataSettings, PluginSettings } from "../../../shared/types";
 
 vi.mock("../api/metadataPreferencesApi", () => ({
   metadataPreferencesApi: { settings: vi.fn(), update: vi.fn() },
@@ -22,17 +22,21 @@ vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
   return { pluginsApi: { ...actual.pluginsApi, settings: vi.fn() } };
 });
 
-const initial: MetadataSettings = {
+const initial: Schema<"MetadataSettings"> = {
   revision: 0,
   enabled: true,
   providers: [{ kind: "builtin_musicbrainz" }],
 };
-const connections: PluginSettings = {
+const connections: Schema<"PluginSettings"> = {
   credential_storage_ready: true,
   services: [],
   installations: [],
 };
-const accepted: MetadataSettings = { ...initial, revision: 1, enabled: false };
+const accepted: Schema<"MetadataSettings"> = {
+  ...initial,
+  revision: 1,
+  enabled: false,
+};
 const unexpectedRequest = vi.fn<typeof fetch>();
 
 beforeEach(() => {

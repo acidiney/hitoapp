@@ -1,16 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef, useState } from "react";
 import { storageApi } from "../api/storageApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  DirectoryRef,
-  HostFolderOffer,
-  MusicFolder,
-} from "../../../shared/types";
 
-const none: HostFolderOffer = { picker: false, suggestion: null };
+const none: Schema<"HostFolderOffer"> = { picker: false, suggestion: null };
 
-function covered(suggestion: DirectoryRef, folders: MusicFolder[]) {
+function covered(
+  suggestion: Schema<"DirectoryRef">,
+  folders: Schema<"MusicFolder">[],
+) {
   const wanted = suggestion.components ?? [];
   return folders.some((folder) => {
     const have = folder.directory?.components ?? [];
@@ -23,9 +22,9 @@ function covered(suggestion: DirectoryRef, folders: MusicFolder[]) {
 
 export function useHostFolders(
   account: string,
-  folders: MusicFolder[],
+  folders: Schema<"MusicFolder">[],
   ready: boolean,
-  connect: (directory: DirectoryRef) => Promise<boolean>,
+  connect: (directory: Schema<"DirectoryRef">) => Promise<boolean>,
 ) {
   const [offer, setOffer] = useState(none);
   const [dismissed, dismiss] = useState(false);

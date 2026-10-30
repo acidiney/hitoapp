@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { creditPost } from "./fixtures/release-credits";
@@ -22,8 +22,6 @@ import {
   verifySpotifyTrackCredit,
 } from "./fixtures/spotify-albums-projections";
 import { openLibrarySection } from "./fixtures/library-sections";
-
-type Schema = components["schemas"];
 
 test.use({
   trace: "off",
@@ -98,7 +96,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
   try {
     liveCheck(baseURL === "http://127.0.0.1:8080");
     const origin = new URL(baseURL).origin;
-    liveCheck((await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup);
+    liveCheck((await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup);
     const configuration = spotifyAlbumsLiveConfiguration();
     privateValues.add(configuration.reference);
     privateValues.add(encodeURIComponent(configuration.reference));
@@ -174,13 +172,13 @@ test("live public Spotify metadata becomes stored albums with honest private cre
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
     liveCheck(
-      (await read<Schema["Playlist"][]>("/api/v1/playlists")).length === 0,
+      (await read<Schema<"Playlist">[]>("/api/v1/playlists")).length === 0,
     );
     liveCheck(
-      (await read<Schema["RecordingPage"]>("/api/v1/recordings")).total === 0,
+      (await read<Schema<"RecordingPage">>("/api/v1/recordings")).total === 0,
     );
     liveCheck(
-      (await read<Schema["ReleasePage"]>("/api/v1/releases")).total === 0,
+      (await read<Schema<"ReleasePage">>("/api/v1/releases")).total === 0,
     );
     const navigation = page.getByRole("navigation", {
       name: "Main navigation",
@@ -201,7 +199,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     await page
       .getByLabel("Service address", { exact: true })
       .fill(configuration.pluginAddress);
-    const offered = await creditPost<Schema["PluginService"]>(
+    const offered = await creditPost<Schema<"PluginService">>(
       page,
       "/api/v1/plugins/services",
       201,
@@ -233,7 +231,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
       service,
       expected.manifestName,
     );
-    const installed = await creditPost<Schema["PluginInstallation"]>(
+    const installed = await creditPost<Schema<"PluginInstallation">>(
       page,
       "/api/v1/plugins",
       201,
@@ -291,8 +289,8 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     liveCheck(imported.status() === 200);
     const sent = imported
       .request()
-      .postDataJSON() as Schema["ImportProviderPlaylist"];
-    const receipt = (await imported.json()) as Schema["PlaylistImportReceipt"];
+      .postDataJSON() as Schema<"ImportProviderPlaylist">;
+    const receipt = (await imported.json()) as Schema<"PlaylistImportReceipt">;
     liveCheck(
       receipt.request_id === sent.request_id &&
         sent.installation_revision === connection.revision &&
@@ -306,10 +304,10 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     );
 
     phase = 6;
-    const playlist = await read<Schema["PlaylistDetail"]>(
+    const playlist = await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${receipt.playlist_id}`,
     );
-    const feed = await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0");
+    const feed = await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0");
     liveCheck(!feed.has_more);
     const publications = feed.operations.flatMap((event) =>
       "publication" in event && event.publication.kind === "playlist_imported"
@@ -358,7 +356,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     liveCheck(album);
     const albumPath = `/albums/${album.id}`;
     phase8Step = 2;
-    const detail = await read<Schema["ReleaseDetail"]>(
+    const detail = await read<Schema<"ReleaseDetail">>(
       `/api/v1/releases/${album.id}`,
     );
     phase8Step = 3;
@@ -433,7 +431,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
         (album.artist ?? ""),
     );
     phase8Step = 15;
-    const releaseMetadata = await read<Schema["ReleaseMetadata"]>(
+    const releaseMetadata = await read<Schema<"ReleaseMetadata">>(
       `/api/v1/releases/${album.id}/metadata`,
     );
     phase8Step = 16;
@@ -456,13 +454,13 @@ test("live public Spotify metadata becomes stored albums with honest private cre
           .getByLabel("Track artist", { exact: true })
           .inputValue()) === provider.metadata.artist,
     );
-    const metadata = await read<Schema["RecordingMetadata"]>(
+    const metadata = await read<Schema<"RecordingMetadata">>(
       `/api/v1/recordings/${selected.id}/metadata`,
     );
     verifySpotifyTrackCredit(metadata, provider, album, connection);
     liveCheck(
       (
-        await read<Schema["Source"][]>(
+        await read<Schema<"Source">[]>(
           `/api/v1/recordings/${selected.id}/sources`,
         )
       ).length === 0,
@@ -505,7 +503,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
         { timeout: 8_000 },
       )
       .toBe(true);
-    const performerDetail = await read<Schema["ArtistDetail"]>(
+    const performerDetail = await read<Schema<"ArtistDetail">>(
       `/api/v1/artists/${performer.id}`,
     );
     verifySpotifyPerformerCredit(
@@ -524,7 +522,7 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     );
     liveCheck(
       isDeepStrictEqual(
-        await read<Schema["PlaylistDetail"]>(
+        await read<Schema<"PlaylistDetail">>(
           `/api/v1/playlists/${receipt.playlist_id}`,
         ),
         playlist,

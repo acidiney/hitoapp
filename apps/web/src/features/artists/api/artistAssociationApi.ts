@@ -1,16 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  ArtistAssociationChangeReceipt,
-  ArtistAssociationChanges,
-  UndoRecordingArtistChange,
-  UnlinkRecordingArtist,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
 export const artistAssociationApi = {
   changes(account: string, recording: string, signal: AbortSignal) {
-    return requestJson<ArtistAssociationChanges>(
+    return requestJson<Schema<"ArtistAssociationChanges">>(
       `/recordings/${part(recording)}/artist-association-changes`,
       { action: "artist_association.changes", account, signal },
     );
@@ -18,10 +13,10 @@ export const artistAssociationApi = {
   unlink(
     account: string,
     recording: string,
-    body: UnlinkRecordingArtist,
+    body: Schema<"UnlinkRecordingArtist">,
     signal: AbortSignal,
   ) {
-    return requestJson<ArtistAssociationChangeReceipt>(
+    return requestJson<Schema<"ArtistAssociationChangeReceipt">>(
       `/recordings/${part(recording)}/artist-associations/unlink`,
       {
         action: "artist_association.unlink",
@@ -35,10 +30,10 @@ export const artistAssociationApi = {
   undo(
     account: string,
     recording: string,
-    body: UndoRecordingArtistChange,
+    body: Schema<"UndoRecordingArtistChange">,
     signal: AbortSignal,
   ) {
-    return requestJson<ArtistAssociationChangeReceipt>(
+    return requestJson<Schema<"ArtistAssociationChangeReceipt">>(
       `/recordings/${part(recording)}/artist-associations/undo`,
       {
         action: "artist_association.undo",

@@ -1,12 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { request, requestJson } from "../../../shared/http";
-import type { AudiobookDetail, AudiobookPlayback } from "../../../shared/types";
 
 export const audiobookApi = {
   async read(
     account: string,
     playlist: string,
     signal: AbortSignal,
-  ): Promise<AudiobookDetail> {
+  ): Promise<Schema<"AudiobookDetail">> {
     signal.throwIfAborted();
     const response = await request(
       `/audiobooks/${encodeURIComponent(playlist)}`,
@@ -16,7 +16,7 @@ export const audiobookApi = {
         signal,
       },
     );
-    const detail: AudiobookDetail = await response.json();
+    const detail: Schema<"AudiobookDetail"> = await response.json();
     signal.throwIfAborted();
     if (
       response.status !== 200 ||
@@ -33,8 +33,8 @@ export const audiobookApi = {
     account: string,
     book: string,
     signal: AbortSignal,
-  ): Promise<AudiobookPlayback> {
-    return requestJson<AudiobookPlayback>(
+  ): Promise<Schema<"AudiobookPlayback">> {
+    return requestJson<Schema<"AudiobookPlayback">>(
       `/audiobooks/${encodeURIComponent(book)}/playback`,
       { action: "audiobooks.playback_read", account, signal },
     );

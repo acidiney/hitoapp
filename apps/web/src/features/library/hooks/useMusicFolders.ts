@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef, useState } from "react";
 import { storageApi } from "../api/storageApi";
 import { libraryApi } from "../api/libraryApi";
 import { errorMessage } from "../../../shared/format";
-import type { DirectoryRef, MusicFolder } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { log } from "../../../shared/log";
 
@@ -10,7 +11,7 @@ export function useMusicFolders(account: string, library: string) {
   const scope = useRequestScope(`${account}\0${library}`);
   const [state, setState] = useState<{
     scope: typeof scope;
-    folders: MusicFolder[];
+    folders: Schema<"MusicFolder">[];
     error: string;
     loading: boolean;
   }>({ scope, folders: [], error: "", loading: true });
@@ -102,15 +103,15 @@ export function useMusicFolders(account: string, library: string) {
           : "",
     pending: pending?.scope === scope ? pending.action : null,
     retry: () => refresh((value) => value + 1),
-    connect: (directory: DirectoryRef) =>
+    connect: (directory: Schema<"DirectoryRef">) =>
       perform("connect", (signal) =>
         storageApi.connect(account, library, directory, signal),
       ),
-    remove: (folder: MusicFolder) =>
+    remove: (folder: Schema<"MusicFolder">) =>
       perform(folder.id, (signal) =>
         storageApi.remove(account, folder, signal),
       ),
-    scan: (folder: MusicFolder) =>
+    scan: (folder: Schema<"MusicFolder">) =>
       perform(folder.id, (signal) =>
         storageApi.scan(account, folder.id, signal),
       ),

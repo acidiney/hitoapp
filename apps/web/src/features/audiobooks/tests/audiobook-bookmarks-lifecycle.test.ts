@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -16,7 +17,6 @@ import {
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
 import { heldAudiobookBody } from "../fixtures/audiobooks";
-import type { AudiobookPageProps, SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -71,7 +71,7 @@ test.each(["account", "book", "unmount"] as const)(
           : page.detail.playlist.id,
       name: "Replacement private audiobook",
     };
-    const next: AudiobookPageProps = {
+    const next: Schema<"AudiobookPageProps"> = {
       ...page,
       user:
         replacement === "account"
@@ -88,7 +88,7 @@ test.each(["account", "book", "unmount"] as const)(
         })),
       },
     };
-    let batch: SyncBatch | undefined;
+    let batch: Schema<"SyncBatch"> | undefined;
     let held: ReturnType<typeof heldAudiobookBody> | undefined;
     let signal: AbortSignal | undefined;
     request.mockImplementation(async (input, options) => {
@@ -99,7 +99,7 @@ test.each(["account", "book", "unmount"] as const)(
       expect(new Headers(options?.headers).get("x-hito-request")).toBe("1");
       expect(options?.signal).toBeInstanceOf(AbortSignal);
       if (input === "/api/v1/sync" && options?.method === "POST" && !batch) {
-        batch = JSON.parse(String(options.body)) as SyncBatch;
+        batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
         });

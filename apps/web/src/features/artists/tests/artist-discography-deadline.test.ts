@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -13,8 +13,6 @@ import {
   discographyTitle,
   firstDiscographyPage,
 } from "../fixtures/artistDiscography";
-
-type Schema = components["schemas"];
 
 function stalledBody(status: number, signal: AbortSignal) {
   let entered!: () => void;
@@ -150,7 +148,7 @@ test("discography reads have a twenty-second deadline through success and error 
       expect(JSON.parse(options?.body as string)).toEqual({
         limit: 20,
         continuation: null,
-      } satisfies Schema["ReadArtistDiscography"]);
+      } satisfies Schema<"ReadArtistDiscography">);
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(
         artistReviewAccount,
       );

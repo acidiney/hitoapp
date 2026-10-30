@@ -1,24 +1,24 @@
-import type {
-  Source,
-  SourceChoice,
-  SourcePreparationStatus,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { savedRecording } from "./sourceAttachment";
 import { automaticChoice, choiceSourceA, choiceSourceB } from "./sourceChoice";
 
-export const preparableSourceB: Source = {
+export const preparableSourceB: Schema<"Source"> = {
   ...choiceSourceB,
   ready: false,
   can_prepare: true,
 };
 
-export const initialEligibility: Source[] = [choiceSourceA, preparableSourceB];
-export const chosenEligibility: Source[] = [
+export const initialEligibility: Schema<"Source">[] = [
+  choiceSourceA,
+  preparableSourceB,
+];
+export const chosenEligibility: Schema<"Source">[] = [
   { ...choiceSourceA, ready: false },
   preparableSourceB,
 ];
 
-export const initialChoice: SourceChoice = {
+export const initialChoice: Schema<"SourceChoice"> = {
   ...automaticChoice,
   sources: initialEligibility.map((source) => ({
     source,
@@ -27,7 +27,7 @@ export const initialChoice: SourceChoice = {
   })),
 };
 
-export const chosenSourceB: SourceChoice = {
+export const chosenSourceB: Schema<"SourceChoice"> = {
   ...initialChoice,
   revision: 1,
   mode: "manual",
@@ -38,7 +38,7 @@ export const chosenSourceB: SourceChoice = {
   })),
 };
 
-export const failedPreparation: SourcePreparationStatus = {
+export const failedPreparation: Schema<"SourcePreparationStatus"> = {
   preparation_id: "608f8886-0911-4543-9229-34cf58c621fa",
   recording_id: savedRecording.id,
   source_id: preparableSourceB.id,

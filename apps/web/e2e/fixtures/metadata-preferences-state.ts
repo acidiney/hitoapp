@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export function preferencesReader(page: Page) {
   let reads = 0;
@@ -86,9 +84,9 @@ export async function openPreferences(page: Page) {
 
 export async function savePreferences(
   page: Page,
-  expected: Schema["UpdateMetadataSettings"],
+  expected: Schema<"UpdateMetadataSettings">,
 ) {
-  const accepted = await preferencesAction<Schema["MetadataSettings"]>(
+  const accepted = await preferencesAction<Schema<"MetadataSettings">>(
     page,
     page.getByRole("button", {
       name: "Save metadata preferences",
@@ -113,7 +111,7 @@ export async function savePreferences(
 export async function seedPreferencesLibrary(
   page: Page,
   read: Reader,
-  user: Schema["User"],
+  user: Schema<"User">,
 ) {
   await page.goto("/settings");
   for (const folder of ["Music", "Archive"]) {
@@ -135,7 +133,7 @@ export async function seedPreferencesLibrary(
   await expect(
     page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
   ).toHaveCount(2, { timeout: 20_000 });
-  const catalog = await read<Schema["RecordingPage"]>("/api/v1/recordings");
+  const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
   expect(catalog.total === 2 && catalog.items.length === 2).toBe(true);
   const ids = catalog.items.map((recording) => recording.id);
   const playlist = randomUUID();
@@ -171,11 +169,11 @@ export async function seedPreferencesLibrary(
       position_ms: 400,
       speed: 1.25,
     },
-  ] satisfies Schema["Action"][];
+  ] satisfies Schema<"Action">[];
   const batch = {
     device_id: "owned-preferences-browser",
     operations: actions.map((action) => ({ id: randomUUID(), action })),
-  } satisfies Schema["SyncBatch"];
+  } satisfies Schema<"SyncBatch">;
   const response = await page.request.post("/api/v1/sync", {
     headers: {
       "x-hito-request": "1",
@@ -190,7 +188,7 @@ export async function seedPreferencesLibrary(
     const body = await response.body();
     if (body.length > 4096)
       throw new Error("The preference seed acknowledgement exceeded its bound");
-    const receipt = JSON.parse(body.toString()) as Schema["SyncReceipt"];
+    const receipt = JSON.parse(body.toString()) as Schema<"SyncReceipt">;
     expect(
       isDeepStrictEqual(
         receipt.acknowledged,
@@ -217,7 +215,7 @@ async function sharedOriginalSourceChoice(
     throw new Error("The original source choice response exceeded its bound");
   const unavailable = {
     error: "Resource not found",
-  } satisfies Schema["ErrorResponse"];
+  } satisfies Schema<"ErrorResponse">;
   expect(isDeepStrictEqual(JSON.parse(body.toString()), unavailable)).toBe(
     true,
   );
@@ -231,10 +229,10 @@ export async function preferencesLibraryState(
 ) {
   const progress = await page.request.post("/api/v1/recordings/progress", {
     headers: { "x-hito-request": "1", Origin: new URL(page.url()).origin },
-    data: { recording_ids: saved.ids } satisfies Schema["SavedPlaybackRequest"],
+    data: { recording_ids: saved.ids } satisfies Schema<"SavedPlaybackRequest">,
     timeout: 10_000,
   });
-  let savedProgress: Schema["RecordingProgress"][];
+  let savedProgress: Schema<"RecordingProgress">[];
   try {
     expect(progress.status()).toBe(200);
     const body = await progress.body();
@@ -242,29 +240,29 @@ export async function preferencesLibraryState(
       throw new Error("The preferences progress response exceeded its bound");
     savedProgress = JSON.parse(
       body.toString(),
-    ) as Schema["RecordingProgress"][];
+    ) as Schema<"RecordingProgress">[];
   } finally {
     await progress.dispose();
   }
   return {
-    libraries: await read<Schema["Library"][]>("/api/v1/libraries"),
-    catalog: await read<Schema["RecordingPage"]>("/api/v1/recordings"),
-    artists: await read<Schema["ArtistPage"]>("/api/v1/artists"),
-    releases: await read<Schema["ReleasePage"]>("/api/v1/releases"),
-    playlist: await read<Schema["PlaylistDetail"]>(
+    libraries: await read<Schema<"Library">[]>("/api/v1/libraries"),
+    catalog: await read<Schema<"RecordingPage">>("/api/v1/recordings"),
+    artists: await read<Schema<"ArtistPage">>("/api/v1/artists"),
+    releases: await read<Schema<"ReleasePage">>("/api/v1/releases"),
+    playlist: await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${saved.playlist}`,
     ),
-    activity: await read<Schema["Activity"]>("/api/v1/activity"),
-    events: await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0"),
+    activity: await read<Schema<"Activity">>("/api/v1/activity"),
+    events: await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0"),
     progress: savedProgress,
     metadata: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     sources: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+        read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
       ),
     ),
     choices: await Promise.all(

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
-import type { components } from "../src/generated";
-type Schema = components["schemas"];
+import type { Schema } from "../src/shared/schema";
 
 test("play-all queues every library page, then a reorder changes the next transition without restarting audio", async ({
   page,
@@ -32,20 +31,20 @@ test("play-all queues every library page, then a reorder changes the next transi
       data: {
         name: "Queue order service",
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
-    const connection: Schema["PluginInstallation"] = await installed.json();
+    const connection: Schema<"PluginInstallation"> = await installed.json();
     cleanup = async () => {
       const removed = await page.request.delete(
         `/api/v1/plugins/${connection.id}`,
@@ -69,7 +68,7 @@ test("play-all queues every library page, then a reorder changes the next transi
           data: {
             installation_revision: connection.revision,
             provider_recording_id: id,
-          } satisfies Schema["AdoptProviderRecording"],
+          } satisfies Schema<"AdoptProviderRecording">,
         },
       );
       expect(adopted.status()).toBe(200);

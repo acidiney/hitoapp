@@ -1,5 +1,5 @@
 import { expect, type Browser, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { ArtworkProviderFixture } from "./collection-artwork-provider";
 import type {
   collectionArtworkEvidence,
@@ -15,7 +15,6 @@ import {
 } from "./collection-artwork-actions";
 import { signIn } from "./artwork-browser-checks";
 
-type Schema = components["schemas"];
 type Evidence = ReturnType<typeof collectionArtworkEvidence>;
 async function leaveSession(page: Page, baseURL: string) {
   await Promise.all([
@@ -58,7 +57,7 @@ export async function privateAccountDenials(
     const peer = await context.newPage();
     await signIn(peer, username, password);
     await evidence.captureSession(context);
-    const before = await json<Schema["SyncPage"]>(
+    const before = await json<Schema<"SyncPage">>(
       peer,
       "/api/v1/sync?cursor=0",
     );
@@ -69,10 +68,10 @@ export async function privateAccountDenials(
     }
     expect(await json(peer, "/api/v1/playlists")).toEqual([]);
     expect(
-      (await json<Schema["RecordingPage"]>(peer, "/api/v1/recordings")).items,
+      (await json<Schema<"RecordingPage">>(peer, "/api/v1/recordings")).items,
     ).toEqual([]);
     expect(
-      (await json<Schema["ReleasePage"]>(peer, "/api/v1/releases")).items,
+      (await json<Schema<"ReleasePage">>(peer, "/api/v1/releases")).items,
     ).toEqual([]);
     expect(await json(peer, "/api/v1/sync?cursor=0")).toEqual(before);
     await expect(peer.locator("img")).toHaveCount(0);
@@ -85,7 +84,7 @@ export async function privateAccountDenials(
 export async function revokedPublication(
   page: Page,
   fixture: ArtworkProviderFixture,
-  installation: Schema["PluginInstallation"],
+  installation: Schema<"PluginInstallation">,
   evidence: Evidence,
 ) {
   const selection = fixture.selections[1];
@@ -105,7 +104,7 @@ export async function revokedPublication(
       receipt.kind === "playlist" && receipt.target === copy.playlist.id,
   )!;
   expect(
-    (await json<Schema["PlaylistArtworkFetch"]>(page, receiptPath(receipt)))
+    (await json<Schema<"PlaylistArtworkFetch">>(page, receiptPath(receipt)))
       .status,
   ).toBe("running");
   await removeProvider(page, fixture, installation);
@@ -113,7 +112,7 @@ export async function revokedPublication(
   await expect
     .poll(
       async () =>
-        (await json<Schema["PlaylistArtworkFetch"]>(page, receiptPath(receipt)))
+        (await json<Schema<"PlaylistArtworkFetch">>(page, receiptPath(receipt)))
           .status,
     )
     .toBe("cancelled");
@@ -134,7 +133,7 @@ export async function loggedOutPublication(
   page: Page,
   baseURL: string,
   fixture: ArtworkProviderFixture,
-  service: Schema["PluginService"],
+  service: Schema<"PluginService">,
   evidence: Evidence,
   peer: { username: string; password: string },
   retainedPaths: { path: string; bytes: Buffer }[],
@@ -179,7 +178,7 @@ export async function loggedOutPublication(
     await leaveSession(page, baseURL);
     await signIn(page, "admin", "docker browser test password");
     await evidence.captureSession(page.context());
-    const current = await json<Schema["PlaylistArtworkFetch"]>(
+    const current = await json<Schema<"PlaylistArtworkFetch">>(
       page,
       receiptPath(receipt),
     );

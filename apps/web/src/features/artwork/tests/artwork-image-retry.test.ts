@@ -1,14 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, Fragment } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../components/ArtworkProvider";
 import Artwork from "../components/Artwork";
 import ArtworkStatus from "../components/ArtworkStatus";
-import type {
-  ArtworkFetch,
-  PlaylistArtworkFetch,
-  ReleaseArtworkFetch,
-} from "../../../shared/types";
 
 const id = "3017a834-f2ef-4b57-9411-c3b56781132e";
 const targets = [
@@ -49,7 +45,10 @@ test.each(
       error: null,
       created_at: 1,
       updated_at: 2,
-    } satisfies ArtworkFetch | ReleaseArtworkFetch | PlaylistArtworkFetch;
+    } satisfies
+      | Schema<"ArtworkFetch">
+      | Schema<"ReleaseArtworkFetch">
+      | Schema<"PlaylistArtworkFetch">;
     const fetch = vi.fn(async (path: string, options?: RequestInit) => {
       if (path === `${image}/availability` && options?.method === "GET")
         return Response.json({ can_fetch: target.phase === "ready" });
@@ -190,7 +189,10 @@ test.each(targets)(
       error: null,
       created_at: 1,
       updated_at: 2,
-    } satisfies ArtworkFetch | ReleaseArtworkFetch | PlaylistArtworkFetch;
+    } satisfies
+      | Schema<"ArtworkFetch">
+      | Schema<"ReleaseArtworkFetch">
+      | Schema<"PlaylistArtworkFetch">;
     const fetch = vi.fn(async (path: string, options?: RequestInit) => {
       if (path === `${image}/availability` && options?.method === "GET")
         return Response.json({ can_fetch: true });

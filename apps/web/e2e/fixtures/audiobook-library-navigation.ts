@@ -1,11 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { libraryId, type LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
 import { openLibrarySection } from "./library-sections";
 
-type Schema = components["schemas"];
 export async function documentToken(page: Page) {
   return page.evaluate(
     () =>
@@ -13,7 +12,7 @@ export async function documentToken(page: Page) {
         .__hitoLibraryDocument,
   );
 }
-export async function assertBooks(page: Page, books: Schema["Playlist"][]) {
+export async function assertBooks(page: Page, books: Schema<"Playlist">[]) {
   await expect(
     page
       .locator("main")
@@ -43,7 +42,7 @@ export async function assertBooks(page: Page, books: Schema["Playlist"][]) {
 export async function pageLink(
   page: Page,
   name: string,
-  books: Schema["Playlist"][],
+  books: Schema<"Playlist">[],
   delivery: LibraryDelivery,
 ) {
   const before = delivery.counts.visits;
@@ -168,7 +167,7 @@ export async function controlNameCursors(fixture: LibraryFixture) {
       { kind: "audiobook_create" as const, playlist_id: book.id },
     ]),
   );
-  const first = await fixture.owner.read<Schema["AudiobookLibraryPage"]>(
+  const first = await fixture.owner.read<Schema<"AudiobookLibraryPage">>(
     "/api/v1/audiobooks/page?limit=1",
   );
   expect(isDeepStrictEqual(first.items, [controls[0]])).toBe(true);
@@ -178,7 +177,7 @@ export async function controlNameCursors(fixture: LibraryFixture) {
       "The owned escaped-name cursor did not exercise its byte bound",
     );
   fixture.remember(next);
-  const second = await fixture.owner.read<Schema["AudiobookLibraryPage"]>(
+  const second = await fixture.owner.read<Schema<"AudiobookLibraryPage">>(
     `/api/v1/audiobooks/page?limit=1&cursor=${encodeURIComponent(next)}`,
   );
   expect(isDeepStrictEqual(second.items, [controls[1]])).toBe(true);
@@ -186,7 +185,7 @@ export async function controlNameCursors(fixture: LibraryFixture) {
   if (!previous)
     throw new Error("The owned escaped-name previous cursor is missing");
   fixture.remember(previous);
-  const back = await fixture.owner.read<Schema["AudiobookLibraryPage"]>(
+  const back = await fixture.owner.read<Schema<"AudiobookLibraryPage">>(
     `/api/v1/audiobooks/page?limit=1&cursor=${encodeURIComponent(previous)}`,
   );
   expect(isDeepStrictEqual(back.items, first.items)).toBe(true);

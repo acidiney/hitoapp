@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,10 +8,8 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-import { heldResponse } from "../../../test/async";
 
-type Schema = components["schemas"];
+import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -24,7 +23,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -32,7 +31,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
       follow_content_revision: 1,
     },
   };
-  const ready: Schema["PlaylistFollow"] = {
+  const ready: Schema<"PlaylistFollow"> = {
     playlist_id: props.detail.playlist.id,
     generation: 1,
     content_revision: 1,
@@ -67,7 +66,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
           Response.json({
             ...ready,
             status: "queued",
-          } satisfies Schema["PlaylistFollow"]),
+          } satisfies Schema<"PlaylistFollow">),
         );
       if (statusReads === 3) return running.response;
       if (statusReads === 4) return completed.response;
@@ -143,7 +142,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
     headers: { "x-hito-account": props.user.id },
     signal: expect.any(AbortSignal),
   });
-  const request: Schema["RefreshFollowedPlaylist"] = JSON.parse(
+  const request: Schema<"RefreshFollowedPlaylist"> = JSON.parse(
     String(posted![1]?.body),
   );
   expect(request).toEqual({
@@ -161,7 +160,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
           request_id: request.request_id,
           playlist_id: ready.playlist_id,
           job_id: "bd39a2fe-b459-4c5a-945c-6cfaa8b240fe",
-        } satisfies Schema["PlaylistFollowRefresh"],
+        } satisfies Schema<"PlaylistFollowRefresh">,
         { status: 202 },
       ),
     );
@@ -183,7 +182,7 @@ test("a followed playlist retains its entries and reloads once after a refresh w
       Response.json({
         ...ready,
         status: "running",
-      } satisfies Schema["PlaylistFollow"]),
+      } satisfies Schema<"PlaylistFollow">),
     );
   });
   expect(updates.getByText(/Updating/)).toBeTruthy();

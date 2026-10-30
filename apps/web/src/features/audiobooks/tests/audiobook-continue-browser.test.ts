@@ -4,14 +4,13 @@ import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { audiobookPages } from "../fixtures/audiobooks";
 import { audiobookProgressMedia } from "../fixtures/audiobookProgressMedia";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { Playback } from "../../playback/playback";
 import {
   PlaybackProvider,
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 
-type Schema = components["schemas"];
 test("browser Continue reads fresh exact saved playback after its fixed heard prefix while later progress stays pending", async () => {
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -26,12 +25,12 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
     position: 25,
     available: false,
   };
-  const chapter = (entry: typeof first): Schema["AudiobookChapterAnchor"] => ({
+  const chapter = (entry: typeof first): Schema<"AudiobookChapterAnchor"> => ({
     audiobook_id: page.detail.playlist.id,
     entry_id: entry.entry_id,
     recording_id: entry.recording_id!,
   });
-  const fresh: Schema["AudiobookPlayback"] = {
+  const fresh: Schema<"AudiobookPlayback"> = {
     audiobook_id: page.detail.playlist.id,
     chapter: chapter(last),
     progress: {
@@ -41,7 +40,7 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
     },
     chapters: [first, middle, pending, last],
   };
-  const sources: Schema["Source"][] = [first, middle].map((entry, index) => ({
+  const sources: Schema<"Source">[] = [first, middle].map((entry, index) => ({
     id: index
       ? "189b7475-24a0-4863-bb66-1492067a3fa3"
       : "47f373bb-4296-4e89-bd3c-5b3e73833ac5",
@@ -53,7 +52,7 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
     label: "Owned fixture source",
   }));
   const requests: string[] = [];
-  const submitted: Schema["SyncBatch"][] = [];
+  const submitted: Schema<"SyncBatch">[] = [];
   const acknowledgements: (() => void)[] = [];
   let reads = 0;
   let readSignal: AbortSignal | undefined;
@@ -75,7 +74,7 @@ test("browser Continue reads fresh exact saved playback after its fixed heard pr
       expect(options?.signal).toBeInstanceOf(AbortSignal);
       if (path === "/api/v1/sync") {
         expect(options?.method).toBe("POST");
-        const batch: Schema["SyncBatch"] = JSON.parse(String(options?.body));
+        const batch: Schema<"SyncBatch"> = JSON.parse(String(options?.body));
         submitted.push(batch);
         expect(submitted.length).toBeLessThanOrEqual(4);
         return new Promise<Response>((resolve) =>

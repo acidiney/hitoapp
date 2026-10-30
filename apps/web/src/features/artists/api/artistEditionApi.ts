@@ -1,17 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
-import type {
-  EditionTrackListAvailability,
-  ReadEditionTrackList,
-  ReadReleaseGroupEditions,
-  ReleaseGroupEditionsAvailability,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 const INVALID_RESPONSE =
   "Hito returned an invalid edition response. Try again.";
 const availabilityStatuses: Record<
-  | ReleaseGroupEditionsAvailability["status"]
-  | EditionTrackListAvailability["status"],
+  | Schema<"ReleaseGroupEditionsAvailability">["status"]
+  | Schema<"EditionTrackListAvailability">["status"],
   true
 > = {
   available: true,
@@ -22,7 +17,9 @@ const availabilityStatuses: Record<
 };
 
 async function json<
-  T extends ReleaseGroupEditionsAvailability | EditionTrackListAvailability,
+  T extends
+    | Schema<"ReleaseGroupEditionsAvailability">
+    | Schema<"EditionTrackListAvailability">,
 >(response: Response): Promise<T> {
   let value: unknown;
   try {
@@ -47,10 +44,10 @@ export const artistEditionApi = {
     account: string,
     recording: string,
     association: string,
-    body: ReadReleaseGroupEditions,
+    body: Schema<"ReadReleaseGroupEditions">,
     signal: AbortSignal,
-  ): Promise<ReleaseGroupEditionsAvailability> {
-    return json<ReleaseGroupEditionsAvailability>(
+  ): Promise<Schema<"ReleaseGroupEditionsAvailability">> {
+    return json<Schema<"ReleaseGroupEditionsAvailability">>(
       await request(
         `/recordings/${part(recording)}/artist-associations/${part(association)}/release-group-editions`,
         {
@@ -67,10 +64,10 @@ export const artistEditionApi = {
     account: string,
     recording: string,
     association: string,
-    body: ReadEditionTrackList,
+    body: Schema<"ReadEditionTrackList">,
     signal: AbortSignal,
-  ): Promise<EditionTrackListAvailability> {
-    return json<EditionTrackListAvailability>(
+  ): Promise<Schema<"EditionTrackListAvailability">> {
+    return json<Schema<"EditionTrackListAvailability">>(
       await request(
         `/recordings/${part(recording)}/artist-associations/${part(association)}/edition-track-list`,
         {

@@ -1,12 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type {
-  ResolveSource,
-  Source,
-  SourceResolution,
-} from "../../../shared/types";
+
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import PlaybackStatus from "../components/PlaybackStatus";
@@ -88,7 +85,7 @@ export const ownedTrack = (id: string): Track => ({
   duration_ms: 90000,
   available: false,
 });
-export const ownedSource = (track: Track, id: string): Source => ({
+export const ownedSource = (track: Track, id: string): Schema<"Source"> => ({
   id,
   recording_id: track.id,
   provider: "plugin",
@@ -101,12 +98,12 @@ export function unavailableResponse(
   request: OwnedPlaybackRequest,
   track: Track,
 ) {
-  const body = request.body as ResolveSource;
+  const body = request.body as Schema<"ResolveSource">;
   return Response.json({
     request_id: body.request_id,
     resolution_id: "6065e385-46bb-47cc-ac68-2cadf61b6d7c",
     recording_id: track.id,
     outcome: "provider_unavailable",
     sources: [],
-  } satisfies SourceResolution);
+  } satisfies Schema<"SourceResolution">);
 }

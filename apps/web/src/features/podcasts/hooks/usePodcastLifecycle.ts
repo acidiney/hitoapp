@@ -1,9 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type { PodcastSubscription } from "../../../shared/types";
+
 import { usePodcastCommand } from "./usePodcastCommand";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -18,7 +19,7 @@ type DetailReload = {
   started: number;
 };
 type Owner = {
-  subscription: PodcastSubscription;
+  subscription: Schema<"PodcastSubscription">;
   highestRevision: number;
   awaiting: boolean;
   polls: number;
@@ -31,7 +32,7 @@ type Owner = {
 
 export function usePodcastLifecycle(
   account: string,
-  rendered: PodcastSubscription,
+  rendered: Schema<"PodcastSubscription">,
   episodes: EpisodeUpdates,
 ) {
   const id = rendered.subscription_id;
@@ -55,8 +56,8 @@ export function usePodcastLifecycle(
   latest.current = { owner, rendered, episodes };
   const [state, setState] = useState<{
     owner: Owner;
-    rendered: PodcastSubscription;
-    subscription: PodcastSubscription;
+    rendered: Schema<"PodcastSubscription">;
+    subscription: Schema<"PodcastSubscription">;
     waiting: boolean;
     checking: boolean;
     error: string;

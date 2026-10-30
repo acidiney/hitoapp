@@ -1,12 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useState } from "react";
 import { artistCorrectionApi } from "../api/artistCorrectionApi";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { useRetainedCommand } from "./useRetainedCommand";
-import type {
-  SharedArtistCorrection,
-  SharedArtistCorrections,
-} from "../../../shared/types";
 
 const pageSize = 25;
 
@@ -14,7 +11,9 @@ const pageSize = 25;
 export function useSharedCorrections(account: string) {
   const scope = useRequestScope(account);
   const [offset, setOffset] = useState(0);
-  const [page, setPage] = useState<SharedArtistCorrections | null>(null);
+  const [page, setPage] = useState<Schema<"SharedArtistCorrections"> | null>(
+    null,
+  );
   const [failed, setFailed] = useState(false);
 
   async function load(signal: AbortSignal, at = offset) {
@@ -53,7 +52,7 @@ export function useSharedCorrections(account: string) {
     retry: command.retry,
     previous: () => setOffset((value) => Math.max(0, value - pageSize)),
     next: () => setOffset((value) => value + pageSize),
-    toggle: (item: SharedArtistCorrection) =>
+    toggle: (item: Schema<"SharedArtistCorrection">) =>
       command.run(item.applied ? "withdraw" : "restore", () => {
         const body = Object.freeze({
           request_id: createUuid(),

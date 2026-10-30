@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,7 +10,6 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { Source, SyncBatch } from "../../../shared/types";
 
 test("256 pending checkpoints pause at capacity and preserve the heard chapter before another queue can replace it", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -30,7 +30,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
       recording_id: chapter.recording_id!,
     },
   });
-  const source: Source = {
+  const source: Schema<"Source"> = {
     id: "76769d98-1b6b-4ec8-8ff7-478c04d7bb23",
     recording_id: first.recording_id!,
     provider: "plugin",
@@ -39,7 +39,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
     label: "Owned audio service",
     can_prepare: false,
   };
-  const submitted: { raw: string; batch: SyncBatch }[] = [];
+  const submitted: { raw: string; batch: Schema<"SyncBatch"> }[] = [];
   const requests: string[] = [];
   const pending = new Set<Promise<Response>>();
   let releaseFirst: (() => void) | undefined;
@@ -65,7 +65,7 @@ test("256 pending checkpoints pause at capacity and preserve the heard chapter b
         return Response.json([source]);
       if (input === "/api/v1/sync" && options?.method === "POST") {
         const raw = String(options.body);
-        const batch = JSON.parse(raw) as SyncBatch;
+        const batch = JSON.parse(raw) as Schema<"SyncBatch">;
         submitted.push({ raw, batch });
         const receipt = () =>
           Response.json({ acknowledged: batch.operations.map(({ id }) => id) });

@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { ArtworkProviderFixture } from "./collection-artwork-provider";
 import { reviewPluginInstallation } from "./plugin-installation-review";
 
-type Schema = components["schemas"];
 export const hash = (bytes: Buffer) =>
   createHash("sha256").update(bytes).digest("hex");
 
@@ -29,7 +28,7 @@ export async function downloadAbsence(
   recordings: string[],
   playlists: string[],
 ) {
-  expect((await json<Schema["User"]>(page, "/api/v1/me")).id).toBe(account);
+  expect((await json<Schema<"User">>(page, "/api/v1/me")).id).toBe(account);
   expect(new Set(recordings).size).toBe(recordings.length);
   expect(new Set(playlists).size).toBe(playlists.length);
   const paths = [
@@ -48,7 +47,7 @@ export async function downloadAbsence(
       expect(response.headers()["cache-control"]).toBe("private, no-store");
       const bytes = await response.body();
       expect(bytes.length).toBeLessThanOrEqual(4096);
-      expect(JSON.parse(bytes.toString()) as Schema["ErrorResponse"]).toEqual({
+      expect(JSON.parse(bytes.toString()) as Schema<"ErrorResponse">).toEqual({
         error: "Resource not found",
       });
     } finally {
@@ -92,7 +91,7 @@ export async function action<T>(
 export async function installProvider(
   page: Page,
   fixture: ArtworkProviderFixture,
-  existing?: Schema["PluginService"],
+  existing?: Schema<"PluginService">,
 ) {
   await page.goto("/settings?section=plugins");
   let service = existing;
@@ -101,7 +100,7 @@ export async function installProvider(
     await page
       .getByLabel("Service address", { exact: true })
       .fill(fixture.address);
-    service = await action<Schema["PluginService"]>(
+    service = await action<Schema<"PluginService">>(
       page,
       "/api/v1/plugins/services",
       201,
@@ -122,7 +121,7 @@ export async function installProvider(
   expect(review.body.manifest.capabilities).toEqual(
     fixture.manifest.capabilities,
   );
-  const installation = await action<Schema["PluginInstallation"]>(
+  const installation = await action<Schema<"PluginInstallation">>(
     page,
     "/api/v1/plugins",
     201,
@@ -146,13 +145,13 @@ export function connectionCard(page: Page, fixture: ArtworkProviderFixture) {
 export async function approveArtwork(
   page: Page,
   fixture: ArtworkProviderFixture,
-  installation: Schema["PluginInstallation"],
+  installation: Schema<"PluginInstallation">,
 ) {
   fixture.enableArtwork();
   await page.goto("/settings?section=plugins");
   const card = connectionCard(page, fixture);
   const path = `/api/v1/plugins/${installation.id}/refresh`;
-  const review = await action<Schema["PluginRefresh"]>(
+  const review = await action<Schema<"PluginRefresh">>(
     page,
     path,
     200,
@@ -168,7 +167,7 @@ export async function approveArtwork(
 export async function removeProvider(
   page: Page,
   fixture: ArtworkProviderFixture,
-  installation: Schema["PluginInstallation"],
+  installation: Schema<"PluginInstallation">,
 ) {
   await page.goto("/settings?section=plugins");
   const card = connectionCard(page, fixture);
@@ -185,7 +184,7 @@ export async function removeProvider(
 export async function importCopy(
   page: Page,
   fixture: ArtworkProviderFixture,
-  installation: Schema["PluginInstallation"],
+  installation: Schema<"PluginInstallation">,
   selection = fixture.selections[0],
 ) {
   await page.goto("/playlists");
@@ -196,7 +195,7 @@ export async function importCopy(
   await form
     .getByRole("textbox", { name: "Playlist link or identifier" })
     .fill(selection.reference);
-  const receipt = await action<Schema["PlaylistImportReceipt"]>(
+  const receipt = await action<Schema<"PlaylistImportReceipt">>(
     page,
     `/api/v1/plugins/${installation.id}/playlists/import`,
     200,
@@ -205,7 +204,7 @@ export async function importCopy(
   await expect(page).toHaveURL(
     new RegExp(`/playlists/${receipt.playlist_id}$`),
   );
-  const detail = await json<Schema["PlaylistDetail"]>(
+  const detail = await json<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
@@ -237,7 +236,7 @@ export async function preservePersonalEdits(
     release: `${prefix} personal album`,
     copies: copies.map((_, index) => `${prefix} private copy ${index + 1}`),
   };
-  const actions: Schema["Action"][] = [
+  const actions: Schema<"Action">[] = [
     {
       kind: "recording_title_set",
       recording_id: recording,
@@ -268,7 +267,7 @@ export async function preservePersonalEdits(
     data: {
       device_id: "owned-artwork-browser",
       operations: actions.map((action) => ({ id: randomUUID(), action })),
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
   });
   expect(response.status()).toBe(200);
   await response.dispose();

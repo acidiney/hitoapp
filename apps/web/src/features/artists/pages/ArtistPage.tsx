@@ -1,4 +1,5 @@
-import type { ArtistPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
 import Artwork from "../../artwork/components/Artwork";
@@ -19,7 +20,7 @@ export default function ArtistPage({
   user,
   playlists,
   detail,
-}: ArtistPageProps) {
+}: Schema<"ArtistPageProps">) {
   const { artist, releases, recordings } = detail;
   const { mutate } = useMutation(user.id);
   const tracks = recordings.items.map((recording) => ({

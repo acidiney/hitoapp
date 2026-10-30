@@ -1,7 +1,9 @@
-import type { DownloadStatus } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
+import Button from "../../../shared/ui/Button";
 
 type Props = {
-  download: DownloadStatus | null;
+  download: Schema<"DownloadStatus"> | null;
   checking: boolean;
   pending: "create" | "remove" | null;
   retryKind: "create" | "remove" | null;
@@ -105,31 +107,28 @@ export default function RecordingDownload({
           <p className="form-error" role="alert">
             {statusError}
           </p>
-          <button
-            className="button"
+          <Button
             disabled={checking || pending !== null}
             onClick={() => void check()}
           >
             Check download
-          </button>
+          </Button>
         </div>
       )}
       {previousSource && !retryKind && (
-        <button
-          className="button"
+        <Button
           disabled={!verified || pending !== null}
           onClick={() => void start()}
         >
           Download selected source
-        </button>
+        </Button>
       )}
-      <button
-        className="button"
+      <Button
         disabled={pending !== null || (!retryKind && !verified)}
         onClick={() => void action()}
       >
         {label}
-      </button>
+      </Button>
     </section>
   );
 }

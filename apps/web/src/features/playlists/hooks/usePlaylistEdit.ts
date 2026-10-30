@@ -1,15 +1,16 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import { router } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import { useNotice } from "../../../shared/ui/Notices";
-import type { PlaylistEntry } from "../../../shared/types";
+
 import { reorderMoves } from "../model/reorder";
 import { log } from "../../../shared/log";
 
 export function usePlaylistEdit(
   account: string,
   playlist: string,
-  entries: PlaylistEntry[],
+  entries: Schema<"PlaylistEntry">[],
 ) {
   const { mutate, mutateMany, pending } = useMutation(account);
   const notice = useNotice();

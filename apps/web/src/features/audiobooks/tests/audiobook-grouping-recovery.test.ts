@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -11,7 +12,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { router } from "@inertiajs/react";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
-import type { SyncBatch } from "../../../shared/types";
+
 import { openAddAudiobookDialog } from "../../../test/media";
 
 const navigationCallbacks = {
@@ -78,7 +79,7 @@ test("an acknowledged grouping retries only its failed authoritative read and wa
     assertOwnedRequest(options, index.user.id);
     if (input === "/api/v1/sync" && options?.method === "POST") {
       writes.push(String(options.body));
-      const batch = JSON.parse(writes[0]) as SyncBatch;
+      const batch = JSON.parse(writes[0]) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });
@@ -151,7 +152,7 @@ test("an acknowledged deleted-playlist no-op stays unavailable without navigatio
     assertOwnedRequest(options, index.user.id);
     if (input === "/api/v1/sync" && options?.method === "POST") {
       writes += 1;
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });

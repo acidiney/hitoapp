@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { PluginInstallation } from "../../../shared/types";
+
 import ProviderResults from "../../discovery/components/ProviderResults";
 import Button from "../../../shared/ui/Button";
 import EmptyState from "../../../shared/ui/EmptyState";
@@ -10,7 +11,7 @@ import type { useProviderSearch } from "../hooks/useProviderSearch";
 const PREVIEW = 5;
 
 export function serviceLabel(
-  connection: PluginInstallation,
+  connection: Schema<"PluginInstallation">,
   names: Record<string, string>,
 ) {
   const name = names[connection.service_id];

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import { Link } from "@inertiajs/react";
 import {
@@ -5,10 +6,8 @@ import {
   type PlaylistCreationMode,
 } from "../hooks/useProviderPlaylist";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
-import type {
-  PlaylistFollowInterval,
-  PluginInstallation,
-} from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 export default function PlaylistImport({
   account,
@@ -16,7 +15,7 @@ export default function PlaylistImport({
   names,
 }: {
   account: string;
-  connections: PluginInstallation[];
+  connections: Schema<"PluginInstallation">[];
   names: Record<string, string>;
 }) {
   const providers = connections.filter((connection) =>
@@ -25,7 +24,8 @@ export default function PlaylistImport({
   const [choice, setChoice] = useState("");
   const [reference, setReference] = useState("");
   const [mode, setMode] = useState<PlaylistCreationMode>("copy");
-  const [interval, setInterval] = useState<PlaylistFollowInterval>("hourly");
+  const [interval, setInterval] =
+    useState<Schema<"PlaylistFollowInterval">>("hourly");
   const selected =
     providers.find((provider) => provider.id === choice) ??
     providers[0] ??
@@ -107,8 +107,8 @@ export default function PlaylistImport({
               placeholder="Paste a playlist link or identifier"
             />
           </label>
-          <button
-            className="button primary"
+          <Button
+            variant="primary"
             type="submit"
             disabled={workflow.pending || !reference.trim()}
           >
@@ -117,7 +117,7 @@ export default function PlaylistImport({
                 ? "Importing…"
                 : "Following…"
               : submitLabel}
-          </button>
+          </Button>
           {workflow.error && <p role="alert">{workflow.error}</p>}
           {workflow.hasAttempt && !workflow.pending && (
             <div className="playlist-import-recovery">
@@ -126,8 +126,7 @@ export default function PlaylistImport({
                   ? "Retry recovers the previous import. Import a new copy uses the current playlist field."
                   : "Retry recovers the previous follow request and its original refresh interval. Following again uses the current playlist field and interval."}
               </p>
-              <button
-                className="button"
+              <Button
                 type="button"
                 disabled={workflow.pending}
                 onClick={() => void workflow.retry()}
@@ -135,7 +134,7 @@ export default function PlaylistImport({
                 {workflow.attemptKind === "copy"
                   ? "Retry import"
                   : "Retry follow"}
-              </button>
+              </Button>
             </div>
           )}
         </form>

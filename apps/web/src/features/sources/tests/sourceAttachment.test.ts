@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -15,7 +16,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
+
 import { recordingB } from "../../playlists/fixtures/playlistPages";
 import {
   attachedPage,
@@ -79,11 +80,11 @@ test("a saved provider track reviews an explicit source match and keeps its unsa
     );
   vi.stubGlobal("fetch", fetch);
   let player!: Player;
-  function Page(props: RecordingDetailsPageProps) {
+  function Page(props: Schema<"RecordingDetailsPageProps">) {
     player = usePlayer();
     return createElement(RecordingDetailsPage, props);
   }
-  const view = (props: RecordingDetailsPageProps) =>
+  const view = (props: Schema<"RecordingDetailsPageProps">) =>
     createElement(
       NoticeProvider,
       null,
@@ -232,7 +233,7 @@ test("a delayed review cannot cross an account and recording change or load the 
     artist: "Bob saved artist",
     provider_recording_id: "spotify/bob",
   };
-  const bob: RecordingDetailsPageProps = {
+  const bob: Schema<"RecordingDetailsPageProps"> = {
     ...sourceAttachmentPage,
     user: { id: "bob", username: "Bob", admin: false },
     playlists: [],
@@ -302,7 +303,7 @@ test("a delayed review cannot cross an account and recording change or load the 
         sourceChoicePaths.includes(path) && options?.method === "GET",
     );
   vi.stubGlobal("fetch", fetch);
-  const view = (props: RecordingDetailsPageProps) =>
+  const view = (props: Schema<"RecordingDetailsPageProps">) =>
     createElement(
       NoticeProvider,
       null,

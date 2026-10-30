@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import {
@@ -11,7 +11,6 @@ import {
 } from "./fixtures/release-credits";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -62,7 +61,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     expect(baseURL === "http://127.0.0.1:8080").toBe(true);
     const origin = new URL(baseURL!).origin;
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     fixture = await releaseCreditsFixture();
     const owned = fixture;
@@ -103,7 +102,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     await page
       .getByLabel("Service address", { exact: true })
       .fill(owned.address);
-    const offered = await creditPost<Schema["PluginService"]>(
+    const offered = await creditPost<Schema<"PluginService">>(
       page,
       "/api/v1/plugins/services",
       201,
@@ -127,7 +126,7 @@ test("source-free imported albums preserve unknown credits through personal edit
       offered.body,
       owned.manifest.name,
     );
-    const installed = await creditPost<Schema["PluginInstallation"]>(
+    const installed = await creditPost<Schema<"PluginInstallation">>(
       page,
       "/api/v1/plugins",
       201,
@@ -156,7 +155,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     await form
       .getByRole("textbox", { name: "Playlist link or identifier" })
       .fill(owned.reference);
-    const imported = await creditPost<Schema["PlaylistImportReceipt"]>(
+    const imported = await creditPost<Schema<"PlaylistImportReceipt">>(
       page,
       `/api/v1/plugins/${connection.id}/playlists/import`,
       200,
@@ -165,7 +164,7 @@ test("source-free imported albums preserve unknown credits through personal edit
           .getByRole("button", { name: "Import a copy", exact: true })
           .click(),
     );
-    const sent = imported.sent as Schema["ImportProviderPlaylist"];
+    const sent = imported.sent as Schema<"ImportProviderPlaylist">;
     expect(
       imported.body.request_id === sent.request_id &&
         sent.installation_revision === connection.revision &&
@@ -173,7 +172,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     ).toBe(true);
     const playlistId = imported.body.playlist_id;
     await expect(page).toHaveURL(`${origin}/playlists/${playlistId}`);
-    const playlist = await read<Schema["PlaylistDetail"]>(
+    const playlist = await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${playlistId}`,
     );
     expect(
@@ -202,7 +201,7 @@ test("source-free imported albums preserve unknown credits through personal edit
           [2, "second-again"],
         ]),
     ).toBe(true);
-    const releases = await read<Schema["ReleasePage"]>("/api/v1/releases");
+    const releases = await read<Schema<"ReleasePage">>("/api/v1/releases");
     expect(releases.total === 1 && releases.items.length === 1).toBe(true);
     const album = releases.items[0];
     expect(
@@ -212,7 +211,7 @@ test("source-free imported albums preserve unknown credits through personal edit
         album.track_count === 2,
     ).toBe(true);
     const albumPath = `/albums/${album.id}`;
-    const detail = await read<Schema["ReleaseDetail"]>(
+    const detail = await read<Schema<"ReleaseDetail">>(
       `/api/v1/releases/${album.id}`,
     );
     expect(
@@ -239,10 +238,10 @@ test("source-free imported albums preserve unknown credits through personal edit
             track.duration_ms === owned.recordings[index].duration_ms,
         ),
     ).toBe(true);
-    const recordingMetadata: Schema["RecordingMetadata"][] = [];
+    const recordingMetadata: Schema<"RecordingMetadata">[] = [];
     for (const id of [firstId, secondId]) {
       expect(
-        (await read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`))
+        (await read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`))
           .length,
       ).toBe(0);
       expect(
@@ -253,12 +252,12 @@ test("source-free imported albums preserve unknown credits through personal edit
         ).status(),
       ).toBe(404);
       recordingMetadata.push(
-        await read<Schema["RecordingMetadata"]>(
+        await read<Schema<"RecordingMetadata">>(
           `/api/v1/recordings/${id}/metadata`,
         ),
       );
     }
-    const initial = await read<Schema["ReleaseMetadata"]>(
+    const initial = await read<Schema<"ReleaseMetadata">>(
       `/api/v1/releases/${album.id}/metadata`,
     );
     expect(
@@ -302,7 +301,7 @@ test("source-free imported albums preserve unknown credits through personal edit
       JSON.stringify(await rows.locator(".artist-column").allTextContents()) ===
         JSON.stringify(owned.recordings.map((recording) => recording.artist)),
     ).toBe(true);
-    const artists = await read<Schema["ArtistPage"]>("/api/v1/artists");
+    const artists = await read<Schema<"ArtistPage">>("/api/v1/artists");
     expect(
       artists.total === 2 &&
         artists.items.every((artist) =>
@@ -318,7 +317,7 @@ test("source-free imported albums preserve unknown credits through personal edit
       page.getByRole("heading", { name: performer.name, exact: true }),
     ).toBeVisible();
     expect(
-      (await read<Schema["ArtistDetail"]>(`/api/v1/artists/${performer.id}`))
+      (await read<Schema<"ArtistDetail">>(`/api/v1/artists/${performer.id}`))
         .artist.id === performer.id,
     ).toBe(true);
     await page.locator(`a[href="${albumPath}"]`).first().click();
@@ -348,7 +347,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     await expect(
       page.getByRole("button", { name: "Use source artist", exact: true }),
     ).toBeVisible();
-    const saved = await read<Schema["ReleaseMetadata"]>(
+    const saved = await read<Schema<"ReleaseMetadata">>(
       `/api/v1/releases/${album.id}/metadata`,
     );
     expect(
@@ -362,7 +361,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     await page
       .getByRole("link", { name: "Back to album", exact: true })
       .click();
-    const personalized = await read<Schema["ReleaseDetail"]>(
+    const personalized = await read<Schema<"ReleaseDetail">>(
       `/api/v1/releases/${album.id}`,
     );
     expect(
@@ -396,7 +395,7 @@ test("source-free imported albums preserve unknown credits through personal edit
     await expect(page.getByLabel("Album artist", { exact: true })).toHaveValue(
       "",
     );
-    const reset = await read<Schema["ReleaseMetadata"]>(
+    const reset = await read<Schema<"ReleaseMetadata">>(
       `/api/v1/releases/${album.id}/metadata`,
     );
     expect(
@@ -414,25 +413,25 @@ test("source-free imported albums preserve unknown credits through personal edit
       page.getByText("Album artist not provided", { exact: true }),
     ).toBeVisible();
     await expect(page.locator('a[href^="/artists/"]')).toHaveCount(0);
-    const final = await read<Schema["ReleaseDetail"]>(
+    const final = await read<Schema<"ReleaseDetail">>(
       `/api/v1/releases/${album.id}`,
     );
     expect(JSON.stringify(final) === JSON.stringify(detail)).toBe(true);
     expect(
       JSON.stringify(
-        await read<Schema["PlaylistDetail"]>(`/api/v1/playlists/${playlistId}`),
+        await read<Schema<"PlaylistDetail">>(`/api/v1/playlists/${playlistId}`),
       ) === JSON.stringify(playlist),
     ).toBe(true);
     for (const [index, id] of [firstId, secondId].entries()) {
       expect(
         JSON.stringify(
-          await read<Schema["RecordingMetadata"]>(
+          await read<Schema<"RecordingMetadata">>(
             `/api/v1/recordings/${id}/metadata`,
           ),
         ) === JSON.stringify(recordingMetadata[index]),
       ).toBe(true);
       expect(
-        (await read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`))
+        (await read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`))
           .length,
       ).toBe(0);
       expect(

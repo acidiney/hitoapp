@@ -7,9 +7,8 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { enterEditMode } from "./fixtures/playlist-edit";
-type Schema = components["schemas"];
 type Target = {
   label: string;
   width: number;
@@ -139,8 +138,8 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       };
     }
   });
-  let service: Schema["PluginService"] | null = null;
-  let connection: Schema["PluginInstallation"] | null = null;
+  let service: Schema<"PluginService"> | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
   let copied: string | null = null;
   try {
     await signIn(page);
@@ -149,7 +148,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       data: {
         name: `${fixture.prefix} collection`,
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
     service = await offered.json();
@@ -161,7 +160,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
     connection = await installed.json();
@@ -206,7 +205,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     const imported = await importResponse;
     expect(imported.status()).toBe(200);
     expect(importRequests).toBe(1);
-    const sent: Schema["ImportProviderPlaylist"] = imported
+    const sent: Schema<"ImportProviderPlaylist"> = imported
       .request()
       .postDataJSON();
     expect(sent).toEqual({
@@ -214,7 +213,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       installation_revision: connection.revision,
       playlist_reference: fixture.reference,
     });
-    const receipt: Schema["PlaylistImportReceipt"] = await imported.json();
+    const receipt: Schema<"PlaylistImportReceipt"> = await imported.json();
     expect(receipt.request_id).toBe(sent.request_id);
     expect(Object.keys(receipt).sort()).toEqual(["playlist_id", "request_id"]);
     copied = receipt.playlist_id;
@@ -226,7 +225,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     ).toBeVisible();
     const detailResponse = await page.request.get(detailPath);
     expect(detailResponse.status()).toBe(200);
-    const detail: Schema["PlaylistDetail"] = await detailResponse.json();
+    const detail: Schema<"PlaylistDetail"> = await detailResponse.json();
     expect(detail.playlist).toEqual({
       id: copied,
       kind: "local",
@@ -396,7 +395,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
           request.method() === "POST",
       );
       await remove.press("Enter");
-      const batch: Schema["SyncBatch"] = (await changed).postDataJSON();
+      const batch: Schema<"SyncBatch"> = (await changed).postDataJSON();
       expect(batch.operations).toEqual([
         {
           id: expect.any(String),

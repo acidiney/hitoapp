@@ -1,9 +1,7 @@
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { liveAudioState, liveControlBounds } from "./youtube-live";
 import { openLibrarySection } from "./library-sections";
-
-type Schema = components["schemas"];
 
 export const audioPath =
   /^\/api\/v1\/sources\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/audio$/;
@@ -92,12 +90,12 @@ export async function verifySpotifyYouTubePlayback(
     origin,
     setPhase,
   }: {
-    receipt: Schema["PlaylistImportReceipt"];
+    receipt: Schema<"PlaylistImportReceipt">;
     recording: string;
-    beforePlaylist: Schema["PlaylistDetail"];
-    afterPlaylist: Schema["PlaylistDetail"];
-    sources: Schema["Source"][];
-    original: Schema["MetadataObservation"];
+    beforePlaylist: Schema<"PlaylistDetail">;
+    afterPlaylist: Schema<"PlaylistDetail">;
+    sources: Schema<"Source">[];
+    original: Schema<"MetadataObservation">;
     origin: string;
     setPhase: (phase: 8 | 9 | 10) => void;
   },

@@ -1,10 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { ChosenGroupMember } from "./artist-identity-groups-journey";
 import type { GroupReader } from "./artist-identity-groups-state";
-
-type Schema = components["schemas"];
 
 export async function browseArtistGroups(
   page: Page,
@@ -24,7 +22,7 @@ export async function browseArtistGroups(
       other.groupId !== groupId,
   ).toBe(true);
   checkpoint(2);
-  const groups = await read<Schema["ArtistIdentityGroupPage"]>(
+  const groups = await read<Schema<"ArtistIdentityGroupPage">>(
     "/api/v1/artist-identity-groups?limit=200",
   );
   expect(
@@ -35,7 +33,7 @@ export async function browseArtistGroups(
       ),
   ).toBe(true);
   checkpoint(3);
-  const full = await read<Schema["ArtistIdentityGroupDetail"]>(
+  const full = await read<Schema<"ArtistIdentityGroupDetail">>(
     `/api/v1/artist-identity-groups/${groupId}?limit=200`,
   );
   expect(
@@ -76,7 +74,7 @@ export async function browseArtistGroups(
     .locator("..");
   checkpoint(5);
   await expect(chosenSection.locator("a.artist-card")).toHaveCount(1);
-  const credits = await read<Schema["ArtistPage"]>(
+  const credits = await read<Schema<"ArtistPage">>(
     "/api/v1/artists?limit=1&offset=1",
   );
   await expect(creditsSection.locator("a.artist-card")).toHaveCount(
@@ -135,7 +133,7 @@ export async function browseArtistGroups(
         Object.entries(offsets).map(([key, value]) => [key, String(value)]),
       ),
     });
-    const detail = await read<Schema["ArtistIdentityGroupDetail"]>(
+    const detail = await read<Schema<"ArtistIdentityGroupDetail">>(
       `/api/v1/artist-identity-groups/${groupId}?${query}`,
     );
     expect(
@@ -211,7 +209,7 @@ export async function browseArtistGroups(
   await page.locator(`a[href="${filter}"]`).click();
   await expect(page).toHaveURL(`${new URL(page.url()).origin}${filter}`);
   checkpoint(42);
-  const filtered = await read<Schema["ArtistIdentityGroupDetail"]>(
+  const filtered = await read<Schema<"ArtistIdentityGroupDetail">>(
     `/api/v1/artist-identity-groups/${groupId}?library=${library}&limit=200`,
   );
   expect(
@@ -238,7 +236,7 @@ export async function browseArtistGroups(
       0;
   await inspect();
   checkpoint(44);
-  const namesake = await read<Schema["ArtistIdentityGroupDetail"]>(
+  const namesake = await read<Schema<"ArtistIdentityGroupDetail">>(
     `/api/v1/artist-identity-groups/${other.groupId}?limit=1`,
   );
   expect(

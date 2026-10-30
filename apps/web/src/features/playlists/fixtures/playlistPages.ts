@@ -1,8 +1,8 @@
-import type { PlaylistEntry, PlaylistPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export const recordingA = "cd53993a-c582-42af-a67b-61280e39d3c2";
 export const recordingB = "eb6a9e9e-39fc-464f-bb2a-3ae17834e748";
-const first: PlaylistEntry = {
+const first: Schema<"PlaylistEntry"> = {
   entry_id: "cf6d6fcb-1644-44b4-b49d-8ebd81e67250",
   recording_id: recordingA,
   position: 0,
@@ -19,7 +19,7 @@ const first: PlaylistEntry = {
     occurrence_id: "first-a",
   },
 };
-export const unknown: PlaylistEntry = {
+export const unknown: Schema<"PlaylistEntry"> = {
   ...first,
   entry_id: "dd56c1d9-4738-4993-8cfc-76a65cabf77d",
   recording_id: null,
@@ -36,7 +36,7 @@ export const unknown: PlaylistEntry = {
     occurrence_id: "unknown",
   },
 };
-export const copiedPlaylistPage: PlaylistPageProps = {
+export const copiedPlaylistPage: Schema<"PlaylistPageProps"> = {
   user: { id: "alice", username: "Alice", admin: false },
   errors: {},
   native_playback: false,
@@ -90,7 +90,7 @@ export const copiedPlaylistPage: PlaylistPageProps = {
   },
 };
 
-export const unavailablePlaylistPages: PlaylistPageProps[] = [
+export const unavailablePlaylistPages: Schema<"PlaylistPageProps">[] = [
   {
     ...copiedPlaylistPage,
     detail: {

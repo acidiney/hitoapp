@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ComponentProps, type ReactNode } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
@@ -8,10 +9,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistDownloadStatus,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import {
   copiedPlaylistPage,
   recordingA,
@@ -52,7 +50,7 @@ test("download polling updates progress without rendering the unchanged playlist
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -73,7 +71,7 @@ test("download polling updates progress without rendering the unchanged playlist
   };
   const path = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const retention = "ee172821-334f-41ed-8054-a6ef067a4010";
-  function status(completed: boolean): PlaylistDownloadStatus {
+  function status(completed: boolean): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: props.detail.playlist.id,

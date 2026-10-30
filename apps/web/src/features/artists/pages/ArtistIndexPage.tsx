@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Link, usePage } from "@inertiajs/react";
-import type { ArtistIndexPageProps } from "../../../shared/types";
+
 import Artwork from "../../artwork/components/Artwork";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
@@ -12,7 +13,7 @@ export default function ArtistIndexPage({
   identity_groups,
   libraries,
   query,
-}: ArtistIndexPageProps) {
+}: Schema<"ArtistIndexPageProps">) {
   useAutomaticArtistMatching(user.id);
   const { url } = usePage();
   const current = new URL(url, window.location.origin).searchParams;

@@ -1,4 +1,5 @@
 import { useArtwork } from "./ArtworkProvider";
+import Button from "../../../shared/ui/Button";
 
 type ArtworkStatusProps =
   | { recording: string; release?: never; playlistId?: never }
@@ -29,9 +30,7 @@ export default function ArtworkStatus({
   return (
     <div className="artwork-status">
       <p role="status">{message}</p>
-      <button className="button" onClick={artwork.retry}>
-        Retry artwork
-      </button>
+      <Button onClick={artwork.retry}>Retry artwork</Button>
     </div>
   );
 }

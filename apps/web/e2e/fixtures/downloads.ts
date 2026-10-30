@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { providerFixture } from "./provider";
 import { setUpSpotifyYouTubeLiveAccount as setUpDisposableDownloadAccount } from "./spotify-youtube-live";
 
-type Schema = components["schemas"];
 export type DownloadProvider = Awaited<ReturnType<typeof providerFixture>>;
 
 export async function read<T>(page: Page, path: string): Promise<T> {
@@ -45,13 +44,13 @@ export async function prepareDownloadLibrary(
   await expect(
     page.locator(".music-folder-row").filter({ hasText: "1 file read" }),
   ).toHaveCount(1, { timeout: 20_000 });
-  const originals = await read<Schema["RecordingPage"]>(
+  const originals = await read<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings",
   );
   expect(originals.items.length).toBe(1);
   const original = originals.items[0];
-  const originalSources = await read<Schema["Source"][]>(
+  const originalSources = await read<Schema<"Source">[]>(
     page,
     `/api/v1/recordings/${original.id}/sources`,
   );
@@ -66,20 +65,20 @@ export async function prepareDownloadLibrary(
     data: {
       name: "Download fixture",
       base_url: provider.address,
-    } satisfies Schema["OfferPluginService"],
+    } satisfies Schema<"OfferPluginService">,
   });
   expect(offered.status()).toBe(201);
-  const service: Schema["PluginService"] = await offered.json();
+  const service: Schema<"PluginService"> = await offered.json();
   const installed = await page.request.post("/api/v1/plugins", {
     headers,
     data: {
       service_id: service.id,
       service_revision: service.revision,
       bearer_token: provider.token,
-    } satisfies Schema["InstallPlugin"],
+    } satisfies Schema<"InstallPlugin">,
   });
   expect(installed.status()).toBe(201);
-  const installation: Schema["PluginInstallation"] = await installed.json();
+  const installation: Schema<"PluginInstallation"> = await installed.json();
   const search = await page.request.post(
     `/api/v1/plugins/${installation.id}/search`,
     {
@@ -88,11 +87,11 @@ export async function prepareDownloadLibrary(
         installation_revision: installation.revision,
         query: "Download",
         limit: 10,
-      } satisfies Schema["ProviderSearch"],
+      } satisfies Schema<"ProviderSearch">,
     },
   );
   expect(search.status()).toBe(200);
-  const found: Schema["SearchPage"] = await search.json();
+  const found: Schema<"SearchPage"> = await search.json();
   expect(found.items.some((item) => item.id === provider.recording.id)).toBe(
     true,
   );
@@ -103,14 +102,14 @@ export async function prepareDownloadLibrary(
       data: {
         installation_revision: installation.revision,
         provider_recording_id: provider.recording.id,
-      } satisfies Schema["AdoptProviderRecording"],
+      } satisfies Schema<"AdoptProviderRecording">,
     },
   );
   expect(adopted.status()).toBe(200);
-  const recording: Schema["Recording"] = await adopted.json();
+  const recording: Schema<"Recording"> = await adopted.json();
   const playlist = randomUUID();
   const personalTitle = "Saved download personal title";
-  const actions: Schema["SyncBatch"] = {
+  const actions: Schema<"SyncBatch"> = {
     device_id: "download-browser-fixture",
     operations: [
       {
@@ -164,17 +163,17 @@ export async function prepareDownloadLibrary(
     data: actions,
   });
   expect(saved.status()).toBe(200);
-  const receipt: Schema["SyncReceipt"] = await saved.json();
+  const receipt: Schema<"SyncReceipt"> = await saved.json();
   expect(
     actions.operations.every((operation) =>
       receipt.acknowledged.includes(operation.id),
     ),
   ).toBe(true);
-  const metadata = await read<Schema["RecordingMetadata"]>(
+  const metadata = await read<Schema<"RecordingMetadata">>(
     page,
     `/api/v1/recordings/${recording.id}/metadata`,
   );
-  const selection = await read<Schema["PlaylistDetail"]>(
+  const selection = await read<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${playlist}`,
   );
@@ -183,19 +182,19 @@ export async function prepareDownloadLibrary(
     recording: recording.id,
     personalTitle,
     async assertRetained(reader: Page) {
-      const currentMetadata = await read<Schema["RecordingMetadata"]>(
+      const currentMetadata = await read<Schema<"RecordingMetadata">>(
         reader,
         `/api/v1/recordings/${recording.id}/metadata`,
       );
-      const currentPlaylist = await read<Schema["PlaylistDetail"]>(
+      const currentPlaylist = await read<Schema<"PlaylistDetail">>(
         reader,
         `/api/v1/playlists/${playlist}`,
       );
-      const currentOriginals = await read<Schema["RecordingPage"]>(
+      const currentOriginals = await read<Schema<"RecordingPage">>(
         reader,
         `/api/v1/recordings?library=${original.library_id}`,
       );
-      const currentSources = await read<Schema["Source"][]>(
+      const currentSources = await read<Schema<"Source">[]>(
         reader,
         `/api/v1/recordings/${original.id}/sources`,
       );

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { expect, request, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { artistReviewReader } from "./fixtures/artist-review-state";
 import { seedPreferencesLibrary } from "./fixtures/metadata-preferences-state";
 import {
@@ -26,7 +26,6 @@ import {
   connectChoiceProvider,
 } from "./fixtures/recording-lyric-provider-choice-state";
 
-type Schema = components["schemas"];
 test.skip(
   process.env.HITO_LYRIC_PROVIDER_CHOICE_E2E !== "1",
   "Requires the disposable packaged provider-choice gate",
@@ -44,7 +43,7 @@ test("explicit choice of a different retained provider renders its exact lyrics 
   const credentials = {
     username: `choice-owner-${randomUUID().slice(0, 8)}`,
     password: `owned-choice-password-${randomUUID()}`,
-  } satisfies Schema["Credentials"];
+  } satisfies Schema<"Credentials">;
   const query = `owned-choice-query-${randomUUID()}`;
   const draft = `Owned unsaved choice title ${randomUUID()}`;
   const privateValues = [
@@ -74,11 +73,11 @@ test("explicit choice of a different retained provider renders its exact lyrics 
         process.env.PLAYWRIGHT_NO_COPY_PROMPT === "1",
     ).toBe(true);
     expect(
-      (await choiceRead<Schema["SetupStatus"]>(page.request, "/api/v1/setup"))
+      (await choiceRead<Schema<"SetupStatus">>(page.request, "/api/v1/setup"))
         .needs_setup,
     ).toBe(true);
     evidence = await lyricChoiceEvidence(context, baseURL!, privateValues);
-    await choiceWrite<Schema["AuthSession"]>(
+    await choiceWrite<Schema<"AuthSession">>(
       page.request,
       baseURL!,
       "/api/v1/setup",
@@ -92,7 +91,7 @@ test("explicit choice of a different retained provider renders its exact lyrics 
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
-    const user = await choiceRead<Schema["User"]>(page.request, "/api/v1/me");
+    const user = await choiceRead<Schema<"User">>(page.request, "/api/v1/me");
     expect(user.admin && user.username === credentials.username).toBe(true);
     providers = await lyricChoiceProviders(query);
     privateValues.push(...providers.privateValues);
@@ -127,7 +126,7 @@ test("explicit choice of a different retained provider renders its exact lyrics 
       providers.primary.recording,
     );
     evidence.own([recording.id]);
-    const primaryMetadata = await choiceRead<Schema["RecordingMetadata"]>(
+    const primaryMetadata = await choiceRead<Schema<"RecordingMetadata">>(
       page.request,
       `/api/v1/recordings/${recording.id}/metadata`,
     );
@@ -145,8 +144,8 @@ test("explicit choice of a different retained provider renders its exact lyrics 
     checkpoint = 4;
     const resolutionRequest = {
       request_id: randomUUID(),
-    } satisfies Schema["ResolveSource"];
-    const resolution = await choiceWrite<Schema["SourceResolution"]>(
+    } satisfies Schema<"ResolveSource">;
+    const resolution = await choiceWrite<Schema<"SourceResolution">>(
       page.request,
       baseURL!,
       `/api/v1/recordings/${recording.id}/sources/resolve`,
@@ -166,7 +165,7 @@ test("explicit choice of a different retained provider renders its exact lyrics 
         providers.attached.calls.detail > 0 &&
         providers.attached.calls.sources > 0,
     ).toBe(true);
-    const metadata = await choiceRead<Schema["RecordingMetadata"]>(
+    const metadata = await choiceRead<Schema<"RecordingMetadata">>(
       page.request,
       `/api/v1/recordings/${recording.id}/metadata`,
     );
@@ -279,7 +278,7 @@ test("explicit choice of a different retained provider renders its exact lyrics 
           label: providers.attached.manifest.name,
         },
       ],
-    } satisfies Schema["RecordingLyricsProviders"];
+    } satisfies Schema<"RecordingLyricsProviders">;
     expect(
       listReply.status() === 200 &&
         listReply.headers()["cache-control"] === "private, no-store" &&

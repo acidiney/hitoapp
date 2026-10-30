@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -15,7 +16,6 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href }: { children: ReactNode; href: string }) =>
@@ -115,7 +115,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
   const media = seekingMedia();
   const { detail: page } = audiobookPages();
   const chapter = page.detail.chapters[2];
-  const source: Source = {
+  const source: Schema<"Source"> = {
     id: "96915255-c05e-40b8-bdfd-6389049aabf7",
     recording_id: chapter.recording_id!,
     provider: "local",
@@ -124,7 +124,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
     label: "Owned chapter audio",
     can_prepare: false,
   };
-  const submitted: SyncBatch[] = [];
+  const submitted: Schema<"SyncBatch">[] = [];
   const unexpected: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -147,7 +147,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
       )
         return Response.json([source]);
       if (path === "/api/v1/sync" && method === "POST") {
-        const batch = JSON.parse(String(options?.body)) as SyncBatch;
+        const batch = JSON.parse(String(options?.body)) as Schema<"SyncBatch">;
         submitted.push(batch);
         return Response.json({
           acknowledged: batch.operations.map(({ id }) => id),
@@ -172,7 +172,7 @@ test("a completed seek can checkpoint its heard chapter after the media clock ad
       }),
     ),
   );
-  const checkpoint = (position_ms: number): Action[] => [
+  const checkpoint = (position_ms: number): Schema<"Action">[] => [
     {
       kind: "progress_set",
       recording_id: source.recording_id,

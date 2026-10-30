@@ -1,8 +1,5 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  ReadSimilarArtists,
-  SimilarArtistsAvailability,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
@@ -11,10 +8,10 @@ export const similarArtistsApi = {
     account: string,
     recording: string,
     association: string,
-    body: ReadSimilarArtists,
+    body: Schema<"ReadSimilarArtists">,
     signal: AbortSignal,
-  ): Promise<SimilarArtistsAvailability> {
-    return requestJson<SimilarArtistsAvailability>(
+  ): Promise<Schema<"SimilarArtistsAvailability">> {
+    return requestJson<Schema<"SimilarArtistsAvailability">>(
       `/recordings/${part(recording)}/artist-associations/${part(association)}/similar-artists`,
       {
         action: "similar_artists.read",

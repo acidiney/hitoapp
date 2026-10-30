@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { resolveSection, sectionHref, visibleGroups } from "../sections";
+import { resolveSection, sectionHref, visibleGroups } from "../model/sections";
 
 test("groups list the nine sections and hide Accounts from members", () => {
   const labels = (admin: boolean) =>

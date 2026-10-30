@@ -1,9 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import TrackToolbar from "../components/TrackToolbar";
-import type { ResolveSource, Source } from "../../../shared/types";
+
 import type { Player, Track } from "../model";
 import { PlaybackProvider, usePlayer } from "../components/PlaybackProvider";
 import PlaybackStatus from "../components/PlaybackStatus";
@@ -25,7 +26,7 @@ test("an accepted service outage is shown once and selecting Play again makes a 
     });
   const account = "2c231196-2cdc-4120-9d95-2d348bf7c937";
   const recording = "1cbe6b12-a9d8-4da5-9ef0-cf518d27c69c";
-  const source: Source = {
+  const source: Schema<"Source"> = {
     id: "e72c1fd9-1ed1-4ef5-87f0-c64ebf8b7b82",
     recording_id: recording,
     provider: "Private provider canary",
@@ -38,7 +39,7 @@ test("an accepted service outage is shown once and selecting Play again makes a 
   const sourcePath = `/api/v1/recordings/${recording}/sources`;
   const requests: { path: string; method: string; account: string | null }[] =
     [];
-  const attempts: { body: ResolveSource; signal: AbortSignal }[] = [];
+  const attempts: { body: Schema<"ResolveSource">; signal: AbortSignal }[] = [];
   const unexpected: string[] = [];
   let available = false;
   vi.stubGlobal(
@@ -68,7 +69,7 @@ test("an accepted service outage is shown once and selecting Play again makes a 
         unexpected.push(path);
         throw new Error("Unexpected owned playback request");
       }
-      const body: ResolveSource = JSON.parse(options.body);
+      const body: Schema<"ResolveSource"> = JSON.parse(options.body);
       expect(Object.keys(body)).toEqual(["request_id"]);
       expect(body.request_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,

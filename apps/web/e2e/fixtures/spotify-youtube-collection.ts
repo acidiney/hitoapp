@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { SpotifyYouTubeLiveFailure } from "./spotify-youtube-live";
-
-type Schema = components["schemas"];
 
 export const uuid =
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -21,7 +19,7 @@ export async function readSpotifyYouTube<T>(
 }
 
 export function retainedImportedPlaylist(
-  detail: Schema["PlaylistDetail"],
+  detail: Schema<"PlaylistDetail">,
   recording: string,
 ) {
   return {
@@ -34,10 +32,10 @@ export function retainedImportedPlaylist(
 
 export async function inspectCopiedPlaylist(
   page: Page,
-  receipt: Schema["PlaylistImportReceipt"],
-  spotify: Schema["PluginInstallation"],
+  receipt: Schema<"PlaylistImportReceipt">,
+  spotify: Schema<"PluginInstallation">,
 ) {
-  const copied = await readSpotifyYouTube<Schema["PlaylistDetail"]>(
+  const copied = await readSpotifyYouTube<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
@@ -77,10 +75,10 @@ export async function inspectCopiedPlaylist(
 export async function inspectImportedRecording(
   page: Page,
   recording: string,
-  spotify: Schema["PluginInstallation"],
+  spotify: Schema<"PluginInstallation">,
 ) {
   const originalMetadata = await readSpotifyYouTube<
-    Schema["RecordingMetadata"]
+    Schema<"RecordingMetadata">
   >(page, `/api/v1/recordings/${recording}/metadata`);
   const original = originalMetadata.selected_observation;
   if (
@@ -94,7 +92,7 @@ export async function inspectImportedRecording(
     );
   expect(
     (
-      await readSpotifyYouTube<Schema["Source"][]>(
+      await readSpotifyYouTube<Schema<"Source">[]>(
         page,
         `/api/v1/recordings/${recording}/sources`,
       )
@@ -113,9 +111,9 @@ export async function editPrivateDetailsAndCaptureBaseline(
     personalArtist,
     headers,
   }: {
-    receipt: Schema["PlaylistImportReceipt"];
+    receipt: Schema<"PlaylistImportReceipt">;
     recording: string;
-    initialPlaylists: Schema["Playlist"][];
+    initialPlaylists: Schema<"Playlist">[];
     personalTitle: string;
     personalArtist: string;
     headers: Record<string, string>;
@@ -143,25 +141,25 @@ export async function editPrivateDetailsAndCaptureBaseline(
           },
         },
       ],
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
   });
   if (edited.status() !== 200)
     throw new SpotifyYouTubeLiveFailure(
       `Owned private edits returned HTTP ${edited.status()}`,
     );
-  const beforeMetadata = await readSpotifyYouTube<Schema["RecordingMetadata"]>(
+  const beforeMetadata = await readSpotifyYouTube<Schema<"RecordingMetadata">>(
     page,
     `/api/v1/recordings/${recording}/metadata`,
   );
-  const beforePlaylist = await readSpotifyYouTube<Schema["PlaylistDetail"]>(
+  const beforePlaylist = await readSpotifyYouTube<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
-  const beforeLists = await readSpotifyYouTube<Schema["Playlist"][]>(
+  const beforeLists = await readSpotifyYouTube<Schema<"Playlist">[]>(
     page,
     "/api/v1/playlists",
   );
-  const beforeCatalog = await readSpotifyYouTube<Schema["RecordingPage"]>(
+  const beforeCatalog = await readSpotifyYouTube<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings?limit=1",
   );
@@ -179,12 +177,12 @@ export type AttachmentBaseline = Awaited<
 
 export async function assertReviewPreservesPlaylist(
   page: Page,
-  receipt: Schema["PlaylistImportReceipt"],
-  beforePlaylist: Schema["PlaylistDetail"],
+  receipt: Schema<"PlaylistImportReceipt">,
+  beforePlaylist: Schema<"PlaylistDetail">,
 ) {
   expect(
     JSON.stringify(
-      await readSpotifyYouTube<Schema["PlaylistDetail"]>(
+      await readSpotifyYouTube<Schema<"PlaylistDetail">>(
         page,
         `/api/v1/playlists/${receipt.playlist_id}`,
       ),
@@ -201,16 +199,16 @@ export async function assertAttachedCollection(
     youtube,
     selection,
   }: {
-    receipt: Schema["PlaylistImportReceipt"];
+    receipt: Schema<"PlaylistImportReceipt">;
     recording: string;
     baseline: AttachmentBaseline;
-    youtube: Schema["PluginInstallation"];
-    selection: { candidate: Schema["ProviderRecording"] };
+    youtube: Schema<"PluginInstallation">;
+    selection: { candidate: Schema<"ProviderRecording"> };
   },
 ) {
   const { beforeMetadata, beforePlaylist, beforeLists, beforeCatalog } =
     baseline;
-  const afterMetadata = await readSpotifyYouTube<Schema["RecordingMetadata"]>(
+  const afterMetadata = await readSpotifyYouTube<Schema<"RecordingMetadata">>(
     page,
     `/api/v1/recordings/${recording}/metadata`,
   );
@@ -231,7 +229,7 @@ export async function assertAttachedCollection(
         item.provider_recording_id === selection.candidate.id,
     ),
   ).toBe(true);
-  const afterPlaylist = await readSpotifyYouTube<Schema["PlaylistDetail"]>(
+  const afterPlaylist = await readSpotifyYouTube<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
@@ -251,18 +249,18 @@ export async function assertAttachedCollection(
   ).toBe(true);
   expect(
     JSON.stringify(
-      await readSpotifyYouTube<Schema["Playlist"][]>(page, "/api/v1/playlists"),
+      await readSpotifyYouTube<Schema<"Playlist">[]>(page, "/api/v1/playlists"),
     ) === JSON.stringify(beforeLists),
   ).toBe(true);
   expect(
     (
-      await readSpotifyYouTube<Schema["RecordingPage"]>(
+      await readSpotifyYouTube<Schema<"RecordingPage">>(
         page,
         "/api/v1/recordings?limit=1",
       )
     ).total,
   ).toBe(beforeCatalog.total);
-  const sources = await readSpotifyYouTube<Schema["Source"][]>(
+  const sources = await readSpotifyYouTube<Schema<"Source">[]>(
     page,
     `/api/v1/recordings/${recording}/sources`,
   );
@@ -281,18 +279,18 @@ export async function assertAttachedCollection(
 
 export async function assertPlaybackPreservesCollection(
   page: Page,
-  receipt: Schema["PlaylistImportReceipt"],
+  receipt: Schema<"PlaylistImportReceipt">,
   recording: string,
-  afterPlaylist: Schema["PlaylistDetail"],
+  afterPlaylist: Schema<"PlaylistDetail">,
 ) {
-  const preserved = await readSpotifyYouTube<Schema["PlaylistDetail"]>(
+  const preserved = await readSpotifyYouTube<Schema<"PlaylistDetail">>(
     page,
     `/api/v1/playlists/${receipt.playlist_id}`,
   );
   expect(JSON.stringify(preserved) === JSON.stringify(afterPlaylist)).toBe(
     true,
   );
-  const history = await readSpotifyYouTube<Schema["Activity"]>(
+  const history = await readSpotifyYouTube<Schema<"Activity">>(
     page,
     "/api/v1/activity",
   );

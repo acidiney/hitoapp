@@ -3,9 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function artworkFixture() {
   const unique = randomUUID();
@@ -15,7 +13,7 @@ export async function artworkFixture() {
   const image = await readFile(
     new URL("./images/cover-a.png", import.meta.url),
   );
-  const manifest: Schema["Manifest"] = {
+  const manifest: Schema<"Manifest"> = {
     id: "org.hito.browser.artwork-fixture",
     name: `${prefix} provider`,
     protocol_version: 1,
@@ -26,7 +24,7 @@ export async function artworkFixture() {
     title: `${prefix} recording`,
     artist: "Hito owned artwork fixtures",
     duration_ms: 123000,
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const detail = {
     id: `private-playlist/${unique}`,
     name: `${prefix} copy`,

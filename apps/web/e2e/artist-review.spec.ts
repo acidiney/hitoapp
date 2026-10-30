@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { artistReviewEvidence } from "./fixtures/artist-review-evidence";
 import { artistReviewProvider } from "./fixtures/artist-review-provider";
@@ -18,7 +18,6 @@ import {
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -61,7 +60,7 @@ test("an account reviews a namesake through its chosen metadata provider without
   try {
     expect(baseURL === "http://localhost:8080").toBe(true);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     evidence = await artistReviewEvidence(context, baseURL!, privateValues);
     provider = await artistReviewProvider(query);
@@ -92,7 +91,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     privateValues.push(
       ...(await context.cookies()).map((cookie) => cookie.value),
     );
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
 
     stage = "owned originals and private collection state";
     const saved = await seedPreferencesLibrary(page, read, user);
@@ -131,7 +130,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     await page
       .getByLabel("Service address", { exact: true })
       .fill(owned.address);
-    const offered = await preferencesAction<Schema["PluginService"]>(
+    const offered = await preferencesAction<Schema<"PluginService">>(
       page,
       page.getByRole("button", { name: "Offer service", exact: true }),
       "POST",
@@ -155,7 +154,7 @@ test("an account reviews a namesake through its chosen metadata provider without
       offered.body,
       owned.manifest.name,
     );
-    const installed = await preferencesAction<Schema["PluginInstallation"]>(
+    const installed = await preferencesAction<Schema<"PluginInstallation">>(
       page,
       page.getByRole("button", { name: "Accept and connect", exact: true }),
       "POST",
@@ -176,7 +175,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     const selected = {
       kind: "http_plugin",
       installation_id: installed.body.id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     expect(
       isDeepStrictEqual(owned.calls, [
         "manifest_public",
@@ -201,7 +200,7 @@ test("an account reviews a namesake through its chosen metadata provider without
       enabled: true,
       providers: [selected],
     });
-    const policy = await read<Schema["MetadataSettings"]>(
+    const policy = await read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     );
     expect(
@@ -211,7 +210,7 @@ test("an account reviews a namesake through its chosen metadata provider without
         providers: [selected],
       }),
     ).toBe(true);
-    const connections = await read<Schema["PluginSettings"]>("/api/v1/plugins");
+    const connections = await read<Schema<"PluginSettings">>("/api/v1/plugins");
 
     stage = "navigate to actual recording details and retain unsaved draft";
     const navigation = page.getByRole("navigation", {
@@ -238,7 +237,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     const associationsPath = `/api/v1/recordings/${saved.ids[0]}/artist-associations`;
     const reviewPath = `/api/v1/recordings/${saved.ids[0]}/artist-review`;
     expect(
-      (await read<Schema["ArtistAssociation"][]>(associationsPath)).length,
+      (await read<Schema<"ArtistAssociation">[]>(associationsPath)).length,
     ).toBe(0);
     await artist
       .getByRole("button", { name: "Find artist information", exact: true })
@@ -259,7 +258,7 @@ test("an account reviews a namesake through its chosen metadata provider without
 
     stage = "search namesakes through negotiated discovery protocol";
     const searched = await preferencesAction<
-      Schema["ArtistCandidateSearchAvailability"]
+      Schema<"ArtistCandidateSearchAvailability">
     >(
       page,
       artist.getByRole("button", { name: "Search artists", exact: true }),
@@ -300,16 +299,16 @@ test("an account reviews a namesake through its chosen metadata provider without
       }),
     ).toBeVisible();
     expect(
-      (await read<Schema["ArtistAssociation"][]>(associationsPath)).length,
+      (await read<Schema<"ArtistAssociation">[]>(associationsPath)).length,
     ).toBe(0);
 
     stage = "preview exact second opaque identity without saving";
     const selection = {
       context: reviewContext,
       provider_artist_id: owned.profile.artist.id,
-    } satisfies Schema["SelectArtistCandidate"];
+    } satisfies Schema<"SelectArtistCandidate">;
     const previewed = await preferencesAction<
-      Schema["ArtistCandidatePreviewAvailability"]
+      Schema<"ArtistCandidatePreviewAvailability">
     >(
       page,
       second.getByRole("button", { name: "Review artist", exact: true }),
@@ -328,7 +327,7 @@ test("an account reviews a namesake through its chosen metadata provider without
         .getByText(owned.profile.disambiguation, { exact: true }),
     ).toBeVisible();
     expect(
-      (await read<Schema["ArtistAssociation"][]>(associationsPath)).length,
+      (await read<Schema<"ArtistAssociation">[]>(associationsPath)).length,
     ).toBe(0);
     expect(
       isDeepStrictEqual(
@@ -352,7 +351,7 @@ test("an account reviews a namesake through its chosen metadata provider without
     ).toBe(true);
 
     stage = "explicit confirmation and reviewed profile";
-    const confirmed = await preferencesAction<Schema["ArtistAssociation"]>(
+    const confirmed = await preferencesAction<Schema<"ArtistAssociation">>(
       page,
       artist.getByRole("button", { name: "Use this artist", exact: true }),
       "POST",
@@ -379,11 +378,11 @@ test("an account reviews a namesake through its chosen metadata provider without
       draft,
     );
     const associations =
-      await read<Schema["ArtistAssociation"][]>(associationsPath);
+      await read<Schema<"ArtistAssociation">[]>(associationsPath);
     expect(isDeepStrictEqual(associations, [confirmed.body])).toBe(true);
     expect(
       (
-        await read<Schema["ArtistAssociation"][]>(
+        await read<Schema<"ArtistAssociation">[]>(
           `/api/v1/recordings/${saved.ids[1]}/artist-associations`,
         )
       ).length,

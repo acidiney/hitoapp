@@ -1,5 +1,6 @@
+import type { Schema } from "./schema";
 import { createUuid } from "./uuid";
-import type { Action, SyncBatch, SyncReceipt } from "./types";
+
 import { requestJson } from "./http";
 import { log } from "./log";
 
@@ -11,7 +12,7 @@ function deviceId() {
   return device;
 }
 
-export function prepareChange(action: Action): SyncBatch {
+export function prepareChange(action: Schema<"Action">): Schema<"SyncBatch"> {
   return {
     device_id: deviceId(),
     operations: [{ id: createUuid(), action }],
@@ -20,9 +21,9 @@ export function prepareChange(action: Action): SyncBatch {
 
 export async function submitChange(
   account: string,
-  batch: SyncBatch,
+  batch: Schema<"SyncBatch">,
   signal?: AbortSignal,
-): Promise<SyncReceipt> {
+): Promise<Schema<"SyncReceipt">> {
   const { id: operation_id, action } = batch.operations[0];
   log.debug("mutation.started", {
     account_id: account,
@@ -30,7 +31,9 @@ export async function submitChange(
     action: action.kind,
   });
   try {
-    const receipt: SyncReceipt = await requestJson<SyncReceipt>("/sync", {
+    const receipt: Schema<"SyncReceipt"> = await requestJson<
+      Schema<"SyncReceipt">
+    >("/sync", {
       action: action.kind === "progress_set" ? "progress.save" : "sync.push",
       method: "POST",
       body: batch,
@@ -66,7 +69,9 @@ export async function submitChange(
   }
 }
 
-export function prepareChanges(actions: Action[]): SyncBatch {
+export function prepareChanges(
+  actions: Schema<"Action">[],
+): Schema<"SyncBatch"> {
   return {
     device_id: deviceId(),
     operations: actions.map((action) => ({ id: createUuid(), action })),
@@ -75,16 +80,16 @@ export function prepareChanges(actions: Action[]): SyncBatch {
 
 export async function changeMany(
   account: string,
-  actions: Action[],
+  actions: Schema<"Action">[],
   signal?: AbortSignal,
-): Promise<SyncReceipt> {
+): Promise<Schema<"SyncReceipt">> {
   return submitChange(account, prepareChanges(actions), signal);
 }
 
 export async function change(
   account: string,
-  action: Action,
+  action: Schema<"Action">,
   signal?: AbortSignal,
-): Promise<SyncReceipt> {
+): Promise<Schema<"SyncReceipt">> {
   return submitChange(account, prepareChange(action), signal);
 }

@@ -1,4 +1,4 @@
-import type { RecordingAttribution } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 function canonicalContentUrl(value: string): string | null {
   if (value.length > 2048 || /[\s\u0000-\u001f\u007f-\u009f\\?#]/u.test(value))
@@ -20,7 +20,7 @@ function canonicalContentUrl(value: string): string | null {
 export default function RecordingCredits({
   attribution,
 }: {
-  attribution?: RecordingAttribution | null;
+  attribution?: Schema<"RecordingAttribution"> | null;
 }) {
   if (!attribution) return null;
   const href = canonicalContentUrl(attribution.content_url);

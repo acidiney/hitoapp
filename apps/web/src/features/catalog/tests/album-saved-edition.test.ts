@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -9,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
-import type { AlbumPageProps } from "../../../shared/types";
+
 import {
   albumDetail,
   albumId,
@@ -80,8 +81,8 @@ function serve(overrides: Record<string, Route> = {}) {
 }
 
 function page(
-  saved: AlbumPageProps["detail"]["saved_edition"],
-  anchor: AlbumPageProps["detail"]["catalog_anchor"] = albumDetail.catalog_anchor,
+  saved: Schema<"AlbumPageProps">["detail"]["saved_edition"],
+  anchor: Schema<"AlbumPageProps">["detail"]["catalog_anchor"] = albumDetail.catalog_anchor,
 ) {
   return createElement(AlbumPage, {
     errors: {},

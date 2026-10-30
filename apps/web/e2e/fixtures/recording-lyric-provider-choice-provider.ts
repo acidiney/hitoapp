@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 async function readBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -34,7 +32,7 @@ export async function lyricChoiceProviders(query: string) {
       protocol_version: 1,
       capabilities: ["search", "sources", "lyrics"],
       content_policy: { source_persistence: "playback_only" },
-    } satisfies Schema["Manifest"];
+    } satisfies Schema<"Manifest">;
     const recording = {
       id: `owned/${role}?recording="${nonce}"`,
       title,
@@ -44,11 +42,11 @@ export async function lyricChoiceProviders(query: string) {
       disc_number: null,
       track_number: null,
       revision: `owned-${role}-revision:"${nonce}"`,
-    } satisfies Schema["ProviderRecording"];
+    } satisfies Schema<"ProviderRecording">;
     const reference = {
       id: recording.id,
       revision: recording.revision,
-    } satisfies Schema["ProviderRecordingRef"];
+    } satisfies Schema<"ProviderRecordingRef">;
     const lyric = {
       id: `owned-${role}-lyric-${nonce}`,
       rendition_id: `owned-${role}-rendition-${nonce}`,
@@ -73,7 +71,7 @@ export async function lyricChoiceProviders(query: string) {
           text: `<img src="https://lyrics.example.invalid/${role}/${nonce}" onerror="window.ownedChoicePayload=true">`,
         },
       ],
-    } satisfies Schema["TimedLyrics"];
+    } satisfies Schema<"TimedLyrics">;
     const calls = {
       total: 0,
       publicManifest: 0,
@@ -87,7 +85,7 @@ export async function lyricChoiceProviders(query: string) {
       unexpected: 0,
       unsafeHeaders: 0,
     };
-    const lyricRequests: Pick<Schema["LyricsResponse"], "recording">[] = [];
+    const lyricRequests: Pick<Schema<"LyricsResponse">, "recording">[] = [];
     const tasks = new Set<Promise<void>>();
     let armed = false;
     let closing = false;
@@ -147,7 +145,7 @@ export async function lyricChoiceProviders(query: string) {
           reply = {
             items: role === "attached" || discover ? [recording] : [],
             next_cursor: null,
-          } satisfies Schema["SearchPage"];
+          } satisfies Schema<"SearchPage">;
         } else if (
           request.method === "POST" &&
           path === "/choice/v1/recordings/detail" &&
@@ -188,12 +186,12 @@ export async function lyricChoiceProviders(query: string) {
           if (lyricRequests.length >= 2) return reject(429);
           calls.lyrics++;
           lyricRequests.push(
-            sent as Pick<Schema["LyricsResponse"], "recording">,
+            sent as Pick<Schema<"LyricsResponse">, "recording">,
           );
           reply = {
             recording: reference,
             lyrics: lyric,
-          } satisfies Schema["LyricsResponse"];
+          } satisfies Schema<"LyricsResponse">;
         } else return reject(404);
         const bytes = JSON.stringify(reply);
         if (Buffer.byteLength(bytes) > 16_384) return reject(500);

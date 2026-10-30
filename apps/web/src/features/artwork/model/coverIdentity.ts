@@ -1,5 +1,5 @@
-import type { Track } from "../playback/model";
-import type { CoverIdentity } from "./components/Artwork";
+import type { Track } from "../../playback/model";
+import type { CoverIdentity } from "../components/Artwork";
 
 export function coverIdentity(track: Track | null): CoverIdentity | null {
   if (!track) return null;

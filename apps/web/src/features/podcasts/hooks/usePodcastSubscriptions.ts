@@ -1,20 +1,18 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { podcastApi } from "../api/podcastApi";
-import type {
-  PodcastSubscription,
-  SubscribePodcast,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Run = { controller: AbortController };
 type Owner = {
-  subscriptions: PodcastSubscription[];
-  rendered: PodcastSubscription[];
+  subscriptions: Schema<"PodcastSubscription">[];
+  rendered: Schema<"PodcastSubscription">[];
   needsValidation: boolean;
-  attempt: Readonly<SubscribePodcast> | null;
+  attempt: Readonly<Schema<"SubscribePodcast">> | null;
   read: Run | null;
   write: Run | null;
   timer: ReturnType<typeof setTimeout> | null;
@@ -25,7 +23,7 @@ type Owner = {
 };
 type State = {
   owner: Owner;
-  subscriptions: PodcastSubscription[];
+  subscriptions: Schema<"PodcastSubscription">[];
   pending: boolean;
   hasAttempt: boolean;
   loading: boolean;
@@ -35,7 +33,7 @@ type State = {
 
 export function usePodcastSubscriptions(
   account: string,
-  rendered: PodcastSubscription[],
+  rendered: Schema<"PodcastSubscription">[],
 ) {
   const scope = useRequestScope(account);
   const owner = useMemo<Owner>(
@@ -148,7 +146,9 @@ export function usePodcastSubscriptions(
     }
   }
 
-  async function perform(body: Readonly<SubscribePodcast>): Promise<boolean> {
+  async function perform(
+    body: Readonly<Schema<"SubscribePodcast">>,
+  ): Promise<boolean> {
     const request = scope.capture();
     if (!request.active() || owner.write) return false;
     clearTimer();

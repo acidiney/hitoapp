@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   artistReviewDownloadAbsence,
   artistReviewOriginals,
@@ -25,7 +25,6 @@ import {
   verifyCredits,
 } from "./fixtures/recording-attribution-state";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -76,7 +75,7 @@ test("saved recording credits retain ordered creators and immutable history with
         process.env.PLAYWRIGHT_NO_COPY_PROMPT === "1",
     ).toBe(true);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     evidence = await recordingAttributionEvidence(
       context,
@@ -97,7 +96,7 @@ test("saved recording credits retain ordered creators and immutable history with
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
     expect(user.username === username && user.admin).toBe(true);
     privateValues.push(
       ...(await context.cookies()).map((cookie) => cookie.value),
@@ -156,7 +155,7 @@ test("saved recording credits retain ordered creators and immutable history with
     });
     await expect(history.getByRole("article")).toHaveCount(1);
     await verifyCredits(history.getByRole("article").first(), owned.first);
-    const initial = await read<Schema["RecordingMetadata"]>(
+    const initial = await read<Schema<"RecordingMetadata">>(
       `/api/v1/recordings/${first.id}/metadata`,
     );
     expect(
@@ -173,7 +172,7 @@ test("saved recording credits retain ordered creators and immutable history with
     checks.initialCredits = 1;
 
     stage = 5;
-    const choice = await read<Schema["SourceChoice"]>(
+    const choice = await read<Schema<"SourceChoice">>(
       `/api/v1/recordings/${first.id}/source-choice`,
     );
     expect(
@@ -191,7 +190,7 @@ test("saved recording credits retain ordered creators and immutable history with
     await playback
       .getByRole("radio", { name: owned.source.label, exact: true })
       .check();
-    const pinned = await preferencesAction<Schema["SourceChoiceReceipt"]>(
+    const pinned = await preferencesAction<Schema<"SourceChoiceReceipt">>(
       page,
       playback.getByRole("button", { name: "Use source", exact: true }),
       "POST",
@@ -242,7 +241,7 @@ test("saved recording credits retain ordered creators and immutable history with
     await expect(
       articles.nth(1).getByText("Current metadata", { exact: true }),
     ).toHaveCount(0);
-    const updated = await read<Schema["RecordingMetadata"]>(
+    const updated = await read<Schema<"RecordingMetadata">>(
       `/api/v1/recordings/${first.id}/metadata`,
     );
     expect(
@@ -271,7 +270,7 @@ test("saved recording credits retain ordered creators and immutable history with
         updated,
       ),
     ).toBe(true);
-    const catalog = await read<Schema["RecordingPage"]>("/api/v1/recordings");
+    const catalog = await read<Schema<"RecordingPage">>("/api/v1/recordings");
     expect(
       catalog.total === 3 &&
         catalog.items.length === 3 &&

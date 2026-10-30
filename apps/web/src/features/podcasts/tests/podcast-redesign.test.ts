@@ -13,9 +13,8 @@ import PodcastPage from "../pages/PodcastPage";
 import { episodeState } from "../model/episodeState";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { openSubscribeDialog } from "../../../test/media";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 
-type Schema = components["schemas"];
 const playQueue = vi.fn(async () => {});
 vi.mock("../../playback/components/PlaybackProvider", () => ({
   usePlayer: () => ({
@@ -40,7 +39,7 @@ afterEach(() => {
   playQueue.mockClear();
 });
 
-function episode(id: string, title: string): Schema["PodcastEpisode"] {
+function episode(id: string, title: string): Schema<"PodcastEpisode"> {
   return {
     episode_id: `${id}-episode`,
     recording: {
@@ -57,7 +56,7 @@ function episode(id: string, title: string): Schema["PodcastEpisode"] {
   };
 }
 
-function page(progress: Schema["RecordingProgress"][]) {
+function page(progress: Schema<"RecordingProgress">[]) {
   const items = [episode("rec-new", "Newest"), episode("rec-mid", "Halfway")];
   return {
     user: { id: "alice", username: "Alice", admin: false },
@@ -82,10 +81,10 @@ function page(progress: Schema["RecordingProgress"][]) {
       content_revision: 1,
     },
     progress,
-  } satisfies Schema["PodcastPageProps"];
+  } satisfies Schema<"PodcastPageProps">;
 }
 
-const view = (progress: Schema["RecordingProgress"][]) =>
+const view = (progress: Schema<"RecordingProgress">[]) =>
   render(createElement(PodcastPage, page(progress)), {
     wrapper: ({ children }) => createElement(NoticeProvider, null, children),
   });
@@ -176,7 +175,7 @@ test("the podcast index shows cards that link to each podcast and an empty state
     libraries: [],
     playlists: [],
     subscriptions: [],
-  } satisfies Schema["PodcastIndexPageProps"];
+  } satisfies Schema<"PodcastIndexPageProps">;
   const subscription = {
     subscription_id: "515993a6-776f-42bc-9d28-d4df99ceae28",
     title: "Salt of the Earth",
@@ -184,8 +183,8 @@ test("the podcast index shows cards that link to each podcast and an empty state
     refresh_failed: true,
     last_refreshed_at: 1_790_000_000,
     content_revision: 1,
-  } satisfies Schema["PodcastSubscription"];
-  let list: Schema["PodcastSubscription"][] = [];
+  } satisfies Schema<"PodcastSubscription">;
+  let list: Schema<"PodcastSubscription">[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_input: RequestInfo | URL, options?: RequestInit) =>
@@ -294,7 +293,7 @@ test("closing the dialog during an unconfirmed request keeps a retry next to the
     libraries: [],
     playlists: [],
     subscriptions: [],
-  } satisfies Schema["PodcastIndexPageProps"];
+  } satisfies Schema<"PodcastIndexPageProps">;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_input: RequestInfo | URL, options?: RequestInit) => {

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   providerOutageProvider,
   type OutageProvider,
@@ -29,7 +29,6 @@ import {
   type OutagePlaybackPhase,
 } from "./fixtures/providerOutagePlayback";
 
-type Schema = components["schemas"];
 type OutagePhase =
   | OutageSetupPhase
   | OutagePlaybackPhase
@@ -126,7 +125,7 @@ test("a populated version54 library upgrades and plays through truthful provider
         ),
     ).toBe(true);
     for (const resolution of library.legacyResolutions) {
-      const replay = await outageWrite<Schema["SourceResolution"]>(
+      const replay = await outageWrite<Schema<"SourceResolution">>(
         page,
         library.user.id,
         "post",

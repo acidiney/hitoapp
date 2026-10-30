@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import {
   artistAssociation,
@@ -28,8 +28,6 @@ import {
   lastDiscographyPage,
   providerDiscographyCursor,
 } from "../fixtures/artistDiscography";
-
-type Schema = components["schemas"];
 
 test("a saved artist review browses paged catalog groups without adopting albums or preparing audio", async () => {
   const errors = vi.spyOn(console, "error");
@@ -152,7 +150,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
     expect(JSON.parse(posts()[0][1]?.body as string)).toEqual({
       limit: 20,
       continuation: null,
-    } satisfies Schema["ReadArtistDiscography"]);
+    } satisfies Schema<"ReadArtistDiscography">);
 
     fireEvent.click(
       within(region).getByRole("button", { name: "Load more releases" }),
@@ -166,7 +164,7 @@ test("a saved artist review browses paged catalog groups without adopting albums
     expect(JSON.parse(posts()[1][1]?.body as string)).toEqual({
       limit: 20,
       continuation: hostDiscographyContinuation,
-    } satisfies Schema["ReadArtistDiscography"]);
+    } satisfies Schema<"ReadArtistDiscography">);
     expect(posts()[1][1]?.body).not.toContain(providerDiscographyCursor);
     await act(async () => {
       releaseMore(reply(lastDiscographyPage));

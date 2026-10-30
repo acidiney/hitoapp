@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import {
   connectLiveProvider,
@@ -20,7 +20,6 @@ import { liveAudioState } from "./fixtures/youtube-live";
 import { audioPath } from "./fixtures/spotify-youtube-playback";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 type Phase =
   | "configuration"
   | "setup"
@@ -191,7 +190,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
         if (/\/playlists\/import$/.test(target.pathname)) counts.imports++;
         if (/\/sources\/resolve$/.test(target.pathname)) {
           counts.automatic++;
-          const body: Schema["ResolveSource"] = request.postDataJSON();
+          const body: Schema<"ResolveSource"> = request.postDataJSON();
           if (
             Object.keys(body).join(",") !== "request_id" ||
             !uuid.test(body.request_id)
@@ -306,7 +305,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
         exact: true,
       })
       .fill(configuration.playlist);
-    const receipt = await clickReceipt<Schema["PlaylistImportReceipt"]>(
+    const receipt = await clickReceipt<Schema<"PlaylistImportReceipt">>(
       page,
       form.getByRole("button", { name: "Import a copy", exact: true }),
       `/api/v1/plugins/${spotify.id}/playlists/import`,
@@ -369,7 +368,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     await page.getByRole("button", { name: "List view", exact: true }).click();
     const table = page.getByRole("table", { name: "Tracks", exact: true });
     await expect(table.getByRole("row")).toHaveCount(2);
-    const found = await read<Schema["RecordingPage"]>(
+    const found = await read<Schema<"RecordingPage">>(
       page,
       `/api/v1/recordings?q=${encodeURIComponent(personalTitle)}`,
     );
@@ -377,7 +376,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
     expect(counts.audioRequests + counts.automatic).toBe(0);
 
     phase = "automatic_resolution";
-    const resolution = await clickReceipt<Schema["SourceResolution"]>(
+    const resolution = await clickReceipt<Schema<"SourceResolution">>(
       page,
       table.getByRole("button", { name: `Play ${personalTitle}`, exact: true }),
       `/api/v1/recordings/${recording}/sources/resolve`,

@@ -1,12 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sourcesApi } from "../api/sourcesApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { Source } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type View = {
-  sources: Source[] | null;
+  sources: Schema<"Source">[] | null;
   pending: boolean;
   verified: boolean;
   error: string;
@@ -21,7 +22,7 @@ type Owner = {
   confirmations: Set<AbortController>;
 };
 
-function checkSources(sources: Source[], recording: string) {
+function checkSources(sources: Schema<"Source">[], recording: string) {
   if (
     !Array.isArray(sources) ||
     !sources.every(

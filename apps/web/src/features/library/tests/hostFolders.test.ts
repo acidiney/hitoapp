@@ -1,14 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "../components/LibrarySettings";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { storageApi } from "../api/storageApi";
-import type {
-  DirectoryRef,
-  MusicFolder,
-  SettingsPageProps,
-} from "../../../shared/types";
 
 vi.mock("../api/storageApi", () => ({
   storageApi: {
@@ -22,7 +18,7 @@ vi.mock("../api/storageApi", () => ({
     scan: vi.fn(),
   },
 }));
-const props: SettingsPageProps = {
+const props: Schema<"SettingsPageProps"> = {
   errors: {},
   native_playback: true,
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },
@@ -30,8 +26,11 @@ const props: SettingsPageProps = {
   libraries: [{ id: "library", name: "Home library" }],
   playlists: [],
 };
-const music: DirectoryRef = { directory_id: "legacy-music", components: [] };
-const connected: MusicFolder = {
+const music: Schema<"DirectoryRef"> = {
+  directory_id: "legacy-music",
+  components: [],
+};
+const connected: Schema<"MusicFolder"> = {
   id: "folder",
   library_id: "library",
   host_device: "host",
@@ -121,7 +120,10 @@ test("a missing Music folder gives no proposal but keeps the picker", async () =
 });
 
 test("the native picker result is connected through the existing folder route", async () => {
-  const chosen: DirectoryRef = { directory_id: "host-1", components: [] };
+  const chosen: Schema<"DirectoryRef"> = {
+    directory_id: "host-1",
+    components: [],
+  };
   vi.mocked(storageApi.hostOffer).mockResolvedValue({
     picker: true,
     suggestion: null,
@@ -234,7 +236,9 @@ test("the proposal cannot be accepted while the chooser is open", async () => {
 });
 
 test("a choice finishing after the page is closed connects nothing", async () => {
-  let finish: (choice: { directory: DirectoryRef | null }) => void = () => {};
+  let finish: (choice: {
+    directory: Schema<"DirectoryRef"> | null;
+  }) => void = () => {};
   vi.mocked(storageApi.hostOffer).mockResolvedValue({
     picker: true,
     suggestion: null,

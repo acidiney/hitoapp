@@ -1,7 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class SpotifyFollowLiveFailure extends Error {
@@ -80,7 +79,7 @@ async function providerJSON(
 }
 
 function verifyEntry(
-  entry: Schema["PlaylistEntry"],
+  entry: Schema<"PlaylistEntry">,
   source: Record<string, unknown>,
   position: number,
   recordings: Map<string, string>,
@@ -124,7 +123,7 @@ function verifyEntry(
 export async function verifySpotifyFollowSnapshot(
   request: APIRequestContext,
   service: string,
-  accepted: Schema["PlaylistDetail"],
+  accepted: Schema<"PlaylistDetail">,
 ) {
   const origin = accepted.origin;
   check(origin && accepted.playlist.kind === "followed");

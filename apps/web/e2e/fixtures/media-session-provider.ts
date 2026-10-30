@@ -2,9 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 class ProtocolError extends Error {}
 
 async function object(request: IncomingMessage) {
@@ -56,7 +55,7 @@ export async function mediaSessionProvider() {
   const suffix = randomUUID();
   const token = `owned-media-session-private-bearer-${suffix}`;
   const artist = `Owned private media-session performer ${suffix}`;
-  const tracks: Schema["ProviderRecording"][] = ["first", "second"].map(
+  const tracks: Schema<"ProviderRecording">[] = ["first", "second"].map(
     (part) => ({
       id: `private/media-session/${part}/${suffix}`,
       title: `Owned private ${part} title ${suffix}`,
@@ -153,7 +152,7 @@ export async function mediaSessionProvider() {
           name: "Owned media session service",
           protocol_version: 1,
           capabilities: ["sources", "artwork"],
-        } satisfies Schema["Manifest"];
+        } satisfies Schema<"Manifest">;
       } else {
         if (request.method !== "POST" || !input) throw new ProtocolError();
         if (url.pathname === "/fixture/v1/artwork") {

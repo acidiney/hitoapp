@@ -1,10 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { prepareDownloadLibrary, read } from "./fixtures/downloads";
 import { providerFixture } from "./fixtures/provider";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -37,7 +36,7 @@ test.describe("explicit persistent recording download", () => {
       if (/^\/api\/v1\/sources\/[0-9a-f-]+\/audio$/.test(url.pathname))
         browserAudioRequests++;
       if (request.method() === "POST" && url.pathname === recordingPath) {
-        const body: Schema["DownloadRequest"] = request.postDataJSON();
+        const body: Schema<"DownloadRequest"> = request.postDataJSON();
         creations.push(body.request_id);
       }
       if (
@@ -87,7 +86,7 @@ test.describe("explicit persistent recording download", () => {
       await download.click();
       const accepted = await firstResponse;
       expect(accepted.status()).toBe(202);
-      const firstReceipt: Schema["DownloadReceipt"] = await accepted.json();
+      const firstReceipt: Schema<"DownloadReceipt"> = await accepted.json();
       expect(
         uuid.test(firstReceipt.intent_id) &&
           firstReceipt.recording_id === library.recording,
@@ -106,7 +105,7 @@ test.describe("explicit persistent recording download", () => {
       expect(
         await audio.evaluate((element: HTMLAudioElement) => element.paused),
       ).toBe(true);
-      const first = await read<Schema["DownloadStatus"]>(page, recordingPath);
+      const first = await read<Schema<"DownloadStatus">>(page, recordingPath);
       expect(
         first.status === "ready" && first.intent_id === firstReceipt.intent_id,
       ).toBe(true);
@@ -125,7 +124,7 @@ test.describe("explicit persistent recording download", () => {
       await expect(section.getByRole("status")).toHaveText(
         "Saved on this server",
       );
-      const reloaded = await read<Schema["DownloadStatus"]>(
+      const reloaded = await read<Schema<"DownloadStatus">>(
         page,
         recordingPath,
       );
@@ -225,7 +224,7 @@ test.describe("explicit persistent recording download", () => {
         "Saved on this server",
         { timeout: 30_000 },
       );
-      const fresh = await read<Schema["DownloadStatus"]>(second, recordingPath);
+      const fresh = await read<Schema<"DownloadStatus">>(second, recordingPath);
       expect(
         fresh.status === "ready" &&
           fresh.intent_id !== first.intent_id &&
@@ -251,7 +250,7 @@ test.describe("explicit persistent recording download", () => {
         "Saved on this server",
       );
       await expect(removalDraft).toHaveValue("Unsent removal title draft");
-      const retained = await read<Schema["DownloadStatus"]>(
+      const retained = await read<Schema<"DownloadStatus">>(
         page,
         recordingPath,
       );

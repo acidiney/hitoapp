@@ -1,10 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
-import type { LockStatus } from "../../../shared/types";
+
 import { lockApi } from "../api/lockApi";
 
-export function usePinSettings(account: string, initial: LockStatus) {
+export function usePinSettings(account: string, initial: Schema<"LockStatus">) {
   const [status, setStatus] = useState(initial);
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
@@ -13,7 +14,10 @@ export function usePinSettings(account: string, initial: LockStatus) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function run(change: () => Promise<LockStatus>, saved: string) {
+  async function run(
+    change: () => Promise<Schema<"LockStatus">>,
+    saved: string,
+  ) {
     setBusy(true);
     setError("");
     setMessage("");

@@ -1,11 +1,6 @@
-import type { components } from "../../../generated";
-import type {
-  PluginSettings,
-  RecordingDetailsPageProps,
-} from "../../../shared/types";
-import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
+import type { Schema } from "../../../shared/schema";
 
-type Schema = components["schemas"];
+import { sourceAttachmentPage } from "../../sources/fixtures/sourceAttachment";
 
 export const lyricObservation = {
   ...sourceAttachmentPage.detail.selected_observation!,
@@ -16,7 +11,7 @@ export const lyricObservation = {
   provider_revision: 'owned-provider:"2"',
 };
 
-export const lyricRecordingPage: RecordingDetailsPageProps = {
+export const lyricRecordingPage: Schema<"RecordingDetailsPageProps"> = {
   ...sourceAttachmentPage,
   detail: {
     ...sourceAttachmentPage.detail,
@@ -25,7 +20,7 @@ export const lyricRecordingPage: RecordingDetailsPageProps = {
   },
 };
 
-export const lyricSettings: PluginSettings = {
+export const lyricSettings: Schema<"PluginSettings"> = {
   credential_storage_ready: true,
   services: [
     {
@@ -102,4 +97,4 @@ export const readyLyrics = {
       ],
     },
   },
-} satisfies Schema["LyricsLookup"];
+} satisfies Schema<"LyricsLookup">;

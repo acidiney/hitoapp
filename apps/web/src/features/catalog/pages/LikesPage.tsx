@@ -1,9 +1,10 @@
-import type { CatalogPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { longDuration } from "../../../shared/format";
 import CatalogResults from "../components/CatalogResults";
 import PageHeading from "../../../shared/ui/PageHeading";
 
-export default function LikesPage(props: CatalogPageProps) {
+export default function LikesPage(props: Schema<"CatalogPageProps">) {
   const { items, total } = props.recordings;
   const loadedDuration =
     items.length === total && total > 0

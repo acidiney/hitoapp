@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type { RecordingMetadata, ReleaseMetadata } from "../../../shared/types";
-import type { MetadataTarget } from "../metadata";
+
+import type { MetadataTarget } from "../model/metadata";
 
 export const metadataApi = {
   async history(
@@ -8,9 +9,9 @@ export const metadataApi = {
     target: MetadataTarget,
     before: number,
     signal: AbortSignal,
-  ): Promise<RecordingMetadata | ReleaseMetadata> {
+  ): Promise<Schema<"RecordingMetadata"> | Schema<"ReleaseMetadata">> {
     const resource = target.kind === "recording" ? "recordings" : "releases";
-    return requestJson<RecordingMetadata | ReleaseMetadata>(
+    return requestJson<Schema<"RecordingMetadata"> | Schema<"ReleaseMetadata">>(
       `/${resource}/${encodeURIComponent(target.id)}/metadata?before=${before}`,
       {
         action: "metadata.history",

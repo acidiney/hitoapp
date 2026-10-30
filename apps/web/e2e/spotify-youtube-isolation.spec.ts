@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { readSpotifyYouTube } from "./fixtures/spotify-youtube-collection";
 import {
   setUpSpotifyYouTubeLiveAccount,
@@ -8,25 +8,23 @@ import {
 import { signInLiveAccount } from "./fixtures/youtube-live";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
-
 async function ownedSnapshot(page: Page) {
   return {
-    user: await readSpotifyYouTube<Schema["User"]>(page, "/api/v1/me"),
-    users: await readSpotifyYouTube<Schema["User"][]>(page, "/api/v1/users"),
-    playlists: await readSpotifyYouTube<Schema["Playlist"][]>(
+    user: await readSpotifyYouTube<Schema<"User">>(page, "/api/v1/me"),
+    users: await readSpotifyYouTube<Schema<"User">[]>(page, "/api/v1/users"),
+    playlists: await readSpotifyYouTube<Schema<"Playlist">[]>(
       page,
       "/api/v1/playlists",
     ),
-    catalog: await readSpotifyYouTube<Schema["RecordingPage"]>(
+    catalog: await readSpotifyYouTube<Schema<"RecordingPage">>(
       page,
       "/api/v1/recordings?limit=1",
     ),
-    activity: await readSpotifyYouTube<Schema["Activity"]>(
+    activity: await readSpotifyYouTube<Schema<"Activity">>(
       page,
       "/api/v1/activity",
     ),
-    plugins: await readSpotifyYouTube<Schema["PluginSettings"]>(
+    plugins: await readSpotifyYouTube<Schema<"PluginSettings">>(
       page,
       "/api/v1/plugins",
     ),
@@ -60,7 +58,7 @@ test("the live Spotify to YouTube entry point refuses an initialized server befo
     const setupResponse = await page.request.get("/api/v1/setup");
     if (setupResponse.status() !== 200)
       throw new Error("The owned fixture setup status could not be checked");
-    const setup: Schema["SetupStatus"] = await setupResponse.json();
+    const setup: Schema<"SetupStatus"> = await setupResponse.json();
     if (setup.needs_setup !== true)
       throw new Error(
         "The isolation regression requires an uninitialized disposable server",

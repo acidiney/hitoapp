@@ -1,7 +1,7 @@
 import { Link } from "@inertiajs/react";
 import Artwork from "../../artwork/components/Artwork";
 import FallbackCover from "../../../shared/ui/FallbackCover";
-import type { QuickTile } from "../quickAccess";
+import type { QuickTile } from "../model/quickAccess";
 
 function TileCover({ tile }: { tile: QuickTile }) {
   const fallback = {

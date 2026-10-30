@@ -1,15 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  ArtworkAvailability,
-  ArtworkFetch,
-  PlaylistArtworkFetch,
-  ReleaseArtworkFetch,
-} from "../../../shared/types";
 
 export type ArtworkKind = "recording" | "release" | "playlist";
 type ArtworkTarget = { kind: ArtworkKind; id: string };
-type ArtworkJob = ArtworkFetch | ReleaseArtworkFetch | PlaylistArtworkFetch;
+type ArtworkJob =
+  | Schema<"ArtworkFetch">
+  | Schema<"ReleaseArtworkFetch">
+  | Schema<"PlaylistArtworkFetch">;
 
 const routes = {
   recording: { collection: "recordings", receipts: "artwork-fetches" },
@@ -317,7 +315,7 @@ export class ArtworkRetrieval {
     try {
       const { collection, receipts } = routes[target.kind];
       const base = `/${collection}/${encodeURIComponent(target.id)}/artwork`;
-      const availability = await this.read<ArtworkAvailability>(
+      const availability = await this.read<Schema<"ArtworkAvailability">>(
         entry,
         `${base}/availability`,
         "artwork.availability",

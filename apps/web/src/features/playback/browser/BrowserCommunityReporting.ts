@@ -1,12 +1,14 @@
-import type {
-  CommunityReportAdmission,
-  SuccessfulPlayback,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { HttpError, request } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 type Scope = { signal: AbortSignal; active(): boolean };
-type Pending = { source: string; claim: SuccessfulPlayback; scope: Scope };
+type Pending = {
+  source: string;
+  claim: Schema<"SuccessfulPlayback">;
+  scope: Scope;
+};
 
 export class BrowserCommunityReporting {
   private pending: Pending[] = [];
@@ -22,7 +24,7 @@ export class BrowserCommunityReporting {
     if (this.closed.signal.aborted) this.closed = new AbortController();
   }
 
-  admit(source: string, claim: SuccessfulPlayback) {
+  admit(source: string, claim: Schema<"SuccessfulPlayback">) {
     const scope = this.capture();
     if (!scope.active() || this.closed.signal.aborted) return;
     if (this.pending.length >= 8) {
@@ -90,7 +92,7 @@ export class BrowserCommunityReporting {
   private async send(
     head: Pending,
     signal: AbortSignal,
-  ): Promise<CommunityReportAdmission | "retry" | "rejected"> {
+  ): Promise<Schema<"CommunityReportAdmission"> | "retry" | "rejected"> {
     const responsePromise = request(
       `/sources/${encodeURIComponent(head.source)}/successful-playback`,
       {

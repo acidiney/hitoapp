@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,7 +9,6 @@ import {
   copiedPlaylistPage,
   recordingB,
 } from "../../playlists/fixtures/playlistPages";
-import type { PlaylistPageProps } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -22,7 +22,7 @@ test("playlist download starts only on request and counts every retained entry w
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const recordingU = "71b4c635-c6c4-45ba-a0b2-ac8bd18d036b";
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -13,7 +14,6 @@ import { audiobookPages, heldAudiobookBody } from "../fixtures/audiobooks";
 import { bookmarkResult, enterBookmark } from "../fixtures/audiobookBookmarks";
 import { audiobookPlayer } from "../fixtures/audiobookPlayback";
 import type { Player } from "../../playback/model";
-import type { AudiobookDetail, SyncBatch } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({ player: null as Player | null }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -62,8 +62,8 @@ test("same-book raw props retire a held playback check while the verified bookma
   const selected = player.queueSnapshot();
   resolve.mockClear();
   progress.mockClear();
-  let batch: SyncBatch | undefined;
-  let verified: AudiobookDetail | undefined;
+  let batch: Schema<"SyncBatch"> | undefined;
+  let verified: Schema<"AudiobookDetail"> | undefined;
   let playback: ReturnType<typeof heldAudiobookBody> | undefined;
   let validation: ReturnType<typeof heldAudiobookBody> | undefined;
   let playbackSignal: AbortSignal | undefined;
@@ -72,7 +72,7 @@ test("same-book raw props retire a held playback check while the verified bookma
       page.user.id,
     );
     if (path === "/api/v1/sync" && options?.method === "POST" && !batch) {
-      batch = JSON.parse(String(options.body)) as SyncBatch;
+      batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       return Response.json({
         acknowledged: batch.operations.map((operation) => operation.id),
       });

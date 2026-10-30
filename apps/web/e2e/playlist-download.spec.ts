@@ -1,10 +1,9 @@
 import { expect, test as baseTest, type Route } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { preparePlaylistDownload } from "./fixtures/playlist-download";
 import { providerFixture } from "./fixtures/provider";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const optedIn = process.env.HITO_PLAYLIST_DOWNLOAD_E2E === "1";
 const test = baseTest.extend<{ playlistDownloadPrivacy: void }>({
@@ -88,7 +87,7 @@ test.describe("explicit persistent playlist download", () => {
             individualWrites++;
           if (url.pathname === downloadPath) {
             if (request.method() === "POST") {
-              const body: Schema["DownloadRequest"] = request.postDataJSON();
+              const body: Schema<"DownloadRequest"> = request.postDataJSON();
               creations.push(body.request_id);
             } else if (request.method() === "GET") statusChecks++;
           }
@@ -139,7 +138,7 @@ test.describe("explicit persistent playlist download", () => {
       const initial = await initialResponse;
       if (initial === null) throw new Error("The initial response must arrive");
       expect(initial.status()).toBe(202);
-      const accepted: Schema["PlaylistDownloadReceipt"] = await initial.json();
+      const accepted: Schema<"PlaylistDownloadReceipt"> = await initial.json();
       expect(
         uuid.test(accepted.retention_id) &&
           accepted.playlist_id === library.playlist,
@@ -173,7 +172,7 @@ test.describe("explicit persistent playlist download", () => {
       phase = "retry_lost_acknowledgement";
       fixture.failSource(fixture.source, 0);
       let committed = false;
-      const lostReceipts: Schema["PlaylistDownloadReceipt"][] = [];
+      const lostReceipts: Schema<"PlaylistDownloadReceipt">[] = [];
       const routePattern = `**${downloadPath}`;
       const loseAcknowledgement = async (route: Route) => {
         try {
@@ -233,7 +232,7 @@ test.describe("explicit persistent playlist download", () => {
       const replay = await replayResponse;
       if (replay === null) throw new Error("The replay response must arrive");
       expect(replay.status()).toBe(202);
-      const replayed: Schema["PlaylistDownloadReceipt"] = await replay.json();
+      const replayed: Schema<"PlaylistDownloadReceipt"> = await replay.json();
       expect(
         replayed.request_id === creations[1] &&
           replayed.retention_id === accepted.retention_id &&

@@ -1,13 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { time } from "../../../shared/format";
-import type {
-  AlbumEditionTrackListAvailability,
-  Recording,
-} from "../../../shared/types";
+
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { foundKey, useCatalogTrackPlay } from "../hooks/useCatalogTrackPlay";
+import Button from "../../../shared/ui/Button";
 
 type Comparison = Extract<
-  AlbumEditionTrackListAvailability,
+  Schema<"AlbumEditionTrackListAvailability">,
   { status: "available" }
 >;
 type Occurrence = Comparison["edition"]["media"][number]["tracks"][number];
@@ -38,13 +37,14 @@ export default function AlbumEditionTrackList({
     player,
     `${source.release}/${comparison?.edition.id ?? ""}`,
   );
-  const linked = new Map<string, Recording>(
+  const linked = new Map<string, Schema<"Recording">>(
     comparison?.matches.map((match) => [
       match.occurrence_id,
       match.recording,
     ]) ?? [],
   );
-  const play = (recording: Recording) => void player.playQueue([recording], 0);
+  const play = (recording: Schema<"Recording">) =>
+    void player.playQueue([recording], 0);
 
   const search = (track: Occurrence) => ({
     release: source.release,
@@ -78,14 +78,13 @@ export default function AlbumEditionTrackList({
         {library ? (
           <>
             <p>In your library as {library.title}</p>
-            <button
+            <Button
               type="button"
-              className="button"
               aria-label={`Play ${library.title}`}
               onClick={() => play(library)}
             >
               Play
-            </button>
+            </Button>
           </>
         ) : track.kind !== "audio" ? (
           <p>Not playable audio</p>
@@ -98,19 +97,17 @@ export default function AlbumEditionTrackList({
             {comparison?.attached_occurrences.includes(track.id) ? (
               <p>Already attached as audio to another recording</p>
             ) : comparison?.adoption && track.recording_id != null ? (
-              <button
+              <Button
                 type="button"
-                className="button"
                 disabled={catalog.pending !== null}
                 aria-label={`Play ${track.title}`}
                 onClick={() => void catalog.play(track.id, track.recording_id!)}
               >
                 {catalog.pending === track.id ? "Saving…" : "Play"}
-              </button>
+              </Button>
             ) : comparison ? (
-              <button
+              <Button
                 type="button"
-                className="button"
                 disabled={catalog.pending !== null}
                 aria-label={`Find audio for ${track.title}`}
                 onClick={() =>
@@ -120,7 +117,7 @@ export default function AlbumEditionTrackList({
                 {catalog.pending === track.id
                   ? "Finding audio…"
                   : "Find audio and play"}
-              </button>
+              </Button>
             ) : null}
             {failure && <p role="alert">{failure.message}</p>}
           </>
@@ -135,14 +132,9 @@ export default function AlbumEditionTrackList({
       {error && (
         <>
           <p role="alert">{error}</p>
-          <button
-            type="button"
-            className="button"
-            disabled={pending}
-            onClick={() => void retry()}
-          >
+          <Button type="button" disabled={pending} onClick={() => void retry()}>
             Try track list again
-          </button>
+          </Button>
         </>
       )}
       {comparison && (
@@ -175,14 +167,13 @@ export default function AlbumEditionTrackList({
                 {comparison.library_only.map((track) => (
                   <li key={track.entry_id}>
                     <p>{track.title}</p>
-                    <button
+                    <Button
                       type="button"
-                      className="button"
                       aria-label={`Play ${track.title}`}
                       onClick={() => play(track)}
                     >
                       Play
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

@@ -1,3 +1,5 @@
+import Button from "../shared/ui/Button";
+
 export default function ConnectionErrorPage() {
   return (
     <main className="session-error">
@@ -5,12 +7,9 @@ export default function ConnectionErrorPage() {
       <p>
         Your session could not be verified. Check your connection, then reload.
       </p>
-      <button
-        className="button primary"
-        onClick={() => window.location.reload()}
-      >
+      <Button variant="primary" onClick={() => window.location.reload()}>
         Reload
-      </button>
+      </Button>
     </main>
   );
 }

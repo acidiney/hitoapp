@@ -1,12 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  PluginSettings,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import {
   metadataDownloadPath,
   metadataInstallation,
@@ -29,7 +26,7 @@ beforeEach(() => {
 });
 
 test("album lookup rejects a retargeted original connection instead of substituting another installation", async () => {
-  const retargeted: PluginSettings = {
+  const retargeted: Schema<"PluginSettings"> = {
     ...metadataSettings,
     installations: [
       {
@@ -60,7 +57,7 @@ test("album lookup rejects a retargeted original connection instead of substitut
       );
     }
     if (path === metadataPath && method === "POST") {
-      const body: RefreshImportedPlaylistMetadata = JSON.parse(
+      const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
         String(options?.body),
       );
       return Promise.resolve(
@@ -70,7 +67,7 @@ test("album lookup rejects a retargeted original connection instead of substitut
           updated_recordings: 1,
           unchanged_recordings: 1,
           unavailable_recordings: 0,
-        } satisfies ImportedPlaylistMetadataRefresh),
+        } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
       );
     }
     throw new Error(
@@ -141,7 +138,7 @@ test("mismatched album lookup receipts remain unconfirmed until the same request
       return Promise.resolve(Response.json(metadataSettings));
     if (path === metadataPath && method === "POST") {
       bodies.push(String(options?.body));
-      const body: RefreshImportedPlaylistMetadata = JSON.parse(
+      const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
         String(options?.body),
       );
       const wrongRequest =
@@ -158,7 +155,7 @@ test("mismatched album lookup receipts remain unconfirmed until the same request
           updated_recordings: bodies.length < 3 ? 999 : 1,
           unchanged_recordings: 1,
           unavailable_recordings: 0,
-        } satisfies ImportedPlaylistMetadataRefresh),
+        } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
       );
     }
     throw new Error("Unexpected request outside metadata receipt validation");

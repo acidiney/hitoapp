@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import {
@@ -25,10 +26,7 @@ import {
   initialEligibility,
   preparableSourceB,
 } from "../fixtures/sourceChoicePendingEligibility";
-import type {
-  SourceChoiceReceipt,
-  SourcePreparationReceipt,
-} from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -83,7 +81,7 @@ test("an unresolved source choice gates new work while preserving exact preparat
   let verifiedDownloadReads = 0;
   let currentChoiceConfirmed = false;
   let observingCleanup = false;
-  let preparationReceipt: SourcePreparationReceipt | undefined;
+  let preparationReceipt: Schema<"SourcePreparationReceipt"> | undefined;
   const unexpected: { url: string; method: string }[] = [];
   const fetch = vi.fn(async (url: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
@@ -299,7 +297,7 @@ test("an unresolved source choice gates new work while preserving exact preparat
   expect(choiceRecovery?.body).toBe(originalChoice?.body);
   expect(choiceRecovery?.signal).not.toBe(originalChoice?.signal);
   expectDependentActionsBlocked();
-  const receipt: SourceChoiceReceipt = {
+  const receipt: Schema<"SourceChoiceReceipt"> = {
     request_id: choiceBody.request_id,
     recording_id: savedRecording.id,
     source_id: preparableSourceB.id,

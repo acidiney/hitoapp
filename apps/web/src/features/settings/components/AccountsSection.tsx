@@ -1,11 +1,12 @@
-import type { SettingsPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import AccountSettings from "../../accounts/components/AccountSettings";
 import SharedCorrectionsSettings from "../../artists/components/SharedCorrectionsSettings";
 
 export default function AccountsSection({
   user,
   libraries,
-}: SettingsPageProps) {
+}: Schema<"SettingsPageProps">) {
   return (
     <>
       <AccountSettings

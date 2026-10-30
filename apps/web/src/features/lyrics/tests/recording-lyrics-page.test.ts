@@ -10,7 +10,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { log } from "../../../shared/log";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
@@ -21,8 +21,6 @@ import {
   readyLyrics,
 } from "../fixtures/recordingLyrics";
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -133,7 +131,7 @@ test("track details reads exact provider lyrics on request without changing pers
     expect(JSON.parse(writes[0][1]!.body as string)).toEqual({
       observation_id: lyricObservation.id,
       installation_revision: 9,
-    } satisfies Schema["ReadRecordingLyrics"]);
+    } satisfies Schema<"ReadRecordingLyrics">);
     for (const [, options] of fetch.mock.calls) {
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(user.id);
       expect(options?.credentials).toBe("same-origin");

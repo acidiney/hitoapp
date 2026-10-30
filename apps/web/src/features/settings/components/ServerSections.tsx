@@ -1,9 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { SettingsPageProps } from "../../../shared/types";
+
 import HealthDot from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 import SettingsCard from "../../../shared/ui/SettingsCard";
-import { sectionHref } from "../sections";
+import { sectionHref } from "../model/sections";
 
 export function PlaybackSection({ native }: { native: boolean }) {
   return (
@@ -78,7 +79,7 @@ export function UpdatesSection() {
   );
 }
 
-export function AboutSection({ user, libraries }: SettingsPageProps) {
+export function AboutSection({ user, libraries }: Schema<"SettingsPageProps">) {
   return (
     <SettingsCard title="About Hito">
       <SettingRow title="Hito" hint="A self-hosted music library and player." />

@@ -1,11 +1,12 @@
-import type { AudiobookChapterAnchor } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import type { MediaPort, PlaybackOccurrence, Track } from "../model";
 
 export type BrowserCheckpoint = Readonly<{
   recording: Track;
   position: number;
   speed: number;
-  chapter?: AudiobookChapterAnchor;
+  chapter?: Schema<"AudiobookChapterAnchor">;
 }>;
 type Episode = {
   entry: PlaybackOccurrence;

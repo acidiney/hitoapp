@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -14,7 +15,6 @@ import {
   bookmarkResult,
   enterBookmark,
 } from "../fixtures/audiobookBookmarks";
-import type { SyncBatch, SyncReceipt } from "../../../shared/types";
 
 const boundaries = vi.hoisted(() => ({
   prepareSelection: vi.fn(() => {
@@ -72,8 +72,8 @@ test("a stalled sync acknowledgement body aborts at ten seconds and retains the 
     if (input === "/api/v1/sync" && options?.method === "POST") {
       writes.push(String(options.body));
       signals.push(options.signal as AbortSignal);
-      const batch = JSON.parse(writes[0]) as SyncBatch;
-      const receipt: SyncReceipt = {
+      const batch = JSON.parse(writes[0]) as Schema<"SyncBatch">;
+      const receipt: Schema<"SyncReceipt"> = {
         acknowledged: batch.operations.map((operation) => operation.id),
       };
       if (writes.length === 1) {
@@ -88,7 +88,10 @@ test("a stalled sync acknowledgement body aborts at ten seconds and retains the 
       writes.length === 2
     )
       return Response.json(
-        bookmarkResult(page.detail, JSON.parse(writes[0]) as SyncBatch),
+        bookmarkResult(
+          page.detail,
+          JSON.parse(writes[0]) as Schema<"SyncBatch">,
+        ),
       );
     throw new Error("Unexpected bookmark deadline request");
   });
@@ -157,7 +160,10 @@ test("a stalled sync acknowledgement body aborts at ten seconds and retains the 
   }
 });
 
-function heldAcknowledgement(receipt: SyncReceipt, signal: AbortSignal) {
+function heldAcknowledgement(
+  receipt: Schema<"SyncReceipt">,
+  signal: AbortSignal,
+) {
   const bytes = new TextEncoder().encode(JSON.stringify(receipt));
   let controller!: ReadableStreamDefaultController<Uint8Array>;
   let settled = false;

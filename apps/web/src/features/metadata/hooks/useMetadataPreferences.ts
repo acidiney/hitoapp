@@ -1,14 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { metadataPreferencesApi } from "../api/metadataPreferencesApi";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
-import type {
-  MetadataProvider,
-  MetadataSettings,
-  PluginSettings,
-  UpdateMetadataSettings,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -17,9 +13,9 @@ type Phase = "load" | "save" | null;
 type Owner = { generation: number; pending: Phase };
 type Snapshot = {
   owner: Owner;
-  accepted: MetadataSettings | null;
-  draft: UpdateMetadataSettings | null;
-  connections: PluginSettings | null;
+  accepted: Schema<"MetadataSettings"> | null;
+  draft: Schema<"UpdateMetadataSettings"> | null;
+  connections: Schema<"PluginSettings"> | null;
   pending: Phase;
   error: string;
   saved: boolean;
@@ -37,11 +33,13 @@ function empty(owner: Owner): Snapshot {
   };
 }
 
-function draft(settings: MetadataSettings): UpdateMetadataSettings {
+function draft(
+  settings: Schema<"MetadataSettings">,
+): Schema<"UpdateMetadataSettings"> {
   return { ...settings, providers: [...settings.providers] };
 }
 
-function providerKey(provider: MetadataProvider) {
+function providerKey(provider: Schema<"MetadataProvider">) {
   return provider.kind === "builtin_musicbrainz"
     ? provider.kind
     : provider.installation_id;
@@ -134,7 +132,9 @@ export function useMetadataPreferences(account: string) {
   }
 
   function editProviders(
-    change: (providers: MetadataProvider[]) => MetadataProvider[],
+    change: (
+      providers: Schema<"MetadataProvider">[],
+    ) => Schema<"MetadataProvider">[],
   ) {
     if (!scope.capture().active() || owner.pending !== null) return;
     setSnapshot((value) => {
@@ -155,7 +155,7 @@ export function useMetadataPreferences(account: string) {
     });
   }
 
-  function addProvider(provider: MetadataProvider) {
+  function addProvider(provider: Schema<"MetadataProvider">) {
     if (provider.kind === "http_plugin") {
       const installation = current.connections?.installations.find(
         (item) => item.id === provider.installation_id,
@@ -175,13 +175,16 @@ export function useMetadataPreferences(account: string) {
     );
   }
 
-  function removeProvider(provider: MetadataProvider) {
+  function removeProvider(provider: Schema<"MetadataProvider">) {
     editProviders((providers) =>
       providers.filter((item) => providerKey(item) !== providerKey(provider)),
     );
   }
 
-  function moveProvider(provider: MetadataProvider, direction: -1 | 1) {
+  function moveProvider(
+    provider: Schema<"MetadataProvider">,
+    direction: -1 | 1,
+  ) {
     editProviders((providers) => {
       const from = providers.findIndex(
         (item) => providerKey(item) === providerKey(provider),

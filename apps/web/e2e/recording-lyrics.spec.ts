@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { artistReviewReader } from "./fixtures/artist-review-state";
 import { verifyCredits } from "./fixtures/recording-attribution-state";
 import { recordingLyricsProvider } from "./fixtures/recording-lyrics-provider";
@@ -16,7 +16,6 @@ import {
   lyricState,
 } from "./fixtures/recording-lyrics-state";
 
-type Schema = components["schemas"];
 type BrowserEvidence = Awaited<
   ReturnType<Awaited<ReturnType<typeof recordingLyricsEvidence>>["finish"]>
 >;
@@ -75,7 +74,7 @@ test("reading: explicit lookup renders exact static lyrics and a negative retry 
     ).toBe(true);
     const read = artistReviewReader(page);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     evidence = await recordingLyricsEvidence(context, baseURL!, privateValues);
     provider = await recordingLyricsProvider(query);
@@ -91,7 +90,7 @@ test("reading: explicit lookup renders exact static lyrics and a negative retry 
     await expect(
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
     expect(user.admin && user.username === username).toBe(true);
     privateValues.push(
       ...(await context.cookies()).map((cookie) => cookie.value),

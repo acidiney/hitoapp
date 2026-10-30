@@ -1,31 +1,32 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistAssociationApi } from "../api/artistAssociationApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
-import type {
-  ArtistAssociation,
-  ArtistAssociationChangeReceipt,
-  ArtistAssociationChanges,
-  RecordingMetadata,
-  UndoRecordingArtistChange,
-  UnlinkRecordingArtist,
-} from "../../../shared/types";
 
 type Kind = "unlink" | "undo";
 type Attempt =
-  | { kind: "unlink"; body: UnlinkRecordingArtist; association: string }
-  | { kind: "undo"; body: UndoRecordingArtistChange; association: string };
+  | {
+      kind: "unlink";
+      body: Schema<"UnlinkRecordingArtist">;
+      association: string;
+    }
+  | {
+      kind: "undo";
+      body: Schema<"UndoRecordingArtistChange">;
+      association: string;
+    };
 type Owner = {
   controller: AbortController | null;
   attempt: Attempt | null;
-  state: ArtistAssociationChanges | null;
+  state: Schema<"ArtistAssociationChanges"> | null;
 };
 type View = {
   owner: Owner;
   pending: Kind | null;
-  state: ArtistAssociationChanges | null;
+  state: Schema<"ArtistAssociationChanges"> | null;
   retrying: boolean;
   error: string;
 };
@@ -43,7 +44,7 @@ function empty(owner: Owner): View {
 }
 
 function validReceipt(
-  receipt: ArtistAssociationChangeReceipt,
+  receipt: Schema<"ArtistAssociationChangeReceipt">,
   recording: string,
   attempt: Attempt,
 ) {
@@ -58,7 +59,7 @@ function validReceipt(
 
 export function useArtistAssociationChanges(
   account: string,
-  detail: RecordingMetadata,
+  detail: Schema<"RecordingMetadata">,
   opened: boolean,
   onChanged: () => Promise<void>,
 ) {
@@ -98,7 +99,10 @@ export function useArtistAssociationChanges(
     }));
   }
 
-  async function perform(kind: Kind, association?: ArtistAssociation) {
+  async function perform(
+    kind: Kind,
+    association?: Schema<"ArtistAssociation">,
+  ) {
     const captured = scope.capture();
     const state = owner.state;
     if (!captured.active() || owner.controller || !state) return;
@@ -240,7 +244,8 @@ export function useArtistAssociationChanges(
       !current.retrying,
     retrying: current.retrying,
     error: current.error,
-    unlink: (association: ArtistAssociation) => perform("unlink", association),
+    unlink: (association: Schema<"ArtistAssociation">) =>
+      perform("unlink", association),
     undo: () => perform("undo"),
     retry: () =>
       owner.attempt ? perform(owner.attempt.kind) : Promise.resolve(),

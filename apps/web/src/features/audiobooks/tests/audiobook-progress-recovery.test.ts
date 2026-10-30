@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, render } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,7 +10,6 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 test.each(["request", "acknowledgement body"] as const)(
   "a stalled progress %s expires before the exact checkpoint retries and later chapters follow in order",
@@ -24,7 +24,7 @@ test.each(["request", "acknowledgement body"] as const)(
     const media = audiobookContinuationMedia();
     const { detail: page } = audiobookPages();
     const chapters = page.detail.chapters.slice(0, 2);
-    const sources: Source[] = chapters.map((chapter, index) => ({
+    const sources: Schema<"Source">[] = chapters.map((chapter, index) => ({
       id: [
         "76769d98-1b6b-4ec8-8ff7-478c04d7bb23",
         "b6d336ef-fdf8-49eb-b026-e771fae6b8b4",
@@ -36,8 +36,11 @@ test.each(["request", "acknowledgement body"] as const)(
       label: "Owned audio service",
       can_prepare: false,
     }));
-    const submitted: { raw: string; batch: SyncBatch; signal: AbortSignal }[] =
-      [];
+    const submitted: {
+      raw: string;
+      batch: Schema<"SyncBatch">;
+      signal: AbortSignal;
+    }[] = [];
     const pending = new Set<Promise<Response>>();
     const unexpected: string[] = [];
     let stalledBody: Response | undefined;
@@ -61,7 +64,7 @@ test.each(["request", "acknowledgement body"] as const)(
             return Response.json([source]);
         if (input === "/api/v1/sync" && options?.method === "POST") {
           const raw = String(options.body);
-          const batch = JSON.parse(raw) as SyncBatch;
+          const batch = JSON.parse(raw) as Schema<"SyncBatch">;
           submitted.push({ raw, batch, signal });
           const receipt = () =>
             Response.json({
@@ -128,7 +131,10 @@ test.each(["request", "acknowledgement body"] as const)(
         }),
       ),
     );
-    const checkpoint = (index: number, position: number): Action[] => [
+    const checkpoint = (
+      index: number,
+      position: number,
+    ): Schema<"Action">[] => [
       {
         kind: "progress_set",
         recording_id: chapters[index].recording_id!,

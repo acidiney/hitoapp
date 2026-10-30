@@ -1,14 +1,16 @@
+import type { Schema } from "../../../shared/schema";
 import { useId } from "react";
-import type { SourceChoice } from "../../../shared/types";
 
-const modes: Record<SourceChoice["mode"], string> = {
+import Button from "../../../shared/ui/Button";
+
+const modes: Record<Schema<"SourceChoice">["mode"], string> = {
   automatic: "Automatic source selection",
   manual: "Manual source selection",
   reviewed: "Reviewed sources",
 };
 
 type Props = {
-  choice: SourceChoice | null;
+  choice: Schema<"SourceChoice"> | null;
   stagedSource: string | null;
   checking: boolean;
   pending: boolean;
@@ -93,41 +95,25 @@ export default function SourceChoiceControls({
               </li>
             ))}
           </ul>
-          <button
-            className="button"
-            disabled={!canChoose}
-            onClick={() => void choose()}
-          >
+          <Button disabled={!canChoose} onClick={() => void choose()}>
             Use source
-          </button>
+          </Button>
           {choice.mode !== "automatic" && (
-            <button
-              className="button"
-              disabled={!canReset}
-              onClick={() => void reset()}
-            >
+            <Button disabled={!canReset} onClick={() => void reset()}>
               Return to automatic
-            </button>
+            </Button>
           )}
         </>
       )}
       {retrying && (
-        <button
-          className="button"
-          disabled={pending || checking}
-          onClick={() => void retry()}
-        >
+        <Button disabled={pending || checking} onClick={() => void retry()}>
           Retry source choice
-        </button>
+        </Button>
       )}
       {statusError && !retrying && (
-        <button
-          className="button"
-          disabled={pending || checking}
-          onClick={() => void check()}
-        >
+        <Button disabled={pending || checking} onClick={() => void check()}>
           Check source choice
-        </button>
+        </Button>
       )}
     </section>
   );

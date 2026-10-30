@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
@@ -15,7 +16,6 @@ import {
   artistAssociation,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
-import type { CatalogReleaseGroup } from "../../../shared/types";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -43,9 +43,9 @@ afterEach(() => {
 
 function release(
   id: string,
-  kind: CatalogReleaseGroup["kind"],
+  kind: Schema<"CatalogReleaseGroup">["kind"],
   title = `Title of ${id}`,
-): CatalogReleaseGroup {
+): Schema<"CatalogReleaseGroup"> {
   return {
     id,
     title,
@@ -57,7 +57,10 @@ function release(
   };
 }
 
-function page(items: CatalogReleaseGroup[], continuation: string | null) {
+function page(
+  items: Schema<"CatalogReleaseGroup">[],
+  continuation: string | null,
+) {
   return {
     status: "available",
     association_id: artistAssociation.id,

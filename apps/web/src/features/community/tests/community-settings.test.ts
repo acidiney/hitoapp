@@ -9,10 +9,9 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import CommunitySettings from "../components/CommunitySettings";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 
-type Schema = components["schemas"];
-type Preferences = Schema["CommunityPreferences"];
+type Preferences = Schema<"CommunityPreferences">;
 
 test("community consent requires an explicit independent save and retires cancelled or foreign account work", async () => {
   const disabled: Preferences = {
@@ -94,7 +93,7 @@ test("community consent requires an explicit independent save and retires cancel
       headers: { "x-hito-account": "bob", "x-hito-request": "1" },
       signal: expect.any(AbortSignal),
     });
-    const request: Schema["UpdateCommunityPreferences"] = JSON.parse(
+    const request: Schema<"UpdateCommunityPreferences"> = JSON.parse(
       String(fetch.mock.calls[2][1]?.body),
     );
     expect(request).toEqual({ ...disabled, playback_reporting: true });

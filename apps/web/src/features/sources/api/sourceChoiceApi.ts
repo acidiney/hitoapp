@@ -1,13 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { HttpError, request } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  ChooseSource,
-  ResetSourceChoice,
-  SourceChoice,
-  SourceChoiceReceipt,
-  SourceChoiceResetReceipt,
-} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
@@ -21,7 +15,10 @@ const revision = (value: unknown): value is number =>
 const path = (recording: string) =>
   `/recordings/${encodeURIComponent(recording)}/source-choice`;
 
-function validChoice(value: unknown, recording: string): value is SourceChoice {
+function validChoice(
+  value: unknown,
+  recording: string,
+): value is Schema<"SourceChoice"> {
   if (
     !object(value) ||
     value.recording_id !== recording ||
@@ -76,7 +73,7 @@ export const sourceChoiceApi = {
     account: string,
     recording: string,
     signal: AbortSignal,
-  ): Promise<SourceChoice | null> {
+  ): Promise<Schema<"SourceChoice"> | null> {
     validateOwner(account, recording, signal);
     const started = performance.now();
     const fields = {
@@ -132,9 +129,9 @@ export const sourceChoiceApi = {
   async choose(
     account: string,
     recording: string,
-    body: Readonly<ChooseSource>,
+    body: Readonly<Schema<"ChooseSource">>,
     signal: AbortSignal,
-  ): Promise<SourceChoiceReceipt> {
+  ): Promise<Schema<"SourceChoiceReceipt">> {
     validateOwner(account, recording, signal);
     if (!identity(body.request_id) || !identity(body.source_id))
       throw new Error("Hito could not identify this source choice request");
@@ -158,14 +155,14 @@ export const sourceChoiceApi = {
       receipt.revision === 0
     )
       throw new Error("Hito returned a different source choice receipt");
-    return receipt as SourceChoiceReceipt;
+    return receipt as Schema<"SourceChoiceReceipt">;
   },
   async reset(
     account: string,
     recording: string,
-    body: Readonly<ResetSourceChoice>,
+    body: Readonly<Schema<"ResetSourceChoice">>,
     signal: AbortSignal,
-  ): Promise<SourceChoiceResetReceipt> {
+  ): Promise<Schema<"SourceChoiceResetReceipt">> {
     validateOwner(account, recording, signal);
     if (!identity(body.request_id) || !revision(body.expected_revision))
       throw new Error("Hito could not identify this source choice reset");
@@ -188,6 +185,6 @@ export const sourceChoiceApi = {
       receipt.revision !== body.expected_revision + 1
     )
       throw new Error("Hito returned a different source choice reset receipt");
-    return receipt as SourceChoiceResetReceipt;
+    return receipt as Schema<"SourceChoiceResetReceipt">;
   },
 };

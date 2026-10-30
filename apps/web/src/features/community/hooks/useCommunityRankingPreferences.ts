@@ -1,20 +1,18 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
-import type {
-  CommunityRankingPreferences as Preferences,
-  UpdateCommunityRankingPreferences as Update,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Phase = "load" | "save";
 type Owner = { controller: AbortController | null; pending: Phase | null };
 type Snapshot = {
   owner: Owner;
-  accepted: Preferences | null;
-  draft: Update | null;
+  accepted: Schema<"CommunityRankingPreferences"> | null;
+  draft: Schema<"UpdateCommunityRankingPreferences"> | null;
   pending: Phase | null;
   error: string;
   stale: boolean;
@@ -47,7 +45,10 @@ export function useCommunityRankingPreferences(account: string) {
     current.draft !== null &&
     current.accepted.use_source_rankings !== current.draft.use_source_rankings;
 
-  async function perform(phase: Phase, update?: Update) {
+  async function perform(
+    phase: Phase,
+    update?: Schema<"UpdateCommunityRankingPreferences">,
+  ) {
     const captured = scope.capture();
     if (!captured.active() || (phase === "save" && owner.pending !== null))
       return;
@@ -83,10 +84,11 @@ export function useCommunityRankingPreferences(account: string) {
           },
     );
     try {
-      const accepted: Preferences = await Promise.race([
-        communityApi.rankingPreferences(account, update ?? null, signal),
-        cancelled,
-      ]);
+      const accepted: Schema<"CommunityRankingPreferences"> =
+        await Promise.race([
+          communityApi.rankingPreferences(account, update ?? null, signal),
+          cancelled,
+        ]);
       if (!active() || signal.aborted) return;
       if (
         !Number.isSafeInteger(accepted.revision) ||

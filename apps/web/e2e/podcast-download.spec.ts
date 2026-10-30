@@ -1,3 +1,4 @@
+import type { Schema } from "../src/shared/schema";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
@@ -7,7 +8,6 @@ import {
   progress,
   read,
   stopUpstream,
-  type Schema,
 } from "./fixtures/podcast-download";
 import { openLibrarySection } from "./fixtures/library-sections";
 
@@ -63,7 +63,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       browserAudioRequests++;
     if (request.method() === "POST" && url.pathname === downloadPath)
       creations.push(
-        (request.postDataJSON() as Schema["DownloadRequest"]).request_id,
+        (request.postDataJSON() as Schema<"DownloadRequest">).request_id,
       );
     if (
       request.method() === "DELETE" &&
@@ -140,7 +140,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
         exact: true,
       }),
     ).toBeVisible();
-    const archive = await read<Schema["PodcastEpisodePage"]>(
+    const archive = await read<Schema<"PodcastEpisodePage">>(
       page,
       `/api/v1/podcasts/${subscription}/episodes`,
     );
@@ -152,7 +152,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
         recording.library_id !== original.recording.library_id,
     ).toBe(true);
     downloadPath = `/api/v1/recordings/${recording.id}/download`;
-    const remoteSources = await read<Schema["Source"][]>(
+    const remoteSources = await read<Schema<"Source">[]>(
       page,
       `/api/v1/recordings/${recording.id}/sources`,
     );
@@ -187,15 +187,15 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
             },
           },
         ],
-      } satisfies Schema["SyncBatch"],
+      } satisfies Schema<"SyncBatch">,
     });
     expect(savedProgress.status()).toBe(200);
     expect(
       (
-        (await savedProgress.json()) as Schema["SyncReceipt"]
+        (await savedProgress.json()) as Schema<"SyncReceipt">
       ).acknowledged.includes(operation),
     ).toBe(true);
-    const metadata = await read<Schema["RecordingMetadata"]>(
+    const metadata = await read<Schema<"RecordingMetadata">>(
       page,
       `/api/v1/recordings/${recording.id}/metadata`,
     );
@@ -222,8 +222,8 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     await download.click();
     const accepted = await createResponse;
     expect(accepted.status()).toBe(202);
-    const body: Schema["DownloadRequest"] = accepted.request().postDataJSON();
-    const receipt: Schema["DownloadReceipt"] = await accepted.json();
+    const body: Schema<"DownloadRequest"> = accepted.request().postDataJSON();
+    const receipt: Schema<"DownloadReceipt"> = await accepted.json();
     expect(body).toEqual({ request_id: expect.stringMatching(uuid) });
     expect(receipt).toEqual({
       request_id: body.request_id,
@@ -234,7 +234,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       "Saved on this server",
       { timeout: 30_000 },
     );
-    const ready = await read<Schema["DownloadStatus"]>(page, downloadPath);
+    const ready = await read<Schema<"DownloadStatus">>(page, downloadPath);
     expect(
       ready.status === "ready" && ready.intent_id === receipt.intent_id,
     ).toBe(true);
@@ -267,7 +267,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       .click();
     const unsubscribed = await unsubscribeResponse;
     expect(unsubscribed.status()).toBe(200);
-    const unsubscribeBody: Schema["UnsubscribePodcast"] = unsubscribed
+    const unsubscribeBody: Schema<"UnsubscribePodcast"> = unsubscribed
       .request()
       .postDataJSON();
     expect(await unsubscribed.json()).toEqual({
@@ -279,14 +279,14 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
       page.getByRole("link", { name: feedTitle, exact: true }),
     ).toHaveCount(0);
     expect(
-      await read<Schema["PodcastSubscription"][]>(page, "/api/v1/podcasts"),
+      await read<Schema<"PodcastSubscription">[]>(page, "/api/v1/podcasts"),
     ).toEqual([]);
     expect(
       (
         await page.request.get(`/api/v1/podcasts/${subscription}/episodes`)
       ).status(),
     ).toBe(404);
-    expect(await read<Schema["DownloadStatus"]>(page, downloadPath)).toEqual(
+    expect(await read<Schema<"DownloadStatus">>(page, downloadPath)).toEqual(
       ready,
     );
     expect(await progress(page, recording.id, origin)).toEqual(beforeProgress);
@@ -362,7 +362,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     ).toBeEnabled();
     expect((await page.request.get(downloadPath)).status()).toBe(404);
     expect((await page.request.get(managedAudio)).status()).toBe(404);
-    const remaining = await read<Schema["Source"][]>(
+    const remaining = await read<Schema<"Source">[]>(
       page,
       `/api/v1/recordings/${recording.id}/sources`,
     );
@@ -373,7 +373,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
         ready: source.ready,
       })),
     ).toEqual([{ id: remoteSources[0].id, provider: "podcast", ready: false }]);
-    const retained = await read<Schema["RecordingPage"]>(
+    const retained = await read<Schema<"RecordingPage">>(
       page,
       "/api/v1/recordings?liked=true&limit=200",
     );
@@ -388,7 +388,7 @@ test("an explicit RSS download survives unsubscribe and upstream shutdown, then 
     });
     expect(
       JSON.stringify(
-        await read<Schema["RecordingMetadata"]>(
+        await read<Schema<"RecordingMetadata">>(
           page,
           `/api/v1/recordings/${recording.id}/metadata`,
         ),

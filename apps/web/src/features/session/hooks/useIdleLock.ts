@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useRef } from "react";
 import { router } from "@inertiajs/react";
-import type { LockStatus } from "../../../shared/types";
+
 import { lockApi } from "../api/lockApi";
 
 const inputEvents = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
@@ -8,7 +9,7 @@ const heartbeatMs = 30_000;
 
 export function useIdleLock(
   account: string,
-  lock: LockStatus,
+  lock: Schema<"LockStatus">,
   onLocked: () => void,
 ) {
   const lockedRef = useRef(onLocked);
@@ -27,7 +28,7 @@ export function useIdleLock(
       router.clearHistory();
       window.location.reload();
     }
-    async function report(request: Promise<LockStatus>) {
+    async function report(request: Promise<Schema<"LockStatus">>) {
       try {
         if ((await request).locked) lockedNow();
       } catch {}

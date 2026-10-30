@@ -1,14 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pluginsApi } from "../api/pluginsApi";
-import type {
-  InstallPlugin,
-  OfferPluginService,
-  PluginInstallation,
-  PluginService,
-  PluginSettings,
-  PreviewPluginInstallation,
-  RefreshPlugin,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
@@ -21,7 +14,7 @@ export function usePlugins(account: string) {
   const busy = useRef<typeof owner | null>(null);
   const [snapshot, setSnapshot] = useState<{
     owner: typeof owner;
-    data: PluginSettings;
+    data: Schema<"PluginSettings">;
   } | null>(null);
   const [failure, setFailure] = useState<{
     owner: typeof owner;
@@ -62,7 +55,10 @@ export function usePlugins(account: string) {
   async function perform<T>(
     action: string,
     operation: (signal: AbortSignal) => Promise<T>,
-    update: (data: PluginSettings, result: T) => PluginSettings,
+    update: (
+      data: Schema<"PluginSettings">,
+      result: T,
+    ) => Schema<"PluginSettings">,
     callerSignal?: AbortSignal,
   ) {
     if (busy.current === owner) return null;
@@ -94,7 +90,10 @@ export function usePlugins(account: string) {
       if (request.active()) setPending(null);
     }
   }
-  const replace = (data: PluginSettings, installation: PluginInstallation) => ({
+  const replace = (
+    data: Schema<"PluginSettings">,
+    installation: Schema<"PluginInstallation">,
+  ) => ({
     ...data,
     installations: data.installations.map((item) =>
       item.id === installation.id ? installation : item,
@@ -107,7 +106,10 @@ export function usePlugins(account: string) {
     reload: () => {
       if (busy.current !== owner) reload((value) => value + 1);
     },
-    preview: async (body: PreviewPluginInstallation, signal: AbortSignal) => {
+    preview: async (
+      body: Schema<"PreviewPluginInstallation">,
+      signal: AbortSignal,
+    ) => {
       const request = scope.capture();
       const combined = AbortSignal.any([request.signal, signal]);
       if (!request.active() || combined.aborted) return null;
@@ -119,7 +121,7 @@ export function usePlugins(account: string) {
       const result = await pluginsApi.preview(account, body, combined);
       return request.active() && !combined.aborted ? result : null;
     },
-    install: (body: InstallPlugin, signal?: AbortSignal) =>
+    install: (body: Schema<"InstallPlugin">, signal?: AbortSignal) =>
       perform(
         "install",
         (signal) => pluginsApi.install(account, body, signal),
@@ -129,13 +131,13 @@ export function usePlugins(account: string) {
         }),
         signal,
       ),
-    offer: (body: OfferPluginService) =>
+    offer: (body: Schema<"OfferPluginService">) =>
       perform(
         "offer",
         (signal) => pluginsApi.offer(account, body, signal),
         (data, result) => ({ ...data, services: [...data.services, result] }),
       ),
-    withdraw: (service: PluginService) =>
+    withdraw: (service: Schema<"PluginService">) =>
       perform(
         "withdraw",
         async (signal) => {
@@ -150,7 +152,7 @@ export function usePlugins(account: string) {
           ),
         }),
       ),
-    remove: (plugin: PluginInstallation) =>
+    remove: (plugin: Schema<"PluginInstallation">) =>
       perform(
         "remove",
         async (signal) => {
@@ -164,13 +166,16 @@ export function usePlugins(account: string) {
           ),
         }),
       ),
-    clearCredential: (plugin: PluginInstallation) =>
+    clearCredential: (plugin: Schema<"PluginInstallation">) =>
       perform(
         "clear_credential",
         (signal) => pluginsApi.clearCredential(account, plugin, signal),
         replace,
       ),
-    refresh: async (plugin: PluginInstallation, body: RefreshPlugin) => {
+    refresh: async (
+      plugin: Schema<"PluginInstallation">,
+      body: Schema<"RefreshPlugin">,
+    ) => {
       const request = scope.capture();
       const result = await perform(
         "refresh",

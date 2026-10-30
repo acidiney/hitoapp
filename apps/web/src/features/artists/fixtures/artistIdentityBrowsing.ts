@@ -1,11 +1,9 @@
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { artistIdentityGroupDetail } from "./artistIdentity";
 import {
   savedRecording,
   sourceAttachmentPage,
 } from "../../sources/fixtures/sourceAttachment";
-
-type Schema = components["schemas"];
 
 export function artistIdentityBrowsing() {
   const group = {
@@ -66,7 +64,7 @@ export function artistIdentityBrowsing() {
       limit: 2,
       offset: 0,
     },
-  } satisfies Schema["ArtistIndexPageProps"];
+  } satisfies Schema<"ArtistIndexPageProps">;
   const localRecording = {
     ...savedRecording,
     id: "owned-local-recording",
@@ -149,6 +147,6 @@ export function artistIdentityBrowsing() {
         limit: 2,
       },
     },
-  } satisfies Schema["ArtistIdentityGroupPageProps"];
+  } satisfies Schema<"ArtistIdentityGroupPageProps">;
   return { index, group, detail };
 }

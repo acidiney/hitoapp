@@ -1,6 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { Play } from "lucide-react";
 import { time } from "../../../shared/format";
-import type { PlaylistEntry } from "../../../shared/types";
 
 export default function AudiobookChapters({
   chapters,
@@ -9,11 +9,11 @@ export default function AudiobookChapters({
   disabled,
   play,
 }: {
-  chapters: PlaylistEntry[];
+  chapters: Schema<"PlaylistEntry">[];
   currentEntry: string | null;
   currentPositionMs: number | null;
   disabled: boolean;
-  play: (chapter: PlaylistEntry) => Promise<void>;
+  play: (chapter: Schema<"PlaylistEntry">) => Promise<void>;
 }) {
   return (
     <ol className="chapter-list" aria-label="Chapters">

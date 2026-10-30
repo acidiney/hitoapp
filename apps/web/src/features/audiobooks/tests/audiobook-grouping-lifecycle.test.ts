@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -10,11 +11,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import AudiobookIndexPage from "../pages/AudiobookIndexPage";
 import { audiobookGrouping, heldAudiobookBody } from "../fixtures/audiobooks";
-import type {
-  AudiobookDetail,
-  AudiobookIndexPageProps,
-  SyncBatch,
-} from "../../../shared/types";
+
 import { openAddAudiobookDialog } from "../../../test/media";
 
 const boundaries = vi.hoisted(() => ({
@@ -68,14 +65,14 @@ test("account replacement and unmount abort held confirmation bodies and reject 
     name: "Bob private chapter selection",
     kind: "local",
   };
-  const bob: AudiobookIndexPageProps = {
+  const bob: Schema<"AudiobookIndexPageProps"> = {
     ...alice.index,
     user: { id: "bob", username: "Bob", admin: false },
     books: [],
     playlists: [bobPlaylist],
     grouping_playlists: [bobPlaylist],
   };
-  const bobDetail: AudiobookDetail = {
+  const bobDetail: Schema<"AudiobookDetail"> = {
     ...alice.confirmed,
     playlist: bobPlaylist,
   };
@@ -98,7 +95,7 @@ test("account replacement and unmount abort held confirmation bodies and reject 
       signal: options.signal,
     });
     if (input === "/api/v1/sync" && options.method === "POST") {
-      const batch = JSON.parse(String(options.body)) as SyncBatch;
+      const batch = JSON.parse(String(options.body)) as Schema<"SyncBatch">;
       expect(batch.operations.map((operation) => operation.action)).toEqual([
         { kind: "audiobook_create", playlist_id: playlist.id },
       ]);

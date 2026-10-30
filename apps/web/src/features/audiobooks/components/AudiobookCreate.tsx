@@ -1,8 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useState, type FormEvent } from "react";
 import { Plus } from "lucide-react";
 import Button from "../../../shared/ui/Button";
 import Dialog from "../../../shared/ui/Dialog";
-import type { Playlist } from "../../../shared/types";
 
 export default function AudiobookCreate({
   playlists,
@@ -17,7 +17,7 @@ export default function AudiobookCreate({
   retry,
   chooseAnother,
 }: {
-  playlists: Playlist[];
+  playlists: Schema<"Playlist">[];
   selected: string;
   pending: boolean;
   hasAttempt: boolean;

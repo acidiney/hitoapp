@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { act, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import type { ResolveSource, SyncBatch } from "../../../shared/types";
+
 import {
   audioPath,
   browserPreparationMedia,
@@ -51,14 +52,14 @@ test.each([false, true])(
         request.path === `${sourcesPath(next)}/resolve` &&
         request.method === "POST"
       ) {
-        expect(Object.keys(request.body as ResolveSource)).toEqual([
+        expect(Object.keys(request.body as Schema<"ResolveSource">)).toEqual([
           "request_id",
         ]);
         entered.resolve(request);
         return acknowledgement.promise;
       }
       if (request.path === "/api/v1/sync" && request.method === "POST") {
-        const batch = request.body as SyncBatch;
+        const batch = request.body as Schema<"SyncBatch">;
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
         });
@@ -131,7 +132,7 @@ test.each([false, true])(
         requests
           .filter((request) => request.path === "/api/v1/sync")
           .flatMap((request) =>
-            (request.body as SyncBatch).operations.map(
+            (request.body as Schema<"SyncBatch">).operations.map(
               (operation) => operation.action,
             ),
           ),

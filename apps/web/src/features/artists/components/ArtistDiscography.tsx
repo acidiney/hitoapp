@@ -1,12 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useArtistDiscography } from "../hooks/useArtistDiscography";
 import { useDiscographyLibrary } from "../hooks/useDiscographyLibrary";
-import type {
-  ArtistAssociation,
-  CatalogArtistProfile,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import DiscographyRelease from "./DiscographyRelease";
 import DiscographySections from "./DiscographySections";
+import Button from "../../../shared/ui/Button";
 
 export default function ArtistDiscography({
   account,
@@ -20,12 +18,12 @@ export default function ArtistDiscography({
 }: {
   account: string;
   recording: string;
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
   browseOnMount?: boolean;
   showLibrary?: boolean;
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
+  onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
   const workflow = useArtistDiscography(
     account,
@@ -43,13 +41,9 @@ export default function ArtistDiscography({
   );
   if (!workflow.opened)
     return (
-      <button
-        type="button"
-        className="button"
-        onClick={() => void workflow.browse()}
-      >
+      <Button type="button" onClick={() => void workflow.browse()}>
         Browse discography
-      </button>
+      </Button>
     );
   return (
     <section aria-label="Discography" aria-busy={workflow.pending}>
@@ -65,9 +59,9 @@ export default function ArtistDiscography({
       {showLibrary && library.error && (
         <p role="status">
           {library.error}{" "}
-          <button type="button" className="button" onClick={library.retry}>
+          <Button type="button" onClick={library.retry}>
             Check library again
-          </button>
+          </Button>
         </p>
       )}
       {showLibrary ? (
@@ -105,33 +99,30 @@ export default function ArtistDiscography({
         <p>Showing the first 50 pages of this artist's catalog.</p>
       )}
       {workflow.restartRequired ? (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.restart()}
         >
           Restart discography
-        </button>
+        </Button>
       ) : workflow.error ? (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending}
           onClick={() => void workflow.retry()}
         >
           Try again
-        </button>
+        </Button>
       ) : (
         workflow.continuation && (
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={workflow.pending}
             onClick={() => void workflow.more()}
           >
             Load more releases
-          </button>
+          </Button>
         )
       )}
     </section>

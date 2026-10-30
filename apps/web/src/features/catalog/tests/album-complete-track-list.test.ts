@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import {
   act,
@@ -9,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumPage from "../pages/AlbumPage";
-import type { AlbumPageProps } from "../../../shared/types";
+
 import {
   albumDetail,
   albumId,
@@ -80,7 +81,7 @@ function serve(overrides: Record<string, Route> = {}) {
   return fetch;
 }
 
-function page(detail: AlbumPageProps["detail"] = albumDetail) {
+function page(detail: Schema<"AlbumPageProps">["detail"] = albumDetail) {
   return createElement(AlbumPage, {
     errors: {},
     native_playback: false,

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
-import type { components } from "../src/generated";
-type Schema = components["schemas"];
+import type { Schema } from "../src/shared/schema";
 
 test("expired seek audio refreshes near its position and unavailable tracks can be checked without interrupting playback", async ({
   page,
@@ -21,24 +20,24 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
       data: {
         name: "Recovery service",
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
-    const connection: Schema["PluginInstallation"] = await installed.json();
+    const connection: Schema<"PluginInstallation"> = await installed.json();
     fixture.setSources(fixture.second.id, [
       { id: fixture.secondSource, label: "Preparing", ready: false },
     ]);
-    const saved: Schema["Recording"][] = [];
+    const saved: Schema<"Recording">[] = [];
     for (const item of [fixture.recording, fixture.second]) {
       const response = await page.request.post(
         `/api/v1/plugins/${connection.id}/recordings`,
@@ -47,7 +46,7 @@ test("expired seek audio refreshes near its position and unavailable tracks can 
           data: {
             installation_revision: connection.revision,
             provider_recording_id: item.id,
-          } satisfies Schema["AdoptProviderRecording"],
+          } satisfies Schema<"AdoptProviderRecording">,
         },
       );
       expect(response.status()).toBe(200);

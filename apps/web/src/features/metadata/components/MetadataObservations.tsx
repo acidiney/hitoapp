@@ -1,10 +1,9 @@
-import type {
-  MetadataObservation,
-  ObservationPage,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
-import type { MetadataTarget } from "../metadata";
+import type { MetadataTarget } from "../model/metadata";
 import RecordingCredits from "./RecordingCredits";
+import Button from "../../../shared/ui/Button";
 
 const tagLabels = {
   title: "Title",
@@ -19,7 +18,7 @@ function Observation({
   observation,
   selected,
 }: {
-  observation: MetadataObservation;
+  observation: Schema<"MetadataObservation">;
   selected: boolean;
 }) {
   return (
@@ -109,7 +108,7 @@ export default function MetadataObservations({
 }: {
   account: string;
   target: MetadataTarget;
-  initial: ObservationPage;
+  initial: Schema<"ObservationPage">;
   selected?: string;
 }) {
   const history = useMetadataHistory(account, target, initial);
@@ -151,13 +150,9 @@ export default function MetadataObservations({
         </p>
       )}
       {history.page.next_before !== null && (
-        <button
-          className="button"
-          disabled={history.pending}
-          onClick={() => void history.older()}
-        >
+        <Button disabled={history.pending} onClick={() => void history.older()}>
           {history.pending ? "Loading…" : "Older observations"}
-        </button>
+        </Button>
       )}
     </section>
   );

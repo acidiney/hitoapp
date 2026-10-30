@@ -1,14 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   albumEdition,
   albumEditionProvider,
   unidentified,
 } from "./fixtures/album-edition-provider";
 import { albumAudioProvider } from "./fixtures/album-audio-provider";
-
-type Schema = components["schemas"];
 
 test("an album track without a catalog identity finds approved audio, rejects uncertain matches and survives outages", async ({
   page,
@@ -29,26 +27,26 @@ test("an album track without a catalog identity finds approved audio, rejects un
     )
       errors.push(message.text());
   });
-  const connections: Schema["PluginInstallation"][] = [];
-  let original: Schema["MetadataSettings"] | null = null;
+  const connections: Schema<"PluginInstallation">[] = [];
+  let original: Schema<"MetadataSettings"> | null = null;
   const post = async <T>(path: string, data: unknown, status = 200) => {
     const response = await page.request.post(path, { headers, data });
     expect(response.status(), path).toBe(status);
     return (await response.json()) as T;
   };
   const connect = async (name: string, address: string, token: string) => {
-    const service = await post<Schema["PluginService"]>(
+    const service = await post<Schema<"PluginService">>(
       "/api/v1/plugins/services",
-      { name, base_url: address } satisfies Schema["OfferPluginService"],
+      { name, base_url: address } satisfies Schema<"OfferPluginService">,
       201,
     );
-    const connection = await post<Schema["PluginInstallation"]>(
+    const connection = await post<Schema<"PluginInstallation">>(
       "/api/v1/plugins",
       {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
       201,
     );
     connections.push(connection);
@@ -62,15 +60,15 @@ test("an album track without a catalog identity finds approved audio, rejects un
       catalog.address,
       catalog.token,
     );
-    const saved: Schema["Recording"][] = [];
+    const saved: Schema<"Recording">[] = [];
     for (const id of [albumEdition.first, albumEdition.second]) {
       saved.push(
-        await post<Schema["Recording"]>(
+        await post<Schema<"Recording">>(
           `/api/v1/plugins/${connection.id}/recordings`,
           {
             installation_revision: connection.revision,
             provider_recording_id: id,
-          } satisfies Schema["AdoptProviderRecording"],
+          } satisfies Schema<"AdoptProviderRecording">,
         ),
       );
     }
@@ -81,25 +79,25 @@ test("an album track without a catalog identity finds approved audio, rejects un
     const provider = {
       kind: "http_plugin",
       installation_id: connection.id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     const updated = await page.request.put("/api/v1/metadata/settings", {
       headers,
       data: {
         revision: original!.revision,
         enabled: true,
         providers: [provider],
-      } satisfies Schema["UpdateMetadataSettings"],
+      } satisfies Schema<"UpdateMetadataSettings">,
     });
     expect(updated.status()).toBe(200);
     const review = `/api/v1/recordings/${saved[0].id}/artist-review`;
-    const context = await post<Schema["ArtistReviewContext"]>(
+    const context = await post<Schema<"ArtistReviewContext">>(
       `${review}/context`,
-      { provider } satisfies Schema["BeginArtistReview"],
+      { provider } satisfies Schema<"BeginArtistReview">,
     );
     const choice = {
       context,
       provider_artist_id: albumEdition.artistId,
-    } satisfies Schema["SelectArtistCandidate"];
+    } satisfies Schema<"SelectArtistCandidate">;
     await post(`${review}/preview`, choice);
     await post(`${review}/confirm`, choice);
     const audioConnection = await connect(
@@ -168,7 +166,7 @@ test("an album track without a catalog identity finds approved audio, rejects un
     const adopted = await page.request.get(
       `/api/v1/recordings?q=${encodeURIComponent(unidentified)}`,
     );
-    const found = (await adopted.json()).items[0] as Schema["Recording"];
+    const found = (await adopted.json()).items[0] as Schema<"Recording">;
     expect(found.title).toBe(unidentified);
     expect(found.id).not.toBe(saved[0].id);
     expect(catalog.state.unexpected).toBe(0);
@@ -188,7 +186,7 @@ test("an album track without a catalog identity finds approved audio, rejects un
           revision: latest.revision,
           enabled: original.enabled,
           providers: original.providers,
-        } satisfies Schema["UpdateMetadataSettings"],
+        } satisfies Schema<"UpdateMetadataSettings">,
       });
       expect(restored.status()).toBe(200);
     }

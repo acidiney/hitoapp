@@ -1,16 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { artistCorrectionApi } from "../api/artistCorrectionApi";
 import { createUuid } from "../../../shared/uuid";
 import { useRetainedCommand } from "./useRetainedCommand";
-import type {
-  ArtistAssociationChanges,
-  PromoteArtistCorrection,
-} from "../../../shared/types";
 
 /** Lets an administrator share, or withdraw, the unlink they made on this recording. */
 export function useSharedUnlink(
   account: string,
   recording: string,
-  state: ArtistAssociationChanges | null,
+  state: Schema<"ArtistAssociationChanges"> | null,
   reload: (signal: AbortSignal) => Promise<void>,
   accepted: () => void,
 ) {
@@ -30,7 +27,7 @@ export function useSharedUnlink(
         const association = state?.undo?.association_id;
         if (!state?.shareable || !association) return null;
         const requestId = createUuid();
-        let body: PromoteArtistCorrection | null = null;
+        let body: Schema<"PromoteArtistCorrection"> | null = null;
         return {
           kind: "share",
           requestId,

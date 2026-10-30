@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { unselectedArtistIdentity } from "../fixtures/artistIdentity";
 import {
   artistAssociation,
@@ -20,7 +20,6 @@ import {
 } from "../fixtures/artistReview";
 import { reference } from "../../metadata/fixtures/metadataPreferences";
 
-type Schema = components["schemas"];
 const base = (recording = artistReviewDetail.recording_id) =>
   `/api/v1/recordings/${recording}`;
 
@@ -48,7 +47,7 @@ function publicHttp() {
     },
     open(
       recording = artistReviewDetail.recording_id,
-      associations: Schema["ArtistAssociation"][] = [],
+      associations: Schema<"ArtistAssociation">[] = [],
     ) {
       this.reply("/api/v1/metadata/settings", artistReviewSettings);
       this.reply("/api/v1/plugins", artistReviewConnections);
@@ -60,10 +59,10 @@ function publicHttp() {
       this.reply(`${base(recording)}/artist-identity`, {
         ...unselectedArtistIdentity,
         recording_id: recording,
-      } satisfies Schema["RecordingArtistIdentityChoice"]);
+      } satisfies Schema<"RecordingArtistIdentityChoice">);
     },
     search(
-      context: Schema["ArtistReviewContext"],
+      context: Schema<"ArtistReviewContext">,
       query: string,
       response?: Response,
     ) {
@@ -159,14 +158,14 @@ test("editing a query or provider retires held artist responses and a current re
       query: retiredQuery,
       items: [{ artist: { id: "retired-candidate", name: retiredName } }],
     },
-  } satisfies Schema["ArtistCandidateSearchAvailability"]);
+  } satisfies Schema<"ArtistCandidateSearchAvailability">);
   const preview = heldBody({
     ...artistPreview,
     profile: {
       ...artistPreview.profile,
       artist: { ...artistPreview.profile.artist, name: retiredProfile },
     },
-  } satisfies Schema["ArtistCandidatePreviewAvailability"]);
+  } satisfies Schema<"ArtistCandidatePreviewAvailability">);
   const view = render(
     createElement(ArtistReview, {
       account: artistReviewAccount,
@@ -222,7 +221,7 @@ test("editing a query or provider retires held artist responses and a current re
         service_id: firstCatalog.service.id,
         service_revision: firstCatalog.service.revision,
       },
-    } satisfies Schema["ArtistReviewContext"];
+    } satisfies Schema<"ArtistReviewContext">;
     http.search(current, artistQuery);
     submitSearch();
     http.reply(
@@ -262,7 +261,7 @@ test("editing a query or provider retires held artist responses and a current re
     expect(JSON.parse(writes[6][1]?.body as string)).toEqual({
       context: current,
       search: { query: artistQuery, limit: 20, cursor: null, snapshot: null },
-    } satisfies Schema["SearchArtistCandidates"]);
+    } satisfies Schema<"SearchArtistCandidates">);
     expect(JSON.parse(writes[7][1]?.body as string)).toEqual({
       context: current,
       provider_artist_id: artistPreview.profile.artist.id,
@@ -307,7 +306,7 @@ test.each(["account", "recording", "artist operation"] as const)(
         ...artistPreview.profile,
         artist: { ...artistPreview.profile.artist, name: profileName },
       },
-    } satisfies Schema["ArtistProfileAvailability"]);
+    } satisfies Schema<"ArtistProfileAvailability">);
     const view = render(
       createElement(ArtistReview, {
         account: artistReviewAccount,
@@ -327,7 +326,7 @@ test.each(["account", "recording", "artist operation"] as const)(
       await profile.reading;
       const previous = [...http.fetch.mock.calls];
       const account = change === "account" ? "bob" : artistReviewAccount;
-      const detail: Schema["RecordingMetadata"] =
+      const detail: Schema<"RecordingMetadata"> =
         structuredClone(artistReviewDetail);
       if (change === "recording")
         detail.recording_id = "70000000-0000-4000-8000-000000000002";
@@ -376,7 +375,7 @@ test.each(["account", "recording", "artist operation"] as const)(
         account_id: account,
         recording_id: detail.recording_id,
         artist_operation_id: detail.artist.operation_id,
-      } satisfies Schema["ArtistReviewContext"];
+      } satisfies Schema<"ArtistReviewContext">;
       http.search(context, detail.artist.value);
       submitSearch();
       http.reply(
@@ -425,7 +424,7 @@ test.each(["account", "recording", "artist operation"] as const)(
           cursor: null,
           snapshot: null,
         },
-      } satisfies Schema["SearchArtistCandidates"]);
+      } satisfies Schema<"SearchArtistCandidates">);
       expect(JSON.parse(currentCalls[7][1]?.body as string)).toEqual({
         context,
         provider_artist_id: artistPreview.profile.artist.id,

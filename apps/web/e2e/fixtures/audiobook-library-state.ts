@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { artistReviewOriginals } from "./artist-review-state";
 import { seedPreferencesLibrary } from "./metadata-preferences-state";
 import {
@@ -12,7 +12,6 @@ import {
   type Remember,
 } from "./audiobook-library-client";
 
-type Schema = components["schemas"];
 export const libraryId = (index: number) =>
   `00000000-0000-0000-0000-${index.toString(16).padStart(12, "0")}`;
 
@@ -68,10 +67,10 @@ export async function prepareLibrary(
   const owner = await libraryClient(origin, credentials, budget, remember);
   let peer: LibraryClient | null = null;
   try {
-    const settings = await owner.read<Schema["MetadataSettings"]>(
+    const settings = await owner.read<Schema<"MetadataSettings">>(
       "/api/v1/metadata/settings",
     );
-    const disabled = await owner.call<Schema["MetadataSettings"]>(
+    const disabled = await owner.call<Schema<"MetadataSettings">>(
       "PUT",
       "/api/v1/metadata/settings",
       200,
@@ -83,7 +82,7 @@ export async function prepareLibrary(
     await owner.call("POST", "/api/v1/users", 201, peerCredentials);
     peer = await libraryClient(origin, peerCredentials, budget, remember);
     const catalog =
-      await owner.read<Schema["RecordingPage"]>("/api/v1/recordings");
+      await owner.read<Schema<"RecordingPage">>("/api/v1/recordings");
     if (catalog.items.length !== 2)
       throw new Error("The owned library must contain exactly two originals");
     for (const library of new Set(
@@ -102,7 +101,7 @@ export async function prepareLibrary(
       kind: "local" as const,
     }));
     const deleted = libraryId(122);
-    const actions: Schema["Action"][] = books.flatMap((book) => [
+    const actions: Schema<"Action">[] = books.flatMap((book) => [
       { kind: "playlist_create", playlist_id: book.id, name: book.name },
       { kind: "audiobook_create", playlist_id: book.id },
     ]);
@@ -225,20 +224,20 @@ async function librarySnapshot(
   playlists: string[],
   remember: Remember,
 ) {
-  const progress = await client.call<Schema["RecordingProgress"][]>(
+  const progress = await client.call<Schema<"RecordingProgress">[]>(
     "POST",
     "/api/v1/recordings/progress",
     200,
     { recording_ids: recordings },
   );
   return {
-    user: await client.read<Schema["User"]>("/api/v1/me"),
+    user: await client.read<Schema<"User">>("/api/v1/me"),
     libraries: await client.read("/api/v1/libraries"),
     settings: await client.read("/api/v1/metadata/settings"),
     catalog: await client.read("/api/v1/recordings"),
     artists: await client.read("/api/v1/artists"),
     releases: await client.read("/api/v1/releases"),
-    playlists: await client.read<Schema["Playlist"][]>("/api/v1/playlists"),
+    playlists: await client.read<Schema<"Playlist">[]>("/api/v1/playlists"),
     books: await libraryBooks(client, remember),
     entries: await Promise.all(
       playlists.map((id) => client.read(`/api/v1/playlists/${id}`)),
@@ -256,10 +255,10 @@ async function librarySnapshot(
 }
 
 export async function libraryBooks(client: LibraryClient, remember: Remember) {
-  const books: Schema["Playlist"][] = [];
+  const books: Schema<"Playlist">[] = [];
   let cursor: string | null | undefined;
   for (let page = 0; page < 4; page++) {
-    const result = await client.read<Schema["AudiobookLibraryPage"]>(
+    const result = await client.read<Schema<"AudiobookLibraryPage">>(
       `/api/v1/audiobooks/page?limit=60${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
     );
     if (result.items.length > 60 || result.pagination.limit !== 60)
@@ -277,10 +276,10 @@ export async function libraryBooks(client: LibraryClient, remember: Remember) {
 }
 
 async function events(client: LibraryClient) {
-  const result: Schema["SyncEvent"][] = [];
+  const result: Schema<"SyncEvent">[] = [];
   let cursor = 0;
   for (let page = 0; page < 3; page++) {
-    const next = await client.read<Schema["SyncPage"]>(
+    const next = await client.read<Schema<"SyncPage">>(
       `/api/v1/sync?cursor=${cursor}`,
     );
     if (
@@ -307,7 +306,7 @@ async function downloadAbsence(
   ];
   const result = [];
   for (const path of paths) {
-    const value = await client.call<Schema["ErrorResponse"]>("GET", path, 404);
+    const value = await client.call<Schema<"ErrorResponse">>("GET", path, 404);
     if (!isDeepStrictEqual(value, { error: "Resource not found" }))
       throw new Error("The owned library acquired an implicit download");
     result.push({ status: 404, absent: true });

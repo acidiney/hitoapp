@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export function artistReviewReader(page: Page) {
   let requests = 0;
@@ -36,7 +34,7 @@ export async function artistReviewDownloadAbsence(page: Page, ids: string[]) {
         throw new Error("Artist review download absence exceeded its bound");
       const expected = {
         error: "Resource not found",
-      } satisfies Schema["ErrorResponse"];
+      } satisfies Schema<"ErrorResponse">;
       expect(
         response.status() === 404 &&
           body.toString() === JSON.stringify(expected),

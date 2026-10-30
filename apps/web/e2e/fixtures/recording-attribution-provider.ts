@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 async function boundedBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -33,7 +31,7 @@ export async function recordingAttributionProvider(query: string) {
     name: `Owned recording catalogue ${nonce}`,
     protocol_version: 1,
     capabilities: ["search", "sources"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const creator = `owned-credit-creator-${nonce}-`.padEnd(2048, "a");
   const markup = `<img src="https://credit-remote.example.invalid/${nonce}" onerror="window.ownedCreditPayload=true">`;
   const first = {
@@ -44,7 +42,7 @@ export async function recordingAttributionProvider(query: string) {
         "p",
       ),
     content_url: `https://credits.example.invalid/recordings/${nonce}/first`,
-  } satisfies Schema["RecordingAttribution"];
+  } satisfies Schema<"RecordingAttribution">;
   const second = {
     creators: [
       `owned-revised-creator-${nonce}`,
@@ -53,7 +51,7 @@ export async function recordingAttributionProvider(query: string) {
     ],
     provider_label: `owned-revised-provider-${nonce}`.padEnd(256, "r"),
     content_url: `https://credits.example.invalid/recordings/${nonce}/second`,
-  } satisfies Schema["RecordingAttribution"];
+  } satisfies Schema<"RecordingAttribution">;
   const original = {
     id: `recording/owned-${nonce}`,
     title: `Owned credit recording ${nonce}`,
@@ -64,16 +62,16 @@ export async function recordingAttributionProvider(query: string) {
     track_number: null,
     revision: "owned-unchanged-revision",
     attribution: first,
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const replacement = {
     ...original,
     attribution: second,
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const source = {
     id: `source/owned-${nonce}`,
     label: `Owned inert source ${nonce}`,
     ready: false,
-  } satisfies Pick<Schema["Source"], "id" | "label" | "ready">;
+  } satisfies Pick<Schema<"Source">, "id" | "label" | "ready">;
   const calls = {
     requests: 0,
     publicManifest: 0,
@@ -126,7 +124,7 @@ export async function recordingAttributionProvider(query: string) {
         value = {
           items: [recording],
           next_cursor: null,
-        } satisfies Schema["SearchPage"];
+        } satisfies Schema<"SearchPage">;
       } else if (
         request.method === "POST" &&
         isDeepStrictEqual(body, { recording_id: original.id })

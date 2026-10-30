@@ -1,21 +1,24 @@
-import type { AudiobookChapterAnchor, Recording } from "../../shared/types";
+import type { Schema } from "../../shared/schema";
 
 export type Track = Pick<
-  Recording,
+  Schema<"Recording">,
   "id" | "title" | "artist" | "album" | "duration_ms" | "available"
 > &
   Partial<
-    Pick<Recording, "inherited_title" | "inherited_artist" | "release_id">
+    Pick<
+      Schema<"Recording">,
+      "inherited_title" | "inherited_artist" | "release_id"
+    >
   >;
 
 export type PlaybackStart = { kind: "saved" | "position"; position: number };
 export type PlaybackQueueInput =
   | Track
-  | { recording: Track; chapter?: AudiobookChapterAnchor };
+  | { recording: Track; chapter?: Schema<"AudiobookChapterAnchor"> };
 export type PlaybackOccurrence = {
   id: string;
   recording: Track;
-  chapter?: AudiobookChapterAnchor | null;
+  chapter?: Schema<"AudiobookChapterAnchor"> | null;
 };
 export const MAX_QUEUE_ENTRIES = 100_000;
 export type QueueSupply = {

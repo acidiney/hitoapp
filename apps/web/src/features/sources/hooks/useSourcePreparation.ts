@@ -1,21 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { msUntilCheck } from "../api/preparationPolicy";
 import { sourcePreparationApi } from "../api/sourcePreparationApi";
-import type {
-  PrepareSource,
-  Source,
-  SourcePreparationReceipt,
-  SourcePreparationStatus,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type View = {
-  status: SourcePreparationStatus | null;
-  receipt: SourcePreparationReceipt | null;
-  attempt: Readonly<PrepareSource> | null;
+  status: Schema<"SourcePreparationStatus"> | null;
+  receipt: Schema<"SourcePreparationReceipt"> | null;
+  attempt: Readonly<Schema<"PrepareSource">> | null;
   checking: boolean;
   pending: boolean;
   halted: boolean;
@@ -34,7 +30,7 @@ type Owner = {
 };
 type ConfirmReady = (source: string, signal: AbortSignal) => Promise<boolean>;
 
-function polling(status: SourcePreparationStatus | null) {
+function polling(status: Schema<"SourcePreparationStatus"> | null) {
   return (
     status !== null &&
     (["queued", "submitting", "preparing"].includes(status.phase) ||
@@ -46,7 +42,7 @@ function polling(status: SourcePreparationStatus | null) {
 export function useSourcePreparation(
   account: string,
   recording: string,
-  source: Source | null,
+  source: Schema<"Source"> | null,
   confirmReady: ConfirmReady,
   refreshRevision = 0,
 ) {
@@ -222,7 +218,9 @@ export function useSourcePreparation(
     }
   }
 
-  async function perform(body: Readonly<PrepareSource>): Promise<void> {
+  async function perform(
+    body: Readonly<Schema<"PrepareSource">>,
+  ): Promise<void> {
     const request = scope.capture();
     if (sourceId === null || !request.active() || owner.write) return;
     clearTimer();

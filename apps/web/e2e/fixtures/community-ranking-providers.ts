@@ -2,9 +2,8 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export const publicSources = [
   { provider: "youtube", recording_id: "RankVideo01" },
   { provider: "jamendo", recording_id: "42" },
@@ -88,7 +87,7 @@ export async function rankingProviders() {
       title,
       artist,
       duration_ms: 12_000,
-    } satisfies Schema["ProviderRecording"],
+    } satisfies Schema<"ProviderRecording">,
   }));
   const server = createServer((request, response) => {
     response.on("error", () => {
@@ -166,7 +165,7 @@ export async function rankingProviders() {
           protocol_version: 1,
           capabilities: [...provider.capabilities],
           content_policy: { source_persistence: "playback_only" },
-        } satisfies Schema["Manifest"];
+        } satisfies Schema<"Manifest">;
       } else if (
         operation === "search" &&
         request.method === "POST" &&

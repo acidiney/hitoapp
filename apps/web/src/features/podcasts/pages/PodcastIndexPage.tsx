@@ -1,15 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import Button from "../../../shared/ui/Button";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import PodcastSubscribe from "../components/PodcastSubscribe";
 import { checkedAt } from "../components/PodcastStatus";
 import { usePodcastSubscriptions } from "../hooks/usePodcastSubscriptions";
-import type {
-  PodcastIndexPageProps,
-  PodcastSubscription,
-} from "../../../shared/types";
 
-function status(subscription: PodcastSubscription) {
+function status(subscription: Schema<"PodcastSubscription">) {
   if (subscription.refresh_pending) return "Checking feed…";
   const checked = checkedAt(subscription);
   if (!checked) return "Not checked yet";
@@ -24,7 +21,7 @@ function status(subscription: PodcastSubscription) {
 export default function PodcastIndexPage({
   user,
   subscriptions,
-}: PodcastIndexPageProps) {
+}: Schema<"PodcastIndexPageProps">) {
   const workflow = usePodcastSubscriptions(user.id, subscriptions);
   const count = workflow.subscriptions.length;
   return (

@@ -1,7 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
-import type { PlaylistDownloadStatus } from "../../../shared/types";
 
 test("a rendered removal action cannot retarget a root discovered by a later status read", async () => {
   vi.useFakeTimers();
@@ -12,7 +12,7 @@ test("a rendered removal action cannot retarget a root discovered by a later sta
   const path = `/api/v1/playlists/${playlist}/download`;
   const oldRemovalPath = `/api/v1/downloads/${oldRoot}`;
   const newRemovalPath = `/api/v1/downloads/${newRoot}`;
-  function status(retention: string): PlaylistDownloadStatus {
+  function status(retention: string): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: playlist,

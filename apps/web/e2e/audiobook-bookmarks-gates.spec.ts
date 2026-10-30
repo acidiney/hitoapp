@@ -2,11 +2,10 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test, type Request, type Route } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { bookmarkDelivery } from "./fixtures/audiobook-bookmarks-delivery";
 import { bookmarkEvidence } from "./fixtures/audiobook-bookmarks-evidence";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -244,7 +243,7 @@ test("retiring delivery during an owned response fetch cannot create a late conf
       },
     ],
     bookmarks: [],
-  } satisfies Schema["AudiobookDetail"];
+  } satisfies Schema<"AudiobookDetail">;
   const batch = {
     device_id: randomUUID(),
     operations: [
@@ -261,7 +260,7 @@ test("retiring delivery during an owned response fetch cannot create a late conf
         },
       },
     ],
-  } satisfies Schema["SyncBatch"];
+  } satisfies Schema<"SyncBatch">;
   const server = await ownedResponder(detail, batch);
   const evidence = await bookmarkEvidence(context, server.origin, [label]);
   const delivery = await bookmarkDelivery(context, server.origin, evidence);
@@ -389,8 +388,8 @@ test("retiring delivery during an owned response fetch cannot create a late conf
 });
 
 async function ownedResponder(
-  detail: Schema["AudiobookDetail"],
-  batch: Schema["SyncBatch"],
+  detail: Schema<"AudiobookDetail">,
+  batch: Schema<"SyncBatch">,
 ) {
   const counts = { posts: 0, errors: 0, requests: 0 };
   let release!: () => void;
@@ -432,7 +431,7 @@ async function ownedResponder(
         counts.posts++;
         body = {
           acknowledged: [batch.operations[0].id],
-        } satisfies Schema["SyncReceipt"];
+        } satisfies Schema<"SyncReceipt">;
       } else if (
         request.method === "GET" &&
         path === `/api/v1/audiobooks/${detail.playlist.id}` &&
@@ -450,9 +449,9 @@ async function ownedResponder(
               recording_id: action.recording_id,
               position_ms: action.position_ms,
               label: action.label,
-            } satisfies Schema["AudiobookBookmark"],
+            } satisfies Schema<"AudiobookBookmark">,
           ],
-        } satisfies Schema["AudiobookDetail"];
+        } satisfies Schema<"AudiobookDetail">;
       } else throw new Error("Owned gate route is unavailable");
       response
         .writeHead(200, {

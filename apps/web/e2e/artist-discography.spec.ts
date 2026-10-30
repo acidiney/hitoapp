@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { artistDiscographyEvidence } from "./fixtures/artist-discography-evidence";
 import { browseArtistEditions } from "./fixtures/artist-editions-browsing";
@@ -19,7 +19,6 @@ import {
   seedPreferencesLibrary,
 } from "./fixtures/metadata-preferences-state";
 
-type Schema = components["schemas"];
 const editionsEnabled = process.env.HITO_ARTIST_EDITIONS_E2E === "1";
 const expectedProviderRequests = editionsEnabled ? 23 : 17;
 test.use({
@@ -73,7 +72,7 @@ test(
     try {
       expect(baseURL === "http://localhost:8080").toBe(true);
       expect(
-        (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+        (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
       ).toBe(true);
       evidence = await artistDiscographyEvidence(
         context,
@@ -127,7 +126,7 @@ test(
       privateValues.push(
         ...(await context.cookies()).map((cookie) => cookie.value),
       );
-      const user = await read<Schema["User"]>("/api/v1/me");
+      const user = await read<Schema<"User">>("/api/v1/me");
 
       stage = "owned originals and private duplicate playlist preparation";
       const saved = await seedPreferencesLibrary(page, read, user);
@@ -166,7 +165,7 @@ test(
       await page
         .getByLabel("Service address", { exact: true })
         .fill(provider.address);
-      const offered = await preferencesAction<Schema["PluginService"]>(
+      const offered = await preferencesAction<Schema<"PluginService">>(
         page,
         page.getByRole("button", { name: "Offer service", exact: true }),
         "POST",
@@ -189,7 +188,7 @@ test(
         offered.body,
         provider.manifest.name,
       );
-      const installed = await preferencesAction<Schema["PluginInstallation"]>(
+      const installed = await preferencesAction<Schema<"PluginInstallation">>(
         page,
         page.getByRole("button", { name: "Accept and connect", exact: true }),
         "POST",
@@ -210,7 +209,7 @@ test(
       const selected = {
         kind: "http_plugin",
         installation_id: installed.body.id,
-      } satisfies Schema["MetadataProvider"];
+      } satisfies Schema<"MetadataProvider">;
       const panel = await openPreferences(page);
       await panel
         .getByRole("button", { name: "Remove MusicBrainz", exact: true })
@@ -259,7 +258,7 @@ test(
         .getByRole("searchbox", { name: "Search artists", exact: true })
         .fill(query);
       const found = await preferencesAction<
-        Schema["ArtistCandidateSearchAvailability"]
+        Schema<"ArtistCandidateSearchAvailability">
       >(
         page,
         artist.getByRole("button", { name: "Search artists", exact: true }),
@@ -292,9 +291,9 @@ test(
       const selection = {
         context: captured,
         provider_artist_id: provider.profile.artist.id,
-      } satisfies Schema["SelectArtistCandidate"];
+      } satisfies Schema<"SelectArtistCandidate">;
       const previewed = await preferencesAction<
-        Schema["ArtistCandidatePreviewAvailability"]
+        Schema<"ArtistCandidatePreviewAvailability">
       >(
         page,
         second.getByRole("button", { name: "Review artist", exact: true }),
@@ -308,9 +307,9 @@ test(
           isDeepStrictEqual(previewed.body.profile, provider.profile),
       ).toBe(true);
       expect(
-        (await read<Schema["ArtistAssociation"][]>(associationsPath)).length,
+        (await read<Schema<"ArtistAssociation">[]>(associationsPath)).length,
       ).toBe(0);
-      const confirmed = await preferencesAction<Schema["ArtistAssociation"]>(
+      const confirmed = await preferencesAction<Schema<"ArtistAssociation">>(
         page,
         artist.getByRole("button", { name: "Use this artist", exact: true }),
         "POST",
@@ -342,11 +341,11 @@ test(
       stage = "post-confirmation read-only baseline";
       const baseline = await preferencesLibraryState(page, read, saved);
       const downloads = await artistReviewDownloadAbsence(page, saved.ids);
-      const policy = await read<Schema["MetadataSettings"]>(
+      const policy = await read<Schema<"MetadataSettings">>(
         "/api/v1/metadata/settings",
       );
       const connections =
-        await read<Schema["PluginSettings"]>("/api/v1/plugins");
+        await read<Schema<"PluginSettings">>("/api/v1/plugins");
       expect(
         isDeepStrictEqual(await read(associationsPath), [association]),
       ).toBe(true);
@@ -356,7 +355,7 @@ test(
           ? ({
               release_group_id: editions.group.id,
               edition_id: editions.bonus.id,
-            } satisfies Schema["ReadEditionTrackList"])
+            } satisfies Schema<"ReadEditionTrackList">)
           : undefined,
       );
       armed = true;
@@ -364,7 +363,7 @@ test(
 
       stage = "explicit first discography page";
       const first = await preferencesAction<
-        Schema["ArtistDiscographyAvailability"]
+        Schema<"ArtistDiscographyAvailability">
       >(
         page,
         profile.getByRole("button", {
@@ -383,7 +382,7 @@ test(
         isDeepStrictEqual(first.sent, {
           limit: 20,
           continuation: null,
-        } satisfies Schema["ReadArtistDiscography"]) &&
+        } satisfies Schema<"ReadArtistDiscography">) &&
           first.body.association_id === association.id &&
           isDeepStrictEqual(first.body.page, catalog.first) &&
           continuation !== catalog.cursor &&
@@ -408,7 +407,7 @@ test(
 
       stage = "host continuation preserves distinct same-title groups";
       const last = await preferencesAction<
-        Schema["ArtistDiscographyAvailability"]
+        Schema<"ArtistDiscographyAvailability">
       >(
         page,
         region.getByRole("button", { name: "Load more releases", exact: true }),
@@ -420,7 +419,7 @@ test(
         isDeepStrictEqual(last.sent, {
           limit: 20,
           continuation,
-        } satisfies Schema["ReadArtistDiscography"]) &&
+        } satisfies Schema<"ReadArtistDiscography">) &&
           last.body?.status === "available" &&
           last.body.association_id === association.id &&
           !last.body.continuation &&
@@ -493,7 +492,7 @@ test(
         provider.calls.filter((call) => call.startsWith("discography_")).length,
       ).toBe(2);
       const reloaded = await preferencesAction<
-        Schema["ArtistDiscographyAvailability"]
+        Schema<"ArtistDiscographyAvailability">
       >(
         page,
         profile.getByRole("button", {
@@ -508,7 +507,7 @@ test(
         isDeepStrictEqual(reloaded.sent, {
           limit: 20,
           continuation: null,
-        } satisfies Schema["ReadArtistDiscography"]) &&
+        } satisfies Schema<"ReadArtistDiscography">) &&
           reloaded.body?.status === "available" &&
           reloaded.body.association_id === association.id &&
           isDeepStrictEqual(reloaded.body.page, catalog.first) &&
@@ -551,7 +550,7 @@ test(
           isDeepStrictEqual(await read("/api/v1/metadata/settings"), policy) &&
           isDeepStrictEqual(await read("/api/v1/plugins"), connections) &&
           (
-            await read<Schema["ArtistAssociation"][]>(
+            await read<Schema<"ArtistAssociation">[]>(
               `/api/v1/recordings/${saved.ids[1]}/artist-associations`,
             )
           ).length === 0,
@@ -713,7 +712,7 @@ test(
 async function insertMiddleRecording(
   page: Page,
   saved: Awaited<ReturnType<typeof seedPreferencesLibrary>>,
-  user: Schema["User"],
+  user: Schema<"User">,
 ) {
   const middle = randomUUID();
   const batch = {
@@ -739,7 +738,7 @@ async function insertMiddleRecording(
         },
       },
     ],
-  } satisfies Schema["SyncBatch"];
+  } satisfies Schema<"SyncBatch">;
   const response = await page.request.post("/api/v1/sync", {
     headers: {
       "x-hito-request": "1",
@@ -753,7 +752,7 @@ async function insertMiddleRecording(
     const bytes = await response.body();
     if (bytes.length > 65_536)
       throw new Error("Owned playlist preparation exceeded its response bound");
-    const receipt = JSON.parse(bytes.toString()) as Schema["SyncReceipt"];
+    const receipt = JSON.parse(bytes.toString()) as Schema<"SyncReceipt">;
     expect(
       response.status() === 200 &&
         isDeepStrictEqual(

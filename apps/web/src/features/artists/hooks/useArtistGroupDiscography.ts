@@ -1,14 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type {
-  ArtistAssociation,
-  ArtistIdentityGroupDetail,
-  ArtistProfileAvailability,
-  CatalogArtistProfile,
-  MetadataProvider,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -18,8 +13,8 @@ const CHANGED_ARTIST =
 
 type Owner = { pending: boolean };
 type Ready = {
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
 };
 type State = {
   owner: Owner;
@@ -32,7 +27,10 @@ function empty(owner: Owner): State {
   return { owner, ready: null, pending: false, error: "" };
 }
 
-function sameProvider(left: MetadataProvider, right: MetadataProvider) {
+function sameProvider(
+  left: Schema<"MetadataProvider">,
+  right: Schema<"MetadataProvider">,
+) {
   return (
     left.kind === right.kind &&
     (left.kind === "builtin_musicbrainz" ||
@@ -42,7 +40,7 @@ function sameProvider(left: MetadataProvider, right: MetadataProvider) {
 }
 
 function unavailable(
-  status: Exclude<ArtistProfileAvailability["status"], "available">,
+  status: Exclude<Schema<"ArtistProfileAvailability">["status"], "available">,
 ) {
   switch (status) {
     case "disabled":
@@ -58,7 +56,7 @@ function unavailable(
 
 export function useArtistGroupDiscography(
   account: string,
-  group: ArtistIdentityGroupDetail["group"],
+  group: Schema<"ArtistIdentityGroupDetail">["group"],
 ) {
   const scope = useRequestScope(
     JSON.stringify([

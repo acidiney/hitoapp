@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   albumEdition,
   albumEditionProvider,
 } from "./fixtures/album-edition-provider";
-
-type Schema = components["schemas"];
 
 test("an album compares a chosen edition with its library and saves a catalog track only when played", async ({
   page,
@@ -26,40 +24,40 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     )
       errors.push(message.text());
   });
-  let connection: Schema["PluginInstallation"] | null = null;
-  let original: Schema["MetadataSettings"] | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
+  let original: Schema<"MetadataSettings"> | null = null;
   const post = async <T>(path: string, data: unknown, status = 200) => {
     const response = await page.request.post(path, { headers, data });
     expect(response.status(), path).toBe(status);
     return (await response.json()) as T;
   };
   try {
-    const service = await post<Schema["PluginService"]>(
+    const service = await post<Schema<"PluginService">>(
       "/api/v1/plugins/services",
       {
         name: "Album edition collection",
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
       201,
     );
-    connection = await post<Schema["PluginInstallation"]>(
+    connection = await post<Schema<"PluginInstallation">>(
       "/api/v1/plugins",
       {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
       201,
     );
-    const saved: Schema["Recording"][] = [];
+    const saved: Schema<"Recording">[] = [];
     for (const id of [albumEdition.first, albumEdition.second]) {
       saved.push(
-        await post<Schema["Recording"]>(
+        await post<Schema<"Recording">>(
           `/api/v1/plugins/${connection.id}/recordings`,
           {
             installation_revision: connection.revision,
             provider_recording_id: id,
-          } satisfies Schema["AdoptProviderRecording"],
+          } satisfies Schema<"AdoptProviderRecording">,
         ),
       );
     }
@@ -71,26 +69,26 @@ test("an album compares a chosen edition with its library and saves a catalog tr
     const provider = {
       kind: "http_plugin",
       installation_id: connection.id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     const updated = await page.request.put("/api/v1/metadata/settings", {
       headers,
       data: {
         revision: original!.revision,
         enabled: true,
         providers: [provider],
-      } satisfies Schema["UpdateMetadataSettings"],
+      } satisfies Schema<"UpdateMetadataSettings">,
     });
     expect(updated.status()).toBe(200);
 
     const review = `/api/v1/recordings/${saved[0].id}/artist-review`;
-    const context = await post<Schema["ArtistReviewContext"]>(
+    const context = await post<Schema<"ArtistReviewContext">>(
       `${review}/context`,
-      { provider } satisfies Schema["BeginArtistReview"],
+      { provider } satisfies Schema<"BeginArtistReview">,
     );
     const choice = {
       context,
       provider_artist_id: albumEdition.artistId,
-    } satisfies Schema["SelectArtistCandidate"];
+    } satisfies Schema<"SelectArtistCandidate">;
     await post(`${review}/preview`, choice);
     await post(`${review}/confirm`, choice);
 
@@ -228,7 +226,7 @@ test("an album compares a chosen edition with its library and saves a catalog tr
           revision: latest.revision,
           enabled: original.enabled,
           providers: original.providers,
-        } satisfies Schema["UpdateMetadataSettings"],
+        } satisfies Schema<"UpdateMetadataSettings">,
       });
     }
     if (connection)

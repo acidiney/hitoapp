@@ -5,7 +5,7 @@ import {
   type Request as BrowserRequest,
   type Route,
 } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { playlistFollowFixture } from "./fixtures/playlist-follow";
 import {
   connectLiveProvider,
@@ -13,7 +13,6 @@ import {
 } from "./fixtures/spotify-youtube-live";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -49,8 +48,8 @@ test.describe("isolated provider playlist Resume", () => {
     let externalRequests = 0;
     let audioRequests = 0;
     let lostRequest: BrowserRequest | null = null;
-    let originalBatch: Schema["SyncBatch"] | null = null;
-    let originalAcknowledgement: Schema["SyncReceipt"] | null = null;
+    let originalBatch: Schema<"SyncBatch"> | null = null;
+    let originalAcknowledgement: Schema<"SyncReceipt"> | null = null;
     const resumeBodies: string[] = [];
     const loseAcknowledgement = async (route: Route) => {
       const request = route.request();
@@ -64,7 +63,7 @@ test.describe("isolated provider playlist Resume", () => {
       try {
         response = await route.fetch({ maxRetries: 0 });
         expect(response.status()).toBe(200);
-        const acknowledgement: Schema["SyncReceipt"] = await response.json();
+        const acknowledgement: Schema<"SyncReceipt"> = await response.json();
         if (!originalBatch)
           throw new Error("The original Resume batch is missing");
         same(acknowledgement, {
@@ -113,7 +112,7 @@ test.describe("isolated provider playlist Resume", () => {
       if (!origin || !syncUrl)
         throw new Error("The disposable Resume server must be configured");
       await setUpDisposableFollowAccount(page);
-      const identity = await read<Schema["User"]>(page, "/api/v1/me");
+      const identity = await read<Schema<"User">>(page, "/api/v1/me");
       const connection = await connectLiveProvider(
         page,
         fixture.address,
@@ -124,7 +123,7 @@ test.describe("isolated provider playlist Resume", () => {
         !connection.credential_set &&
           connection.manifest.capabilities.join(",") === "playlists",
       ).toBe(true);
-      const settings = await read<Schema["PluginSettings"]>(
+      const settings = await read<Schema<"PluginSettings">>(
         page,
         "/api/v1/plugins",
       );
@@ -178,12 +177,12 @@ test.describe("isolated provider playlist Resume", () => {
           }),
         ).toBeVisible();
       }
-      const copyBefore = await read<Schema["PlaylistDetail"]>(page, copyPath);
+      const copyBefore = await read<Schema<"PlaylistDetail">>(page, copyPath);
       const recording = copyBefore.entries[0].recording_id;
       if (!recording || !uuid.test(recording))
         throw new Error("The retained recording identity is missing");
       const metadataPath = `/api/v1/recordings/${recording}/metadata`;
-      const metadataBefore = await read<Schema["RecordingMetadata"]>(
+      const metadataBefore = await read<Schema<"RecordingMetadata">>(
         page,
         metadataPath,
       );
@@ -206,13 +205,13 @@ test.describe("isolated provider playlist Resume", () => {
       const followPage = `/playlists/${playlist}`;
       const detailPath = `/api/v1/playlists/${playlist}`;
       const statusPath = `${detailPath}/follow`;
-      const before = await read<Schema["PlaylistDetail"]>(page, detailPath);
-      const ready = await read<Schema["PlaylistFollow"]>(page, statusPath);
-      const feedBefore = await read<Schema["SyncPage"]>(
+      const before = await read<Schema<"PlaylistDetail">>(page, detailPath);
+      const ready = await read<Schema<"PlaylistFollow">>(page, statusPath);
+      const feedBefore = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
-      const activityBefore = await read<Schema["Activity"]>(
+      const activityBefore = await read<Schema<"Activity">>(
         page,
         "/api/v1/activity",
       );
@@ -268,15 +267,15 @@ test.describe("isolated provider playlist Resume", () => {
         .click();
       const reviewResponse = await checked;
       expect(reviewResponse.status()).toBe(200);
-      const review: Schema["PluginRefresh"] = await reviewResponse.json();
+      const review: Schema<"PluginRefresh"> = await reviewResponse.json();
       if (review.kind !== "review_required")
         throw new Error("The changed manifest must require review");
       same(review.manifest, proposed);
       same(
-        await read<Schema["PluginSettings"]>(page, "/api/v1/plugins"),
+        await read<Schema<"PluginSettings">>(page, "/api/v1/plugins"),
         settings,
       );
-      same(await read<Schema["PlaylistFollow"]>(page, statusPath), ready);
+      same(await read<Schema<"PlaylistFollow">>(page, statusPath), ready);
       await expect(
         card.getByRole("heading", {
           name: "Review plugin changes",
@@ -289,7 +288,7 @@ test.describe("isolated provider playlist Resume", () => {
         .click();
       const accepted = await acceptedResponse;
       expect(accepted.status()).toBe(200);
-      const approved: Schema["PluginRefresh"] = await accepted.json();
+      const approved: Schema<"PluginRefresh"> = await accepted.json();
       if (approved.kind !== "updated")
         throw new Error("The reviewed connection was not accepted");
       expect(
@@ -297,16 +296,16 @@ test.describe("isolated provider playlist Resume", () => {
           approved.installation.revision === connection.revision + 1,
       ).toBe(true);
       same(approved.installation.manifest, proposed);
-      const paused = await read<Schema["PlaylistFollow"]>(page, statusPath);
+      const paused = await read<Schema<"PlaylistFollow">>(page, statusPath);
       expect(
         paused.status === "paused" &&
           paused.generation === 1 &&
           paused.content_revision === 1 &&
           paused.error === "authority_changed",
       ).toBe(true);
-      same(await read<Schema["PlaylistDetail"]>(page, detailPath), before);
+      same(await read<Schema<"PlaylistDetail">>(page, detailPath), before);
       same(
-        await read<Schema["SyncPage"]>(page, "/api/v1/sync?cursor=0"),
+        await read<Schema<"SyncPage">>(page, "/api/v1/sync?cursor=0"),
         feedBefore,
       );
       expect(resumePosts).toBe(0);
@@ -348,10 +347,10 @@ test.describe("isolated provider playlist Resume", () => {
       });
       await expect(resume).toBeEnabled();
       expect(resumePosts).toBe(0);
-      same(await read<Schema["PlaylistFollow"]>(page, statusPath), paused);
-      same(await read<Schema["PlaylistDetail"]>(page, detailPath), before);
+      same(await read<Schema<"PlaylistFollow">>(page, statusPath), paused);
+      same(await read<Schema<"PlaylistDetail">>(page, detailPath), before);
       same(
-        await read<Schema["SyncPage"]>(page, "/api/v1/sync?cursor=0"),
+        await read<Schema<"SyncPage">>(page, "/api/v1/sync?cursor=0"),
         feedBefore,
       );
       expect(fixture.counts()).toEqual({
@@ -373,7 +372,7 @@ test.describe("isolated provider playlist Resume", () => {
       expect([lostDeliveries, committedAcknowledgements, resumePosts]).toEqual([
         1, 1, 1,
       ]);
-      const batch: Schema["SyncBatch"] = JSON.parse(resumeBodies[0]);
+      const batch: Schema<"SyncBatch"> = JSON.parse(resumeBodies[0]);
       expect(
         batch.operations.length === 1 &&
           uuid.test(batch.operations[0].id) &&
@@ -392,17 +391,17 @@ test.describe("isolated provider playlist Resume", () => {
       });
       await expect(retry).toBeEnabled();
       await expect.poll(() => gate.entered, { timeout: 10000 }).toBe(true);
-      const running = await read<Schema["PlaylistFollow"]>(page, statusPath);
+      const running = await read<Schema<"PlaylistFollow">>(page, statusPath);
       expect(
         running.status === "running" &&
           running.generation === 2 &&
           running.content_revision === 1 &&
           running.snapshot === ready.snapshot,
       ).toBe(true);
-      same(await read<Schema["PlaylistDetail"]>(page, detailPath), before);
-      same(await read<Schema["PlaylistDetail"]>(page, copyPath), copyBefore);
+      same(await read<Schema<"PlaylistDetail">>(page, detailPath), before);
+      same(await read<Schema<"PlaylistDetail">>(page, copyPath), copyBefore);
       same(
-        await read<Schema["RecordingMetadata"]>(page, metadataPath),
+        await read<Schema<"RecordingMetadata">>(page, metadataPath),
         metadataBefore,
       );
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(5);
@@ -422,7 +421,7 @@ test.describe("isolated provider playlist Resume", () => {
           exact: true,
         }),
       ).toHaveCount(0);
-      const resumedFeed = await read<Schema["SyncPage"]>(
+      const resumedFeed = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
@@ -440,7 +439,7 @@ test.describe("isolated provider playlist Resume", () => {
       if (!resumeEvent || !("operation" in resumeEvent))
         throw new Error("The accepted Resume event is missing");
       same(resumeEvent.operation, batch.operations[0]);
-      same(await read<Schema["PlaylistDetail"]>(page, detailPath), before);
+      same(await read<Schema<"PlaylistDetail">>(page, detailPath), before);
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(5);
 
       phase = 6;
@@ -448,7 +447,7 @@ test.describe("isolated provider playlist Resume", () => {
       await expect
         .poll(
           async () => {
-            const status = await read<Schema["PlaylistFollow"]>(
+            const status = await read<Schema<"PlaylistFollow">>(
               page,
               statusPath,
             );
@@ -463,7 +462,7 @@ test.describe("isolated provider playlist Resume", () => {
         .toBe(true);
       await expect(updates.getByText("Ready", { exact: true })).toBeVisible();
       await expect(table.locator("tbody").getByRole("row")).toHaveCount(4);
-      const after = await read<Schema["PlaylistDetail"]>(page, detailPath);
+      const after = await read<Schema<"PlaylistDetail">>(page, detailPath);
       expect(
         after.follow_content_revision === 2 &&
           after.playlist.id === before.playlist.id &&
@@ -515,17 +514,17 @@ test.describe("isolated provider playlist Resume", () => {
         ),
       ).toBe(true);
       await titles(page, after);
-      same(await read<Schema["PlaylistDetail"]>(page, copyPath), copyBefore);
+      same(await read<Schema<"PlaylistDetail">>(page, copyPath), copyBefore);
       same(
-        await read<Schema["RecordingMetadata"]>(page, metadataPath),
+        await read<Schema<"RecordingMetadata">>(page, metadataPath),
         metadataBefore,
       );
       same(
-        await read<Schema["Activity"]>(page, "/api/v1/activity"),
+        await read<Schema<"Activity">>(page, "/api/v1/activity"),
         activityBefore,
       );
-      same(await read<Schema["User"]>(page, "/api/v1/me"), identity);
-      const feed = await read<Schema["SyncPage"]>(
+      same(await read<Schema<"User">>(page, "/api/v1/me"), identity);
+      const feed = await read<Schema<"SyncPage">>(
         page,
         "/api/v1/sync?cursor=0",
       );
@@ -549,7 +548,7 @@ test.describe("isolated provider playlist Resume", () => {
       for (const id of recordings)
         expect(
           (
-            await read<Schema["Source"][]>(
+            await read<Schema<"Source">[]>(
               page,
               `/api/v1/recordings/${id}/sources`,
             )
@@ -636,7 +635,7 @@ function resumeRequest(
     playlist === null
   )
     return false;
-  const batch: Schema["SyncBatch"] = request.postDataJSON();
+  const batch: Schema<"SyncBatch"> = request.postDataJSON();
   return (
     batch.operations.length === 1 &&
     batch.operations[0].action.kind === "playlist_follow_resume" &&
@@ -646,7 +645,7 @@ function resumeRequest(
 
 async function savePlaylist(
   page: Page,
-  connection: Schema["PluginInstallation"],
+  connection: Schema<"PluginInstallation">,
   reference: string,
   mode: "copy" | "follow",
 ) {
@@ -675,8 +674,8 @@ async function savePlaylist(
   const saved = await response;
   expect(saved.status()).toBe(200);
   const receipt:
-    | Schema["PlaylistImportReceipt"]
-    | Schema["PlaylistFollowReceipt"] = await saved.json();
+    | Schema<"PlaylistImportReceipt">
+    | Schema<"PlaylistFollowReceipt"> = await saved.json();
   expect(
     uuid.test(receipt.playlist_id) &&
       uuid.test(receipt.request_id) &&
@@ -706,7 +705,7 @@ async function read<T>(page: Page, path: string): Promise<T> {
   return response.json();
 }
 
-async function titles(page: Page, detail: Schema["PlaylistDetail"]) {
+async function titles(page: Page, detail: Schema<"PlaylistDetail">) {
   same(
     await page
       .getByRole("table", { name: "Playlist entries", exact: true })

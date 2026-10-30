@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,10 +9,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistDownloadStatus,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import {
   copiedPlaylistPage,
   recordingA,
@@ -29,7 +27,7 @@ test("ready entries on a bounded status page remain explicitly partial across fo
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -50,7 +48,7 @@ test("ready entries on a bounded status page remain explicitly partial across fo
   };
   const path = `/api/v1/playlists/${props.detail.playlist.id}/download`;
   const retention = "c30c15ce-40dd-4b2a-8098-7d45d18d50c7";
-  const ready: PlaylistDownloadStatus = {
+  const ready: Schema<"PlaylistDownloadStatus"> = {
     retention_id: retention,
     playlist_id: props.detail.playlist.id,
     host_device_id: "owned-download-host",

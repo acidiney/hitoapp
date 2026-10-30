@@ -3,9 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
 import type { Page } from "@playwright/test";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function releaseCreditsFixture() {
   const prefix = `Owned credit ${randomUUID().slice(0, 8)}`;
@@ -14,7 +12,7 @@ export async function releaseCreditsFixture() {
   const album = {
     id: "release/verified",
     title: `${prefix} album`,
-  } satisfies Schema["ProviderRelease"];
+  } satisfies Schema<"ProviderRelease">;
   const recordings = [
     {
       id: "recording/one",
@@ -36,13 +34,13 @@ export async function releaseCreditsFixture() {
       track_number: 1,
       revision: "metadata-one",
     },
-  ] satisfies Schema["ProviderRecording"][];
+  ] satisfies Schema<"ProviderRecording">[];
   const manifest = {
     id: "org.hito.browser.release-credits",
     name: `${prefix} provider`,
     protocol_version: 1,
     capabilities: ["playlists"],
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const playlist = {
     id: "playlist/credits",
     name: `${prefix} selection`,
@@ -50,7 +48,7 @@ export async function releaseCreditsFixture() {
     total_count: 3,
     attribution: {
       label: `${prefix} curator`,
-    } satisfies Schema["PlaylistAttribution"],
+    } satisfies Schema<"PlaylistAttribution">,
   };
   const entries = [
     {
@@ -239,16 +237,16 @@ export async function creditPost<T>(
 
 export async function creditAction(
   page: Page,
-  expected: Schema["Action"],
+  expected: Schema<"Action">,
   click: () => Promise<void>,
 ) {
-  const result = await creditPost<Schema["SyncReceipt"]>(
+  const result = await creditPost<Schema<"SyncReceipt">>(
     page,
     "/api/v1/sync",
     200,
     click,
   );
-  const batch = result.sent as Schema["SyncBatch"];
+  const batch = result.sent as Schema<"SyncBatch">;
   if (
     batch.operations.length !== 1 ||
     !isDeepStrictEqual(batch.operations[0].action, expected) ||

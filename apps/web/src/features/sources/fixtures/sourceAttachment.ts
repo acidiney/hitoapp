@@ -1,20 +1,11 @@
-import type { components } from "../../../generated";
-import type {
-  MetadataObservation,
-  PluginSettings,
-  ProviderSearchPage,
-  Recording,
-  RecordingDetailsPageProps,
-  Source,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import {
   copiedPlaylistPage,
   recordingA,
 } from "../../playlists/fixtures/playlistPages";
 
-type Schema = components["schemas"];
-
-export const savedRecording: Recording = {
+export const savedRecording: Schema<"Recording"> = {
   id: recordingA,
   library_id: "055e4b7b-6062-4d23-bba5-01dbe4612d71",
   release_id: "c7cbe56d-3f07-41ed-bc46-59685a1cffc8",
@@ -28,7 +19,7 @@ export const savedRecording: Recording = {
   available: false,
 };
 
-const primary: MetadataObservation = {
+const primary: Schema<"MetadataObservation"> = {
   id: "674178dd-357b-49f4-b780-a050b77c4499",
   source_id: null,
   release_id: savedRecording.release_id ?? null,
@@ -49,7 +40,7 @@ const primary: MetadataObservation = {
   tags: null,
 };
 
-export const sourceAttachmentPage: RecordingDetailsPageProps = {
+export const sourceAttachmentPage: Schema<"RecordingDetailsPageProps"> = {
   user: copiedPlaylistPage.user,
   errors: {},
   native_playback: false,
@@ -75,7 +66,7 @@ export const sourceAttachmentPage: RecordingDetailsPageProps = {
   },
 };
 
-export const attachmentSettings: PluginSettings = {
+export const attachmentSettings: Schema<"PluginSettings"> = {
   credential_storage_ready: true,
   services: [
     {
@@ -140,13 +131,13 @@ export const attachmentSettings: PluginSettings = {
   ],
 };
 
-export const attachmentCandidate: Schema["ProviderCandidate"] = {
+export const attachmentCandidate: Schema<"ProviderCandidate"> = {
   installation_id: "video-connection",
   installation_revision: 7,
   provider_recording_id: "video/candidate",
 };
 
-export const attachmentSearch: ProviderSearchPage = {
+export const attachmentSearch: Schema<"SearchPage"> = {
   items: [
     {
       id: "video/candidate",
@@ -158,7 +149,7 @@ export const attachmentSearch: ProviderSearchPage = {
   next_cursor: null,
 };
 
-export const attachmentReview: Schema["ProviderSourceReview"] = {
+export const attachmentReview: Schema<"ProviderSourceReview"> = {
   candidate: {
     id: "video/candidate",
     title: "Reviewed video title",
@@ -168,17 +159,17 @@ export const attachmentReview: Schema["ProviderSourceReview"] = {
   review_stamp: "provider-source-v1:owned-review-stamp",
 };
 
-export const reviewedAttachment: Schema["AttachReviewedProviderSource"] = {
+export const reviewedAttachment: Schema<"AttachReviewedProviderSource"> = {
   candidate: attachmentCandidate,
   review_stamp: attachmentReview.review_stamp,
 };
 
-export const attachedRecording: Recording = {
+export const attachedRecording: Schema<"Recording"> = {
   ...savedRecording,
   available: true,
 };
 
-export const attachedSources: Source[] = [
+export const attachedSources: Schema<"Source">[] = [
   {
     id: "accepted-video-audio",
     recording_id: savedRecording.id,
@@ -190,7 +181,7 @@ export const attachedSources: Source[] = [
   },
 ];
 
-export const attachedPage: RecordingDetailsPageProps = {
+export const attachedPage: Schema<"RecordingDetailsPageProps"> = {
   ...sourceAttachmentPage,
   detail: {
     ...sourceAttachmentPage.detail,

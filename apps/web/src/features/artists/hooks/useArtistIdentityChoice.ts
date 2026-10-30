@@ -1,32 +1,26 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistIdentityApi } from "../api/artistIdentityApi";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { log } from "../../../shared/log";
 import { HttpError } from "../../../shared/http";
 import { createUuid } from "../../../shared/uuid";
-import type {
-  ArtistAssociation,
-  ArtistReviewContext,
-  ChooseRecordingArtistIdentity,
-  RecordingArtistIdentityChoice,
-  RecordingMetadata,
-  ResetRecordingArtistIdentity,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Phase = "read" | "choose" | "reset";
 type Attempt =
-  | { kind: "choose"; body: ChooseRecordingArtistIdentity }
-  | { kind: "reset"; body: ResetRecordingArtistIdentity };
+  | { kind: "choose"; body: Schema<"ChooseRecordingArtistIdentity"> }
+  | { kind: "reset"; body: Schema<"ResetRecordingArtistIdentity"> };
 type Owner = {
   controller: AbortController | null;
   phase: Phase | null;
-  choice: RecordingArtistIdentityChoice | null;
+  choice: Schema<"RecordingArtistIdentityChoice"> | null;
   attempt: Attempt | null;
 };
 type View = {
   owner: Owner;
-  choice: RecordingArtistIdentityChoice | null;
+  choice: Schema<"RecordingArtistIdentityChoice"> | null;
   name: string | null;
   pending: Phase | null;
   error: string;
@@ -46,9 +40,9 @@ function empty(owner: Owner): View {
 
 export function useArtistIdentityChoice(
   account: string,
-  detail: RecordingMetadata,
+  detail: Schema<"RecordingMetadata">,
   opened: boolean,
-  association: ArtistAssociation | undefined,
+  association: Schema<"ArtistAssociation"> | undefined,
 ) {
   const recording = detail.recording_id;
   const scope = useRequestScope(
@@ -68,7 +62,7 @@ export function useArtistIdentityChoice(
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
 
-  function validateChoice(choice: RecordingArtistIdentityChoice) {
+  function validateChoice(choice: Schema<"RecordingArtistIdentityChoice">) {
     if (
       !choice ||
       choice.recording_id !== recording ||
@@ -89,8 +83,8 @@ export function useArtistIdentityChoice(
   }
 
   function validateContext(
-    context: ArtistReviewContext,
-    reviewed: ArtistAssociation,
+    context: Schema<"ArtistReviewContext">,
+    reviewed: Schema<"ArtistAssociation">,
   ) {
     if (
       context.account_id !== account ||
@@ -106,7 +100,7 @@ export function useArtistIdentityChoice(
       throw new Error("The artist review changed");
   }
 
-  async function perform(phase: Phase, reviewed?: ArtistAssociation) {
+  async function perform(phase: Phase, reviewed?: Schema<"ArtistAssociation">) {
     const captured = scope.capture();
     if (!captured.active() || owner.controller) return;
     const choice = owner.choice;

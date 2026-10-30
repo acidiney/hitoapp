@@ -1,8 +1,9 @@
+import type { Schema } from "../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Home, Library, Plus, Search } from "lucide-react";
 import BrandMark from "../shared/ui/BrandMark";
 import { coverStyle } from "../shared/ui/coverPalette";
-import type { Playlist } from "../shared/types";
+
 import { log } from "../shared/log";
 import { currentDestination } from "./destinations";
 import { isApplePlatform, shortcutLabel } from "./searchShortcut";
@@ -13,7 +14,7 @@ export default function Sidebar({
   playlists,
   path,
 }: {
-  playlists: Playlist[];
+  playlists: Schema<"Playlist">[];
   path: string;
 }) {
   const destination = currentDestination(path);

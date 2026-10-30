@@ -1,4 +1,5 @@
 import type { SignInFlow } from "../hooks/useSignIn";
+import Button from "../../../shared/ui/Button";
 
 export const PASSWORD_MIN = 12;
 
@@ -47,9 +48,9 @@ export default function SetupForm({
           remember.
         </small>
       </div>
-      <button className="button primary" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         {busy ? "Creating account…" : "Create administrator"}
-      </button>
+      </Button>
       {error && (
         <p className="auth-error" role="alert">
           {error}

@@ -1,15 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  MetadataSettings,
-  UpdateMetadataSettings,
-} from "../../../shared/types";
 
 export const metadataPreferencesApi = {
   async settings(
     account: string,
     signal: AbortSignal,
-  ): Promise<MetadataSettings> {
-    return requestJson<MetadataSettings>("/metadata/settings", {
+  ): Promise<Schema<"MetadataSettings">> {
+    return requestJson<Schema<"MetadataSettings">>("/metadata/settings", {
       action: "metadata.settings",
       account,
       signal,
@@ -17,10 +14,10 @@ export const metadataPreferencesApi = {
   },
   async update(
     account: string,
-    body: UpdateMetadataSettings,
+    body: Schema<"UpdateMetadataSettings">,
     signal: AbortSignal,
-  ): Promise<MetadataSettings> {
-    return requestJson<MetadataSettings>("/metadata/settings", {
+  ): Promise<Schema<"MetadataSettings">> {
+    return requestJson<Schema<"MetadataSettings">>("/metadata/settings", {
       action: "metadata.settings.update",
       method: "PUT",
       account,

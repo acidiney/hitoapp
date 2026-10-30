@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   act,
@@ -9,10 +10,7 @@ import {
 } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { router } from "@inertiajs/react";
-import type {
-  ImportedPlaylistMetadataRefresh,
-  RefreshImportedPlaylistMetadata,
-} from "../../../shared/types";
+
 import {
   heldMetadataResponse,
   metadataDownloadPath,
@@ -43,7 +41,7 @@ test("a rejected album lookup requires an explicit new lookup against the curren
   };
   const rawError =
     "The connection changed at https://private-provider.invalid/?token=secret-conflict";
-  const requests: RefreshImportedPlaylistMetadata[] = [];
+  const requests: Schema<"RefreshImportedPlaylistMetadata">[] = [];
   let settingsReads = 0;
   const acceptedResponse = heldMetadataResponse();
   const fetch = vi.fn((path: string, options?: RequestInit) => {
@@ -124,7 +122,7 @@ test("a rejected album lookup requires an explicit new lookup against the curren
         updated_recordings: 1,
         unchanged_recordings: 1,
         unavailable_recordings: 0,
-      } satisfies ImportedPlaylistMetadataRefresh),
+      } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
     ),
   );
   expect(metadata.queryByRole("alert")).toBeNull();

@@ -1,12 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Play, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Track } from "../../playback/model";
-import type { Source } from "../../../shared/types";
+
 import { usePlayer } from "../../playback/components/PlaybackProvider";
 import { useSourceAvailability } from "../hooks/useSourceAvailability";
 import { useSourcePreparation } from "../hooks/useSourcePreparation";
 import SourcePreparation from "./SourcePreparation";
+import Button from "../../../shared/ui/Button";
 
 export default function SourceAvailability({
   account,
@@ -33,7 +35,7 @@ export default function SourceAvailability({
   const key = JSON.stringify([account, track.id]);
   const [selection, setSelection] = useState<{
     key: string;
-    source: Source;
+    source: Schema<"Source">;
   } | null>(null);
   const remembered = selection?.key === key ? selection.source : null;
   const selected =
@@ -120,28 +122,24 @@ export default function SourceAvailability({
         />
       )}
       <div className="source-availability-actions">
-        <button
-          className="button"
-          disabled={pending}
-          onClick={() => void check()}
-        >
+        <Button disabled={pending} onClick={() => void check()}>
           <RefreshCw size={16} />{" "}
           {pending
             ? "Checking…"
             : sources !== null || error
               ? "Check again"
               : "Check availability"}
-        </button>
+        </Button>
         {ready && (
-          <button
-            className="button primary"
+          <Button
+            variant="primary"
             disabled={pending}
             onClick={() =>
               void player.playQueue([{ ...track, available: true }])
             }
           >
             <Play size={16} /> Play track
-          </button>
+          </Button>
         )}
         {(error || (sources !== null && !ready)) && (
           <Link className="text-link" href="/settings?section=plugins">

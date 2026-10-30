@@ -1,15 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { request, type APIRequestContext } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 export type LibraryBudget = { requests: number; writes: number };
 export type Remember = (value: string) => void;
 
 export async function libraryClient(
   origin: string,
-  credentials: Schema["Credentials"],
+  credentials: Schema<"Credentials">,
   budget: LibraryBudget,
   remember: Remember,
 ) {
@@ -50,7 +49,7 @@ export async function libraryClient(
     }
   }
   try {
-    const session = await call<Schema["AuthSession"]>(
+    const session = await call<Schema<"AuthSession">>(
       "POST",
       "/api/v1/login",
       200,
@@ -62,18 +61,18 @@ export async function libraryClient(
       user: session.user,
       read: <T>(path: string) => call<T>("GET", path),
       call,
-      async sync(actions: Schema["Action"][]) {
+      async sync(actions: Schema<"Action">[]) {
         if (actions.length > 400)
           throw new Error("The library fixture operation budget was exceeded");
-        const accepted: Schema["Operation"][] = [];
+        const accepted: Schema<"Operation">[] = [];
         for (let offset = 0; offset < actions.length; offset += 100) {
-          const batch: Schema["SyncBatch"] = {
+          const batch: Schema<"SyncBatch"> = {
             device_id: "owned-library-browser-fixture",
             operations: actions
               .slice(offset, offset + 100)
               .map((action) => ({ id: randomUUID(), action })),
           };
-          const receipt = await call<Schema["SyncReceipt"]>(
+          const receipt = await call<Schema<"SyncReceipt">>(
             "POST",
             "/api/v1/sync",
             200,

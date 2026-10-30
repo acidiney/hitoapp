@@ -1,9 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { afterEach, expect, test, vi } from "vitest";
 import { prepareChange, submitChange } from "../../../shared/sync";
 import { sessionApi } from "../api/sessionApi";
 import { Playback, type MediaPort } from "../../playback/playback";
-import { notifySessionChanged } from "../session";
-import type { Action } from "../../../shared/types";
+import { notifySessionChanged } from "../api/session";
 
 const crypto = globalThis.crypto;
 const randomUUID = Object.getOwnPropertyDescriptor(crypto, "randomUUID");
@@ -54,7 +54,7 @@ test("HTTP LAN sessions, playback and prepared mutations keep secure UUIDs witho
   const signedInRevision = localStorage.getItem("hito-session-revision");
   notifySessionChanged();
   const nextRevision = localStorage.getItem("hito-session-revision");
-  const action: Action = {
+  const action: Schema<"Action"> = {
     kind: "playlist_follow_resume",
     playlist_id: "9fc57926-55f4-47ca-81e0-e8ca89c889cd",
     expected_generation: 3,

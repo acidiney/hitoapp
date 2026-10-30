@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Browser, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import {
   publicSources,
   type rankingProviders,
 } from "./community-ranking-providers";
 
-type Schema = components["schemas"];
 type Providers = Awaited<ReturnType<typeof rankingProviders>>;
 
 export async function exchange<T>(
@@ -45,10 +44,10 @@ export async function prepareRankingLibrary(
   providers: Providers,
 ) {
   expect(
-    (await exchange<Schema["SetupStatus"]>(page, "/setup")).needs_setup,
+    (await exchange<Schema<"SetupStatus">>(page, "/setup")).needs_setup,
   ).toBe(true);
   const password = `private-ranking-password-${randomUUID()}`;
-  const owner = await exchange<Schema["AuthSession"]>(
+  const owner = await exchange<Schema<"AuthSession">>(
     page,
     "/setup",
     undefined,
@@ -57,9 +56,9 @@ export async function prepareRankingLibrary(
     201,
   );
   const account = owner.user.id;
-  const installations: Schema["PluginInstallation"][] = [];
+  const installations: Schema<"PluginInstallation">[] = [];
   for (const [index, provider] of providers.providers.entries()) {
-    const service = await exchange<Schema["PluginService"]>(
+    const service = await exchange<Schema<"PluginService">>(
       page,
       "/plugins/services",
       account,
@@ -67,15 +66,15 @@ export async function prepareRankingLibrary(
       {
         name: `Owned ranking provider ${index}`,
         base_url: providers.address(index),
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
       201,
     );
     const request = {
       service_id: service.id,
       service_revision: service.revision,
       bearer_token: provider.token,
-    } satisfies Schema["PreviewPluginInstallation"];
-    const preview = await exchange<Schema["PluginInstallationPreview"]>(
+    } satisfies Schema<"PreviewPluginInstallation">;
+    const preview = await exchange<Schema<"PluginInstallationPreview">>(
       page,
       "/plugins/preview",
       account,
@@ -89,7 +88,7 @@ export async function prepareRankingLibrary(
         preview.digest.length > 0,
     ).toBe(true);
     installations.push(
-      await exchange<Schema["PluginInstallation"]>(
+      await exchange<Schema<"PluginInstallation">>(
         page,
         "/plugins",
         account,
@@ -97,12 +96,12 @@ export async function prepareRankingLibrary(
         {
           ...request,
           accept_manifest_digest: preview.digest,
-        } satisfies Schema["InstallPlugin"],
+        } satisfies Schema<"InstallPlugin">,
         201,
       ),
     );
   }
-  const recording = await exchange<Schema["Recording"]>(
+  const recording = await exchange<Schema<"Recording">>(
     page,
     `/plugins/${installations[0].id}/recordings`,
     account,
@@ -110,15 +109,15 @@ export async function prepareRankingLibrary(
     {
       installation_revision: installations[0].revision,
       provider_recording_id: providers.providers[0].recording,
-    } satisfies Schema["AdoptProviderRecording"],
+    } satisfies Schema<"AdoptProviderRecording">,
   );
   expect(!recording.available).toBe(true);
-  const resolution = await exchange<Schema["SourceResolution"]>(
+  const resolution = await exchange<Schema<"SourceResolution">>(
     page,
     `/recordings/${recording.id}/sources/resolve`,
     account,
     "POST",
-    { request_id: randomUUID() } satisfies Schema["ResolveSource"],
+    { request_id: randomUUID() } satisfies Schema<"ResolveSource">,
   );
   expect(
     resolution.recording_id === recording.id &&
@@ -130,13 +129,13 @@ export async function prepareRankingLibrary(
       providers.providers[1].counts.sources === 1,
   ).toBe(true);
   providers.providers[0].ready = true;
-  await exchange<Schema["Source"][]>(
+  await exchange<Schema<"Source">[]>(
     page,
     `/recordings/${recording.id}/sources/refresh`,
     account,
     "POST",
   );
-  const baseline = await exchange<Schema["Source"][]>(
+  const baseline = await exchange<Schema<"Source">[]>(
     page,
     `/recordings/${recording.id}/sources`,
     account,
@@ -188,8 +187,8 @@ export async function prepareRankingLibrary(
         action: { kind: "like_set", recording_id: recording.id, liked: true },
       },
     ],
-  } satisfies Schema["SyncBatch"];
-  const sync = await exchange<Schema["SyncReceipt"]>(
+  } satisfies Schema<"SyncBatch">;
+  const sync = await exchange<Schema<"SyncReceipt">>(
     page,
     "/sync",
     account,
@@ -201,7 +200,7 @@ export async function prepareRankingLibrary(
       sync.acknowledged.includes(operation.id),
     ),
   ).toBe(true);
-  const peer = await exchange<Schema["User"]>(
+  const peer = await exchange<Schema<"User">>(
     page,
     "/users",
     account,
@@ -211,7 +210,7 @@ export async function prepareRankingLibrary(
   );
   const peerContext = await browser.newContext({ baseURL });
   const peerPage = await peerContext.newPage();
-  const peerSession = await exchange<Schema["AuthSession"]>(
+  const peerSession = await exchange<Schema<"AuthSession">>(
     peerPage,
     "/login",
     undefined,
@@ -220,15 +219,15 @@ export async function prepareRankingLibrary(
   );
   const peerState = async () =>
     JSON.stringify([
-      await exchange<Schema["CommunityRankingPreferences"]>(
+      await exchange<Schema<"CommunityRankingPreferences">>(
         peerPage,
         "/community/ranking-preferences",
         peer.id,
       ),
-      await exchange<Schema["RecordingPage"]>(peerPage, "/recordings", peer.id),
-      await exchange<Schema["Playlist"][]>(peerPage, "/playlists", peer.id),
-      await exchange<Schema["Activity"]>(peerPage, "/activity", peer.id),
-      await exchange<Schema["PluginSettings"]>(peerPage, "/plugins", peer.id),
+      await exchange<Schema<"RecordingPage">>(peerPage, "/recordings", peer.id),
+      await exchange<Schema<"Playlist">[]>(peerPage, "/playlists", peer.id),
+      await exchange<Schema<"Activity">>(peerPage, "/activity", peer.id),
+      await exchange<Schema<"PluginSettings">>(peerPage, "/plugins", peer.id),
     ]);
   const identity = async () =>
     JSON.stringify([
@@ -237,12 +236,12 @@ export async function prepareRankingLibrary(
         `/recordings/${recording.id}/metadata`,
         account,
       ),
-      await exchange<Schema["PlaylistDetail"]>(
+      await exchange<Schema<"PlaylistDetail">>(
         page,
         `/playlists/${playlist}`,
         account,
       ),
-      await exchange<Schema["PluginSettings"]>(page, "/plugins", account),
+      await exchange<Schema<"PluginSettings">>(page, "/plugins", account),
     ]);
   return {
     account,

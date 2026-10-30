@@ -1,12 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { expect, vi } from "vitest";
-import type {
-  PluginInstallation,
-  PluginInstallationPreview,
-  PluginService,
-} from "../../../shared/types";
 
 export type Persistence = NonNullable<
-  PluginInstallation["manifest"]["content_policy"]
+  Schema<"PluginInstallation">["manifest"]["content_policy"]
 >["source_persistence"];
 
 export const installationAccount = "install-policy-listener";
@@ -16,13 +12,13 @@ export const replacementInstallationToken =
   "private-install-replacement-token-sentinel";
 export const replacementInstallationDigest =
   "private-install-replacement-digest-sentinel";
-export const offeredService: PluginService = {
+export const offeredService: Schema<"PluginService"> = {
   id: "install-policy-service",
   name: "private-install-offer-name-sentinel",
   base_url: "https://private-install.invalid/private-path/",
   revision: 3,
 };
-export const otherService: PluginService = {
+export const otherService: Schema<"PluginService"> = {
   ...offeredService,
   id: "other-install-service",
   name: "Another service",
@@ -35,12 +31,12 @@ export function installationManifest(policy?: Persistence) {
     protocol_version: 1,
     capabilities: ["search", "sources"],
     ...(policy ? { content_policy: { source_persistence: policy } } : {}),
-  } satisfies PluginInstallation["manifest"];
+  } satisfies Schema<"PluginInstallation">["manifest"];
 }
 
 export function confirmedInstallation(
   policy?: Persistence,
-): PluginInstallation {
+): Schema<"PluginInstallation"> {
   return {
     id: "install-policy-installation",
     service_id: offeredService.id,
@@ -65,9 +61,9 @@ export function installationHttp(policy?: Persistence) {
   const requests: InstallationRequest[] = [];
   const calls: InstallationHttpCall[] = [];
   const state: {
-    services: PluginService[];
-    installations: PluginInstallation[];
-    preview: PluginInstallationPreview;
+    services: Schema<"PluginService">[];
+    installations: Schema<"PluginInstallation">[];
+    preview: Schema<"PluginInstallationPreview">;
     respond?: (
       call: InstallationHttpCall,
     ) => Response | Promise<Response> | undefined;

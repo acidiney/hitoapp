@@ -1,11 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page, type Route } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { OutageProvider } from "./providerOutageProvider";
 import type { OutageLibrary } from "./providerOutageLibrary";
 import { outageMessage, type OutageEvidence } from "./providerOutageEvidence";
 
-type Schema = components["schemas"];
 export type OutagePlaybackPhase =
   | "accepted_lost_ack"
   | "fresh_play"
@@ -113,8 +112,8 @@ export async function playThroughOutage(
   provider.setAvailability("retry", "unavailable");
   await page.goto(`/playlists/${library.copies.retry.playlist.id}`);
   const path = `/api/v1/recordings/${library.ids.retry}/sources/resolve`;
-  let accepted: Schema["SourceResolution"] | null = null;
-  let delivered: Schema["SourceResolution"] | null = null;
+  let accepted: Schema<"SourceResolution"> | null = null;
+  let delivered: Schema<"SourceResolution"> | null = null;
   let providerCallsAfterAcceptance = 0;
   const attempts: string[] = [];
   let invalid = false;
@@ -133,7 +132,7 @@ export async function playThroughOutage(
         const bytes = await response.body();
         if (response.status() !== 200 || bytes.length > 16_384)
           throw new Error("Owned accepted response rejected");
-        accepted = JSON.parse(bytes.toString()) as Schema["SourceResolution"];
+        accepted = JSON.parse(bytes.toString()) as Schema<"SourceResolution">;
         providerCallsAfterAcceptance = provider.counts.sources;
       } finally {
         await response.dispose();
@@ -156,9 +155,9 @@ export async function playThroughOutage(
     const bytes = await (await response).body();
     if (bytes.length > 16_384)
       throw new Error("Owned retry receipt exceeded its bound");
-    delivered = JSON.parse(bytes.toString()) as Schema["SourceResolution"];
+    delivered = JSON.parse(bytes.toString()) as Schema<"SourceResolution">;
     await expect(dock(page).getByRole("status")).toHaveText(outageMessage);
-    const receipt = accepted as Schema["SourceResolution"] | null;
+    const receipt = accepted as Schema<"SourceResolution"> | null;
     expect(
       !invalid &&
         attempts.length === 2 &&
@@ -173,7 +172,7 @@ export async function playThroughOutage(
     await page.unroute(`**${path}`, intercept);
   }
   checkpoint("fresh_play");
-  const failedRequest = JSON.parse(attempts[0]) as Schema["ResolveSource"];
+  const failedRequest = JSON.parse(attempts[0]) as Schema<"ResolveSource">;
   provider.setAvailability("retry", "ready");
   const response = page.waitForResponse(
     (response) =>
@@ -187,10 +186,10 @@ export async function playThroughOutage(
   const bytes = await readyResponse.body();
   if (bytes.length > 16_384)
     throw new Error("Owned ready receipt exceeded its bound");
-  const ready = JSON.parse(bytes.toString()) as Schema["SourceResolution"];
+  const ready = JSON.parse(bytes.toString()) as Schema<"SourceResolution">;
   const fresh = readyResponse
     .request()
-    .postDataJSON() as Schema["ResolveSource"];
+    .postDataJSON() as Schema<"ResolveSource">;
   expect(
     ready.outcome === "ready" &&
       ready.sources.length === 1 &&
@@ -284,7 +283,7 @@ export async function playThroughOutage(
     throw new Error("Owned queue receipt exceeded its bound");
   const queueReceipt = JSON.parse(
     queueBytes.toString(),
-  ) as Schema["SourceResolution"];
+  ) as Schema<"SourceResolution">;
   expect(
     queueReceipt.outcome === "provider_unavailable" &&
       queueReceipt.sources.length === 0,

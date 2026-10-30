@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
@@ -11,14 +12,7 @@ import {
   choiceSourceA,
   choiceSourceB,
 } from "../fixtures/sourceChoice";
-import type {
-  ChooseSource,
-  ResetSourceChoice,
-  Source,
-  SourceChoice,
-  SourceChoiceReceipt,
-  SourceChoiceResetReceipt,
-} from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
@@ -50,12 +44,12 @@ test("choice changes recover failed requested availability while leaving untouch
   const choicePath = `/api/v1/recordings/${savedRecording.id}/source-choice`;
   const resetPath = `${choicePath}/reset`;
   const downloadPath = `/api/v1/recordings/${savedRecording.id}/download`;
-  const sourceB: Source = {
+  const sourceB: Schema<"Source"> = {
     ...choiceSourceB,
     ready: false,
     can_prepare: false,
   };
-  const readySources: Source[] = [choiceSourceA, sourceB];
+  const readySources: Schema<"Source">[] = [choiceSourceA, sourceB];
   const firstAvailability = heldResponse();
   const recoveredAvailability = heldResponse();
   const finalDownload = heldResponse();
@@ -83,10 +77,10 @@ test("choice changes recover failed requested availability while leaving untouch
       }
       if (url === choicePath && method === "GET" && ++choiceReadCount <= 5) {
         const manual = revision % 2 === 1;
-        const sources: Source[] = manual
+        const sources: Schema<"Source">[] = manual
           ? [{ ...choiceSourceA, ready: false }, sourceB]
           : readySources;
-        const current: SourceChoice = {
+        const current: Schema<"SourceChoice"> = {
           ...automaticChoice,
           revision,
           mode: manual ? "manual" : "automatic",
@@ -103,11 +97,13 @@ test("choice changes recover failed requested availability while leaving untouch
         method === "POST" &&
         [0, 2].includes(revision)
       ) {
-        const request = JSON.parse(String(options?.body)) as ChooseSource;
+        const request = JSON.parse(
+          String(options?.body),
+        ) as Schema<"ChooseSource">;
         if (request.source_id === sourceB.id) {
           chooseCount++;
           revision++;
-          const receipt: SourceChoiceReceipt = {
+          const receipt: Schema<"SourceChoiceReceipt"> = {
             request_id: request.request_id,
             recording_id: savedRecording.id,
             source_id: sourceB.id,
@@ -117,11 +113,13 @@ test("choice changes recover failed requested availability while leaving untouch
         }
       }
       if (url === resetPath && method === "POST" && [1, 3].includes(revision)) {
-        const request = JSON.parse(String(options?.body)) as ResetSourceChoice;
+        const request = JSON.parse(
+          String(options?.body),
+        ) as Schema<"ResetSourceChoice">;
         if (request.expected_revision === revision) {
           resetCount++;
           revision++;
-          const receipt: SourceChoiceResetReceipt = {
+          const receipt: Schema<"SourceChoiceResetReceipt"> = {
             request_id: request.request_id,
             recording_id: savedRecording.id,
             revision,
@@ -324,7 +322,7 @@ test("choice changes recover failed requested availability while leaving untouch
   const operationIds: string[] = [];
   for (const [, options] of choices) {
     expectOwnedRequest(options);
-    const body = JSON.parse(String(options?.body)) as ChooseSource;
+    const body = JSON.parse(String(options?.body)) as Schema<"ChooseSource">;
     expect(body).toEqual({
       request_id: expect.stringMatching(uuid),
       source_id: sourceB.id,
@@ -333,7 +331,9 @@ test("choice changes recover failed requested availability while leaving untouch
   }
   for (const [index, [, options]] of resets.entries()) {
     expectOwnedRequest(options);
-    const body = JSON.parse(String(options?.body)) as ResetSourceChoice;
+    const body = JSON.parse(
+      String(options?.body),
+    ) as Schema<"ResetSourceChoice">;
     expect(body).toEqual({
       request_id: expect.stringMatching(uuid),
       expected_revision: index === 0 ? 1 : 3,

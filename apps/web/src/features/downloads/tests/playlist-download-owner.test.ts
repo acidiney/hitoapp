@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,10 +9,7 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type {
-  PlaylistDownloadStatus,
-  PlaylistPageProps,
-} from "../../../shared/types";
+
 import {
   copiedPlaylistPage,
   recordingB,
@@ -31,7 +29,7 @@ test("a held removal cannot cross accounts and an unmounted status read cannot r
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
   const first = copiedPlaylistPage;
-  const current: PlaylistPageProps = {
+  const current: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     user: { id: "bob", username: "Bob", admin: false },
     detail: {
@@ -49,9 +47,9 @@ test("a held removal cannot cross accounts and an unmounted status read cannot r
   const currentPath = `/api/v1/playlists/${current.detail.playlist.id}/download`;
   const removalPath = `/api/v1/downloads/${firstRoot}`;
   function status(
-    page: PlaylistPageProps,
+    page: Schema<"PlaylistPageProps">,
     retention: string,
-  ): PlaylistDownloadStatus {
+  ): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: page.detail.playlist.id,
@@ -108,11 +106,11 @@ test("a held removal cannot cross accounts and an unmounted status read cannot r
   });
   vi.stubGlobal("fetch", fetch);
   const players = new Map<string, Player>();
-  function Page(props: PlaylistPageProps) {
+  function Page(props: Schema<"PlaylistPageProps">) {
     players.set(props.user.id, usePlayer());
     return createElement(PlaylistPage, props);
   }
-  function page(props: PlaylistPageProps) {
+  function page(props: Schema<"PlaylistPageProps">) {
     return createElement(
       NoticeProvider,
       null,

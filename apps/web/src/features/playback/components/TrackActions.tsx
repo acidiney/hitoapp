@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { Link, router } from "@inertiajs/react";
 import type { ReactNode } from "react";
 import { Heart, Info, X } from "lucide-react";
-import type { Action, Playlist } from "../../../shared/types";
+
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import type { TrackRow } from "./TrackTable";
 
@@ -14,7 +15,7 @@ export function PlaylistEntryRemove({
 }: {
   entryId: string;
   title: string;
-  playlist: Playlist;
+  playlist: Schema<"Playlist">;
   mutate: Mutate;
 }) {
   if (playlist.kind !== "local") return null;
@@ -49,14 +50,14 @@ export default function TrackActions({
   editing?: boolean;
   children?: ReactNode;
   track: TrackRow;
-  playlists: Playlist[];
-  playlist?: Playlist;
+  playlists: Schema<"Playlist">[];
+  playlist?: Schema<"Playlist">;
   mutate: Mutate;
   onMutationAccepted?: () => void;
 }) {
   const editable = playlists.filter((list) => list.kind === "local");
   const entryId = track.entry_id;
-  async function update(action: Action) {
+  async function update(action: Schema<"Action">) {
     if ((await mutate(action)).ok) {
       if (onMutationAccepted) onMutationAccepted();
       else router.reload();

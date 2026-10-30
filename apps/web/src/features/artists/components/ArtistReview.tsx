@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import type { FormEvent } from "react";
 import { useArtistAssociationChanges } from "../hooks/useArtistAssociationChanges";
 import { useArtistIdentityChoice } from "../hooks/useArtistIdentityChoice";
@@ -7,11 +8,8 @@ import ArtistDiscography from "./ArtistDiscography";
 import ArtistIdentityChoice from "./ArtistIdentityChoice";
 import SavedArtistReviews from "./SavedArtistReviews";
 import SharedUnlink from "./SharedUnlink";
-import type {
-  ArtistSearchCandidate,
-  CatalogArtistProfile,
-  RecordingMetadata,
-} from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 const kinds = {
   person: "Person",
@@ -27,7 +25,7 @@ export default function ArtistReview({
   detail,
 }: {
   account: string;
-  detail: RecordingMetadata;
+  detail: Schema<"RecordingMetadata">;
 }) {
   const workflow = useArtistReview(account, detail);
   const reviewed =
@@ -73,16 +71,15 @@ export default function ArtistReview({
         before saving this track's artist review.
       </p>
       {!workflow.loaded && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={workflow.pending !== null}
           onClick={() => void workflow.open()}
         >
           {workflow.pending === "load"
             ? "Loading artist information…"
             : "Find artist information"}
-        </button>
+        </Button>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
       {workflow.loaded && (
@@ -137,9 +134,8 @@ export default function ArtistReview({
                 onChange={(event) => workflow.setQuery(event.target.value)}
               />
             </label>
-            <button
+            <Button
               type="submit"
-              className="button"
               disabled={
                 workflow.pending !== null ||
                 !workflow.provider?.available ||
@@ -149,7 +145,7 @@ export default function ArtistReview({
               {workflow.pending === "search"
                 ? "Searching artists…"
                 : "Search artists"}
-            </button>
+            </Button>
           </fieldset>
         </form>
       )}
@@ -179,16 +175,16 @@ export default function ArtistReview({
             Save this artist review for this track. Your saved details and
             playlists are kept.
           </p>
-          <button
+          <Button
+            variant="primary"
             type="button"
-            className="button primary"
             disabled={workflow.pending !== null}
             onClick={() => void workflow.confirm()}
           >
             {workflow.pending === "confirm"
               ? "Saving artist review…"
               : "Use this artist"}
-          </button>
+          </Button>
         </section>
       )}
       {workflow.saved && <p role="status">Artist review saved.</p>}
@@ -237,9 +233,9 @@ function ArtistCandidates({
   disabled,
   onReview,
 }: {
-  candidates: ArtistSearchCandidate[];
+  candidates: Schema<"ArtistSearchCandidate">[];
   disabled: boolean;
-  onReview(candidate: ArtistSearchCandidate): Promise<void>;
+  onReview(candidate: Schema<"ArtistSearchCandidate">): Promise<void>;
 }) {
   return (
     <ul aria-label="Artist search results">
@@ -248,21 +244,20 @@ function ArtistCandidates({
           <h3>{candidate.artist.name}</h3>
           <p>{candidate.kind ? kinds[candidate.kind] : "Type not provided"}</p>
           {candidate.disambiguation && <p>{candidate.disambiguation}</p>}
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={disabled}
             onClick={() => void onReview(candidate)}
           >
             Review artist
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
   );
 }
 
-function ArtistFacts({ profile }: { profile: CatalogArtistProfile }) {
+function ArtistFacts({ profile }: { profile: Schema<"CatalogArtistProfile"> }) {
   return (
     <>
       <h3>{profile.artist.name}</h3>

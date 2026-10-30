@@ -1,10 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import LibrarySettings from "../components/LibrarySettings";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { storageApi } from "../api/storageApi";
-import type { MusicFolder, SettingsPageProps } from "../../../shared/types";
 
 vi.mock("../api/storageApi", () => ({
   storageApi: {
@@ -18,7 +18,7 @@ vi.mock("../api/storageApi", () => ({
     scan: vi.fn(),
   },
 }));
-const props: SettingsPageProps = {
+const props: Schema<"SettingsPageProps"> = {
   errors: {},
   native_playback: false,
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },
@@ -26,7 +26,7 @@ const props: SettingsPageProps = {
   libraries: [{ id: "library", name: "Home library" }],
   playlists: [],
 };
-const folder: MusicFolder = {
+const folder: Schema<"MusicFolder"> = {
   id: "folder",
   library_id: "library",
   host_device: "host",

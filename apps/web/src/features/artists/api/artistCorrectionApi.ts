@@ -1,21 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  ArtistIdentityChangeReceipt,
-  ArtistIdentityGroupChanges,
-  ArtistIdentityGroupList,
-  PromoteArtistCorrection,
-  SharedArtistCorrectionReceipt,
-  SharedArtistCorrections,
-  SplitArtistIdentityGroup,
-  UndoArtistIdentityChange,
-  UndoSharedArtistCorrection,
-} from "../../../shared/types";
 
 const part = encodeURIComponent;
 
 export const artistCorrectionApi = {
   changes(account: string, group: string, signal: AbortSignal) {
-    return requestJson<ArtistIdentityGroupChanges>(
+    return requestJson<Schema<"ArtistIdentityGroupChanges">>(
       `/artist-identity-groups/${part(group)}/changes`,
       { action: "artist_identity.changes", account, signal },
     );
@@ -23,7 +13,7 @@ export const artistCorrectionApi = {
   groups(account: string, signal: AbortSignal, search = "", offset = 0) {
     const query = new URLSearchParams({ limit: "20", offset: String(offset) });
     if (search) query.set("q", search);
-    return requestJson<ArtistIdentityGroupList>(
+    return requestJson<Schema<"ArtistIdentityGroupPage">>(
       `/artist-identity-groups?${query}`,
       { action: "artist_identity.groups", account, signal },
     );
@@ -31,10 +21,10 @@ export const artistCorrectionApi = {
   split(
     account: string,
     group: string,
-    body: SplitArtistIdentityGroup,
+    body: Schema<"SplitArtistIdentityGroup">,
     signal: AbortSignal,
   ) {
-    return requestJson<ArtistIdentityChangeReceipt>(
+    return requestJson<Schema<"ArtistIdentityChangeReceipt">>(
       `/artist-identity-groups/${part(group)}/split`,
       {
         action: "artist_identity.split",
@@ -48,10 +38,10 @@ export const artistCorrectionApi = {
   undo(
     account: string,
     group: string,
-    body: UndoArtistIdentityChange,
+    body: Schema<"UndoArtistIdentityChange">,
     signal: AbortSignal,
   ) {
-    return requestJson<ArtistIdentityChangeReceipt>(
+    return requestJson<Schema<"ArtistIdentityChangeReceipt">>(
       `/artist-identity-groups/${part(group)}/undo`,
       {
         action: "artist_identity.undo",
@@ -63,13 +53,17 @@ export const artistCorrectionApi = {
     );
   },
   shared(account: string, signal: AbortSignal, offset = 0, limit = 25) {
-    return requestJson<SharedArtistCorrections>(
+    return requestJson<Schema<"SharedArtistCorrections">>(
       `/artist-corrections?offset=${offset}&limit=${limit}`,
       { action: "artist_correction.list", account, signal },
     );
   },
-  promote(account: string, body: PromoteArtistCorrection, signal: AbortSignal) {
-    return requestJson<SharedArtistCorrectionReceipt>(
+  promote(
+    account: string,
+    body: Schema<"PromoteArtistCorrection">,
+    signal: AbortSignal,
+  ) {
+    return requestJson<Schema<"SharedArtistCorrectionReceipt">>(
       "/artist-corrections/promote",
       {
         action: "artist_correction.promote",
@@ -83,10 +77,10 @@ export const artistCorrectionApi = {
   undoShared(
     account: string,
     correction: string,
-    body: UndoSharedArtistCorrection,
+    body: Schema<"UndoSharedArtistCorrection">,
     signal: AbortSignal,
   ) {
-    return requestJson<SharedArtistCorrectionReceipt>(
+    return requestJson<Schema<"SharedArtistCorrectionReceipt">>(
       `/artist-corrections/${part(correction)}/undo`,
       {
         action: "artist_correction.undo",

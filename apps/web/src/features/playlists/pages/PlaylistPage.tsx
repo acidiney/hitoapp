@@ -1,5 +1,6 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
-import type { PlaylistPageProps } from "../../../shared/types";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import CollectionHeader from "../../../shared/ui/CollectionHeader";
@@ -21,13 +22,14 @@ import PlaylistDownload from "../../downloads/components/PlaylistDownload";
 import { usePlaylistFollow } from "../hooks/usePlaylistFollow";
 import { useFollowResume } from "../hooks/useFollowResume";
 import { usePlaylistMetadataRefresh } from "../hooks/usePlaylistMetadataRefresh";
+import Button from "../../../shared/ui/Button";
 
 export default function PlaylistPage({
   user,
   playlists,
   detail,
   native_playback,
-}: PlaylistPageProps) {
+}: Schema<"PlaylistPageProps">) {
   const { mutate, pending } = useMutation(user.id);
   const followed = detail.playlist.kind === "followed";
   const copied = detail.playlist.kind === "local" && detail.origin != null;
@@ -76,13 +78,9 @@ export default function PlaylistPage({
     if (result.ok) router.visit("/playlists");
   }
   const deletion = (
-    <button
-      className="button danger"
-      disabled={pending}
-      onClick={() => void remove()}
-    >
+    <Button className="danger" disabled={pending} onClick={() => void remove()}>
       Delete playlist
-    </button>
+    </Button>
   );
   const edit = usePlaylistEdit(user.id, detail.playlist.id, detail.entries);
   const editable = detail.playlist.kind === "local";
@@ -131,14 +129,14 @@ export default function PlaylistPage({
           <>
             <PlayShuffle tracks={tracks} label="playlist" />
             {editable && (
-              <button
+              <Button
+                className="tint-secondary"
                 type="button"
-                className="button tint-secondary"
-                aria-pressed={edit.editing}
+                pressed={edit.editing}
                 onClick={() => edit.setEditing(!edit.editing)}
               >
                 {edit.editing ? "Done" : "Edit"}
-              </button>
+              </Button>
             )}
           </>
         }

@@ -10,7 +10,7 @@ import {
 import { expect, test, vi } from "vitest";
 import ArtistDiscography from "../components/ArtistDiscography";
 import ArtistEditions from "../components/ArtistEditions";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { firstDiscographyPage } from "../fixtures/artistDiscography";
 import { discographyHttp } from "../fixtures/artistDiscographyHttp";
 import {
@@ -24,8 +24,6 @@ import {
   artistReviewDetail,
   reviewedArtistProfile,
 } from "../fixtures/artistReview";
-
-type Schema = components["schemas"];
 
 test("one StrictMode Browse starts one edition read and replacement ownership requires a new explicit action", async () => {
   const http = discographyHttp();
@@ -111,7 +109,7 @@ test("closed edition choices do not multiply owned request controllers as discog
               : `opaque:release-group/closed/${index}`,
         })),
       },
-    } satisfies Schema["ArtistDiscographyAvailability"]);
+    } satisfies Schema<"ArtistDiscographyAvailability">);
     const before = constructed;
     const view = render(
       createElement(ArtistDiscography, {

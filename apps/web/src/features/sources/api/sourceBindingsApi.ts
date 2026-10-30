@@ -1,19 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { requestJson } from "../../../shared/http";
-import type {
-  AttachReviewedProviderSource,
-  ProviderCandidate,
-  ProviderSourceReview,
-  Recording,
-} from "../../../shared/types";
 
 export const sourceBindingsApi = {
   async review(
     account: string,
     recording: string,
-    body: ProviderCandidate,
+    body: Schema<"ProviderCandidate">,
     signal: AbortSignal,
-  ): Promise<ProviderSourceReview> {
-    return requestJson<ProviderSourceReview>(
+  ): Promise<Schema<"ProviderSourceReview">> {
+    return requestJson<Schema<"ProviderSourceReview">>(
       `/recordings/${encodeURIComponent(recording)}/sources/review`,
       {
         action: "sources.review",
@@ -27,10 +22,10 @@ export const sourceBindingsApi = {
   async attach(
     account: string,
     recording: string,
-    body: AttachReviewedProviderSource,
+    body: Schema<"AttachReviewedProviderSource">,
     signal: AbortSignal,
-  ): Promise<Recording> {
-    return requestJson<Recording>(
+  ): Promise<Schema<"Recording">> {
+    return requestJson<Schema<"Recording">>(
       `/recordings/${encodeURIComponent(recording)}/sources/attach`,
       {
         action: "sources.attach",

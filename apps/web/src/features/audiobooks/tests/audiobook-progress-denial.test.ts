@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,7 +10,6 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { Action, Source, SyncBatch } from "../../../shared/types";
 
 test("a rejected recording checkpoint does not starve the next chapter or retry a definitive denial", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -22,7 +22,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
   const media = audiobookContinuationMedia();
   const { detail: page } = audiobookPages();
   const chapters = page.detail.chapters.slice(0, 2);
-  const sources: Source[] = chapters.map((chapter, index) => ({
+  const sources: Schema<"Source">[] = chapters.map((chapter, index) => ({
     id: [
       "76769d98-1b6b-4ec8-8ff7-478c04d7bb23",
       "b6d336ef-fdf8-49eb-b026-e771fae6b8b4",
@@ -36,7 +36,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
   }));
   const privateError =
     "Private removed title at https://private.invalid/audio?token=secret";
-  const submitted: { raw: string; batch: SyncBatch }[] = [];
+  const submitted: { raw: string; batch: Schema<"SyncBatch"> }[] = [];
   const unexpected: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -56,7 +56,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
           return Response.json([source]);
       if (input === "/api/v1/sync" && options?.method === "POST") {
         const raw = String(options.body);
-        const batch = JSON.parse(raw) as SyncBatch;
+        const batch = JSON.parse(raw) as Schema<"SyncBatch">;
         submitted.push({ raw, batch });
         const action = batch.operations[0].action;
         expect(action.kind).toBe("progress_set");
@@ -88,7 +88,7 @@ test("a rejected recording checkpoint does not starve the next chapter or retry 
       }),
     ),
   );
-  const checkpoint = (index: number): Action[] => [
+  const checkpoint = (index: number): Schema<"Action">[] => [
     {
       kind: "progress_set",
       recording_id: chapters[index].recording_id!,

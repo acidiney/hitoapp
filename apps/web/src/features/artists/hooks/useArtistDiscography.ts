@@ -1,14 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistDiscographyApi } from "../api/artistDiscographyApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  ArtistAssociation,
-  ArtistDiscographyAvailability,
-  CatalogArtistProfile,
-  CatalogReleaseGroup,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -20,7 +16,7 @@ type Owner = { pending: boolean };
 type State = {
   owner: Owner;
   opened: boolean;
-  groups: CatalogReleaseGroup[];
+  groups: Schema<"CatalogReleaseGroup">[];
   continuation: string | null;
   pages: number;
   pending: boolean;
@@ -44,7 +40,10 @@ function empty(owner: Owner): State {
 }
 
 function unavailable(
-  status: Exclude<ArtistDiscographyAvailability["status"], "available">,
+  status: Exclude<
+    Schema<"ArtistDiscographyAvailability">["status"],
+    "available"
+  >,
 ) {
   switch (status) {
     case "disabled":
@@ -61,8 +60,8 @@ function unavailable(
 export function useArtistDiscography(
   account: string,
   recording: string,
-  association: ArtistAssociation,
-  profile: CatalogArtistProfile,
+  association: Schema<"ArtistAssociation">,
+  profile: Schema<"CatalogArtistProfile">,
   browseOnMount = false,
 ) {
   const scope = useRequestScope(

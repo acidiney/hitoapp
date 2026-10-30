@@ -1,8 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { act } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import Artwork from "../../artwork/components/Artwork";
-import type { ArtworkFetch } from "../../../shared/types";
+
 import { browserPreparationMedia } from "../fixtures/browserPreparationMedia";
 import { browserMediaSession } from "../fixtures/browserMediaSession";
 import { browserSessionImages } from "../fixtures/browserSessionImages";
@@ -17,7 +18,7 @@ const releaseId = "0d9f3a3c-6a4e-4d6e-9a43-0f0c2c0bd0aa";
 const recordingPath = (id: string) => `/api/v1/recordings/${id}/artwork`;
 const releasePath = `/api/v1/releases/${releaseId}/artwork`;
 
-function job(id: string): ArtworkFetch {
+function job(id: string): Schema<"ArtworkFetch"> {
   return {
     id: "3ef96135-2f18-497d-b62e-cba8072cbab8",
     recording_id: id,

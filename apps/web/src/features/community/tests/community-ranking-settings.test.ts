@@ -3,9 +3,7 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import SettingsPage from "../../settings/pages/SettingsPage";
-import type { components } from "../../../generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../../shared/schema";
 
 vi.mock("@inertiajs/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/react")>();
@@ -14,13 +12,13 @@ vi.mock("@inertiajs/react", async (importOriginal) => {
 
 test("Privacy saves source rankings independently and requires review after a stale revision", async () => {
   const errors = vi.spyOn(console, "error");
-  const initial: Schema["CommunityPreferences"] = {
+  const initial: Schema<"CommunityPreferences"> = {
     revision: 3,
     playback_reporting: true,
     metadata_corrections: false,
   };
   let legacy = { ...initial };
-  let rankings: Schema["CommunityRankingPreferences"] = {
+  let rankings: Schema<"CommunityRankingPreferences"> = {
     revision: 0,
     use_source_rankings: false,
   };
@@ -30,8 +28,8 @@ test("Privacy saves source rankings independently and requires review after a st
     body: unknown;
     signal: AbortSignal;
   }[] = [];
-  const rankWrites: Schema["UpdateCommunityRankingPreferences"][] = [];
-  const legacyWrites: Schema["UpdateCommunityPreferences"][] = [];
+  const rankWrites: Schema<"UpdateCommunityRankingPreferences">[] = [];
+  const legacyWrites: Schema<"UpdateCommunityPreferences">[] = [];
   let release!: (response: Response) => void;
   const held = new Promise<Response>((resolve) => {
     release = resolve;
@@ -58,7 +56,7 @@ test("Privacy saves source rankings independently and requires review after a st
     if (path === "/api/v1/community/preferences") {
       if (method === "GET") return Response.json(legacy);
       expect(method).toBe("PUT");
-      const value = body as Schema["UpdateCommunityPreferences"];
+      const value = body as Schema<"UpdateCommunityPreferences">;
       expect(value).toEqual({ ...initial, playback_reporting: false });
       legacyWrites.push(value);
       legacy = { ...value, revision: legacy.revision + 1 };
@@ -67,7 +65,7 @@ test("Privacy saves source rankings independently and requires review after a st
     expect(path).toBe("/api/v1/community/ranking-preferences");
     if (method === "GET") return Response.json(rankings);
     expect(method).toBe("PUT");
-    const value = body as Schema["UpdateCommunityRankingPreferences"];
+    const value = body as Schema<"UpdateCommunityRankingPreferences">;
     expect(Object.keys(value).sort()).toEqual([
       "revision",
       "use_source_rankings",
@@ -85,7 +83,7 @@ test("Privacy saves source rankings independently and requires review after a st
     return Response.json(rankings);
   });
   vi.stubGlobal("fetch", fetch);
-  const props: Schema["SettingsPageProps"] = {
+  const props: Schema<"SettingsPageProps"> = {
     user: { id: "alice", username: "Alice", admin: true },
     errors: {},
     libraries: [],

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -7,9 +8,7 @@ import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
 
-type Schema = components["schemas"];
 type ReloadOptions = NonNullable<Parameters<typeof router.reload>[0]>;
 type ReloadVisit = Parameters<NonNullable<ReloadOptions["onFinish"]>>[0];
 type ReloadPage = Parameters<NonNullable<ReloadOptions["onSuccess"]>>[0];
@@ -20,7 +19,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: PlaylistPageProps) {
+function page(props: Schema<"PlaylistPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -85,7 +84,7 @@ test("the first Follow content revision reconciles reused provider tokens withou
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  const before: PlaylistPageProps = {
+  const before: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -97,7 +96,7 @@ test("the first Follow content revision reconciles reused provider tokens withou
     ...before.detail.playlist,
     name: "Selection after an automatic update",
   };
-  const after: PlaylistPageProps = {
+  const after: Schema<"PlaylistPageProps"> = {
     ...before,
     playlists: [updatedPlaylist],
     detail: {
@@ -109,7 +108,7 @@ test("the first Follow content revision reconciles reused provider tokens withou
       ),
     },
   };
-  const ready: Schema["PlaylistFollow"] = {
+  const ready: Schema<"PlaylistFollow"> = {
     playlist_id: before.detail.playlist.id,
     generation: 1,
     content_revision: 2,

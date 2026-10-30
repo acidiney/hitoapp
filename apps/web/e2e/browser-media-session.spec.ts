@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { captureConsolePrivacy } from "./fixtures/console-privacy";
 import { mediaSessionProvider } from "./fixtures/media-session-provider";
 import {
@@ -8,7 +8,6 @@ import {
 } from "./fixtures/media-session-browser";
 import { prepareMediaSessionLibrary } from "./fixtures/media-session-library";
 
-type Schema = components["schemas"];
 test.use({
   launchOptions: { args: [] },
   trace: "off",
@@ -143,7 +142,7 @@ test("real browser media session follows owned playback, verified artwork, syste
     phase = "browser_support";
     const setup = await page.request.get("/api/v1/setup");
     expect(setup.status()).toBe(200);
-    expect(((await setup.json()) as Schema["SetupStatus"]).needs_setup).toBe(
+    expect(((await setup.json()) as Schema<"SetupStatus">).needs_setup).toBe(
       true,
     );
     await page.goto("/library");

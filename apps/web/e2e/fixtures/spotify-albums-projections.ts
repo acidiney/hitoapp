@@ -1,13 +1,12 @@
 import { isDeepStrictEqual } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import { liveCheck } from "./spotify-albums-live";
 
-type Schema = components["schemas"];
 type AlbumRead = <T>(path: string) => Promise<T>;
 type PublishedRecordings = ReadonlyMap<
   string,
-  Schema["ImportedPlaylistRecording"]
+  Schema<"ImportedPlaylistRecording">
 >;
 
 export class SpotifyAlbumsProjectionReader {
@@ -44,10 +43,10 @@ export async function verifySpotifyStoredRecordings(
   read: AlbumRead,
   publications: PublishedRecordings,
   total: number,
-): Promise<Schema["Recording"][]> {
-  const catalog: Schema["Recording"][] = [];
+): Promise<Schema<"Recording">[]> {
+  const catalog: Schema<"Recording">[] = [];
   for (let offset = 0; offset < total; offset += 200) {
-    const result = await read<Schema["RecordingPage"]>(
+    const result = await read<Schema<"RecordingPage">>(
       `/api/v1/recordings?limit=200&offset=${offset}`,
     );
     liveCheck(
@@ -86,8 +85,8 @@ export async function verifySpotifyStoredAlbums(
   read: AlbumRead,
   publications: PublishedRecordings,
   releases: ReadonlyMap<string, string>,
-): Promise<Schema["Release"][]> {
-  const albumTracks = new Map<string, Schema["ImportedPlaylistRecording"][]>();
+): Promise<Schema<"Release">[]> {
+  const albumTracks = new Map<string, Schema<"ImportedPlaylistRecording">[]>();
   for (const recording of publications.values()) {
     if (recording.release_id) {
       const tracks = albumTracks.get(recording.release_id) ?? [];
@@ -95,9 +94,9 @@ export async function verifySpotifyStoredAlbums(
       albumTracks.set(recording.release_id, tracks);
     }
   }
-  const albums: Schema["Release"][] = [];
+  const albums: Schema<"Release">[] = [];
   for (let offset = 0; offset < releases.size; offset += 200) {
-    const result = await read<Schema["ReleasePage"]>(
+    const result = await read<Schema<"ReleasePage">>(
       `/api/v1/releases?limit=200&offset=${offset}`,
     );
     liveCheck(
@@ -143,9 +142,9 @@ export async function verifySpotifyStoredAlbums(
 
 export async function verifySpotifyStoredArtists(
   read: AlbumRead,
-  expected: ReadonlyMap<string, Schema["ProviderRecording"]>,
-  catalog: readonly Schema["Recording"][],
-): Promise<Schema["Artist"][]> {
+  expected: ReadonlyMap<string, Schema<"ProviderRecording">>,
+  catalog: readonly Schema<"Recording">[],
+): Promise<Schema<"Artist">[]> {
   const performerNames = new Set(
     [...expected.values()].flatMap((recording) =>
       recording.release?.artist
@@ -154,9 +153,9 @@ export async function verifySpotifyStoredArtists(
     ),
   );
   const libraryIds = new Set(catalog.map((recording) => recording.library_id));
-  const artists: Schema["Artist"][] = [];
+  const artists: Schema<"Artist">[] = [];
   for (let offset = 0; offset < performerNames.size; offset += 200) {
-    const result = await read<Schema["ArtistPage"]>(
+    const result = await read<Schema<"ArtistPage">>(
       `/api/v1/artists?limit=200&offset=${offset}`,
     );
     liveCheck(
@@ -179,8 +178,8 @@ export async function verifySpotifyStoredArtists(
 }
 
 export function spotifyAlbumEditionChecks(
-  detail: Schema["ReleaseDetail"],
-  album: Schema["Release"],
+  detail: Schema<"ReleaseDetail">,
+  album: Schema<"Release">,
   publications: PublishedRecordings,
 ) {
   const checks = {
@@ -215,8 +214,8 @@ export function spotifyAlbumEditionChecks(
 }
 
 export function verifySpotifyAlbumEdition(
-  detail: Schema["ReleaseDetail"],
-  album: Schema["Release"],
+  detail: Schema<"ReleaseDetail">,
+  album: Schema<"Release">,
   publications: PublishedRecordings,
 ) {
   liveCheck(
@@ -243,8 +242,8 @@ export function verifySpotifyAlbumEdition(
 }
 
 export function verifySpotifyAlbumCredit(
-  metadata: Schema["ReleaseMetadata"],
-  album: Schema["Release"],
+  metadata: Schema<"ReleaseMetadata">,
+  album: Schema<"Release">,
 ) {
   liveCheck(
     metadata.artist.value === album.artist &&
@@ -256,10 +255,10 @@ export function verifySpotifyAlbumCredit(
 }
 
 export function verifySpotifyTrackCredit(
-  metadata: Schema["RecordingMetadata"],
-  published: Schema["ImportedPlaylistRecording"],
-  album: Schema["Release"],
-  connection: Schema["PluginInstallation"],
+  metadata: Schema<"RecordingMetadata">,
+  published: Schema<"ImportedPlaylistRecording">,
+  album: Schema<"Release">,
+  connection: Schema<"PluginInstallation">,
 ) {
   const observation = metadata.selected_observation;
   const expected = published.metadata;
@@ -288,10 +287,10 @@ export function verifySpotifyTrackCredit(
 }
 
 export function verifySpotifyPerformerCredit(
-  detail: Schema["ArtistDetail"],
-  performer: Schema["Artist"],
+  detail: Schema<"ArtistDetail">,
+  performer: Schema<"Artist">,
   publications: PublishedRecordings,
-  albums: readonly Schema["Release"][],
+  albums: readonly Schema<"Release">[],
 ) {
   liveCheck(
     isDeepStrictEqual(detail.artist, performer) &&

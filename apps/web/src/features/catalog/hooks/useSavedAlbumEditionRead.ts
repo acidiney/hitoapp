@@ -1,14 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
-import type { AlbumEditionTrackListAvailability } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 import { albumEditionChoiceApi } from "../api/albumEditionChoiceApi";
 
 const REQUEST_DEADLINE_MS = 20_000;
 
 export type SavedRead = Extract<
-  AlbumEditionTrackListAvailability,
+  Schema<"AlbumEditionTrackListAvailability">,
   { status: "available" }
 >;
 type State = {

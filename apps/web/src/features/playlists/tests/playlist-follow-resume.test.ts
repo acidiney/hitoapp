@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -8,10 +9,8 @@ import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 import { playlistConnection } from "../fixtures/playlistImports";
 import type { components } from "../../../generated";
-import type { PlaylistPageProps } from "../../../shared/types";
-import { heldResponse } from "../../../test/async";
 
-type Schema = components["schemas"];
+import { heldResponse } from "../../../test/async";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -30,7 +29,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
   );
   const origin = copiedPlaylistPage.detail.origin;
   if (!origin) throw new Error("The playlist fixture must have its origin");
-  const props: PlaylistPageProps = {
+  const props: Schema<"PlaylistPageProps"> = {
     ...copiedPlaylistPage,
     detail: {
       ...copiedPlaylistPage.detail,
@@ -38,7 +37,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
       follow_content_revision: 1,
     },
   };
-  const installation: Schema["PluginInstallation"] = {
+  const installation: Schema<"PluginInstallation"> = {
     ...playlistConnection,
     id: origin.installation_id,
     service_id: origin.service_id,
@@ -50,13 +49,13 @@ test("a paused playlist explicitly reviews its original connection and retries a
       capabilities: ["playlists", "search"],
     },
   };
-  const service: Schema["PluginService"] = {
+  const service: Schema<"PluginService"> = {
     id: origin.service_id,
     name: "Reviewed provider service",
     base_url: "https://reviewed-provider.invalid/music/",
     revision: 5,
   };
-  const settings: Schema["PluginSettings"] = {
+  const settings: Schema<"PluginSettings"> = {
     credential_storage_ready: true,
     installations: [
       {
@@ -79,7 +78,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
       service,
     ],
   };
-  const paused: Schema["PlaylistFollow"] = {
+  const paused: Schema<"PlaylistFollow"> = {
     playlist_id: props.detail.playlist.id,
     generation: 3,
     content_revision: 1,
@@ -90,11 +89,11 @@ test("a paused playlist explicitly reviews its original connection and retries a
     status: "paused",
     error: "authority_changed",
   };
-  const reviewedStatus: Schema["PlaylistFollow"] = {
+  const reviewedStatus: Schema<"PlaylistFollow"> = {
     ...paused,
     generation: 4,
   };
-  const resumed: Schema["PlaylistFollow"] = {
+  const resumed: Schema<"PlaylistFollow"> = {
     ...reviewedStatus,
     generation: 5,
     status: "ready",
@@ -196,7 +195,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
   const posts = () =>
     fetch.mock.calls.filter(([path]) => path === "/api/v1/sync");
   const originalBody = String(posts()[0][1]?.body);
-  const batch: Schema["SyncBatch"] = JSON.parse(originalBody);
+  const batch: Schema<"SyncBatch"> = JSON.parse(originalBody);
   expect(batch).toEqual({
     device_id: expect.any(String),
     operations: [
@@ -210,7 +209,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
           expected_generation: reviewedStatus.generation,
           installation_revision: installation.revision,
           service_revision: service.revision,
-        } satisfies Schema["Action"],
+        } satisfies Schema<"Action">,
       },
     ],
   });
@@ -250,7 +249,7 @@ test("a paused playlist explicitly reviews its original connection and retries a
     retryResponse.resolve(
       Response.json({
         acknowledged: [batch.operations[0].id],
-      } satisfies Schema["SyncReceipt"]),
+      } satisfies Schema<"SyncReceipt">),
     );
   });
   expect(statusReads).toBe(4);

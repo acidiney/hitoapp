@@ -1,8 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { RecordingMetadata } from "../../../shared/types";
+
 import { time } from "../../../shared/format";
 import { useSourceAttachment } from "../hooks/useSourceAttachment";
 import DiscoverySearch from "../../discovery/components/DiscoverySearch";
+import Button from "../../../shared/ui/Button";
 
 export default function SourceAttachment({
   account,
@@ -10,7 +12,7 @@ export default function SourceAttachment({
   onAttached,
 }: {
   account: string;
-  detail: RecordingMetadata;
+  detail: Schema<"RecordingMetadata">;
   onAttached(): void;
 }) {
   const workflow = useSourceAttachment(
@@ -26,15 +28,14 @@ export default function SourceAttachment({
         before adding it to this saved track.
       </p>
       {!workflow.loaded && (
-        <button
-          className="button"
+        <Button
           disabled={workflow.pending !== null}
           onClick={() => void workflow.open()}
         >
           {workflow.pending === "settings"
             ? "Loading services…"
             : "Find a source"}
-        </button>
+        </Button>
       )}
       {workflow.error && <p role="alert">{workflow.error}</p>}
       {workflow.loaded && !workflow.connection && (
@@ -64,13 +65,12 @@ export default function SourceAttachment({
                       ? "Duration unknown"
                       : time(hit.duration_ms / 1000)}
                   </p>
-                  <button
-                    className="button"
+                  <Button
                     disabled={workflow.pending !== null}
                     onClick={() => void workflow.reviewCandidate(hit)}
                   >
                     Review match
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -106,15 +106,15 @@ export default function SourceAttachment({
                 Confirm this is the same track. Your saved details and playlists
                 are kept.
               </p>
-              <button
-                className="button primary"
+              <Button
+                variant="primary"
                 disabled={workflow.pending !== null}
                 onClick={() => void workflow.confirm()}
               >
                 {workflow.pending === "attach"
                   ? "Adding source…"
                   : "Use this source"}
-              </button>
+              </Button>
             </section>
           )}
         </fieldset>

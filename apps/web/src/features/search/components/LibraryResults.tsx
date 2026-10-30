@@ -1,13 +1,14 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
-import type { Artist, Recording, Release } from "../../../shared/types";
+
 import { time } from "../../../shared/format";
 import Artwork from "../../artwork/components/Artwork";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
 import Button from "../../../shared/ui/Button";
 import ListRow from "../../../shared/ui/ListRow";
 
-function trackCover(track: Recording) {
+function trackCover(track: Schema<"Recording">) {
   return {
     id: track.release_id ?? track.id,
     title: track.album ?? track.title,
@@ -19,8 +20,8 @@ function TrackRow({
   track,
   onPlay,
 }: {
-  track: Recording;
-  onPlay: (track: Recording) => void;
+  track: Schema<"Recording">;
+  onPlay: (track: Schema<"Recording">) => void;
 }) {
   return (
     <ListRow
@@ -58,9 +59,9 @@ export function TopResult({
   release,
   artist,
 }: {
-  track?: Recording;
-  release?: Release;
-  artist?: Artist;
+  track?: Schema<"Recording">;
+  release?: Schema<"Release">;
+  artist?: Schema<"Artist">;
 }) {
   if (!track && !release && !artist) return null;
   return (
@@ -108,8 +109,8 @@ export function TrackResults({
   tracks,
   onPlay,
 }: {
-  tracks: Recording[];
-  onPlay: (track: Recording) => void;
+  tracks: Schema<"Recording">[];
+  onPlay: (track: Schema<"Recording">) => void;
 }) {
   if (tracks.length === 0) return null;
   return (
@@ -122,7 +123,7 @@ export function TrackResults({
   );
 }
 
-export function AlbumResults({ releases }: { releases: Release[] }) {
+export function AlbumResults({ releases }: { releases: Schema<"Release">[] }) {
   if (releases.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-albums">
@@ -158,7 +159,7 @@ export function AlbumResults({ releases }: { releases: Release[] }) {
   );
 }
 
-export function ArtistResults({ artists }: { artists: Artist[] }) {
+export function ArtistResults({ artists }: { artists: Schema<"Artist">[] }) {
   if (artists.length === 0) return null;
   return (
     <section className="search-group" aria-labelledby="search-artists">

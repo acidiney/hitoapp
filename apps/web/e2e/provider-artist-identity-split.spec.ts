@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   artistSplit,
   artistSplitProvider,
 } from "./fixtures/artist-split-provider";
-
-type Schema = components["schemas"];
 
 test("a wrongly merged artist is split in the browser and the move is undone without touching tracks", async ({
   page,
@@ -17,8 +15,8 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
   const headers = { "x-hito-request": "1", origin: new URL(baseURL!).origin };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  let connection: Schema["PluginInstallation"] | null = null;
-  let original: Schema["MetadataSettings"] | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
+  let original: Schema<"MetadataSettings"> | null = null;
   const send = async <T>(
     method: "POST" | "PUT",
     path: string,
@@ -30,35 +28,35 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     return (await response.json()) as T;
   };
   try {
-    const service = await send<Schema["PluginService"]>(
+    const service = await send<Schema<"PluginService">>(
       "POST",
       "/api/v1/plugins/services",
       {
         name: `Artist split ${label}`,
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
       201,
     );
-    connection = await send<Schema["PluginInstallation"]>(
+    connection = await send<Schema<"PluginInstallation">>(
       "POST",
       "/api/v1/plugins",
       {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
       201,
     );
-    const saved: Schema["Recording"][] = [];
+    const saved: Schema<"Recording">[] = [];
     for (const id of artistSplit.recordings)
       saved.push(
-        await send<Schema["Recording"]>(
+        await send<Schema<"Recording">>(
           "POST",
           `/api/v1/plugins/${connection.id}/recordings`,
           {
             installation_revision: connection.revision,
             provider_recording_id: id,
-          } satisfies Schema["AdoptProviderRecording"],
+          } satisfies Schema<"AdoptProviderRecording">,
         ),
       );
     original = await (
@@ -67,12 +65,12 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     const provider = {
       kind: "http_plugin",
       installation_id: connection.id,
-    } satisfies Schema["MetadataProvider"];
+    } satisfies Schema<"MetadataProvider">;
     await send("PUT", "/api/v1/metadata/settings", {
       revision: original!.revision,
       enabled: true,
       providers: [provider],
-    } satisfies Schema["UpdateMetadataSettings"]);
+    } satisfies Schema<"UpdateMetadataSettings">);
 
     const review = async (
       recording: string,
@@ -80,12 +78,12 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
       choose: boolean,
     ) => {
       const base = `/api/v1/recordings/${recording}`;
-      const context = await send<Schema["ArtistReviewContext"]>(
+      const context = await send<Schema<"ArtistReviewContext">>(
         "POST",
         `${base}/artist-review/context`,
         { provider },
       );
-      const association = await send<Schema["ArtistAssociation"]>(
+      const association = await send<Schema<"ArtistAssociation">>(
         "POST",
         `${base}/artist-review/confirm`,
         {
@@ -101,7 +99,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
           ).revision,
           association_id: association.id,
           context,
-        } satisfies Schema["ChooseRecordingArtistIdentity"]);
+        } satisfies Schema<"ChooseRecordingArtistIdentity">);
     };
     const [first, second] = artistSplit.artists;
     await review(saved[0].id, first, true);
@@ -110,7 +108,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     await review(saved[1].id, second, false);
     const groups = (await (
       await page.request.get("/api/v1/artist-identity-groups")
-    ).json()) as Schema["ArtistIdentityGroupPage"];
+    ).json()) as Schema<"ArtistIdentityGroupPage">;
     const merged = groups.items.find(
       (group) => group.provider_artist_id === first,
     )!;
@@ -152,7 +150,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     await expect(page.getByText(/^1 track\b/)).toBeVisible();
     const after = (await (
       await page.request.get("/api/v1/artist-identity-groups")
-    ).json()) as Schema["ArtistIdentityGroupPage"];
+    ).json()) as Schema<"ArtistIdentityGroupPage">;
     expect(
       after.items
         .map((group) => [group.provider_artist_id, group.recording_count])
@@ -176,7 +174,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
     );
     const restored = (await (
       await page.request.get("/api/v1/artist-identity-groups")
-    ).json()) as Schema["ArtistIdentityGroupPage"];
+    ).json()) as Schema<"ArtistIdentityGroupPage">;
     expect(
       restored.items
         .map((group) => [group.provider_artist_id, group.recording_count])
@@ -220,7 +218,7 @@ test("a wrongly merged artist is split in the browser and the move is undone wit
           revision: latest.revision,
           enabled: original.enabled,
           providers: original.providers,
-        } satisfies Schema["UpdateMetadataSettings"],
+        } satisfies Schema<"UpdateMetadataSettings">,
       });
     }
     if (connection)

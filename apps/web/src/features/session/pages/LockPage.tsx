@@ -1,10 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import AuthIntro from "../components/AuthIntro";
-import type { LockPageProps } from "../../../shared/types";
+
 import { NoticeBanner, NoticeProvider } from "../../../shared/ui/Notices";
 import { useSignOut } from "../hooks/useSignOut";
 import { useUnlock } from "../hooks/useUnlock";
+import Button from "../../../shared/ui/Button";
 
-export default function LockPage(props: LockPageProps) {
+export default function LockPage(props: Schema<"LockPageProps">) {
   return (
     <NoticeProvider>
       <NoticeBanner />
@@ -13,7 +15,7 @@ export default function LockPage(props: LockPageProps) {
   );
 }
 
-function LockScreen({ username, account_id }: LockPageProps) {
+function LockScreen({ username, account_id }: Schema<"LockPageProps">) {
   const { pin, setPin, busy, error, submit } = useUnlock(account_id);
   const signOut = useSignOut(account_id, () => {});
   return (
@@ -36,22 +38,21 @@ function LockScreen({ username, account_id }: LockPageProps) {
               onChange={(event) => setPin(event.target.value)}
             />
           </label>
-          <button className="button primary" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy}>
             {busy ? "Checking…" : "Unlock"}
-          </button>
+          </Button>
           {error && (
             <p className="auth-error" role="alert">
               {error}
             </p>
           )}
-          <button
-            className="button"
+          <Button
             type="button"
             disabled={signOut.busy}
             onClick={() => void signOut.signOut()}
           >
             Sign out
-          </button>
+          </Button>
         </form>
       </div>
     </main>

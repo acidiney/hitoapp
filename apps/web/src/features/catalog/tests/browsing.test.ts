@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type AnchorHTMLAttributes } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -6,7 +7,6 @@ import ArtistPage from "../../artists/pages/ArtistPage";
 import Pagination from "../../../shared/ui/Pagination";
 import TrackToolbar from "../../playback/components/TrackToolbar";
 import AlbumGrid from "../components/AlbumGrid";
-import type { AlbumPageProps, Release } from "../../../shared/types";
 
 const player = vi.hoisted(() => ({
   playQueue: vi.fn(),
@@ -104,7 +104,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
 });
 
 test("an album with unknown credit keeps its card and detail links without inventing a performer", () => {
-  const release: Release = {
+  const release: Schema<"Release"> = {
     id: "unknown-credit-album",
     library_id: "personal",
     title: "Owned source-free album",
@@ -114,7 +114,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     duration_ms: 2000,
     artwork_recording_id: "recording-one",
   };
-  const tracks: AlbumPageProps["detail"]["tracks"]["items"] = [
+  const tracks: Schema<"AlbumPageProps">["detail"]["tracks"]["items"] = [
     {
       id: "recording-one",
       entry_id: "entry-one",

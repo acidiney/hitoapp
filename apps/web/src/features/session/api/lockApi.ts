@@ -1,26 +1,30 @@
-import type { LockStatus, RemovePin, SetPin } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { requestJson } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
 export const lockApi = {
-  state(account: string, signal?: AbortSignal): Promise<LockStatus> {
-    return requestJson<LockStatus>("/account/lock", {
+  state(account: string, signal?: AbortSignal): Promise<Schema<"LockStatus">> {
+    return requestJson<Schema<"LockStatus">>("/account/lock", {
       action: "lock.state",
       account,
       signal,
       cache: "no-store",
     });
   },
-  activity(account: string, signal?: AbortSignal): Promise<LockStatus> {
-    return requestJson<LockStatus>("/account/activity", {
+  activity(
+    account: string,
+    signal?: AbortSignal,
+  ): Promise<Schema<"LockStatus">> {
+    return requestJson<Schema<"LockStatus">>("/account/activity", {
       action: "lock.activity",
       method: "POST",
       account,
       signal,
     });
   },
-  async lock(account: string): Promise<LockStatus> {
-    const status = await requestJson<LockStatus>("/account/lock", {
+  async lock(account: string): Promise<Schema<"LockStatus">> {
+    const status = await requestJson<Schema<"LockStatus">>("/account/lock", {
       action: "lock.lock",
       method: "POST",
       account,
@@ -28,8 +32,8 @@ export const lockApi = {
     log.info("lock.locked", { account_id: account });
     return status;
   },
-  async unlock(account: string, pin: string): Promise<LockStatus> {
-    const status = await requestJson<LockStatus>("/account/unlock", {
+  async unlock(account: string, pin: string): Promise<Schema<"LockStatus">> {
+    const status = await requestJson<Schema<"LockStatus">>("/account/unlock", {
       action: "lock.unlock",
       method: "POST",
       account,
@@ -38,8 +42,11 @@ export const lockApi = {
     log.info("lock.unlocked", { account_id: account });
     return status;
   },
-  async setPin(account: string, request: SetPin): Promise<LockStatus> {
-    const status = await requestJson<LockStatus>("/account/pin", {
+  async setPin(
+    account: string,
+    request: Schema<"SetPin">,
+  ): Promise<Schema<"LockStatus">> {
+    const status = await requestJson<Schema<"LockStatus">>("/account/pin", {
       action: "lock.set_pin",
       method: "PUT",
       account,
@@ -51,13 +58,19 @@ export const lockApi = {
     });
     return status;
   },
-  async removePin(account: string, request: RemovePin): Promise<LockStatus> {
-    const status = await requestJson<LockStatus>("/account/pin/remove", {
-      action: "lock.remove_pin",
-      method: "POST",
-      account,
-      body: request,
-    });
+  async removePin(
+    account: string,
+    request: Schema<"RemovePin">,
+  ): Promise<Schema<"LockStatus">> {
+    const status = await requestJson<Schema<"LockStatus">>(
+      "/account/pin/remove",
+      {
+        action: "lock.remove_pin",
+        method: "POST",
+        account,
+        body: request,
+      },
+    );
     log.info("lock.pin_removed", { account_id: account });
     return status;
   },

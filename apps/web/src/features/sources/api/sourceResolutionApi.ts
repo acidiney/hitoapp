@@ -1,17 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import { request } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type {
-  ResolveSource,
-  Source,
-  SourceResolution,
-} from "../../../shared/types";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identity = (value: unknown): value is string =>
   typeof value === "string" &&
   uuid.test(value) &&
   value !== "00000000-0000-0000-0000-000000000000";
-const outcomes = new Set<SourceResolution["outcome"]>([
+const outcomes = new Set<Schema<"SourceResolution">["outcome"]>([
   "ready",
   "no_suitable_source",
   "provider_unavailable",
@@ -19,7 +15,7 @@ const outcomes = new Set<SourceResolution["outcome"]>([
   "cancelled",
 ]);
 
-function validSource(source: Source, recording: string) {
+function validSource(source: Schema<"Source">, recording: string) {
   return (
     source !== null &&
     typeof source === "object" &&
@@ -39,9 +35,9 @@ export const sourceResolutionApi = {
   async resolve(
     account: string,
     recording: string,
-    body: Readonly<ResolveSource>,
+    body: Readonly<Schema<"ResolveSource">>,
     signal: AbortSignal,
-  ): Promise<SourceResolution> {
+  ): Promise<Schema<"SourceResolution">> {
     const started = performance.now();
     const response = await request(
       `/recordings/${encodeURIComponent(recording)}/sources/resolve`,
@@ -55,7 +51,7 @@ export const sourceResolutionApi = {
     );
     if (response.status !== 200)
       throw new Error("Hito did not confirm source resolution");
-    const resolution: SourceResolution = await response.json();
+    const resolution: Schema<"SourceResolution"> = await response.json();
     signal.throwIfAborted();
     if (
       resolution?.request_id !== body.request_id ||

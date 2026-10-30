@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
 import {
@@ -11,7 +11,6 @@ import {
 } from "./fixtures/youtube-live";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 class LiveFailure extends Error {}
 const audioPath =
   /^\/api\/v1\/sources\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/audio$/;
@@ -36,7 +35,7 @@ test.describe("isolated packaged YouTube", () => {
     test.setTimeout(120_000);
     let stage = "configuration";
     let stageNumber = 0;
-    let offered: Schema["PluginService"] | null = null;
+    let offered: Schema<"PluginService"> | null = null;
     let failure: string | null = null;
     let cleanupFailed = false;
     let pageErrors = 0;
@@ -125,7 +124,7 @@ test.describe("isolated packaged YouTube", () => {
         throw new LiveFailure(`Service offer returned HTTP ${offer.status()}`);
       const offerBody = offer
         .request()
-        .postDataJSON() as Schema["OfferPluginService"];
+        .postDataJSON() as Schema<"OfferPluginService">;
       expect(Object.keys(offerBody)).toEqual(["base_url"]);
       expect(offerBody.base_url === configuration.address).toBe(true);
       offered = await offer.json();
@@ -164,13 +163,13 @@ test.describe("isolated packaged YouTube", () => {
       expect(installed.request().postDataJSON().bearer_token === null).toBe(
         true,
       );
-      const accepted: Schema["InstallPlugin"] = installed
+      const accepted: Schema<"InstallPlugin"> = installed
         .request()
         .postDataJSON();
       expect(accepted.accept_manifest_digest === reviewed.body.digest).toBe(
         true,
       );
-      const connection: Schema["PluginInstallation"] = await installed.json();
+      const connection: Schema<"PluginInstallation"> = await installed.json();
       expect(connection.credential_set).toBe(false);
       expect(connection.manifest.name === "YouTube").toBe(true);
       expect(
@@ -206,7 +205,7 @@ test.describe("isolated packaged YouTube", () => {
         throw new LiveFailure(
           `Provider search returned HTTP ${searched.status()}`,
         );
-      const found: Schema["SearchPage"] = await searched.json();
+      const found: Schema<"SearchPage"> = await searched.json();
       const index = found.items.findIndex(
         (item) => item.id === configuration.video,
       );
@@ -244,7 +243,7 @@ test.describe("isolated packaged YouTube", () => {
         adopted.request().postDataJSON().provider_recording_id ===
           configuration.video,
       ).toBe(true);
-      const recording: Schema["Recording"] = await adopted.json();
+      const recording: Schema<"Recording"> = await adopted.json();
       expect(recording.available).toBe(true);
       expect(
         recording.id !== configuration.video &&
@@ -260,7 +259,7 @@ test.describe("isolated packaged YouTube", () => {
         throw new LiveFailure(
           `Saved source inspection returned HTTP ${sourceResponse.status()}`,
         );
-      const sources: Schema["Source"][] = await sourceResponse.json();
+      const sources: Schema<"Source">[] = await sourceResponse.json();
       expect(sources.length).toBeGreaterThan(0);
       expect(
         sources.every(

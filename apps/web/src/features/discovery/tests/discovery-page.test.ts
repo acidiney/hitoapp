@@ -1,11 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import DiscoverPage from "../pages/DiscoverPage";
-import type {
-  DiscoverPageProps,
-  PluginInstallation,
-} from "../../../shared/types";
 
 const { player } = vi.hoisted(() => ({
   player: { prepareSelection: vi.fn(() => vi.fn().mockResolvedValue(true)) },
@@ -17,7 +14,7 @@ vi.mock("@inertiajs/react", () => ({
   Link: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-const connection: PluginInstallation = {
+const connection: Schema<"PluginInstallation"> = {
   id: "connection",
   service_id: "service",
   revision: 1,
@@ -30,7 +27,7 @@ const connection: PluginInstallation = {
     capabilities: ["search", "sources"],
   },
 };
-const props: DiscoverPageProps = {
+const props: Schema<"DiscoverPageProps"> = {
   errors: {},
   native_playback: false,
   lock: { pin_enabled: false, idle_minutes: 0, locked: false },

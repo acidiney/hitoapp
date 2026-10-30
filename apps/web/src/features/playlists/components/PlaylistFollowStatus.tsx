@@ -1,8 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { Link } from "@inertiajs/react";
-import type { PlaylistFollow } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 type FollowStatusProps = {
-  follow: PlaylistFollow | null;
+  follow: Schema<"PlaylistFollow"> | null;
   loading: boolean;
   pending: boolean;
   hasAttempt: boolean;
@@ -14,7 +16,7 @@ type FollowStatusProps = {
   retryStatus: () => Promise<void>;
 };
 
-const labels: Record<PlaylistFollow["status"], string> = {
+const labels: Record<Schema<"PlaylistFollow">["status"], string> = {
   ready: "Ready",
   queued: "Queued",
   running: "Updating",
@@ -79,38 +81,34 @@ export default function PlaylistFollowStatus({
       ) : (
         loading && <p role="status">Checking playlist updates…</p>
       )}
-      <button
-        className="button"
+      <Button
         disabled={!follow || loading || pending || paused || hasAttempt}
         onClick={() => void refresh()}
       >
         Refresh now
-      </button>
+      </Button>
       {statusError && (
         <>
           <p role="alert">{statusError}</p>
-          <button className="button" onClick={() => void retryStatus()}>
-            Retry status check
-          </button>
+          <Button onClick={() => void retryStatus()}>Retry status check</Button>
         </>
       )}
       {refreshError && <p role="alert">{refreshError}</p>}
       {detailError && (
         <>
           <p role="alert">{detailError}</p>
-          <button className="button" onClick={() => void retryStatus()}>
+          <Button onClick={() => void retryStatus()}>
             Retry playlist details
-          </button>
+          </Button>
         </>
       )}
       {hasAttempt && (
-        <button
-          className="button"
+        <Button
           disabled={pending || paused}
           onClick={() => void retryRefresh()}
         >
           Retry refresh request
-        </button>
+        </Button>
       )}
     </section>
   );

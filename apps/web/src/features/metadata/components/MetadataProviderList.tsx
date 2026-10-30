@@ -1,15 +1,15 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import Button from "../../../shared/ui/Button";
 import SettingRow from "../../../shared/ui/SettingRow";
-import type { MetadataProvider, PluginSettings } from "../../../shared/types";
 
 type ProviderOption = {
   key: string;
   label: string;
-  provider: MetadataProvider;
+  provider: Schema<"MetadataProvider">;
 };
 
-function key(provider: MetadataProvider) {
+function key(provider: Schema<"MetadataProvider">) {
   return provider.kind === "builtin_musicbrainz"
     ? provider.kind
     : provider.installation_id;
@@ -24,13 +24,13 @@ export default function MetadataProviderList({
   onRemove,
   onMove,
 }: {
-  providers: MetadataProvider[];
-  connections: PluginSettings | null;
+  providers: Schema<"MetadataProvider">[];
+  connections: Schema<"PluginSettings"> | null;
   pending: boolean;
   canAdd: boolean;
-  onAdd(provider: MetadataProvider): void;
-  onRemove(provider: MetadataProvider): void;
-  onMove(provider: MetadataProvider, direction: -1 | 1): void;
+  onAdd(provider: Schema<"MetadataProvider">): void;
+  onRemove(provider: Schema<"MetadataProvider">): void;
+  onMove(provider: Schema<"MetadataProvider">, direction: -1 | 1): void;
 }) {
   const [choice, setChoice] = useState("");
   const options: ProviderOption[] = [
@@ -46,7 +46,7 @@ export default function MetadataProviderList({
     );
     if (!service || !installation.manifest.capabilities.includes("catalog"))
       continue;
-    const provider: MetadataProvider = {
+    const provider: Schema<"MetadataProvider"> = {
       kind: "http_plugin",
       installation_id: installation.id,
     };

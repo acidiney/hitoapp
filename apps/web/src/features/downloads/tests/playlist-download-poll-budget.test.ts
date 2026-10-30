@@ -1,7 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { usePlaylistDownload } from "../hooks/usePlaylistDownload";
-import type { PlaylistDownloadStatus } from "../../../shared/types";
 
 test("unchanged busy status exhausts fast polling and observed progress reopens its budget", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
@@ -10,7 +10,7 @@ test("unchanged busy status exhausts fast polling and observed progress reopens 
   const retention = "eb773cc6-a419-4564-a567-6b1c5050e145";
   const path = `/api/v1/playlists/${playlist}/download`;
   let progressed = false;
-  function status(): PlaylistDownloadStatus {
+  function status(): Schema<"PlaylistDownloadStatus"> {
     return {
       retention_id: retention,
       playlist_id: playlist,

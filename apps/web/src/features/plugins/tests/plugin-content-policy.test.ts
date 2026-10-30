@@ -1,12 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import PluginSettings from "../components/PluginSettings";
-import type { PluginInstallation, RefreshPlugin } from "../../../shared/types";
 
 type Persistence = NonNullable<
-  PluginInstallation["manifest"]["content_policy"]
+  Schema<"PluginInstallation">["manifest"]["content_policy"]
 >["source_persistence"];
 
 const account = "policy-listener";
@@ -29,7 +29,7 @@ beforeEach(() => {
     });
 });
 
-function installation(policy?: Persistence): PluginInstallation {
+function installation(policy?: Persistence): Schema<"PluginInstallation"> {
   return {
     id: "policy-installation",
     service_id: service.id,
@@ -49,14 +49,18 @@ function installation(policy?: Persistence): PluginInstallation {
 function workflow(current?: Persistence, proposed?: Persistence) {
   let accepted = installation(current);
   const manifest = installation(proposed).manifest;
-  const requests: { path: string; method: string; body?: RefreshPlugin }[] = [];
+  const requests: {
+    path: string;
+    method: string;
+    body?: Schema<"RefreshPlugin">;
+  }[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);
       const method = options?.method ?? "GET";
       const body = options?.body
-        ? (JSON.parse(String(options.body)) as RefreshPlugin)
+        ? (JSON.parse(String(options.body)) as Schema<"RefreshPlugin">)
         : undefined;
       requests.push({ path, method, body });
       expect(new Headers(options?.headers).get("x-hito-account")).toBe(account);

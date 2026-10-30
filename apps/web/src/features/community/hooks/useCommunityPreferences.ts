@@ -1,11 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { communityApi } from "../api/communityApi";
 import { log } from "../../../shared/log";
-import type {
-  CommunityPreferences,
-  UpdateCommunityPreferences,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -13,8 +11,8 @@ type Phase = "load" | "save" | null;
 type Owner = { generation: number; pending: Phase };
 type Snapshot = {
   owner: Owner;
-  accepted: CommunityPreferences | null;
-  draft: UpdateCommunityPreferences | null;
+  accepted: Schema<"CommunityPreferences"> | null;
+  draft: Schema<"UpdateCommunityPreferences"> | null;
   pending: Phase;
   error: string;
   saved: boolean;
@@ -141,7 +139,7 @@ export function useCommunityPreferences(account: string) {
         : value,
     );
     try {
-      const accepted: CommunityPreferences =
+      const accepted: Schema<"CommunityPreferences"> =
         await communityApi.updatePreferences(
           account,
           current.draft,

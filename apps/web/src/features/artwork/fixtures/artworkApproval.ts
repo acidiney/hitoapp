@@ -1,10 +1,4 @@
-import type {
-  ArtworkFetch,
-  PluginInstallation,
-  PluginRefresh,
-  PluginSettings,
-  RefreshPlugin,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export function artworkApprovalFixture() {
   const account = "alice";
@@ -27,7 +21,7 @@ export function artworkApprovalFixture() {
     base_url: "https://provider.invalid/",
     revision: 1,
   };
-  const installed: PluginInstallation = {
+  const installed: Schema<"PluginInstallation"> = {
     id: "04f938de-e8b6-4605-94f8-2a90a5516855",
     service_id: service.id,
     revision: 1,
@@ -40,7 +34,7 @@ export function artworkApprovalFixture() {
       capabilities: ["playlists"],
     },
   };
-  const approved: PluginInstallation = {
+  const approved: Schema<"PluginInstallation"> = {
     ...installed,
     revision: 2,
     checked_at: 2,
@@ -49,14 +43,14 @@ export function artworkApprovalFixture() {
       capabilities: ["playlists", "artwork"],
     },
   };
-  const settings: PluginSettings = {
+  const settings: Schema<"PluginSettings"> = {
     services: [service],
     installations: [installed],
     credential_storage_ready: true,
   };
   const refresh = `/api/v1/plugins/${installed.id}/refresh`;
   const digest = "owned-reviewed-artwork-manifest";
-  const refreshes: RefreshPlugin[] = [];
+  const refreshes: Schema<"RefreshPlugin">[] = [];
   let acknowledgeApproval!: () => void;
   const approval = new Promise<void>((resolve) => {
     acknowledgeApproval = resolve;
@@ -68,7 +62,9 @@ export function artworkApprovalFixture() {
       if (path === "/api/v1/plugins" && options?.method === "GET")
         return Promise.resolve(Response.json(settings));
       if (path === refresh && options?.method === "POST") {
-        const body: RefreshPlugin = JSON.parse(options.body as string);
+        const body: Schema<"RefreshPlugin"> = JSON.parse(
+          options.body as string,
+        );
         refreshes.push(body);
         if (body.accept_manifest_digest == null)
           return Promise.resolve(
@@ -76,14 +72,14 @@ export function artworkApprovalFixture() {
               kind: "review_required",
               manifest: approved.manifest,
               digest,
-            } satisfies PluginRefresh),
+            } satisfies Schema<"PluginRefresh">),
           );
         return approval.then(() => {
           artworkApproved = true;
           return Response.json({
             kind: "updated",
             installation: approved,
-          } satisfies PluginRefresh);
+          } satisfies Schema<"PluginRefresh">);
         });
       }
       if (path === availability && options?.method === "GET")
@@ -99,7 +95,7 @@ export function artworkApprovalFixture() {
               error: null,
               created_at: 3,
               updated_at: 4,
-            } satisfies ArtworkFetch,
+            } satisfies Schema<"ArtworkFetch">,
             { status: 202 },
           ),
         );

@@ -1,14 +1,13 @@
-import type {
-  LyricsLookup,
-  RecordingLyricsProvider,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import RecordingCredits from "../../metadata/components/RecordingCredits";
+import Button from "../../../shared/ui/Button";
 
 type Props = {
   providers: {
     pending: boolean;
-    items: RecordingLyricsProvider[] | null;
-    selected: RecordingLyricsProvider | null;
+    items: Schema<"RecordingLyricsProvider">[] | null;
+    selected: Schema<"RecordingLyricsProvider"> | null;
     error: string;
     refresh: boolean;
     load: () => void;
@@ -17,7 +16,7 @@ type Props = {
   };
   available: boolean;
   pending: boolean;
-  result: LyricsLookup | null;
+  result: Schema<"LyricsLookup"> | null;
   error: string;
   refresh: boolean;
   onLoad: () => void;
@@ -43,14 +42,14 @@ export default function RecordingLyrics({
       {providers.pending ? (
         <>
           <p role="status">Loading lyric providers…</p>
-          <button type="button" className="button" onClick={providers.cancel}>
+          <Button type="button" onClick={providers.cancel}>
             Cancel provider request
-          </button>
+          </Button>
         </>
       ) : (
-        <button type="button" className="button" onClick={providers.load}>
+        <Button type="button" onClick={providers.load}>
           Choose lyric provider
-        </button>
+        </Button>
       )}
       {providers.items && providers.items.length > 0 && (
         <label>
@@ -72,9 +71,9 @@ export default function RecordingLyrics({
       )}
       {providers.error && <p role="alert">{providers.error}</p>}
       {providers.refresh && (
-        <button type="button" className="button" onClick={onRefreshDetails}>
+        <Button type="button" onClick={onRefreshDetails}>
           Refresh track details
-        </button>
+        </Button>
       )}
       {providers.items?.length === 0 && (
         <p>No connected lyric providers are available for this track.</p>
@@ -88,20 +87,20 @@ export default function RecordingLyrics({
           {pending ? (
             <>
               <p role="status">Loading lyrics…</p>
-              <button type="button" className="button" onClick={onCancel}>
+              <Button type="button" onClick={onCancel}>
                 Cancel lyric request
-              </button>
+              </Button>
             </>
           ) : (
-            <button type="button" className="button" onClick={onLoad}>
+            <Button type="button" onClick={onLoad}>
               {result || error ? "Retry lyrics" : "Show lyrics"}
-            </button>
+            </Button>
           )}
           {error && <p role="alert">{error}</p>}
           {refresh && (
-            <button type="button" className="button" onClick={onRefreshDetails}>
+            <Button type="button" onClick={onRefreshDetails}>
               Refresh track details
-            </button>
+            </Button>
           )}
           {result?.status === "unsupported" && (
             <p>This provider does not offer lyrics for this track.</p>

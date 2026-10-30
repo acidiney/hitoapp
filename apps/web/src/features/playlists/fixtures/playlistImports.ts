@@ -1,9 +1,6 @@
-import type {
-  PlaylistIndexPageProps,
-  PluginInstallation,
-} from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
-export const playlistConnection: PluginInstallation = {
+export const playlistConnection: Schema<"PluginInstallation"> = {
   id: "playlist-installation",
   service_id: "playlist-service",
   revision: 3,
@@ -17,14 +14,14 @@ export const playlistConnection: PluginInstallation = {
   },
 };
 
-export const otherPlaylistConnection: PluginInstallation = {
+export const otherPlaylistConnection: Schema<"PluginInstallation"> = {
   ...playlistConnection,
   id: "other-playlist-installation",
   service_id: "other-playlist-service",
   revision: 7,
 };
 
-export const playlistImportPage: PlaylistIndexPageProps = {
+export const playlistImportPage: Schema<"PlaylistIndexPageProps"> = {
   user: { id: "alice", username: "Alice", admin: false },
   errors: {},
   native_playback: false,

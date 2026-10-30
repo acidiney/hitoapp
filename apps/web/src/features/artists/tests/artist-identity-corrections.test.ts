@@ -8,10 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
-
-type Schema = components["schemas"];
 
 const navigation = vi.hoisted(() => ({ reload: vi.fn(), get: vi.fn() }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -55,7 +53,7 @@ function owned(
 ) {
   const { props, group, other } = page(admin);
   let revision = 0;
-  let latest: Schema["ArtistIdentityChangeSummary"] | null = null;
+  let latest: Schema<"ArtistIdentityChangeSummary"> | null = null;
   let corrections = 0;
   let lost = options.lostFirst ?? false;
   const bodies: { path: string; body: Record<string, unknown> }[] = [];
@@ -68,7 +66,7 @@ function owned(
         group_id: group.id,
         revision,
         latest,
-      } satisfies Schema["ArtistIdentityGroupChanges"]);
+      } satisfies Schema<"ArtistIdentityGroupChanges">);
     if (
       method === "GET" &&
       path.startsWith("/api/v1/artist-identity-groups?")
@@ -79,7 +77,7 @@ function owned(
         total: 2,
         limit: 20,
         offset: 0,
-      } satisfies Schema["ArtistIdentityGroupPage"]);
+      } satisfies Schema<"ArtistIdentityGroupPage">);
     }
     if (method === "GET" && path.startsWith("/api/v1/artist-corrections?")) {
       expect(admin).toBe(true);
@@ -89,7 +87,7 @@ function owned(
         total: 0,
         offset: 0,
         limit: 25,
-      } satisfies Schema["SharedArtistCorrections"]);
+      } satisfies Schema<"SharedArtistCorrections">);
     }
     if (method === "POST") {
       const body = JSON.parse(init?.body as string);
@@ -117,7 +115,7 @@ function owned(
           kind: "split",
           recordings: latest.recordings,
           destination_group_id: other.id,
-        } satisfies Schema["ArtistIdentityChangeReceipt"]);
+        } satisfies Schema<"ArtistIdentityChangeReceipt">);
       }
       if (path === `${base}/undo`) {
         expect(body.expected_revision).toBe(revision);
@@ -130,7 +128,7 @@ function owned(
           kind: "undo",
           recordings: 1,
           destination_group_id: null,
-        } satisfies Schema["ArtistIdentityChangeReceipt"]);
+        } satisfies Schema<"ArtistIdentityChangeReceipt">);
       }
       if (path === "/api/v1/artist-corrections/promote") {
         corrections += 1;
@@ -145,7 +143,7 @@ function owned(
           revision: 1,
           applied: true,
           recordings: 1,
-        } satisfies Schema["SharedArtistCorrectionReceipt"]);
+        } satisfies Schema<"SharedArtistCorrectionReceipt">);
       }
       if (path === "/api/v1/artist-corrections/shared-correction/undo") {
         latest = { ...latest!, shared: null };
@@ -155,7 +153,7 @@ function owned(
           revision: 2,
           applied: false,
           recordings: 1,
-        } satisfies Schema["SharedArtistCorrectionReceipt"]);
+        } satisfies Schema<"SharedArtistCorrectionReceipt">);
       }
     }
     throw new Error(`Unexpected request ${method} ${path}`);
@@ -210,7 +208,7 @@ test("the panel stays closed without requests, then moves chosen tracks to anoth
       provider: other.provider,
       provider_artist_id: other.provider_artist_id,
     },
-  } satisfies Schema["SplitArtistIdentityGroup"] & Record<string, unknown>);
+  } satisfies Schema<"SplitArtistIdentityGroup"> & Record<string, unknown>);
   expect(navigation.reload).toHaveBeenCalledTimes(1);
   fireEvent.click(
     await screen.findByRole("button", { name: "Undo last artist change" }),
@@ -219,7 +217,7 @@ test("the panel stays closed without requests, then moves chosen tracks to anoth
   expect(bodies[1].body).toEqual({
     request_id: expect.any(String),
     expected_revision: 1,
-  } satisfies Schema["UndoArtistIdentityChange"]);
+  } satisfies Schema<"UndoArtistIdentityChange">);
   expect(bodies[1].body.request_id).not.toBe(bodies[0].body.request_id);
   expect(
     fetch.mock.calls.filter(([path]) => path.includes("/artist-corrections")),

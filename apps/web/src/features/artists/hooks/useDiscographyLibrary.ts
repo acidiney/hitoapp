@@ -1,11 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistDiscographyApi } from "../api/artistDiscographyApi";
 import { log } from "../../../shared/log";
-import type {
-  ArtistAssociation,
-  CatalogReleaseGroup,
-  LibraryAlbum,
-} from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -17,7 +14,7 @@ const FAILED =
 type Owner = { pending: boolean };
 type State = {
   owner: Owner;
-  albums: Record<string, LibraryAlbum[]>;
+  albums: Record<string, Schema<"LibraryAlbum">[]>;
   pending: boolean;
   failed: boolean;
 };
@@ -29,8 +26,8 @@ function empty(owner: Owner): State {
 export function useDiscographyLibrary(
   account: string,
   recording: string,
-  association: ArtistAssociation,
-  groups: CatalogReleaseGroup[],
+  association: Schema<"ArtistAssociation">,
+  groups: Schema<"CatalogReleaseGroup">[],
   enabled: boolean,
 ) {
   const scope = useRequestScope(

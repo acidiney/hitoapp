@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { liveAudioRequestDiagnostics } from "./fixtures/youtube-audio-network";
 import {
   liveControlBounds,
@@ -31,7 +31,6 @@ import {
 } from "./fixtures/spotify-youtube-playback";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -61,7 +60,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
     let reviews = 0;
     let attachments = 0;
     let adoptions = 0;
-    const services: Schema["PluginService"][] = [];
+    const services: Schema<"PluginService">[] = [];
     const started = Date.now();
     const origin = baseURL ? new URL(baseURL).origin : null;
     const headers = { "x-hito-request": "1", origin: origin ?? "" };
@@ -109,7 +108,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
           "This browser does not support the required AAC codec",
         );
       await setUpSpotifyYouTubeLiveAccount(page);
-      const initialPlaylists = await readSpotifyYouTube<Schema["Playlist"][]>(
+      const initialPlaylists = await readSpotifyYouTube<Schema<"Playlist">[]>(
         page,
         "/api/v1/playlists",
       );
@@ -163,7 +162,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
         throw new SpotifyYouTubeLiveFailure(
           `Playlist copy returned HTTP ${imported.status()}`,
         );
-      const receipt: Schema["PlaylistImportReceipt"] = await imported.json();
+      const receipt: Schema<"PlaylistImportReceipt"> = await imported.json();
       expect(uuid.test(receipt.playlist_id)).toBe(true);
       await expect
         .poll(
@@ -268,7 +267,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
         throw new SpotifyYouTubeLiveFailure(
           `Reviewed source attachment returned HTTP ${attached.status()}`,
         );
-      const attachBody: Schema["AttachReviewedProviderSource"] = attached
+      const attachBody: Schema<"AttachReviewedProviderSource"> = attached
         .request()
         .postDataJSON();
       expect(
@@ -278,7 +277,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
             selection.candidate.id &&
           attachBody.review_stamp === review.review_stamp,
       ).toBe(true);
-      const retained: Schema["Recording"] = await attached.json();
+      const retained: Schema<"Recording"> = await attached.json();
       expect(
         retained.id === recording &&
           retained.available &&

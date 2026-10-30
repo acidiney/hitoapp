@@ -1,13 +1,12 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import {
   observePluginInstallations,
   reviewPluginInstallation,
 } from "./fixtures/plugin-installation-review";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -37,11 +36,11 @@ async function browserControls() {
     protocol_version: 1,
     capabilities: ["search", "sources"],
     content_policy: { source_persistence: "playback_only" },
-  } satisfies Schema["Manifest"];
+  } satisfies Schema<"Manifest">;
   const preview = {
     manifest,
     digest: "private-owned-review-gate-digest",
-  } satisfies Schema["PluginInstallationPreview"];
+  } satisfies Schema<"PluginInstallationPreview">;
   let release!: () => void;
   const heldBody = new Promise<void>((resolve) => {
     release = resolve;
@@ -118,7 +117,7 @@ document.querySelector("#burst").onclick = async () => {
     name: manifest.name,
     base_url: address,
     revision: 1,
-  } satisfies Schema["PluginService"];
+  } satisfies Schema<"PluginService">;
   return {
     address,
     service,

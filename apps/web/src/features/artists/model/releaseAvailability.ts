@@ -1,4 +1,4 @@
-import type { LibraryAlbum } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export type ReleaseAvailability = {
   state: "library" | "catalog";
@@ -8,7 +8,7 @@ export type ReleaseAvailability = {
 
 /** The one rule for what a library holds of a catalog release; labels and filters both use it. */
 export function releaseAvailability(
-  albums: LibraryAlbum[],
+  albums: Schema<"LibraryAlbum">[],
 ): ReleaseAvailability {
   if (albums.length === 0) return { state: "catalog", complete: false };
   const best = albums.reduce((a, b) =>

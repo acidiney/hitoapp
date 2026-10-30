@@ -1,8 +1,7 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 type FixtureStatus = {
   kind: string;
   feed_url: string;
@@ -118,7 +117,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     `/api/v1/podcasts/${subscription}/episodes`,
   );
   expect(published.status()).toBe(200);
-  const archive: Schema["PodcastEpisodePage"] = await published.json();
+  const archive: Schema<"PodcastEpisodePage"> = await published.json();
   expect(archive.total).toBe(1);
   const recording = archive.items[0].recording.id;
   await expectNoDownload(page, recording);
@@ -203,10 +202,10 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
         headers: { origin, "x-hito-request": "1" },
         data: {
           recording_ids: [recording],
-        } satisfies Schema["SavedPlaybackRequest"],
+        } satisfies Schema<"SavedPlaybackRequest">,
       });
       expect(progress.status()).toBe(200);
-      const stored: Schema["RecordingProgress"][] = await progress.json();
+      const stored: Schema<"RecordingProgress">[] = await progress.json();
       expect(stored).toHaveLength(1);
       durableMs = stored[0].position_ms;
       return Math.abs(durableMs - pausedMs);
@@ -284,7 +283,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
       candidate.request().method() === "POST" &&
       candidate.status() === 200 &&
       (
-        candidate.request().postDataJSON() as Schema["SavedPlaybackRequest"]
+        candidate.request().postDataJSON() as Schema<"SavedPlaybackRequest">
       ).recording_ids.includes(recording),
   );
   const refresh = page.getByRole("button", {
@@ -294,8 +293,8 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await refresh.click();
   const accepted = await refreshAccepted;
   expect(accepted.status()).toBe(202);
-  const requested: Schema["RefreshPodcast"] = accepted.request().postDataJSON();
-  const receipt: Schema["PodcastRefreshReceipt"] = await accepted.json();
+  const requested: Schema<"RefreshPodcast"> = accepted.request().postDataJSON();
+  const receipt: Schema<"PodcastRefreshReceipt"> = await accepted.json();
   expect(receipt.request_id).toBe(requested.request_id);
   expect(receipt.subscription_id).toBe(subscription);
   expect(receipt.job_id).toMatch(/^[a-f0-9-]{36}$/);
@@ -306,7 +305,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     .poll(async () => {
       const status = await page.request.get("/api/v1/podcasts");
       expect(status.status()).toBe(200);
-      const subscriptions: Schema["PodcastSubscription"][] =
+      const subscriptions: Schema<"PodcastSubscription">[] =
         await status.json();
       return subscriptions.find(
         (item) => item.subscription_id === subscription,
@@ -317,7 +316,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
       refresh_pending: false,
       refresh_failed: false,
     });
-  const refreshed: Schema["PodcastEpisodePage"] = await (
+  const refreshed: Schema<"PodcastEpisodePage"> = await (
     await refreshedEpisodes
   ).json();
   expect(refreshed.content_revision).toBe(archive.content_revision + 1);
@@ -331,7 +330,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     `/api/v1/recordings/${recording}/sources`,
   );
   expect(refreshedSources.status()).toBe(200);
-  const sources: Schema["Source"][] = await refreshedSources.json();
+  const sources: Schema<"Source">[] = await refreshedSources.json();
   expect(sources.map((item) => item.id)).toEqual([
     new URL(source).pathname.split("/").at(-2),
   ]);
@@ -368,10 +367,10 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
   await page.getByRole("button", { name: "Unsubscribe", exact: true }).click();
   const removed = await unsubscribeAccepted;
   expect(removed.status()).toBe(200);
-  const unsubscribeRequest: Schema["UnsubscribePodcast"] = removed
+  const unsubscribeRequest: Schema<"UnsubscribePodcast"> = removed
     .request()
     .postDataJSON();
-  const unsubscribeReceipt: Schema["PodcastUnsubscribeReceipt"] =
+  const unsubscribeReceipt: Schema<"PodcastUnsubscribeReceipt"> =
     await removed.json();
   expect(unsubscribeRequest).toEqual({
     request_id: expect.stringMatching(
@@ -398,7 +397,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     `/api/v1/recordings/${recording}/sources`,
   );
   expect(retainedSources.status()).toBe(200);
-  const unavailable: Schema["Source"][] = await retainedSources.json();
+  const unavailable: Schema<"Source">[] = await retainedSources.json();
   expect(
     unavailable.map((item) => ({ id: item.id, ready: item.ready })),
   ).toEqual(sources.map((item) => ({ id: item.id, ready: false })));
@@ -406,7 +405,7 @@ test("a subscribed RSS episode plays, survives navigation and resumes saved prog
     "/api/v1/recordings?liked=true&limit=200",
   );
   expect(likedRecordings.status()).toBe(200);
-  const retained: Schema["RecordingPage"] = await likedRecordings.json();
+  const retained: Schema<"RecordingPage"> = await likedRecordings.json();
   expect(retained.items.find((item) => item.id === recording)).toMatchObject({
     id: recording,
     title,
@@ -455,15 +454,15 @@ async function expectNoDownload(page: Page, recording: string) {
 async function recordingProgress(
   page: Page,
   recording: string,
-): Promise<Schema["RecordingProgress"]> {
+): Promise<Schema<"RecordingProgress">> {
   const response = await page.request.post("/api/v1/recordings/progress", {
     headers: { origin, "x-hito-request": "1" },
     data: {
       recording_ids: [recording],
-    } satisfies Schema["SavedPlaybackRequest"],
+    } satisfies Schema<"SavedPlaybackRequest">,
   });
   expect(response.status()).toBe(200);
-  const progress: Schema["RecordingProgress"][] = await response.json();
+  const progress: Schema<"RecordingProgress">[] = await response.json();
   expect(progress).toHaveLength(1);
   return progress[0];
 }
@@ -487,7 +486,7 @@ function savedProgress(
     response.request().method() !== "POST"
   )
     return false;
-  const batch: Schema["SyncBatch"] = response.request().postDataJSON();
+  const batch: Schema<"SyncBatch"> = response.request().postDataJSON();
   return batch.operations.some(
     ({ action }) =>
       action.kind === "progress_set" &&

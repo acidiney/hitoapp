@@ -1,14 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import {
   prepareDownloadLibrary,
   read,
   type DownloadProvider,
 } from "./downloads";
-
-type Schema = components["schemas"];
 
 export async function preparePlaylistDownload(
   page: Page,
@@ -18,7 +16,7 @@ export async function preparePlaylistDownload(
   const library = await prepareDownloadLibrary(page, baseURL, provider);
   const playlist = randomUUID();
   const entryIds = [randomUUID(), randomUUID()];
-  const batch: Schema["SyncBatch"] = {
+  const batch: Schema<"SyncBatch"> = {
     device_id: "playlist-download-browser-fixture",
     operations: [
       {
@@ -46,7 +44,7 @@ export async function preparePlaylistDownload(
     data: batch,
   });
   expect(response.status()).toBe(200);
-  const receipt: Schema["SyncReceipt"] = await response.json();
+  const receipt: Schema<"SyncReceipt"> = await response.json();
   expect(
     batch.operations.every((operation) =>
       receipt.acknowledged.includes(operation.id),
@@ -55,8 +53,8 @@ export async function preparePlaylistDownload(
   const detailPath = `/api/v1/playlists/${playlist}`;
   const downloadPath = `${detailPath}/download`;
   const recordingDownloadPath = `/api/v1/recordings/${library.recording}/download`;
-  const detail = await read<Schema["PlaylistDetail"]>(page, detailPath);
-  const catalog = await read<Schema["RecordingPage"]>(
+  const detail = await read<Schema<"PlaylistDetail">>(page, detailPath);
+  const catalog = await read<Schema<"RecordingPage">>(
     page,
     "/api/v1/recordings",
   );
@@ -85,7 +83,7 @@ export async function preparePlaylistDownload(
       );
     },
     async state(reader: Page, retention: string, status: "failed" | "ready") {
-      const current = await read<Schema["PlaylistDownloadStatus"]>(
+      const current = await read<Schema<"PlaylistDownloadStatus">>(
         reader,
         downloadPath,
       );
@@ -118,11 +116,11 @@ export async function preparePlaylistDownload(
     },
     async assertRetained(reader: Page) {
       await library.assertRetained(reader);
-      const currentDetail = await read<Schema["PlaylistDetail"]>(
+      const currentDetail = await read<Schema<"PlaylistDetail">>(
         reader,
         detailPath,
       );
-      const currentCatalog = await read<Schema["RecordingPage"]>(
+      const currentCatalog = await read<Schema<"RecordingPage">>(
         reader,
         "/api/v1/recordings",
       );

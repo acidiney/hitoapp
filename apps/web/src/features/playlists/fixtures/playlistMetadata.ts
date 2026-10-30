@@ -1,13 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement } from "react";
 import { router } from "@inertiajs/react";
 import PlaylistPage from "../pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type {
-  PlaylistPageProps,
-  PluginInstallation,
-  PluginSettings,
-} from "../../../shared/types";
+
 import { copiedPlaylistPage } from "./playlistPages";
 import { playlistConnection } from "./playlistImports";
 
@@ -17,7 +14,7 @@ if (!retainedOrigin)
   throw new Error("The metadata fixture needs an imported origin");
 export const metadataOrigin = retainedOrigin;
 
-export const metadataInstallation: PluginInstallation = {
+export const metadataInstallation: Schema<"PluginInstallation"> = {
   ...playlistConnection,
   id: metadataOrigin.installation_id,
   service_id: metadataOrigin.service_id,
@@ -25,7 +22,7 @@ export const metadataInstallation: PluginInstallation = {
   manifest: { ...playlistConnection.manifest, id: metadataOrigin.provider },
 };
 
-export const metadataSettings: PluginSettings = {
+export const metadataSettings: Schema<"PluginSettings"> = {
   credential_storage_ready: true,
   installations: [metadataInstallation],
   services: [
@@ -41,7 +38,9 @@ export const metadataSettings: PluginSettings = {
 export const metadataPath = `/api/v1/playlists/${metadataProps.detail.playlist.id}/metadata/refresh`;
 export const metadataDownloadPath = `/api/v1/playlists/${metadataProps.detail.playlist.id}/download`;
 
-export function metadataPage(props: PlaylistPageProps = metadataProps) {
+export function metadataPage(
+  props: Schema<"PlaylistPageProps"> = metadataProps,
+) {
   return createElement(
     NoticeProvider,
     null,
@@ -118,7 +117,7 @@ export function metadataReloadVisit(
 }
 
 export function metadataReloadPage(
-  props: PlaylistPageProps = metadataProps,
+  props: Schema<"PlaylistPageProps"> = metadataProps,
 ): ReloadPage {
   return {
     component: "PlaylistPage",

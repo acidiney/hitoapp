@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 
-type Schema = components["schemas"];
 class ProtocolFailure extends Error {
   constructor(readonly status = 400) {
     super("Owned fixture protocol rejected");
@@ -78,13 +77,13 @@ export async function automaticSourceFixture() {
     duration_ms: 12000,
     release,
     revision: "metadata-one",
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const suitable = {
     ...original,
     id: "audio/studio",
     release: { ...release, id: "audio/release/studio" },
     revision: "audio-one",
-  } satisfies Schema["ProviderRecording"];
+  } satisfies Schema<"ProviderRecording">;
   const live = {
     ...suitable,
     id: "audio/live",
@@ -93,8 +92,8 @@ export async function automaticSourceFixture() {
       title: "Live at the fixture hall",
       artist,
     },
-  } satisfies Schema["ProviderRecording"];
-  const candidates: Schema["ProviderRecording"][] = [
+  } satisfies Schema<"ProviderRecording">;
+  const candidates: Schema<"ProviderRecording">[] = [
     live,
     { ...suitable, id: "audio/cover", artist: "Another owned performer" },
     { ...suitable, id: "audio/remix", title: `${title} (Fixture Remix)` },
@@ -209,13 +208,13 @@ export async function automaticSourceFixture() {
                 name: "Owned metadata fixture",
                 protocol_version: 1,
                 capabilities: ["playlists"],
-              } satisfies Schema["Manifest"])
+              } satisfies Schema<"Manifest">)
             : ({
                 id: "org.hito.owned-audio-fixture",
                 name: "Owned audio fixture",
                 protocol_version: 1,
                 capabilities: ["search", "sources"],
-              } satisfies Schema["Manifest"]);
+              } satisfies Schema<"Manifest">);
       } else if (
         [
           "/metadata/v1/playlists/detail",

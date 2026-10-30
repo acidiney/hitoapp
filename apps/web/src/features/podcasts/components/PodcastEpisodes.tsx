@@ -1,10 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { Play, RotateCcw } from "lucide-react";
 import TrackActions from "../../playback/components/TrackActions";
 import ProgressBar from "../../../shared/ui/ProgressBar";
 import { longDuration, time } from "../../../shared/format";
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import type { PlaybackStart } from "../../playback/model";
-import type { Playlist } from "../../../shared/types";
+
 import type { EpisodeRow } from "../hooks/useEpisodeRows";
 
 export default function PodcastEpisodes({
@@ -15,7 +16,7 @@ export default function PodcastEpisodes({
   onMutationAccepted,
 }: {
   rows: EpisodeRow[];
-  playlists: Playlist[];
+  playlists: Schema<"Playlist">[];
   mutate: Mutate;
   play: (index: number, start: PlaybackStart) => void;
   onMutationAccepted: () => void;

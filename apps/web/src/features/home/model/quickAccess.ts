@@ -1,4 +1,4 @@
-import type { Home, Playlist } from "../../shared/types";
+import type { Schema } from "../../../shared/schema";
 
 export const QUICK_ACCESS_LIMIT = 6;
 const RECENT_ALBUM_TILES = 3;
@@ -19,7 +19,10 @@ function trackCount(count: number): string {
   return `${count} ${count === 1 ? "track" : "tracks"}`;
 }
 
-export function quickAccess(home: Home, playlists: Playlist[]): QuickTile[] {
+export function quickAccess(
+  home: Schema<"Home">,
+  playlists: Schema<"Playlist">[],
+): QuickTile[] {
   const tiles: QuickTile[] = home.recent_albums
     .slice(0, RECENT_ALBUM_TILES)
     .map((album) => ({

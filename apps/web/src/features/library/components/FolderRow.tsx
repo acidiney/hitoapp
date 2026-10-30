@@ -1,9 +1,13 @@
-import type { MusicFolder } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import Button from "../../../shared/ui/Button";
 import HealthDot, { type HealthTone } from "../../../shared/ui/HealthDot";
 import SettingRow from "../../../shared/ui/SettingRow";
 
-function status(folder: MusicFolder): { tone: HealthTone; label: string } {
+function status(folder: Schema<"MusicFolder">): {
+  tone: HealthTone;
+  label: string;
+} {
   const job = folder.latest_job;
   if (!folder.available)
     return {
@@ -40,7 +44,7 @@ export default function FolderRow({
   onCancelRemove,
   onRemove,
 }: {
-  folder: MusicFolder;
+  folder: Schema<"MusicFolder">;
   busy: boolean;
   pending: boolean;
   removing: boolean;

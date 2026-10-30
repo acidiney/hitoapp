@@ -3,7 +3,7 @@ import { router } from "@inertiajs/react";
 import { errorMessage } from "../../../shared/format";
 import { useNotice } from "../../../shared/ui/Notices";
 import { lockApi } from "../api/lockApi";
-import { notifySessionChanged } from "../session";
+import { notifySessionChanged } from "../api/session";
 
 export function useLockSession(account: string, stopPlayback: () => void) {
   const notice = useNotice();

@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
-import type { components } from "../src/generated";
-type Schema = components["schemas"];
+import type { Schema } from "../src/shared/schema";
 
 declare global {
   interface Window {
@@ -18,9 +17,9 @@ async function publicState(page: Page) {
   ]);
   for (const response of responses) expect(response.status()).toBe(200);
   return {
-    playlists: (await responses[0].json()) as Schema["Playlist"][],
-    catalog: (await responses[1].json()) as Schema["RecordingPage"],
-    feed: (await responses[2].json()) as Schema["SyncPage"],
+    playlists: (await responses[0].json()) as Schema<"Playlist">[],
+    catalog: (await responses[1].json()) as Schema<"RecordingPage">,
+    feed: (await responses[2].json()) as Schema<"SyncPage">,
   };
 }
 
@@ -38,10 +37,10 @@ test("a new copy uses the current field after a committed import loses its respo
   const history: unknown[] = [];
   const imports: string[] = [];
   const copies: string[] = [];
-  let service: Schema["PluginService"] | null = null;
-  let connection: Schema["PluginInstallation"] | null = null;
+  let service: Schema<"PluginService"> | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
   const lost: {
-    receipt?: Schema["PlaylistImportReceipt"];
+    receipt?: Schema<"PlaylistImportReceipt">;
     body?: string;
   } = {};
   let forwarded = 0;
@@ -90,7 +89,7 @@ test("a new copy uses the current field after a committed import loses its respo
       data: {
         name: `${fixture.prefix} new copy`,
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
     service = await offered.json();
@@ -102,7 +101,7 @@ test("a new copy uses the current field after a committed import loses its respo
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
     connection = await installed.json();
@@ -161,7 +160,7 @@ test("a new copy uses the current field after a committed import loses its respo
     expect(forwarded).toBe(1);
     if (!lost.receipt || !lost.body)
       throw new Error("The real import must commit before delivery fails");
-    const original: Schema["ImportProviderPlaylist"] = JSON.parse(lost.body);
+    const original: Schema<"ImportProviderPlaylist"> = JSON.parse(lost.body);
     expect(original).toEqual({
       request_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       installation_revision: connection.revision,
@@ -182,7 +181,7 @@ test("a new copy uses the current field after a committed import loses its respo
     expect(fixture.requests).toHaveLength(4);
     const settingsResponse = await page.request.get("/api/v1/plugins");
     expect(settingsResponse.status()).toBe(200);
-    const settings: Schema["PluginSettings"] = await settingsResponse.json();
+    const settings: Schema<"PluginSettings"> = await settingsResponse.json();
     expect(
       settings.installations.find((item) => item.id === connection?.id)
         ?.revision,
@@ -200,7 +199,7 @@ test("a new copy uses the current field after a committed import loses its respo
       .click();
     const response = await imported;
     expect(response.status()).toBe(200);
-    const replacement: Schema["ImportProviderPlaylist"] = response
+    const replacement: Schema<"ImportProviderPlaylist"> = response
       .request()
       .postDataJSON();
     expect(replacement).toEqual({
@@ -209,7 +208,7 @@ test("a new copy uses the current field after a committed import loses its respo
       playlist_reference: fixture.secondReference,
     });
     expect(replacement.request_id).not.toBe(original.request_id);
-    const receipt: Schema["PlaylistImportReceipt"] = await response.json();
+    const receipt: Schema<"PlaylistImportReceipt"> = await response.json();
     copies.push(receipt.playlist_id);
     expect(receipt).toEqual({
       request_id: replacement.request_id,
@@ -253,11 +252,11 @@ test("a new copy uses the current field after a committed import loses its respo
         ),
       ).size,
     ).toBe(2);
-    const details: Schema["PlaylistDetail"][] = [];
+    const details: Schema<"PlaylistDetail">[] = [];
     for (const [index, id] of copies.entries()) {
       const detailResponse = await page.request.get(`/api/v1/playlists/${id}`);
       expect(detailResponse.status()).toBe(200);
-      const detail: Schema["PlaylistDetail"] = await detailResponse.json();
+      const detail: Schema<"PlaylistDetail"> = await detailResponse.json();
       details.push(detail);
       expect(detail.playlist).toEqual({
         id,
@@ -381,7 +380,7 @@ test("a new copy uses the current field after a committed import loses its respo
               id: randomUUID(),
               action: { kind: "playlist_delete", playlist_id },
             })),
-          } satisfies Schema["SyncBatch"],
+          } satisfies Schema<"SyncBatch">,
         });
       if (service)
         await page.request.delete(`/api/v1/plugins/services/${service.id}`, {

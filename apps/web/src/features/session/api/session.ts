@@ -1,7 +1,7 @@
-import { createUuid } from "../../shared/uuid";
+import { createUuid } from "../../../shared/uuid";
 import { router } from "@inertiajs/react";
-import { HttpError, lockedEvent, requestJson } from "../../shared/http";
-import { log } from "../../shared/log";
+import { HttpError, lockedEvent, requestJson } from "../../../shared/http";
+import { log } from "../../../shared/log";
 
 const revisionKey = "hito-session-revision";
 let channel: BroadcastChannel | undefined;

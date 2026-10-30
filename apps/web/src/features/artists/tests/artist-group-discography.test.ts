@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, StrictMode, type AnchorHTMLAttributes } from "react";
 import {
   cleanup,
@@ -11,7 +12,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "../fixtures/artistGroupDiscography";
-import type { ArtistAssociation } from "../../../shared/types";
+
 import {
   artistAssociation,
   reviewedArtistProfile,
@@ -88,7 +89,8 @@ test.each([
   "a mismatched %s witness cannot browse a namesake",
   async (field) => {
     const { detail } = artistIdentityBrowsing();
-    const wrong: ArtistAssociation = structuredClone(artistAssociation);
+    const wrong: Schema<"ArtistAssociation"> =
+      structuredClone(artistAssociation);
     switch (field) {
       case "association":
         wrong.id = "other-association";

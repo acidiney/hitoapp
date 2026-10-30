@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { router } from "@inertiajs/react";
 import { createElement, type ReactNode } from "react";
 import {
@@ -20,7 +21,6 @@ import {
 import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type { RecordingDetailsPageProps } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -28,7 +28,7 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", { href }, children),
 }));
 
-function page(props: RecordingDetailsPageProps) {
+function page(props: Schema<"RecordingDetailsPageProps">) {
   return createElement(
     NoticeProvider,
     null,
@@ -55,7 +55,7 @@ test("replacing the selected provider observation retires held lyrics and reject
     id: "08319703-387d-4380-b5de-ae5ca59d6537",
     provider_revision: 'current-provider:"3"',
   };
-  const next: RecordingDetailsPageProps = {
+  const next: Schema<"RecordingDetailsPageProps"> = {
     ...lyricRecordingPage,
     detail: {
       ...lyricRecordingPage.detail,

@@ -1,36 +1,31 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
-import type {
-  PrepareSource,
-  ResolveSource,
-  Source as ApiSource,
-  SourcePreparationStatus,
-  SourceResolution,
-} from "../../../shared/types";
+
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 
-export type Source = Pick<ApiSource, "id" | "ready"> &
-  Partial<Pick<ApiSource, "can_prepare">>;
+export type Source = Pick<Schema<"Source">, "id" | "ready"> &
+  Partial<Pick<Schema<"Source">, "can_prepare">>;
 export type SourcePreparer = {
   start(
     recording: string,
     source: string,
-    body: Readonly<PrepareSource>,
+    body: Readonly<Schema<"PrepareSource">>,
     signal: AbortSignal,
   ): Promise<unknown>;
   status(
     recording: string,
     source: string,
     signal: AbortSignal,
-  ): Promise<SourcePreparationStatus | null>;
+  ): Promise<Schema<"SourcePreparationStatus"> | null>;
 };
 type SourceRequest =
   | { purpose: "cached" | "refresh" }
-  | { purpose: "resolve"; body: Readonly<ResolveSource> };
+  | { purpose: "resolve"; body: Readonly<Schema<"ResolveSource">> };
 export type SourceResolver = (
   recording: string,
   options: SourceRequest & { signal: AbortSignal },
-) => Promise<Source[] | SourceResolution>;
+) => Promise<Source[] | Schema<"SourceResolution">>;
 
 export class PlaybackSources {
   private controller = new AbortController();
@@ -39,7 +34,8 @@ export class PlaybackSources {
   private refreshed = false;
   private resolved = false;
   private attempted = new Set<string>();
-  private resolutionOutcome: SourceResolution["outcome"] | null = null;
+  private resolutionOutcome: Schema<"SourceResolution">["outcome"] | null =
+    null;
   private waiting: Source | null = null;
 
   constructor(
@@ -53,7 +49,7 @@ export class PlaybackSources {
     }
   }
 
-  get outcome(): SourceResolution["outcome"] | null {
+  get outcome(): Schema<"SourceResolution">["outcome"] | null {
     return this.resolutionOutcome;
   }
 

@@ -11,10 +11,8 @@ import {
   signIn,
 } from "./fixtures/artwork-browser-checks";
 import { artworkDiagnostics, type Phase } from "./fixtures/artwork-diagnostics";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { reviewPluginInstallation } from "./fixtures/plugin-installation-review";
-
-type Schema = components["schemas"];
 
 test("existing independent playlist copies automatically retain private provider artwork without changing saved music", async ({
   page,
@@ -27,17 +25,17 @@ test("existing independent playlist copies automatically retain private provider
   const origin = new URL(baseURL).origin;
   const headers = { "x-hito-request": "1", origin };
   const copies: string[] = [];
-  const availability: { phase: Phase; value: Schema["ArtworkAvailability"] }[] =
+  const availability: { phase: Phase; value: Schema<"ArtworkAvailability"> }[] =
     [];
   const jobs: {
     phase: Phase;
     method: string;
     path: string;
-    value: Schema["ArtworkFetch"];
+    value: Schema<"ArtworkFetch">;
   }[] = [];
   let phase: Phase = "sign-in";
-  let service: Schema["PluginService"] | null = null;
-  let connection: Schema["PluginInstallation"] | null = null;
+  let service: Schema<"PluginService"> | null = null;
+  let connection: Schema<"PluginInstallation"> | null = null;
   let recording: string | undefined;
   const diagnostics = artworkDiagnostics(origin, () => phase);
   const { imports, artworkEnqueues, observe } = diagnostics;
@@ -159,7 +157,7 @@ test("existing independent playlist copies automatically retain private provider
     expect(credentialState).not.toContain(fixture.token);
     const connectionId = connection.id;
     const importPath = `/api/v1/plugins/${connectionId}/playlists/import`;
-    const initial = await get<Schema["Playlist"][]>(page, "/api/v1/playlists");
+    const initial = await get<Schema<"Playlist">[]>(page, "/api/v1/playlists");
     for (let index = 0; index < 2; index++) {
       await page.goto("/playlists");
       const form = page.getByRole("region", { name: "Import a playlist" });
@@ -185,7 +183,7 @@ test("existing independent playlist copies automatically retain private provider
         .click();
       const response = await imported;
       expect(response.status()).toBe(200);
-      const receipt: Schema["PlaylistImportReceipt"] = await response.json();
+      const receipt: Schema<"PlaylistImportReceipt"> = await response.json();
       copies.push(receipt.playlist_id);
       await expect(page).toHaveURL(
         new URL(`/playlists/${receipt.playlist_id}`, baseURL).href,
@@ -193,7 +191,7 @@ test("existing independent playlist copies automatically retain private provider
       await expect(
         page.getByRole("heading", { name: fixture.detail.name, exact: true }),
       ).toBeVisible();
-      const detail = await get<Schema["PlaylistDetail"]>(
+      const detail = await get<Schema<"PlaylistDetail">>(
         page,
         `/api/v1/playlists/${receipt.playlist_id}`,
       );
@@ -221,7 +219,7 @@ test("existing independent playlist copies automatically retain private provider
       expect(new URL(checkedResponse.url()).pathname).toBe(
         `/api/v1/recordings/${id}/artwork/availability`,
       );
-      const value: Schema["ArtworkAvailability"] = await checkedResponse.json();
+      const value: Schema<"ArtworkAvailability"> = await checkedResponse.json();
       expect(value).toEqual({ can_fetch: false });
       availability.push({ phase: "copies", value });
     }
@@ -299,7 +297,7 @@ test("existing independent playlist copies automatically retain private provider
       .click();
     const reviewResponse = await reviewed;
     expect(reviewResponse.status()).toBe(200);
-    const review: Schema["PluginRefresh"] = await reviewResponse.json();
+    const review: Schema<"PluginRefresh"> = await reviewResponse.json();
     expect(review.kind).toBe("review_required");
     await expect(
       plugin.getByRole("heading", {
@@ -326,7 +324,7 @@ test("existing independent playlist copies automatically retain private provider
     await accept.press("Enter");
     const acceptedResponse = await accepted;
     expect(acceptedResponse.status()).toBe(200);
-    const refresh: Schema["PluginRefresh"] = await acceptedResponse.json();
+    const refresh: Schema<"PluginRefresh"> = await acceptedResponse.json();
     if (refresh.kind !== "updated")
       throw new Error(
         "Accepted artwork capability must update this connection",
@@ -364,14 +362,14 @@ test("existing independent playlist copies automatically retain private provider
     );
     const eligibleResponse = await eligible;
     expect(eligibleResponse.status()).toBe(200);
-    const eligibility: Schema["ArtworkAvailability"] =
+    const eligibility: Schema<"ArtworkAvailability"> =
       await eligibleResponse.json();
     expect(eligibility).toEqual({ can_fetch: true });
     availability.push({ phase: "retrieving", value: eligibility });
     const enqueueResponse = await enqueued;
     expect(enqueueResponse.status()).toBe(202);
     expect(enqueueResponse.request().postData()).toBeNull();
-    const receipt: Schema["ArtworkFetch"] = await enqueueResponse.json();
+    const receipt: Schema<"ArtworkFetch"> = await enqueueResponse.json();
     expect(receipt.recording_id).toBe(recordingId);
     expect(["queued", "running"]).toContain(receipt.status);
     jobs.push({
@@ -388,7 +386,7 @@ test("existing independent playlist copies automatically retain private provider
         response.request().method() === "GET",
     );
     expect(runningResponse.status()).toBe(200);
-    const running: Schema["ArtworkFetch"] = await runningResponse.json();
+    const running: Schema<"ArtworkFetch"> = await runningResponse.json();
     expect(running).toMatchObject({
       id: receipt.id,
       recording_id: recordingId,
@@ -433,7 +431,7 @@ test("existing independent playlist copies automatically retain private provider
           response.request().method() === "GET",
       );
       expect(statusResponse.status()).toBe(200);
-      const status: Schema["ArtworkFetch"] = await statusResponse.json();
+      const status: Schema<"ArtworkFetch"> = await statusResponse.json();
       expect(status).toMatchObject({
         id: receipt.id,
         recording_id: recordingId,
@@ -588,7 +586,7 @@ test("existing independent playlist copies automatically retain private provider
       ])
         expect((await listener.request.get(path)).status()).toBe(404);
       expect(
-        (await get<Schema["PluginSettings"]>(listener, "/api/v1/plugins"))
+        (await get<Schema<"PluginSettings">>(listener, "/api/v1/plugins"))
           .installations,
       ).toEqual([]);
       const otherStorage = await listener.evaluate(() =>
@@ -671,7 +669,7 @@ test("existing independent playlist copies automatically retain private provider
               id: randomUUID(),
               action: { kind: "playlist_delete", playlist_id },
             })),
-          } satisfies Schema["SyncBatch"],
+          } satisfies Schema<"SyncBatch">,
         });
       if (service)
         await page.request.delete(`/api/v1/plugins/services/${service.id}`, {

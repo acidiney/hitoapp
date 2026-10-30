@@ -1,5 +1,6 @@
 import { Link } from "@inertiajs/react";
 import type { FollowResumeReview } from "../hooks/useFollowResume";
+import Button from "../../../shared/ui/Button";
 
 type FollowResumeProps = {
   paused: boolean;
@@ -30,13 +31,12 @@ export default function PlaylistFollowResume({
         Review the original connection before allowing it to update this
         playlist again. Your saved entries remain available.
       </p>
-      <button
-        className="button"
+      <Button
         disabled={pending || hasAttempt || !paused}
         onClick={() => void reviewConnection()}
       >
         Review connection
-      </button>
+      </Button>
       {review && (
         <>
           <dl>
@@ -54,13 +54,9 @@ export default function PlaylistFollowResume({
             <dd>{review.service.base_url}</dd>
           </dl>
           {!hasAttempt && (
-            <button
-              className="button"
-              disabled={pending || !paused}
-              onClick={() => void resume()}
-            >
+            <Button disabled={pending || !paused} onClick={() => void resume()}>
               Resume updates
-            </button>
+            </Button>
           )}
         </>
       )}
@@ -71,13 +67,9 @@ export default function PlaylistFollowResume({
         </>
       )}
       {hasAttempt && (
-        <button
-          className="button"
-          disabled={pending}
-          onClick={() => void retry()}
-        >
+        <Button disabled={pending} onClick={() => void retry()}>
           Retry resume request
-        </button>
+        </Button>
       )}
     </section>
   );

@@ -1,6 +1,6 @@
 import { expect, test, type Request } from "@playwright/test";
 import type { Page as InertiaPage } from "@inertiajs/core";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { liveConsolePrivacy, livePassword } from "./fixtures/podcast-live";
 import {
   podcastHistoryFeed,
@@ -9,7 +9,6 @@ import {
 } from "./fixtures/podcast-subscription-history";
 import { openLibrarySection } from "./fixtures/library-sections";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -112,7 +111,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
     });
     stage = "fresh disposable setup";
     expect(
-      (await reader.get<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await reader.get<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     await page.goto("/");
     await page.getByLabel("Username", { exact: true }).fill("history-admin");
@@ -145,7 +144,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
       openLibrarySection(page, "Podcasts"),
     ]);
     const initialPage =
-      await podcastHistoryJson<InertiaPage<Schema["PodcastIndexPageProps"]>>(
+      await podcastHistoryJson<InertiaPage<Schema<"PodcastIndexPageProps">>>(
         initialResponse,
       );
     evidence.initial_props_empty =
@@ -177,9 +176,9 @@ test("a packaged subscription survives returning to the original empty Inertia h
       page.getByRole("button", { name: "Subscribe", exact: true }).click(),
     ]);
     const receipt = await podcastHistoryJson<
-      Schema["PodcastSubscriptionReceipt"]
+      Schema<"PodcastSubscriptionReceipt">
     >(accepted, 202);
-    const submitted: Schema["SubscribePodcast"] = accepted
+    const submitted: Schema<"SubscribePodcast"> = accepted
       .request()
       .postDataJSON();
     evidence.receipt_matches =
@@ -191,12 +190,12 @@ test("a packaged subscription survives returning to the original empty Inertia h
     expect(evidence.receipt_matches).toBe(true);
     subscriptionId = receipt.subscription_id;
     stage = "authoritative imported subscription";
-    let subscription: Schema["PodcastSubscription"] | undefined;
+    let subscription: Schema<"PodcastSubscription"> | undefined;
     await expect
       .poll(
         async () => {
           const subscriptions =
-            await reader.get<Schema["PodcastSubscription"][]>(
+            await reader.get<Schema<"PodcastSubscription">[]>(
               "/api/v1/podcasts",
             );
           expect(subscriptions.length).toBe(1);
@@ -254,7 +253,7 @@ test("a packaged subscription survives returning to the original empty Inertia h
       page.goBack({ waitUntil: "commit", timeout: 15_000 }),
     ]);
     const current =
-      await podcastHistoryJson<Schema["PodcastSubscription"][]>(
+      await podcastHistoryJson<Schema<"PodcastSubscription">[]>(
         currentResponse,
       );
     evidence.history_api_current =

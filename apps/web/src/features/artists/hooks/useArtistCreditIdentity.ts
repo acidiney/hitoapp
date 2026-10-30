@@ -1,13 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useEffect, useMemo, useState } from "react";
 import { artistIdentityApi } from "../api/artistIdentityApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { createUuid } from "../../../shared/uuid";
-import type {
-  ApplyArtistIdentityToCredit,
-  ArtistIdentityCreditReceipt,
-  ArtistIdentityGroup,
-} from "../../../shared/types";
 
 export type CreditIdentityTotals = {
   applied: number;
@@ -18,7 +14,7 @@ export type CreditIdentityTotals = {
 type Step = "closed" | "loading" | "choosing" | "confirming" | "applying";
 type Owner = {
   controller: AbortController | null;
-  attempt: ApplyArtistIdentityToCredit | null;
+  attempt: Schema<"ApplyArtistIdentityToCredit"> | null;
   totals: CreditIdentityTotals;
   batches: number;
   final: boolean;
@@ -26,8 +22,8 @@ type Owner = {
 };
 type View = {
   step: Step;
-  groups: ArtistIdentityGroup[];
-  selected: ArtistIdentityGroup | null;
+  groups: Schema<"ArtistIdentityGroup">[];
+  selected: Schema<"ArtistIdentityGroup"> | null;
   totals: CreditIdentityTotals | null;
   error: string;
   retrying: boolean;
@@ -52,9 +48,9 @@ const comparable = (name: string) =>
   name.trim().split(/\s+/).join(" ").toLowerCase();
 
 function validReceipt(
-  receipt: ArtistIdentityCreditReceipt,
+  receipt: Schema<"ArtistIdentityCreditReceipt">,
   artist: string,
-  body: ApplyArtistIdentityToCredit,
+  body: Schema<"ApplyArtistIdentityToCredit">,
 ) {
   return (
     !!receipt &&
@@ -140,7 +136,7 @@ export function useArtistCreditIdentity(
     }
   }
 
-  async function apply(group: ArtistIdentityGroup) {
+  async function apply(group: Schema<"ArtistIdentityGroup">) {
     if (owner.controller) return;
     owner.totals = noTotals();
     owner.batches = 0;
@@ -152,7 +148,7 @@ export function useArtistCreditIdentity(
     await continueApply(group);
   }
 
-  async function continueApply(group: ArtistIdentityGroup) {
+  async function continueApply(group: Schema<"ArtistIdentityGroup">) {
     const started = performance.now();
     let reason = "completed";
     show((value) => ({
@@ -231,7 +227,7 @@ export function useArtistCreditIdentity(
   return {
     ...view,
     find,
-    choose: (group: ArtistIdentityGroup) =>
+    choose: (group: Schema<"ArtistIdentityGroup">) =>
       show((value) => ({
         ...value,
         step: "confirming",

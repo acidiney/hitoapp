@@ -16,14 +16,12 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   copiedPlaylistPage as props,
   recordingA,
 } from "../fixtures/playlistPages";
 import { playlistConnection } from "../fixtures/playlistImports";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -38,14 +36,14 @@ test("an imported copy finds missing albums only on request without changing its
   const origin = props.detail.origin;
   if (!origin)
     throw new Error("The copied playlist needs its original provider");
-  const installation: Schema["PluginInstallation"] = {
+  const installation: Schema<"PluginInstallation"> = {
     ...playlistConnection,
     id: origin.installation_id,
     service_id: origin.service_id,
     revision: origin.installation_revision + 4,
     manifest: { ...playlistConnection.manifest, id: origin.provider },
   };
-  const settings: Schema["PluginSettings"] = {
+  const settings: Schema<"PluginSettings"> = {
     credential_storage_ready: true,
     installations: [
       { ...installation, id: "unrelated-installation", revision: 99 },
@@ -144,7 +142,7 @@ test("an imported copy finds missing albums only on request without changing its
     headers: { "x-hito-account": props.user.id },
     signal: expect.any(AbortSignal),
   });
-  const request: Schema["RefreshImportedPlaylistMetadata"] = JSON.parse(
+  const request: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
     String(requestOptions?.body),
   );
   expect(request).toEqual({
@@ -163,7 +161,7 @@ test("an imported copy finds missing albums only on request without changing its
         updated_recordings: 1,
         unchanged_recordings: 0,
         unavailable_recordings: 1,
-      } satisfies Schema["ImportedPlaylistMetadataRefresh"]),
+      } satisfies Schema<"ImportedPlaylistMetadataRefresh">),
     ),
   );
   await waitFor(() =>

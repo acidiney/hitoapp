@@ -1,9 +1,11 @@
-import type { ImportedPlaylistMetadataRefresh } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
+import Button from "../../../shared/ui/Button";
 
 type MetadataRefreshProps = {
   pending: boolean;
   hasAttempt: boolean;
-  receipt: ImportedPlaylistMetadataRefresh | null;
+  receipt: Schema<"ImportedPlaylistMetadataRefresh"> | null;
   error: string;
   detailError: string;
   detailsPending: boolean;
@@ -30,21 +32,13 @@ export default function PlaylistMetadataRefresh({
         Find missing album information through this playlist's original
         connection.
       </p>
-      <button
-        className="button"
-        disabled={pending || hasAttempt}
-        onClick={() => void refresh()}
-      >
+      <Button disabled={pending || hasAttempt} onClick={() => void refresh()}>
         Find missing albums
-      </button>
+      </Button>
       {hasAttempt && (
-        <button
-          className="button"
-          disabled={pending}
-          onClick={() => void retry()}
-        >
+        <Button disabled={pending} onClick={() => void retry()}>
           Retry album lookup
-        </button>
+        </Button>
       )}
       {receipt && (
         <p role="status">
@@ -58,13 +52,9 @@ export default function PlaylistMetadataRefresh({
       {detailError && (
         <>
           <p role="alert">{detailError}</p>
-          <button
-            className="button"
-            disabled={pending || detailsPending}
-            onClick={reloadDetails}
-          >
+          <Button disabled={pending || detailsPending} onClick={reloadDetails}>
             Reload playlist details
-          </button>
+          </Button>
         </>
       )}
     </section>

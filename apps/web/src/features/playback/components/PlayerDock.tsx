@@ -7,7 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { ChevronUp, ListOrdered, Volume2 } from "lucide-react";
-import { coverIdentity } from "../../artwork/coverIdentity";
+import { coverIdentity } from "../../artwork/model/coverIdentity";
 import { usePlayer } from "./PlaybackProvider";
 import PlaybackControls from "./PlaybackControls";
 import Artwork from "../../artwork/components/Artwork";

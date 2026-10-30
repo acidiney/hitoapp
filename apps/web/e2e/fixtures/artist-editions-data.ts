@@ -1,10 +1,8 @@
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export function artistEditionsData(
-  group: Schema["CatalogReleaseGroup"],
-  artist: Schema["CatalogArtistRef"],
+  group: Schema<"CatalogReleaseGroup">,
+  artist: Schema<"CatalogArtistRef">,
 ) {
   const title = "Sessão nº 1";
   const cursor = "private-owned-edition-cursor:next?versão=二";
@@ -20,7 +18,7 @@ export function artistEditionsData(
     release_date: "2024-02",
     country: "PT",
     revision: null,
-  } satisfies Schema["CatalogEditionSummary"];
+  } satisfies Schema<"CatalogEditionSummary">;
   const bonus = {
     id: "opaque:edition/bónus?versão=二",
     title,
@@ -29,19 +27,19 @@ export function artistEditionsData(
     release_date: null,
     country: null,
     revision: "private-owned-edition-revision:bonus",
-  } satisfies Schema["CatalogEditionSummary"];
+  } satisfies Schema<"CatalogEditionSummary">;
   const first = {
     release_group_id: group.id,
     snapshot,
     items: [standard],
     total_count: null,
     next_cursor: cursor,
-  } satisfies Schema["ReleaseGroupEditionsPage"];
+  } satisfies Schema<"ReleaseGroupEditionsPage">;
   const last = {
     ...first,
     items: [bonus],
     next_cursor: null,
-  } satisfies Schema["ReleaseGroupEditionsPage"];
+  } satisfies Schema<"ReleaseGroupEditionsPage">;
   const tracks = {
     id: bonus.id,
     release_group_id: group.id,
@@ -104,7 +102,7 @@ export function artistEditionsData(
         ],
       },
     ],
-  } satisfies Schema["CatalogEditionTrackList"];
+  } satisfies Schema<"CatalogEditionTrackList">;
   const privateValues = [
     title,
     cursor,

@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
@@ -9,17 +10,12 @@ import MetadataObservations from "../components/MetadataObservations";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useMetadataHistory } from "../hooks/useMetadataHistory";
 import { metadataApi } from "../api/metadataApi";
-import type {
-  ObservationPage,
-  RecordingMetadata,
-  ReleaseMetadata,
-  TextMetadata,
-} from "../../../shared/types";
+
 import type {
   MetadataEditorInput,
   MetadataField,
   MetadataTarget,
-} from "../metadata";
+} from "../model/metadata";
 
 const player = vi.hoisted(() => ({ setRecordingField: vi.fn() }));
 vi.mock("../../playback/components/PlaybackProvider", () => ({
@@ -100,14 +96,14 @@ test("an accepted title reset updates the queue and reloads details", async () =
 });
 
 test("a late history response cannot appear after switching accounts", async () => {
-  let resolve!: (value: RecordingMetadata) => void;
+  let resolve!: (value: Schema<"RecordingMetadata">) => void;
   vi.mocked(metadataApi.history).mockReturnValueOnce(
     new Promise((done) => {
       resolve = done;
     }),
   );
-  const alice: ObservationPage = { items: [], next_before: 20 };
-  const bob: ObservationPage = { items: [], next_before: null };
+  const alice: Schema<"ObservationPage"> = { items: [], next_before: 20 };
+  const bob: Schema<"ObservationPage"> = { items: [], next_before: null };
   const { result, rerender } = renderHook(
     ({ account, initial }) =>
       useMetadataHistory(
@@ -244,13 +240,13 @@ test("a failed title save preserves the draft and keeps the player unchanged", a
 });
 
 test("history requests cannot leak between recording and album targets with the same ID", async () => {
-  let resolve!: (value: RecordingMetadata) => void;
+  let resolve!: (value: Schema<"RecordingMetadata">) => void;
   vi.mocked(metadataApi.history).mockReturnValueOnce(
     new Promise((done) => {
       resolve = done;
     }),
   );
-  const initial: ObservationPage = { items: [], next_before: 20 };
+  const initial: Schema<"ObservationPage"> = { items: [], next_before: 20 };
   const { result, rerender } = renderHook(
     ({ kind }: { kind: "recording" | "release" }) =>
       useMetadataHistory("alice", { kind, id: "same" }, initial),
@@ -286,7 +282,7 @@ test("history requests cannot leak between recording and album targets with the 
 });
 
 test("an unknown album artist can be personalized and reset without changing recording credits", async () => {
-  const unknown: ReleaseMetadata = {
+  const unknown: Schema<"ReleaseMetadata"> = {
     release_id: "source-free-album",
     title: {
       value: "Owned album",
@@ -302,7 +298,10 @@ test("an unknown album artist can be personalized and reset without changing rec
     },
     observations: { items: [], next_before: null },
   };
-  const requiredRecording: Pick<RecordingMetadata, "title" | "artist"> = {
+  const requiredRecording: Pick<
+    Schema<"RecordingMetadata">,
+    "title" | "artist"
+  > = {
     title: {
       value: "Owned track",
       inherited: "Owned track",
@@ -328,7 +327,7 @@ test("an unknown album artist can be personalized and reset without changing rec
   vi.mocked(router.reload)
     .mockImplementationOnce(finishReload)
     .mockImplementationOnce(finishReload);
-  const albumEditor = (metadata: ReleaseMetadata) =>
+  const albumEditor = (metadata: Schema<"ReleaseMetadata">) =>
     createElement(MetadataEditor, {
       account: "alice",
       kind: "release",
@@ -365,7 +364,7 @@ test("an unknown album artist can be personalized and reset without changing rec
     },
     expect.any(AbortSignal),
   );
-  const personal: ReleaseMetadata = {
+  const personal: Schema<"ReleaseMetadata"> = {
     ...unknown,
     artist: {
       value: "Owned personal album credit",
@@ -392,7 +391,7 @@ test("an unknown album artist can be personalized and reset without changing rec
     },
     expect.any(AbortSignal),
   );
-  const reset: ReleaseMetadata = {
+  const reset: Schema<"ReleaseMetadata"> = {
     ...unknown,
     artist: {
       value: null,
@@ -450,7 +449,7 @@ function Editor({
   account: string;
   target: MetadataTarget;
   field: MetadataField;
-  metadata: TextMetadata;
+  metadata: Schema<"TextMetadata">;
 }) {
   const inherited = {
     value: "Source",

@@ -1,20 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { sourceChoiceApi } from "../api/sourceChoiceApi";
-import type {
-  ChooseSource,
-  ResetSourceChoice,
-  SourceChoice,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
-  | { kind: "choose"; body: Readonly<ChooseSource> }
-  | { kind: "reset"; body: Readonly<ResetSourceChoice> };
+  | { kind: "choose"; body: Readonly<Schema<"ChooseSource">> }
+  | { kind: "reset"; body: Readonly<Schema<"ResetSourceChoice">> };
 type View = {
-  choice: SourceChoice | null;
+  choice: Schema<"SourceChoice"> | null;
   stagedSource: string | null;
   checking: boolean;
   pending: Attempt["kind"] | null;

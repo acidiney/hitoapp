@@ -1,10 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { ArtistEditionsData } from "./artist-editions-data";
 import { preferencesAction } from "./metadata-preferences-state";
-
-type Schema = components["schemas"];
 
 export async function browseArtistEditions(
   page: Page,
@@ -31,7 +29,7 @@ export async function browseArtistEditions(
     releases.getByRole("button", { name: "Browse editions", exact: true }),
   ).toHaveCount(2);
   const first = await preferencesAction<
-    Schema["ReleaseGroupEditionsAvailability"]
+    Schema<"ReleaseGroupEditionsAvailability">
   >(
     page,
     group.getByRole("button", { name: "Browse editions", exact: true }),
@@ -48,7 +46,7 @@ export async function browseArtistEditions(
       release_group_id: catalog.group.id,
       limit: 20,
       continuation: null,
-    } satisfies Schema["ReadReleaseGroupEditions"]) &&
+    } satisfies Schema<"ReadReleaseGroupEditions">) &&
       first.body.association_id === association &&
       isDeepStrictEqual(first.body.page, catalog.first) &&
       continuation !== catalog.cursor &&
@@ -81,7 +79,7 @@ export async function browseArtistEditions(
 
   checkpoint("explicit edition continuation retains same-title versions");
   const last = await preferencesAction<
-    Schema["ReleaseGroupEditionsAvailability"]
+    Schema<"ReleaseGroupEditionsAvailability">
   >(
     page,
     region.getByRole("button", { name: "Load more editions", exact: true }),
@@ -94,7 +92,7 @@ export async function browseArtistEditions(
       release_group_id: catalog.group.id,
       limit: 20,
       continuation,
-    } satisfies Schema["ReadReleaseGroupEditions"]) &&
+    } satisfies Schema<"ReadReleaseGroupEditions">) &&
       last.body?.status === "available" &&
       last.body.association_id === association &&
       !last.body.continuation &&
@@ -134,7 +132,7 @@ export async function browseArtistEditions(
 
   checkpoint("explicit bonus edition preserves complete ordered occurrences");
   const selected = await preferencesAction<
-    Schema["EditionTrackListAvailability"]
+    Schema<"EditionTrackListAvailability">
   >(
     page,
     bonus.getByRole("button", { name: "Choose edition", exact: true }),
@@ -146,7 +144,7 @@ export async function browseArtistEditions(
     isDeepStrictEqual(selected.sent, {
       release_group_id: catalog.group.id,
       edition_id: catalog.bonus.id,
-    } satisfies Schema["ReadEditionTrackList"]) &&
+    } satisfies Schema<"ReadEditionTrackList">) &&
       selected.body?.status === "available" &&
       selected.body.association_id === association &&
       isDeepStrictEqual(selected.body.edition, catalog.tracks) &&

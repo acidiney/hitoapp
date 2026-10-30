@@ -16,14 +16,12 @@ import {
   usePlayer,
 } from "../../playback/components/PlaybackProvider";
 import type { Player } from "../../playback/model";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   copiedPlaylistPage as props,
   recordingA,
 } from "../fixtures/playlistPages";
 import { playlistConnection } from "../fixtures/playlistImports";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -41,14 +39,14 @@ test("a lost album lookup response retries its frozen operation while the provid
   const origin = props.detail.origin;
   if (!origin)
     throw new Error("The copied playlist needs its original provider");
-  const installation: Schema["PluginInstallation"] = {
+  const installation: Schema<"PluginInstallation"> = {
     ...playlistConnection,
     id: origin.installation_id,
     service_id: origin.service_id,
     revision: origin.installation_revision + 6,
     manifest: { ...playlistConnection.manifest, id: origin.provider },
   };
-  const settings: Schema["PluginSettings"] = {
+  const settings: Schema<"PluginSettings"> = {
     credential_storage_ready: true,
     installations: [installation],
     services: [
@@ -67,7 +65,7 @@ test("a lost album lookup response retries its frozen operation while the provid
     "Lost reply from https://private-provider.invalid/audio?signed=private-canary";
   let settingsReads = 0;
   let metadataPosts = 0;
-  let accepted: Schema["ImportedPlaylistMetadataRefresh"] | null = null;
+  let accepted: Schema<"ImportedPlaylistMetadataRefresh"> | null = null;
   let resolveRetry!: (response: Response) => void;
   const retryResponse = new Promise<Response>((resolve) => {
     resolveRetry = resolve;
@@ -101,7 +99,7 @@ test("a lost album lookup response retries its frozen operation while the provid
     if (path === metadataPath && method === "POST") {
       metadataPosts++;
       if (metadataPosts === 1) {
-        const body: Schema["RefreshImportedPlaylistMetadata"] = JSON.parse(
+        const body: Schema<"RefreshImportedPlaylistMetadata"> = JSON.parse(
           String(options?.body),
         );
         accepted = {

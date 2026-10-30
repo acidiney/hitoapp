@@ -1,4 +1,5 @@
-import type { ArtistIdentityGroupPageProps } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { Link, usePage } from "@inertiajs/react";
 import { useMutation } from "../../../shared/hooks/useMutation";
 import Artwork from "../../artwork/components/Artwork";
@@ -23,7 +24,7 @@ export default function ArtistIdentityGroupPage({
   playlists,
   libraries: accessibleLibraries,
   detail,
-}: ArtistIdentityGroupPageProps) {
+}: Schema<"ArtistIdentityGroupPageProps">) {
   const { group, libraries, releases, recordings } = detail;
   const { mutate } = useMutation(user.id);
   const tracks = recordings.items.map(({ recording }) => ({

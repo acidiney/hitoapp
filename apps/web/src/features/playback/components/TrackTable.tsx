@@ -1,10 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { useSyncExternalStore } from "react";
 import { Link } from "@inertiajs/react";
 import { Play } from "lucide-react";
 import { time } from "../../../shared/format";
 import { usePlayer } from "./PlaybackProvider";
 import type { PlaybackStart, Track } from "../model";
-import type { Playlist, PlaylistEntry } from "../../../shared/types";
+
 import type { Mutate } from "../../../shared/hooks/useMutation";
 import TrackActions, { PlaylistEntryRemove } from "./TrackActions";
 import EntryMoves from "./EntryMoves";
@@ -27,7 +28,10 @@ export type TrackTableRow =
   | { kind: "recording"; track: TrackRow }
   | {
       kind: "retained";
-      entry: Pick<PlaylistEntry, "entry_id" | "title" | "artist" | "origin">;
+      entry: Pick<
+        Schema<"PlaylistEntry">,
+        "entry_id" | "title" | "artist" | "origin"
+      >;
     };
 
 export type PlaylistEdit = {
@@ -49,8 +53,8 @@ export default function TrackTable({
   rows: TrackTableRow[];
   listing?: TrackListing;
   offset?: number;
-  playlists: Playlist[];
-  playlist?: Playlist;
+  playlists: Schema<"Playlist">[];
+  playlist?: Schema<"Playlist">;
   mutate: Mutate;
 }) {
   const player = usePlayer();

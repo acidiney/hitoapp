@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { providerFixture } from "./fixtures/provider";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { openLibrarySection } from "./fixtures/library-sections";
-type Schema = components["schemas"];
 
 test("selected provider audio plays and seeks in the library without exposing its private connection", async ({
   page,
@@ -22,20 +21,20 @@ test("selected provider audio plays and seeks in the library without exposing it
       data: {
         name: "Relay service",
         base_url: fixture.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: fixture.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
-    const connection: Schema["PluginInstallation"] = await installed.json();
+    const connection: Schema<"PluginInstallation"> = await installed.json();
     const results = await page.request.post(
       `/api/v1/plugins/${connection.id}/search`,
       {
@@ -44,11 +43,11 @@ test("selected provider audio plays and seeks in the library without exposing it
           installation_revision: connection.revision,
           query: "Relay",
           limit: 10,
-        } satisfies Schema["ProviderSearch"],
+        } satisfies Schema<"ProviderSearch">,
       },
     );
     expect(results.status()).toBe(200);
-    const found: Schema["SearchPage"] = await results.json();
+    const found: Schema<"SearchPage"> = await results.json();
     expect(found.items.map((item) => item.id)).toEqual([fixture.recording.id]);
     const adopted = await page.request.post(
       `/api/v1/plugins/${connection.id}/recordings`,
@@ -57,11 +56,11 @@ test("selected provider audio plays and seeks in the library without exposing it
         data: {
           installation_revision: connection.revision,
           provider_recording_id: found.items[0].id,
-        } satisfies Schema["AdoptProviderRecording"],
+        } satisfies Schema<"AdoptProviderRecording">,
       },
     );
     expect(adopted.status()).toBe(200);
-    const recording: Schema["Recording"] = await adopted.json();
+    const recording: Schema<"Recording"> = await adopted.json();
     expect(recording.id).not.toBe(fixture.recording.id);
     await page.goto(`/library?q=${encodeURIComponent(recording.title)}`);
     await page

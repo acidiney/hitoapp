@@ -10,7 +10,7 @@ import {
 import { expect, test, vi } from "vitest";
 import { ArtworkProvider } from "../../artwork/components/ArtworkProvider";
 import { NoticeProvider } from "../../../shared/ui/Notices";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   lyricObservation,
   lyricRecordingPage,
@@ -20,8 +20,6 @@ import { automaticChoice } from "../../sources/fixtures/sourceChoice";
 import RecordingDetailsPage from "../../recordings/pages/RecordingDetailsPage";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
 import { log } from "../../../shared/log";
-
-type Schema = components["schemas"];
 
 vi.mock("@inertiajs/react", () => ({
   router: { reload: vi.fn(), visit: vi.fn() },
@@ -67,7 +65,7 @@ test("track details chooses an exact current attached lyric provider without cha
       },
       attached,
     ],
-  } satisfies Schema["RecordingLyricsProviders"];
+  } satisfies Schema<"RecordingLyricsProviders">;
   const result = {
     ...readyLyrics,
     observation_id: attached.observation_id,
@@ -75,7 +73,7 @@ test("track details chooses an exact current attached lyric provider without cha
       ...readyLyrics.document,
       recording: attached.provider_recording,
     },
-  } satisfies Schema["LyricsLookup"];
+  } satisfies Schema<"LyricsLookup">;
   const requests: { path: string; method: string; options?: RequestInit }[] =
     [];
   const responses: Response[] = [];
@@ -162,7 +160,7 @@ test("track details chooses an exact current attached lyric provider without cha
     expect(JSON.parse(String(writes[0].options?.body))).toEqual({
       observation_id: attached.observation_id,
       installation_revision: attached.installation_revision,
-    } satisfies Schema["ReadRecordingLyrics"]);
+    } satisfies Schema<"ReadRecordingLyrics">);
     expect(
       requests.every((request) =>
         [

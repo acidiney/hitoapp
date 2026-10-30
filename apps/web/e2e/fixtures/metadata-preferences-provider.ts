@@ -5,9 +5,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { components } from "../../src/generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../src/shared/schema";
 
 export async function metadataPreferencesProvider() {
   if (process.env.HITO_METADATA_PREFERENCES_E2E !== "1")
@@ -22,7 +20,7 @@ export async function metadataPreferencesProvider() {
         name,
         protocol_version: 1,
         capabilities: ["catalog"],
-      }) satisfies Schema["Manifest"],
+      }) satisfies Schema<"Manifest">,
   );
   const calls = {
     manifest: [0, 0],

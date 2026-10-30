@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import ArtistReview from "../components/ArtistReview";
-import type { components } from "../../../generated";
+import type { Schema } from "../../../shared/schema";
 import {
   artistAssociation,
   artistReviewAccount,
@@ -19,11 +19,9 @@ import {
   unselectedArtistIdentity,
 } from "../fixtures/artistIdentity";
 
-type Schema = components["schemas"];
-
 test("a rejected stale revision requires an explicit current-choice check before a new selection", async () => {
   const base = `/api/v1/recordings/${artistReviewDetail.recording_id}`;
-  const writes: Schema["ChooseRecordingArtistIdentity"][] = [];
+  const writes: Schema<"ChooseRecordingArtistIdentity">[] = [];
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
     if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -55,7 +53,7 @@ test("a rejected stale revision requires an explicit current-choice check before
     if (method === "PUT" && path === `${base}/artist-identity`) {
       const body = JSON.parse(
         options?.body as string,
-      ) as Schema["ChooseRecordingArtistIdentity"];
+      ) as Schema<"ChooseRecordingArtistIdentity">;
       writes.push(body);
       if (writes.length === 1)
         return Response.json(
@@ -70,7 +68,7 @@ test("a rejected stale revision requires an explicit current-choice check before
           association_id: artistAssociation.id,
           group_id: artistIdentityGroup,
         },
-      } satisfies Schema["ArtistIdentityChoiceReceipt"]);
+      } satisfies Schema<"ArtistIdentityChoiceReceipt">);
     }
     throw new Error(
       "Unexpected request outside the owned artist identity conflict",
@@ -125,12 +123,12 @@ test.each(["selected", "needs_review"] as const)(
   "%s choice can be reset explicitly with metadata disabled and an unavailable group label",
   async (status) => {
     const base = `/api/v1/recordings/${artistReviewDetail.recording_id}`;
-    const writes: Schema["ResetRecordingArtistIdentity"][] = [];
+    const writes: Schema<"ResetRecordingArtistIdentity">[] = [];
     const original = {
       ...selectedArtistIdentity,
       revision: 5,
       state: { ...selectedArtistIdentity.state, status },
-    } satisfies Schema["RecordingArtistIdentityChoice"];
+    } satisfies Schema<"RecordingArtistIdentityChoice">;
     const fetch = vi.fn(async (path: string, options?: RequestInit) => {
       const method = options?.method ?? "GET";
       if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -157,7 +155,7 @@ test.each(["selected", "needs_review"] as const)(
       if (method === "POST" && path === `${base}/artist-identity/reset`) {
         const body = JSON.parse(
           options?.body as string,
-        ) as Schema["ResetRecordingArtistIdentity"];
+        ) as Schema<"ResetRecordingArtistIdentity">;
         expect(body).toEqual({
           request_id: expect.stringMatching(
             /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -170,7 +168,7 @@ test.each(["selected", "needs_review"] as const)(
           recording_id: artistReviewDetail.recording_id,
           revision: 6,
           selection: null,
-        } satisfies Schema["ArtistIdentityChoiceReceipt"]);
+        } satisfies Schema<"ArtistIdentityChoiceReceipt">);
       }
       throw new Error("Unexpected request outside local identity reset");
     });
@@ -214,7 +212,7 @@ test("an ambiguous choice retries its exact request and displays current state r
   const current = {
     ...unselectedArtistIdentity,
     revision: 3,
-  } satisfies Schema["RecordingArtistIdentityChoice"];
+  } satisfies Schema<"RecordingArtistIdentityChoice">;
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     const method = options?.method ?? "GET";
     if (method === "GET" && path === "/api/v1/metadata/settings")
@@ -238,7 +236,7 @@ test("an ambiguous choice retries its exact request and displays current state r
       bodies.push(options?.body as string);
       const body = JSON.parse(
         bodies.at(-1)!,
-      ) as Schema["ChooseRecordingArtistIdentity"];
+      ) as Schema<"ChooseRecordingArtistIdentity">;
       if (bodies.length === 1)
         throw new TypeError("Owned private transport detail must stay private");
       return Response.json({
@@ -249,7 +247,7 @@ test("an ambiguous choice retries its exact request and displays current state r
           association_id: artistAssociation.id,
           group_id: artistIdentityGroup,
         },
-      } satisfies Schema["ArtistIdentityChoiceReceipt"]);
+      } satisfies Schema<"ArtistIdentityChoiceReceipt">);
     }
     throw new Error(
       "Unexpected request outside the owned artist identity recovery",

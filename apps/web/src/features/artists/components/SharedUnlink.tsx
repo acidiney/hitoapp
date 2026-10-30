@@ -1,11 +1,13 @@
+import type { Schema } from "../../../shared/schema";
 import type { useSharedUnlink } from "../hooks/useSharedUnlink";
-import type { ArtistAssociationChanges } from "../../../shared/types";
+
+import Button from "../../../shared/ui/Button";
 
 export default function SharedUnlink({
   state,
   sharing,
 }: {
-  state: ArtistAssociationChanges | null;
+  state: Schema<"ArtistAssociationChanges"> | null;
   sharing: ReturnType<typeof useSharedUnlink>;
 }) {
   if (
@@ -40,37 +42,31 @@ export default function SharedUnlink({
         </p>
       )}
       {state.shareable && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={busy}
           onClick={() => void sharing.share()}
         >
           Apply this unlink for everyone
-        </button>
+        </Button>
       )}
       {state.shared && (
         <>
           <p>This unlink applies to every account.</p>
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={busy}
             onClick={() => void sharing.withdraw()}
           >
             Withdraw the shared unlink
-          </button>
+          </Button>
         </>
       )}
       {sharing.error && <p role="alert">{sharing.error}</p>}
       {sharing.retrying && (
-        <button
-          type="button"
-          className="button"
-          onClick={() => void sharing.retry()}
-        >
+        <Button type="button" onClick={() => void sharing.retry()}>
           Retry the same shared unlink request
-        </button>
+        </Button>
       )}
       {sharing.notice && <p role="status">{sharing.notice}</p>}
     </section>

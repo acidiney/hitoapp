@@ -1,20 +1,18 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 import AlbumEditionTrackList from "../../artists/components/AlbumEditionTrackList";
 import ArtistDiscography from "../../artists/components/ArtistDiscography";
 import { useReviewedArtistProfile } from "../../artists/hooks/useReviewedArtistProfile";
-import type {
-  AlbumCatalogAnchor,
-  AlbumEditionChoice,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import { useAlbumEditionChoice } from "../hooks/useAlbumEditionChoice";
 import { useSavedAlbumEditionRead } from "../hooks/useSavedAlbumEditionRead";
+import Button from "../../../shared/ui/Button";
 
 type Props = {
   account: string;
   release: string;
-  anchor: AlbumCatalogAnchor | null;
-  saved: AlbumEditionChoice;
+  anchor: Schema<"AlbumCatalogAnchor"> | null;
+  saved: Schema<"AlbumEditionChoice">;
 };
 type View = "closed" | "saved" | "browse";
 
@@ -29,7 +27,7 @@ export default function AlbumCompleteTrackList({
   const state = edition.choice.state;
   const ready = state.status === "ready" ? state.edition : null;
   const linked = state.status !== "unset";
-  const browseAnchor: AlbumCatalogAnchor | null =
+  const browseAnchor: Schema<"AlbumCatalogAnchor"> | null =
     anchor ??
     (ready
       ? {
@@ -64,20 +62,19 @@ export default function AlbumCompleteTrackList({
       {edition.error && (
         <>
           <p role="alert">{edition.error}</p>
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={edition.pending}
             onClick={() => void edition.retry()}
           >
             Try saving again
-          </button>
+          </Button>
         </>
       )}
       {view === "closed" && (browseAnchor || ready) && (
-        <button type="button" className="button" onClick={open}>
+        <Button type="button" onClick={open}>
           Show complete track list
-        </button>
+        </Button>
       )}
       {view === "saved" && ready && (
         <SavedEdition
@@ -102,14 +99,13 @@ export default function AlbumCompleteTrackList({
         />
       )}
       {linked && (
-        <button
+        <Button
           type="button"
-          className="button"
           disabled={edition.pending}
           onClick={() => void forget()}
         >
           Forget edition
-        </button>
+        </Button>
       )}
     </section>
   );
@@ -145,14 +141,9 @@ function SavedEdition({
         retry={read.retry}
       />
       {canChange && (
-        <button
-          type="button"
-          className="button"
-          disabled={pending}
-          onClick={change}
-        >
+        <Button type="button" disabled={pending} onClick={change}>
           Change edition
-        </button>
+        </Button>
       )}
     </>
   );
@@ -167,9 +158,9 @@ function AlbumCatalogBrowser({
 }: {
   account: string;
   release: string;
-  anchor: AlbumCatalogAnchor;
+  anchor: Schema<"AlbumCatalogAnchor">;
   remembered: boolean;
-  remember: (edition: SavedAlbumEdition | null) => void;
+  remember: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
   const artist = useReviewedArtistProfile(account, anchor);
   return (
@@ -185,14 +176,13 @@ function AlbumCatalogBrowser({
       {artist.error && (
         <>
           <p role="alert">{artist.error}</p>
-          <button
+          <Button
             type="button"
-            className="button"
             disabled={artist.pending}
             onClick={() => void artist.retry()}
           >
             Try again
-          </button>
+          </Button>
         </>
       )}
       {artist.ready && (

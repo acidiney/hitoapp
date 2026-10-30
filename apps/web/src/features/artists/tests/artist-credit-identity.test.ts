@@ -2,9 +2,7 @@ import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import ArtistCreditIdentity from "../components/ArtistCreditIdentity";
-import type { components } from "../../../generated";
-
-type Schema = components["schemas"];
+import type { Schema } from "../../../shared/schema";
 
 const account = "10000000-0000-4000-8000-000000000001";
 const credit = { id: "credit-imported", name: "C4 Pedro" };
@@ -31,12 +29,12 @@ const groups = {
   total: 1,
   offset: 0,
   limit: 20,
-} satisfies Schema["Page_ArtistIdentityGroup"];
+} satisfies Schema<"Page_ArtistIdentityGroup">;
 
 function receipt(
-  body: Schema["ApplyArtistIdentityToCredit"],
-  counts: Partial<Schema["ArtistIdentityCreditReceipt"]> = {},
-): Schema["ArtistIdentityCreditReceipt"] {
+  body: Schema<"ApplyArtistIdentityToCredit">,
+  counts: Partial<Schema<"ArtistIdentityCreditReceipt">> = {},
+): Schema<"ArtistIdentityCreditReceipt"> {
   return {
     request_id: body.request_id,
     artist_id: credit.id,
@@ -65,7 +63,7 @@ async function open() {
 }
 
 test("a reviewed artist is applied only after confirmation and reports counted outcomes", async () => {
-  const writes: Schema["ApplyArtistIdentityToCredit"][] = [];
+  const writes: Schema<"ApplyArtistIdentityToCredit">[] = [];
   const fetch = vi.fn(async (path: string, options?: RequestInit) => {
     if (path === groupsPath) return Response.json(groups);
     if (path === applyPath && options?.method === "POST") {
@@ -102,7 +100,7 @@ test("a reviewed artist is applied only after confirmation and reports counted o
 });
 
 test("large credits continue batch by batch from the returned cursor, add the counts and finish with one pass from the start", async () => {
-  const writes: Schema["ApplyArtistIdentityToCredit"][] = [];
+  const writes: Schema<"ApplyArtistIdentityToCredit">[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {
@@ -162,7 +160,7 @@ test("a rejected later batch still reports what earlier batches committed", asyn
 });
 
 test("a cursor that does not advance stops the walk with an error", async () => {
-  const writes: Schema["ApplyArtistIdentityToCredit"][] = [];
+  const writes: Schema<"ApplyArtistIdentityToCredit">[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {
@@ -182,7 +180,7 @@ test("a cursor that does not advance stops the walk with an error", async () => 
 test.each([408, 429])(
   "a %i response keeps the request identifier for an explicit retry",
   async (status) => {
-    const writes: Schema["ApplyArtistIdentityToCredit"][] = [];
+    const writes: Schema<"ApplyArtistIdentityToCredit">[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (path: string, options?: RequestInit) => {
@@ -302,7 +300,7 @@ test("only groups reviewed under exactly this credit name are offered", async ()
 });
 
 test("a lost acknowledgement retries the exact request and an invalid receipt is rejected", async () => {
-  const writes: Schema["ApplyArtistIdentityToCredit"][] = [];
+  const writes: Schema<"ApplyArtistIdentityToCredit">[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {

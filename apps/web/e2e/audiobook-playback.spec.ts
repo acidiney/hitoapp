@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { artistReviewOriginals } from "./fixtures/artist-review-state";
 import { audiobookPlaybackEvidence } from "./fixtures/audiobook-playback-evidence";
 import {
@@ -15,7 +15,6 @@ import {
   preservedAudiobookPlayback,
 } from "./fixtures/audiobook-playback-state";
 
-type Schema = components["schemas"];
 test.use({
   trace: "off",
   screenshot: "off",
@@ -99,7 +98,7 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
       privateValues,
     );
     checks.fresh = (
-      await state.read<Schema["SetupStatus"]>("/api/v1/setup")
+      await state.read<Schema<"SetupStatus">>("/api/v1/setup")
     ).needs_setup;
     expect(checks.fresh).toBe(true);
     const originals = await artistReviewOriginals();
@@ -115,7 +114,7 @@ test("explicit chapter playback advances to the next chapter and a bookmark sele
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
     await rememberCookies();
-    const user = await state.read<Schema["User"]>("/api/v1/me");
+    const user = await state.read<Schema<"User">>("/api/v1/me");
     account = user.id;
     await page.evaluate(() =>
       console.info("owned audiobook playback console probe"),

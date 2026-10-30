@@ -1,13 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
-import type {
-  ArtistAssociation,
-  CatalogArtistProfile,
-  CatalogReleaseGroup,
-  LibraryAlbum,
-  SavedAlbumEdition,
-} from "../../../shared/types";
+
 import { releaseAvailability } from "../model/releaseAvailability";
 import DiscographyRelease from "./DiscographyRelease";
+import Button from "../../../shared/ui/Button";
 
 const SECTION_PAGE = 10;
 
@@ -25,7 +21,7 @@ const sections = [
 
 type SectionKey = (typeof sections)[number]["key"];
 
-function sectionOf(group: CatalogReleaseGroup): SectionKey {
+function sectionOf(group: Schema<"CatalogReleaseGroup">): SectionKey {
   return group.kind === "album" ||
     group.kind === "ep" ||
     group.kind === "single"
@@ -45,12 +41,12 @@ export default function DiscographySections({
 }: {
   account: string;
   recording: string;
-  association: ArtistAssociation;
-  profile: CatalogArtistProfile;
-  groups: CatalogReleaseGroup[];
-  library: Record<string, LibraryAlbum[]>;
+  association: Schema<"ArtistAssociation">;
+  profile: Schema<"CatalogArtistProfile">;
+  groups: Schema<"CatalogReleaseGroup">[];
+  library: Record<string, Schema<"LibraryAlbum">[]>;
   release?: string;
-  onAlbumEdition?: (edition: SavedAlbumEdition | null) => void;
+  onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
 }) {
   const [only, setOnly] = useState<SectionKey | null>(null);
   const [shown, setShown] = useState<Partial<Record<SectionKey, number>>>({});
@@ -135,9 +131,8 @@ export default function DiscographySections({
                 ))}
               </ul>
               {members.length > visible && (
-                <button
+                <Button
                   type="button"
-                  className="button"
                   onClick={() =>
                     setShown({
                       ...shown,
@@ -146,7 +141,7 @@ export default function DiscographySections({
                   }
                 >
                   {`Show more ${section.noun}`}
-                </button>
+                </Button>
               )}
             </section>
           );

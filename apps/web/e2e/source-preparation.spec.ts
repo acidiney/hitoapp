@@ -1,9 +1,8 @@
 import { expect, test as baseTest, type Route } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { sourcePreparationFixture } from "./fixtures/source-preparation";
 import { setUpSpotifyYouTubeLiveAccount as setUpDisposableAccount } from "./fixtures/spotify-youtube-live";
 
-type Schema = components["schemas"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const optedIn = process.env.HITO_SOURCE_PREPARATION_E2E === "1";
 const test = baseTest.extend<{ sourcePreparationPrivacy: void }>({
@@ -51,7 +50,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
   let downloadWrites = 0;
   let preparationPath = "";
   const requests: { body: string; request: string }[] = [];
-  const lostReceipts: Schema["SourcePreparationReceipt"][] = [];
+  const lostReceipts: Schema<"SourcePreparationReceipt">[] = [];
   const closePrivatePage = async () => {
     if (page.isClosed()) return;
     try {
@@ -103,7 +102,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
         )
           downloadWrites++;
         if (request.method() === "POST" && url.pathname === preparationPath) {
-          const value: Schema["PrepareSource"] = request.postDataJSON();
+          const value: Schema<"PrepareSource"> = request.postDataJSON();
           requests.push({
             body: request.postData() ?? "",
             request: value.request_id,
@@ -121,20 +120,20 @@ test("an unavailable source recovers its exact request receipt and plays only af
       data: {
         name: "Owned preparation service",
         base_url: provider.address,
-      } satisfies Schema["OfferPluginService"],
+      } satisfies Schema<"OfferPluginService">,
     });
     expect(offered.status()).toBe(201);
-    const service: Schema["PluginService"] = await offered.json();
+    const service: Schema<"PluginService"> = await offered.json();
     const installed = await page.request.post("/api/v1/plugins", {
       headers,
       data: {
         service_id: service.id,
         service_revision: service.revision,
         bearer_token: provider.token,
-      } satisfies Schema["InstallPlugin"],
+      } satisfies Schema<"InstallPlugin">,
     });
     expect(installed.status()).toBe(201);
-    const connection: Schema["PluginInstallation"] = await installed.json();
+    const connection: Schema<"PluginInstallation"> = await installed.json();
     expect(
       connection.manifest.capabilities.includes("sources") &&
         connection.manifest.capabilities.includes("source_preparation"),
@@ -146,16 +145,16 @@ test("an unavailable source recovers its exact request receipt and plays only af
         data: {
           installation_revision: connection.revision,
           provider_recording_id: provider.recording.id,
-        } satisfies Schema["AdoptProviderRecording"],
+        } satisfies Schema<"AdoptProviderRecording">,
       },
     );
     expect(adopted.status()).toBe(200);
-    const recording: Schema["Recording"] = await adopted.json();
+    const recording: Schema<"Recording"> = await adopted.json();
     expect(uuid.test(recording.id) && !recording.available).toBe(true);
     const sourcesPath = `/api/v1/recordings/${recording.id}/sources`;
     const initialSources = await page.request.get(sourcesPath);
     expect(initialSources.status()).toBe(200);
-    const before: Schema["Source"][] = await initialSources.json();
+    const before: Schema<"Source">[] = await initialSources.json();
     expect(
       before.length === 1 &&
         uuid.test(before[0].id) &&
@@ -248,7 +247,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
     const replay = await replayResponse;
     if (replay === null) throw new Error("The replay response must arrive");
     expect(replay.status()).toBe(202);
-    const replayed: Schema["SourcePreparationReceipt"] = await replay.json();
+    const replayed: Schema<"SourcePreparationReceipt"> = await replay.json();
     expect(JSON.stringify(replayed) === JSON.stringify(receipt)).toBe(true);
     expect(
       requests.length === 2 &&
@@ -273,7 +272,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
     ).toBe(true);
     const preparingResponse = await page.request.get(preparationPath);
     expect(preparingResponse.status()).toBe(200);
-    const preparing: Schema["SourcePreparationStatus"] =
+    const preparing: Schema<"SourcePreparationStatus"> =
       await preparingResponse.json();
     expect(
       preparing.preparation_id === receipt.preparation_id &&
@@ -302,7 +301,7 @@ test("an unavailable source recovers its exact request receipt and plays only af
     await expect(play).toBeEnabled();
     const readySources = await page.request.get(sourcesPath);
     expect(readySources.status()).toBe(200);
-    const after: Schema["Source"][] = await readySources.json();
+    const after: Schema<"Source">[] = await readySources.json();
     expect(
       after.length === 1 &&
         after[0].id === source &&

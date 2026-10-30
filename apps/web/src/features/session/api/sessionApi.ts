@@ -1,7 +1,8 @@
-import type { Credentials } from "../../../shared/types";
+import type { Schema } from "../../../shared/schema";
+
 import { request } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import { notifySessionChanged } from "../session";
+import { notifySessionChanged } from "./session";
 
 export const sessionApi = {
   async signIn(
@@ -15,7 +16,7 @@ export const sessionApi = {
       await request(setup ? "/setup" : "/login", {
         action,
         method: "POST",
-        body: { username, password } satisfies Credentials,
+        body: { username, password } satisfies Schema<"Credentials">,
       });
       notifySessionChanged();
       log.info("session.accepted", { action });

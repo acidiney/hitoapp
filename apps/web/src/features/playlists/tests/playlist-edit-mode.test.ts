@@ -1,3 +1,4 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import {
   cleanup,
@@ -12,7 +13,7 @@ import { router } from "@inertiajs/react";
 import PlaylistPage from "../pages/PlaylistPage";
 import { NoticeProvider } from "../../../shared/ui/Notices";
 import { PlaybackProvider } from "../../playback/components/PlaybackProvider";
-import type { SyncBatch } from "../../../shared/types";
+
 import { copiedPlaylistPage } from "../fixtures/playlistPages";
 
 vi.mock("@inertiajs/react", () => ({
@@ -41,12 +42,12 @@ afterEach(() => {
 });
 
 function open() {
-  const sent: SyncBatch[] = [];
+  const sent: Schema<"SyncBatch">[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options: RequestInit) => {
       if (path === "/api/v1/sync") {
-        const batch: SyncBatch = JSON.parse(String(options.body));
+        const batch: Schema<"SyncBatch"> = JSON.parse(String(options.body));
         sent.push(batch);
         return Response.json({
           acknowledged: batch.operations.map((operation) => operation.id),
@@ -68,7 +69,7 @@ function open() {
   return sent;
 }
 
-const actions = (sent: SyncBatch[]) =>
+const actions = (sent: Schema<"SyncBatch">[]) =>
   sent.flatMap((batch) =>
     batch.operations.map((operation) => operation.action),
   );

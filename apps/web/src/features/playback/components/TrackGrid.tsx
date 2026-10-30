@@ -1,6 +1,7 @@
+import type { Schema } from "../../../shared/schema";
 import { Play } from "lucide-react";
 import type { Mutate } from "../../../shared/hooks/useMutation";
-import type { Playlist } from "../../../shared/types";
+
 import type { TrackRow } from "./TrackTable";
 import type { TrackListing } from "../api/trackListing";
 import { usePlayTracks } from "../hooks/usePlayTracks";
@@ -15,7 +16,7 @@ export default function TrackGrid({
 }: {
   tracks: TrackRow[];
   listing?: TrackListing;
-  playlists: Playlist[];
+  playlists: Schema<"Playlist">[];
   mutate: Mutate;
 }) {
   const play = usePlayTracks(tracks, listing);

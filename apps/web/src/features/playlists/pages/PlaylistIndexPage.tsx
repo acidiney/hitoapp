@@ -1,20 +1,22 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useState, type FormEvent } from "react";
 import { Link, router } from "@inertiajs/react";
 import { Plus } from "lucide-react";
-import type { PlaylistIndexPageProps } from "../../../shared/types";
+
 import { useMutation } from "../../../shared/hooks/useMutation";
 import EmptyState from "../../../shared/ui/EmptyState";
 import PageHeading from "../../../shared/ui/PageHeading";
 import Artwork from "../../artwork/components/Artwork";
 import PlaylistImport from "../components/PlaylistImport";
+import Button from "../../../shared/ui/Button";
 
 export default function PlaylistIndexPage({
   user,
   playlists,
   connections,
   service_names,
-}: PlaylistIndexPageProps) {
+}: Schema<"PlaylistIndexPageProps">) {
   const [name, setName] = useState("");
   const { mutate, pending } = useMutation(user.id);
   async function create(event: FormEvent) {
@@ -46,10 +48,10 @@ export default function PlaylistIndexPage({
           onChange={(event) => setName(event.target.value)}
           required
         />
-        <button className="button primary" type="submit" disabled={pending}>
+        <Button variant="primary" type="submit" disabled={pending}>
           <Plus size={17} />
           Create playlist
-        </button>
+        </Button>
       </form>
       <PlaylistImport
         key={user.id}

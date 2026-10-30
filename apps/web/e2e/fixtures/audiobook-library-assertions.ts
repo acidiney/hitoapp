@@ -1,11 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import type { LibraryFixture } from "./audiobook-library-state";
 import type { LibraryDelivery } from "./audiobook-library-delivery";
 import type { LibraryEvidence } from "./audiobook-library-evidence";
 
-type Schema = components["schemas"];
 type Snapshot = Awaited<ReturnType<LibraryFixture["snapshot"]>>;
 export function unchanged(before: unknown, after: unknown) {
   expect(isDeepStrictEqual(before, after)).toBe(true);
@@ -14,9 +13,9 @@ export function unchanged(before: unknown, after: unknown) {
 export function explicitChanges(
   before: Snapshot,
   after: Snapshot,
-  operations: Schema["Operation"][],
-  books: Schema["Playlist"][],
-  playlists: Schema["Playlist"][],
+  operations: Schema<"Operation">[],
+  books: Schema<"Playlist">[],
+  playlists: Schema<"Playlist">[],
 ) {
   const expected = structuredClone(before);
   const extra = after.owner.events.slice(before.owner.events.length);

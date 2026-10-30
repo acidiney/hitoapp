@@ -1,10 +1,11 @@
+import type { Schema } from "../../../shared/schema";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useDiscovery } from "../hooks/useDiscovery";
-import type { PluginInstallation, Recording } from "../../../shared/types";
+
 import { deferred } from "../../../test/async";
 
-const connection: PluginInstallation = {
+const connection: Schema<"PluginInstallation"> = {
   id: "connection",
   service_id: "service",
   revision: 2,
@@ -22,7 +23,7 @@ const hit = {
   title: "Private provider title",
   artist: "Private artist",
 };
-const recording: Recording = {
+const recording: Schema<"Recording"> = {
   id: "durable-recording",
   library_id: "personal-library",
   title: "Personal title",
@@ -414,7 +415,7 @@ test("logs exclude queries, cursors, provider content, and rejected private erro
 });
 
 test("a service without sources still saves results but never starts playback from them", async () => {
-  const searchOnly: PluginInstallation = {
+  const searchOnly: Schema<"PluginInstallation"> = {
     ...connection,
     manifest: {
       ...connection.manifest,

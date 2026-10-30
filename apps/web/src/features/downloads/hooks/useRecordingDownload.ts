@@ -1,16 +1,17 @@
+import type { Schema } from "../../../shared/schema";
 import { createUuid } from "../../../shared/uuid";
 import { useEffect, useMemo, useState } from "react";
 import { downloadApi } from "../api/downloadApi";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
-import type { DownloadRequest, DownloadStatus } from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Attempt =
-  | { kind: "create"; body: Readonly<DownloadRequest> }
+  | { kind: "create"; body: Readonly<Schema<"DownloadRequest">> }
   | { kind: "remove"; intent: string };
 type View = {
-  download: DownloadStatus | null;
+  download: Schema<"DownloadStatus"> | null;
   checking: boolean;
   pending: Attempt["kind"] | null;
   attempt: Attempt | null;
@@ -27,12 +28,12 @@ type Owner = {
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const busy = (download: DownloadStatus | null) =>
+const busy = (download: Schema<"DownloadStatus"> | null) =>
   download !== null &&
   ["queued", "running", "verifying"].includes(download.status);
 
 function validStatus(
-  value: DownloadStatus,
+  value: Schema<"DownloadStatus">,
   recording: string,
   choiceRevision: number | undefined,
 ) {

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
-import type { components } from "../../src/generated";
+import type { Schema } from "../../src/shared/schema";
 import {
   readSpotifyYouTube as read,
   retainedImportedPlaylist,
   uuid,
 } from "./spotify-youtube-collection";
-
-type Schema = components["schemas"];
 
 export async function automaticLiveCollection(
   page: Page,
@@ -16,15 +14,15 @@ export async function automaticLiveCollection(
 ) {
   const [account, metadata, detail, playlists, catalog, activity] =
     await Promise.all([
-      read<Schema["User"]>(page, "/api/v1/me"),
-      read<Schema["RecordingMetadata"]>(
+      read<Schema<"User">>(page, "/api/v1/me"),
+      read<Schema<"RecordingMetadata">>(
         page,
         `/api/v1/recordings/${recording}/metadata`,
       ),
-      read<Schema["PlaylistDetail"]>(page, `/api/v1/playlists/${playlist}`),
-      read<Schema["Playlist"][]>(page, "/api/v1/playlists"),
-      read<Schema["RecordingPage"]>(page, "/api/v1/recordings?limit=1"),
-      read<Schema["Activity"]>(page, "/api/v1/activity"),
+      read<Schema<"PlaylistDetail">>(page, `/api/v1/playlists/${playlist}`),
+      read<Schema<"Playlist">[]>(page, "/api/v1/playlists"),
+      read<Schema<"RecordingPage">>(page, "/api/v1/recordings?limit=1"),
+      read<Schema<"Activity">>(page, "/api/v1/activity"),
     ]);
   return { account, metadata, detail, playlists, catalog, activity };
 }
@@ -72,7 +70,7 @@ export async function seedAutomaticLiveState(
           },
         },
       ],
-    } satisfies Schema["SyncBatch"],
+    } satisfies Schema<"SyncBatch">,
   });
   expect(response.status()).toBe(200);
   const before = await automaticLiveCollection(page, recording, playlist);
@@ -98,10 +96,10 @@ export async function assertAutomaticLiveCollection(
   page: Page,
   recording: string,
   playlist: string,
-  youtube: Schema["PluginInstallation"],
+  youtube: Schema<"PluginInstallation">,
   before: Awaited<ReturnType<typeof automaticLiveCollection>>,
   playedSource: string,
-  resolution: Schema["SourceResolution"],
+  resolution: Schema<"SourceResolution">,
   observedSeconds: number,
 ) {
   const after = await automaticLiveCollection(page, recording, playlist);
@@ -138,7 +136,7 @@ export async function assertAutomaticLiveCollection(
         ),
       ),
   ).toBe(true);
-  const sources = await read<Schema["Source"][]>(
+  const sources = await read<Schema<"Source">[]>(
     page,
     `/api/v1/recordings/${recording}/sources`,
   );
@@ -156,7 +154,7 @@ export async function assertAutomaticLiveCollection(
         (source) => source.id === playedSource && source.ready,
       ),
   ).toBe(true);
-  const choice = await read<Schema["SourceChoice"]>(
+  const choice = await read<Schema<"SourceChoice">>(
     page,
     `/api/v1/recordings/${recording}/source-choice`,
   );
@@ -164,7 +162,7 @@ export async function assertAutomaticLiveCollection(
   await expect
     .poll(
       async () => {
-        const activity = await read<Schema["Activity"]>(
+        const activity = await read<Schema<"Activity">>(
           page,
           "/api/v1/activity",
         );

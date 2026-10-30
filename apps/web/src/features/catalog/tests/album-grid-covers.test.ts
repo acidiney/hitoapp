@@ -1,8 +1,8 @@
+import type { Schema } from "../../../shared/schema";
 import { createElement, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import AlbumGrid from "../components/AlbumGrid";
-import type { Release } from "../../../shared/types";
 
 vi.mock("@inertiajs/react", () => ({
   Link: ({ children, href, ...rest }: { children: ReactNode; href: string }) =>
@@ -24,7 +24,7 @@ const release = {
   artist_id: "artist-1",
   track_count: 4,
   duration_ms: 1000,
-} as unknown as Release;
+} as unknown as Schema<"Release">;
 
 test("an album without artwork gets a deterministic generated cover", () => {
   const { container } = render(

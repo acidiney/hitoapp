@@ -1,11 +1,12 @@
+import type { Schema } from "../../../shared/schema";
 import { act, renderHook } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { useSourcePreparation } from "../hooks/useSourcePreparation";
-import type { Source, SourcePreparationStatus } from "../../../shared/types";
+
 import { heldResponse } from "../../../test/async";
 
 const recording = "bd22c4d8-c9cc-42c1-9cb7-57c729c69653";
-const source: Source = {
+const source: Schema<"Source"> = {
   id: "b98cf49b-d617-415c-93c3-2a2f9955c779",
   recording_id: recording,
   provider: "plugin",
@@ -19,12 +20,12 @@ const other = "60055886-325b-49e5-8326-9f237c6111ef";
 const initial = {
   account: "alice",
   recording,
-  source: source as Source | null,
+  source: source as Schema<"Source"> | null,
 };
 
 function status(
-  update: Partial<SourcePreparationStatus> = {},
-): SourcePreparationStatus {
+  update: Partial<Schema<"SourcePreparationStatus">> = {},
+): Schema<"SourcePreparationStatus"> {
   return {
     preparation_id: preparation,
     recording_id: recording,

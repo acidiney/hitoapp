@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePlayer } from "./PlaybackProvider";
 import { useQueuePage } from "../hooks/useQueuePage";
 import Artwork from "../../artwork/components/Artwork";
-import { coverIdentity } from "../../artwork/coverIdentity";
+import { coverIdentity } from "../../artwork/model/coverIdentity";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import RouteLink from "../../../shared/ui/RouteLink";
 import { time } from "../../../shared/format";

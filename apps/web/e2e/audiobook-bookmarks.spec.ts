@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 import { bookmarkDelivery } from "./fixtures/audiobook-bookmarks-delivery";
 import { bookmarkEvidence } from "./fixtures/audiobook-bookmarks-evidence";
 import {
@@ -11,7 +11,6 @@ import {
 } from "./fixtures/artist-review-state";
 import { seedPreferencesLibrary } from "./fixtures/metadata-preferences-state";
 
-type Schema = components["schemas"];
 type Saved = Awaited<ReturnType<typeof seedPreferencesLibrary>>;
 test.use({
   trace: "off",
@@ -82,7 +81,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
   const post = async <T>(
     path: string,
     account: string,
-    data: Schema["SyncBatch"] | Schema["SavedPlaybackRequest"],
+    data: Schema<"SyncBatch"> | Schema<"SavedPlaybackRequest">,
   ): Promise<T> => {
     budget();
     if (Buffer.byteLength(JSON.stringify(data)) > 16_384)
@@ -111,7 +110,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
     evidence = await bookmarkEvidence(context, origin, privateValues);
     delivery = await bookmarkDelivery(context, origin, evidence);
     expect(
-      (await read<Schema["SetupStatus"]>("/api/v1/setup")).needs_setup,
+      (await read<Schema<"SetupStatus">>("/api/v1/setup")).needs_setup,
     ).toBe(true);
     const originals = await artistReviewOriginals();
     await page.goto("/");
@@ -124,7 +123,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
       page.getByRole("heading", { name: "Your library", exact: true }),
     ).toBeVisible();
     await rememberCookies();
-    const user = await read<Schema["User"]>("/api/v1/me");
+    const user = await read<Schema<"User">>("/api/v1/me");
 
     stage = "synthetic folders and private preparation";
     const saved = await seedPreferencesLibrary(page, read, user);
@@ -138,14 +137,14 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
           action: { kind: "audiobook_create", playlist_id: saved.playlist },
         },
       ],
-    } satisfies Schema["SyncBatch"];
+    } satisfies Schema<"SyncBatch">;
     expect(
       isDeepStrictEqual(
-        await post<Schema["SyncReceipt"]>("/api/v1/sync", user.id, group),
+        await post<Schema<"SyncReceipt">>("/api/v1/sync", user.id, group),
         { acknowledged: [group.operations[0].id] },
       ),
     ).toBe(true);
-    const beforeBook = await read<Schema["AudiobookDetail"]>(
+    const beforeBook = await read<Schema<"AudiobookDetail">>(
       `/api/v1/audiobooks/${saved.playlist}`,
     );
     expect(
@@ -176,7 +175,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
         ) &&
         before.sources.every((sources) => sources.length === 1),
     ).toBe(true);
-    const cursor = await read<Schema["SyncPage"]>("/api/v1/sync?cursor=0");
+    const cursor = await read<Schema<"SyncPage">>("/api/v1/sync?cursor=0");
     expect(!cursor.has_more).toBe(true);
     budget(saved.ids.length);
     const absent = await artistReviewDownloadAbsence(page, saved.ids);
@@ -222,10 +221,10 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
     if (action.kind !== "audiobook_bookmark_create")
       throw new Error("The bookmark create has no identity");
     privateValues.push(action.bookmark_id);
-    const committed = await read<Schema["AudiobookDetail"]>(
+    const committed = await read<Schema<"AudiobookDetail">>(
       `/api/v1/audiobooks/${saved.playlist}`,
     );
-    const createEvents = await read<Schema["SyncPage"]>(
+    const createEvents = await read<Schema<"SyncPage">>(
       `/api/v1/sync?cursor=${cursor.cursor}`,
     );
     checks.created_once =
@@ -306,7 +305,7 @@ test("a private bookmark survives a lost accepted acknowledgement and reload bef
     delivery.release(2);
     await expect(markers.getByRole("listitem")).toHaveCount(0);
     const removed = delivery.removal();
-    const events = await read<Schema["SyncPage"]>(
+    const events = await read<Schema<"SyncPage">>(
       `/api/v1/sync?cursor=${cursor.cursor}`,
     );
     checks.removed_once =
@@ -442,7 +441,7 @@ async function snapshot(
   post: <T>(
     path: string,
     account: string,
-    data: Schema["SyncBatch"] | Schema["SavedPlaybackRequest"],
+    data: Schema<"SyncBatch"> | Schema<"SavedPlaybackRequest">,
   ) => Promise<T>,
   budget: () => void,
   account: string,
@@ -462,7 +461,7 @@ async function snapshot(
         body.length > 4096 ||
         !isDeepStrictEqual(JSON.parse(body.toString()), {
           error: "Resource not found",
-        } satisfies Schema["ErrorResponse"])
+        } satisfies Schema<"ErrorResponse">)
       )
         throw new Error("The original source choice changed");
       choices.push({ status: 404, choice: null });
@@ -471,27 +470,27 @@ async function snapshot(
     }
   }
   return {
-    libraries: await read<Schema["Library"][]>("/api/v1/libraries"),
-    catalog: await read<Schema["RecordingPage"]>("/api/v1/recordings"),
-    artists: await read<Schema["ArtistPage"]>("/api/v1/artists"),
-    releases: await read<Schema["ReleasePage"]>("/api/v1/releases"),
-    playlist: await read<Schema["PlaylistDetail"]>(
+    libraries: await read<Schema<"Library">[]>("/api/v1/libraries"),
+    catalog: await read<Schema<"RecordingPage">>("/api/v1/recordings"),
+    artists: await read<Schema<"ArtistPage">>("/api/v1/artists"),
+    releases: await read<Schema<"ReleasePage">>("/api/v1/releases"),
+    playlist: await read<Schema<"PlaylistDetail">>(
       `/api/v1/playlists/${saved.playlist}`,
     ),
-    activity: await read<Schema["Activity"]>("/api/v1/activity"),
-    progress: await post<Schema["RecordingProgress"][]>(
+    activity: await read<Schema<"Activity">>("/api/v1/activity"),
+    progress: await post<Schema<"RecordingProgress">[]>(
       "/api/v1/recordings/progress",
       account,
-      { recording_ids: saved.ids } satisfies Schema["SavedPlaybackRequest"],
+      { recording_ids: saved.ids } satisfies Schema<"SavedPlaybackRequest">,
     ),
     metadata: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["RecordingMetadata"]>(`/api/v1/recordings/${id}/metadata`),
+        read<Schema<"RecordingMetadata">>(`/api/v1/recordings/${id}/metadata`),
       ),
     ),
     sources: await Promise.all(
       saved.ids.map((id) =>
-        read<Schema["Source"][]>(`/api/v1/recordings/${id}/sources`),
+        read<Schema<"Source">[]>(`/api/v1/recordings/${id}/sources`),
       ),
     ),
     choices,
@@ -515,7 +514,7 @@ async function absentPlaylistDownload(
       body.length > 4096 ||
       !isDeepStrictEqual(JSON.parse(body.toString()), {
         error: "Resource not found",
-      } satisfies Schema["ErrorResponse"])
+      } satisfies Schema<"ErrorResponse">)
     )
       throw new Error(
         "The playlist acquired an unrequested persistent download",

@@ -1,14 +1,10 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { pluginsApi } from "../../plugins/api/pluginsApi";
 import { sourceBindingsApi } from "../api/sourceBindingsApi";
-import type {
-  PluginInstallation,
-  ProviderCandidate,
-  ProviderRecording,
-  ProviderSourceReview,
-} from "../../../shared/types";
+
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 type Phase = "settings" | "search" | "review" | "attach";
@@ -19,12 +15,15 @@ type Work = {
 };
 type State = {
   loaded: boolean;
-  connections: PluginInstallation[];
+  connections: Schema<"PluginInstallation">[];
   names: Record<string, string>;
   choice: string | null;
   query: string;
-  items: ProviderRecording[];
-  review: { candidate: ProviderCandidate; detail: ProviderSourceReview } | null;
+  items: Schema<"ProviderRecording">[];
+  review: {
+    candidate: Schema<"ProviderCandidate">;
+    detail: Schema<"ProviderSourceReview">;
+  } | null;
   attached: boolean;
   pending: Phase | null;
   error: string;
@@ -221,14 +220,14 @@ export function useSourceAttachment(
     );
   }
 
-  async function review(hit: ProviderRecording) {
+  async function review(hit: Schema<"ProviderRecording">) {
     if (
       !connection ||
       owner.phase ||
       !current.items.some((item) => item.id === hit.id)
     )
       return false;
-    const candidate: ProviderCandidate = {
+    const candidate: Schema<"ProviderCandidate"> = {
       installation_id: connection.id,
       installation_revision: connection.revision,
       provider_recording_id: hit.id,

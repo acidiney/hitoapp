@@ -1,9 +1,9 @@
+import type { Schema } from "../../../shared/schema";
 import { useMemo, useState } from "react";
 import { HttpError } from "../../../shared/http";
 import { log } from "../../../shared/log";
 import { lyricsApi } from "../api/lyricsApi";
-import type { RecordingLyricsProvider } from "../../../shared/types";
-import type { RecordingMetadata } from "../../../shared/types";
+
 import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
@@ -16,7 +16,7 @@ type State = {
   owner: Owner;
   engaged: boolean;
   pending: boolean;
-  items: RecordingLyricsProvider[] | null;
+  items: Schema<"RecordingLyricsProvider">[] | null;
   selection: string | null;
   error: string;
   refresh: boolean;
@@ -36,7 +36,7 @@ function empty(owner: Owner): State {
 
 export function useLyricProviderChoices(
   account: string,
-  detail: RecordingMetadata,
+  detail: Schema<"RecordingMetadata">,
 ) {
   const primary = detail.selected_observation;
   const recording = detail.recording_id;

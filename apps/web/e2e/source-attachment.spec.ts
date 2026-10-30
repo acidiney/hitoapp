@@ -8,14 +8,13 @@ import {
 } from "@playwright/test";
 import { playlistFixture } from "./fixtures/playlist";
 import { providerFixture } from "./fixtures/provider";
-import type { components } from "../src/generated";
+import type { Schema } from "../src/shared/schema";
 
-type Schema = components["schemas"];
 type CollectionState = {
-  playlists: Schema["Playlist"][];
-  playlist: Schema["PlaylistDetail"];
-  activity: Schema["Activity"];
-  feed: Schema["SyncPage"];
+  playlists: Schema<"Playlist">[];
+  playlist: Schema<"PlaylistDetail">;
+  activity: Schema<"Activity">;
+  feed: Schema<"SyncPage">;
 };
 
 declare global {
@@ -141,8 +140,8 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     await providerFixture("Attachment B"),
   ];
   const headers = { "x-hito-request": "1", origin: new URL(baseURL).origin };
-  const services: Schema["PluginService"][] = [];
-  const connections: Schema["PluginInstallation"][] = [];
+  const services: Schema<"PluginService">[] = [];
+  const connections: Schema<"PluginInstallation">[] = [];
   const errors: string[] = [];
   const consoleErrors: { text: string; url: string }[] = [];
   const failedResponses: {
@@ -155,7 +154,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
   const logs: Promise<string>[] = [];
   const urls: string[] = [];
   const history: { url: string; state: string }[] = [];
-  const attachments: Schema["AttachReviewedProviderSource"][] = [];
+  const attachments: Schema<"AttachReviewedProviderSource">[] = [];
   let adoptions = 0;
   let copied: string | null = null;
   let signedIn = false;
@@ -223,10 +222,10 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
         data: {
           name: `${playlist.prefix} source ${index}`,
           base_url: fixture.address,
-        } satisfies Schema["OfferPluginService"],
+        } satisfies Schema<"OfferPluginService">,
       });
       expect(offered.status()).toBe(201);
-      const service: Schema["PluginService"] = await offered.json();
+      const service: Schema<"PluginService"> = await offered.json();
       services.push(service);
       const installed = await page.request.post("/api/v1/plugins", {
         headers,
@@ -234,7 +233,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
           service_id: service.id,
           service_revision: service.revision,
           bearer_token: fixture.token,
-        } satisfies Schema["InstallPlugin"],
+        } satisfies Schema<"InstallPlugin">,
       });
       expect(installed.status()).toBe(201);
       connections.push(await installed.json());
@@ -260,11 +259,11 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       .click();
     const importResponse = await imported;
     expect(importResponse.status()).toBe(200);
-    const receipt: Schema["PlaylistImportReceipt"] =
+    const receipt: Schema<"PlaylistImportReceipt"> =
       await importResponse.json();
     copied = receipt.playlist_id;
     await expect(page).toHaveURL(new URL(`/playlists/${copied}`, baseURL).href);
-    const importedDetail = await get<Schema["PlaylistDetail"]>(
+    const importedDetail = await get<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${copied}`,
     );
@@ -285,7 +284,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     expect(await get(page, `/api/v1/recordings/${recording}/sources`)).toEqual(
       [],
     );
-    const importedCatalog = await get<Schema["RecordingPage"]>(
+    const importedCatalog = await get<Schema<"RecordingPage">>(
       page,
       `/api/v1/recordings?q=${encodeURIComponent(playlist.prefix)}`,
     );
@@ -334,7 +333,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
             },
           },
         ],
-      } satisfies Schema["SyncBatch"],
+      } satisfies Schema<"SyncBatch">,
     });
     expect(saved.status()).toBe(200);
     const removed = await page.request.delete(`/api/v1/plugins/${origin.id}`, {
@@ -345,8 +344,8 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     connections.shift();
     playlist.offline();
     const before = await collection(page, copied);
-    const catalog = await get<Schema["RecordingPage"]>(page, catalogPath);
-    const metadata = await get<Schema["RecordingMetadata"]>(
+    const catalog = await get<Schema<"RecordingPage">>(page, catalogPath);
+    const metadata = await get<Schema<"RecordingMetadata">>(
       page,
       `/api/v1/recordings/${recording}/metadata`,
     );
@@ -384,7 +383,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       name: "Search",
       exact: true,
     });
-    let firstSources: Schema["Source"][] = [];
+    let firstSources: Schema<"Source">[] = [];
     for (const [index, provider] of providers.entries()) {
       await selector.selectOption(candidates[index].id);
       await search.fill(provider.recording.title);
@@ -416,7 +415,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       await reviewButton.click();
       const reviewed = await reviewResponse;
       expect(reviewed.status()).toBe(200);
-      const review: Schema["ProviderSourceReview"] = await reviewed.json();
+      const review: Schema<"ProviderSourceReview"> = await reviewed.json();
       const comparison = panel.getByRole("region", {
         name: "Review source match",
         exact: true,
@@ -434,7 +433,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       ).toEqual(retainedCollection(before, recording));
       expect(
         (
-          await get<Schema["RecordingMetadata"]>(
+          await get<Schema<"RecordingMetadata">>(
             page,
             `/api/v1/recordings/${recording}/metadata`,
           )
@@ -457,7 +456,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       await confirm.click();
       const attached = await attachedResponse;
       expect(attached.status()).toBe(200);
-      const result: Schema["Recording"] = await attached.json();
+      const result: Schema<"Recording"> = await attached.json();
       expect(result).toEqual({ ...primary, available: true });
       expect(attachments[index]).toEqual({
         candidate: {
@@ -472,7 +471,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       ).toBeVisible();
       await expect(draft).toHaveValue("Keep this unsaved attachment draft");
       await expect(audio).not.toHaveAttribute("src");
-      const current = await get<Schema["RecordingMetadata"]>(
+      const current = await get<Schema<"RecordingMetadata">>(
         page,
         `/api/v1/recordings/${recording}/metadata`,
       );
@@ -485,7 +484,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
       expect(
         retainedCollection(await collection(page, copied), recording),
       ).toEqual(retainedCollection(before, recording));
-      const currentCatalog = await get<Schema["RecordingPage"]>(
+      const currentCatalog = await get<Schema<"RecordingPage">>(
         page,
         catalogPath,
       );
@@ -505,7 +504,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     }
     expect(attachments).toHaveLength(2);
     expect(adoptions).toBe(0);
-    const sources = await get<Schema["Source"][]>(
+    const sources = await get<Schema<"Source">[]>(
       page,
       `/api/v1/recordings/${recording}/sources`,
     );
@@ -601,7 +600,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     await expect(page.locator(".now-playing strong")).toHaveText(title);
     expect(page.url()).toBe(new URL(`/recordings/${recording}`, baseURL).href);
     await expect(draft).toHaveValue("Keep this unsaved attachment draft");
-    const afterPlayback = await get<Schema["PlaylistDetail"]>(
+    const afterPlayback = await get<Schema<"PlaylistDetail">>(
       page,
       `/api/v1/playlists/${copied}`,
     );
@@ -677,7 +676,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
         ).status(),
       ).toBe(404);
       expect(
-        (await get<Schema["PluginSettings"]>(listener, "/api/v1/plugins"))
+        (await get<Schema<"PluginSettings">>(listener, "/api/v1/plugins"))
           .installations,
       ).toEqual([]);
       expect(
@@ -801,7 +800,7 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
               action: { kind: "playlist_delete", playlist_id: copied },
             },
           ],
-        } satisfies Schema["SyncBatch"],
+        } satisfies Schema<"SyncBatch">,
       });
     for (const service of services)
       await page.request.delete(`/api/v1/plugins/services/${service.id}`, {
