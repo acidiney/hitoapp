@@ -1,5 +1,6 @@
 import { type ComponentType, type ReactNode } from "react";
 import Shell from "./Shell";
+import NotFoundPage from "./NotFoundPage";
 
 type PageComponent = ComponentType<any> & {
   layout?: (page: ReactNode) => ReactNode;
@@ -29,7 +30,10 @@ export const pages = buildPages(
   }),
 );
 
+const framedNotFound: PageComponent = Object.assign(NotFoundPage, { layout });
+
 export function resolvePage(name: string): PageComponent {
+  if (name === "NotFoundPage") return framedNotFound;
   if (!Object.hasOwn(pages, name)) throw new Error(`Unknown page: ${name}`);
   return pages[name];
 }
