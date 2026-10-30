@@ -83,6 +83,7 @@ struct Artists {
 
 #[derive(Deserialize)]
 struct Artist {
+    uri: Option<serde_json::Value>,
     profile: Profile,
 }
 
@@ -146,6 +147,20 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     if track.artists.items.is_empty() || track.artists.items.len() > 32 {
         return Err(Error::InvalidResponse);
     }
+    let pages: Option<Vec<String>> = track
+        .artists
+        .items
+        .iter()
+        .map(|artist| {
+            artist
+                .uri
+                .as_ref()?
+                .as_str()?
+                .strip_prefix("spotify:artist:")
+                .filter(|id| valid_id(id))
+                .map(|id| format!("https://open.spotify.com/artist/{id}"))
+        })
+        .collect();
     let artist = track
         .artists
         .items
@@ -169,7 +184,7 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     };
     let recording = ProviderRecording {
         isrc: None,
-        artist_urls: Vec::new(),
+        artist_urls: pages.unwrap_or_default(),
         id: id.to_owned(),
         title: track.name,
         artist,

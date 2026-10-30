@@ -12,6 +12,7 @@ mod logging;
 mod manifest;
 mod pagination;
 mod public_album_credits;
+mod public_artist_pages;
 mod public_fixture;
 mod public_playlist;
 mod reference;
