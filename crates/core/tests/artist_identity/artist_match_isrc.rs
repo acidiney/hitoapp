@@ -47,7 +47,8 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
             receipt.declined,
             receipt.unavailable
         ),
-        (4, 6, 0, 2)
+        (4, 16, 0, 2),
+        "The ten recordings left over are counted once more by the name pass, which finds no namesake"
     );
     assert_eq!(
         library.group_of(&library.imported).await,
@@ -113,9 +114,9 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
 
     let lookups = library.musicbrainz.requests();
     let distinct: std::collections::BTreeSet<&String> = lookups.iter().collect();
-    assert_eq!(distinct.len(), 12, "{lookups:?}");
+    assert_eq!(distinct.len(), 13, "{lookups:?}");
     assert!(
-        lookups.len() <= 13,
+        lookups.len() <= 14,
         "Only a code shared across batches may be asked twice: {lookups:?}"
     );
     assert!(lookups.contains(&format!(

@@ -1,6 +1,8 @@
 use super::{
     ArtistProviderMatchReceipt, MatchArtistsFromProviderEvidence,
-    apply::{self, EvidenceKind, Planned, REPLACEABLE, plan},
+    apply::{EvidenceKind, REPLACEABLE},
+    name_discography::NAME_CURSOR,
+    settle::{Checks, Examined, Outcome, Settlement, empty_receipt},
 };
 use crate::artist_catalog::{MetadataProvider, REQUEST_BUDGET, identity::receipts, policy};
 use crate::{Actor, ArtistCatalog, Error, Result};
@@ -11,13 +13,13 @@ use tokio::time::Instant;
 
 const MAX_BATCH: i64 = 100;
 const MAX_ID_LENGTH: usize = 64;
-const MAX_LOOKUPS: usize = 8;
-const MAX_CONSECUTIVE_FAILURES: usize = 3;
-const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
+pub(super) const MAX_LOOKUPS: usize = 8;
+pub(super) const MAX_CONSECUTIVE_FAILURES: usize = 3;
+pub(super) const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
 /// No lookup may still be running this long after the pass started, leaving room to write.
-const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
+pub(super) const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
 /// Special-purpose MusicBrainz artists that never identify a performer.
-const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
+pub(super) const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "89ad4ac3-39f7-470e-963a-56509c546377",
     "125ec42a-7229-4250-afc5-e057484327fe",
     "eec63d3c-3b81-4ad4-b1e4-7c147d4d2b61",
@@ -38,16 +40,14 @@ enum Lookup {
     Page(String),
 }
 
+enum Phase {
+    Evidence(Vec<Candidate>, Option<String>),
+    Names(String),
+}
+
 #[derive(Clone)]
 enum Resolution {
     Artist(String),
-    Uncertain,
-    Unavailable,
-}
-
-/// What the provider evidence of one recording concludes.
-enum Outcome {
-    Artist(String, EvidenceKind),
     Uncertain,
     Unavailable,
 }
@@ -112,7 +112,9 @@ impl ArtistCatalog {
     /// service, to exactly one artist: the recording's own ISRC naming one recording credited to
     /// one artist, or its lone credited artist page being linked to one artist. Names never
     /// contribute evidence, and recordings the account has already decided about are neither
-    /// looked up nor changed.
+    /// looked up nor changed. When the evidence is exhausted the cursor continues into the name
+    /// phase, which searches MusicBrainz by credit name and accepts an artist only when its own
+    /// recordings corroborate the library.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_provider_evidence", request_id = %request.request_id))]
     pub async fn match_artists_from_provider_evidence(
         &self,
@@ -164,15 +166,7 @@ impl ArtistCatalog {
             ));
         }
         let digest = receipts::fingerprint("hito-artist-match-provider:v1", "", &request)?;
-        let empty = |next_after| ArtistProviderMatchReceipt {
-            request_id: request.request_id,
-            matched: 0,
-            uncertain: 0,
-            declined: 0,
-            unavailable: 0,
-            next_after,
-        };
-        let (mut candidates, mut next_after) = {
+        let phase = {
             let mut connection = self.store.pool.acquire().await?;
             actor.check_session_on(&mut connection).await?;
             if let Some(receipt) =
@@ -182,97 +176,64 @@ impl ArtistCatalog {
             }
             let settings = policy::read(&mut connection, actor).await?;
             if !policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz) {
-                return Ok(empty(None));
+                return Ok(empty_receipt(request.request_id, None));
             }
-            candidates(&mut connection, actor, request.after.as_deref(), limit).await?
+            match request
+                .after
+                .as_deref()
+                .and_then(|after| after.strip_prefix(NAME_CURSOR))
+            {
+                Some(after) => Phase::Names(after.to_owned()),
+                None => {
+                    let (candidates, next_after) =
+                        candidates(&mut connection, actor, request.after.as_deref(), limit).await?;
+                    Phase::Evidence(candidates, next_after)
+                }
+            }
+        };
+        let (candidates, next_after) = match phase {
+            Phase::Names(after) => {
+                return self
+                    .match_names(actor, request.request_id, &digest, &after)
+                    .await;
+            }
+            Phase::Evidence(candidates, next_after) => (
+                candidates,
+                next_after.or_else(|| Some(NAME_CURSOR.to_owned())),
+            ),
         };
         if candidates.is_empty() {
-            return Ok(empty(next_after));
+            return Ok(empty_receipt(request.request_id, next_after));
         }
         let (resolutions, examined) = {
             let _admission = self.admit(actor.id())?;
             self.resolve_lookups(&candidates, LOOKUP_WINDOW).await
         };
+        let mut next_after = next_after;
         if examined < candidates.len() {
             next_after = Some(candidates[examined - 1].recording.clone());
-            candidates.truncate(examined);
         }
-        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
-        actor.check_session_on(&mut tx).await?;
-        if let Some(receipt) = receipts::replay(&mut tx, actor, request.request_id, &digest).await?
-        {
-            return Ok(receipt);
-        }
-        let settings = policy::read(&mut tx, actor).await?;
-        if !policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz) {
-            return Ok(empty(None));
-        }
-        let (mut uncertain, mut declined, mut unavailable) = (0, 0, 0);
-        let mut pending = Vec::new();
-        for candidate in &candidates {
-            let remember = match candidate.outcome(&resolutions) {
-                Outcome::Unavailable => {
-                    unavailable += 1;
-                    false
-                }
-                Outcome::Uncertain => {
-                    uncertain += 1;
-                    true
-                }
-                Outcome::Artist(artist, kind) => {
-                    let current: Option<String> = sqlx::query_scalar(
-                        "SELECT metadata_observation_id FROM recordings WHERE id=?",
-                    )
-                    .bind(&candidate.recording)
-                    .fetch_optional(&mut *tx)
-                    .await?
-                    .flatten();
-                    if current.as_deref() != Some(candidate.observation.as_str()) {
-                        declined += 1;
-                        false
-                    } else {
-                        match plan(
-                            &mut tx,
-                            actor,
-                            &candidate.recording,
-                            &artist,
-                            settings.revision,
-                            kind,
-                        )
-                        .await?
-                        {
-                            Planned::Match(item) => {
-                                pending.push(*item);
-                                false
-                            }
-                            Planned::Declined { remember } => {
-                                declined += 1;
-                                remember
-                            }
-                        }
-                    }
-                }
-            };
-            if remember {
-                sqlx::query("INSERT INTO artist_provider_checks(user_id,recording_id,observation_id,artist_operation_id) VALUES(?,?,?,?)
-                    ON CONFLICT(user_id,recording_id) DO UPDATE SET observation_id=excluded.observation_id,artist_operation_id=excluded.artist_operation_id")
-                    .bind(actor.id()).bind(&candidate.recording).bind(&candidate.observation).bind(&candidate.operation)
-                    .execute(&mut *tx).await?;
-            }
-        }
-        let mut receipt = empty(next_after);
-        receipt.matched = pending.len() as i64;
-        receipt.uncertain = uncertain;
-        receipt.declined = declined;
-        receipt.unavailable = unavailable;
-        if !pending.is_empty() {
-            let order =
-                receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
-            apply::commit(&mut tx, actor, &pending, order).await?;
-        }
-        actor.check_session_on(&mut tx).await?;
-        tx.commit().await?;
-        Ok(receipt)
+        let examined = candidates
+            .into_iter()
+            .take(examined)
+            .map(|candidate| Examined {
+                outcome: candidate.outcome(&resolutions),
+                recording: candidate.recording,
+                observation: candidate.observation,
+                operation: candidate.operation,
+            })
+            .collect();
+        self.settle(
+            actor,
+            Settlement {
+                request_id: request.request_id,
+                digest: &digest,
+                next_after,
+                checks: Checks::Evidence,
+            },
+            examined,
+        )
+        .await
     }
 
     /// Asks MusicBrainz once for every distinct code or page the candidates need, within the

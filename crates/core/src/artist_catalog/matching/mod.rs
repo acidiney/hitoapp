@@ -1,5 +1,7 @@
 mod apply;
+mod name_discography;
 mod provider_evidence;
+mod settle;
 mod suggestions;
 mod tags;
 mod types;

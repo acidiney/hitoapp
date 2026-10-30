@@ -13,7 +13,8 @@ use sqlx::{Connection, SqliteConnection};
 /// and whose observation is no longer current. Only such a choice may be matched again.
 pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
             SELECT association_id,receipt_order FROM artist_association_matches
-            UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches) mt
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_provider_matches
+            UNION ALL SELECT association_id,receipt_order FROM artist_association_name_matches) mt
         WHERE mt.association_id=c.association_id AND mt.receipt_order=c.selection_order)
     AND (c.retired=1 OR c.observation_id IS NOT r.metadata_observation_id))";
 
@@ -22,6 +23,7 @@ pub(super) enum EvidenceKind {
     FileTagArtistId,
     Isrc,
     ProviderUrl,
+    NameDiscography,
 }
 
 impl EvidenceKind {
@@ -29,6 +31,7 @@ impl EvidenceKind {
         match self {
             Self::FileTagArtistId => "artist_association_matches",
             Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
+            Self::NameDiscography => "artist_association_name_matches",
         }
     }
 
@@ -37,6 +40,7 @@ impl EvidenceKind {
             Self::FileTagArtistId => "file_tag_artist_id",
             Self::Isrc => "isrc",
             Self::ProviderUrl => "provider_url",
+            Self::NameDiscography => "name_discography",
         }
     }
 }

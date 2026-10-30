@@ -43,6 +43,7 @@ pub enum ArtistAssociationEvidence {
     MatchedFileTagArtistId,
     MatchedIsrc,
     MatchedProviderUrl,
+    MatchedNameDiscography,
 }
 
 #[derive(Deserialize, ToSchema)]

@@ -19,6 +19,11 @@ pub enum Reply {
     Recordings(Vec<(String, Vec<String>)>),
     /// Artists related to a provider URL.
     Artists(Vec<String>),
+    /// Artists found by a name search, each with its identifier and name.
+    Candidates(Vec<(String, String)>),
+    /// The first page of an artist's recordings: the total MusicBrainz states, then each title
+    /// with its length in milliseconds.
+    Discography(u32, Vec<(String, Option<u64>)>),
     NotFound,
     Unavailable,
 }
@@ -71,6 +76,24 @@ impl FakeMusicBrainz {
             .insert(format!("url/{resource}"), reply);
     }
 
+    /// Answers an artist search for exactly this name.
+    pub fn search(&self, name: &str, reply: Reply) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("search/{name}"), reply);
+    }
+
+    /// Answers the recordings browse of one artist.
+    pub fn recordings_of(&self, artist: &str, reply: Reply) {
+        self.state
+            .lock()
+            .unwrap()
+            .replies
+            .insert(format!("recordings/{artist}"), reply);
+    }
+
     pub fn delay_replies(&self, delay: Duration) {
         self.state.lock().unwrap().delay = delay;
     }
@@ -95,6 +118,27 @@ fn key(uri: &Uri) -> Option<String> {
     let path = uri.path().strip_prefix("/ws/2/")?;
     if let Some(isrc) = path.strip_prefix("isrc/") {
         return Some(format!("isrc/{isrc}"));
+    }
+    let parameter = |name: &str| -> Option<String> {
+        let prefix = format!("{name}=");
+        let encoded = uri
+            .query()?
+            .split('&')
+            .find_map(|pair| pair.strip_prefix(prefix.as_str()))?;
+        Some(
+            url::form_urlencoded::parse(format!("r={encoded}").as_bytes())
+                .next()?
+                .1
+                .into_owned(),
+        )
+    };
+    if path == "artist" {
+        let query = parameter("query")?;
+        let name = query.strip_prefix('"')?.strip_suffix('"')?;
+        return Some(format!("search/{name}"));
+    }
+    if path == "recording" {
+        return Some(format!("recordings/{}", parameter("artist")?));
     }
     if path == "url" {
         let resource = uri
@@ -142,6 +186,30 @@ async fn respond(State(state): State<Arc<Mutex<State_>>>, request: Request) -> R
                 StatusCode::OK,
                 json!({"id": "0f700000-0000-4000-8000-0000000000ff",
                     "resource": key.trim_start_matches("url/"), "relations": relations}),
+            )
+        }
+        (_, Some(Reply::Candidates(artists))) => {
+            let found: Vec<Value> = artists
+                .iter()
+                .map(|(id, name)| json!({"id": id, "name": name, "type": "Person", "disambiguation": ""}))
+                .collect();
+            (
+                StatusCode::OK,
+                json!({"count": found.len(), "offset": 0, "artists": found}),
+            )
+        }
+        (_, Some(Reply::Discography(total, recordings))) => {
+            let listed: Vec<Value> = recordings
+                .iter()
+                .enumerate()
+                .map(|(index, (title, length))| {
+                    json!({"id": format!("0f700000-0000-4000-8000-{:012x}", index + 1),
+                        "title": title, "length": length, "video": false, "disambiguation": ""})
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                json!({"recording-count": total, "recording-offset": 0, "recordings": listed}),
             )
         }
         (_, Some(Reply::Unavailable)) => {

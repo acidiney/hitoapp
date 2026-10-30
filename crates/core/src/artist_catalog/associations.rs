@@ -27,7 +27,8 @@ pub(crate) const LINKED: &str = "COALESCE((SELECT CASE WHEN change.linked=1 AND 
     WHERE change.user_id=assoc.user_id AND change.association_id=assoc.id ORDER BY change.revision DESC LIMIT 1),1)=1";
 
 const MATCHED: &str = "COALESCE((SELECT matched.evidence_kind FROM artist_association_matches matched WHERE matched.association_id=assoc.id),
-    (SELECT matched.evidence_kind FROM artist_association_provider_matches matched WHERE matched.association_id=assoc.id)) AS matched";
+    (SELECT matched.evidence_kind FROM artist_association_provider_matches matched WHERE matched.association_id=assoc.id),
+    (SELECT matched.evidence_kind FROM artist_association_name_matches matched WHERE matched.association_id=assoc.id)) AS matched";
 
 #[derive(sqlx::FromRow)]
 struct Stored {
@@ -74,6 +75,7 @@ impl Stored {
                 Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
                 Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
                 Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
+                Some("name_discography") => ArtistAssociationEvidence::MatchedNameDiscography,
                 Some(_) => {
                     return Err(Error::Internal(
                         "Stored artist association provenance is invalid".into(),
