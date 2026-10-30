@@ -132,6 +132,17 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
+    pub(super) async fn isrc(&self, isrc: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join(&format!("isrc/{isrc}"))
+            .map_err(|_| Error::Configuration)?;
+        endpoint
+            .query_pairs_mut()
+            .extend_pairs([("fmt", "json"), ("inc", "artist-credits")]);
+        self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
+    }
+
     async fn json(&self, endpoint: reqwest::Url, maximum: usize) -> Result<Vec<u8>, Error> {
         let request = self
             .client

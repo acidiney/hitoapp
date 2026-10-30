@@ -1,5 +1,6 @@
 use crate::{
-    Error, discography, edition, edition_listing, projection, search, transport::Transport,
+    Error, IsrcRecording, discography, edition, edition_listing, identifiers, projection, search,
+    transport::Transport,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -26,6 +27,11 @@ impl MusicBrainzClient {
 
     #[cfg(test)]
     pub(crate) fn with_test_endpoint(endpoint: reqwest::Url) -> Result<Self, Error> {
+        Self::with_loopback_endpoint(endpoint)
+    }
+
+    /// Targets an owned fake service on a literal loopback address. Any other origin is refused.
+    pub fn with_loopback_endpoint(endpoint: reqwest::Url) -> Result<Self, Error> {
         let loopback = endpoint
             .host_str()
             .and_then(|host| host.parse::<std::net::IpAddr>().ok())
@@ -179,6 +185,36 @@ impl MusicBrainzClient {
                 .unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz edition track list completed"
+        );
+        result
+    }
+
+    /// Looks up the recordings that carry a canonical ISRC. An unknown code is an empty result.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "isrc_lookup", request_id = tracing::field::Empty))]
+    pub async fn recordings_by_isrc(&self, isrc: &str) -> Result<Vec<IsrcRecording>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::valid_isrc(isrc) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.isrc(isrc).await {
+                Ok(bytes) => identifiers::isrc_recordings(&bytes, isrc),
+                Err(Error::Status(404)) => Ok(Vec::new()),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(Vec::len).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz ISRC lookup completed"
         );
         result
     }

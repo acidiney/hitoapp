@@ -36,6 +36,8 @@ pub mod media_tool;
 #[cfg(feature = "test-support")]
 pub mod metadata_tag_logs;
 #[cfg(feature = "test-support")]
+pub mod musicbrainz;
+#[cfg(feature = "test-support")]
 pub mod observed;
 #[cfg(feature = "test-support")]
 pub mod playback;

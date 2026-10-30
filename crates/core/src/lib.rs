@@ -182,6 +182,7 @@ pub async fn open(config: CoreConfig) -> Result<Services> {
         store.clone(),
         plugins.clone(),
         config.host_device.clone(),
+        config.musicbrainz_loopback_endpoint,
     )?;
     let playback = PlaybackAccess {
         store: store.clone(),

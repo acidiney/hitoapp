@@ -168,6 +168,7 @@ impl RuntimeConfig {
                 community: None,
                 community_rankings: None,
                 folder_watching: Default::default(),
+                musicbrainz_loopback_endpoint: None,
             },
             http: Config {
                 origin: Config::default().origin,

@@ -20,6 +20,7 @@ mod edition;
 mod edition_listing;
 mod edition_validation;
 mod http;
+mod isrc;
 mod limiter;
 mod protocol;
 mod search;

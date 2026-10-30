@@ -84,15 +84,21 @@ impl ArtistCatalog {
         store: Store,
         plugins: Plugins,
         host: HostDeviceId,
+        musicbrainz_loopback_endpoint: Option<url::Url>,
     ) -> Result<Self> {
+        let builtin = match musicbrainz_loopback_endpoint {
+            Some(endpoint) => MusicBrainzClient::with_loopback_endpoint(endpoint),
+            None => MusicBrainzClient::new(),
+        }
+        .map_err(|_| {
+            Error::Internal("The built-in metadata client could not be initialized".into())
+        })?;
         Ok(Self {
             catalog,
             store,
             plugins,
             host,
-            builtin: MusicBrainzClient::new().map_err(|_| {
-                Error::Internal("The built-in metadata client could not be initialized".into())
-            })?,
+            builtin,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Accounts::new(1),
             continuations: continuation::Key::new(),

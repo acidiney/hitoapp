@@ -51,6 +51,8 @@ pub struct CoreConfig {
     pub community: Option<crate::CommunityConfig>,
     pub community_rankings: Option<crate::CommunityRankingConfig>,
     pub folder_watching: crate::FolderWatchSettings,
+    /// Redirects built-in MusicBrainz requests to an owned loopback fake. Production leaves it unset.
+    pub musicbrainz_loopback_endpoint: Option<url::Url>,
 }
 
 impl CoreConfig {
@@ -64,6 +66,7 @@ impl CoreConfig {
             community: None,
             community_rankings: None,
             folder_watching: Default::default(),
+            musicbrainz_loopback_endpoint: None,
         }
     }
 
@@ -81,6 +84,7 @@ impl CoreConfig {
             community: None,
             community_rankings: None,
             folder_watching: Default::default(),
+            musicbrainz_loopback_endpoint: None,
         }
     }
 }

@@ -7,12 +7,14 @@ pub enum Error {
     InvalidDiscographyRequest,
     InvalidSearchRequest,
     InvalidEditionRequest,
+    InvalidLookupRequest,
     Transport,
     Status(u16),
     InvalidResponse,
     InvalidDiscography,
     InvalidSearch,
     InvalidEdition,
+    InvalidLookup,
     ResponseTooLarge,
 }
 
@@ -24,12 +26,14 @@ impl Error {
             Self::InvalidDiscographyRequest => "invalid_discography_request",
             Self::InvalidSearchRequest => "invalid_search_request",
             Self::InvalidEditionRequest => "invalid_edition_request",
+            Self::InvalidLookupRequest => "invalid_lookup_request",
             Self::Transport => "transport_error",
             Self::Status(_) => "status_error",
             Self::InvalidResponse => "invalid_response",
             Self::InvalidDiscography => "invalid_discography",
             Self::InvalidSearch => "invalid_search",
             Self::InvalidEdition => "invalid_edition",
+            Self::InvalidLookup => "invalid_lookup",
             Self::ResponseTooLarge => "response_too_large",
         }
     }
@@ -43,6 +47,7 @@ impl fmt::Display for Error {
             Self::InvalidDiscographyRequest => "Use a valid MusicBrainz artist discography request",
             Self::InvalidSearchRequest => "Use a valid MusicBrainz artist search request",
             Self::InvalidEditionRequest => "Use a valid MusicBrainz edition catalog request",
+            Self::InvalidLookupRequest => "Use a canonical identifier for the MusicBrainz lookup",
             Self::Transport => "The MusicBrainz service could not be reached",
             Self::Status(_) => "The MusicBrainz service rejected the request",
             Self::InvalidResponse => "The MusicBrainz service returned an invalid artist profile",
@@ -51,6 +56,7 @@ impl fmt::Display for Error {
             }
             Self::InvalidSearch => "The MusicBrainz service returned invalid artist search results",
             Self::InvalidEdition => "The MusicBrainz service returned invalid edition metadata",
+            Self::InvalidLookup => "The MusicBrainz service returned an invalid identifier lookup",
             Self::ResponseTooLarge => "The MusicBrainz response exceeds the size limit",
         })
     }
