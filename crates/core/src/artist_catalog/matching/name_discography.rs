@@ -360,12 +360,21 @@ async fn credits(
     Ok((credits, more))
 }
 
+#[derive(sqlx::FromRow)]
+struct TrackRow {
+    id: String,
+    title: String,
+    duration_ms: Option<i64>,
+    metadata_observation_id: String,
+    artist_operation_id: Option<String>,
+}
+
 async fn credit_tracks(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
     artist: &str,
 ) -> Result<Vec<Track>> {
-    let rows: Vec<(String, String, Option<i64>, String, Option<String>)> =
+    let rows: Vec<TrackRow> =
         sqlx::query_as(&format!("{} ORDER BY r.id LIMIT ?", eligible("?", "?")))
             .bind(actor.id())
             .bind(artist)
@@ -374,12 +383,14 @@ async fn credit_tracks(
             .await?;
     Ok(rows
         .into_iter()
-        .map(|(recording, title, length, observation, operation)| Track {
-            recording,
-            title,
-            length_ms: length.and_then(|length| u64::try_from(length).ok()),
-            observation,
-            operation,
+        .map(|row| Track {
+            recording: row.id,
+            title: row.title,
+            length_ms: row
+                .duration_ms
+                .and_then(|length| u64::try_from(length).ok()),
+            observation: row.metadata_observation_id,
+            operation: row.artist_operation_id,
         })
         .collect())
 }

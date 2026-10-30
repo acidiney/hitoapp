@@ -292,8 +292,8 @@ async fn a_credit_is_matched_by_name_only_when_the_artists_recordings_corroborat
     config.musicbrainz_loopback_endpoint = Some(musicbrainz.endpoint.clone());
     let hito = hito_core::open(config).await.unwrap();
     let app = hito_server::router(hito);
-    let token = admin(&app).await;
-    let token = Some(token.as_str());
+    let session = admin(&app).await;
+    let token = Some(session.as_str());
     let entry = |id: &str, title: &str, length: u64| {
         json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
             "id": id, "title": title, "artist": "Nova Quartet", "duration_ms": length,
@@ -302,7 +302,7 @@ async fn a_credit_is_matched_by_name_only_when_the_artists_recordings_corroborat
     };
     let (_origin, recordings) = import(
         &app,
-        token.unwrap(),
+        &session,
         vec![
             entry("one", "First Song", 100_000),
             entry("two", "Second Song", 120_500),
