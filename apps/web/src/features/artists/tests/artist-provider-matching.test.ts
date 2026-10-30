@@ -91,7 +91,7 @@ test("a click walks the cursor, shows the receipt counts and refreshes the artis
     expect((button() as HTMLButtonElement).disabled).toBe(false),
   );
   fireEvent.click(button());
-  await screen.findByText("3 matched, 3 uncertain, 0 unavailable.");
+  await screen.findByText("3 matched, 3 uncertain answers, 0 unavailable.");
   expect(afters).toEqual([undefined, "r-8"]);
   expect(reload).toHaveBeenCalledTimes(1);
   expect(reload).toHaveBeenCalledWith({ only: ["artists", "identity_groups"] });
@@ -108,7 +108,7 @@ test("an unavailable provider ends the walk without retrying and is reported", a
   );
   fireEvent.click(button());
   await screen.findByText(
-    "0 matched, 0 uncertain, 2 unavailable. Run again to continue.",
+    "0 matched, 0 uncertain answers, 2 unavailable. Run again to continue.",
   );
   expect(run).toHaveBeenCalledTimes(1);
   expect(reload).not.toHaveBeenCalled();
@@ -170,7 +170,7 @@ test("the walk continues from the evidence cursor into the name cursor until the
     expect((button() as HTMLButtonElement).disabled).toBe(false),
   );
   fireEvent.click(button());
-  await screen.findByText("3 matched, 4 uncertain, 0 unavailable.");
+  await screen.findByText("3 matched, 4 uncertain answers, 0 unavailable.");
   expect(afters).toEqual([undefined, "r-8", "name:", "name:artist-1"]);
   expect(reload).toHaveBeenCalledTimes(1);
 });
@@ -186,7 +186,7 @@ test("a name cursor that does not advance ends the walk without looping", async 
   );
   fireEvent.click(button());
   await screen.findByText(
-    "0 matched, 2 uncertain, 0 unavailable. Run again to continue.",
+    "0 matched, 2 uncertain answers, 0 unavailable. Run again to continue.",
   );
   expect(run).toHaveBeenCalledTimes(2);
 });

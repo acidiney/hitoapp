@@ -14,7 +14,7 @@ function summary(state: ProviderMatchState) {
       return "Searching MusicBrainz…";
     case "finished": {
       const { matched, uncertain, unavailable } = state.counts;
-      const parts = `${matched} matched, ${uncertain} uncertain, ${unavailable} unavailable.`;
+      const parts = `${matched} matched, ${uncertain} uncertain answers, ${unavailable} unavailable.`;
       return state.complete ? parts : `${parts} Run again to continue.`;
     }
     default:
