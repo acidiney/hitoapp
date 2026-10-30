@@ -303,6 +303,24 @@ Plugin services live in `plugins/<name>`: `folder`, `spotify`, `youtube`, `jamen
 
 The SDK owns the wire types, their `validate` functions and the size limits that core also applies. A plugin that returns data the SDK rejects fails in core, not in the browser.
 
+### Shared plugin HTTP server
+
+Current behavior. `hito-plugin-sdk` has an optional `server` feature (`crates/plugin-sdk/src/server`). Every plugin crate turns it on. Core does not. It provides:
+
+- `ServiceAuth`: checks exactly one `Authorization: Bearer` value against the service credential with a constant-time comparison of SHA-256 digests, then requires exactly one `x-hito-plugin-protocol: 1` header. A missing, duplicate or wrong bearer gives 401. A missing, duplicate or wrong protocol header gives 400. `bearer_digest`, `require_protocol` and `credential_digest` are the same steps for callers that choose among several credentials.
+- `observe_requests` and `RequestPolicy`: the request layer used by All-Debrid, TorBox and Premiumize. It rejects oversized query strings and headers, requires `ServiceAuth` on every route but the manifest when one is set, allows 16 requests at once (429 beyond that), cancels a request after 14 seconds (504), adds `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`, and logs one debug event with the outcome, status and elapsed time. The span and event keep each plugin's own names (for example `torbox_plugin_request`), created by the `request_telemetry!` macro inside the plugin crate, so log targets and field names are unchanged. Premiumize alone adds an `X-Request-Id` header.
+- `with_manifest`: adds the unauthenticated `/v1/manifest` route and the request body limit to a plugin router.
+- `init_logging`: JSON logs limited to the listed crate targets.
+
+Tested evidence: `crates/plugin-sdk/tests/server.rs` covers a missing bearer, a duplicate `Authorization` header, a wrong bearer, a missing and a wrong protocol header, success, the body limit, the manifest route and the opt-in request ID header. Each plugin's contract tests still run unchanged.
+
+Left in the plugins on purpose:
+
+- Real-Debrid checks authentication through `ServiceAuth` but keeps its own request layer. It checks the bearer before the size limits, uses a 13-second deadline, answers "busy" with 503 and returns a `reason` field in every error body.
+- Premiumize serves several service credentials, so its route extractor picks the connection with `bearer_digest` and `require_protocol` instead of the single-credential layer.
+- ListenBrainz uses `ServiceAuth` and `with_manifest`, but answers every failure, including a wrong protocol header, with 401 and has no request layer or deadline. Jamendo, Folder, Spotify and YouTube have no service bearer layer and keep their own request handling; they use `init_logging`.
+- Argument parsing and private credential-file reading stay per plugin. The three debrid readers do not apply the same file-identity checks across a read, so they are not interchangeable without changing behavior.
+
 ### Curated catalog admission at startup
 
 Current behavior. The Real-Debrid, All-Debrid, TorBox and Premiumize services each serve an operator-supplied list of recordings. They share one admission function, `admit_curated_catalog` in `crates/plugin-sdk/src/curated.rs`, so the rules are the same everywhere.

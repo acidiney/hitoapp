@@ -137,12 +137,16 @@ flowchart LR
     Manifest[Manifest and capabilities]
     Types[Recording, source and search types with validate]
     Curated[admit_curated_catalog]
+    Server[server feature: ServiceAuth, request layer, manifest router, logging]
   end
   Core[hito-core Plugins and Catalog] -->|reads types and limits| SDK
   Plugin[Plugin executable] -->|implements| SDK
   Core <-->|HTTP v1, bearer token, x-hito-plugin-protocol 1| Plugin
   Curated -->|used at startup by| Plugin
+  Server -->|used by plugin HTTP routers| Plugin
 ```
+
+Core does not enable the SDK `server` feature. Only plugin executables do, so core links no HTTP server code from the SDK. The feature holds the code every plugin router needs in the same form: the bearer and protocol check, the per-request span and log event, the manifest route with its body limit, and JSON logging setup. See [plugins](plugins.md#shared-plugin-http-server).
 
 Core reviews the manifest before use, pins its digest, then calls the capabilities the manifest declares: search, recording detail, sources, preparation, audio and others. Core validates every response with the SDK types before it stores or relays anything. A recording-detail response is limited to 32,768 bytes. See [plugins](plugins.md) for the protocol, review flow and recovery.
 
