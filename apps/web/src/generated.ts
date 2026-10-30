@@ -324,6 +324,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/artist-matching/provider-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["match_artists_from_provider_evidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/artists": {
         parameters: {
             query?: never;
@@ -2668,6 +2684,28 @@ export interface components {
             /** @enum {string} */
             status: "cancelled";
         };
+        ArtistProviderMatchReceipt: {
+            /**
+             * Format: int64
+             * @description Recordings with an earlier personal decision or unlinked association.
+             */
+            declined: number;
+            /** Format: int64 */
+            matched: number;
+            next_after?: string | null;
+            /** Format: uuid */
+            request_id: string;
+            /**
+             * Format: int64
+             * @description Recordings whose lookup could not be completed; they are asked again by a later pass.
+             */
+            unavailable: number;
+            /**
+             * Format: int64
+             * @description Provider answers that name no artist, several recordings or several artists.
+             */
+            uncertain: number;
+        };
         ArtistReviewConnection: {
             /** Format: int64 */
             installation_revision: number;
@@ -3292,6 +3330,13 @@ export interface components {
             name: string;
             /** Format: int32 */
             protocol_version: number;
+        };
+        MatchArtistsFromProviderEvidence: {
+            after?: string | null;
+            /** Format: int64 */
+            limit?: number | null;
+            /** Format: uuid */
+            request_id: string;
         };
         MatchArtistsFromTags: {
             after?: string | null;
@@ -6169,6 +6214,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtistMatchReceipt"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    match_artists_from_provider_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchArtistsFromProviderEvidence"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistProviderMatchReceipt"];
                 };
             };
             401: {

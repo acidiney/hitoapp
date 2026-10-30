@@ -139,6 +139,8 @@ mod artist_identity_offline;
 mod artist_identity_receipts;
 #[path = "api/artist_matching.rs"]
 mod artist_matching;
+#[path = "api/artist_matching_provider.rs"]
+mod artist_matching_provider;
 #[path = "api/artist_review.rs"]
 mod artist_review;
 #[path = "api/artist_review_authority.rs"]

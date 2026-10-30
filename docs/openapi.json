@@ -2062,6 +2062,103 @@
         ]
       }
     },
+    "/api/v1/artist-matching/provider-evidence": {
+      "post": {
+        "operationId": "match_artists_from_provider_evidence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchArtistsFromProviderEvidence"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtistProviderMatchReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/artists": {
       "get": {
         "operationId": "artists",
@@ -16132,6 +16229,47 @@
           }
         ]
       },
+      "ArtistProviderMatchReceipt": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "matched",
+          "uncertain",
+          "declined",
+          "unavailable"
+        ],
+        "properties": {
+          "declined": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings with an earlier personal decision or unlinked association."
+          },
+          "matched": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "next_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unavailable": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Recordings whose lookup could not be completed; they are asked again by a later pass."
+          },
+          "uncertain": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Provider answers that name no artist, several recordings or several artists."
+          }
+        }
+      },
       "ArtistReviewConnection": {
         "type": "object",
         "required": [
@@ -18762,6 +18900,32 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "MatchArtistsFromProviderEvidence": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
