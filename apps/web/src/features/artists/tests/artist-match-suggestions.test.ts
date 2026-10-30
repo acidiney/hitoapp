@@ -221,6 +221,13 @@ test("a credit whose only suggestions are dismissed still offers to restore them
   );
   render(createElement(ArtistCreditIdentity, { account, artist: credit }));
   await screen.findByText("Dismissed suggestions (2)");
+  expect(screen.queryByText("Looks like an artist you reviewed")).toBeNull();
+  const region = screen.getByRole("region", {
+    name: "Suggested artists for this credit",
+  });
+  expect(region.querySelectorAll("ul")).toHaveLength(1);
+  expect(region.querySelector("details ul")).not.toBeNull();
+  expect(region.textContent?.match(/dismissed/gi)).toHaveLength(1);
   expect(
     screen.getAllByRole("button", { name: /Restore suggested/ }),
   ).toHaveLength(2);
