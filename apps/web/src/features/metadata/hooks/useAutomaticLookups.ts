@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
@@ -36,10 +36,13 @@ export function useAutomaticLookups(account: string) {
     saving: false,
     error: "",
   });
-  const current: State =
-    state.account === account
-      ? state
-      : { account, choices: null, saving: false, error: "" };
+  const current = useMemo<State>(
+    () =>
+      state.account === account
+        ? state
+        : { account, choices: null, saving: false, error: "" },
+    [account, state],
+  );
 
   useEffect(() => {
     const request = scope.capture();

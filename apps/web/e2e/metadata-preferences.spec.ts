@@ -267,6 +267,7 @@ test("account metadata preferences persist ordered personal providers without to
     panel = await openPreferences(page);
     expect(
       isDeepStrictEqual(await read("/api/v1/metadata/settings"), {
+        ...defaults,
         revision: 2,
         enabled: true,
         providers: [second, builtin, first],
@@ -468,6 +469,7 @@ test("account metadata preferences persist ordered personal providers without to
     ).not.toBeChecked();
     expect(
       isDeepStrictEqual(await read("/api/v1/metadata/settings"), {
+        ...defaults,
         revision: 4,
         enabled: false,
         providers: [second],

@@ -406,7 +406,9 @@ Implemented in source, not deployed (migration 0066; owned fakes only, no live M
 - Unknown paths answer a `NotFoundPage` with 404 (API paths keep JSON), chosen artists with exact-name matches first in search page props and the group list, `plays_from_services` on track reads (stored bindings and connection state only), and `GET /api/v1/artist-matching/status`.
 - Correction erasure scopes are written inside a savepoint and cleared at startup (review fix for [deletion and retention](artist-catalog-host.md#deletion-and-retention)).
 
-Open: the web app still shows its manual button and local-storage pause until it is switched to the status read; live acceptance; deployment; a work-budget measurement of a very large first walk.
+Web switch (implemented in source, not deployed): Settings, Privacy has the three server-backed switches; the Artists page shows the server status line (polling while visible) and a manual **Match again**, and no longer runs a pass or keeps a local-storage pause; album headers, cards and search use `Release.inferred_artist`; track notes use `plays_from_services` ("Plays from your services" or a muted "Not playable yet"); search lists the server's `artist_groups` and sends nothing to a service until the server choice is read. See [artist matching](artist-matching.md#web-behavior) and [preferences](metadata-preferences.md#automatic-lookups). Evidence: new cases failed first (`red-web-switch-1.log` to `red-web-switch-5.log` under the scratchpad `work` folder: switches, search gating and artist groups, status line, inferred credit, availability note), then 275 frontend files (1170 cases), both type configurations, lint at its 71-warning cap with no disables, and the production build passed. The e2e specs were updated and type-checked but not run in this slice. Not covered: Home's recent albums still use the artist string of the home read (no inferred field there), and no browser run against a server with the walk enabled.
+
+Open: live acceptance; deployment; a work-budget measurement of a very large first walk.
 
 ## Release work still required
 

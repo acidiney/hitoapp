@@ -9,7 +9,7 @@ const SWITCHES: { key: AutomaticLookup; label: string; hint: string }[] = [
   {
     key: "automatic_artist_lookup",
     label: "Look up artists on MusicBrainz automatically",
-    hint: "After a scan or import, Hito sends track codes (ISRC), artist page links and, when nothing else places a track, artist names to MusicBrainz. It never sends album titles, file paths or audio. On by default.",
+    hint: "After a scan or import, Hito sends track codes (ISRC), artist page links and, when nothing else places a track, artist names to MusicBrainz. It never sends album titles, file paths or audio. On by default; turn off to stop all of this.",
   },
   {
     key: "automatic_artwork",
