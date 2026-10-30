@@ -17,7 +17,7 @@ use std::{
 };
 use tokio::{
     sync::{Semaphore, oneshot, watch},
-    task::JoinHandle,
+    task::{JoinHandle, JoinSet},
 };
 
 const PREFIX: &str = "/prefix/";
@@ -43,6 +43,7 @@ pub enum Fault {
     Malformed,
     DropConnection,
     Hold(Arc<Gate>),
+    /// Parks the next accepted request in a worker that outlives its connection.
     HoldNext(Arc<Gate>),
 }
 
@@ -144,6 +145,7 @@ struct Route {
 struct Shared {
     routes: Mutex<Vec<Route>>,
     faults: Mutex<HashMap<String, Fault>>,
+    workers: Mutex<JoinSet<()>>,
     log: Mutex<Vec<RecordedRequest>>,
     logged: watch::Sender<usize>,
     auth: Mutex<Option<ServiceAuth>>,
@@ -276,6 +278,7 @@ impl FakePlugin {
 
 impl Drop for FakePlugin {
     fn drop(&mut self) {
+        self.shared.workers.lock().unwrap().abort_all();
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
@@ -321,6 +324,7 @@ impl FakePluginBuilder {
         let shared = Arc::new(Shared {
             routes: Mutex::new(self.routes),
             faults: Mutex::default(),
+            workers: Mutex::default(),
             log: Mutex::default(),
             logged: watch::channel(0).0,
             auth: Mutex::new(self.auth),
@@ -442,7 +446,12 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         Some(Fault::Hold(gate)) => gate.wait().await,
         Some(Fault::HoldNext(gate)) => {
             if claim_next(&shared, &operation, &gate) {
-                gate.wait().await;
+                let (done, completed) = oneshot::channel();
+                shared.workers.lock().unwrap().spawn(async move {
+                    gate.wait().await;
+                    let _ = done.send(());
+                });
+                let _ = completed.await;
             }
         }
         _ => {}

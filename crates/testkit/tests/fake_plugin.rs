@@ -525,3 +525,21 @@ async fn hold_next_parks_only_the_next_accepted_request() {
     .await
     .expect("the released request must retire");
 }
+
+#[tokio::test]
+async fn hold_next_outlives_a_client_that_gives_up() {
+    let plugin = echo().await;
+    let gate = plugin.hold_next("v1/ping");
+    let url = format!("{}v1/ping", plugin.url);
+    let abandoned = tokio::spawn(async move { client().get(url).send().await });
+    gate.entered().await;
+    abandoned.abort();
+    let _ = abandoned.await;
+    tokio::task::yield_now().await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!gate.has_retired());
+    gate.release();
+    tokio::time::timeout(Duration::from_secs(3), gate.retired())
+        .await
+        .expect("a released hold must retire");
+}
