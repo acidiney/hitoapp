@@ -16,15 +16,18 @@ impl IsrcOrigin {
     }
 }
 
-/// Retains the artist pages an observation states. Only an observation naming exactly one page can
-/// identify an artist, but every stated page is kept as evidence.
+/// Retains the allowlisted artist pages an observation states. Only an observation naming exactly
+/// one page can identify an artist, but every supported page is kept as evidence.
 pub(crate) async fn retain_artist_pages(
     connection: &mut SqliteConnection,
     observation: &str,
     recording: &str,
     pages: &[String],
 ) -> Result<()> {
-    for page in pages.iter().filter(|page| page.starts_with("https://")) {
+    for page in pages
+        .iter()
+        .filter(|page| hito_plugin_sdk::artist_page_provider(page).is_some())
+    {
         sqlx::query("INSERT OR IGNORE INTO recording_artist_url_observations(observation_id,recording_id,url) VALUES(?,?,?)")
             .bind(observation)
             .bind(recording)

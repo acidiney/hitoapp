@@ -366,3 +366,26 @@ async fn a_pass_cancelled_while_the_provider_is_slow_changes_nothing_and_can_be_
     assert_eq!(library.run().await.matched, 4);
     library.origin.shutdown().await;
 }
+
+#[tokio::test]
+async fn an_artist_page_outside_the_allowlist_is_never_looked_up() {
+    let library = Library::prepare().await;
+    let unsupported = "https://music.example.net/artist/0000000000000000000001";
+    library
+        .musicbrainz
+        .url(unsupported, Reply::Artists(vec![ARTIST.into()]));
+    library.plant_page(&library.without_isrc, unsupported).await;
+    let receipt = library.run().await;
+    assert_eq!(receipt.matched, 4);
+    assert!(library.group_of(&library.without_isrc).await.is_none());
+    assert!(
+        !library
+            .musicbrainz
+            .requests()
+            .iter()
+            .any(|request| request.contains("music.example.net")),
+        "{:?}",
+        library.musicbrainz.requests()
+    );
+    library.origin.shutdown().await;
+}

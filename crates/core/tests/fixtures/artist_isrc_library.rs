@@ -304,4 +304,21 @@ impl Library {
             .await
             .unwrap()
     }
+
+    /// Stores an artist page row for the recording's current observation without the plugin
+    /// contract, like data written by an earlier version.
+    pub async fn plant_page(&self, recording: &str, url: &str) {
+        let mut connection = sqlx::SqliteConnection::connect(&format!(
+            "sqlite://{}?mode=rw",
+            self.directory.path().join("hito.db").display()
+        ))
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO recording_artist_url_observations(observation_id,recording_id,url) SELECT metadata_observation_id,id,? FROM recordings WHERE id=?")
+            .bind(url)
+            .bind(recording)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+    }
 }

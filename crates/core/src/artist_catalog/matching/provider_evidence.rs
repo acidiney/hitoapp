@@ -6,16 +6,16 @@ use crate::artist_catalog::{MetadataProvider, REQUEST_BUDGET, identity::receipts
 use crate::{Actor, ArtistCatalog, Error, Result};
 use hito_metadata_musicbrainz::IsrcRecording;
 use sqlx::SqliteConnection;
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, time::Duration};
+use tokio::time::Instant;
 
 const MAX_BATCH: i64 = 100;
 const MAX_ID_LENGTH: usize = 64;
 const MAX_LOOKUPS: usize = 8;
 const MAX_CONSECUTIVE_FAILURES: usize = 3;
 const LOOKUP_WINDOW: Duration = Duration::from_secs(9);
+/// No lookup may still be running this long after the pass started, leaving room to write.
+const LOOKUP_DEADLINE: Duration = Duration::from_secs(13);
 /// Special-purpose MusicBrainz artists that never identify a performer.
 const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
     "89ad4ac3-39f7-470e-963a-56509c546377",
@@ -71,7 +71,12 @@ fn resolve(recordings: &[IsrcRecording]) -> Resolution {
 impl Candidate {
     fn lookups(&self) -> Vec<Lookup> {
         let isrc = self.isrc.iter().cloned().map(Lookup::Isrc);
-        let page = self.page.iter().cloned().map(Lookup::Page);
+        let page = self
+            .page
+            .iter()
+            .filter(|page| hito_plugin_sdk::artist_page_provider(page).is_some())
+            .cloned()
+            .map(Lookup::Page);
         isrc.chain(page).collect()
     }
 
@@ -186,7 +191,7 @@ impl ArtistCatalog {
         }
         let (resolutions, examined) = {
             let _admission = self.admit(actor.id())?;
-            self.resolve_lookups(&candidates).await
+            self.resolve_lookups(&candidates, LOOKUP_WINDOW).await
         };
         if examined < candidates.len() {
             next_after = Some(candidates[examined - 1].recording.clone());
@@ -271,11 +276,14 @@ impl ArtistCatalog {
     }
 
     /// Asks MusicBrainz once for every distinct code or page the candidates need, within the
-    /// lookup and time bounds. An ISRC that names an artist spares its recording's page lookup.
-    /// Returns how many leading candidates were examined.
+    /// lookup and time bounds, which are checked before each lookup. An ISRC that names an artist
+    /// spares its recording's page lookup. A lookup the budget refuses for the first candidate
+    /// counts as unavailable; for a later one the candidate waits for the next batch. Returns how
+    /// many leading candidates were examined.
     async fn resolve_lookups(
         &self,
         candidates: &[Candidate],
+        window: Duration,
     ) -> (HashMap<Lookup, Resolution>, usize) {
         let started = Instant::now();
         let mut resolutions: HashMap<Lookup, Resolution> = HashMap::new();
@@ -289,7 +297,7 @@ impl ArtistCatalog {
             if lookups > 0
                 && (lookups + needed > MAX_LOOKUPS
                     || failures >= MAX_CONSECUTIVE_FAILURES
-                    || started.elapsed() > LOOKUP_WINDOW)
+                    || started.elapsed() > window)
             {
                 return (resolutions, index);
             }
@@ -300,7 +308,19 @@ impl ArtistCatalog {
                     }
                     continue;
                 }
-                let resolution = self.ask(&lookup).await;
+                if lookups > 0
+                    && (failures >= MAX_CONSECUTIVE_FAILURES || started.elapsed() > window)
+                {
+                    if index > 0 {
+                        return (resolutions, index);
+                    }
+                    resolutions.insert(lookup, Resolution::Unavailable);
+                    continue;
+                }
+                let remaining = LOOKUP_DEADLINE.saturating_sub(started.elapsed());
+                let resolution = tokio::time::timeout(remaining, self.ask(&lookup))
+                    .await
+                    .unwrap_or(Resolution::Unavailable);
                 lookups += 1;
                 failures = if matches!(resolution, Resolution::Unavailable) {
                     failures + 1
@@ -397,8 +417,15 @@ async fn candidates(
 
 #[cfg(test)]
 mod tests {
-    use super::{Resolution, SPECIAL_PURPOSE_ARTISTS, resolve};
+    use super::{Candidate, Lookup, Resolution, SPECIAL_PURPOSE_ARTISTS, resolve};
+    use crate::test_support::{
+        musicbrainz::{FakeMusicBrainz, Reply},
+        support,
+    };
     use hito_metadata_musicbrainz::IsrcRecording;
+    use std::time::Duration;
+
+    const PAGE: &str = "https://open.spotify.com/artist/0000000000000000000001";
 
     const A: &str = "11111111-1111-4111-8111-111111111111";
     const B: &str = "22222222-2222-4222-8222-222222222222";
@@ -429,5 +456,62 @@ mod tests {
                 Resolution::Uncertain
             ));
         }
+    }
+
+    fn candidate(isrc: &str, page: Option<&str>) -> Candidate {
+        Candidate {
+            recording: isrc.into(),
+            isrc: Some(isrc.into()),
+            page: page.map(str::to_owned),
+            observation: "observation".into(),
+            operation: None,
+        }
+    }
+
+    async fn catalog(fake: &FakeMusicBrainz) -> crate::ArtistCatalog {
+        let (_directory, hito, ..) =
+            support::library_with_musicbrainz("lookup-budget", Some(fake.endpoint.clone())).await;
+        hito.artist_catalog
+    }
+
+    #[tokio::test]
+    async fn the_window_is_checked_before_every_lookup_of_the_first_candidate() {
+        let fake = FakeMusicBrainz::start().await;
+        fake.isrc("GBAAA2000001", Reply::NotFound);
+        fake.isrc("GBAAA2000002", Reply::NotFound);
+        fake.url(PAGE, Reply::Artists(vec![]));
+        fake.delay_replies(Duration::from_millis(600));
+        let catalog = catalog(&fake).await;
+        let candidates = [
+            candidate("GBAAA2000001", Some(PAGE)),
+            candidate("GBAAA2000002", None),
+        ];
+        let (resolutions, examined) = catalog
+            .resolve_lookups(&candidates, Duration::from_millis(500))
+            .await;
+        assert_eq!(examined, 1);
+        assert_eq!(fake.requests().len(), 1, "{:?}", fake.requests());
+        assert!(matches!(
+            resolutions.get(&Lookup::Page(PAGE.into())),
+            Some(Resolution::Unavailable)
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_later_candidate_whose_second_lookup_is_over_the_window_waits_for_the_next_batch() {
+        let fake = FakeMusicBrainz::start().await;
+        fake.isrc("GBAAA2000001", Reply::NotFound);
+        fake.isrc("GBAAA2000002", Reply::NotFound);
+        fake.url(PAGE, Reply::Artists(vec![]));
+        let catalog = catalog(&fake).await;
+        let candidates = [
+            candidate("GBAAA2000001", None),
+            candidate("GBAAA2000002", Some(PAGE)),
+        ];
+        let (_, examined) = catalog
+            .resolve_lookups(&candidates, Duration::from_millis(500))
+            .await;
+        assert_eq!(examined, 1);
+        assert_eq!(fake.requests().len(), 2, "{:?}", fake.requests());
     }
 }
