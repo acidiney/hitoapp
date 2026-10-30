@@ -22,6 +22,20 @@ import {
 import { BrowserTraversal } from "./browser/BrowserTraversal";
 import { BrowserQueue } from "./browser/BrowserQueue";
 import { BrowserObservation } from "./browser/BrowserObservation";
+import {
+  BrowserProgressGuard,
+  PROGRESS_WAITING_MESSAGE,
+} from "./browser/BrowserProgressGuard";
+import {
+  acceptedCount,
+  indexAfterMove,
+  indexAfterRemove,
+  isValidPage,
+  nextRepeat,
+  planMove,
+  previousIndex,
+  successorAfterRemove,
+} from "./browser/QueueModel";
 import { BrowserCommunityObservation } from "./browser/BrowserCommunityObservation";
 import type { SuccessfulPlayback } from "../../shared/types";
 import {
@@ -67,7 +81,7 @@ export class Playback implements Player {
   private endGuard = new BrowserEndGuard(() => this.endAtKnownDuration());
   private lookahead: BrowserLookahead | null;
   private stopListening: () => void = () => {};
-  private stoppingForProgress = false;
+  private progress: BrowserProgressGuard;
   private audiobook: BrowserAudiobookRun;
   private feed = new QueueFeed(
     () => this.store.setPending(this.feed.pending),
@@ -102,6 +116,14 @@ export class Playback implements Player {
         : this.onProgress?.(sample.recording, sample.position, sample.speed);
       return result !== false;
     });
+    this.progress = new BrowserProgressGuard(
+      this.observation,
+      {
+        isPaused: () => this.media.paused,
+        pause: () => this.media.pause(),
+      },
+      (message) => this.update({ error: message }),
+    );
     this.lookahead = mediaOwner
       ? new BrowserLookahead(resolve, mediaOwner, sourcePreparer)
       : null;
@@ -163,7 +185,7 @@ export class Playback implements Player {
           this.prepareNext();
         }
         this.update({ position: this.pendingSeek || media.currentTime });
-        if (!this.observation.observe()) this.progressBlocked();
+        this.progress.observe();
         if (this.activeSource) this.endGuard.observe(media, this.serverBound);
       },
       play: () => {
@@ -173,19 +195,19 @@ export class Playback implements Player {
       },
       playing: () => {
         this.community?.observe();
-        if (!this.observation.observe()) this.progressBlocked();
+        this.progress.observe();
       },
       seeked: () => {
         this.community?.seeked();
         this.community?.observe();
         this.observation.seeked();
-        if (!this.observation.observe()) this.progressBlocked();
+        this.progress.observe();
       },
       pause: () => {
         this.community?.reset();
         this.endGuard.cancel();
         log.debug("playback.paused", { recording_id: this.state.current?.id });
-        if (!this.stoppingForProgress) this.persist();
+        if (!this.progress.stopping) this.persist();
         this.update({ playing: false });
         if (!media.ended) this.cancelLookahead();
       },
@@ -254,28 +276,14 @@ export class Playback implements Player {
   }
 
   private persist() {
-    if (this.observation.persist()) return true;
-    this.progressBlocked();
-    return false;
-  }
-  private progressBlocked() {
-    if (this.stoppingForProgress) return;
-    this.stoppingForProgress = true;
-    try {
-      if (!this.media.paused) this.media.pause();
-      this.progressFailed(
-        "Listening progress is waiting to be saved. Playback paused.",
-      );
-    } finally {
-      this.stoppingForProgress = false;
-    }
+    return this.progress.persist();
   }
   progressFailed(message: string) {
     this.update({ error: message });
   }
   retryProgress() {
     if (
-      this.observation.retry() &&
+      this.progress.retry() &&
       this.state.error.startsWith("Listening progress")
     )
       this.update({ error: "" });
@@ -285,14 +293,7 @@ export class Playback implements Player {
   queueSnapshot = this.store.queueSnapshot;
   async queuePage(offset: number, limit: number, signal?: AbortSignal) {
     signal?.throwIfAborted();
-    if (
-      !Number.isInteger(offset) ||
-      offset < 0 ||
-      offset > this.queue.length ||
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 1000
-    )
+    if (!isValidPage(offset, limit, this.queue.length))
       throw new Error("The queue page is invalid.");
     return {
       version: this.store.queueView.version,
@@ -317,34 +318,24 @@ export class Playback implements Player {
   moveEntry(entry: string, before: string | null) {
     const from = this.queue.indexOf(entry);
     if (from < 0 || before === entry) return;
-    let to = this.queue.length - 1;
-    if (before !== null) {
-      const target = this.queue.indexOf(before);
-      if (target < 0) return;
-      to = target > from ? target - 1 : target;
-    }
-    if (to === from) return;
+    const target = before === null ? null : this.queue.indexOf(before);
+    if (target === -1) return;
+    const to = planMove(this.queue.length, from, target);
+    if (to === null) return;
     this.cancelAudiobook();
     const current = this.state.index;
     this.queue.move(from, to);
     log.info("queue.move", { action: "move", index: to });
     this.update({
       queueChanged: true,
-      index:
-        from === current
-          ? to
-          : from < current && to >= current
-            ? current - 1
-            : from > current && to <= current
-              ? current + 1
-              : current,
+      index: indexAfterMove(current, from, to),
     });
     this.prepareNext();
   }
   private appendBatch(batch: PlaybackQueueInput[]) {
     const accepted = batch.slice(
       0,
-      Math.max(0, MAX_QUEUE_ENTRIES - this.queue.length),
+      acceptedCount(this.queue.length, batch.length, MAX_QUEUE_ENTRIES),
     );
     if (!accepted.length) return 0;
     const first = this.queue.length;
@@ -396,10 +387,7 @@ export class Playback implements Player {
     more?: QueueSupply,
   ) {
     this.cancelAudiobook();
-    if (!this.persist())
-      throw new Error(
-        "Listening progress is waiting to be saved. Playback paused.",
-      );
+    if (!this.persist()) throw new Error(PROGRESS_WAITING_MESSAGE);
     const position = start?.position ?? 0;
     this.cancelLookahead();
     this.feed.cancel();
@@ -753,12 +741,7 @@ export class Playback implements Player {
     log.info("queue.repeat", { mode: this.state.repeat });
     this.cancelLookahead();
     this.update({
-      repeat:
-        this.state.repeat === "off"
-          ? "all"
-          : this.state.repeat === "all"
-            ? "one"
-            : "off",
+      repeat: nextRepeat(this.state.repeat),
     });
     this.prepareNext();
   }
@@ -780,7 +763,7 @@ export class Playback implements Player {
     this.traversal.resetFailures();
     log.info("queue.previous", { index: this.state.index });
     if (this.media.currentTime > 3) this.seek(0);
-    else await this.open(Math.max(0, this.state.index - 1));
+    else await this.open(previousIndex(this.state.index));
   }
   async next(ended = false) {
     this.cancelAudiobook();
@@ -816,18 +799,11 @@ export class Playback implements Player {
     this.traversal.remove(serial);
     if (index === this.state.index) {
       this.update({ queueChanged: true });
-      const successor =
-        next === null || next === index
-          ? this.queue.length
-          : next > index
-            ? next - 1
-            : next;
-      void this.open(successor);
+      void this.open(successorAfterRemove(index, next, this.queue.length));
     } else
       this.update({
         queueChanged: true,
-        index:
-          index < this.state.index ? this.state.index - 1 : this.state.index,
+        index: indexAfterRemove(this.state.index, index),
       });
     this.prepareNext();
   }
