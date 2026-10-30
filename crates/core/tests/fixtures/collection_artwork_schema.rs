@@ -5,6 +5,8 @@ use std::borrow::Cow;
 
 #[path = "album_edition_schema.rs"]
 pub mod album_schema;
+#[path = "automatic_metadata_schema.rs"]
+pub mod automation_schema;
 #[path = "artist_association_changes_schema.rs"]
 pub mod changes_schema;
 #[path = "artist_identity_correction_schema.rs"]
@@ -344,6 +346,10 @@ pub async fn reference_65() -> SqliteConnection {
     erasure_schema::reference(reference_64().await).await
 }
 
+pub async fn reference_66() -> SqliteConnection {
+    automation_schema::reference(reference_65().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -364,6 +370,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         63 => reference_63().await,
         64 => reference_64().await,
         65 => reference_65().await,
+        66 => reference_66().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -441,6 +448,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 65),
+    )
+    .chain(
+        automation_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 66),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

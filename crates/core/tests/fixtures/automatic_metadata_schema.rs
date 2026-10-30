@@ -1,0 +1,53 @@
+use sqlx::SqliteConnection;
+
+pub const TABLES: &[&str] = &[
+    "account_metadata_automation",
+    "artist_matching_jobs",
+    "cover_art_lookups",
+];
+
+pub const NEW_TABLES: &[&str] = TABLES;
+
+pub const REPLACED: &[(&str, &str)] = &[];
+
+pub const ADDED: &[(&str, &str)] = &[
+    ("table", "account_metadata_automation"),
+    ("index", "sqlite_autoindex_account_metadata_automation_1"),
+    ("table", "artist_matching_jobs"),
+    ("index", "sqlite_autoindex_artist_matching_jobs_1"),
+    ("index", "artist_matching_jobs_due"),
+    ("table", "cover_art_lookups"),
+    ("index", "sqlite_autoindex_cover_art_lookups_1"),
+    ("index", "cover_art_lookups_queue"),
+    ("index", "cover_art_lookups_asset"),
+];
+
+pub async fn reference(mut connection: SqliteConnection) -> SqliteConnection {
+    let before = super::schema(&mut connection).await;
+    super::through(66).run(&mut connection).await.unwrap();
+    let after = super::schema(&mut connection).await;
+    for object in &before {
+        let current = after
+            .iter()
+            .find(|current| current.0 == object.0 && current.1 == object.1)
+            .expect("0066 must not remove prior schema objects");
+        assert_eq!(current, object, "0066 must only add schema objects");
+    }
+    let mut added = after
+        .iter()
+        .filter(|object| {
+            !before
+                .iter()
+                .any(|old| old.0 == object.0 && old.1 == object.1)
+        })
+        .map(|object| (object.0.as_str(), object.1.as_str()))
+        .collect::<Vec<_>>();
+    let mut expected = ADDED.to_vec();
+    added.sort_unstable();
+    expected.sort_unstable();
+    assert_eq!(
+        added, expected,
+        "Every additive 0066 object must be named exactly"
+    );
+    connection
+}

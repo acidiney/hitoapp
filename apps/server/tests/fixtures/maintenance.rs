@@ -712,6 +712,15 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("table", "correction_erasure_scopes"),
         ("index", "sqlite_autoindex_correction_erasure_scopes_1"),
         ("trigger", "shared_artist_correction_source"),
+        ("table", "account_metadata_automation"),
+        ("index", "sqlite_autoindex_account_metadata_automation_1"),
+        ("table", "artist_matching_jobs"),
+        ("index", "sqlite_autoindex_artist_matching_jobs_1"),
+        ("index", "artist_matching_jobs_due"),
+        ("table", "cover_art_lookups"),
+        ("index", "sqlite_autoindex_cover_art_lookups_1"),
+        ("index", "cover_art_lookups_queue"),
+        ("index", "cover_art_lookups_asset"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();
