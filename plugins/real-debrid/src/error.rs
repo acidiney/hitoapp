@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use hito_plugin_sdk::server::AuthFailure;
 
 pub(crate) enum Error {
     Unauthorized,
@@ -26,6 +27,15 @@ impl From<hito_debrid_real_debrid::Error> for Error {
             Provider::UnsupportedState => Self::SourceUnavailable,
             Provider::UnrestrictionUncertain => Self::UnrestrictionUncertain,
             _ => Self::ProviderUnavailable,
+        }
+    }
+}
+
+impl From<AuthFailure> for Error {
+    fn from(failure: AuthFailure) -> Self {
+        match failure {
+            AuthFailure::Unauthorized => Self::Unauthorized,
+            AuthFailure::InvalidProtocol => Self::InvalidRequest,
         }
     }
 }

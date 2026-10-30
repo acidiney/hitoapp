@@ -4,8 +4,8 @@ use crate::{
 };
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
-    http::{HeaderMap, HeaderValue, StatusCode},
+    extract::{Request, State, rejection::JsonRejection},
+    http::{HeaderValue, StatusCode},
     middleware::{Next, from_fn_with_state},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -14,31 +14,29 @@ use hito_plugin_sdk::{
     ArtistSimilarityPage, ArtistSimilarityRequest, CATALOG_SIMILARITY_VERSION, Capability,
     CatalogSimilarityCapabilities, CatalogSimilarityIdentity, CatalogSimilarityOperation, Manifest,
     PROTOCOL_VERSION,
+    server::{ServiceAuth, with_manifest},
 };
-use sha2::{Digest, Sha256};
 use std::{sync::Arc, time::Instant};
-use subtle::ConstantTimeEq;
 
 pub fn router(config: Config) -> Result<Router, InitError> {
-    let digest: Arc<[u8; 32]> = Arc::new(Sha256::digest(config.service_bearer.as_bytes()).into());
-    Ok(Router::new()
-        .route("/v1/manifest", get(manifest))
+    let routes = Router::new()
         .route("/v1/catalog/similarity/capabilities", get(capabilities))
-        .route("/v1/catalog/similarity/artists", post(similar))
-        .layer(DefaultBodyLimit::max(1024))
+        .route("/v1/catalog/similarity/artists", post(similar));
+    let auth = Arc::new(config.auth.clone());
+    Ok(with_manifest(routes, manifest(), 1024)
         .with_state(Labs::new(config)?)
-        .layer(from_fn_with_state(digest, authenticate)))
+        .layer(from_fn_with_state(auth, authenticate)))
 }
 
-async fn manifest() -> Response {
-    private(Json(Manifest {
+fn manifest() -> Manifest {
+    Manifest {
         id: "org.hito.listenbrainz-similarity".into(),
         name: "ListenBrainz similar artists".into(),
         protocol_version: PROTOCOL_VERSION,
         capabilities: [Capability::Catalog].into(),
         authorization: None,
         content_policy: None,
-    }))
+    }
 }
 
 async fn capabilities() -> Response {
@@ -109,11 +107,11 @@ fn private(body: impl IntoResponse) -> Response {
 }
 
 async fn authenticate(
-    State(digest): State<Arc<[u8; 32]>>,
+    State(auth): State<Arc<ServiceAuth>>,
     request: Request,
     next: Next,
 ) -> Response {
-    if !authorized(request.headers(), &digest) {
+    if auth.check(request.headers()).is_err() {
         let mut response = (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "The service credential is missing or invalid"})),
@@ -126,28 +124,4 @@ async fn authenticate(
         return response;
     }
     next.run(request).await
-}
-
-fn authorized(headers: &HeaderMap, digest: &[u8; 32]) -> bool {
-    let mut values = headers.get_all("authorization").iter();
-    let Some(token) = values
-        .next()
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
-        .filter(|token| {
-            !token.is_empty()
-                && token.len() <= 4096
-                && token.bytes().all(|byte| (0x21..=0x7e).contains(&byte))
-        })
-    else {
-        return false;
-    };
-    if values.next().is_some() {
-        return false;
-    }
-    let supplied: [u8; 32] = Sha256::digest(token.as_bytes()).into();
-    let mut protocol = headers.get_all("x-hito-plugin-protocol").iter();
-    bool::from(supplied.ct_eq(digest))
-        && protocol.next().is_some_and(|value| value == "1")
-        && protocol.next().is_none()
 }

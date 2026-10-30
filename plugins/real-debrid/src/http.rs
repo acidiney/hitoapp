@@ -1,7 +1,7 @@
-use crate::{Config, InitError, audio, auth::Authentication, catalog::Catalog, error::Error};
+use crate::{Config, InitError, audio, catalog::Catalog, error::Error};
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
+    extract::{Request, State, rejection::JsonRejection},
     http::HeaderValue,
     middleware::{Next, from_fn_with_state},
     response::{IntoResponse, Response},
@@ -11,6 +11,7 @@ use hito_debrid_real_debrid::{MediaAllowlist, RealDebridClient, TorrentPhase};
 use hito_plugin_sdk::{
     Capability, ContentPolicy, Manifest, PROTOCOL_VERSION, ProviderRecording, ProviderSource,
     RecordingRequest, SearchPage, SearchRequest, SourcePage, SourcePersistence,
+    server::{ServiceAuth, with_manifest},
 };
 use std::{
     sync::Arc,
@@ -20,7 +21,7 @@ use tokio::sync::Semaphore;
 use tracing::Instrument;
 
 pub(crate) struct HttpState {
-    pub(crate) authentication: Authentication,
+    pub(crate) authentication: ServiceAuth,
     pub(crate) catalog: Catalog,
     pub(crate) client: RealDebridClient,
     pub(crate) media_origins: MediaAllowlist,
@@ -35,19 +36,18 @@ pub fn router(config: Config) -> Result<Router, InitError> {
         media_origins: config.media_origins,
         request_slots: Arc::new(Semaphore::new(16)),
     });
-    Ok(Router::new()
-        .route("/v1/manifest", get(manifest))
+    let routes = Router::new()
         .route("/v1/search", post(search))
         .route("/v1/recordings/detail", post(detail))
         .route("/v1/sources", post(sources))
-        .route("/v1/audio", get(audio::response))
-        .layer(DefaultBodyLimit::max(4096))
+        .route("/v1/audio", get(audio::response));
+    Ok(with_manifest(routes, manifest(), 4096)
         .layer(from_fn_with_state(state.clone(), observe))
         .with_state(state))
 }
 
-async fn manifest() -> Json<Manifest> {
-    Json(Manifest {
+fn manifest() -> Manifest {
+    Manifest {
         id: "org.hito.real-debrid".into(),
         name: "Real-Debrid curated audio".into(),
         protocol_version: PROTOCOL_VERSION,
@@ -56,7 +56,7 @@ async fn manifest() -> Json<Manifest> {
         content_policy: Some(ContentPolicy {
             source_persistence: SourcePersistence::PlaybackOnly,
         }),
-    })
+    }
 }
 
 async fn search(
@@ -118,7 +118,10 @@ async fn observe(State(state): State<Arc<HttpState>>, request: Request, next: Ne
         let started = Instant::now();
         let response = async {
             if operation != "manifest" {
-                state.authentication.check(request.headers())?;
+                state
+                    .authentication
+                    .check(request.headers())
+                    .map_err(Error::from)?;
             }
             if request
                 .uri()

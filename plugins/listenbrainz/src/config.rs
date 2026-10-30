@@ -1,3 +1,4 @@
+use hito_plugin_sdk::server::ServiceAuth;
 use std::time::Duration;
 use url::Url;
 
@@ -7,7 +8,7 @@ pub struct Config {
     pub(crate) endpoint: Url,
     pub(crate) min_interval: Duration,
     pub(crate) contact: String,
-    pub(crate) service_bearer: String,
+    pub(crate) auth: ServiceAuth,
 }
 
 #[derive(Debug)]
@@ -34,19 +35,12 @@ impl Config {
         {
             return Err(InitError::InvalidContact);
         }
-        if service_bearer.is_empty()
-            || service_bearer.len() > 4096
-            || !service_bearer
-                .bytes()
-                .all(|byte| (0x21..=0x7e).contains(&byte))
-        {
-            return Err(InitError::InvalidServiceToken);
-        }
+        let auth = ServiceAuth::new(service_bearer).ok_or(InitError::InvalidServiceToken)?;
         Ok(Self {
             endpoint: Url::parse(LABS).map_err(|_| InitError::InvalidEndpoint)?,
             min_interval: Duration::from_secs(1),
             contact: contact.to_owned(),
-            service_bearer: service_bearer.to_owned(),
+            auth,
         })
     }
 

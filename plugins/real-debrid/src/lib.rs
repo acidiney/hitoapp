@@ -1,5 +1,4 @@
 mod audio;
-mod auth;
 mod catalog;
 mod config;
 mod error;

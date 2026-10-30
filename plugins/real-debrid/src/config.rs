@@ -1,9 +1,10 @@
-use crate::{auth::Authentication, catalog::Catalog};
+use crate::catalog::Catalog;
 use hito_debrid_real_debrid::{AudioKind, MediaAllowlist, RealDebridClient, TorrentFileBinding};
-use hito_plugin_sdk::ProviderRecording;
+use hito_plugin_sdk::{ProviderRecording, server::ServiceAuth};
+use zeroize::Zeroizing;
 
 pub struct Config {
-    pub(crate) authentication: Authentication,
+    pub(crate) authentication: ServiceAuth,
     pub(crate) client: RealDebridClient,
     pub(crate) media_origins: MediaAllowlist,
     pub(crate) catalog: Catalog,
@@ -25,7 +26,9 @@ impl Config {
         media_origins: MediaAllowlist,
         recordings: Vec<CuratedAudioRecording>,
     ) -> Result<Self, InitError> {
-        let authentication = Authentication::new(service_bearer)?;
+        let service_bearer = Zeroizing::new(service_bearer);
+        let authentication =
+            ServiceAuth::new(&service_bearer).ok_or(InitError::InvalidServiceCredential)?;
         let catalog = Catalog::new(recordings)?;
         Ok(Self {
             authentication,
