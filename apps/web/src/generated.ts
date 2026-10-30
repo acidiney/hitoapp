@@ -2531,6 +2531,9 @@ export interface components {
             status: "unsupported";
         } | {
             /** @enum {string} */
+            status: "type_filter_unsupported";
+        } | {
+            /** @enum {string} */
             status: "unavailable";
         } | {
             /** @enum {string} */
@@ -2930,6 +2933,12 @@ export interface components {
         };
         /** @enum {string} */
         CatalogReleaseGroupKind: "album" | "ep" | "single" | "broadcast" | "other";
+        /**
+         * @description Restricts a discography read to one release type. `Other` covers every group that is not an
+         *     album, EP or single, including broadcasts and groups without a known type.
+         * @enum {string}
+         */
+        CatalogReleaseTypeFilter: "album" | "ep" | "single" | "other";
         /** @enum {string} */
         CatalogTrackKind: "audio" | "pregap" | "data";
         CatalogTrackMatch: {
@@ -4170,6 +4179,7 @@ export interface components {
             continuation?: string | null;
             /** Format: int32 */
             limit: number;
+            release_type?: components["schemas"]["CatalogReleaseTypeFilter"] | null;
         };
         ReadDiscographyLibrary: {
             release_group_ids: string[];

@@ -103,6 +103,8 @@ mod artist_association_changes;
 mod artist_discography;
 #[path = "api/artist_discography_library.rs"]
 mod artist_discography_library;
+#[path = "api/artist_discography_type.rs"]
+mod artist_discography_type;
 #[path = "api/artist_editions.rs"]
 mod artist_editions;
 #[path = "api/artist_identity.rs"]

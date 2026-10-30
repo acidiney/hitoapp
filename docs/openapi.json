@@ -15736,6 +15736,21 @@
           },
           {
             "type": "object",
+            "description": "The provider reads discographies but cannot page one release type at a time.",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "type_filter_unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
             "required": [
               "status"
             ],
@@ -17330,6 +17345,16 @@
           "ep",
           "single",
           "broadcast",
+          "other"
+        ]
+      },
+      "CatalogReleaseTypeFilter": {
+        "type": "string",
+        "description": "Restricts a discography read to one release type. `Other` covers every group that is not an\nalbum, EP or single, including broadcasts and groups without a known type.",
+        "enum": [
+          "album",
+          "ep",
+          "single",
           "other"
         ]
       },
@@ -22268,6 +22293,17 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "release_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogReleaseTypeFilter",
+                "description": "Pages one release type at a time from providers that declare the filter."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false
