@@ -3,8 +3,6 @@ use sqlx::SqliteConnection;
 use std::time::Instant;
 use uuid::Uuid;
 
-const ASSOCIATIONS_OF_RECORDING: &str =
-    "(SELECT id FROM recording_artist_associations WHERE recording_id=?1)";
 const ASSOCIATIONS_OF_ACCOUNT: &str =
     "(SELECT id FROM recording_artist_associations WHERE user_id=?1)";
 
@@ -43,22 +41,30 @@ async fn run(
     connection: &mut SqliteConnection,
     statements: &[String],
     subject: &str,
-) -> Result<()> {
+) -> Result<u64> {
+    let mut removed = 0;
     for statement in statements {
-        sqlx::query(statement)
+        let affected = sqlx::query(statement)
             .bind(subject)
             .execute(&mut *connection)
-            .await?;
+            .await?
+            .rows_affected();
+        if statement.starts_with("DELETE FROM ")
+            && !statement.starts_with("DELETE FROM correction_erasure_scopes")
+        {
+            removed += affected;
+        }
     }
-    Ok(())
+    Ok(removed)
 }
 
-async fn scoped(
+/// Runs statements under an erasure scope and returns how many rows the deletes removed.
+pub(crate) async fn scoped(
     connection: &mut SqliteConnection,
     kind: &str,
     subject: &str,
     statements: &[String],
-) -> Result<()> {
+) -> Result<u64> {
     sqlx::query("SAVEPOINT correction_erasure")
         .execute(&mut *connection)
         .await?;
@@ -92,19 +98,19 @@ async fn erase_within_scope(
     kind: &str,
     subject: &str,
     statements: &[String],
-) -> Result<()> {
+) -> Result<u64> {
     sqlx::query("INSERT INTO correction_erasure_scopes(kind,subject) VALUES(?,?)")
         .bind(kind)
         .bind(subject)
         .execute(&mut *connection)
         .await?;
-    run(connection, statements, subject).await?;
+    let removed = run(connection, statements, subject).await?;
     sqlx::query("DELETE FROM correction_erasure_scopes WHERE kind=? AND subject=?")
         .bind(kind)
         .bind(subject)
         .execute(&mut *connection)
         .await?;
-    Ok(())
+    Ok(removed)
 }
 
 /// Removes scopes a failed or interrupted erasure could have left, which would otherwise
@@ -131,7 +137,11 @@ fn provenance(associations: &str) -> Vec<String> {
         .collect()
 }
 
-pub(crate) async fn erase_account(connection: &mut SqliteConnection, account: &str) -> Result<()> {
+pub(crate) async fn erase_account(connection: &mut SqliteConnection, account: &str) -> Result<u64> {
+    scoped(connection, "account", account, &account_statements()).await
+}
+
+pub(crate) fn account_statements() -> Vec<String> {
     let mut statements: Vec<String> = [
         "DELETE FROM recording_artist_identity_choices WHERE user_id=?1",
         "DELETE FROM album_edition_choices WHERE user_id=?1",
@@ -161,7 +171,7 @@ pub(crate) async fn erase_account(connection: &mut SqliteConnection, account: &s
         ]
         .map(String::from),
     );
-    scoped(connection, "account", account, &statements).await
+    statements
 }
 
 /// Called by the transaction that removes a recording, before the recording row itself.
@@ -169,36 +179,52 @@ pub(crate) async fn erase_recording_corrections(
     connection: &mut SqliteConnection,
     recording: &str,
 ) -> Result<()> {
+    scoped(
+        connection,
+        "recording",
+        recording,
+        &recording_statements("(?1)"),
+    )
+    .await
+    .map(|_| ())
+}
+
+/// Statements that remove every correction naming the recordings selected by `recordings`, a
+/// parenthesized list or subquery. The caller holds a `recording` scope for each of them.
+pub(crate) fn recording_statements(recordings: &str) -> Vec<String> {
+    let associations = format!(
+        "(SELECT id FROM recording_artist_associations WHERE recording_id IN {recordings})"
+    );
     let mut statements: Vec<String> = [
-        "DELETE FROM recording_artist_identity_choices WHERE recording_id=?1",
-        "DELETE FROM album_edition_choices WHERE recording_id=?1",
-        "DELETE FROM artist_match_checks WHERE recording_id=?1",
-        "DELETE FROM artist_provider_checks WHERE recording_id=?1",
-        "DELETE FROM artist_name_checks WHERE recording_id=?1",
-        "DELETE FROM artist_identity_change_items WHERE recording_id=?1",
+        "DELETE FROM recording_artist_identity_choices",
+        "DELETE FROM album_edition_choices",
+        "DELETE FROM artist_match_checks",
+        "DELETE FROM artist_provider_checks",
+        "DELETE FROM artist_name_checks",
+        "DELETE FROM artist_identity_change_items",
     ]
-    .map(String::from)
+    .map(|statement| format!("{statement} WHERE recording_id IN {recordings}"))
     .into();
-    statements.extend(provenance(ASSOCIATIONS_OF_RECORDING));
+    statements.extend(provenance(&associations));
     statements.push(format!(
-        "UPDATE shared_artist_corrections SET source_association_id=NULL WHERE source_association_id IN {ASSOCIATIONS_OF_RECORDING}"
+        "UPDATE shared_artist_corrections SET source_association_id=NULL WHERE source_association_id IN {associations}"
     ));
     statements.push(format!(
-        "DELETE FROM artist_association_change_retirements WHERE association_id IN {ASSOCIATIONS_OF_RECORDING}"
+        "DELETE FROM artist_association_change_retirements WHERE association_id IN {associations}"
     ));
     statements.extend(
         [
-            "DELETE FROM recording_artist_association_change_order WHERE recording_id=?1",
-            "DELETE FROM recording_artist_association_changes WHERE recording_id=?1",
-            "DELETE FROM recording_artist_associations WHERE recording_id=?1",
-            "DELETE FROM shared_artist_correction_subjects WHERE recording_id=?1",
-            "DELETE FROM recording_isrc_observations WHERE recording_id=?1",
-            "DELETE FROM recording_artist_url_observations WHERE recording_id=?1",
-            "DELETE FROM recording_musicbrainz_observations WHERE recording_id=?1",
+            "DELETE FROM recording_artist_association_change_order",
+            "DELETE FROM recording_artist_association_changes",
+            "DELETE FROM recording_artist_associations",
+            "DELETE FROM shared_artist_correction_subjects",
+            "DELETE FROM recording_isrc_observations",
+            "DELETE FROM recording_artist_url_observations",
+            "DELETE FROM recording_musicbrainz_observations",
         ]
-        .map(String::from),
+        .map(|statement| format!("{statement} WHERE recording_id IN {recordings}")),
     );
-    scoped(connection, "recording", recording, &statements).await
+    statements
 }
 
 #[cfg(test)]
