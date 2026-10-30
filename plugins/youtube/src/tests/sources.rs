@@ -92,6 +92,7 @@ async fn recording_sources_relay_owned_aac_with_ranges_and_native_decode() {
         detail
             == ProviderRecording {
                 isrc: None,
+                artist_urls: Vec::new(),
                 id: "HitoTone001".into(),
                 title: "Owned AAC tone".into(),
                 artist: "Hito test performer".into(),

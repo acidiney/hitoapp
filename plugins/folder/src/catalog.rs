@@ -106,6 +106,7 @@ impl Track {
     pub fn recording(&self) -> ProviderRecording {
         ProviderRecording {
             isrc: self.isrc.clone(),
+            artist_urls: Vec::new(),
             id: self.id.clone(),
             title: self.title.clone(),
             artist: self.artist.clone(),

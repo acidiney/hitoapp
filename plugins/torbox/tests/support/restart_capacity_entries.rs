@@ -63,6 +63,7 @@ fn recording(id: String, source_id: String, binding: TorrentFileBinding) -> Cura
     CuratedWavRecording {
         recording: ProviderRecording {
             isrc: None,
+            artist_urls: Vec::new(),
             id,
             title: "owned-private-capacity-title".into(),
             artist: "owned-private-capacity-artist".into(),

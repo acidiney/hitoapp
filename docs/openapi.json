@@ -21739,6 +21739,13 @@
           "artist": {
             "type": "string"
           },
+          "artist_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Canonical https pages of every credited performer. Hosts may match a lone page to one\nMusicBrainz artist; a provider that cannot name all performers omits the list."
+          },
           "attribution": {
             "oneOf": [
               {

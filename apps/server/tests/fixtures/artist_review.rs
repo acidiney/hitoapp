@@ -252,6 +252,7 @@ pub(super) async fn origin_counts(origin: &ProviderServer) -> Vec<usize> {
 fn recording(id: &str) -> ProviderRecording {
     ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: id.into(),
         title: if id == FIRST {
             "Owned first HTTP recording"

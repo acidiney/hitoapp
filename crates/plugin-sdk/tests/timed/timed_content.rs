@@ -63,6 +63,7 @@ fn timed_content_preserves_exact_provider_versions_and_distinct_backing_recordin
         .expect("The owned attribution must use a canonical safe backlink");
     let backing = ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: "recording:owned/instrumental~á".into(),
         title: "Owned instrumental take".into(),
         artist: "Owned ensemble".into(),

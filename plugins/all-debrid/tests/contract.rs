@@ -88,6 +88,7 @@ fn private_json(bytes: &[u8]) {
 fn recording() -> ProviderRecording {
     ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: RECORDING.into(),
         title: TITLE.into(),
         artist: ARTIST.into(),

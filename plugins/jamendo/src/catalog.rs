@@ -99,6 +99,7 @@ fn recording(track: &Track) -> Result<ProviderRecording, Error> {
     };
     let recording = ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: format!("jamendo:track:v1:{owner}"),
         title: track.name.clone(),
         artist: track.artist_name.clone(),

@@ -51,6 +51,7 @@ impl Inputs {
             .expect("the owned input directory must be private");
         let recording = ProviderRecording {
             isrc: None,
+            artist_urls: Vec::new(),
             id: RECORDING.into(),
             title: TITLE.into(),
             artist: "owned-private-torbox-runtime-artist".into(),

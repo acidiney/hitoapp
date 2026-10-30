@@ -169,6 +169,7 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
     };
     let recording = ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: id.to_owned(),
         title: track.name,
         artist,

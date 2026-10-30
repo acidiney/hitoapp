@@ -9,6 +9,7 @@ mod contract;
 mod curated_catalog;
 mod metadata;
 mod preparation;
+mod recording_artist_urls;
 mod recording_attribution;
 mod recording_isrc;
 mod release_credits;

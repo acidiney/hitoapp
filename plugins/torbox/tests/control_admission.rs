@@ -197,6 +197,7 @@ async fn start(
             recordings: vec![CuratedWavRecording {
                 recording: ProviderRecording {
                     isrc: None,
+                    artist_urls: Vec::new(),
                     id: RECORDING.into(),
                     title: "owned-private-control-title".into(),
                     artist: "owned-private-control-artist".into(),

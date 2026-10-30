@@ -41,6 +41,10 @@ pub struct ProviderRecording {
     /// ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isrc: Option<String>,
+    /// Canonical https pages of every credited performer. Hosts may match a lone page to one
+    /// MusicBrainz artist; a provider that cannot name all performers omits the list.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artist_urls: Vec<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,6 +165,7 @@ impl ProviderRecording {
         if self.isrc.is_some() && self.normalized_isrc().is_none() {
             return Err("The provider returned a malformed ISRC");
         }
+        validate_artist_urls(&self.artist_urls)?;
         Ok(())
     }
 
@@ -174,6 +179,34 @@ impl ProviderRecordingRef {
         text(&self.id, 256)?;
         optional(self.revision.as_deref(), 256)
     }
+}
+
+const MAX_ARTIST_URLS: usize = 8;
+const MAX_ARTIST_URL_BYTES: usize = 512;
+
+fn validate_artist_urls(urls: &[String]) -> Result<(), &'static str> {
+    const MALFORMED: &str = "The provider returned a malformed artist page URL";
+    if urls.len() > MAX_ARTIST_URLS {
+        return Err("The provider returned too many artist page URLs");
+    }
+    let mut seen = HashSet::new();
+    for value in urls {
+        let canonical = value.len() <= MAX_ARTIST_URL_BYTES
+            && url::Url::parse(value).is_ok_and(|url| {
+                url.scheme() == "https"
+                    && url.host_str().is_some()
+                    && url.username().is_empty()
+                    && url.password().is_none()
+                    && url.port().is_none()
+                    && url.query().is_none()
+                    && url.fragment().is_none()
+                    && url.as_str() == value
+            });
+        if !canonical || !seen.insert(value) {
+            return Err(MALFORMED);
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn text(value: &str, maximum: usize) -> Result<(), &'static str> {

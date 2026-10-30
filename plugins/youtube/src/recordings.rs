@@ -106,6 +106,7 @@ impl SearchEntry {
             .transpose()?;
         let recording = ProviderRecording {
             isrc: None,
+            artist_urls: Vec::new(),
             id: entry.id,
             title: entry.title,
             artist,

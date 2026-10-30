@@ -4052,6 +4052,11 @@ export interface components {
         };
         ProviderRecording: {
             artist: string;
+            /**
+             * @description Canonical https pages of every credited performer. Hosts may match a lone page to one
+             *     MusicBrainz artist; a provider that cannot name all performers omits the list.
+             */
+            artist_urls?: string[];
             attribution?: components["schemas"]["RecordingAttribution"] | null;
             /** Format: int32 */
             disc_number?: number | null;

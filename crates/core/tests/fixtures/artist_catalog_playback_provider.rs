@@ -145,6 +145,7 @@ async fn detail(
     }
     Json(ProviderRecording {
         isrc: None,
+        artist_urls: Vec::new(),
         id: RECORDING_ID.into(),
         title: "Owned playback recording".into(),
         artist: "Owned playback performer".into(),
