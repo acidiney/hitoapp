@@ -32,3 +32,17 @@ export function contrastOnTint(tint: string, alpha: number): number {
   const text = base.map((value) => value + (255 - value) * alpha);
   return (luminance(text) + 0.05) / (luminance(base) + 0.05);
 }
+
+/**
+ * Identity for the generated cover on a tinted header. The header colour is the
+ * cover palette entry of the collection id, so a cover generated from the same
+ * id would vanish into it. This returns an id whose generated cover is a
+ * different palette entry, so its shape stays visible.
+ */
+export function headerCoverId(id: string): string {
+  const tint = tintFor(id);
+  for (let attempt = 1; ; attempt += 1) {
+    const candidate = `${id}:cover${attempt}`;
+    if (coverStyle(candidate).background !== tint) return candidate;
+  }
+}
