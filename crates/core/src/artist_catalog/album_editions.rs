@@ -325,7 +325,7 @@ impl ArtistCatalog {
 }
 
 impl ArtistCatalog {
-    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id(), release_id = id))]
+    #[tracing::instrument(level = "debug", skip_all, err(Debug), fields(account_id = actor.id()))]
     pub async fn release(&self, actor: &Actor, id: &str, browse: Browse) -> Result<ReleaseDetail> {
         let mut detail = self.catalog.release(actor, id, browse).await?;
         if detail.tracks.offset == 0 {
