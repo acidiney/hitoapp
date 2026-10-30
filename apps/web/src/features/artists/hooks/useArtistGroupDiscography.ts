@@ -185,25 +185,28 @@ export function useArtistGroupDiscography(
     }
   }
 
+  const latest = useRef(browse);
+  latest.current = browse;
+
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     queueMicrotask(async () => {
-      if (!active || (await browse()) || !active || !retryable.current) return;
+      if (!active || (await latest.current()) || !active || !retryable.current)
+        return;
       setRetrying(true);
       await new Promise<void>((resolve) => {
         timer = setTimeout(resolve, AUTO_RETRY_DELAY_MS);
       });
       if (!active) return;
       setRetrying(false);
-      await browse();
+      await latest.current();
     });
     return () => {
       active = false;
       setRetrying(false);
       clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owner, scope]);
 
   return { ...current, retrying, browse };

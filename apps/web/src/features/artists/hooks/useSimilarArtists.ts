@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 
@@ -101,16 +101,18 @@ export function useSimilarArtists(
     }
   }
 
+  const latest = useRef(load);
+  latest.current = load;
+
   useEffect(() => {
     if (!auto) return;
     let active = true;
     queueMicrotask(() => {
-      if (active) void load();
+      if (active) void latest.current();
     });
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, owner, scope]);
 
   return { ...current, load };
