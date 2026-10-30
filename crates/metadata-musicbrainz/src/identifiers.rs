@@ -37,6 +37,52 @@ struct CreditedArtist {
     id: String,
 }
 
+#[derive(Deserialize)]
+struct UrlLookup {
+    #[serde(default)]
+    relations: Vec<Relation>,
+}
+
+#[derive(Deserialize)]
+struct Relation {
+    #[serde(rename = "target-type")]
+    target: String,
+    artist: Option<CreditedArtist>,
+}
+
+pub(super) fn valid_url(resource: &str) -> bool {
+    resource.len() <= 512
+        && reqwest::Url::parse(resource).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.port().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+                && url.as_str() == resource
+        })
+}
+
+pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {
+    let lookup: UrlLookup = serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    if lookup.relations.len() > MAX_RECORDINGS {
+        return Err(Error::InvalidLookup);
+    }
+    let mut artists: Vec<String> = Vec::new();
+    for relation in lookup.relations {
+        if relation.target != "artist" {
+            continue;
+        }
+        let artist = relation.artist.ok_or(Error::InvalidLookup)?;
+        canonical_id(&artist.id)?;
+        if !artists.contains(&artist.id) {
+            artists.push(artist.id);
+        }
+    }
+    Ok(artists)
+}
+
 pub(super) fn valid_isrc(isrc: &str) -> bool {
     hito_plugin_sdk::normalize_isrc(isrc).as_deref() == Some(isrc)
 }

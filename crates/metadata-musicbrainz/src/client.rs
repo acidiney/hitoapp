@@ -219,6 +219,37 @@ impl MusicBrainzClient {
         result
     }
 
+    /// Looks up the artists MusicBrainz relates to a canonical https page. An unlinked page is an
+    /// empty result.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "url_lookup", request_id = tracing::field::Empty))]
+    pub async fn artists_by_url(&self, resource: &str) -> Result<Vec<String>, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::valid_url(resource) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.url_relations(resource).await {
+                Ok(bytes) => identifiers::url_artists(&bytes),
+                Err(Error::Status(404)) => Ok(Vec::new()),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(Vec::len).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz URL lookup completed"
+        );
+        result
+    }
+
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_search", request_id = tracing::field::Empty))]
     pub async fn artist_search(
         &self,

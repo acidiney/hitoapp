@@ -143,6 +143,19 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
+    pub(super) async fn url_relations(&self, resource: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("url")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("resource", resource),
+            ("inc", "artist-rels"),
+            ("fmt", "json"),
+        ]);
+        self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
+    }
+
     async fn json(&self, endpoint: reqwest::Url, maximum: usize) -> Result<Vec<u8>, Error> {
         let request = self
             .client

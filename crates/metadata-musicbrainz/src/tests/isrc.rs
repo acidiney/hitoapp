@@ -151,3 +151,94 @@ async fn a_recording_without_credited_artists_has_no_artist_ids_and_noncanonical
     assert_eq!(fixture.request_count(), 0);
     fixture.close().await;
 }
+
+const PAGE: &str = "https://open.spotify.com/artist/0000000000000000000001";
+const OTHER_PAGE: &str = "https://open.spotify.com/artist/0000000000000000000002";
+
+fn related(artists: &[&str]) -> Reply {
+    let relations: Vec<Value> = artists
+        .iter()
+        .map(|id| json!({"type": "streaming", "target-type": "artist", "artist": {"id": id, "name": PRIVATE_TITLE}}))
+        .collect();
+    Reply::json(
+        serde_json::to_vec(&json!({"id": RECORDING, "resource": PAGE, "relations": relations}))
+            .unwrap(),
+    )
+}
+
+async fn artists_for(
+    reply: Reply,
+    resource: &str,
+) -> (Result<Vec<String>, Error>, Capture, Vec<String>) {
+    let fixture = Fixture::start(vec![reply]).await;
+    let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
+    let capture = Capture::default();
+    let result = client
+        .artists_by_url(resource)
+        .with_subscriber(capture.dispatch())
+        .await;
+    let requests = fixture.requests().iter().map(ToString::to_string).collect();
+    fixture.close().await;
+    (result, capture, requests)
+}
+
+#[tokio::test]
+async fn a_url_lookup_returns_the_distinct_related_artists_and_ignores_other_relations() {
+    let mut mixed =
+        serde_json::from_slice::<Value>(&related(&[ARTIST, ARTIST, FEATURED]).body).unwrap();
+    mixed["relations"].as_array_mut().unwrap().push(json!({
+        "type": "other", "target-type": "recording", "recording": {"id": RECORDING}
+    }));
+    let (result, capture, requests) =
+        artists_for(Reply::json(serde_json::to_vec(&mixed).unwrap()), PAGE).await;
+    assert_eq!(
+        result.unwrap(),
+        vec![ARTIST.to_string(), FEATURED.to_string()]
+    );
+    assert_eq!(
+        requests,
+        vec![format!(
+            "/ws/2/url?resource=https%3A%2F%2Fopen.spotify.com%2Fartist%2F0000000000000000000001&inc=artist-rels&fmt=json"
+        )]
+    );
+    let logs = capture.text();
+    assert!(logs.contains("MusicBrainz URL lookup completed"));
+    for private in [PAGE, ARTIST, PRIVATE_TITLE, "spotify.com"] {
+        assert!(!logs.contains(private), "logs must not carry {private}");
+    }
+}
+
+#[tokio::test]
+async fn an_unlinked_url_is_empty_an_outage_is_typed_and_unsafe_urls_make_no_request() {
+    let mut missing = Reply::json(br#"{"error":"Not Found"}"#.to_vec());
+    missing.status = StatusCode::NOT_FOUND;
+    assert_eq!(
+        artists_for(missing, PAGE).await.0.unwrap(),
+        Vec::<String>::new()
+    );
+    let mut outage = Reply::json(b"busy".to_vec());
+    outage.status = StatusCode::SERVICE_UNAVAILABLE;
+    let (result, _, requests) = artists_for(outage, OTHER_PAGE).await;
+    assert_eq!(result.unwrap_err(), Error::Status(503));
+    assert_eq!(requests.len(), 1);
+    let (result, _, _) = artists_for(related(&["nope"]), PAGE).await;
+    assert_eq!(result.unwrap_err(), Error::InvalidLookup);
+
+    let fixture = Fixture::start(vec![]).await;
+    let client = MusicBrainzClient::with_test_endpoint(fixture.endpoint.clone()).unwrap();
+    for invalid in [
+        "http://open.spotify.com/artist/1",
+        "https://user:secret@open.spotify.com/artist/1",
+        "https://open.spotify.com/artist/1?si=1",
+        "https://open.spotify.com/artist/1#x",
+        "https://open.spotify.com:8443/artist/1",
+        "not a url",
+    ] {
+        assert_eq!(
+            client.artists_by_url(invalid).await.unwrap_err(),
+            Error::InvalidLookupRequest
+        );
+    }
+    assert_eq!(fixture.request_count(), 0);
+    fixture.close().await;
+}
