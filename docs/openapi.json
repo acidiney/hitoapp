@@ -18329,6 +18329,7 @@
           "album_artist",
           "disc",
           "track",
+          "isrc",
           "musicbrainz_artist_tags"
         ],
         "properties": {
@@ -18363,6 +18364,16 @@
             ]
           },
           "disc": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isrc": {
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ObservedTag"
@@ -21755,6 +21766,13 @@
           },
           "id": {
             "type": "string"
+          },
+          "isrc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity."
           },
           "release": {
             "oneOf": [

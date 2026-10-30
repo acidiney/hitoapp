@@ -67,6 +67,9 @@ impl Probe {
             album_artist: self.observed_tag("album_artist"),
             disc: self.observed_tag("disc"),
             track: self.observed_tag("track"),
+            isrc: self
+                .observed_tag("isrc")
+                .or_else(|| self.observed_tag("tsrc")),
             musicbrainz_artist_tags: if artist_tags_known {
                 super::artist_tags::collect(self)
             } else {

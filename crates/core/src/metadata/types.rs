@@ -116,6 +116,9 @@ pub struct InspectedTags {
     pub track: Option<ObservedTag>,
     #[serde(default)]
     #[schema(required = true)]
+    pub isrc: Option<ObservedTag>,
+    #[serde(default)]
+    #[schema(required = true)]
     pub musicbrainz_artist_tags: Option<Vec<MusicBrainzArtistTag>>,
 }
 

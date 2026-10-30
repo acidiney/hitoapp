@@ -50,6 +50,14 @@ pub fn add_assertions(input: &Path, staged: &Path) {
     std::fs::rename(staged, input).unwrap();
 }
 
+pub fn add_isrc(input: &Path, staged: &Path, value: &str) {
+    let mut command = encoder(input);
+    command.args(["-c:a", "copy", "-map_metadata", "0"]);
+    command.args(["-metadata", &format!("ISRC={value}")]);
+    assert!(command.arg(staged).status().unwrap().success());
+    std::fs::rename(staged, input).unwrap();
+}
+
 pub fn add_artist_assertion(input: &Path, staged: &Path, value: &str) {
     let mut command = encoder(input);
     command.args(["-c:a", "copy", "-map_metadata", "0"]);

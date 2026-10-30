@@ -3204,6 +3204,7 @@ export interface components {
             album_artist: components["schemas"]["ObservedTag"] | null;
             artist: components["schemas"]["ObservedTag"] | null;
             disc: components["schemas"]["ObservedTag"] | null;
+            isrc: components["schemas"]["ObservedTag"] | null;
             musicbrainz_artist_tags: components["schemas"]["MusicBrainzArtistTag"][] | null;
             title: components["schemas"]["ObservedTag"] | null;
             track: components["schemas"]["ObservedTag"] | null;
@@ -4057,6 +4058,8 @@ export interface components {
             /** Format: int64 */
             duration_ms?: number | null;
             id: string;
+            /** @description ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity. */
+            isrc?: string | null;
             release?: components["schemas"]["ProviderRelease"] | null;
             revision?: string | null;
             title: string;

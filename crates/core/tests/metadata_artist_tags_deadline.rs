@@ -97,8 +97,8 @@ async fn fallback_shares_the_original_deadline_and_retires_both_owned_attempts()
         ordinary.assert_private_input(&candidate_bytes);
         assert!(expanded.input == ordinary.input);
         assert!(ordinary.selector.ends_with(
-            "format_tags=title,artist,album,album_artist,disc,track:\
-             stream_tags=title,artist,album,album_artist,disc,track"
+            "format_tags=title,artist,album,album_artist,disc,track,isrc,TSRC:\
+             stream_tags=title,artist,album,album_artist,disc,track,isrc,TSRC"
         ));
         assert!(!ordinary.selector.contains("MUSICBRAINZ"));
         let result =
