@@ -1,21 +1,18 @@
-use axum::{
-    Json, Router,
-    body::to_bytes,
-    extract::{Request, State},
-    http::{Method, StatusCode},
-    response::{IntoResponse, Response},
-};
+pub use super::observed::ObservedRequest;
+use super::observed::observed;
 use hito_plugin_sdk::{
     ArtistProfileRequest, CATALOG_EDITION_VERSION, CATALOG_VERSION, Capability,
     CatalogCapabilities, CatalogEditionCapabilities, CatalogEditionOperation,
     EditionTrackListRequest, Manifest, PROTOCOL_VERSION, RecordingRequest,
 };
+use hito_testkit::fake_plugin::{self as fake, FakePlugin};
 use serde_json::{Value, json};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, Ordering},
 };
-use tokio::{sync::oneshot, task::JoinHandle};
+
+const REQUEST_LIMIT: usize = 64;
 
 pub const ARTIST_ID: &str = "artist:album/owned?credit=lead";
 pub const CREDIT: &str = "Owned album performer";
@@ -32,16 +29,7 @@ pub const FEATURED_CREDIT: &str = "Featured guest performer";
 pub const TWIN: &str = "recording:album/same-title-other-recording";
 pub const FIRST_TITLE: &str = "Shared title";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ObservedRequest {
-    pub method: Method,
-    pub path: String,
-    pub body: Value,
-}
-
-struct State_ {
-    observed: Mutex<Vec<ObservedRequest>>,
-    unexpected: AtomicUsize,
+struct Behavior {
     outage: AtomicBool,
     editions: AtomicBool,
     bonus: Mutex<(String, Option<u64>)>,
@@ -49,55 +37,135 @@ struct State_ {
 
 pub struct AlbumProvider {
     pub url: String,
-    state: Arc<State_>,
-    stop: Option<oneshot::Sender<()>>,
-    task: Option<JoinHandle<bool>>,
+    plugin: FakePlugin,
+    behavior: Arc<Behavior>,
 }
 
 impl AlbumProvider {
     pub async fn start() -> Self {
-        let state = Arc::new(State_ {
-            observed: Mutex::default(),
-            unexpected: AtomicUsize::new(0),
+        let behavior = Arc::new(Behavior {
             outage: AtomicBool::new(false),
             editions: AtomicBool::new(true),
             bonus: Mutex::new((CREDIT.into(), Some(1000))),
         });
-        let router = Router::new().fallback(respond).with_state(state.clone());
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}/prefix/", listener.local_addr().unwrap());
-        let (stop, stopped) = oneshot::channel();
-        let task = tokio::spawn(async move {
-            axum::serve(listener, router)
-                .with_graceful_shutdown(async {
-                    let _ = stopped.await;
+        let plugin = FakePlugin::builder(Manifest {
+            id: "org.hito.album-edition-fixture".into(),
+            name: "Owned album editions".into(),
+            protocol_version: PROTOCOL_VERSION,
+            capabilities: [Capability::Catalog, Capability::Search, Capability::Metadata].into(),
+            authorization: None,
+            content_policy: None,
+        })
+        .get("v1/catalog/capabilities", |_| {
+            fake::Reply::Json(
+                serde_json::to_value(CatalogCapabilities {
+                    catalog_version: CATALOG_VERSION,
+                    operations: vec![
+                        hito_plugin_sdk::CatalogOperation::ArtistProfile,
+                        hito_plugin_sdk::CatalogOperation::ArtistDiscography,
+                    ],
                 })
-                .await
-                .is_ok()
-        });
+                .unwrap(),
+            )
+        })
+        .get("v1/catalog/editions/capabilities", {
+            let behavior = behavior.clone();
+            move |_| {
+                let operations = if behavior.editions.load(Ordering::SeqCst) {
+                    vec![
+                        CatalogEditionOperation::ReleaseGroupEditions,
+                        CatalogEditionOperation::EditionTrackList,
+                    ]
+                } else {
+                    vec![CatalogEditionOperation::ReleaseGroupEditions]
+                };
+                fake::Reply::Json(
+                    serde_json::to_value(CatalogEditionCapabilities {
+                        edition_version: CATALOG_EDITION_VERSION,
+                        operations,
+                    })
+                    .unwrap(),
+                )
+            }
+        })
+        .post("v1/catalog/artists/profile", |request| {
+            match serde_json::from_value::<ArtistProfileRequest>(request.json()) {
+                Ok(parsed) if parsed.artist_id == ARTIST_ID => fake::Reply::Json(json!({
+                    "artist": {"id": ARTIST_ID, "name": CREDIT},
+                    "sort_name": null, "kind": null, "disambiguation": null, "revision": null
+                })),
+                _ => fake::Reply::Refuse,
+            }
+        })
+        .post("v1/catalog/artists/discography", |_| {
+            fake::Reply::Json(json!({
+                "artist_id": ARTIST_ID, "snapshot": null, "total_count": 1, "next_cursor": null,
+                "items": [{"id": GROUP_ID, "title": RELEASE_TITLE, "artist_credit": null,
+                    "kind": "album", "secondary_types": [], "first_release_date": null, "revision": null}]
+            }))
+        })
+        .post("v1/catalog/release-groups/editions", |_| {
+            fake::Reply::Json(json!({
+                "release_group_id": GROUP_ID, "snapshot": null, "total_count": 1, "next_cursor": null,
+                "items": [{"id": EDITION_ID, "title": RELEASE_TITLE, "artist_credit": null,
+                    "disambiguation": "deluxe", "release_date": null, "country": null, "revision": null}]
+            }))
+        })
+        .post("v1/catalog/editions/track-list", {
+            let behavior = behavior.clone();
+            move |request| {
+                let Ok(parsed) = serde_json::from_value::<EditionTrackListRequest>(request.json())
+                else {
+                    return fake::Reply::Refuse;
+                };
+                let list = if parsed.edition_id == EDITION_ID {
+                    Some(deluxe(&behavior.bonus.lock().unwrap().clone()))
+                } else {
+                    track_list(&parsed.edition_id)
+                };
+                let Some(list) = list.filter(|_| parsed.release_group_id == GROUP_ID) else {
+                    return fake::Reply::Refuse;
+                };
+                if behavior.outage.load(Ordering::SeqCst) {
+                    return fake::Reply::Status(axum::http::StatusCode::SERVICE_UNAVAILABLE);
+                }
+                fake::Reply::Json(list)
+            }
+        })
+        .post("v1/recordings/detail", |request| {
+            match serde_json::from_value::<RecordingRequest>(request.json())
+                .ok()
+                .and_then(|parsed| detail(&parsed.recording_id))
+            {
+                Some(value) => fake::Reply::Json(value),
+                None => fake::Reply::Refuse,
+            }
+        })
+        .strict(REQUEST_LIMIT)
+        .start()
+        .await;
         Self {
-            url,
-            state,
-            stop: Some(stop),
-            task: Some(task),
+            url: plugin.url.clone(),
+            plugin,
+            behavior,
         }
     }
 
     pub fn set_outage(&self, outage: bool) {
-        self.state.outage.store(outage, Ordering::SeqCst);
+        self.behavior.outage.store(outage, Ordering::SeqCst);
     }
 
     /// Changes the credit and duration the edition reports for the bonus track.
     pub fn set_bonus(&self, credit: &str, duration_ms: Option<u64>) {
-        *self.state.bonus.lock().unwrap() = (credit.into(), duration_ms);
+        *self.behavior.bonus.lock().unwrap() = (credit.into(), duration_ms);
     }
 
     pub fn set_editions(&self, supported: bool) {
-        self.state.editions.store(supported, Ordering::SeqCst);
+        self.behavior.editions.store(supported, Ordering::SeqCst);
     }
 
     pub fn requests(&self) -> Vec<ObservedRequest> {
-        self.state.observed.lock().unwrap().clone()
+        observed(&self.plugin, REQUEST_LIMIT)
     }
 
     pub fn requests_to(&self, path: &str) -> Vec<ObservedRequest> {
@@ -108,28 +176,11 @@ impl AlbumProvider {
     }
 
     pub fn unexpected(&self) -> usize {
-        self.state.unexpected.load(Ordering::SeqCst)
+        self.plugin.unexpected()
     }
 
     pub async fn finish(&mut self) -> bool {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        match self.task.take() {
-            Some(task) => matches!(task.await, Ok(true)),
-            None => true,
-        }
-    }
-}
-
-impl Drop for AlbumProvider {
-    fn drop(&mut self) {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        if let Some(task) = self.task.take() {
-            task.abort();
-        }
+        self.plugin.finish().await
     }
 }
 
@@ -197,122 +248,4 @@ fn deluxe(bonus: &(String, Option<u64>)) -> Value {
             ]}
         ]
     })
-}
-
-async fn respond(State(state): State<Arc<State_>>, request: Request) -> Response {
-    let (parts, body) = request.into_parts();
-    let Ok(bytes) = to_bytes(body, 4096).await else {
-        return reject(&state);
-    };
-    let body = if bytes.is_empty() {
-        Value::Null
-    } else {
-        let Ok(value) = serde_json::from_slice(&bytes) else {
-            return reject(&state);
-        };
-        value
-    };
-    let path = parts.uri.path().to_owned();
-    {
-        let mut observed = state.observed.lock().unwrap();
-        if observed.len() >= 64 || parts.uri.query().is_some() {
-            return reject(&state);
-        }
-        observed.push(ObservedRequest {
-            method: parts.method.clone(),
-            path: path.clone(),
-            body: body.clone(),
-        });
-    }
-    match (parts.method.as_str(), path.as_str()) {
-        ("GET", "/prefix/v1/manifest") => Json(Manifest {
-            id: "org.hito.album-edition-fixture".into(),
-            name: "Owned album editions".into(),
-            protocol_version: PROTOCOL_VERSION,
-            capabilities: [Capability::Catalog, Capability::Search, Capability::Metadata].into(),
-            authorization: None,
-            content_policy: None,
-        })
-        .into_response(),
-        ("GET", "/prefix/v1/catalog/capabilities") => Json(CatalogCapabilities {
-            catalog_version: CATALOG_VERSION,
-            operations: vec![
-                hito_plugin_sdk::CatalogOperation::ArtistProfile,
-                hito_plugin_sdk::CatalogOperation::ArtistDiscography,
-            ],
-        })
-        .into_response(),
-        ("GET", "/prefix/v1/catalog/editions/capabilities") => {
-            let operations = if state.editions.load(Ordering::SeqCst) {
-                vec![
-                    CatalogEditionOperation::ReleaseGroupEditions,
-                    CatalogEditionOperation::EditionTrackList,
-                ]
-            } else {
-                vec![CatalogEditionOperation::ReleaseGroupEditions]
-            };
-            Json(CatalogEditionCapabilities {
-                edition_version: CATALOG_EDITION_VERSION,
-                operations,
-            })
-            .into_response()
-        }
-        ("POST", "/prefix/v1/catalog/artists/profile") => {
-            match serde_json::from_value::<ArtistProfileRequest>(body) {
-                Ok(request) if request.artist_id == ARTIST_ID => Json(json!({
-                    "artist": {"id": ARTIST_ID, "name": CREDIT},
-                    "sort_name": null, "kind": null, "disambiguation": null, "revision": null
-                }))
-                .into_response(),
-                _ => reject(&state),
-            }
-        }
-        ("POST", "/prefix/v1/catalog/artists/discography") => Json(json!({
-            "artist_id": ARTIST_ID, "snapshot": null, "total_count": 1, "next_cursor": null,
-            "items": [{"id": GROUP_ID, "title": RELEASE_TITLE, "artist_credit": null,
-                "kind": "album", "secondary_types": [], "first_release_date": null, "revision": null}]
-        }))
-        .into_response(),
-        ("POST", "/prefix/v1/catalog/release-groups/editions") => Json(json!({
-            "release_group_id": GROUP_ID, "snapshot": null, "total_count": 1, "next_cursor": null,
-            "items": [{"id": EDITION_ID, "title": RELEASE_TITLE, "artist_credit": null,
-                "disambiguation": "deluxe", "release_date": null, "country": null, "revision": null}]
-        }))
-        .into_response(),
-        ("POST", "/prefix/v1/catalog/editions/track-list") => {
-            let Ok(request) = serde_json::from_value::<EditionTrackListRequest>(body) else {
-                return reject(&state);
-            };
-            let list = if request.edition_id == EDITION_ID {
-                Some(deluxe(&state.bonus.lock().unwrap().clone()))
-            } else {
-                track_list(&request.edition_id)
-            };
-            let Some(list) = list else {
-                return reject(&state);
-            };
-            if request.release_group_id != GROUP_ID {
-                return reject(&state);
-            }
-            if state.outage.load(Ordering::SeqCst) {
-                return StatusCode::SERVICE_UNAVAILABLE.into_response();
-            }
-            Json(list).into_response()
-        }
-        ("POST", "/prefix/v1/recordings/detail") => {
-            match serde_json::from_value::<RecordingRequest>(body)
-                .ok()
-                .and_then(|request| detail(&request.recording_id))
-            {
-                Some(value) => Json(value).into_response(),
-                None => reject(&state),
-            }
-        }
-        _ => reject(&state),
-    }
-}
-
-fn reject(state: &State_) -> Response {
-    state.unexpected.fetch_add(1, Ordering::SeqCst);
-    StatusCode::BAD_REQUEST.into_response()
 }
