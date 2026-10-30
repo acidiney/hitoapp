@@ -51,83 +51,91 @@ function stub(
   return calls;
 }
 
-const button = () =>
-  screen.getByRole("button", { name: "Find matches on MusicBrainz" });
+const again = () => screen.getByRole("button", { name: "Match again" });
 
 beforeEach(() => reload.mockReset());
 afterEach(() => vi.unstubAllGlobals());
 
-test("the page explains what is sent and sends nothing until the button is clicked", async () => {
+test("opening the page starts the pass by itself and shows one muted status line", async () => {
   const calls = stub(
     () => settings(true),
-    (body) => receipt(body, { matched: 1 }, null),
+    (body) => receipt(body, { matched: 16 }, null),
   );
   render(createElement(ProviderArtistMatching, { account }));
-  expect(
-    screen.getByText(
-      "Sends ISRC codes, provider artist links and the artist names of tracks it cannot place otherwise from your library to MusicBrainz.",
-    ),
-  ).toBeTruthy();
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(calls).toEqual([SETTINGS]);
-});
-
-test("a click walks the cursor, shows the receipt counts and refreshes the artists once", async () => {
-  const afters: (string | undefined)[] = [];
-  stub(
-    () => settings(true),
-    (body) => {
-      afters.push(body.after);
-      return body.after
-        ? receipt(body, { matched: 1, unavailable: 0, uncertain: 2 }, null)
-        : receipt(body, { matched: 2, uncertain: 1 }, "r-8");
-    },
-  );
-  render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
-  await screen.findByText("3 matched, 3 uncertain answers, 0 unavailable.");
-  expect(afters).toEqual([undefined, "r-8"]);
+  expect(await screen.findByText("16 matched.")).toBeTruthy();
+  expect(calls).toEqual([SETTINGS, RUN]);
+  expect(screen.queryByRole("heading")).toBeNull();
+  expect(screen.queryByText(/Find matches on MusicBrainz/)).toBeNull();
   expect(reload).toHaveBeenCalledTimes(1);
   expect(reload).toHaveBeenCalledWith({ only: ["artists", "identity_groups"] });
 });
 
-test("an unavailable provider ends the walk without retrying and is reported", async () => {
+test("the cursor is walked automatically and the running line counts matches", async () => {
+  const afters: (string | undefined)[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      if (path === SETTINGS) return settings(true);
+      const body = JSON.parse(options?.body as string);
+      afters.push(body.after);
+      if (!body.after) return receipt(body, { matched: 2, uncertain: 1 }, "r-8");
+      await gate;
+      return receipt(body, { matched: 1, uncertain: 2 }, null);
+    }),
+  );
+  render(createElement(ProviderArtistMatching, { account }));
+  expect(await screen.findByText("Matching artists… 2 matched")).toBeTruthy();
+  release();
+  expect(await screen.findByText("3 matched.")).toBeTruthy();
+  expect(afters).toEqual([undefined, "r-8"]);
+  expect(reload).toHaveBeenCalledTimes(1);
+});
+
+test("an unavailable provider ends the pass without retrying and offers Match again", async () => {
   const run = vi.fn((body: { request_id: string }) =>
     receipt(body, { unavailable: 2 }, "r-8"),
   );
   stub(() => settings(true), run);
   render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
-  await screen.findByText(
-    "0 matched, 0 uncertain answers, 2 unavailable. Run again to continue.",
-  );
+  expect(
+    await screen.findByText("0 matched so far. The provider was unavailable."),
+  ).toBeTruthy();
   expect(run).toHaveBeenCalledTimes(1);
   expect(reload).not.toHaveBeenCalled();
+  expect(again()).toBeTruthy();
 });
 
-test("the button stays disabled and nothing is sent when metadata enrichment is off or the built-in provider is not selected", async () => {
+test("nothing is sent and nothing is shown when metadata enrichment is off or the built-in provider is not selected", async () => {
   for (const policy of [() => settings(false), () => settings(true, false)]) {
     const calls = stub(policy, (body) => receipt(body, {}, null));
     const view = render(createElement(ProviderArtistMatching, { account }));
-    await screen.findByText(/Turn on the built-in MusicBrainz provider/);
-    expect((button() as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(button());
+    await waitFor(() => expect(calls).toEqual([SETTINGS]));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(calls).toEqual([SETTINGS]);
+    expect(view.container.textContent).toBe("");
     view.unmount();
   }
 });
 
-test("leaving the page cancels a running search", async () => {
+test("a pass that ran a moment ago is not repeated on the next visit but can be run again", async () => {
+  const calls = stub(
+    () => settings(true),
+    (body) => receipt(body, { matched: 1 }, null),
+  );
+  const first = render(createElement(ProviderArtistMatching, { account }));
+  await screen.findByText("1 matched.");
+  first.unmount();
+  calls.length = 0;
+  render(createElement(ProviderArtistMatching, { account }));
+  await waitFor(() => expect(calls).toEqual([SETTINGS]));
+  fireEvent.click(await screen.findByRole("button", { name: "Match again" }));
+  await waitFor(() => expect(calls).toEqual([SETTINGS, RUN]));
+  expect(await screen.findByText("1 matched.")).toBeTruthy();
+});
+
+test("leaving the page cancels a running pass", async () => {
   const signals: AbortSignal[] = [];
   vi.stubGlobal(
     "fetch",
@@ -142,10 +150,6 @@ test("leaving the page cancels a running search", async () => {
     }),
   );
   const view = render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
   await waitFor(() => expect(signals).toHaveLength(1));
   view.unmount();
   expect(signals[0].aborted).toBe(true);
@@ -166,11 +170,7 @@ test("the walk continues from the evidence cursor into the name cursor until the
     },
   );
   render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
-  await screen.findByText("3 matched, 4 uncertain answers, 0 unavailable.");
+  await screen.findByText("3 matched.");
   expect(afters).toEqual([undefined, "r-8", "name:", "name:artist-1"]);
   expect(reload).toHaveBeenCalledTimes(1);
 });
@@ -181,40 +181,7 @@ test("a name cursor that does not advance ends the walk without looping", async 
   );
   stub(() => settings(true), run);
   render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
-  await screen.findByText(
-    "0 matched, 2 uncertain answers, 0 unavailable. Run again to continue.",
-  );
+  await screen.findByText("0 matched so far.");
   expect(run).toHaveBeenCalledTimes(2);
-});
-
-test("leaving the page during the name phase cancels it and writes no refresh", async () => {
-  const signals: AbortSignal[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn((path: string, options?: RequestInit) => {
-      if (path === SETTINGS) return Promise.resolve(settings(true));
-      const body = JSON.parse(options?.body as string);
-      if (!body.after)
-        return Promise.resolve(receipt(body, { matched: 1 }, "name:"));
-      signals.push(options!.signal!);
-      return new Promise<Response>((_resolve, reject) =>
-        options!.signal!.addEventListener("abort", () =>
-          reject(new DOMException("aborted", "AbortError")),
-        ),
-      );
-    }),
-  );
-  const view = render(createElement(ProviderArtistMatching, { account }));
-  await waitFor(() =>
-    expect((button() as HTMLButtonElement).disabled).toBe(false),
-  );
-  fireEvent.click(button());
-  await waitFor(() => expect(signals).toHaveLength(1));
-  view.unmount();
-  expect(signals[0].aborted).toBe(true);
-  expect(reload).not.toHaveBeenCalled();
+  expect(again()).toBeTruthy();
 });

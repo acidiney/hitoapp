@@ -1,4 +1,3 @@
-import Button from "../../../shared/ui/Button";
 import {
   useProviderArtistMatching,
   type ProviderMatchState,
@@ -6,16 +5,16 @@ import {
 
 function summary(state: ProviderMatchState) {
   switch (state.status) {
-    case "disabled":
-      return "Turn on the built-in MusicBrainz provider in metadata settings to use this.";
-    case "failed":
-      return "The search could not finish. Try again later.";
     case "running":
-      return "Searching MusicBrainz…";
+      return `Matching artists… ${state.matched} matched`;
+    case "failed":
+      return "Matching artists stopped.";
     case "finished": {
-      const { matched, uncertain, unavailable } = state.counts;
-      const parts = `${matched} matched, ${uncertain} uncertain answers, ${unavailable} unavailable.`;
-      return state.complete ? parts : `${parts} Run again to continue.`;
+      const { matched, unavailable } = state.counts;
+      if (state.complete) return `${matched} matched.`;
+      return unavailable > 0
+        ? `${matched} matched so far. The provider was unavailable.`
+        : `${matched} matched so far.`;
     }
     default:
       return "";
@@ -28,29 +27,19 @@ export default function ProviderArtistMatching({
   account: string;
 }) {
   const { state, run } = useProviderArtistMatching(account);
-  const busy = state.status === "running";
-  const result = summary(state);
+  if (state.status === "checking" || state.status === "disabled") return null;
+  const text = summary(state);
   return (
-    <section aria-labelledby="provider-matching-title">
-      <h2 className="discography-heading" id="provider-matching-title">
-        Match with MusicBrainz
-      </h2>
-      <p className="muted" id="provider-matching-help">
-        Sends ISRC codes, provider artist links and the artist names of tracks
-        it cannot place otherwise from your library to MusicBrainz.
-      </p>
-      <Button
-        aria-describedby="provider-matching-help"
-        disabled={
-          state.status === "checking" || state.status === "disabled" || busy
-        }
-        onClick={() => void run()}
-      >
-        Find matches on MusicBrainz
-      </Button>
-      <p className="muted" role="status" aria-live="polite">
-        {result}
-      </p>
-    </section>
+    <p className="muted artist-matching-status" role="status" aria-live="polite">
+      {text}
+      {state.status !== "running" && (
+        <>
+          {text && " "}
+          <button type="button" className="text-link" onClick={() => void run()}>
+            Match again
+          </button>
+        </>
+      )}
+    </p>
   );
 }

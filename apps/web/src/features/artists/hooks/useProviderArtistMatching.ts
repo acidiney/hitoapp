@@ -17,7 +17,8 @@ export type ProviderMatchCounts = {
 };
 
 export type ProviderMatchState =
-  | { status: "checking" | "disabled" | "ready" | "running" | "failed" }
+  | { status: "checking" | "disabled" | "ready" | "failed" }
+  | { status: "running"; matched: number }
   | { status: "finished"; counts: ProviderMatchCounts; complete: boolean };
 
 function builtinEnabled(settings: Schema<"MetadataSettings">) {
@@ -27,6 +28,28 @@ function builtinEnabled(settings: Schema<"MetadataSettings">) {
       (provider) => provider.kind === "builtin_musicbrainz",
     )
   );
+}
+
+const PAUSE_MS = 10 * 60 * 1000;
+
+function recentlyRun(account: string) {
+  try {
+    const at = Number(localStorage.getItem(`hito:artist-provider-match:${account}`));
+    return Number.isFinite(at) && at > 0 && Date.now() - at < PAUSE_MS;
+  } catch {
+    return false;
+  }
+}
+
+function remember(account: string) {
+  try {
+    localStorage.setItem(
+      `hito:artist-provider-match:${account}`,
+      String(Date.now()),
+    );
+  } catch {
+    log.debug("artist_matching.provider_pause_unavailable");
+  }
 }
 
 const NAME_PHASE = "name:";
@@ -41,9 +64,10 @@ function advances(previous: string | undefined, next: string) {
 
 /**
  * The provider pass sends ISRC codes, provider artist links and credit names to MusicBrainz, so it
- * starts only when the account asks for it and only while its metadata settings allow the
- * built-in provider. It walks the server's cursor through the evidence phase and then the name
- * phase, and leaving the page cancels whatever is in flight.
+ * runs only while the account's metadata settings allow the built-in provider. It starts by itself
+ * when the page opens (at most once every ten minutes) or when the listener asks again. It walks
+ * the server's cursor through the evidence phase and then the name phase, and leaving the page
+ * cancels whatever is in flight.
  */
 export function useProviderArtistMatching(account: string) {
   const scope = useRequestScope(account);
@@ -51,6 +75,7 @@ export function useProviderArtistMatching(account: string) {
     status: "checking",
   });
   const running = useRef<AbortController | null>(null);
+  const start = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     const request = scope.capture();
@@ -58,8 +83,12 @@ export function useProviderArtistMatching(account: string) {
     void metadataPreferencesApi
       .settings(account, request.signal)
       .then((settings) => {
-        if (request.active())
-          setState({ status: builtinEnabled(settings) ? "ready" : "disabled" });
+        if (!request.active()) return;
+        if (!builtinEnabled(settings)) return setState({ status: "disabled" });
+        setState({ status: "ready" });
+        if (recentlyRun(account)) return;
+        remember(account);
+        void start.current();
       })
       .catch(() => {
         if (request.active()) setState({ status: "failed" });
@@ -81,7 +110,7 @@ export function useProviderArtistMatching(account: string) {
       unavailable: 0,
     };
     let complete = false;
-    setState({ status: "running" });
+    setState({ status: "running", matched: 0 });
     try {
       let after: string | undefined;
       for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
@@ -91,6 +120,8 @@ export function useProviderArtistMatching(account: string) {
           signal,
         );
         counts.matched += receipt.matched;
+        if (request.active())
+          setState({ status: "running", matched: counts.matched });
         counts.uncertain += receipt.uncertain;
         counts.unavailable += receipt.unavailable;
         if (!receipt.next_after) {
@@ -125,5 +156,6 @@ export function useProviderArtistMatching(account: string) {
     }
   }, [account, scope]);
 
+  start.current = run;
   return { state, run };
 }
