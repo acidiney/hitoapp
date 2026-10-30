@@ -33,9 +33,14 @@ pub enum Screen<'a> {
     Discover,
     PodcastIndex,
     Podcast(&'a str),
+    NotFound,
 }
 
 impl<'a> Screen<'a> {
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Self::NotFound)
+    }
+
     pub fn from_path(path: &'a str) -> Self {
         match path {
             "/" | "/library" => Self::Catalog,
@@ -71,7 +76,10 @@ impl<'a> Screen<'a> {
             _ if path.starts_with("/audiobooks/") => {
                 Self::Audiobook(path.trim_start_matches("/audiobooks/"))
             }
-            _ => Self::Playlist(path.trim_start_matches("/playlists/")),
+            _ if path.starts_with("/playlists/") => {
+                Self::Playlist(path.trim_start_matches("/playlists/"))
+            }
+            _ => Self::NotFound,
         }
     }
 
@@ -98,6 +106,7 @@ impl<'a> Screen<'a> {
             Self::Discover => PageComponent::DiscoverPage,
             Self::PodcastIndex => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,
+            Self::NotFound => PageComponent::NotFoundPage,
         }
     }
 
@@ -146,6 +155,9 @@ impl<'a> Screen<'a> {
                 shared: request.shared,
             })),
             Self::Queue => Ok(PageProps::Queue(QueuePageProps {
+                shared: request.shared,
+            })),
+            Self::NotFound => Ok(PageProps::NotFound(NotFoundPageProps {
                 shared: request.shared,
             })),
         }

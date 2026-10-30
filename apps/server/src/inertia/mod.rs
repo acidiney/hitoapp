@@ -7,7 +7,7 @@ use crate::{Config, auth::OptionalAccount, error::ApiResult, extract::QueryParam
 use axum::{
     Extension, Json,
     extract::{OriginalUri, State},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
 };
 use hito_core::{Search, Services};
@@ -43,10 +43,14 @@ pub async fn page(
         return Ok(response);
     }
     let screen = Screen::from_path(uri.path());
+    let unknown = screen.is_unknown();
+    if unknown && (uri.path() == "/api" || uri.path().starts_with("/api/")) {
+        return Err(hito_core::Error::NotFound.into());
+    }
     let locked = actor.as_ref().is_some_and(|actor| actor.is_locked());
     let component = if locked {
         PageComponent::LockPage
-    } else if actor.is_some() {
+    } else if actor.is_some() || unknown {
         screen.component()
     } else {
         PageComponent::LoginPage
@@ -72,6 +76,16 @@ pub async fn page(
                 )
                 .await?
         }
+        None if unknown => PageProps::NotFound(props::NotFoundPageProps {
+            shared: props::SharedPageProps {
+                errors: Default::default(),
+                native_playback: None,
+                user: None,
+                libraries: None,
+                playlists: None,
+                lock: None,
+            },
+        }),
         None => {
             let needs_setup = if protocol.requested("needs_setup") {
                 Some(services.identity.needs_setup().await?)
@@ -91,9 +105,19 @@ pub async fn page(
         "Page assembled"
     );
     let page = json!({"component":props.component(), "props":props, "url":uri.to_string(), "version":config.asset_version, "encryptHistory":true, "clearHistory":clear_history});
-    if protocol.inertia {
-        Ok(([("x-inertia", "true"), ("vary", "X-Inertia")], Json(page)).into_response())
+    let status = if unknown {
+        StatusCode::NOT_FOUND
     } else {
-        Ok(([("vary", "X-Inertia")], Html(html::render(&page))).into_response())
+        StatusCode::OK
+    };
+    if protocol.inertia {
+        Ok((
+            status,
+            [("x-inertia", "true"), ("vary", "X-Inertia")],
+            Json(page),
+        )
+            .into_response())
+    } else {
+        Ok((status, [("vary", "X-Inertia")], Html(html::render(&page))).into_response())
     }
 }

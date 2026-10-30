@@ -292,3 +292,75 @@ async fn api_contract_is_published_without_authentication() {
         );
     }
 }
+
+async fn get(
+    app: &axum::Router,
+    uri: &str,
+    headers: &[(&str, &str)],
+) -> (StatusCode, String, axum::http::HeaderMap) {
+    let mut request = Request::builder().uri(uri);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let (status, headers) = (response.status(), response.headers().clone());
+    let body = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
+    (status, body, headers)
+}
+
+#[tokio::test]
+async fn unknown_paths_answer_a_not_found_page_while_api_paths_keep_json() {
+    let (_dir, app) = app().await;
+    let token = admin(&app).await;
+    let bearer = format!("Bearer {token}");
+
+    let (status, body, headers) = get(
+        &app,
+        "/no/such/page",
+        &[("authorization", &bearer), ("x-inertia", "true")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(headers["x-inertia"], "true");
+    let page: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(page["component"], "NotFoundPage");
+
+    let (status, body, _) = get(&app, "/no/such/page", &[("authorization", &bearer)]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(body.contains("data-page=\"app\"") && body.contains("NotFoundPage"));
+
+    let (status, body, _) = get(&app, "/no/such/page", &[]).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "A signed-out visitor learns nothing more"
+    );
+    assert!(body.contains("NotFoundPage"));
+
+    let (status, body, headers) =
+        get(&app, "/api/v1/no-such-route", &[("authorization", &bearer)]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        headers["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json")
+    );
+    assert!(serde_json::from_str::<Value>(&body).unwrap()["error"].is_string());
+
+    let (status, _, _) = get(&app, "/library", &[("authorization", &bearer)]).await;
+    assert_eq!(status, StatusCode::OK);
+}

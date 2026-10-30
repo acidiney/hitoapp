@@ -38,6 +38,7 @@ pub enum PageComponent {
     DiscoverPage,
     PodcastIndexPage,
     PodcastPage,
+    NotFoundPage,
 }
 
 impl std::fmt::Display for PageComponent {
@@ -260,6 +261,12 @@ pub struct SettingsPageProps {
 }
 
 #[derive(Serialize, ToSchema)]
+pub struct NotFoundPageProps {
+    #[serde(flatten)]
+    pub shared: SharedPageProps,
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct QueuePageProps {
     #[serde(flatten)]
     pub shared: SharedPageProps,
@@ -327,6 +334,7 @@ pub enum PageProps {
     Discover(DiscoverPageProps),
     PodcastIndex(PodcastIndexPageProps),
     Podcast(PodcastPageProps),
+    NotFound(NotFoundPageProps),
 }
 
 impl PageProps {
@@ -355,6 +363,7 @@ impl PageProps {
             Self::Discover(_) => PageComponent::DiscoverPage,
             Self::PodcastIndex(_) => PageComponent::PodcastIndexPage,
             Self::Podcast(_) => PageComponent::PodcastPage,
+            Self::NotFound(_) => PageComponent::NotFoundPage,
         }
     }
 }
