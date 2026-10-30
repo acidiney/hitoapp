@@ -258,7 +258,7 @@ flowchart TB
 
 What each capability owns:
 
-- `Identity`: accounts, sessions and the opaque authenticated actor.
+- `Identity`: accounts, sessions, account deletion and the opaque authenticated actor.
 - `Catalog`: authorized reads, provider search and adoption, source resolution and artwork.
 - `ArtistCatalog`: account metadata settings, reviewed artist associations, artist identity groups and corrections, provider artist profiles, discographies and album editions, and the album page that carries the saved edition and catalog anchor. It owns the shared MusicBrainz client and its admission limits.
 - `PlaybackAccess`: opening audio. It picks one of four origins (provider relay, podcast enclosure, managed download, local file) and checks live authority first.
@@ -302,6 +302,41 @@ erDiagram
   RECORDING ||--o{ PLAYLIST_ENTRY : references
   USER ||--o{ SYNC_OPERATION : accepts
 ```
+
+## Account deletion
+
+`Identity::delete_account` lets an administrator erase another account and everything it owns in one `BEGIN IMMEDIATE` transaction. It is current behavior in source; it is not part of a deployed release.
+
+```mermaid
+flowchart TD
+  Admin[Administrator request] --> Rules{Rules}
+  Rules -->|not an administrator| F403[403]
+  Rules -->|unknown account| F404[404]
+  Rules -->|own account, wrong name, last administrator| F409[409]
+  Rules -->|allowed| Tx[One transaction]
+  Tx --> Ledger[Record managed download files in erased_download_files]
+  Tx --> Scope[Open the account erasure scope]
+  Scope --> Sessions[Revoke sessions and pending authorizations]
+  Scope --> Corrections[Artist corrections: ArtistCatalog erase steps]
+  Scope --> Downloads[Downloads, receipts and retentions]
+  Scope --> Collection[Playlists, likes, history, progress, personal edits, podcasts]
+  Scope --> Providers[Provider installations and credentials, tokens, reporter credentials]
+  Scope --> Library[Personal provider library: recordings, sources, observations]
+  Scope --> User[The account row last]
+  User --> Commit[Commit]
+  Commit --> Reclaim[Download worker removes the ledger files, also after a restart]
+```
+
+Rules, decided and tested:
+
+- Only an administrator may delete (403 otherwise). An unknown account is 404. The request carries the account name the administrator saw; a mismatch is 409 so a stale list cannot erase a different account.
+- Self-deletion is not allowed: an administrator who wants to leave signs in as another administrator (409). The last administrator is never deleted (409); today every server has exactly one administrator, so deleting any other account is always possible and the last-administrator guard is the safety net for a future second administrator.
+- Everything the account owns goes: sessions, PIN lock, preferences, likes, listening progress, history, playlists (including followed and imported ones and their tombstones), audiobook bookmarks, personal title and artist edits, per-account catalog rows, artist corrections (the existing erase steps, see [deletion and retention](artist-catalog-host.md#deletion-and-retention)), podcast subscriptions, episodes and receipts, download intents, retentions, receipts and files, provider installations (the encrypted credential is part of the installation row), pending authorizations, community reporter credentials, jobs, and the account's personal provider library with its recordings, sources and metadata observations.
+- Playlists are never shared between accounts, so none outlives its owner. Shared library files, recordings and releases stay because they belong to the library, not to the account. A deleted administrator's shared artist corrections stay in force without an author.
+- Managed download files are named by file and attempt, belong to exactly one account and are never shared. Their names are written to `erased_download_files` in the same transaction; the download worker deletes the files after the commit and after any restart, so a crash between the commit and the file removal leaves a ledger entry rather than an orphan.
+- The transaction defers foreign key checks until commit, so any table that still references the account makes the whole deletion fail and roll back instead of leaving partial data. A schema-driven test fails when a table that can reach `users` through a foreign key or an account column is not part of the plan.
+- Retained ledgers (receipts, retentions, provider bindings, podcast identities) refuse deletes unless an `account` row exists in `correction_erasure_scopes`; migration 0067 extends that guard to them. The row exists only inside the deletion transaction and is cleared on every open.
+- Logs carry the operation, a request ID, the outcome and counts (sessions revoked, rows removed, files queued) and no names, e-mail addresses, account or file identifiers.
 
 ## Catalog appearances
 

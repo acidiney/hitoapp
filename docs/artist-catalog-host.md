@@ -107,7 +107,7 @@ Migration 0059 adds the split history, retirement, ordering and shared correctio
 
 ## Deletion and retention
 
-The correction history is append-only: triggers refuse updates and deletes so that no code path can quietly rewrite a decision. Account and recording deletion are the two reasons data has to leave anyway. This section defines what leaves, what stays and the one narrow way to remove it. Current behavior and tested evidence are marked; the account and recording deletion workflows themselves are not built yet.
+The correction history is append-only: triggers refuse updates and deletes so that no code path can quietly rewrite a decision. Account and recording deletion are the two reasons data has to leave anyway. This section defines what leaves, what stays and the one narrow way to remove it. Current behavior and tested evidence are marked. Account deletion is built (see [account deletion](architecture.md#account-deletion)); the recording deletion workflow is not.
 
 ```mermaid
 flowchart TD
@@ -123,7 +123,7 @@ flowchart TD
     Shared --> Kept[Shared correction stays in force, author unknown]
 ```
 
-**Account deletion.** `ArtistCatalog::erase_account_corrections` (administrators only, one transaction) removes everything an account decided privately: its artist associations and their match provenance, unlink and undo history with its ordering rows and retirements, split history and items, artist identity choices and groups, remembered album editions, match dismissals and checks, and all of its request receipts (association, identity, album edition and shared correction). Another account's rows, choices and reads are not touched. It is repeatable, and an unknown account is not found. No private decision therefore outlives the account.
+**Account deletion.** `Identity::delete_account` runs these same erase steps (`ArtistCatalog::erase_account_corrections` remains the standalone administrator entry point) inside its larger transaction. They remove everything an account decided privately: its artist associations and their match provenance, unlink and undo history with its ordering rows and retirements, split history and items, artist identity choices and groups, remembered album editions, match dismissals and checks, and all of its request receipts (association, identity, album edition and shared correction). Another account's rows, choices and reads are not touched. It is repeatable, and an unknown account is not found. No private decision therefore outlives the account.
 
 **Shared corrections of a deleted administrator stay in force.** A shared correction belongs to the server, not to the person who promoted it, and it holds only recording and provider artist identifiers, never the administrator's private reviews. Removing it with its author would silently bring back artist links that every other account had been told were wrong. The erase therefore clears only the author of the correction and of its state changes, and the pointer to the administrator's own unlink or split. The correction keeps hiding the same associations, still counts for personal precedence, and the Settings list shows it as not promoted by you. Any other administrator can withdraw and restore it as before. The wire contract is unchanged because it only ever reported "promoted by me".
 
@@ -136,7 +136,7 @@ flowchart TD
 ### Evidence and open work for deletion
 
 - Core: `artist_correction_erasure` (4 cases: erasing a regular account with every table kind populated and a second account untouched, ordinary deletes and updates still refused with no scope or a foreign scope, a deleted administrator's shared correction staying in force and withdrawable by another administrator across VACUUM, and recording erasure that spares other recordings) and `artist_correction_erasure_upgrade` (2 cases: a populated 0064 database keeps every shared correction, subject, state and the numbering high-water mark through the rebuild with foreign keys enforced, plus the exact empty-library schema).
-- Not built: account deletion itself and any recording-deleting workflow, so nothing calls these erase steps yet and there is no HTTP route. Other account-owned data (library access, playlists, likes, sessions and so on) is outside this definition. Whether to share corrections for provider connections that several accounts install, and whether a split can create a new identity, remain open. Migrations 0057 and 0059 run on the local development server only, migration 0065 is source only, and none of this is a release.
+- Not built: account deletion itself and any recording-deleting workflow, so nothing calls these erase steps yet and there is no HTTP route. Other account-owned data (library access, playlists, likes, sessions and so on) is outside this definition. Whether to share corrections for provider connections that several accounts install, and whether a split can create a new identity, remain open. Migrations 0057 and 0059 run on the local development server only, migrations 0065 and 0067 are source only, and none of this is a release.
 
 ## Settings and provider access
 
