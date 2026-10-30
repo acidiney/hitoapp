@@ -59,6 +59,30 @@ async fn scoped(
     subject: &str,
     statements: &[String],
 ) -> Result<()> {
+    sqlx::query("SAVEPOINT correction_erasure")
+        .execute(&mut *connection)
+        .await?;
+    let outcome = erase_within_scope(connection, kind, subject, statements).await;
+    let closing = if outcome.is_ok() {
+        "RELEASE correction_erasure"
+    } else {
+        "ROLLBACK TO correction_erasure"
+    };
+    sqlx::query(closing).execute(&mut *connection).await?;
+    if outcome.is_err() {
+        sqlx::query("RELEASE correction_erasure")
+            .execute(&mut *connection)
+            .await?;
+    }
+    outcome
+}
+
+async fn erase_within_scope(
+    connection: &mut SqliteConnection,
+    kind: &str,
+    subject: &str,
+    statements: &[String],
+) -> Result<()> {
     sqlx::query("INSERT INTO correction_erasure_scopes(kind,subject) VALUES(?,?)")
         .bind(kind)
         .bind(subject)
@@ -70,6 +94,23 @@ async fn scoped(
         .bind(subject)
         .execute(&mut *connection)
         .await?;
+    Ok(())
+}
+
+/// Removes scopes a failed or interrupted erasure could have left, which would otherwise
+/// permit deletes of retained corrections.
+pub(crate) async fn clear_stray_scopes(pool: &sqlx::SqlitePool) -> Result<()> {
+    let cleared = sqlx::query("DELETE FROM correction_erasure_scopes")
+        .execute(pool)
+        .await?
+        .rows_affected();
+    if cleared > 0 {
+        tracing::warn!(
+            event = "correction_erasure_scopes_cleared",
+            cleared,
+            "Cleared erasure scopes left by an interrupted erasure"
+        );
+    }
     Ok(())
 }
 
@@ -148,4 +189,29 @@ pub(crate) async fn erase_recording_corrections(
         .map(String::from),
     );
     scoped(connection, "recording", recording, &statements).await
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::store::Store;
+
+    #[tokio::test]
+    async fn opening_the_store_clears_stray_erasure_scopes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("scopes.db");
+        let store = Store::open(&path).await.unwrap();
+        sqlx::query(
+            "INSERT INTO correction_erasure_scopes(kind,subject) VALUES('account','stray')",
+        )
+        .execute(&store.pool)
+        .await
+        .unwrap();
+        store.pool.close().await;
+        let store = Store::open(&path).await.unwrap();
+        let scopes: i64 = sqlx::query_scalar("SELECT count(*) FROM correction_erasure_scopes")
+            .fetch_one(&store.pool)
+            .await
+            .unwrap();
+        assert_eq!(scopes, 0);
+    }
 }

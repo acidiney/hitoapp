@@ -40,6 +40,7 @@ impl Store {
             .connect_with(options)
             .await?;
         MIGRATOR.run(&pool).await?;
+        crate::artist_catalog::erasure::clear_stray_scopes(&pool).await?;
         Ok(Self { pool })
     }
 

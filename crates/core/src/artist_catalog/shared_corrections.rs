@@ -316,7 +316,7 @@ impl ArtistCatalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let current = revision(&mut tx).await?;
-        let rows: Vec<(String, String, String, i64, i64, i64, bool)> = sqlx::query_as(
+        let rows: Vec<(String, String, Option<String>, i64, i64, i64, bool)> = sqlx::query_as(
             "SELECT correction.id,correction.source_kind,correction.promoted_by,
                 (SELECT count(*) FROM shared_artist_correction_subjects s WHERE s.correction_seq=correction.seq),
                 (SELECT count(*) FROM shared_artist_correction_subjects s WHERE s.correction_seq=correction.seq AND s.retired_reason IS NOT NULL),
@@ -348,7 +348,7 @@ impl ArtistCatalog {
                     retired,
                     applied,
                     revision,
-                    promoted_by_me: by == actor.id(),
+                    promoted_by_me: by.as_deref() == Some(actor.id()),
                 },
             )
             .collect();

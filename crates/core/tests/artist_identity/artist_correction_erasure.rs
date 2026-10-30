@@ -507,6 +507,16 @@ async fn a_deleted_administrators_shared_correction_stays_in_force_and_can_be_wi
                 .unwrap();
             assert_eq!(list.items.len(), 1);
             assert!(list.items[0].applied && !list.items[0].promoted_by_me);
+            let by_former_author = library
+                .hito
+                .artist_catalog
+                .shared_artist_corrections(admin)
+                .await
+                .unwrap();
+            assert!(
+                !by_former_author.items[0].promoted_by_me,
+                "An anonymous author is nobody's own correction"
+            );
             assert_eq!(listed(library, peer, local).await, 1, "Still in force");
             assert_eq!(listed(library, second, local).await, 2, "Personal still wins");
             sqlx::query("VACUUM").execute(&mut connection).await.unwrap();
@@ -651,6 +661,42 @@ async fn erasing_a_recording_removes_only_corrections_that_name_it() {
             connection.close().await.unwrap();
             assert_eq!(listed(library, peer, local).await, 0);
             assert_eq!(listed(library, admin, other).await, 2);
+        })
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn a_failed_recording_erasure_on_a_plain_connection_leaves_no_scope_behind() {
+    run(|library| {
+        Box::pin(async move {
+            let (admin, local) = (&library.actor, &library.local);
+            link(library, admin, local, M1).await;
+            let mut connection = connect(library).await;
+            sqlx::query("CREATE TEMP TRIGGER refuse_association_delete BEFORE DELETE ON recording_artist_associations BEGIN SELECT RAISE(ABORT,'refused'); END")
+                .execute(&mut connection)
+                .await
+                .unwrap();
+            let failed = hito_core::test_support::correction_erasure::erase_recording_corrections(
+                &mut connection,
+                local,
+            )
+            .await;
+            assert!(failed.is_err());
+            guard_is_empty(&mut connection).await;
+            let associations = count(
+                &mut connection,
+                "SELECT count(*) FROM recording_artist_associations WHERE recording_id=?",
+                local,
+            )
+            .await;
+            assert_eq!(associations, 1, "A failed erasure changes nothing");
+            let direct = sqlx::query("DELETE FROM recording_artist_association_changes WHERE recording_id=?")
+                .bind(local)
+                .execute(&mut connection)
+                .await;
+            assert!(direct.is_err(), "A failed erasure does not unlock plain deletes");
+            connection.close().await.unwrap();
         })
     })
     .await;
