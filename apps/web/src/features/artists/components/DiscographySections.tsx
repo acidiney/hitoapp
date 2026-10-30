@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 import { useState } from "react";
 
+import type { ReleaseType, TypePaging } from "../hooks/useDiscographyTypes";
 import { releaseAvailability } from "../model/releaseAvailability";
 import DiscographyRelease from "./DiscographyRelease";
 import Button from "../../../shared/ui/Button";
@@ -29,6 +30,14 @@ function sectionOf(group: Schema<"CatalogReleaseGroup">): SectionKey {
     : "other";
 }
 
+export type TypeControls = {
+  catalogComplete: boolean;
+  unsupported: boolean;
+  pending: ReleaseType | null;
+  types: Partial<Record<ReleaseType, TypePaging>>;
+  more: (type: ReleaseType) => void;
+};
+
 export default function DiscographySections({
   account,
   recording,
@@ -38,6 +47,7 @@ export default function DiscographySections({
   library,
   release,
   onAlbumEdition,
+  paging,
 }: {
   account: string;
   recording: string;
@@ -47,6 +57,7 @@ export default function DiscographySections({
   library: Record<string, Schema<"LibraryAlbum">[]>;
   release?: string;
   onAlbumEdition?: (edition: Schema<"SavedAlbumEdition"> | null) => void;
+  paging?: TypeControls;
 }) {
   const [only, setOnly] = useState<SectionKey | null>(null);
   const [shown, setShown] = useState<Partial<Record<SectionKey, number>>>({});
@@ -98,6 +109,12 @@ export default function DiscographySections({
           Only what I'm missing
         </button>
       </div>
+      {paging?.unsupported && (
+        <p role="status">
+          This provider cannot page one release type at a time. Showing the
+          releases loaded so far; use Load more releases for the rest.
+        </p>
+      )}
       {missingOnly && wanted.length === 0 && groups.length > 0 && (
         <p role="status" aria-label="Nothing missing">
           Every release here is already in your library.
@@ -110,7 +127,16 @@ export default function DiscographySections({
             (group) => sectionOf(group) === section.key,
           );
           if (members.length === 0) return null;
-          const visible = shown[section.key] ?? SECTION_PAGE;
+          const state = paging?.types[section.key];
+          const visible = state?.started
+            ? Math.max(shown[section.key] ?? SECTION_PAGE, members.length)
+            : (shown[section.key] ?? SECTION_PAGE);
+          const hidden = members.length > visible;
+          const providerHasMore =
+            !!paging &&
+            !paging.unsupported &&
+            !paging.catalogComplete &&
+            !(state && state.pages > 0 && state.continuation === null);
           return (
             <section key={section.key} aria-label={section.title}>
               <h4>{`${section.title} (${members.length})`}</h4>
@@ -130,14 +156,34 @@ export default function DiscographySections({
                   />
                 ))}
               </ul>
-              {members.length > visible && (
+              {paging?.pending === section.key && (
+                <p role="status">{`Loading more ${section.noun}…`}</p>
+              )}
+              {state?.error && (
+                <>
+                  <p role="alert">{state.error}</p>
+                  <Button
+                    type="button"
+                    disabled={paging?.pending != null}
+                    onClick={() => paging?.more(section.key)}
+                  >
+                    {state.restartRequired
+                      ? `Restart ${section.noun}`
+                      : "Try again"}
+                  </Button>
+                </>
+              )}
+              {!state?.error && (hidden || providerHasMore) && (
                 <Button
                   type="button"
+                  disabled={!hidden && paging?.pending != null}
                   onClick={() =>
-                    setShown({
-                      ...shown,
-                      [section.key]: visible + SECTION_PAGE,
-                    })
+                    hidden
+                      ? setShown({
+                          ...shown,
+                          [section.key]: visible + SECTION_PAGE,
+                        })
+                      : paging?.more(section.key)
                   }
                 >
                   {`Show more ${section.noun}`}

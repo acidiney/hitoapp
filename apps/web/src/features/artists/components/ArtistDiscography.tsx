@@ -1,6 +1,8 @@
 import type { Schema } from "../../../shared/schema";
+import { useMemo } from "react";
 import { useArtistDiscography } from "../hooks/useArtistDiscography";
 import { useDiscographyLibrary } from "../hooks/useDiscographyLibrary";
+import { useDiscographyTypes } from "../hooks/useDiscographyTypes";
 
 import DiscographyRelease from "./DiscographyRelease";
 import DiscographySections from "./DiscographySections";
@@ -32,11 +34,25 @@ export default function ArtistDiscography({
     profile,
     browseOnMount,
   );
+  const typed = useDiscographyTypes(
+    account,
+    recording,
+    association,
+    profile,
+    showLibrary,
+  );
+  const groups = useMemo(() => {
+    const known = new Set(workflow.groups.map((group) => group.id));
+    return [
+      ...workflow.groups,
+      ...typed.groups.filter((group) => !known.has(group.id)),
+    ];
+  }, [workflow.groups, typed.groups]);
   const library = useDiscographyLibrary(
     account,
     recording,
     association,
-    workflow.groups,
+    groups,
     showLibrary,
   );
   if (!workflow.opened)
@@ -70,10 +86,22 @@ export default function ArtistDiscography({
           recording={recording}
           association={association}
           profile={profile}
-          groups={workflow.groups}
+          groups={groups}
           library={library.albums}
           release={release}
           onAlbumEdition={onAlbumEdition}
+          paging={{
+            catalogComplete:
+              workflow.pages > 0 &&
+              workflow.continuation === null &&
+              !workflow.limited &&
+              !workflow.restartRequired &&
+              !workflow.error,
+            unsupported: typed.unsupported,
+            pending: typed.pending,
+            types: typed.types,
+            more: (type) => void typed.more(type),
+          }}
         />
       ) : (
         <ul aria-label="Discography releases">
@@ -92,7 +120,7 @@ export default function ArtistDiscography({
         </ul>
       )}
       {workflow.pages > 0 &&
-        workflow.groups.length === 0 &&
+        groups.length === 0 &&
         !workflow.pending &&
         !workflow.error && <p>No releases were returned for this artist.</p>}
       {workflow.limited && (

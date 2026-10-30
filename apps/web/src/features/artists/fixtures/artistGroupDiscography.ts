@@ -26,6 +26,11 @@ export function artistGroupHttp() {
     requests: [] as string[][],
     replies: [] as Array<(ids: string[]) => Response>,
   };
+  const bodies: unknown[] = [];
+  const level = {
+    requests: [] as Array<{ release: string; body: unknown }>,
+    replies: [] as Array<() => Response>,
+  };
   const cleanup: Array<() => void> = [];
   const responses: Response[] = [];
   const response = (value: unknown, status = 200) => {
@@ -48,6 +53,16 @@ export function artistGroupHttp() {
         groups: ids.map((id) => ({ release_group_id: id, albums: [] })),
       });
     }
+    const levelPath =
+      /^\/api\/v1\/albums\/([^/]+)\/edition\/library-level$/.exec(path);
+    if (levelPath && options?.signal) {
+      level.requests.push({
+        release: decodeURIComponent(levelPath[1]),
+        body: JSON.parse(options.body as string),
+      });
+      const next = level.replies.shift();
+      return next ? next() : response({ status: "needs_choice" });
+    }
     const stage = (Object.keys(paths) as Stage[]).find(
       (name) => paths[name] === path,
     );
@@ -58,6 +73,8 @@ export function artistGroupHttp() {
     )
       throw new Error("Unexpected request outside chosen artist browsing");
     calls[stage]++;
+    if (stage === "discography")
+      bodies.push(JSON.parse(options.body as string));
     const next = replies[stage].shift();
     if (next) return next(options.signal);
     return response(
@@ -79,6 +96,11 @@ export function artistGroupHttp() {
       library.replies.push((ids) =>
         response(typeof value === "function" ? value(ids) : value, status),
       );
+    },
+    discographyBodies: bodies,
+    levelRequests: level.requests,
+    replyLevel(value: unknown, status = 200) {
+      level.replies.push(() => response(value, status));
     },
     responses,
     reply(stage: Stage, value: unknown, status = 200) {

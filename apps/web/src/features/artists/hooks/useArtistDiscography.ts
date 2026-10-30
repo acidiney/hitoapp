@@ -39,10 +39,10 @@ function empty(owner: Owner): State {
   };
 }
 
-function unavailable(
+export function discographyUnavailable(
   status: Exclude<
     Schema<"ArtistDiscographyAvailability">["status"],
-    "available"
+    "available" | "type_filter_unsupported"
   >,
 ) {
   switch (status) {
@@ -137,8 +137,12 @@ export function useArtistDiscography(
       if (!request.active()) return;
       if (timedOut)
         throw new Error("This discography request timed out. Try again.");
+      if (result.status === "type_filter_unsupported")
+        throw new Error(
+          "The provider returned an unexpected discography status.",
+        );
       if (result.status !== "available")
-        throw new Error(unavailable(result.status));
+        throw new Error(discographyUnavailable(result.status));
       if (
         result.association_id !== association.id ||
         result.page.artist_id !== profile.artist.id
