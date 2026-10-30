@@ -286,3 +286,45 @@ test("leaving the page cancels a held typed request", async () => {
   expect(held.signal()?.aborted).toBe(true);
   held.release();
 });
+
+test("a type with no loaded releases can still be paged from the provider", async () => {
+  const http = artistGroupHttp();
+  http.reply("discography", page(albums(0, 3), "whole-next"));
+  http.reply("discography", page([release("rg:single-0", "single")], null));
+  http.reply("discography", page([], null));
+  const region = await open();
+  await within(region).findByRole("heading", { name: "Albums (3)" });
+  expect(
+    within(region).queryByRole("region", { name: "Singles" }),
+  ).toBeTruthy();
+  fireEvent.click(within(region).getByRole("button", { name: "Show singles" }));
+  await within(region).findByRole("heading", { name: "Singles (1)" });
+  expect(http.discographyBodies[1]).toEqual({
+    limit: 20,
+    continuation: null,
+    release_type: "single",
+  });
+  fireEvent.click(within(region).getByRole("button", { name: "Show EPs" }));
+  await waitFor(() => expect(http.discographyBodies).toHaveLength(3));
+  await waitFor(() =>
+    expect(within(region).queryByRole("region", { name: "EPs" })).toBeNull(),
+  );
+});
+
+test("empty type sections are hidden when the catalog is complete or the filter is unsupported", async () => {
+  const complete = artistGroupHttp();
+  complete.reply("discography", page(albums(0, 3), null));
+  const region = await open();
+  await within(region).findByRole("heading", { name: "Albums (3)" });
+  expect(within(region).queryByRole("region", { name: "Singles" })).toBeNull();
+  cleanup();
+
+  const http = artistGroupHttp();
+  http.reply("discography", page(albums(0, 3), "whole-next"));
+  http.reply("discography", { status: "type_filter_unsupported" });
+  const second = await open();
+  await within(second).findByRole("heading", { name: "Albums (3)" });
+  fireEvent.click(within(second).getByRole("button", { name: "Show singles" }));
+  await within(second).findByText(/cannot page one release type/);
+  expect(within(second).queryByRole("region", { name: "Singles" })).toBeNull();
+});

@@ -74,6 +74,15 @@ export default function DiscographySections({
   const present = sections.filter((section) =>
     groups.some((group) => sectionOf(group) === section.key),
   );
+  const canPageEmpty = (key: SectionKey) => {
+    const state = paging?.types[key];
+    return (
+      !!paging &&
+      !paging.unsupported &&
+      !paging.catalogComplete &&
+      !(state && state.pages > 0 && state.continuation === null)
+    );
+  };
   return (
     <>
       <div className="discography-controls">
@@ -120,13 +129,18 @@ export default function DiscographySections({
           Every release here is already in your library.
         </p>
       )}
-      {present
-        .filter((section) => only === null || only === section.key)
+      {sections
+        .filter(
+          (section) =>
+            (present.includes(section) || canPageEmpty(section.key)) &&
+            (only === null || only === section.key),
+        )
         .map((section) => {
           const members = wanted.filter(
             (group) => sectionOf(group) === section.key,
           );
-          if (members.length === 0) return null;
+          const empty = !present.includes(section);
+          if (members.length === 0 && !empty) return null;
           const state = paging?.types[section.key];
           const visible = state?.started
             ? Math.max(shown[section.key] ?? SECTION_PAGE, members.length)
@@ -186,7 +200,7 @@ export default function DiscographySections({
                       : paging?.more(section.key)
                   }
                 >
-                  {`Show more ${section.noun}`}
+                  {empty ? `Show ${section.noun}` : `Show more ${section.noun}`}
                 </Button>
               )}
             </section>
