@@ -12,6 +12,7 @@ async function json<T>(
     method?: "GET" | "POST";
     body?:
       | Schema<"MatchArtistsFromTags">
+      | Schema<"MatchArtistsFromProviderEvidence">
       | Schema<"DismissArtistMatchSuggestion">;
   },
 ): Promise<T> {
@@ -36,6 +37,22 @@ export const artistMatchingApi = {
       method: "POST",
       body,
     });
+  },
+  runProviderEvidence(
+    account: string,
+    body: Schema<"MatchArtistsFromProviderEvidence">,
+    signal: AbortSignal,
+  ) {
+    return json<Schema<"ArtistProviderMatchReceipt">>(
+      "/artist-matching/provider-evidence",
+      {
+        action: "artist_matching.run_provider_evidence",
+        account,
+        signal,
+        method: "POST",
+        body,
+      },
+    );
   },
   suggestions(account: string, artist: string, signal: AbortSignal) {
     return json<Schema<"ArtistMatchSuggestions">>(

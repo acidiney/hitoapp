@@ -1,6 +1,7 @@
 import type { Schema } from "../../../shared/schema";
 
 import Button from "../../../shared/ui/Button";
+import { associationEvidenceText } from "../model/associationEvidence";
 
 export default function SavedArtistReviews({
   associations,
@@ -32,6 +33,9 @@ export default function SavedArtistReviews({
       <ul>
         {associations.map((association, index) => (
           <li key={association.id}>
+            {associationEvidenceText(association.evidence) && (
+              <p>{associationEvidenceText(association.evidence)}</p>
+            )}
             <Button
               type="button"
               disabled={disabled}

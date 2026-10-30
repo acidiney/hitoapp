@@ -27,8 +27,10 @@ function remember(account: string): boolean {
 }
 
 /**
- * Asks the server to match recordings whose own file tags name exactly one performer artist.
- * The pass is silent, cancellable and best effort; the page refreshes only if something matched.
+ * Asks the server to match recordings whose own file tags name exactly one performer artist, then
+ * recordings whose ISRC or lone artist page MusicBrainz resolves to exactly one artist. The pass
+ * is silent, cancellable and best effort; the page refreshes only if something matched, and an
+ * unavailable provider ends the second step until the next pass.
  */
 export function useAutomaticArtistMatching(account: string) {
   useEffect(() => {
@@ -49,6 +51,18 @@ export function useAutomaticArtistMatching(account: string) {
           );
           matched += receipt.matched;
           if (!receipt.next_after) break;
+          if (after && receipt.next_after <= after) break;
+          after = receipt.next_after;
+        }
+        after = undefined;
+        for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
+          const receipt = await artistMatchingApi.runProviderEvidence(
+            account,
+            { request_id: createUuid(), after },
+            controller.signal,
+          );
+          matched += receipt.matched;
+          if (receipt.unavailable > 0 || !receipt.next_after) break;
           if (after && receipt.next_after <= after) break;
           after = receipt.next_after;
         }

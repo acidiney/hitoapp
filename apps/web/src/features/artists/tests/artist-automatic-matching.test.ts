@@ -28,6 +28,21 @@ function receipt(
   });
 }
 
+function providerReceipt(
+  body: { request_id: string },
+  counts: { matched?: number; unavailable?: number },
+  next: string | null,
+) {
+  return Response.json({
+    request_id: body.request_id,
+    matched: counts.matched ?? 0,
+    uncertain: 0,
+    declined: 0,
+    unavailable: counts.unavailable ?? 0,
+    next_after: next,
+  });
+}
+
 beforeEach(() => {
   reload.mockReset();
   localStorage.clear();
@@ -39,9 +54,11 @@ test("a pass walks every batch from the returned cursor and refreshes the page o
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string, options?: RequestInit) => {
-      expect(path).toBe("/api/v1/artist-matching");
       expect(options?.method).toBe("POST");
       const body = JSON.parse(options?.body as string);
+      if (path === "/api/v1/artist-matching/provider-evidence")
+        return providerReceipt(body, {}, null);
+      expect(path).toBe("/api/v1/artist-matching");
       afters.push(body.after ?? null);
       if (afters.length === 1) return receipt(body, 2, "r-100");
       return receipt(body, 1, null);
@@ -54,12 +71,15 @@ test("a pass walks every batch from the returned cursor and refreshes the page o
 });
 
 test("an idle pass is silent and a recent pass is not repeated", async () => {
-  const fetch = vi.fn(async (_path: string, options?: RequestInit) =>
-    receipt(JSON.parse(options?.body as string), 0, null),
-  );
+  const fetch = vi.fn(async (path: string, options?: RequestInit) => {
+    const body = JSON.parse(options?.body as string);
+    return path.endsWith("/provider-evidence")
+      ? providerReceipt(body, {}, null)
+      : receipt(body, 0, null);
+  });
   vi.stubGlobal("fetch", fetch);
   const first = render(createElement(Probe));
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
   await waitFor(() =>
     expect(localStorage.getItem(`hito:artist-match:${account}`)).not.toBeNull(),
   );
@@ -67,7 +87,7 @@ test("an idle pass is silent and a recent pass is not repeated", async () => {
   first.unmount();
   render(createElement(Probe));
   await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
 test("a pass that is cancelled or fails still starts the pause, and nothing disturbs the page", async () => {
@@ -92,4 +112,45 @@ test("a pass that is cancelled or fails still starts the pause, and nothing dist
     localStorage.getItem(`hito:artist-match:${account}`),
     "The pause starts with the pass, so a cancelled or failing pass is not retried by every tab",
   ).not.toBeNull();
+});
+
+test("imported tracks group without a click: the provider pass follows the tag pass, walks its cursor and refreshes the page once", async () => {
+  const calls: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      const body = JSON.parse(options?.body as string);
+      calls.push(`${path}:${body.after ?? ""}`);
+      if (path === "/api/v1/artist-matching") return receipt(body, 0, null);
+      return body.after
+        ? providerReceipt(body, { matched: 1 }, null)
+        : providerReceipt(body, { matched: 2 }, "r-8");
+    }),
+  );
+  render(createElement(Probe));
+  await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  expect(calls).toEqual([
+    "/api/v1/artist-matching:",
+    "/api/v1/artist-matching/provider-evidence:",
+    "/api/v1/artist-matching/provider-evidence:r-8",
+  ]);
+  expect(reload).toHaveBeenCalledWith({ only: ["artists", "identity_groups"] });
+});
+
+test("an unavailable provider ends the provider pass without retrying, and the page stays untouched", async () => {
+  const providerCalls: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      const body = JSON.parse(options?.body as string);
+      if (path === "/api/v1/artist-matching") return receipt(body, 0, null);
+      providerCalls.push(body.after ?? "");
+      return providerReceipt(body, { unavailable: 2 }, "r-8");
+    }),
+  );
+  render(createElement(Probe));
+  await waitFor(() => expect(providerCalls).toHaveLength(1));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(providerCalls).toHaveLength(1);
+  expect(reload).not.toHaveBeenCalled();
 });
