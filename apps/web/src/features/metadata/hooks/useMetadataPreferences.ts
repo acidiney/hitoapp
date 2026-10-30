@@ -36,7 +36,11 @@ function empty(owner: Owner): Snapshot {
 function draft(
   settings: Schema<"MetadataSettings">,
 ): Schema<"UpdateMetadataSettings"> {
-  return { ...settings, providers: [...settings.providers] };
+  return {
+    revision: settings.revision,
+    enabled: settings.enabled,
+    providers: [...settings.providers],
+  };
 }
 
 function providerKey(provider: Schema<"MetadataProvider">) {
