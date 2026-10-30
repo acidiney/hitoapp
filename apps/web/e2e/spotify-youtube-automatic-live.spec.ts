@@ -296,7 +296,9 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
       name: "Import a playlist",
       exact: true,
     });
-
+    await form
+      .getByRole("radio", { name: "Import a copy", exact: true })
+      .check();
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

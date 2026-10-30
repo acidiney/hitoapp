@@ -267,7 +267,6 @@ test("live public Spotify metadata becomes stored albums with honest private cre
     await form
       .getByRole("radio", { name: "Import a copy", exact: true })
       .check();
-
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

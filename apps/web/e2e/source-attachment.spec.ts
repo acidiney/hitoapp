@@ -242,7 +242,6 @@ test("a copied provider track attaches reviewed sources and recovers actual audi
     const candidates = connections.slice(1);
     await page.goto("/playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
-
     await form
       .getByRole("textbox", { name: "Playlist link or identifier" })
       .fill(playlist.reference);

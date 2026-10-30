@@ -137,7 +137,6 @@ test("a new copy uses the current field after a committed import loses its respo
     );
     await page.goto("/playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
-
     const field = form.getByRole("textbox", {
       name: "Playlist link or identifier",
     });

@@ -149,7 +149,6 @@ test("source-free imported albums preserve unknown credits through personal edit
     stage = "import metadata without sources";
     await openLibrarySection(page, "Playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
-
     await form
       .getByRole("textbox", { name: "Playlist link or identifier" })
       .fill(owned.reference);
