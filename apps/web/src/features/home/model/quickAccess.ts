@@ -1,4 +1,5 @@
 import type { Schema } from "../../../shared/schema";
+import { releaseCreditLabel } from "../../catalog/model/albumCredit";
 
 export const QUICK_ACCESS_LIMIT = 6;
 const RECENT_ALBUM_TILES = 3;
@@ -14,8 +15,17 @@ export type QuickTile = {
   coverArtist?: string;
 };
 
-function albumSubtitle(artist: string): string {
-  return artist ? `Album · ${artist}` : "Album";
+function albumTile(album: Schema<"HomeAlbum">): QuickTile {
+  const credit = releaseCreditLabel(album);
+  return {
+    key: `album-${album.id}`,
+    href: `/albums/${album.id}`,
+    title: album.title,
+    subtitle: credit ? `Album · ${credit}` : "Album",
+    kind: "release",
+    coverId: album.id,
+    coverArtist: credit ?? undefined,
+  };
 }
 
 function trackCount(count: number): string {
@@ -29,15 +39,7 @@ export function quickAccess(
 ): QuickTile[] {
   const tiles: QuickTile[] = home.recent_albums
     .slice(0, RECENT_ALBUM_TILES)
-    .map((album) => ({
-      key: `album-${album.id}`,
-      href: `/albums/${album.id}`,
-      title: album.title,
-      subtitle: albumSubtitle(album.artist),
-      kind: "release",
-      coverId: album.id,
-      coverArtist: album.artist,
-    }));
+    .map(albumTile);
   if (home.liked_count > 0)
     tiles.push({
       key: "likes",
@@ -58,15 +60,7 @@ export function quickAccess(
       coverId: playlist.id,
     });
   for (const album of home.recent_albums.slice(RECENT_ALBUM_TILES))
-    tiles.push({
-      key: `album-${album.id}`,
-      href: `/albums/${album.id}`,
-      title: album.title,
-      subtitle: albumSubtitle(album.artist),
-      kind: "release",
-      coverId: album.id,
-      coverArtist: album.artist,
-    });
+    tiles.push(albumTile(album));
   return tiles.slice(0, QUICK_ACCESS_LIMIT);
 }
 

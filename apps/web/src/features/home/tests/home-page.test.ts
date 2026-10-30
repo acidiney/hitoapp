@@ -53,6 +53,7 @@ const albums = (count: number) =>
     id: `album-${index}`,
     title: `Album ${index}`,
     artist: "Shore",
+    inferred_artist: null,
     last_played_at: 100 - index,
     played: 2,
   }));
@@ -111,6 +112,7 @@ test("unheard tracks explain why they are offered and play on request", () => {
     release_id: "tide",
     title: "Tide",
     artist: "Shore",
+    inferred_artist: null,
     played: 3,
     remaining: 4,
     tracks: [track("t2", "Tide two"), track("t3", "Tide three")],

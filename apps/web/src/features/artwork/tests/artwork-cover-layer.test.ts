@@ -17,14 +17,13 @@ afterEach(() => {
 
 function mount() {
   return render(
-    createElement(
-      ArtworkProvider,
-      { account: "alice" },
-      createElement(Artwork, {
+    createElement(ArtworkProvider, {
+      account: "alice",
+      children: createElement(Artwork, {
         recording: "recording-1",
         fallback: { id: "group-1", title: "Aimer" },
       }),
-    ),
+    }),
   ).container;
 }
 

@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 
 import Artwork from "../../artwork/components/Artwork";
 import Button from "../../../shared/ui/Button";
+import { releaseCreditLabel } from "../../catalog/model/albumCredit";
 
 const plural = (count: number) => (count === 1 ? "track" : "tracks");
 
@@ -24,7 +25,7 @@ export default function UnheardNearby({
             fallback={{
               id: album.release_id,
               title: album.title,
-              artist: album.artist,
+              artist: releaseCreditLabel(album),
             }}
           />
           <div className="unheard-copy">
