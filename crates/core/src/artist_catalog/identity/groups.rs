@@ -99,7 +99,7 @@ impl ArtistCatalog {
         count.push("SELECT count(*) FROM summary");
         filter_member_names(&mut count, actor, &terms);
         let total = count.build_query_scalar().fetch_one(&mut *tx).await?;
-        let exact = exact_names(&mut *tx, actor, &query, &terms).await?;
+        let exact = exact_names(&mut tx, actor, &query, &terms).await?;
         let mut selected = visible(actor, query.library.as_deref(), None);
         selected.push("SELECT * FROM summary");
         filter_member_names(&mut selected, actor, &terms);

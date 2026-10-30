@@ -295,6 +295,9 @@ async fn already_shared(connection: &mut SqliteConnection, subjects: &[Subject])
     Ok(true)
 }
 
+/// Identifier, kind, author, subjects, retired subjects, revision and whether it applies.
+type ListedCorrection = (String, String, Option<String>, i64, i64, i64, bool);
+
 impl ArtistCatalog {
     pub async fn shared_artist_corrections(
         &self,
@@ -316,7 +319,7 @@ impl ArtistCatalog {
         let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let current = revision(&mut tx).await?;
-        let rows: Vec<(String, String, Option<String>, i64, i64, i64, bool)> = sqlx::query_as(
+        let rows: Vec<ListedCorrection> = sqlx::query_as(
             "SELECT correction.id,correction.source_kind,correction.promoted_by,
                 (SELECT count(*) FROM shared_artist_correction_subjects s WHERE s.correction_seq=correction.seq),
                 (SELECT count(*) FROM shared_artist_correction_subjects s WHERE s.correction_seq=correction.seq AND s.retired_reason IS NOT NULL),
