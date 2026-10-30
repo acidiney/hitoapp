@@ -70,6 +70,40 @@ All default specs share one `e2e-server` and one database. Its data directory is
 - Browser fixtures own their images in `apps/web/e2e/fixtures/images`.
 - The gated specs have their own Playwright configs in `apps/web`, registered as npm scripts: `e2e:collection-artwork`, `e2e:community-ranking` and `e2e:lyric-provider-choice`. `make e2e E2E_SCRIPT=<script>` runs one against the isolated `e2e-server`. The default `playwright.config.ts` ignores their specs. Each gated run needs its own fixtures and, for the first two, an `/evidence` output directory, so the scripts in `scripts/artwork`, `scripts/community/rankings` and `scripts/lyrics/provider-choice` remain the supported way to run them.
 
+## Fake plugins
+
+`hito_testkit::fake_plugin::FakePlugin` is an owned plugin service for tests. It serves the manifest and the operations a test declares, it speaks the real protocol, and it records what it receives. Use it for any test that needs a plugin service. Do not write a new hand-rolled axum server.
+
+```rust
+let mut plugin = FakePlugin::builder(manifest)
+    .get("v1/catalog/capabilities", |_| Reply::Json(capabilities_json))
+    .post("v1/catalog/artists/profile", |request| {
+        match serde_json::from_value::<ArtistProfileRequest>(request.json()) {
+            Ok(parsed) if parsed.validate().is_ok() => Reply::Json(profile_json),
+            _ => Reply::Refuse,
+        }
+    })
+    .strict(32)
+    .start()
+    .await;
+// plugin.url is the base URL to offer to Hito; every route lives under /prefix/.
+```
+
+- **Manifest.** `builder(Manifest)` takes the SDK `Manifest` type and serves it at `v1/manifest`. Replace it later with `plugin.reply("v1/manifest", Reply::Json(..))`.
+- **Operations.** `.get(path, handler)` and `.post(path, handler)` register a handler for one path. A handler gets the `RecordedRequest` and returns a `Reply`: `Json`, `Status`, `Raw` (status, headers, body, optionally chunked) or `Refuse`. `Refuse` answers 400 and marks the request as unexpected. Handlers run when the request arrives, so a reply that a test changes while a request is held does not change that request. Change a reply while the plugin runs with `plugin.reply(path, ..)` or `plugin.on(path, handler)`.
+- **Authentication.** `.require_bearer(token)` and `.require_protocol()` use the plugin SDK `ServiceAuth` and protocol check, so the fake rejects the same requests a real plugin does: 401 for a missing or wrong bearer token and 400 for a missing protocol header. `plugin.require_bearer(token)` changes the token while the plugin runs.
+- **Request log.** Every request is recorded, including rejected and unknown ones. `plugin.requests()` and `plugin.requests_for(path)` return `RecordedRequest` values with the operation, method, query, headers, body and a `handled` outcome. Helpers: `json()`, `has_authorization()`, `protocol()`. `plugin.wait_for_requests(n)` waits until the log holds `n` requests. `unmatched()` counts requests to unknown paths and `unexpected()` also counts refused ones.
+- **Strict mode.** `.strict(limit)` refuses a request that has a query string, a body that is not JSON, or arrives after the first `limit` requests. Use it when a test should prove that Hito sends nothing extra.
+- **Faults.** `plugin.fault(path, Fault::..)` changes one operation until `clear_fault(path)`: `Status(code)`, `Delay(duration)`, `Malformed` (200 with a body that is not JSON) and `DropConnection` (headers promise a body, then the connection breaks). Request barriers return a `Gate`:
+  - `hold(path)` parks every request on the path until `gate.release()` or `gate.open()`. `gate.entered().await` waits until a request is parked. `gate.retired().await` waits until a parked request has finished or its client gave up.
+  - `hold_next(path)` parks only the next accepted request. The parked request keeps running after its client disconnects, so it retires only when released.
+  - `stall_body(path, prefix)` sends the first `prefix` body bytes, then waits for the gate.
+- **Shutdown.** `plugin.finish().await` stops the server and returns `false` if it did not stop cleanly. Dropping the plugin also stops it.
+
+A domain fixture, such as `artist_catalog_discography_service` in `hito-core`, wraps a `FakePlugin` with its constants, expected payloads and a few named switches. Put protocol behavior in the builder and test data in the fixture. The builder's own tests are `crates/testkit/tests/fake_plugin.rs`.
+
+Services that are not plugin services keep their own servers: the community service and podcast feed fixtures, the provider content fixture in `content_service` (its audio range, held tail and broken tail behavior depends on one shared state), and the playlist and provider audio fixtures built on it.
+
 ## Log privacy
 
 Every workflow logs structured events. Tests check that logs stay private. `hito_testkit::logs` captures tracing output, and `assert_text_excludes` fails the test if a forbidden value appears. Tests pass the values a log must never contain: credentials, session material, raw bodies, private paths, search terms, titles and signed URLs. Where a workflow also logs at debug or trace, check those levels too.
@@ -95,7 +129,7 @@ Docker Desktop has one known quirk that looks like flakiness. Two `hito-core` ta
 
 | Need | Location |
 | --- | --- |
-| Log capture, owned TLS authority, plugin HTTP server, WAV helpers | `crates/testkit` |
+| Log capture, owned TLS authority, fake plugin service, plugin HTTP server, WAV helpers | `crates/testkit` |
 | Core service fixtures (libraries, accounts, plugins, media tools) | `hito-core` feature `test-support`, module `test_support` |
 | Audio engine fixtures | `hito-audio` feature `test-support` |
 | Debrid client fixtures | each `crates/debrid/<provider>` crate, feature `test-support` |
