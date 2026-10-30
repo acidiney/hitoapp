@@ -30,7 +30,23 @@ flowchart TB
 - **HTTP.** `apps/server` tests drive the real router with a real temporary SQLite database. They check status codes, denied access, repeated requests and logs.
 - **Capability.** `hito-core` tests call `Catalog`, `Collection`, `Identity`, `LibraryStorage` and `Plugins` directly. Anything that needs a transaction, a migration or a permission rule is tested here against a real database.
 - **Protocol.** A plugin or provider client is tested at its wire boundary. The test starts an owned HTTP or TLS server and sends real requests. External services are never called in the normal suite.
-- **Unit.** Used for pure functions such as limits and validation, for example the curated catalog admission cases in `crates/plugin-sdk/tests/curated_catalog.rs`.
+- **Unit.** Used for pure functions such as limits and validation, for example the curated catalog admission cases in `crates/plugin-sdk/tests/wire/curated_catalog.rs`.
+
+## Test binaries
+
+Every top-level file in a crate's `tests/` directory, and every `tests/<name>/main.rs`, is a separate test binary that links the whole crate. Linking hundreds of them cost build time and gigabytes of target space, so most tests are grouped by capability area.
+
+- **Grouped binaries.** `tests/<area>/main.rs` declares `mod <file>;` for each file in `tests/<area>/`. Test names gain the module prefix, for example `cargo test -p hito-core --test catalog collection_event_upgrade::`. `hito-core` has 17 area binaries (for example `artist_identity`, `catalog`, `playlists`, `plugins`, `podcasts`, `provider_sync`, `sources`, `storage`), `hito-server` has nine (`artwork`, `community`, `downloads`, `player`, `playlist_follow`, `podcasts`, `providers`, `runtime`, `sources`) beside the existing `api` and `timed_lyrics`, `hito-playback` has `player` and five `native_*` binaries, and `hito-plugin-sdk` has `catalog`, `timed` and `wire`.
+- **Shared fixtures.** Files in `tests/fixtures` stay where they are. A test file mounts one with `#[path = "../fixtures/<name>.rs"]` and refers to items its parent module imports with `super::`. Each area binary allows `clippy::duplicate_mod`, because several files mount the same fixture.
+- **Standalone binaries.** A test stays a top-level `tests/<name>.rs` file when sharing a process would change what it proves:
+  - It installs the process-wide tracing subscriber with `set_global_default` (the `metadata_artist_tags*`, `playlist_follow_revocation`, `playlist_follow_snapshot`, `provider_source_refresh_cancel`, `source_resolution_logging`, `artist_catalog_edition_lifecycle`, `plugin_install_preview_revocation` and `metadata_id3_logs` core tests, and the server `maintenance_lifecycle` and `timed_lyrics_dropped` tests).
+  - It runs itself again as a child process with `--exact` and an environment variable, so its test path must not change (`storage_stalls`, `storage_walk_stalls`, the plugin SDK `server_logging`, and the server `download_*_shutdown` and `community_*runtime_config` tests).
+  - It installs a global allocator (`catalog_discovery_allocations`, `catalog_validation_allocations`).
+  - It builds its own tracing dispatcher without `hito_testkit::logs::anchor_callsite_interest()`. Another test in the same process can register a callsite first and leave it disabled for that dispatcher (`download_capability`, `playlist_import_begin_cancel`, `plugin_install_preview_logging`, `source_resolution_binding_race`, `source_resolution_cancel`, `source_resolution_handoff`, the playback `player_logging` and `player_audiobook_continue_admission`, and the server `logging` and `provider_logging`).
+  - It asserts a wall-clock budget that concurrent neighbours would eat (`artist_catalog_similarity`, `inspection_command_deadline`, `download_late_writer`, `provider_upgrade_scale`, `provider_source_upgrade`, `provider_bindings_upgrade`).
+  - It needs a Cargo feature. The plugin SDK `server` tests keep their `required-features` entry in `Cargo.toml`.
+- **Adding a test.** Put it in the area binary that matches its capability and add a `mod` line to `main.rs`. Make it standalone only for one of the reasons above, and add it to that list.
+- **Device audio tests.** The `native_*` playback binaries compile only with `--features device`. `scripts/check-playback.sh` runs them with `--ignored --test-threads=1` against the private clocked audio monitor, one binary after another.
 
 ## Principles
 

@@ -160,7 +160,7 @@ The Real-Debrid, All-Debrid, TorBox and Premiumize plugins serve an operator-sup
 - rejects any recording whose JSON exceeds 32,768 bytes;
 - rejects a catalog whose recordings together exceed 49,152 bytes.
 
-The byte count covers the public recording JSON only. Private source, label and binding bytes are not counted. Each plugin then validates its own private bindings. A failed admission stops startup before a listener opens, and the plugin logs a safe rejection reason: the error variant name only, never recording content. The startup sequence is in [plugins](plugins.md#curated-catalog-admission-at-startup). Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` and each plugin's contract tests.
+The byte count covers the public recording JSON only. Private source, label and binding bytes are not counted. Each plugin then validates its own private bindings. A failed admission stops startup before a listener opens, and the plugin logs a safe rejection reason: the error variant name only, never recording content. The startup sequence is in [plugins](plugins.md#curated-catalog-admission-at-startup). Tested evidence: `crates/plugin-sdk/tests/wire/curated_catalog.rs` and each plugin's contract tests.
 
 ## Playback source resolution
 

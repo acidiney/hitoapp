@@ -18,7 +18,7 @@ Evidence:
 
 `PageComponent` now exists as an enum (`apps/server/src/inertia/props.rs:17`), so naming components is solved. What remains is the data assembly.
 
-Tests: `apps/server/tests/podcast_pages.rs` drives the page and the JSON API with a full server to check one join. The rule is not testable without HTTP.
+Tests: `apps/server/tests/podcasts/podcast_pages.rs` drives the page and the JSON API with a full server to check one join. The rule is not testable without HTTP.
 
 ## Constraints
 
@@ -94,7 +94,7 @@ Wire shapes do not change in any step, so regenerate nothing. If a regenerate sh
 
 ## Test impact
 
-- `apps/server/tests/podcast_pages.rs` keeps its HTTP checks for contract shape. The join and not-found rules get capability tests in `crates/core/tests`, written first.
+- `apps/server/tests/podcasts/podcast_pages.rs` keeps its HTTP checks for contract shape. The join and not-found rules get capability tests in `crates/core/tests`, written first.
 - Existing podcast and plugin settings tests are unchanged.
 - TDD order. Each step starts with a failing capability test, then the core method, then the adapter swap. The HTTP test must stay green throughout and is the guard that the wire output is identical.
 - Add one server test that proves a partial reload of `episodes` alone does not call the progress read.

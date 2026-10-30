@@ -67,7 +67,7 @@ The tools services set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`
 
 - `crates/testkit` (`hito-testkit`) holds helpers shared across crates: log capture, owned TLS, a plugin HTTP server and WAV helpers.
 - `hito-core`, `hito-audio`, the debrid crates and the TorBox and Premiumize plugins have a `test-support` feature, which each crate turns on for its own tests. It exposes a `test_support` module that integration tests import. No crate's tests read another crate's directory.
-- Each crate keeps its integration tests in its own `tests/` directory.
+- Each crate keeps its integration tests in its own `tests/` directory. They are grouped into a few binaries per area, not one binary per file. See [Test binaries](testing.md#test-binaries).
 - Web tests live next to the feature they cover, in `apps/web/src/features/<domain>/tests`, with fixtures in `fixtures`. Shared helpers and the vitest setup are in `apps/web/src/test`. Browser workflows are in `apps/web/e2e`; the shared-session rules are in [Browser e2e sessions](testing.md#browser-e2e-sessions).
 
 ## Running one crate or one test
@@ -76,7 +76,8 @@ Use the same Compose services. Debrid and plugin crates enable their own `test-s
 
 ```sh
 docker compose --profile tools run --rm rust cargo test --locked -p hito-plugin-sdk
-docker compose --profile tools run --rm rust cargo test --locked -p hito-core --test <integration_test_file>
+docker compose --profile tools run --rm rust cargo test --locked -p hito-core --test <area_or_standalone_binary>
+docker compose --profile tools run --rm rust cargo test --locked -p hito-core --test catalog <test_name_filter>
 docker compose --profile tools run --rm rust cargo test --locked -p hito-debrid-torbox <test_name>
 docker compose --profile tools run --rm node npx vitest run src/features/catalog/tests/browsing.test.ts
 ```

@@ -133,7 +133,7 @@ flowchart LR
 
 Implemented as Option A, with Option C as the first step, in separate commits:
 
-1. `tests/playback_origin_contract.rs` runs one contract over the local, managed, provider and podcast origins through the public grant. It passed on the old code.
+1. `crates/core/tests/playback/playback_origin_contract.rs` runs one contract over the local, managed, provider and podcast origins through the public grant. It passed on the old code.
 2. `managed`, `podcast_remote`, `podcast_audio_slots` and `podcast_audio_accounts` moved into one `AudioRelay` struct inside `Catalog`. This step was interim and is gone now.
 3. `AudioOrigin`, the opaque `Located` value and an ordered `Origins` registry replaced the `Binding` enum. A unit test pins the order (provider, podcast, managed, local) and first-match-wins.
 4. `ManagedOrigin` moved to `downloads/` and `EnclosureOrigin` to `podcasts/`. Stream authority became the `AuthorityCheck` trait, so the relay no longer names `DownloadAuthority`. `Catalog` no longer imports `Downloads`.

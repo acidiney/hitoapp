@@ -356,7 +356,7 @@ Behavior changes from moving to the shared function:
 - All-Debrid and TorBox now reject a recording whose JSON exceeds 32,768 bytes. Earlier they accepted it.
 - Premiumize and TorBox aggregates no longer count private source, label and binding bytes.
 
-Tested evidence: `crates/plugin-sdk/tests/curated_catalog.rs` covers the rules. Each plugin's contract tests start a service with a curated catalog. See [debrid adapters](debrid-adapters.md#curated-recording-detail-budgets) for the per-provider limits.
+Tested evidence: `crates/plugin-sdk/tests/wire/curated_catalog.rs` covers the rules. Each plugin's contract tests start a service with a curated catalog. See [debrid adapters](debrid-adapters.md#curated-recording-detail-budgets) for the per-provider limits.
 
 ## Application API
 

@@ -26,7 +26,7 @@ The VPS holds live data. Local `sources` rows carry the host ID and the legacy v
 - Identity invariants. A host ID never grants access by being sent by a client. A client ID never selects local files. Neither is a credential, but both are not logged beyond safe correlation use.
 - Local sources are matched on the stored host ID. Changing a stored value strands audio. An existing database without a sidecar must still adopt `server`.
 - Recovery. A restored backup must work with the new binary. Preserving `hito.device-id` beside the database (see [operations](../operations.md#backups)) stays the instruction.
-- Migrations. SQLx migrations are append-only and checksummed. Edit none. Upgrade tests (`crates/core/tests/*_upgrade.rs`) pin schema from older versions and must keep passing.
+- Migrations. SQLx migrations are append-only and checksummed. Edit none. Upgrade tests (`crates/core/tests/*/*_upgrade.rs`) pin schema from older versions and must keep passing.
 - Generated OpenAPI and TypeScript come from real wire types. No second API model.
 - SQLite and filesystem ownership stay in core. The server only supplies a path and an optional override.
 
@@ -84,7 +84,7 @@ Each step is a commit and stays green.
 1. Add `SyncClientId` with the shared rule. Parse in `SyncBatch` deserialization. Remove the string checks in `validate_batch`. Capability test: empty, 129-character and punctuation IDs are rejected as before.
 2. Rename the Rust field to `client_id` with `serde(alias = "device_id")`. Regenerate OpenAPI and TypeScript. HTTP test: old and new key both accepted; responses use the new key.
 3. Introduce `HostIdentity` as the new name and keep `pub type HostDeviceId = HostIdentity` for one step. Rename uses crate by crate.
-4. Move `host_identity.rs` logic into `crates/core/src/host_identity.rs`. Port `apps/server/tests/runtime_config.rs` assertions (lines 51, 87, 111, 142) to a core test and keep one server test for the env override.
+4. Move `host_identity.rs` logic into `crates/core/src/host_identity.rs`. Port `apps/server/tests/runtime/runtime_config.rs` assertions (lines 51, 87, 111, 142) to a core test and keep one server test for the env override.
 5. Rename wire `Source.device_id` to `host_id`. Regenerate. Rename download wire `host_device_id` to `host_id` only if the user agrees (see questions).
 6. Drop the alias type. Add one comment at each SQL column that holds an identity. Update [operations](../operations.md), [architecture](../architecture.md) and [api](../api.md).
 
@@ -92,9 +92,9 @@ If B is chosen later, rehearse first. Take a whole-volume backup of the VPS data
 
 ## Test impact
 
-- `crates/core/tests/collection_event_upgrade.rs` and the other `*_upgrade.rs` tests do not change under A, because the schema is unchanged. This is the main reason to prefer A.
-- `apps/server/tests/runtime_config.rs`, `fixtures/maintenance.rs:218` and `apps/desktop/tests/local_lifecycle.rs:36-68` already assert the sidecar behavior. They keep passing, and step 4 moves the unit-level cases into core.
-- Tests that read `device_id` over HTTP (for example `apps/server/tests/podcast_pages.rs`, `download_runtime.rs`) update key names in steps 2 and 5.
+- `crates/core/tests/catalog/collection_event_upgrade.rs` and the other `*_upgrade.rs` tests do not change under A, because the schema is unchanged. This is the main reason to prefer A.
+- `apps/server/tests/runtime/runtime_config.rs`, `fixtures/maintenance.rs:218` and `apps/desktop/tests/local_lifecycle.rs:36-68` already assert the sidecar behavior. They keep passing, and step 4 moves the unit-level cases into core.
+- Tests that read `device_id` over HTTP (for example `apps/server/tests/podcasts/podcast_pages.rs`, `download_runtime.rs`) update key names in steps 2 and 5.
 - TDD order. Step 1 and step 4 start with failing core tests. Steps 2 and 5 start with a failing HTTP test for the new key and the old alias.
 - Add a test that a `SyncClientId` cannot be passed where a `HostIdentity` is expected. It is a compile-fail doc test or a code review item.
 

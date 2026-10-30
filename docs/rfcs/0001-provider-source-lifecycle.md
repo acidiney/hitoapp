@@ -116,7 +116,7 @@ No stored data changes in any step. Table names stay.
 ## Test impact
 
 - Existing capability tests (`source_resolution*`, `source_preparation*`, `provider_source*`) already call `Catalog` verbs. They become boundary tests of `ProviderSources` by changing the receiver, not the assertions. `*_upgrade.rs` tests do not change.
-- HTTP tests under `apps/server/tests/source_*` are untouched. Routes and wire types are stable.
+- HTTP tests under `apps/server/tests/sources/source_*` are untouched. Routes and wire types are stable.
 - TDD order. Write the step 1 kernel test first. For each later step, change the test receiver first, watch it fail to compile, then move the code.
 - Tests that exist only to repeat one rule per verb can merge into the kernel test. Do that in a separate commit after the move so a failure points at one cause.
 
