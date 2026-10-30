@@ -40,7 +40,7 @@ impl Collection {
         .bind(LIKED_COUNT_CAP)
         .fetch_one(&mut *tx)
         .await?;
-        let recent_albums: Vec<HomeAlbum> = sqlx::query_as(
+        let mut recent_albums: Vec<HomeAlbum> = sqlx::query_as(
             "SELECT r.release_id AS id, a.title, a.artist,
                     MAX(p.updated_at) AS last_played_at, COUNT(*) AS played
              FROM (SELECT recording_id, updated_at FROM listening_progress
@@ -58,6 +58,16 @@ impl Collection {
         .bind(RECENT_ALBUMS)
         .fetch_all(&mut *tx)
         .await?;
+        let ids: Vec<String> = recent_albums.iter().map(|album| album.id.clone()).collect();
+        let mut inferred: std::collections::HashMap<String, crate::AlbumArtistInference> =
+            crate::catalog::releases::releases_among_ids_on(&mut tx, actor, &ids)
+                .await?
+                .into_iter()
+                .filter_map(|release| Some((release.id, release.inferred_artist?)))
+                .collect();
+        for album in &mut recent_albums {
+            album.inferred_artist = inferred.remove(&album.id);
+        }
         let mut unheard = Vec::new();
         for album in &recent_albums {
             if unheard.len() == UNHEARD_ALBUMS {
@@ -74,6 +84,7 @@ impl Collection {
                 release_id: album.id.clone(),
                 title: album.title.clone(),
                 artist: album.artist.clone(),
+                inferred_artist: album.inferred_artist.clone(),
                 played: album.played,
                 remaining,
                 tracks,

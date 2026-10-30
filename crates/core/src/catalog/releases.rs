@@ -252,6 +252,19 @@ pub(crate) async fn releases_by_ids_on(
     actor: &Actor,
     ids: &[String],
 ) -> Result<Vec<Release>> {
+    let releases = releases_among_ids_on(connection, actor, ids).await?;
+    if releases.len() != ids.len() {
+        return Err(Error::NotFound);
+    }
+    Ok(releases)
+}
+
+/// The account's albums among the requested identifiers; unknown or hidden ones are left out.
+pub(crate) async fn releases_among_ids_on(
+    connection: &mut sqlx::SqliteConnection,
+    actor: &Actor,
+    ids: &[String],
+) -> Result<Vec<Release>> {
     if ids.len() > 200 {
         return Err(Error::Invalid(
             "Select at most 200 releases per lookup".into(),
@@ -273,11 +286,7 @@ pub(crate) async fn releases_by_ids_on(
         .push("))");
     query.push(HAS_ENTRIES).push(ENTRIES).push(SUMMARY);
     query.push(" GROUP BY a.id ORDER BY a.title COLLATE NOCASE,a.id");
-    let releases: Vec<Release> = query.build_query_as().fetch_all(connection).await?;
-    if releases.len() != ids.len() {
-        return Err(Error::NotFound);
-    }
-    Ok(releases)
+    Ok(query.build_query_as().fetch_all(connection).await?)
 }
 
 /// The `entries` view of the account's own albums among the wanted recordings.

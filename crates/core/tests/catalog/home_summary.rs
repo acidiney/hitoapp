@@ -1,10 +1,12 @@
+use hito_core::test_support::playlist_service as fixture;
 use hito_core::test_support::support::{library, scan, synchronize, write_wav};
-use hito_core::{Action, Credentials, Search};
+use hito_core::{Action, AlbumArtistInference, Credentials, ImportProviderPlaylist, Search};
 use lofty::{
     config::WriteOptions,
     prelude::{Accessor, ItemKey, TagExt},
     tag::{Tag, TagType},
 };
+use serde_json::{Value, json};
 use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
 use std::path::Path;
 use uuid::Uuid;
@@ -111,7 +113,7 @@ async fn home_lists_recent_albums_and_unheard_tracks_from_albums_the_account_pla
         .map(|album| album.title.as_str())
         .collect();
     assert_eq!(titles, ["Glass", "Tide"]);
-    assert_eq!(home.recent_albums[0].artist, "Window");
+    assert_eq!(home.recent_albums[0].artist.as_deref(), Some("Window"));
     let tide = home.unheard.iter().find(|a| a.title == "Tide").unwrap();
     assert_eq!(tide.played, 1);
     let mut unheard: Vec<&str> = tide.tracks.iter().map(|t| t.title.as_str()).collect();
@@ -270,4 +272,79 @@ async fn removing_library_access_empties_the_home_summary() {
     assert_eq!(home.liked_count, 0);
     assert!(home.recent_albums.is_empty());
     assert!(home.unheard.is_empty());
+}
+
+fn provider_track(id: &str, performer: &str, album: &str, album_artist: Option<&str>) -> Value {
+    let mut release = json!({"id": album, "title": album});
+    if let Some(artist) = album_artist {
+        release["artist"] = json!(artist);
+    }
+    json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
+        "id": id, "title": id, "artist": performer, "duration_ms": 100000,
+        "release": release, "disc_number": 1, "track_number": 1, "revision": "v1"}}})
+}
+
+#[tokio::test]
+async fn home_albums_without_an_album_artist_carry_the_inferred_credit() {
+    let server = fixture::ProviderServer::start().await;
+    let (_dir, hito, actor, _library, _music) = library("home-inferred").await;
+    let installed = fixture::connect(&hito, &actor, &server, &["playlists"]).await;
+    fixture::playlist(
+        &server,
+        "playlist/home-inferred",
+        "v1",
+        vec![
+            provider_track("a1", "Same Band", "Shared", None),
+            provider_track("a2", "SAME BAND", "Shared", None),
+            provider_track("b1", "First Band", "Mixed", None),
+            provider_track("b2", "Second Band", "Mixed", None),
+            provider_track("c1", "Credited Band", "Credited", Some("Album Owner")),
+        ],
+    )
+    .await;
+    hito.collection
+        .import_provider_playlist(
+            &actor,
+            &installed.id,
+            ImportProviderPlaylist {
+                request_id: Uuid::new_v4(),
+                installation_revision: installed.revision,
+                playlist_reference: "https://provider.invalid/playlist/home-inferred".into(),
+            },
+        )
+        .await
+        .unwrap();
+    let all = tracks(&hito, &actor).await;
+    let id = |title: &str| all.iter().find(|r| r.title == title).unwrap().id.clone();
+    synchronize(
+        &hito,
+        &actor,
+        vec![
+            progress(&id("a1"), 1000),
+            progress(&id("b1"), 1000),
+            progress(&id("c1"), 1000),
+        ],
+    )
+    .await;
+
+    let home = hito.collection.home(&actor).await.unwrap();
+    let album = |title: &str| {
+        home.recent_albums
+            .iter()
+            .find(|album| album.title == title)
+            .unwrap()
+    };
+    let shared = album("Shared");
+    assert!(shared.artist.is_none());
+    assert!(matches!(
+        &shared.inferred_artist,
+        Some(AlbumArtistInference::Named { name }) if name.eq_ignore_ascii_case("same band")
+    ));
+    assert!(matches!(
+        album("Mixed").inferred_artist,
+        Some(AlbumArtistInference::Various)
+    ));
+    let credited = album("Credited");
+    assert_eq!(credited.artist.as_deref(), Some("Album Owner"));
+    assert!(credited.inferred_artist.is_none());
 }

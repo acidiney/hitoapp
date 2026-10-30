@@ -251,7 +251,13 @@ pub struct Home {
 pub struct HomeAlbum {
     pub id: String,
     pub title: String,
-    pub artist: String,
+    #[schema(required = true)]
+    pub artist: Option<String>,
+    /// Display album artist derived from the tracks when the album has none, the same value an
+    /// album read carries.
+    #[sqlx(skip)]
+    #[schema(required = true)]
+    pub inferred_artist: Option<crate::AlbumArtistInference>,
     pub last_played_at: i64,
     pub played: i64,
 }
@@ -260,7 +266,10 @@ pub struct HomeAlbum {
 pub struct UnheardOnAlbum {
     pub release_id: String,
     pub title: String,
-    pub artist: String,
+    #[schema(required = true)]
+    pub artist: Option<String>,
+    #[schema(required = true)]
+    pub inferred_artist: Option<crate::AlbumArtistInference>,
     pub played: i64,
     pub remaining: i64,
     pub tracks: Vec<crate::Recording>,
