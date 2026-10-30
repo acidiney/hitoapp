@@ -1,4 +1,4 @@
-use axum::http::Method;
+use axum::http::{HeaderMap, Method};
 use hito_testkit::fake_plugin::FakePlugin;
 use serde_json::Value;
 
@@ -6,6 +6,7 @@ use serde_json::Value;
 pub struct ObservedRequest {
     pub method: Method,
     pub path: String,
+    pub headers: HeaderMap,
     pub body: Value,
 }
 
@@ -17,6 +18,7 @@ pub fn observed(plugin: &FakePlugin, limit: usize) -> Vec<ObservedRequest> {
         .map(|request| ObservedRequest {
             path: format!("/prefix/{}", request.operation),
             body: request.json(),
+            headers: request.headers,
             method: request.method,
         })
         .collect()
