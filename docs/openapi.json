@@ -4671,6 +4671,103 @@
         ]
       }
     },
+    "/api/v1/metadata/automation": {
+      "put": {
+        "operationId": "update_automatic_lookups",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAutomaticLookups"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/metadata/settings": {
       "get": {
         "operationId": "metadata_settings",
@@ -19552,9 +19649,19 @@
         "required": [
           "revision",
           "enabled",
-          "providers"
+          "providers",
+          "automatic_artist_lookup",
+          "automatic_artwork"
         ],
         "properties": {
+          "automatic_artist_lookup": {
+            "type": "boolean",
+            "description": "Match library artists on MusicBrainz in the background. Applies only while enrichment is\nenabled and the built-in provider is selected."
+          },
+          "automatic_artwork": {
+            "type": "boolean",
+            "description": "Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier."
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -24662,6 +24769,25 @@
           "request_id": {
             "type": "string",
             "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateAutomaticLookups": {
+        "type": "object",
+        "description": "Omitted choices keep their current value.",
+        "properties": {
+          "automatic_artist_lookup": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "automatic_artwork": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         },
         "additionalProperties": false

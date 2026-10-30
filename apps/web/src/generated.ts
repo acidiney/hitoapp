@@ -788,6 +788,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update_automatic_lookups"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/settings": {
         parameters: {
             query?: never;
@@ -3453,6 +3469,13 @@ export interface components {
             kind: "http_plugin";
         };
         MetadataSettings: {
+            /**
+             * @description Match library artists on MusicBrainz in the background. Applies only while enrichment is
+             *     enabled and the built-in provider is selected.
+             */
+            automatic_artist_lookup: boolean;
+            /** @description Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier. */
+            automatic_artwork: boolean;
             enabled: boolean;
             providers: components["schemas"]["MetadataProvider"][];
             /** Format: int64 */
@@ -4763,6 +4786,11 @@ export interface components {
         UnsubscribePodcast: {
             /** Format: uuid */
             request_id: string;
+        };
+        /** @description Omitted choices keep their current value. */
+        UpdateAutomaticLookups: {
+            automatic_artist_lookup?: boolean | null;
+            automatic_artwork?: boolean | null;
         };
         UpdateCommunityPreferences: {
             metadata_corrections: boolean;
@@ -8342,6 +8370,85 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_automatic_lookups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAutomaticLookups"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataSettings"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
