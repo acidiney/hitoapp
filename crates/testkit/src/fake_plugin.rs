@@ -468,15 +468,13 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
     match fault {
         Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
         Some(Fault::Hold(gate)) => gate.wait().await,
-        Some(Fault::HoldNext(gate)) => {
-            if claim_next(&shared, &operation, &gate) {
-                let (done, completed) = oneshot::channel();
-                shared.workers.lock().unwrap().spawn(async move {
-                    gate.wait().await;
-                    let _ = done.send(());
-                });
-                let _ = completed.await;
-            }
+        Some(Fault::HoldNext(gate)) if claim_next(&shared, &operation, &gate) => {
+            let (done, completed) = oneshot::channel();
+            shared.workers.lock().unwrap().spawn(async move {
+                gate.wait().await;
+                let _ = done.send(());
+            });
+            let _ = completed.await;
         }
         _ => {}
     }
