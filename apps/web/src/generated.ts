@@ -3261,7 +3261,11 @@ export interface components {
             artist: components["schemas"]["ObservedTag"] | null;
             disc: components["schemas"]["ObservedTag"] | null;
             isrc: components["schemas"]["ObservedTag"] | null;
+            musicbrainz_album_id: components["schemas"]["ObservedTag"] | null;
             musicbrainz_artist_tags: components["schemas"]["MusicBrainzArtistTag"][] | null;
+            musicbrainz_recording_id: components["schemas"]["ObservedTag"] | null;
+            musicbrainz_release_group_id: components["schemas"]["ObservedTag"] | null;
+            musicbrainz_release_track_id: components["schemas"]["ObservedTag"] | null;
             title: components["schemas"]["ObservedTag"] | null;
             track: components["schemas"]["ObservedTag"] | null;
         };

@@ -18586,6 +18586,10 @@
           "disc",
           "track",
           "isrc",
+          "musicbrainz_album_id",
+          "musicbrainz_release_group_id",
+          "musicbrainz_recording_id",
+          "musicbrainz_release_track_id",
           "musicbrainz_artist_tags"
         ],
         "properties": {
@@ -18639,6 +18643,16 @@
               }
             ]
           },
+          "musicbrainz_album_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "musicbrainz_artist_tags": {
             "type": [
               "array",
@@ -18647,6 +18661,36 @@
             "items": {
               "$ref": "#/components/schemas/MusicBrainzArtistTag"
             }
+          },
+          "musicbrainz_recording_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "musicbrainz_release_group_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "musicbrainz_release_track_id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ObservedTag"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "title": {
             "oneOf": [

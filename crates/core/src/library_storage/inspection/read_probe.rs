@@ -3,7 +3,13 @@ use crate::{Error, Result, metadata::InspectedTags};
 use std::{ffi::OsString, path::Path, time::Duration};
 use tokio::time::Instant;
 
-const ORDINARY_TAGS: &str = "title,artist,album,album_artist,disc,track,isrc,TSRC";
+const ORDINARY_TAGS: &str = concat!(
+    "title,artist,album,album_artist,disc,track,isrc,TSRC,",
+    "MusicBrainz Album Id,MUSICBRAINZ_ALBUMID,",
+    "MusicBrainz Release Group Id,MUSICBRAINZ_RELEASEGROUPID,",
+    "MusicBrainz Track Id,MUSICBRAINZ_TRACKID,",
+    "MusicBrainz Release Track Id,MUSICBRAINZ_RELEASETRACKID",
+);
 const ARTIST_TAGS: &str = concat!(
     "MusicBrainz Artist Id,MUSICBRAINZ_ARTISTID,",
     "MusicBrainz Album Artist Id,MUSICBRAINZ_ALBUMARTISTID",

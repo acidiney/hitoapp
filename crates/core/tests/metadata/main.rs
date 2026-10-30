@@ -7,6 +7,7 @@ mod metadata_artists;
 mod metadata_compatibility;
 mod metadata_id3_compression;
 mod metadata_isrc;
+mod metadata_musicbrainz_ids;
 mod metadata_observations;
 mod metadata_privacy;
 mod metadata_release_history;

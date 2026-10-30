@@ -70,12 +70,23 @@ impl Probe {
             isrc: self
                 .observed_tag("isrc")
                 .or_else(|| self.observed_tag("tsrc")),
+            musicbrainz_album_id: self.first_tag(&["musicbrainz album id", "musicbrainz_albumid"]),
+            musicbrainz_release_group_id: self
+                .first_tag(&["musicbrainz release group id", "musicbrainz_releasegroupid"]),
+            musicbrainz_recording_id: self
+                .first_tag(&["musicbrainz track id", "musicbrainz_trackid"]),
+            musicbrainz_release_track_id: self
+                .first_tag(&["musicbrainz release track id", "musicbrainz_releasetrackid"]),
             musicbrainz_artist_tags: if artist_tags_known {
                 super::artist_tags::collect(self)
             } else {
                 None
             },
         }
+    }
+
+    fn first_tag(&self, names: &[&str]) -> Option<ObservedTag> {
+        names.iter().find_map(|name| self.observed_tag(name))
     }
 
     fn observed_tag(&self, name: &str) -> Option<ObservedTag> {

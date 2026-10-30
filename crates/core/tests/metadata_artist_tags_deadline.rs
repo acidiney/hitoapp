@@ -96,11 +96,19 @@ async fn fallback_shares_the_original_deadline_and_retires_both_owned_attempts()
         let ordinary = tool.started("ordinary").await;
         ordinary.assert_private_input(&candidate_bytes);
         assert!(expanded.input == ordinary.input);
-        assert!(ordinary.selector.ends_with(
-            "format_tags=title,artist,album,album_artist,disc,track,isrc,TSRC:\
-             stream_tags=title,artist,album,album_artist,disc,track,isrc,TSRC"
-        ));
-        assert!(!ordinary.selector.contains("MUSICBRAINZ"));
+        let tags = "title,artist,album,album_artist,disc,track,isrc,TSRC,\
+             MusicBrainz Album Id,MUSICBRAINZ_ALBUMID,\
+             MusicBrainz Release Group Id,MUSICBRAINZ_RELEASEGROUPID,\
+             MusicBrainz Track Id,MUSICBRAINZ_TRACKID,\
+             MusicBrainz Release Track Id,MUSICBRAINZ_RELEASETRACKID";
+        assert!(
+            ordinary
+                .selector
+                .ends_with(&format!("format_tags={tags}:stream_tags={tags}"))
+        );
+        assert!(
+            !ordinary.selector.contains("ARTISTID") && !ordinary.selector.contains("Artist Id")
+        );
         let result =
             tokio::time::timeout_at(observed + PROBE_BUDGET + SCHEDULING_TOLERANCE, &mut worker)
                 .await
