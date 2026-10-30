@@ -1,6 +1,7 @@
 #![allow(clippy::duplicate_mod)]
 
 mod embedded_runtime;
+mod first_matching_walk;
 mod folder_watching_runtime;
 mod host_folders;
 mod maintenance_cli;

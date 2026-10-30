@@ -87,6 +87,52 @@ async fn allowed(connection: &mut SqliteConnection, account: &str) -> Result<boo
 }
 
 impl ArtistCatalog {
+    /// Queues the first matching walk for every account that can read a library, has automatic
+    /// lookups on and has never had a walk, so a library that predates the worker still gets one.
+    /// Accounts that already have a job or a finished walk are left alone.
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub async fn queue_first_automatic_matching(&self) -> Result<usize> {
+        let started = Instant::now();
+        let accounts: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT m.user_id FROM library_members m
+             WHERE NOT EXISTS (SELECT 1 FROM artist_matching_jobs j WHERE j.user_id = m.user_id)
+                AND NOT EXISTS (SELECT 1 FROM account_metadata_automation a
+                    WHERE a.user_id = m.user_id AND a.matching_finished_at IS NOT NULL)",
+        )
+        .fetch_all(&self.store.pool)
+        .await?;
+        let mut queued = 0;
+        for account in accounts {
+            let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            let started_meanwhile: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?1)
+                    OR EXISTS(SELECT 1 FROM account_metadata_automation
+                        WHERE user_id = ?1 AND matching_finished_at IS NOT NULL)",
+            )
+            .bind(&account)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !started_meanwhile {
+                request_for_account(&mut tx, &account).await?;
+                let now_queued: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM artist_matching_jobs WHERE user_id = ?)",
+                )
+                .bind(&account)
+                .fetch_one(&mut *tx)
+                .await?;
+                queued += usize::from(now_queued);
+            }
+            tx.commit().await?;
+        }
+        tracing::info!(
+            event = "first_automatic_matching_queued",
+            queued,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "First automatic artist matching walks queued"
+        );
+        Ok(queued)
+    }
+
     /// Runs one batch of the oldest due matching walk: the tag pass, then the provider evidence
     /// and name passes, resuming from the stored position. A shutdown abandons the batch and
     /// leaves the walk to continue from the same position.

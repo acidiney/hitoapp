@@ -293,6 +293,13 @@ async fn matching_worker(
         event = "matching_worker_started",
         "Artist matching worker started"
     );
+    if let Err(error) = artists.queue_first_automatic_matching().await {
+        tracing::error!(
+            event = "first_automatic_matching_failed",
+            error_kind = error.code(),
+            "First automatic artist matching walks could not be queued"
+        );
+    }
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {

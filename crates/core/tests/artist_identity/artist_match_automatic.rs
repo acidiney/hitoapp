@@ -295,3 +295,86 @@ async fn a_background_step_never_makes_the_accounts_own_matching_requests_busy()
     );
     background.await.unwrap().unwrap();
 }
+
+#[tokio::test]
+async fn an_existing_library_gets_one_first_walk_at_start_and_never_a_second_one() {
+    let library = NameLibrary::nova().await;
+    expect_nova(&library);
+    let lookups = |automatic_artist_lookup| UpdateAutomaticLookups {
+        automatic_artist_lookup: Some(automatic_artist_lookup),
+        automatic_artwork: None,
+        automatic_service_search: None,
+    };
+    library
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(&library.actor, lookups(false))
+        .await
+        .unwrap();
+    library.automatic().await;
+    assert_eq!(library.rows("artist_matching_jobs").await, 0);
+    assert_eq!(
+        library
+            .hito
+            .artist_catalog
+            .queue_first_automatic_matching()
+            .await
+            .unwrap(),
+        0,
+        "A choice that is off queues nothing"
+    );
+    assert_eq!(library.rows("artist_matching_jobs").await, 0);
+
+    library
+        .hito
+        .artist_catalog
+        .set_automatic_lookups(&library.actor, lookups(true))
+        .await
+        .unwrap();
+    let queued = library
+        .hito
+        .artist_catalog
+        .queue_first_automatic_matching()
+        .await;
+    assert_eq!(queued.unwrap(), 1);
+    assert_eq!(library.rows("artist_matching_jobs").await, 1);
+    assert_eq!(
+        library
+            .hito
+            .artist_catalog
+            .queue_first_automatic_matching()
+            .await
+            .unwrap(),
+        0,
+        "A second start finds the queued job and adds nothing"
+    );
+    assert_eq!(library.rows("artist_matching_jobs").await, 1);
+    assert_eq!(
+        library
+            .scalar("SELECT rerun FROM artist_matching_jobs")
+            .await,
+        "0",
+        "The repeat does not ask the running walk for another"
+    );
+
+    library.automatic().await;
+    assert!(library.group_of(&library.recordings[0]).await.is_some());
+    let status = library
+        .hito
+        .artist_catalog
+        .artist_matching_status(&library.actor)
+        .await
+        .unwrap();
+    assert!(status.last_finished_at.is_some());
+    assert_eq!(
+        library
+            .hito
+            .artist_catalog
+            .queue_first_automatic_matching()
+            .await
+            .unwrap(),
+        0,
+        "A finished walk is not queued again at the next start"
+    );
+    assert_eq!(library.rows("artist_matching_jobs").await, 0);
+}
