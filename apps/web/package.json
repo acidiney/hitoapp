@@ -7,6 +7,9 @@
     "build": "tsc --noEmit && tsc -p tsconfig.e2e.json && vite build",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:collection-artwork": "playwright test -c playwright.collection-artwork.config.ts",
+    "e2e:community-ranking": "playwright test -c playwright.community-ranking.config.ts",
+    "e2e:lyric-provider-choice": "playwright test -c playwright.lyric-provider-choice.config.ts",
     "generate:api": "openapi-typescript ../../docs/openapi.json -o src/generated.ts",
     "lint": "prettier --check . && tsc --noEmit && tsc -p tsconfig.e2e.json --noEmit && eslint . --max-warnings 71"
   },

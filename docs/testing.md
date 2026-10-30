@@ -4,6 +4,8 @@ Tests in Hito check behavior at a public boundary. They do not check how the cod
 
 Run every test through Docker. [Development](development.md) has the commands.
 
+Run one area with a `make check-<area>` target: `check-core`, `check-server`, `check-community`, `check-playback`, `check-plugins` or `check-web`. Each runs that area's tests through the `tools` profile. `make verify` runs everything. [Development](development.md#makefile-targets) lists what each target runs.
+
 ## Test layers
 
 ```mermaid
@@ -66,6 +68,7 @@ All default specs share one `e2e-server` and one database. Its data directory is
 - Global setup is skipped when any `HITO_*_E2E=1` gate variable is set. Those gated specs run on their own and use their own sign-in.
 - The server allows 10 sign-in or setup attempts per minute per address. The default run uses about 9. A new default-run spec should reuse the shared session, or create accounts through the API, instead of adding UI sign-ins.
 - Browser fixtures own their images in `apps/web/e2e/fixtures/images`.
+- The gated specs have their own Playwright configs in `apps/web`, registered as npm scripts: `e2e:collection-artwork`, `e2e:community-ranking` and `e2e:lyric-provider-choice`. `make e2e E2E_SCRIPT=<script>` runs one against the isolated `e2e-server`. The default `playwright.config.ts` ignores their specs. Each gated run needs its own fixtures and, for the first two, an `/evidence` output directory, so the scripts in `scripts/artwork`, `scripts/community/rankings` and `scripts/lyrics/provider-choice` remain the supported way to run them.
 
 ## Log privacy
 

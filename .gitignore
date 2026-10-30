@@ -19,3 +19,4 @@
 *.log
 *.plugin-key
 /.agents/meta/
+/deploy/compose/*.local.yaml

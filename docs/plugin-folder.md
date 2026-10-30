@@ -9,8 +9,8 @@ The running development service includes a private identity registry, witnessed 
 From the repository root containing the existing Hito Compose deployment, run:
 
 ```sh
-docker compose -f compose.yaml -f compose.plugins.yaml run --rm --build --no-deps plugin-folder --music /demo --state /state --initialize-state
-docker compose -f compose.yaml -f compose.plugins.yaml up -d plugin-folder
+docker compose -f compose.yaml -f deploy/compose/folder.yaml run --rm --build --no-deps plugin-folder --music /demo --state /state --initialize-state
+docker compose -f compose.yaml -f deploy/compose/folder.yaml up -d plugin-folder
 ```
 
 Run the first command once for a new state volume. The already running local demo has initialized state. Initialization commits the initial private registry and exits; it refuses to overwrite an existing registry. Later starts use only the second command. Normal startup requires established state and never silently initializes a replacement. This starts only the plugin service on the same Compose network as Hito. It does not install a plugin into an account. The host inspection endpoint is `http://localhost:8091/v1/manifest`. Hito must use its internal Docker address:
@@ -32,7 +32,7 @@ The demo has no bearer authentication. The port binds only to localhost, and the
 
 ## Use a read-only collection
 
-Create `compose.plugins.local.yaml` with the folder you own:
+Create `deploy/compose/folder.local.yaml` with the folder you own:
 
 ```yaml
 services:
@@ -59,8 +59,8 @@ volumes:
 Run:
 
 ```sh
-docker compose -f compose.yaml -f compose.plugins.yaml -f compose.plugins.local.yaml run --rm --build --no-deps plugin-folder --music /collection --state /state --initialize-state
-docker compose -f compose.yaml -f compose.plugins.yaml -f compose.plugins.local.yaml up -d plugin-folder
+docker compose -f compose.yaml -f deploy/compose/folder.yaml -f deploy/compose/folder.local.yaml run --rm --build --no-deps plugin-folder --music /collection --state /state --initialize-state
+docker compose -f compose.yaml -f deploy/compose/folder.yaml -f deploy/compose/folder.local.yaml up -d plugin-folder
 ```
 
 The service scans at startup. Restart it after collection changes. The container runs as UID 10001 and needs read and directory traversal access to the selected collection. It never edits that collection. Remove the local override from the command to return to the generated demo.
@@ -148,10 +148,10 @@ Two independent review rounds completed. Resolver regressions and source checks 
 For the isolated browser flow, first have Hito's development tools and `hito-e2e-server:latest` image available. This browser configuration mounts the existing `hito_node-modules` dependency volume. It uses a fresh tmpfs database and its own administrator account, never the normal server volume:
 
 ```sh
-docker compose -p hito-plugin-folder -f compose.plugins.yaml build plugin-folder
-docker compose -p hito-plugin-folder -f compose.plugins.yaml run --rm --no-deps plugin-folder --music /demo --state /state --initialize-state
-docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e run --rm plugin-folder-browser
-docker compose -p hito-plugin-folder -f compose.plugins.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e down
+docker compose --project-directory . -p hito-plugin-folder -f deploy/compose/folder.yaml build plugin-folder
+docker compose --project-directory . -p hito-plugin-folder -f deploy/compose/folder.yaml run --rm --no-deps plugin-folder --music /demo --state /state --initialize-state
+docker compose --project-directory . -p hito-plugin-folder -f deploy/compose/folder.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e run --rm plugin-folder-browser
+docker compose --project-directory . -p hito-plugin-folder -f deploy/compose/folder.yaml -f scripts/plugins/compose.e2e.yaml --profile e2e down
 ```
 
 The current release images passed a real Chromium workflow in 3.5 seconds on 2026-10-16: UI offer/connect, discovery, adoption without autoplay, playback, seeking with relayed byte ranges, coherent album adoption and removal with saved Hito IDs retained. The folder image is `sha256:be2eaba8184a848065384f7b10ebb14fa94d69021549282416b7b20e367726fe` and the server image is `sha256:efdd68dbbc536749aaa777291aee7593bdeae3f2b105c2e171fd33b35c879c8d`. The mobile screenshot was inspected. This is browser evidence for the deployed registry implementation, not native desktop, physical-output, broad codec or public-release acceptance.

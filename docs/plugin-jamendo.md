@@ -49,7 +49,7 @@ JSON logs include lifecycle outcomes and correlated request outcomes. The execut
 
 ## Development container
 
-[docker/plugin.Dockerfile](../docker/plugin.Dockerfile) builds the shared plugin image with `PLUGIN=hito-plugin-jamendo`. [compose.jamendo.yaml](../compose.jamendo.yaml) can run alone in an isolated development project. Its default host address is `http://localhost:8094/v1/manifest`; the container listens on port 8093. The example mounts no Hito application data and provides no account-connection setup. Generic attribution and persistence policy remain prerequisites for offering this service to accounts.
+[docker/plugin.Dockerfile](../docker/plugin.Dockerfile) builds the shared plugin image with `PLUGIN=hito-plugin-jamendo`. [deploy/compose/jamendo.yaml](../deploy/compose/jamendo.yaml) can run alone in an isolated development project. Its default host address is `http://localhost:8094/v1/manifest`; the container listens on port 8093. The example mounts no Hito application data and provides no account-connection setup. Generic attribution and persistence policy remain prerequisites for offering this service to accounts.
 
 The image uses pinned Rust and Debian bases. The build disables debug information and incremental compilation, uses two compiler jobs and has a Jamendo-specific cache separated by project and architecture. Give each source snapshot a separate project/cache identity. Before and during large builds, retain at least 40 GiB of host headroom and keep combined Hito Cargo targets within 10 GiB. Run compiler-heavy work sequentially.
 
@@ -59,7 +59,7 @@ Build from this checkout in its own project:
 
 ```sh
 export HITO_JAMENDO_CREDENTIAL_VOLUME=hito-jamendo-dev-credentials
-HITO_JAMENDO_IMAGE_TAG=development docker compose -p hito-jamendo-dev -f compose.jamendo.yaml --profile plugins build plugin-jamendo
+HITO_JAMENDO_IMAGE_TAG=development docker compose --project-directory . -p hito-jamendo-dev -f deploy/compose/jamendo.yaml --profile plugins build plugin-jamendo
 ```
 
 The credential volume is external and must be provisioned before startup. Its explicit name is required in `HITO_JAMENDO_CREDENTIAL_VOLUME`. Docker Compose does not apply `uid`, `gid` or `mode` overrides to file-backed secrets because those use bind mounts. See [Docker's secret ownership documentation](https://docs.docker.com/reference/compose-file/services/#secrets). A host file bind, especially through Docker Desktop, must not be assumed to appear as owner 10001. The procedure below writes the private file inside a Docker volume, then assigns the Linux owner and mode that the executable checks.
@@ -93,10 +93,10 @@ The one-time helper has no network access and receives only the capability neede
 Start only the isolated service, then stop it after inspection:
 
 ```sh
-HITO_JAMENDO_IMAGE_TAG=development HITO_JAMENDO_PORT=18094 docker compose -p hito-jamendo-dev -f compose.jamendo.yaml --profile plugins up --wait --wait-timeout 30 --no-deps --no-build plugin-jamendo
-docker compose -p hito-jamendo-dev -f compose.jamendo.yaml --profile plugins exec -T plugin-jamendo curl -fsS --max-time 2 http://127.0.0.1:8093/v1/manifest
-docker compose -p hito-jamendo-dev -f compose.jamendo.yaml --profile plugins stop plugin-jamendo
-docker compose -p hito-jamendo-dev -f compose.jamendo.yaml --profile plugins down
+HITO_JAMENDO_IMAGE_TAG=development HITO_JAMENDO_PORT=18094 docker compose --project-directory . -p hito-jamendo-dev -f deploy/compose/jamendo.yaml --profile plugins up --wait --wait-timeout 30 --no-deps --no-build plugin-jamendo
+docker compose --project-directory . -p hito-jamendo-dev -f deploy/compose/jamendo.yaml --profile plugins exec -T plugin-jamendo curl -fsS --max-time 2 http://127.0.0.1:8093/v1/manifest
+docker compose --project-directory . -p hito-jamendo-dev -f deploy/compose/jamendo.yaml --profile plugins stop plugin-jamendo
+docker compose --project-directory . -p hito-jamendo-dev -f deploy/compose/jamendo.yaml --profile plugins down
 ```
 
 The project publishes only loopback port 18094 in this example. A successful manifest or health check needs no upstream request and does not validate a Jamendo credential.

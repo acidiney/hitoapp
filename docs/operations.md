@@ -34,6 +34,22 @@ Hito watches connected server music folders and rescans a folder shortly after i
 
 Native watching keeps one kernel watch per directory, which counts against the host's `fs.inotify.max_user_watches` and container memory. Polling walks the whole folder each interval and slows itself down on large folders. Network shares, removable drives and Docker Desktop bind mounts often miss native events, so Hito polls them. Raise the host limit if the log reports `watch_limit_reached`. Log events are `folder_watching_started`, `folder_watch_started`, `folder_watch_polling` (with a `reason`), `folder_watch_scan_retry` and `folder_watch_stopped`; frequent request events are debug level. Logs never contain folder paths. When the server starts, each folder is compared cheaply with its last scan and rescanned only if something changed.
 
+## Compose files
+
+The documented command for the normal server stays `docker compose` with the root `compose.yaml`, project `hito`, container `hito-server-1` and volume `hito_hito-data`. Plugin overlays do not change that service. They live in `deploy/compose/<plugin>.yaml`, extend `deploy/compose/plugin-base.yaml` for the hardened runtime (read-only root, all capabilities dropped, `no-new-privileges`, process and memory limits) and build `docker/plugin.Dockerfile`. Run one beside the root file:
+
+```sh
+docker compose -f compose.yaml -f deploy/compose/folder.yaml up -d plugin-folder
+```
+
+Check an overlay without starting anything:
+
+```sh
+docker compose -p hito -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins config --quiet
+```
+
+The development VPS has its own build and runtime files in `deploy/vps`. [Development](development.md#docker-only) has the layout diagram and the plugin image build arguments.
+
 ## Restart and upgrade
 
 ```sh

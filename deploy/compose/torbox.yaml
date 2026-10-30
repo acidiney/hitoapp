@@ -1,5 +1,8 @@
 services:
   plugin-torbox:
+    extends:
+      file: deploy/compose/plugin-base.yaml
+      service: private-service
     profiles: [plugins]
     image: hito-plugin-torbox:${HITO_TORBOX_IMAGE_TAG:-development}
     build:
@@ -12,7 +15,6 @@ services:
         STATE_DIR: /var/lib/hito-torbox
         SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}
         INPUT_SHA256: ${HITO_TORBOX_INPUT_SHA256:?Set the frozen input digest}
-    user: "10001:10001"
     command:
       - --listen
       - 0.0.0.0:8100
@@ -45,21 +47,6 @@ services:
         read_only: false
         volume:
           nocopy: true
-    init: true
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    pids_limit: 64
-    mem_limit: 256m
-    cpus: "1.0"
-    stop_signal: SIGTERM
-    stop_grace_period: 30s
-    restart: "no"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 volumes:
   torbox-credentials:
     external: true

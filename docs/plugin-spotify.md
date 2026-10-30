@@ -59,8 +59,8 @@ The normal service is healthy on verified image `sha256:dac6f44955658f9569fc27e5
 Build and inspect the plugin in a separate Compose project first. The project name also gives the Dockerfile a separate Cargo build cache. Keep different source snapshots on separate caches. Run compiler-heavy checks sequentially, with debug information and incremental compilation disabled. Check host free space and combined Hito Cargo targets before and during builds; retain at least 40 GiB of host headroom and keep those targets within 10 GiB.
 
 ```sh
-HITO_SPOTIFY_PORT=18092 docker compose -p hito-spotify-public -f compose.yaml -f compose.spotify.yaml --profile plugins build plugin-spotify
-HITO_SPOTIFY_PORT=18092 docker compose -p hito-spotify-public -f compose.yaml -f compose.spotify.yaml --profile plugins up -d --no-deps --no-build plugin-spotify
+HITO_SPOTIFY_PORT=18092 docker compose -p hito-spotify-public -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins build plugin-spotify
+HITO_SPOTIFY_PORT=18092 docker compose -p hito-spotify-public -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins up -d --no-deps --no-build plugin-spotify
 ```
 
 The isolated host manifest address will be `http://localhost:18092/v1/manifest`. First-run browser acceptance must use the isolated e2e profile and its temporary data, never the normal server's persistent volume.
@@ -68,7 +68,7 @@ The isolated host manifest address will be `http://localhost:18092/v1/manifest`.
 To start the verified plugin image on the normal local Hito network:
 
 ```sh
-docker compose -p hito -f compose.yaml -f compose.spotify.yaml --profile plugins up -d --no-deps --no-build plugin-spotify
+docker compose -p hito -f compose.yaml -f deploy/compose/spotify.yaml --profile plugins up -d --no-deps --no-build plugin-spotify
 ```
 
 The normal host inspection address will be `http://localhost:8092/v1/manifest`. Hito must use the internal Docker address:

@@ -8,7 +8,7 @@ These files describe an installation. They are not evidence of a completed deplo
 
 The VPS has limited free disk space and runs images only. Build Linux amd64 images locally through Compose, then transfer them. Existing arm64 images cannot run natively on this host.
 
-After the deployment files are committed, use that clean, committed source tree. Record its full commit and build each service separately, with no other compiler-heavy operation running. The four caches include that commit and architecture so another source tree cannot reuse their Cargo artifacts. Existing Dockerfiles use release builds with two Rust jobs, no debug information and no incremental compilation.
+After the deployment files are committed, use that clean, committed source tree. Record its full commit and build each service separately, with no other compiler-heavy operation running. The four caches include that commit and architecture so another source tree cannot reuse their Cargo artifacts. The server Dockerfile and the shared `docker/plugin.Dockerfile` use release builds with two Rust jobs, no debug information and no incremental compilation.
 
 ```sh
 set -eu

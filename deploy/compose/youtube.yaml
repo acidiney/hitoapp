@@ -1,5 +1,8 @@
 services:
   plugin-youtube:
+    extends:
+      file: deploy/compose/plugin-base.yaml
+      service: hardened
     profiles: [plugins]
     image: hito-plugin-youtube:latest
     build:
@@ -18,17 +21,9 @@ services:
     environment:
       RUST_LOG: info
     init: true
-    read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=64m,uid=10001,gid=10001,mode=0700
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
     pids_limit: 128
     mem_limit: 512m
     stop_grace_period: 15s
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"

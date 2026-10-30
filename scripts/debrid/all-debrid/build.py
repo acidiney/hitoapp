@@ -36,7 +36,7 @@ def resolve(manifest):
         "HITO_ALL_DEBRID_PORT": "8097",
     })
     command = ["docker", "compose", "--project-directory", str(context), "--env-file", os.devnull,
-               "-p", project, "-f", str(context / "compose.all-debrid.yaml"), "--profile", "plugins"]
+               "-p", project, "-f", str(context / "deploy/compose/all-debrid.yaml"), "--profile", "plugins"]
     resolved = subprocess.run(command + ["config", "--format", "json"], env=environment,
                               capture_output=True, timeout=20, check=True)
     configuration = json.loads(resolved.stdout)

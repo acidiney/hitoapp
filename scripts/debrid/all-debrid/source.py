@@ -14,7 +14,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[3]
 FILES = {
     ".dockerignore", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "LICENSE",
-    "docker/plugin.Dockerfile", "compose.all-debrid.yaml",
+    "docker/plugin.Dockerfile", "deploy/compose/all-debrid.yaml",
 }
 PREFIXES = (".cargo/", "apps/server/", "apps/desktop/", "apps/community/", "crates/", "plugins/", "vendor/", "scripts/debrid/all-debrid/")
 

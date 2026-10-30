@@ -1,5 +1,8 @@
 services:
   plugin-folder:
+    extends:
+      file: deploy/compose/plugin-base.yaml
+      service: hardened
     build:
       context: .
       dockerfile: docker/plugin.Dockerfile
@@ -19,11 +22,6 @@ services:
       - "127.0.0.1:8091:8090"
     volumes:
       - plugin-folder-state:/state
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    pids_limit: 64
-    mem_limit: 256m
     restart: unless-stopped
     logging:
       driver: json-file

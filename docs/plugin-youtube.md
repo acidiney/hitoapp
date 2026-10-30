@@ -47,8 +47,8 @@ Existing connections do not gain the capability on their own. In Settings, Plugi
 Build and start the service in its own project:
 
 ```sh
-HITO_YOUTUBE_PORT=18093 docker compose -p hito-youtube-runtime -f compose.youtube.yaml --profile plugins build plugin-youtube
-HITO_YOUTUBE_PORT=18093 docker compose -p hito-youtube-runtime -f compose.youtube.yaml --profile plugins up -d --no-deps --no-build --wait plugin-youtube
+HITO_YOUTUBE_PORT=18093 docker compose --project-directory . -p hito-youtube-runtime -f deploy/compose/youtube.yaml --profile plugins build plugin-youtube
+HITO_YOUTUBE_PORT=18093 docker compose --project-directory . -p hito-youtube-runtime -f deploy/compose/youtube.yaml --profile plugins up -d --no-deps --no-build --wait plugin-youtube
 ```
 
 The manifest is available at `http://localhost:18093/v1/manifest`. This isolated project is separate from the normal Hito server network and has no Hito database or music mounts. Do not use the normal persistent server for first-run acceptance tests.
