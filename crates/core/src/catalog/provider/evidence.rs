@@ -33,5 +33,12 @@ pub(super) async fn observe(
         crate::metadata::IsrcOrigin::ProviderResponse,
     )
     .await?;
+    crate::metadata::retain_artist_pages(
+        &mut **tx,
+        &observation,
+        &binding.recording_id,
+        &details.artist_urls,
+    )
+    .await?;
     Ok(observation)
 }

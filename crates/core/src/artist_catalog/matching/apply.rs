@@ -21,13 +21,14 @@ pub(super) const REPLACEABLE: &str = "(EXISTS (SELECT 1 FROM (
 pub(super) enum EvidenceKind {
     FileTagArtistId,
     Isrc,
+    ProviderUrl,
 }
 
 impl EvidenceKind {
     fn table(self) -> &'static str {
         match self {
             Self::FileTagArtistId => "artist_association_matches",
-            Self::Isrc => "artist_association_provider_matches",
+            Self::Isrc | Self::ProviderUrl => "artist_association_provider_matches",
         }
     }
 
@@ -35,6 +36,7 @@ impl EvidenceKind {
         match self {
             Self::FileTagArtistId => "file_tag_artist_id",
             Self::Isrc => "isrc",
+            Self::ProviderUrl => "provider_url",
         }
     }
 }
@@ -46,6 +48,7 @@ pub(super) struct Pending {
     created: bool,
     revision: i64,
     credit: Credit,
+    kind: EvidenceKind,
 }
 
 pub(super) enum Planned {
@@ -59,6 +62,7 @@ pub(super) async fn plan(
     recording: &str,
     artist: &str,
     policy_revision: i64,
+    kind: EvidenceKind,
 ) -> Result<Planned> {
     let choice: Option<(i64, bool)> = sqlx::query_as(&format!(
         "SELECT c.revision,{REPLACEABLE} FROM recording_artist_identity_choices c
@@ -123,6 +127,7 @@ pub(super) async fn plan(
                 created: existing.is_none(),
                 revision,
                 credit,
+                kind,
             })))
         }
         Err(Error::Conflict(_) | Error::NotFound) => {
@@ -138,7 +143,6 @@ pub(super) async fn commit(
     actor: &Actor,
     pending: &[Pending],
     order: i64,
-    kind: EvidenceKind,
 ) -> Result<()> {
     let (provider, installation) = provider_columns(&MetadataProvider::BuiltinMusicBrainz);
     for item in pending {
@@ -158,10 +162,10 @@ pub(super) async fn commit(
         if item.created {
             sqlx::query(&format!(
                 "INSERT INTO {}(association_id,evidence_kind,receipt_order) VALUES(?,?,?)",
-                kind.table()
+                item.kind.table()
             ))
             .bind(&item.association)
-            .bind(kind.name())
+            .bind(item.kind.name())
             .bind(order)
             .execute(&mut *tx)
             .await?;

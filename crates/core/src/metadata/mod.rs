@@ -14,7 +14,7 @@ pub(crate) use recording_fields::{
 };
 pub use types::*;
 
-pub(crate) use isrc::{IsrcOrigin, retain as retain_isrc};
+pub(crate) use isrc::{IsrcOrigin, retain as retain_isrc, retain_artist_pages};
 pub(crate) use projection::release as refresh_release;
 pub(crate) use projection::{provision, source as refresh_source};
 pub(crate) use recording_credits::{

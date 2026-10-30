@@ -129,6 +129,7 @@ impl ArtistCatalog {
                         &candidate.recording,
                         artist,
                         settings.revision,
+                        EvidenceKind::FileTagArtistId,
                     )
                     .await?
                     {
@@ -157,14 +158,7 @@ impl ArtistCatalog {
         if !pending.is_empty() {
             let order =
                 receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
-            apply::commit(
-                &mut tx,
-                actor,
-                &pending,
-                order,
-                EvidenceKind::FileTagArtistId,
-            )
-            .await?;
+            apply::commit(&mut tx, actor, &pending, order).await?;
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;

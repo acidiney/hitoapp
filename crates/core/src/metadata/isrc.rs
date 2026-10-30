@@ -16,6 +16,25 @@ impl IsrcOrigin {
     }
 }
 
+/// Retains the artist pages an observation states. Only an observation naming exactly one page can
+/// identify an artist, but every stated page is kept as evidence.
+pub(crate) async fn retain_artist_pages(
+    connection: &mut SqliteConnection,
+    observation: &str,
+    recording: &str,
+    pages: &[String],
+) -> Result<()> {
+    for page in pages.iter().filter(|page| page.starts_with("https://")) {
+        sqlx::query("INSERT OR IGNORE INTO recording_artist_url_observations(observation_id,recording_id,url) VALUES(?,?,?)")
+            .bind(observation)
+            .bind(recording)
+            .bind(page)
+            .execute(&mut *connection)
+            .await?;
+    }
+    Ok(())
+}
+
 /// Retains the canonical ISRC an observation states, if any. A malformed value is ignored.
 pub(crate) async fn retain(
     connection: &mut SqliteConnection,

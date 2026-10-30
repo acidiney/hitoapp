@@ -26,9 +26,16 @@ const SPECIAL_PURPOSE_ARTISTS: [&str; 4] = [
 
 struct Candidate {
     recording: String,
-    isrc: String,
+    isrc: Option<String>,
+    page: Option<String>,
     observation: String,
     operation: Option<String>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum Lookup {
+    Isrc(String),
+    Page(String),
 }
 
 #[derive(Clone)]
@@ -38,22 +45,69 @@ enum Resolution {
     Unavailable,
 }
 
-fn resolve(recordings: &[IsrcRecording]) -> Resolution {
-    match recordings {
-        [only] => match only.artist_ids.as_slice() {
-            [artist] if !SPECIAL_PURPOSE_ARTISTS.contains(&artist.as_str()) => {
-                Resolution::Artist(artist.clone())
-            }
-            _ => Resolution::Uncertain,
-        },
+/// What the provider evidence of one recording concludes.
+enum Outcome {
+    Artist(String, EvidenceKind),
+    Uncertain,
+    Unavailable,
+}
+
+fn single_artist(artists: &[String]) -> Resolution {
+    match artists {
+        [artist] if !SPECIAL_PURPOSE_ARTISTS.contains(&artist.as_str()) => {
+            Resolution::Artist(artist.clone())
+        }
         _ => Resolution::Uncertain,
     }
 }
 
+fn resolve(recordings: &[IsrcRecording]) -> Resolution {
+    match recordings {
+        [only] => single_artist(&only.artist_ids),
+        _ => Resolution::Uncertain,
+    }
+}
+
+impl Candidate {
+    fn lookups(&self) -> Vec<Lookup> {
+        let isrc = self.isrc.iter().cloned().map(Lookup::Isrc);
+        let page = self.page.iter().cloned().map(Lookup::Page);
+        isrc.chain(page).collect()
+    }
+
+    /// The ISRC decides first; a lone artist page is consulted only when the ISRC names no artist.
+    fn outcome(&self, resolutions: &HashMap<Lookup, Resolution>) -> Outcome {
+        let mut unavailable = false;
+        for (lookup, kind) in self
+            .isrc
+            .iter()
+            .map(|isrc| (Lookup::Isrc(isrc.clone()), EvidenceKind::Isrc))
+            .chain(
+                self.page
+                    .iter()
+                    .map(|page| (Lookup::Page(page.clone()), EvidenceKind::ProviderUrl)),
+            )
+        {
+            match resolutions.get(&lookup) {
+                Some(Resolution::Artist(artist)) => return Outcome::Artist(artist.clone(), kind),
+                Some(Resolution::Unavailable) => unavailable = true,
+                _ => {}
+            }
+        }
+        if unavailable {
+            Outcome::Unavailable
+        } else {
+            Outcome::Uncertain
+        }
+    }
+}
+
 impl ArtistCatalog {
-    /// Matches recordings whose own ISRC resolves, through the built-in MusicBrainz service, to
-    /// exactly one recording credited to exactly one artist. Names never contribute evidence, and
-    /// recordings the account has already decided about are neither looked up nor changed.
+    /// Matches recordings whose provider evidence resolves, through the built-in MusicBrainz
+    /// service, to exactly one artist: the recording's own ISRC naming one recording credited to
+    /// one artist, or its lone credited artist page being linked to one artist. Names never
+    /// contribute evidence, and recordings the account has already decided about are neither
+    /// looked up nor changed.
     #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_match_provider_evidence", request_id = %request.request_id))]
     pub async fn match_artists_from_provider_evidence(
         &self,
@@ -132,7 +186,7 @@ impl ArtistCatalog {
         }
         let (resolutions, examined) = {
             let _admission = self.admit(actor.id())?;
-            self.resolve_codes(&candidates).await
+            self.resolve_lookups(&candidates).await
         };
         if examined < candidates.len() {
             next_after = Some(candidates[examined - 1].recording.clone());
@@ -151,16 +205,16 @@ impl ArtistCatalog {
         let (mut uncertain, mut declined, mut unavailable) = (0, 0, 0);
         let mut pending = Vec::new();
         for candidate in &candidates {
-            let remember = match &resolutions[&candidate.isrc] {
-                Resolution::Unavailable => {
+            let remember = match candidate.outcome(&resolutions) {
+                Outcome::Unavailable => {
                     unavailable += 1;
                     false
                 }
-                Resolution::Uncertain => {
+                Outcome::Uncertain => {
                     uncertain += 1;
                     true
                 }
-                Resolution::Artist(artist) => {
+                Outcome::Artist(artist, kind) => {
                     let current: Option<String> = sqlx::query_scalar(
                         "SELECT metadata_observation_id FROM recordings WHERE id=?",
                     )
@@ -176,8 +230,9 @@ impl ArtistCatalog {
                             &mut tx,
                             actor,
                             &candidate.recording,
-                            artist,
+                            &artist,
                             settings.revision,
+                            kind,
                         )
                         .await?
                         {
@@ -208,46 +263,74 @@ impl ArtistCatalog {
         if !pending.is_empty() {
             let order =
                 receipts::save(&mut tx, actor, &digest, request.request_id, &receipt).await?;
-            apply::commit(&mut tx, actor, &pending, order, EvidenceKind::Isrc).await?;
+            apply::commit(&mut tx, actor, &pending, order).await?;
         }
         actor.check_session_on(&mut tx).await?;
         tx.commit().await?;
         Ok(receipt)
     }
 
-    /// Asks MusicBrainz once for every distinct code, within the lookup and time bounds. Returns
-    /// how many leading candidates were examined.
-    async fn resolve_codes(
+    /// Asks MusicBrainz once for every distinct code or page the candidates need, within the
+    /// lookup and time bounds. An ISRC that names an artist spares its recording's page lookup.
+    /// Returns how many leading candidates were examined.
+    async fn resolve_lookups(
         &self,
         candidates: &[Candidate],
-    ) -> (HashMap<String, Resolution>, usize) {
+    ) -> (HashMap<Lookup, Resolution>, usize) {
         let started = Instant::now();
-        let mut resolutions: HashMap<String, Resolution> = HashMap::new();
+        let mut resolutions: HashMap<Lookup, Resolution> = HashMap::new();
         let (mut lookups, mut failures) = (0, 0);
         for (index, candidate) in candidates.iter().enumerate() {
-            if resolutions.contains_key(&candidate.isrc) {
-                continue;
-            }
-            if lookups >= MAX_LOOKUPS
-                || failures >= MAX_CONSECUTIVE_FAILURES
-                || (lookups > 0 && started.elapsed() > LOOKUP_WINDOW)
+            let needed = candidate
+                .lookups()
+                .iter()
+                .filter(|lookup| !resolutions.contains_key(*lookup))
+                .count();
+            if lookups > 0
+                && (lookups + needed > MAX_LOOKUPS
+                    || failures >= MAX_CONSECUTIVE_FAILURES
+                    || started.elapsed() > LOOKUP_WINDOW)
             {
                 return (resolutions, index);
             }
-            lookups += 1;
-            let resolution = match self.builtin.recordings_by_isrc(&candidate.isrc).await {
-                Ok(recordings) => {
-                    failures = 0;
-                    resolve(&recordings)
+            for lookup in candidate.lookups() {
+                if resolutions.contains_key(&lookup) {
+                    if matches!(resolutions.get(&lookup), Some(Resolution::Artist(_))) {
+                        break;
+                    }
+                    continue;
                 }
-                Err(_) => {
-                    failures += 1;
-                    Resolution::Unavailable
+                let resolution = self.ask(&lookup).await;
+                lookups += 1;
+                failures = if matches!(resolution, Resolution::Unavailable) {
+                    failures + 1
+                } else {
+                    0
+                };
+                let decisive = matches!(resolution, Resolution::Artist(_));
+                resolutions.insert(lookup, resolution);
+                if decisive {
+                    break;
                 }
-            };
-            resolutions.insert(candidate.isrc.clone(), resolution);
+            }
         }
         (resolutions, candidates.len())
+    }
+
+    async fn ask(&self, lookup: &Lookup) -> Resolution {
+        let answer = match lookup {
+            Lookup::Isrc(isrc) => self
+                .builtin
+                .recordings_by_isrc(isrc)
+                .await
+                .map(|recordings| resolve(&recordings)),
+            Lookup::Page(page) => self
+                .builtin
+                .artists_by_url(page)
+                .await
+                .map(|artists| single_artist(&artists)),
+        };
+        answer.unwrap_or(Resolution::Unavailable)
     }
 }
 
@@ -257,12 +340,19 @@ async fn candidates(
     after: Option<&str>,
     limit: i64,
 ) -> Result<(Vec<Candidate>, Option<String>)> {
-    let mut rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(&format!(
-        "SELECT r.id,i.isrc,r.metadata_observation_id,p.artist_operation_id FROM recordings r
+    let mut rows: Vec<(String, Option<String>, Option<String>, String, Option<String>)> =
+        sqlx::query_as(&format!(
+        "SELECT r.id,i.isrc,
+            (SELECT u.url FROM recording_artist_url_observations u
+                WHERE u.observation_id=r.metadata_observation_id
+                AND (SELECT count(*) FROM recording_artist_url_observations x WHERE x.observation_id=u.observation_id)=1),
+            r.metadata_observation_id,p.artist_operation_id FROM recordings r
          JOIN library_members m ON m.library_id=r.library_id AND m.user_id=?
-         JOIN recording_isrc_observations i ON i.observation_id=r.metadata_observation_id AND i.recording_id=r.id
+         LEFT JOIN recording_isrc_observations i ON i.observation_id=r.metadata_observation_id AND i.recording_id=r.id
          LEFT JOIN personal_recording_metadata p ON p.recording_id=r.id AND p.user_id=m.user_id
          WHERE r.id>?
+            AND (i.observation_id IS NOT NULL OR (SELECT count(*) FROM recording_artist_url_observations x
+                WHERE x.observation_id=r.metadata_observation_id)=1)
             AND NOT EXISTS (SELECT 1 FROM artist_provider_checks k WHERE k.user_id=m.user_id
                 AND k.recording_id=r.id AND k.observation_id=r.metadata_observation_id
                 AND k.artist_operation_id IS p.artist_operation_id)
@@ -283,12 +373,15 @@ async fn candidates(
     };
     let candidates = rows
         .into_iter()
-        .map(|(recording, isrc, observation, operation)| Candidate {
-            recording,
-            isrc,
-            observation,
-            operation,
-        })
+        .map(
+            |(recording, isrc, page, observation, operation)| Candidate {
+                recording,
+                isrc,
+                page,
+                observation,
+                operation,
+            },
+        )
         .collect();
     Ok((candidates, next_after))
 }

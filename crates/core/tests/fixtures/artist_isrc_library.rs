@@ -28,6 +28,11 @@ pub const UNKNOWN_CODE: &str = "GBAAA2000004";
 pub const COMPILATION_CODE: &str = "GBAAA2000005";
 pub const OUTAGE_CODE: &str = "GBAAA2000006";
 pub const LOCAL_CODE: &str = "GBAAA2000007";
+pub const PAGE: &str = "https://open.spotify.com/artist/0000000000000000000001";
+pub const SECOND_PAGE: &str = "https://open.spotify.com/artist/0000000000000000000002";
+pub const SHARED_PAGE: &str = "https://open.spotify.com/artist/0000000000000000000003";
+pub const UNLINKED_PAGE: &str = "https://open.spotify.com/artist/0000000000000000000004";
+pub const OUTAGE_PAGE: &str = "https://open.spotify.com/artist/0000000000000000000005";
 const RECORDING_A: &str = "0f700000-0000-4000-8000-0000000000a1";
 const RECORDING_B: &str = "0f700000-0000-4000-8000-0000000000a2";
 
@@ -44,6 +49,12 @@ pub struct Library {
     pub compilation: String,
     pub outage: String,
     pub without_isrc: String,
+    pub page: String,
+    pub page_with_isrc: String,
+    pub two_pages: String,
+    pub shared_page: String,
+    pub unlinked_page: String,
+    pub page_outage: String,
     pub local_isrc: String,
     pub installation: String,
     pub library: String,
@@ -51,9 +62,14 @@ pub struct Library {
 }
 
 fn imported(id: &str, title: &str, isrc: Option<&str>) -> Value {
+    imported_with_pages(id, title, isrc, &[])
+}
+
+fn imported_with_pages(id: &str, title: &str, isrc: Option<&str>, pages: &[&str]) -> Value {
     json!({"occurrence_id": id, "item": {"kind": "recording", "recording": {
         "id": id, "title": title, "artist": CREDIT, "duration_ms": 1000, "release": null,
-        "disc_number": null, "track_number": null, "revision": "v1", "isrc": isrc
+        "disc_number": null, "track_number": null, "revision": "v1", "isrc": isrc,
+        "artist_urls": pages
     }}})
 }
 
@@ -83,6 +99,14 @@ impl Library {
             Reply::Recordings(vec![(RECORDING_A.into(), vec![VARIOUS_ARTISTS.into()])]),
         );
         musicbrainz.isrc(OUTAGE_CODE, Reply::Unavailable);
+        musicbrainz.url(PAGE, Reply::Artists(vec![ARTIST.into()]));
+        musicbrainz.url(SECOND_PAGE, Reply::Artists(vec![OTHER_ARTIST.into()]));
+        musicbrainz.url(
+            SHARED_PAGE,
+            Reply::Artists(vec![ARTIST.into(), FEATURED.into()]),
+        );
+        musicbrainz.url(UNLINKED_PAGE, Reply::NotFound);
+        musicbrainz.url(OUTAGE_PAGE, Reply::Unavailable);
         musicbrainz.isrc(
             LOCAL_CODE,
             Reply::Recordings(vec![(RECORDING_B.into(), vec![OTHER_ARTIST.into()])]),
@@ -129,6 +153,12 @@ impl Library {
                 imported("compilation", "Compilation Song", Some(COMPILATION_CODE)),
                 imported("outage", "Outage Song", Some(OUTAGE_CODE)),
                 imported("plain", "Plain Song", None),
+                imported_with_pages("page", "Page Song", None, &[PAGE]),
+                imported_with_pages("both", "Both Song", Some(UNKNOWN_CODE), &[SECOND_PAGE]),
+                imported_with_pages("two-pages", "Two Pages Song", None, &[PAGE, SECOND_PAGE]),
+                imported_with_pages("shared", "Shared Page Song", None, &[SHARED_PAGE]),
+                imported_with_pages("unlinked", "Unlinked Page Song", None, &[UNLINKED_PAGE]),
+                imported_with_pages("page-outage", "Page Outage Song", None, &[OUTAGE_PAGE]),
             ],
         )
         .await;
@@ -175,6 +205,12 @@ impl Library {
             compilation: ids[4].clone(),
             outage: ids[5].clone(),
             without_isrc: ids[6].clone(),
+            page: ids[7].clone(),
+            page_with_isrc: ids[8].clone(),
+            two_pages: ids[9].clone(),
+            shared_page: ids[10].clone(),
+            unlinked_page: ids[11].clone(),
+            page_outage: ids[12].clone(),
             installation: installation.id,
             library,
             hito,
@@ -200,23 +236,46 @@ impl Library {
             .unwrap();
     }
 
+    /// Walks the cursor like the web app: every recording is examined once, a failed lookup does
+    /// not stop the walk, and the receipts are summed.
     pub async fn run(&self) -> ArtistProviderMatchReceipt {
         self.run_as(&self.actor).await
     }
 
     pub async fn run_as(&self, actor: &Actor) -> ArtistProviderMatchReceipt {
-        self.hito
-            .artist_catalog
-            .match_artists_from_provider_evidence(
-                actor,
-                MatchArtistsFromProviderEvidence {
-                    request_id: Uuid::new_v4(),
-                    after: None,
-                    limit: None,
-                },
-            )
-            .await
-            .unwrap()
+        let mut total = ArtistProviderMatchReceipt {
+            request_id: Uuid::new_v4(),
+            matched: 0,
+            uncertain: 0,
+            declined: 0,
+            unavailable: 0,
+            next_after: None,
+        };
+        let mut after = None;
+        for _ in 0..32 {
+            let receipt = self
+                .hito
+                .artist_catalog
+                .match_artists_from_provider_evidence(
+                    actor,
+                    MatchArtistsFromProviderEvidence {
+                        request_id: Uuid::new_v4(),
+                        after: after.clone(),
+                        limit: None,
+                    },
+                )
+                .await
+                .unwrap();
+            total.matched += receipt.matched;
+            total.uncertain += receipt.uncertain;
+            total.declined += receipt.declined;
+            total.unavailable += receipt.unavailable;
+            match receipt.next_after {
+                Some(next) => after = Some(next),
+                None => return total,
+            }
+        }
+        panic!("The provider evidence walk must end");
     }
 
     pub async fn group_of(&self, recording: &str) -> Option<String> {

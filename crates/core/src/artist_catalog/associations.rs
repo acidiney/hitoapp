@@ -73,6 +73,7 @@ impl Stored {
                 None => ArtistAssociationEvidence::UserConfirmed,
                 Some("file_tag_artist_id") => ArtistAssociationEvidence::MatchedFileTagArtistId,
                 Some("isrc") => ArtistAssociationEvidence::MatchedIsrc,
+                Some("provider_url") => ArtistAssociationEvidence::MatchedProviderUrl,
                 Some(_) => {
                     return Err(Error::Internal(
                         "Stored artist association provenance is invalid".into(),

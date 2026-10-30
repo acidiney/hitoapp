@@ -500,6 +500,11 @@ pub async fn assert_preserved(
                     .iter()
                     .filter(|_| expected_version >= 61),
             )
+            .chain(
+                collection_artwork_schema::provider_url_schema::ADDED
+                    .iter()
+                    .filter(|_| expected_version >= 62),
+            )
         {
             let object = artwork
                 .iter()

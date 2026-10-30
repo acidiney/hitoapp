@@ -24,6 +24,7 @@ mod artist_identity_unified_index;
 mod artist_identity_unified_index_edges;
 mod artist_match_guards;
 mod artist_match_isrc;
+mod artist_match_provider_url;
 mod artist_match_suggestions;
 mod artist_match_tags;
 mod artist_matching_upgrade;

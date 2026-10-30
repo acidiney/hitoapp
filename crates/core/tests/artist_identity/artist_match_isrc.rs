@@ -47,9 +47,8 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
             receipt.declined,
             receipt.unavailable
         ),
-        (2, 4, 0, 1)
+        (4, 6, 0, 2)
     );
-    assert!(receipt.next_after.is_none());
     assert_eq!(
         library.group_of(&library.imported).await,
         Some(tagged_group.clone()),
@@ -77,6 +76,10 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
         &library.compilation,
         &library.outage,
         &library.without_isrc,
+        &library.two_pages,
+        &library.shared_page,
+        &library.unlinked_page,
+        &library.page_outage,
     ] {
         assert!(library.group_of(uncertain).await.is_none());
         assert!(associations(&library, uncertain).await.is_empty());
@@ -92,8 +95,8 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
         .iter()
         .map(|group| (group.provider_artist_id.clone(), group.recording_count))
         .collect();
-    assert!(counts.contains(&(ARTIST.to_string(), 2)));
-    assert!(counts.contains(&(OTHER_ARTIST.to_string(), 1)));
+    assert!(counts.contains(&(ARTIST.to_string(), 3)));
+    assert!(counts.contains(&(OTHER_ARTIST.to_string(), 2)));
     assert_eq!(
         recordings,
         serde_json::to_value(
@@ -109,32 +112,37 @@ async fn an_imported_isrc_that_names_one_artist_groups_with_the_tagged_local_tra
     );
 
     let lookups = library.musicbrainz.requests();
-    assert_eq!(lookups.len(), 7, "{lookups:?}");
+    let distinct: std::collections::BTreeSet<&String> = lookups.iter().collect();
+    assert_eq!(distinct.len(), 12, "{lookups:?}");
+    assert!(
+        lookups.len() <= 13,
+        "Only a code shared across batches may be asked twice: {lookups:?}"
+    );
     assert!(lookups.contains(&format!(
         "/ws/2/isrc/{IMPORTED_CODE}?fmt=json&inc=artist-credits"
     )));
-    assert_eq!(library.rows("artist_association_provider_matches").await, 2);
+    assert_eq!(library.rows("artist_association_provider_matches").await, 4);
     library.origin.shutdown().await;
 }
 
 #[tokio::test]
 async fn an_outage_is_retried_later_while_settled_answers_are_not_asked_again() {
     let library = Library::prepare().await;
-    assert_eq!(library.run().await.unavailable, 1);
+    assert_eq!(library.run().await.unavailable, 2);
     let before = library.musicbrainz.requests().len();
     let second = library.run().await;
     assert_eq!(
         (second.matched, second.uncertain, second.unavailable),
-        (0, 0, 1)
+        (0, 0, 2)
     );
-    let requests = library.musicbrainz.requests();
+    let mut asked: Vec<String> = library.musicbrainz.requests()[before..].to_vec();
+    asked.sort();
     assert_eq!(
-        requests[before..],
-        [format!(
-            "/ws/2/isrc/{OUTAGE_CODE}?fmt=json&inc=artist-credits"
-        )],
-        "Only the unavailable code is asked again"
+        asked.len(),
+        2,
+        "Only the unavailable answers are asked again: {asked:?}"
     );
+    assert!(asked.iter().any(|request| request.contains(OUTAGE_CODE)));
     library.musicbrainz.isrc(
         OUTAGE_CODE,
         Reply::Recordings(vec![(
@@ -142,25 +150,22 @@ async fn an_outage_is_retried_later_while_settled_answers_are_not_asked_again() 
             vec![ARTIST.into()],
         )]),
     );
+    library
+        .musicbrainz
+        .url(library::OUTAGE_PAGE, Reply::Artists(vec![ARTIST.into()]));
     let third = library.run().await;
-    assert_eq!((third.matched, third.unavailable), (1, 0));
+    assert_eq!((third.matched, third.unavailable), (2, 0));
     assert!(library.group_of(&library.outage).await.is_some());
+    assert!(library.group_of(&library.page_outage).await.is_some());
     library.origin.shutdown().await;
 }
 
 #[tokio::test]
-async fn a_shared_code_is_looked_up_once_and_a_new_answer_waits_for_a_changed_observation() {
+async fn a_new_provider_answer_waits_for_a_changed_observation() {
     let library = Library::prepare().await;
     library.musicbrainz.isrc(UNKNOWN_CODE, Reply::NotFound);
     library.run().await;
-    let asked = library.musicbrainz.requests();
-    assert_eq!(
-        asked
-            .iter()
-            .filter(|request| request.contains(UNKNOWN_CODE))
-            .count(),
-        1
-    );
+    assert!(library.group_of(&library.unknown).await.is_none());
     library.musicbrainz.isrc(
         UNKNOWN_CODE,
         Reply::Recordings(vec![(
@@ -168,7 +173,8 @@ async fn a_shared_code_is_looked_up_once_and_a_new_answer_waits_for_a_changed_ob
             vec![ARTIST.into()],
         )]),
     );
-    library.run().await;
+    let again = library.run().await;
+    assert_eq!(again.matched, 0);
     assert!(
         library.group_of(&library.unknown).await.is_none(),
         "An unchanged observation is not examined again"
@@ -200,8 +206,8 @@ async fn personal_decisions_are_never_overridden_and_decided_recordings_are_not_
         .unwrap();
     let receipt = library.run().await;
     assert_eq!(
-        receipt.matched, 1,
-        "Only the file-tag ISRC recording matches"
+        receipt.matched, 3,
+        "Every recording but the decided one is matched"
     );
     assert!(library.group_of(&library.imported).await.is_none());
     assert!(
@@ -247,20 +253,31 @@ async fn disabled_metadata_enrichment_looks_nothing_up() {
 }
 
 #[tokio::test]
-async fn a_request_replays_exactly_without_asking_the_provider_again() {
+async fn a_request_that_matched_replays_exactly_without_asking_the_provider_again() {
     let library = Library::prepare().await;
-    let request = MatchArtistsFromProviderEvidence {
-        request_id: Uuid::new_v4(),
-        after: None,
-        limit: None,
+    let mut after = None;
+    let (request, first) = loop {
+        let request = MatchArtistsFromProviderEvidence {
+            request_id: Uuid::new_v4(),
+            after: after.clone(),
+            limit: Some(3),
+        };
+        let receipt = library
+            .hito
+            .artist_catalog
+            .match_artists_from_provider_evidence(&library.actor, request.clone())
+            .await
+            .unwrap();
+        if receipt.matched > 0 {
+            break (request, receipt);
+        }
+        after = Some(
+            receipt
+                .next_after
+                .clone()
+                .expect("a request matches something"),
+        );
     };
-    let first = library
-        .hito
-        .artist_catalog
-        .match_artists_from_provider_evidence(&library.actor, request.clone())
-        .await
-        .unwrap();
-    assert_eq!(first.matched, 2);
     let requests = library.musicbrainz.requests().len();
     let replay = library
         .hito
@@ -313,7 +330,7 @@ async fn batches_resume_from_a_cursor_until_every_recording_is_examined() {
             None => break,
         }
     }
-    assert_eq!(matched, 2);
+    assert_eq!(matched, 4);
     assert!(batches >= 4);
     library.origin.shutdown().await;
 }
@@ -346,6 +363,6 @@ async fn a_pass_cancelled_while_the_provider_is_slow_changes_nothing_and_can_be_
     assert_eq!(library.rows("artist_association_provider_matches").await, 0);
     assert_eq!(library.rows("artist_provider_checks").await, 0);
     library.musicbrainz.delay_replies(std::time::Duration::ZERO);
-    assert_eq!(library.run().await.matched, 2);
+    assert_eq!(library.run().await.matched, 4);
     library.origin.shutdown().await;
 }
