@@ -51,7 +51,7 @@ flowchart LR
 
 Both commands carry a request ID and the revision the client last read. A repeated request with the same contents returns its stored receipt; the same ID with different contents, or an old revision, is a conflict. Receipts are retained like the artist identity and album edition receipts. The workflows are `GET /api/v1/recordings/{id}/artist-association-changes`, `POST /api/v1/recordings/{id}/artist-associations/unlink` and `POST /api/v1/recordings/{id}/artist-associations/undo`, using the shared account and JSON extractors. Logs record the operation, a safe outcome, the revision number and timing only.
 
-Migration 0057 adds the history and receipt tables. It is not deployed. In the artist information panel each saved review has an unlink button. When it opens, the panel reads the change state from the server, so undo is offered for the latest change even from an earlier visit, and a rejected or stale request reloads that state. Splitting merged artists, sharing corrections with every account and retag reconciliation follow below.
+Migration 0057 adds the history and receipt tables. It runs on the local development server and is not part of a release. In the artist information panel each saved review has an unlink button. When it opens, the panel reads the change state from the server, so undo is offered for the latest change even from an earlier visit, and a rejected or stale request reloads that state. Splitting merged artists, sharing corrections with every account and retag reconciliation follow below.
 
 ## Splitting a merged artist
 
@@ -103,11 +103,40 @@ When a rescan or a personal edit changes the credit of a recording, existing cor
 
 Corrections whose credit is unchanged stay active. Retirement is final: returning to the earlier tags does not revive a retired correction, matching the rule for chosen artists. Reconciliation never creates artists, groups or associations, so a retag cannot produce duplicate identities. Corrections refer to recording credits, never to albums: a split that selected an album was already expanded to its tracks, and group album lists are derived from the tracks. A retag that changes only album or album-artist tags therefore leaves corrections active. As before, a changed metadata observation retires the account's artist choices, which then need review.
 
-Migration 0059 adds the split history, retirement, ordering and shared correction tables. It is not deployed.
+Migration 0059 adds the split history, retirement, ordering and shared correction tables. It runs on the local development server and is not part of a release.
 
-### Retention and deletion roadmap
+## Deletion and retention
 
-The change history, retirement, ordering, receipt and shared correction tables are append-only: triggers refuse updates (apart from marking an item retired) and deletes, and they reference recordings, associations and accounts. They therefore block deleting an account or a recording. Account and recording deletion is not implemented yet; when it is, it has to define how this history is exported or anonymised, and how shared corrections made by a deleted administrator stay owned by the server. Nothing here claims otherwise.
+The correction history is append-only: triggers refuse updates and deletes so that no code path can quietly rewrite a decision. Account and recording deletion are the two reasons data has to leave anyway. This section defines what leaves, what stays and the one narrow way to remove it. Current behavior and tested evidence are marked; the account and recording deletion workflows themselves are not built yet.
+
+```mermaid
+flowchart TD
+    Account[Account deleted] --> Private[Erase the account's private rows]
+    Account --> Shared[Anonymize shared corrections it published]
+    Recording[Recording removed] --> Rows[Erase every correction naming the recording]
+    Private --> Scope[(correction_erasure_scopes: kind and subject)]
+    Rows --> Scope
+    Shared --> Scope
+    Scope --> Triggers{Delete trigger}
+    Triggers -->|row belongs to the subject| Allowed[Row removed]
+    Triggers -->|no scope or another subject| Refused[Abort: must be retained]
+    Shared --> Kept[Shared correction stays in force, author unknown]
+```
+
+**Account deletion.** `ArtistCatalog::erase_account_corrections` (administrators only, one transaction) removes everything an account decided privately: its artist associations and their match provenance, unlink and undo history with its ordering rows and retirements, split history and items, artist identity choices and groups, remembered album editions, match dismissals and checks, and all of its request receipts (association, identity, album edition and shared correction). Another account's rows, choices and reads are not touched. It is repeatable, and an unknown account is not found. No private decision therefore outlives the account.
+
+**Shared corrections of a deleted administrator stay in force.** A shared correction belongs to the server, not to the person who promoted it, and it holds only recording and provider artist identifiers, never the administrator's private reviews. Removing it with its author would silently bring back artist links that every other account had been told were wrong. The erase therefore clears only the author of the correction and of its state changes, and the pointer to the administrator's own unlink or split. The correction keeps hiding the same associations, still counts for personal precedence, and the Settings list shows it as not promoted by you. Any other administrator can withdraw and restore it as before. The wire contract is unchanged because it only ever reported "promoted by me".
+
+**Recording removal.** Today no workflow deletes a recording. Removing a folder, losing a file or a provider dropping an item only makes the sources unavailable, and corrections stay in force. Corrections are keyed by recording identifier, not by file path or content, so a file that returns as the same recording follows the existing [reconciliation](#reconciliation-after-retags) rule, and a file that comes back as a new recording never inherits or revives anything. When a workflow does delete a recording, it must call `erase_recording_corrections` in the same transaction before removing the row. That removes associations and provenance, histories, items, choices, remembered editions, shared correction subjects and the stored ISRC, artist page and MusicBrainz identifier observations for that recording only. The correction for an unlink keeps existing as an empty shell (zero recordings) so the numbering and the administrator list stay stable. Retiring and purging later was rejected: these rows have foreign keys to the recording and would block its deletion, and nothing can read corrections of a recording that no longer exists. There is therefore no retention window and no maintenance purge.
+
+**The narrow deletion path.** Migration 0065 adds `correction_erasure_scopes`. A transaction that erases inserts one row (`account` with a user identifier, or `recording` with a recording identifier), deletes, and removes the row before it commits. The delete triggers of the retained tables (including the receipt, change, provenance and observation tables) now allow a delete only when a scope row matches that row's account or recording, so a stray or foreign scope cannot remove anything else. The updates that shared corrections allow are limited to turning an author or source pointer into null for a matching scope; every other update stays refused. Triggers are never dropped or disabled at run time, and the table is empty outside a transaction. Migration 0065 also rebuilds `shared_artist_corrections` and `shared_artist_correction_states` so these author columns may be null, keeping each row, number and the numbering high-water mark.
+
+**Order guarantee.** Erasing rows leaves gaps in the ordering table `recording_artist_association_change_order`, never a renumbering, so which decision wins is unchanged for the remaining accounts, including after VACUUM.
+
+### Evidence and open work for deletion
+
+- Core: `artist_correction_erasure` (4 cases: erasing a regular account with every table kind populated and a second account untouched, ordinary deletes and updates still refused with no scope or a foreign scope, a deleted administrator's shared correction staying in force and withdrawable by another administrator across VACUUM, and recording erasure that spares other recordings) and `artist_correction_erasure_upgrade` (2 cases: a populated 0064 database keeps every shared correction, subject, state and the numbering high-water mark through the rebuild with foreign keys enforced, plus the exact empty-library schema).
+- Not built: account deletion itself and any recording-deleting workflow, so nothing calls these erase steps yet and there is no HTTP route. Other account-owned data (library access, playlists, likes, sessions and so on) is outside this definition. Whether to share corrections for provider connections that several accounts install, and whether a split can create a new identity, remain open. Migrations 0057 and 0059 run on the local development server only, migration 0065 is source only, and none of this is a release.
 
 ## Settings and provider access
 
