@@ -73,8 +73,11 @@ impl Probe {
             musicbrainz_album_id: self.first_tag(&["musicbrainz album id", "musicbrainz_albumid"]),
             musicbrainz_release_group_id: self
                 .first_tag(&["musicbrainz release group id", "musicbrainz_releasegroupid"]),
-            musicbrainz_recording_id: self
-                .first_tag(&["musicbrainz track id", "musicbrainz_trackid"]),
+            musicbrainz_recording_id: if self.carries_id3() {
+                None
+            } else {
+                self.first_tag(&["musicbrainz track id", "musicbrainz_trackid"])
+            },
             musicbrainz_release_track_id: self
                 .first_tag(&["musicbrainz release track id", "musicbrainz_releasetrackid"]),
             musicbrainz_artist_tags: if artist_tags_known {
@@ -83,6 +86,18 @@ impl Probe {
                 None
             },
         }
+    }
+
+    /// An ID3 "MusicBrainz Track Id" text frame is ambiguous (taggers disagree on whether it names
+    /// the recording or the release track), so it is never read as a recording identifier.
+    fn carries_id3(&self) -> bool {
+        matches!(
+            self.format
+                .format_name
+                .as_deref()
+                .and_then(|name| name.split(',').next()),
+            Some("mp3" | "wav" | "aiff" | "aac")
+        )
     }
 
     fn first_tag(&self, names: &[&str]) -> Option<ObservedTag> {

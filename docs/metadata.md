@@ -67,7 +67,9 @@ Each well-formed value (a hyphenated UUID; stored in lower case; the nil UUID is
 
 This is evidence, not a merge. Two local releases that carry the same release identifier stay two releases, a recording is never matched to another by an identifier, and nothing here edits a title, artist, album or any other personal field. The rows are not shown on album or recording pages yet; they are visible only as the raw tags of the observation.
 
-FLAC, Ogg Vorbis, M4A (freeform atoms), MP3 and WAV (ID3 chunk) fixtures verify the tags. Limit: FFprobe does not expose an ID3 `UFID` frame, which is where Picard stores the recording identifier in MP3 and WAV files, so those two dialects retain the release, release group and release track identifiers but not the recording identifier. Reading `UFID` would need a second tag reader and is open work.
+FLAC, Ogg Vorbis, M4A (freeform atoms), MP3 and WAV (ID3 chunk) fixtures verify the tags. Limit: files with ID3 tags (MP3, WAV, AIFF, ADTS) never retain a recording identifier. FFprobe does not expose the ID3 `UFID` frame, where Picard stores it, and a `TXXX` frame named `MusicBrainz Track Id` is ambiguous (some taggers put the release track identifier there), so that value is deliberately not read as the recording identifier. Those files retain the release, release group and release track identifiers. Vorbis and MP4 `MUSICBRAINZ_TRACKID` / `MusicBrainz Track Id` are read as the recording identifier. Reading `UFID` would need a second tag reader and is open work.
+
+One-time cost of the version 4 to 5 change. Version 5 is a new inspection version, so the first scan after an upgrade re-probes every file with FFprobe once. Audio is not decoded again. Each file gains one observation row and at most four evidence rows. A large library therefore takes noticeably longer on that first scan; later scans reuse the version 5 result for unchanged files.
 
 ## Compressed ID3 tags and tag compatibility
 

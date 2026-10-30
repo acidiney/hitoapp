@@ -1,8 +1,9 @@
 use hito_core::test_support::support;
 use hito_core::{MetadataHistoryQuery, Search};
 use lofty::{
+    TextEncoding,
     config::WriteOptions,
-    id3::v2::{Frame, Id3v2Tag, UniqueFileIdentifierFrame},
+    id3::v2::{ExtendedTextFrame, Frame, Id3v2Tag, UniqueFileIdentifierFrame},
     prelude::{Accessor, ItemKey, TagExt},
     tag::{Tag, TagType},
 };
@@ -92,6 +93,11 @@ async fn observed(case: &Case, with_ids: bool) -> Option<[Option<String>; 4]> {
     if case.tag_type == TagType::Id3v2 {
         let mut id3 = Id3v2Tag::from(tag);
         if with_ids {
+            id3.insert(Frame::UserText(ExtendedTextFrame::new(
+                TextEncoding::UTF8,
+                "MusicBrainz Track Id".into(),
+                RECORDING.into(),
+            )));
             id3.insert(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
                 "http://musicbrainz.org".into(),
                 RECORDING.as_bytes().to_vec(),
