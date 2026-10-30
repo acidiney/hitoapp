@@ -19,6 +19,38 @@ pub struct Release {
     pub track_count: i64,
     pub duration_ms: i64,
     pub artwork_recording_id: Option<String>,
+    /// Display album artist derived from the tracks when the release has no album artist. It is
+    /// never stored and never replaces a stated or personal album artist.
+    #[schema(required = true)]
+    pub inferred_artist: Option<AlbumArtistInference>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize, ToSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AlbumArtistInference {
+    /// Every track names this one artist.
+    Named { name: String },
+    /// The tracks name different artists.
+    Various,
+}
+
+impl sqlx::Type<Sqlite> for AlbumArtistInference {
+    fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
+        <str as sqlx::Type<Sqlite>>::type_info()
+    }
+
+    fn compatible(ty: &sqlx::sqlite::SqliteTypeInfo) -> bool {
+        <str as sqlx::Type<Sqlite>>::compatible(ty)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, Sqlite> for AlbumArtistInference {
+    fn decode(
+        value: sqlx::sqlite::SqliteValueRef<'r>,
+    ) -> std::result::Result<Self, sqlx::error::BoxDynError> {
+        let text = <&str as sqlx::Decode<Sqlite>>::decode(value)?;
+        Ok(serde_json::from_str(text)?)
+    }
 }
 
 #[derive(Serialize, sqlx::FromRow, ToSchema)]
@@ -71,7 +103,12 @@ const ENTRIES: &str = "), source_entries AS (
 ) ";
 const SUMMARY: &str = "SELECT a.id, a.library_id, a.title, a.artist, a.artist_id,
     count(*) AS track_count, sum(m.duration_ms) AS duration_ms,
-    min(m.recording_id) AS artwork_recording_id
+    min(m.recording_id) AS artwork_recording_id,
+    CASE WHEN a.artist IS NOT NULL OR count(NULLIF(trim(coalesce(m.artist,'')),'')) = 0 THEN NULL
+        WHEN count(NULLIF(trim(coalesce(m.artist,'')),'')) = count(*)
+            AND count(DISTINCT lower(NULLIF(trim(coalesce(m.artist,'')),''))) = 1
+            THEN json_object('kind','named','name',min(NULLIF(trim(coalesce(m.artist,'')),'')))
+        ELSE json_object('kind','various') END AS inferred_artist
     FROM selected a JOIN entries m ON m.release_id = a.id";
 
 impl Catalog {

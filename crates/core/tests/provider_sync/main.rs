@@ -23,3 +23,4 @@ mod provider_release_credits;
 mod provider_source_refresh;
 mod provider_source_refresh_fences;
 mod provider_upgrade;
+mod release_artist_inference;

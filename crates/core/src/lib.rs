@@ -51,14 +51,15 @@ pub use artist_catalog::{
     UnlinkRecordingArtist, UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 pub use catalog::{
-    AdoptProviderRecording, AlbumCatalogAnchor, Artist, ArtistDetail, Artwork, ArtworkAvailability,
-    ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource, Browse, Catalog, ChooseSource,
-    LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource, ProviderCandidate, ProviderSearch,
-    ProviderSourceReview, ReadRecordingLyrics, Recording, RecordingLyricsProvider,
-    RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail, ReleaseTrack,
-    ResetSourceChoice, ResolveSource, Search, Source, SourceChoice, SourceChoiceEntry,
-    SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt, SourcePreparationPhase,
-    SourcePreparationReceipt, SourcePreparationStatus, SourceResolution, SourceResolutionOutcome,
+    AdoptProviderRecording, AlbumArtistInference, AlbumCatalogAnchor, Artist, ArtistDetail,
+    Artwork, ArtworkAvailability, ArtworkFetch, ArtworkFetchStatus, AttachReviewedProviderSource,
+    Browse, Catalog, ChooseSource, LyricsLookup, Page, PlaylistArtworkFetch, PrepareSource,
+    ProviderCandidate, ProviderSearch, ProviderSourceReview, ReadRecordingLyrics, Recording,
+    RecordingLyricsProvider, RecordingLyricsProviders, Release, ReleaseArtworkFetch, ReleaseDetail,
+    ReleaseTrack, ResetSourceChoice, ResolveSource, Search, Source, SourceChoice,
+    SourceChoiceEntry, SourceChoiceMode, SourceChoiceReceipt, SourceChoiceResetReceipt,
+    SourcePreparationPhase, SourcePreparationReceipt, SourcePreparationStatus, SourceResolution,
+    SourceResolutionOutcome,
 };
 pub use collection::{
     Action, Activity, AudiobookBookmark, AudiobookChapterAnchor, AudiobookContinuation,

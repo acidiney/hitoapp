@@ -46,7 +46,9 @@ pub use artwork::{
 };
 pub(crate) use availability::{SourceAccess, push_available, push_source_access};
 pub use browse::Browse;
-pub use releases::{AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack};
+pub use releases::{
+    AlbumArtistInference, AlbumCatalogAnchor, Release, ReleaseDetail, ReleaseTrack,
+};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 pub use types::{Page, Recording, Search, Source};
