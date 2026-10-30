@@ -5,6 +5,7 @@ import Artwork from "../../artwork/components/Artwork";
 import PageHeading from "../../../shared/ui/PageHeading";
 import EmptyState from "../../../shared/ui/EmptyState";
 import Pagination from "../../../shared/ui/Pagination";
+import ProviderArtistMatching from "../components/ProviderArtistMatching";
 import { useAutomaticArtistMatching } from "../hooks/useAutomaticArtistMatching";
 
 export default function ArtistIndexPage({
@@ -30,6 +31,7 @@ export default function ArtistIndexPage({
         title="Artists"
         description={`${artists.total} ${artists.total === 1 ? "artist credit" : "artist credits"} · ${identity_groups.total} chosen`}
       />
+      <ProviderArtistMatching account={user.id} />
       <section aria-labelledby="chosen-artists-title">
         <h2 className="discography-heading" id="chosen-artists-title">
           Chosen artists
