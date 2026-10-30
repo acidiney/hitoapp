@@ -325,3 +325,60 @@ async fn raw_replies_carry_status_headers_and_chunked_bodies() {
     assert!(response.headers().get("content-length").is_none());
     assert_eq!(response.text().await.unwrap(), "abc");
 }
+
+#[tokio::test]
+async fn hold_and_delay_keep_the_reply_chosen_when_the_request_arrived() {
+    let plugin = echo().await;
+    let gate = plugin.hold("v1/ping");
+    let url = format!("{}v1/ping", plugin.url);
+    let pending = tokio::spawn(async move {
+        client()
+            .get(url)
+            .send()
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()
+    });
+    gate.entered().await;
+    plugin.reply("v1/ping", Reply::Json(json!({"pong": "later"})));
+    gate.release();
+    assert_eq!(pending.await.unwrap(), json!({"pong": true}));
+}
+
+#[tokio::test]
+async fn waiting_for_requests_returns_once_the_log_has_that_many() {
+    let plugin = echo().await;
+    let url = format!("{}v1/ping", plugin.url);
+    let sender = tokio::spawn(async move {
+        for _ in 0..2 {
+            client().get(&url).send().await.unwrap();
+        }
+    });
+    tokio::time::timeout(Duration::from_secs(3), plugin.wait_for_requests(2))
+        .await
+        .expect("both requests must be logged");
+    sender.await.unwrap();
+    assert_eq!(plugin.requests().len(), 2);
+}
+
+#[tokio::test]
+async fn bearer_requirement_can_change_while_running() {
+    let plugin = echo().await;
+    let url = format!("{}v1/ping", plugin.url);
+    let status = |token: &'static str| {
+        let request = client()
+            .get(&url)
+            .header("x-hito-plugin-protocol", "1")
+            .bearer_auth(token);
+        async move { request.send().await.unwrap().status() }
+    };
+    assert_eq!(status("any").await, StatusCode::OK);
+    plugin.require_bearer("first");
+    assert_eq!(status("any").await, StatusCode::UNAUTHORIZED);
+    assert_eq!(status("first").await, StatusCode::OK);
+    plugin.require_bearer("second");
+    assert_eq!(status("first").await, StatusCode::UNAUTHORIZED);
+    assert_eq!(status("second").await, StatusCode::OK);
+}

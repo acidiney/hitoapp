@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    sync::{Semaphore, oneshot},
+    sync::{Semaphore, oneshot, watch},
     task::JoinHandle,
 };
 
@@ -116,7 +116,8 @@ struct Shared {
     routes: Mutex<Vec<Route>>,
     faults: Mutex<HashMap<String, Fault>>,
     log: Mutex<Vec<RecordedRequest>>,
-    auth: Option<ServiceAuth>,
+    logged: watch::Sender<usize>,
+    auth: Mutex<Option<ServiceAuth>>,
     require_protocol: bool,
 }
 
@@ -155,6 +156,14 @@ impl FakePlugin {
             .collect()
     }
 
+    pub async fn wait_for_requests(&self, count: usize) {
+        let mut logged = self.shared.logged.subscribe();
+        logged
+            .wait_for(|logged| *logged >= count)
+            .await
+            .expect("the fake plugin log must stay open");
+    }
+
     pub fn unmatched(&self) -> usize {
         self.requests()
             .iter()
@@ -177,6 +186,11 @@ impl FakePlugin {
 
     pub fn reply(&self, operation: &str, reply: Reply) {
         self.on(operation, move |_| reply.clone());
+    }
+
+    pub fn require_bearer(&self, token: &str) {
+        *self.shared.auth.lock().unwrap() =
+            Some(ServiceAuth::new(token).expect("the fake plugin token must be valid"));
     }
 
     pub fn fault(&self, operation: &str, fault: Fault) {
@@ -261,7 +275,8 @@ impl FakePluginBuilder {
             routes: Mutex::new(self.routes),
             faults: Mutex::default(),
             log: Mutex::default(),
-            auth: self.auth,
+            logged: watch::channel(0).0,
+            auth: Mutex::new(self.auth),
             require_protocol: self.require_protocol,
         });
         let router = Router::new().fallback(dispatch).with_state(shared.clone());
@@ -335,7 +350,12 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         body: body.to_vec(),
         handled,
     };
-    shared.log.lock().unwrap().push(recorded.clone());
+    let count = {
+        let mut log = shared.log.lock().unwrap();
+        log.push(recorded.clone());
+        log.len()
+    };
+    shared.logged.send_replace(count);
     let Some(handler) = handler else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -364,7 +384,7 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
 }
 
 fn authorize(shared: &Shared, headers: &HeaderMap) -> Result<(), AuthFailure> {
-    match &shared.auth {
+    match shared.auth.lock().unwrap().as_ref() {
         Some(auth) => auth.check(headers),
         None if shared.require_protocol => require_protocol(headers),
         None => Ok(()),
