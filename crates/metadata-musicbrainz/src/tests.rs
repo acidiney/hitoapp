@@ -16,6 +16,7 @@ use tokio::{
 mod discography;
 mod discography_context;
 mod discography_transport;
+mod discography_type;
 mod edition;
 mod edition_listing;
 mod edition_validation;

@@ -92,7 +92,12 @@ impl MusicBrainzClient {
             let offset = discography::request_offset(&request)?;
             let bytes = self
                 .transport
-                .release_groups(&request.artist_id, request.limit, offset)
+                .release_groups(
+                    &request.artist_id,
+                    request.release_type.map(discography::type_parameter),
+                    request.limit,
+                    offset,
+                )
                 .await
                 .map_err(|error| match error {
                     Error::InvalidResponse => Error::InvalidDiscography,

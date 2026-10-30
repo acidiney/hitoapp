@@ -64,6 +64,7 @@ impl Transport {
     pub(super) async fn release_groups(
         &self,
         artist_id: &str,
+        release_type: Option<&str>,
         limit: u16,
         offset: u32,
     ) -> Result<Vec<u8>, Error> {
@@ -78,6 +79,9 @@ impl Transport {
             ("limit", &limit.to_string()),
             ("offset", &offset.to_string()),
         ]);
+        if let Some(release_type) = release_type {
+            endpoint.query_pairs_mut().append_pair("type", release_type);
+        }
         self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
     }
 

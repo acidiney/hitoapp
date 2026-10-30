@@ -1,12 +1,13 @@
 use crate::Error;
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, CatalogArtistRef, CatalogCreditMember,
-    CatalogReleaseGroup, CatalogReleaseGroupKind,
+    CatalogReleaseGroup, CatalogReleaseGroupKind, CatalogReleaseTypeFilter,
 };
 use serde::Deserialize;
 use uuid::Uuid;
 
 const CURSOR_VERSION: &str = "mb-release-groups-v1";
+const TYPED_CURSOR_VERSION: &str = "mb-release-groups-typed-v1";
 
 #[derive(Deserialize)]
 struct Browse {
@@ -56,10 +57,19 @@ pub(super) fn request_offset(request: &ArtistDiscographyRequest) -> Result<u32, 
         return Ok(0);
     };
     let mut fields = cursor.split(':');
-    if fields.next() != Some(CURSOR_VERSION)
-        || fields.next() != Some(request.artist_id.as_str())
-        || fields.next() != Some(request.limit.to_string().as_str())
+    let version = match request.release_type {
+        Some(_) => TYPED_CURSOR_VERSION,
+        None => CURSOR_VERSION,
+    };
+    if fields.next() != Some(version) || fields.next() != Some(request.artist_id.as_str()) {
+        return Err(Error::InvalidDiscographyRequest);
+    }
+    if let Some(filter) = request.release_type
+        && fields.next() != Some(type_parameter(filter))
     {
+        return Err(Error::InvalidDiscographyRequest);
+    }
+    if fields.next() != Some(request.limit.to_string().as_str()) {
         return Err(Error::InvalidDiscographyRequest);
     }
     let offset = fields.next().ok_or(Error::InvalidDiscographyRequest)?;
@@ -70,6 +80,30 @@ pub(super) fn request_offset(request: &ArtistDiscographyRequest) -> Result<u32, 
         return Err(Error::InvalidDiscographyRequest);
     }
     Ok(parsed)
+}
+
+pub(super) fn type_parameter(filter: CatalogReleaseTypeFilter) -> &'static str {
+    match filter {
+        CatalogReleaseTypeFilter::Album => "album",
+        CatalogReleaseTypeFilter::Ep => "ep",
+        CatalogReleaseTypeFilter::Single => "single",
+        CatalogReleaseTypeFilter::Other => "other",
+    }
+}
+
+fn next_cursor(request: &ArtistDiscographyRequest, next_offset: u32) -> String {
+    match request.release_type {
+        Some(filter) => format!(
+            "{TYPED_CURSOR_VERSION}:{}:{}:{}:{next_offset}",
+            request.artist_id,
+            type_parameter(filter),
+            request.limit
+        ),
+        None => format!(
+            "{CURSOR_VERSION}:{}:{}:{next_offset}",
+            request.artist_id, request.limit
+        ),
+    }
 }
 
 pub(super) fn page(
@@ -88,12 +122,8 @@ pub(super) fn page(
     if more && browse.groups.is_empty() && browse.count.is_some() {
         return Err(Error::InvalidDiscography);
     }
-    let next_cursor = (more && !browse.groups.is_empty()).then(|| {
-        format!(
-            "{CURSOR_VERSION}:{}:{}:{next_offset}",
-            request.artist_id, request.limit
-        )
-    });
+    let next_cursor =
+        (more && !browse.groups.is_empty()).then(|| next_cursor(request, next_offset));
     let items = browse
         .groups
         .into_iter()
