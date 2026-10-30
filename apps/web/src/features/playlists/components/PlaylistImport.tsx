@@ -28,11 +28,8 @@ export default function PlaylistImport({
   const [interval, setInterval] =
     useState<Schema<"PlaylistFollowInterval">>("hourly");
   const inferred = inferPlaylistService(reference, providers, names);
-  const selected =
-    inferred.provider ??
-    providers.find((provider) => provider.id === choice) ??
-    providers[0] ??
-    null;
+  const chosen = providers.find((provider) => provider.id === choice) ?? null;
+  const selected = chosen ?? inferred.provider ?? providers[0] ?? null;
   const mode: PlaylistCreationMode =
     chosenMode ?? (inferred.recognised ? "follow" : "copy");
   const workflow = useProviderPlaylist(account, selected);
@@ -71,7 +68,7 @@ export default function PlaylistImport({
               ]}
             />
           </div>
-          {inferred.ambiguous && (
+          {providers.length > 1 && (chosen || inferred.ambiguous) && (
             <label>
               Playlist service
               <select

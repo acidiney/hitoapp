@@ -2,42 +2,32 @@ import type { Schema } from "../../../shared/schema";
 
 type Connection = Schema<"PluginInstallation">;
 
-const GENERIC = new Set([
-  "www",
-  "open",
-  "music",
-  "play",
-  "embed",
-  "link",
-  "app",
-  "http",
-  "https",
-  "com",
-  "org",
-  "net",
-]);
-const ALIASES: Record<string, string> = { youtu: "youtube" };
+const HOSTS: Record<string, string> = {
+  "open.spotify.com": "spotify",
+  "play.spotify.com": "spotify",
+  "music.youtube.com": "youtube",
+  "www.youtube.com": "youtube",
+  "youtube.com": "youtube",
+  "m.youtube.com": "youtube",
+  "youtu.be": "youtube",
+  "jamendo.com": "jamendo",
+  "www.jamendo.com": "jamendo",
+};
+const SCHEMES: Record<string, string> = { spotify: "spotify" };
 
-function hostLabels(reference: string): string[] {
+/** The service a pasted link or URI belongs to; only exact known hosts and schemes count. */
+function serviceKeyword(reference: string): string | null {
   const text = reference.trim().toLowerCase();
   const scheme = /^([a-z][a-z0-9+.-]*):(?!\/\/)/.exec(text);
-  if (scheme) return [scheme[1]];
-  let host = "";
+  if (scheme) return SCHEMES[scheme[1]] ?? null;
   try {
-    host = new URL(
+    const url = new URL(
       /^[a-z][a-z0-9+.-]*:\/\//.test(text) ? text : `https://${text}`,
-    ).hostname;
+    );
+    return HOSTS[url.hostname] ?? null;
   } catch {
-    return [];
+    return null;
   }
-  if (!host.includes(".")) return [];
-  return host.split(".");
-}
-
-function keywords(reference: string): string[] {
-  return hostLabels(reference)
-    .filter((label) => label.length >= 4 && !GENERIC.has(label))
-    .map((label) => ALIASES[label] ?? label);
 }
 
 export type InferredService = {
@@ -54,7 +44,7 @@ export function inferPlaylistService(
   providers: Connection[],
   names: Record<string, string>,
 ): InferredService {
-  const words = keywords(reference);
+  const keyword = serviceKeyword(reference);
   const matches = providers.filter((provider) => {
     const haystack = [
       provider.manifest.id,
@@ -63,7 +53,7 @@ export function inferPlaylistService(
     ]
       .join(" ")
       .toLowerCase();
-    return words.some((word) => haystack.includes(word));
+    return keyword !== null && haystack.includes(keyword);
   });
   if (matches.length === 1)
     return { provider: matches[0], recognised: true, ambiguous: false };

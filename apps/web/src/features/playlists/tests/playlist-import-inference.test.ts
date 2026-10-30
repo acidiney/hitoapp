@@ -84,3 +84,21 @@ test("choosing Import a copy sticks even for a provider link", () => {
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Import a copy" })).toBeTruthy();
 });
+
+test("an explicit service choice wins over what the pasted link suggests", async () => {
+  const fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+  vi.stubGlobal("fetch", fetch);
+  view();
+  fireEvent.change(screen.getByRole("combobox", { name: "Playlist service" }), {
+    target: { value: youtube.id },
+  });
+  fireEvent.change(field(), {
+    target: { value: "https://open.spotify.com/playlist/37i9dQ" },
+  });
+  expect(
+    screen.getByRole("combobox", { name: "Playlist service" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Follow playlist" }));
+  await waitFor(() => expect(fetch).toHaveBeenCalled());
+  expect(fetch.mock.calls[0][0]).toContain("youtube-installation");
+});

@@ -75,3 +75,26 @@ test("a link that names a service that is not connected stays ambiguous", () => 
   expect(inferred.provider).toBeNull();
   expect(inferred.ambiguous).toBe(true);
 });
+
+test.each([
+  "https://open.spotify.com.evil.com/playlist/1",
+  "https://spotify.evil.com/playlist/1",
+  "https://notyoutube.com/playlist?list=1",
+  "https://evil.com/open.spotify.com/playlist/1",
+  "spotify.evil.com/playlist/1",
+])("%s is not recognised", (reference) => {
+  const inferred = inferPlaylistService(reference, all, {});
+  expect(inferred.provider).toBeNull();
+  expect(inferred.recognised).toBe(false);
+});
+
+test("play.spotify.com and www.jamendo.com are recognised hosts", () => {
+  expect(
+    inferPlaylistService("https://play.spotify.com/playlist/1", all, {})
+      .provider?.id,
+  ).toBe("spotify");
+  expect(
+    inferPlaylistService("https://www.jamendo.com/playlist/1", all, {}).provider
+      ?.id,
+  ).toBe("jamendo");
+});
