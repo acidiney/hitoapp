@@ -16,7 +16,6 @@ type FollowStatusProps = {
   refresh: () => Promise<boolean>;
   retryRefresh: () => Promise<boolean>;
   retryStatus: () => Promise<void>;
-  provider: string;
   attribution: string;
   notice: string;
 };
@@ -40,11 +39,6 @@ const tones: Record<
   paused: "warning",
 };
 
-function providerName(provider: string) {
-  const name = (provider.split(".").pop() ?? provider).replace(/[-_]/g, " ");
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
 export default function PlaylistFollowStatus({
   follow,
   loading,
@@ -56,7 +50,6 @@ export default function PlaylistFollowStatus({
   refresh,
   retryRefresh,
   retryStatus,
-  provider,
   attribution,
   notice,
 }: FollowStatusProps) {
@@ -76,7 +69,7 @@ export default function PlaylistFollowStatus({
       <h2 className="sr-only">Playlist updates</h2>
       <div className="status-strip-main">
         <p className="status-strip-line">
-          <strong>Following {providerName(provider)}.</strong>
+          <strong>Followed playlist.</strong>
           {follow && (
             <>
               <span role="status" className="follow-state">

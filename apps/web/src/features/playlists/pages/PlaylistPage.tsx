@@ -177,7 +177,6 @@ export default function PlaylistPage({
       {followed && (
         <PlaylistFollowStatus
           {...follow}
-          provider={detail.origin?.provider ?? "provider"}
           attribution={detail.origin?.attribution.label ?? "Provider playlist"}
           notice={readOnlyNotice}
         />
