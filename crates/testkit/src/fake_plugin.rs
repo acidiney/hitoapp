@@ -26,6 +26,7 @@ const BODY_LIMIT: usize = 1 << 20;
 #[derive(Clone)]
 pub enum Reply {
     Json(Value),
+    Refuse,
     Status(StatusCode),
     Raw {
         status: StatusCode,
@@ -49,6 +50,7 @@ pub enum Handled {
     Yes,
     No,
     Rejected,
+    Refused,
 }
 
 #[derive(Debug, Clone)]
@@ -133,12 +135,14 @@ struct Shared {
     logged: watch::Sender<usize>,
     auth: Mutex<Option<ServiceAuth>>,
     require_protocol: bool,
+    strict_limit: Option<usize>,
 }
 
 pub struct FakePluginBuilder {
     routes: Vec<Route>,
     auth: Option<ServiceAuth>,
     require_protocol: bool,
+    strict_limit: Option<usize>,
 }
 
 pub struct FakePlugin {
@@ -155,6 +159,7 @@ impl FakePlugin {
             routes: Vec::new(),
             auth: None,
             require_protocol: false,
+            strict_limit: None,
         }
         .get(MANIFEST_PATH, move |_| Reply::Json(manifest.clone()))
     }
@@ -176,6 +181,13 @@ impl FakePlugin {
             .wait_for(|logged| *logged >= count)
             .await
             .expect("the fake plugin log must stay open");
+    }
+
+    pub fn unexpected(&self) -> usize {
+        self.requests()
+            .iter()
+            .filter(|request| matches!(request.handled, Handled::No | Handled::Refused))
+            .count()
     }
 
     pub fn unmatched(&self) -> usize {
@@ -285,6 +297,11 @@ impl FakePluginBuilder {
         self
     }
 
+    pub fn strict(mut self, request_limit: usize) -> Self {
+        self.strict_limit = Some(request_limit);
+        self
+    }
+
     pub async fn start(self) -> FakePlugin {
         let shared = Arc::new(Shared {
             routes: Mutex::new(self.routes),
@@ -293,6 +310,7 @@ impl FakePluginBuilder {
             logged: watch::channel(0).0,
             auth: Mutex::new(self.auth),
             require_protocol: self.require_protocol,
+            strict_limit: self.strict_limit,
         });
         let router = Router::new().fallback(dispatch).with_state(shared.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -357,7 +375,7 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         (Some(_), Err(_)) => Handled::Rejected,
         (Some(_), Ok(())) => Handled::Yes,
     };
-    let recorded = RecordedRequest {
+    let mut recorded = RecordedRequest {
         operation: operation.clone(),
         method: parts.method,
         query: parts.uri.query().map(str::to_owned),
@@ -365,10 +383,13 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         body: body.to_vec(),
         handled,
     };
-    let count = {
+    let (index, count) = {
         let mut log = shared.log.lock().unwrap();
+        if handled == Handled::Yes && refuses(&shared, log.len(), &recorded) {
+            recorded.handled = Handled::Refused;
+        }
         log.push(recorded.clone());
-        log.len()
+        (log.len() - 1, log.len())
     };
     shared.logged.send_replace(count);
     let Some(handler) = handler else {
@@ -378,6 +399,9 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         Err(AuthFailure::Unauthorized) => return StatusCode::UNAUTHORIZED.into_response(),
         Err(AuthFailure::InvalidProtocol) => return StatusCode::BAD_REQUEST.into_response(),
         Ok(()) => {}
+    }
+    if recorded.handled == Handled::Refused {
+        return StatusCode::BAD_REQUEST.into_response();
     }
     let fault = shared.faults.lock().unwrap().get(&operation).cloned();
     match fault {
@@ -394,12 +418,23 @@ async fn dispatch(State(shared): State<Arc<Shared>>, request: Request) -> Respon
         Some(Fault::Delay(_) | Fault::Hold(_)) | None => {}
     }
     let reply = handler(&recorded);
+    if matches!(reply, Reply::Refuse) {
+        shared.log.lock().unwrap()[index].handled = Handled::Refused;
+    }
     match fault {
         Some(Fault::Delay(delay)) => tokio::time::sleep(delay).await,
         Some(Fault::Hold(gate)) => gate.wait().await,
         _ => {}
     }
     into_response(reply)
+}
+
+fn refuses(shared: &Shared, prior: usize, request: &RecordedRequest) -> bool {
+    shared.strict_limit.is_some_and(|limit| {
+        prior >= limit
+            || request.query.is_some()
+            || (!request.body.is_empty() && serde_json::from_slice::<Value>(&request.body).is_err())
+    })
 }
 
 fn authorize(shared: &Shared, headers: &HeaderMap) -> Result<(), AuthFailure> {
@@ -414,6 +449,7 @@ fn into_response(reply: Reply) -> Response {
     match reply {
         Reply::Json(value) => Json(value).into_response(),
         Reply::Status(status) => status.into_response(),
+        Reply::Refuse => StatusCode::BAD_REQUEST.into_response(),
         Reply::Raw {
             status,
             headers,

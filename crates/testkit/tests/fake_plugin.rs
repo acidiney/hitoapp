@@ -430,3 +430,64 @@ async fn handlers_run_on_arrival_even_while_the_reply_is_held() {
     gate.release();
     assert_eq!(pending.await.unwrap(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn strict_plugins_refuse_queries_malformed_bodies_and_excess_requests() {
+    let plugin = FakePlugin::builder(manifest())
+        .post("v1/search", |_| Reply::Json(json!({})))
+        .strict(3)
+        .start()
+        .await;
+    let url = format!("{}v1/search", plugin.url);
+    let post = |url: String, body: &'static str| {
+        let request = client().post(url).body(body);
+        async move { request.send().await.unwrap().status() }
+    };
+    assert_eq!(post(url.clone(), "{}").await, StatusCode::OK);
+    assert_eq!(
+        post(format!("{url}?x=1"), "{}").await,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        post(url.clone(), "{not json").await,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(post(url.clone(), "{}").await, StatusCode::BAD_REQUEST);
+    let handled: Vec<Handled> = plugin.requests().iter().map(|r| r.handled).collect();
+    assert_eq!(
+        handled,
+        [
+            Handled::Yes,
+            Handled::Refused,
+            Handled::Refused,
+            Handled::Refused
+        ]
+    );
+    assert_eq!(plugin.unexpected(), 3);
+}
+
+#[tokio::test]
+async fn refusing_replies_mark_the_request_and_count_as_unexpected() {
+    let plugin = FakePlugin::builder(manifest())
+        .post("v1/search", |request| {
+            if request.json()["ok"] == true {
+                Reply::Json(json!({}))
+            } else {
+                Reply::Refuse
+            }
+        })
+        .start()
+        .await;
+    let url = format!("{}v1/search", plugin.url);
+    for body in [json!({"ok": true}), json!({"ok": false})] {
+        client().post(&url).json(&body).send().await.unwrap();
+    }
+    client()
+        .post(format!("{}v1/other", plugin.url))
+        .send()
+        .await
+        .unwrap();
+    let handled: Vec<Handled> = plugin.requests().iter().map(|r| r.handled).collect();
+    assert_eq!(handled, [Handled::Yes, Handled::Refused, Handled::No]);
+    assert_eq!(plugin.unexpected(), 2);
+}
