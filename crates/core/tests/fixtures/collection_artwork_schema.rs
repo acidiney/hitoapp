@@ -21,6 +21,8 @@ pub mod pin_schema;
 pub mod provider_evidence_schema;
 #[path = "artist_provider_url_schema.rs"]
 pub mod provider_url_schema;
+#[path = "musicbrainz_tag_identity_schema.rs"]
+pub mod tag_identity_schema;
 
 pub type SchemaObject = (String, String, String, Option<String>);
 type Column = (i64, String, String, i64, Option<String>, i64, i64);
@@ -332,6 +334,10 @@ pub async fn reference_63() -> SqliteConnection {
     name_match_schema::reference(reference_62().await).await
 }
 
+pub async fn reference_64() -> SqliteConnection {
+    tag_identity_schema::reference(reference_63().await).await
+}
+
 pub async fn assert_current(connection: &mut SqliteConnection) {
     assert_version(connection, latest_version()).await;
 }
@@ -350,6 +356,7 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
         61 => reference_61().await,
         62 => reference_62().await,
         63 => reference_63().await,
+        64 => reference_64().await,
         _ => panic!("The schema fixture requires an exact supported migration endpoint"),
     };
     assert!(
@@ -415,6 +422,12 @@ pub async fn assert_version(connection: &mut SqliteConnection, version: i64) {
             .iter()
             .copied()
             .filter(|_| version >= 63),
+    )
+    .chain(
+        tag_identity_schema::TABLES
+            .iter()
+            .copied()
+            .filter(|_| version >= 64),
     ) {
         let columns: Vec<Column> = sqlx::query_as("SELECT cid,name,type,\"notnull\",dflt_value,pk,hidden FROM pragma_table_xinfo(?) ORDER BY cid")
             .bind(table).fetch_all(&mut *connection).await.unwrap();

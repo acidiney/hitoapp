@@ -119,5 +119,13 @@ async fn observe(
         crate::metadata::IsrcOrigin::FileTag,
     )
     .await?;
+    crate::metadata::retain_tag_identities(
+        tx,
+        &observation,
+        recording,
+        Some(release),
+        file.tag_details.as_deref(),
+    )
+    .await?;
     Ok(observation)
 }

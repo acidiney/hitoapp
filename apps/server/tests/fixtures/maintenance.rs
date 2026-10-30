@@ -687,6 +687,14 @@ async fn assert_current_schema(connection: &mut SqliteConnection) {
         ("trigger", "artist_association_name_match_retained"),
         ("table", "artist_name_checks"),
         ("index", "sqlite_autoindex_artist_name_checks_1"),
+        ("table", "recording_musicbrainz_observations"),
+        (
+            "index",
+            "sqlite_autoindex_recording_musicbrainz_observations_1",
+        ),
+        ("index", "recording_musicbrainz_observation_recording"),
+        ("trigger", "recording_musicbrainz_observation_immutable"),
+        ("trigger", "recording_musicbrainz_observation_retained"),
     ];
     added.sort_unstable();
     declared_additions.sort_unstable();

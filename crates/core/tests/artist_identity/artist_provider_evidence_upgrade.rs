@@ -183,3 +183,132 @@ async fn name_discography_provenance_and_checks_are_added_immutably_without_impl
     );
     connection.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn musicbrainz_tag_identities_are_added_immutably_without_implying_any() {
+    const MBID: &str = "b1000000-0000-4000-8000-000000000001";
+    let directory = tempfile::tempdir().unwrap();
+    let options = SqliteConnectOptions::new()
+        .filename(directory.path().join("tag-identity-upgrade.db"))
+        .create_if_missing(true)
+        .foreign_keys(true);
+    let mut connection = SqliteConnection::connect_with(&options).await.unwrap();
+    schema::through(63).run(&mut connection).await.unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO users(id,username,password_hash,admin) VALUES('legacy','legacy','hash',1);
+         INSERT INTO libraries(id,name,owner_id) VALUES('library','Library','legacy');
+         INSERT INTO recordings(id,library_id,title,artist,duration_ms) VALUES('recording','library','Title','Artist',1000);
+         INSERT INTO metadata_observations(id,recording_id,provider,origin,title,artist,duration_ms)
+            VALUES('observation','recording','local','legacy_normalized','Title','Artist',1000);",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    let before = schema::schema(&mut connection).await;
+    connection.close().await.unwrap();
+
+    let mut connection = SqliteConnection::connect_with(&options.clone().create_if_missing(false))
+        .await
+        .unwrap();
+    schema::through(64).run(&mut connection).await.unwrap();
+    let after = schema::schema(&mut connection).await;
+    assert!(before.iter().all(|object| after.contains(object)));
+    schema::assert_version(&mut connection, 64).await;
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM recording_musicbrainz_observations")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    assert_eq!(
+        count, 0,
+        "Historical observations must not imply an identity"
+    );
+
+    let insert = |observation: &str, entity: &str, mbid: &str, recording: &str, release: &str| {
+        format!(
+            "INSERT INTO recording_musicbrainz_observations(observation_id,entity,mbid,recording_id,release_id) VALUES({observation},{entity},{mbid},{recording},{release})"
+        )
+    };
+    for statement in [
+        insert(
+            "'missing'",
+            "'recording'",
+            &format!("'{MBID}'"),
+            "'recording'",
+            "NULL",
+        ),
+        insert(
+            "'observation'",
+            "'recording'",
+            &format!("'{MBID}'"),
+            "'missing'",
+            "NULL",
+        ),
+        insert(
+            "'observation'",
+            "'recording'",
+            &format!("'{MBID}'"),
+            "'recording'",
+            "'missing'",
+        ),
+        insert(
+            "'observation'",
+            "'artist'",
+            &format!("'{MBID}'"),
+            "'recording'",
+            "NULL",
+        ),
+        insert(
+            "'observation'",
+            "'recording'",
+            &format!("'{}'", MBID.to_uppercase()),
+            "'recording'",
+            "NULL",
+        ),
+        insert(
+            "'observation'",
+            "'recording'",
+            "'not-a-musicbrainz-id'",
+            "'recording'",
+            "NULL",
+        ),
+        insert("'observation'", "'recording'", "''", "'recording'", "NULL"),
+    ] {
+        assert!(
+            sqlx::query(&statement)
+                .execute(&mut connection)
+                .await
+                .is_err(),
+            "{statement} must be rejected"
+        );
+    }
+    sqlx::query(&insert(
+        "'observation'",
+        "'recording'",
+        &format!("'{MBID}'"),
+        "'recording'",
+        "NULL",
+    ))
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    for statement in [
+        insert(
+            "'observation'",
+            "'recording'",
+            &format!("'{MBID}'"),
+            "'recording'",
+            "NULL",
+        ),
+        "UPDATE recording_musicbrainz_observations SET entity='release'".into(),
+        "DELETE FROM recording_musicbrainz_observations".into(),
+    ] {
+        assert!(
+            sqlx::query(&statement)
+                .execute(&mut connection)
+                .await
+                .is_err(),
+            "{statement} must be rejected: tag identities are unique and immutable"
+        );
+    }
+    connection.close().await.unwrap();
+}
