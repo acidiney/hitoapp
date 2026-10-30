@@ -167,7 +167,8 @@ async fn provider_authority(library: &Library, server: &CatalogServer) {
     assert!(
         other_accepted
             == json!({"revision": 1, "enabled": true, "providers": [provider(&other_installation)],
-                "automatic_artist_lookup": true, "automatic_artwork": true}),
+                "automatic_artist_lookup": true, "automatic_artwork": true,
+                "automatic_service_search": true}),
         "The other account must be able to select only its own approved catalog installation"
     );
     assert!(account.get(app, SETTINGS).await == accepted);
@@ -192,7 +193,8 @@ async fn provider_authority(library: &Library, server: &CatalogServer) {
     assert!(
         disabled
             == json!({"revision": 2, "enabled": false, "providers": [selected],
-                "automatic_artist_lookup": true, "automatic_artwork": true}),
+                "automatic_artist_lookup": true, "automatic_artwork": true,
+                "automatic_service_search": true}),
         "Disabling enrichment must retain the removed provider reference and advance its revision"
     );
     let (status, _) = account

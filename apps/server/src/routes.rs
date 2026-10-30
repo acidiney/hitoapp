@@ -139,6 +139,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::artist_identity::apply_to_credit))
         .routes(routes!(api::artist_matching::run))
         .routes(routes!(api::artist_matching::run_provider_evidence))
+        .routes(routes!(api::artist_matching::status))
         .routes(routes!(api::artist_matching::suggestions))
         .routes(routes!(api::artist_matching::dismiss))
         .routes(routes!(api::artist_matching::restore))
@@ -291,6 +292,7 @@ fn application(
             tower_http::services::ServeDir::new(config.web_dir.join("assets")),
         )
         .merge(api)
+        .fallback(inertia::page)
         .layer(axum::extract::DefaultBodyLimit::max(262144))
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))

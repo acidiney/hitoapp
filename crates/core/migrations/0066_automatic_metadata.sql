@@ -1,7 +1,10 @@
 CREATE TABLE account_metadata_automation (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     artist_lookup INTEGER NOT NULL DEFAULT 1 CHECK(artist_lookup IN (0,1)),
-    artwork INTEGER NOT NULL DEFAULT 1 CHECK(artwork IN (0,1))
+    artwork INTEGER NOT NULL DEFAULT 1 CHECK(artwork IN (0,1)),
+    service_search INTEGER NOT NULL DEFAULT 1 CHECK(service_search IN (0,1)),
+    matching_finished_at INTEGER,
+    matching_matched INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE artist_matching_jobs (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
@@ -9,6 +12,7 @@ CREATE TABLE artist_matching_jobs (
     cursor TEXT CHECK(cursor IS NULL OR length(cursor) <= 128),
     rerun INTEGER NOT NULL DEFAULT 0 CHECK(rerun IN (0,1)),
     attempts INTEGER NOT NULL DEFAULT 0,
+    matched INTEGER NOT NULL DEFAULT 0,
     lease_token TEXT,
     lease_until INTEGER,
     next_run_at INTEGER NOT NULL DEFAULT 0,

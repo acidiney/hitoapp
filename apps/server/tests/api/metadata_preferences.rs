@@ -35,6 +35,7 @@ async fn exercise(library: &Library, server: &fixture::CatalogServer) {
         "providers": [{"kind": "builtin_musicbrainz"}],
         "automatic_artist_lookup": true,
         "automatic_artwork": true,
+        "automatic_service_search": true,
     });
     let (status, initial) = account.request(app, "GET", SETTINGS, Value::Null).await;
     assert_eq!(status, StatusCode::OK);
@@ -90,7 +91,8 @@ async fn exercise(library: &Library, server: &fixture::CatalogServer) {
     assert!(
         saved
             == json!({"revision": 1, "enabled": true, "providers": [selected],
-                "automatic_artist_lookup": true, "automatic_artwork": true}),
+                "automatic_artist_lookup": true, "automatic_artwork": true,
+                "automatic_service_search": true}),
         "Saving preferences must return the exact selected personal provider and next revision"
     );
     assert!(
@@ -128,6 +130,7 @@ async fn automatic_lookup_and_artwork_default_on_and_save_per_account() {
     let initial = account.get(app, SETTINGS).await;
     assert_eq!(initial["automatic_artist_lookup"], true);
     assert_eq!(initial["automatic_artwork"], true);
+    assert_eq!(initial["automatic_service_search"], true);
 
     let (status, saved) = account
         .request(
@@ -160,6 +163,21 @@ async fn automatic_lookup_and_artwork_default_on_and_save_per_account() {
         "An omitted choice is kept"
     );
     assert_eq!(saved["automatic_artwork"], false);
+    let (status, saved) = account
+        .request(
+            app,
+            "PUT",
+            AUTOMATION,
+            json!({"automatic_service_search": false}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(saved["automatic_service_search"], false);
+    assert_eq!(saved["automatic_artwork"], false, "Other choices are kept");
+    assert_eq!(
+        other.get(app, SETTINGS).await["automatic_service_search"],
+        true
+    );
     let (status, _) = account
         .request(app, "PUT", AUTOMATION, json!({"automatic_artwork": "yes"}))
         .await;
@@ -181,4 +199,35 @@ async fn automatic_lookup_and_artwork_default_on_and_save_per_account() {
         saved_providers["automatic_artwork"], false,
         "Saving providers keeps the automation choices"
     );
+}
+
+#[tokio::test]
+async fn the_artist_matching_status_is_per_account_and_reports_the_setting() {
+    let library = Library::prepare().await;
+    let app = &library.app;
+    let (account, other) = (&library.accounts[0], &library.accounts[1]);
+    let status = account.get(app, "/api/v1/artist-matching/status").await;
+    assert_eq!(status["enabled"], true);
+    assert!(["idle", "queued"].contains(&status["state"].as_str().unwrap()));
+    assert_eq!(status["last_finished_at"], Value::Null);
+    account
+        .request(
+            app,
+            "PUT",
+            AUTOMATION,
+            json!({"automatic_artist_lookup": false}),
+        )
+        .await;
+    assert_eq!(
+        account.get(app, "/api/v1/artist-matching/status").await["enabled"],
+        false
+    );
+    assert_eq!(
+        other.get(app, "/api/v1/artist-matching/status").await["enabled"],
+        true
+    );
+    let (code, _) = account
+        .request(app, "GET", "/api/v1/artist-matching/status", Value::Null)
+        .await;
+    assert_eq!(code, StatusCode::OK);
 }

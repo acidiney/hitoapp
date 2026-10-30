@@ -8,6 +8,7 @@ mod artist_correction_erasure_upgrade;
 mod artist_correction_promotion;
 mod artist_correction_reconcile;
 mod artist_discography_type_builtin;
+mod artist_group_search_order;
 mod artist_identity_bulk;
 mod artist_identity_corrections_upgrade;
 mod artist_identity_selection;

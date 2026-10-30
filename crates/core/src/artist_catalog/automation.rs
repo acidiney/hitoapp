@@ -1,4 +1,7 @@
-use super::{MatchArtistsFromProviderEvidence, MatchArtistsFromTags, MetadataProvider, policy};
+use super::{
+    ArtistMatchingState, ArtistMatchingStatus, MatchArtistsFromProviderEvidence,
+    MatchArtistsFromTags, MetadataProvider, policy,
+};
 use crate::{Actor, ArtistCatalog, Error, Result};
 use sqlx::{FromRow, SqliteConnection};
 use std::time::Instant;
@@ -15,6 +18,7 @@ struct Job {
     cursor: Option<String>,
     rerun: bool,
     attempts: i64,
+    matched: i64,
     lease_token: String,
 }
 
@@ -23,9 +27,11 @@ enum Step {
         phase: &'static str,
         cursor: Option<String>,
         unavailable: bool,
+        matched: i64,
     },
     Complete {
         unavailable: bool,
+        matched: i64,
     },
     Dropped,
     Busy,
@@ -133,7 +139,7 @@ impl ArtistCatalog {
              WHERE user_id = (SELECT user_id FROM artist_matching_jobs
                 WHERE next_run_at <= unixepoch() AND (lease_token IS NULL OR lease_until <= unixepoch())
                 ORDER BY requested_at,user_id LIMIT 1)
-             RETURNING user_id,phase,cursor,rerun,attempts,lease_token",
+             RETURNING user_id,phase,cursor,rerun,attempts,matched,lease_token",
         )
         .bind(&token)
         .bind(LEASE_SECONDS)
@@ -169,7 +175,7 @@ impl ArtistCatalog {
                 },
             )
             .await
-            .map(|receipt| (receipt.next_after, false, "tags"))
+            .map(|receipt| (receipt.next_after, false, "tags", receipt.matched))
         } else {
             self.match_artists_from_provider_evidence(
                 &actor,
@@ -180,20 +186,32 @@ impl ArtistCatalog {
                 },
             )
             .await
-            .map(|receipt| (receipt.next_after, receipt.unavailable > 0, "provider"))
+            .map(|receipt| {
+                (
+                    receipt.next_after,
+                    receipt.unavailable > 0,
+                    "provider",
+                    receipt.matched,
+                )
+            })
         };
         match result {
-            Ok((Some(cursor), unavailable, phase)) => Step::Continue {
+            Ok((Some(cursor), unavailable, phase, matched)) => Step::Continue {
                 phase,
                 cursor: Some(cursor),
                 unavailable,
+                matched,
             },
-            Ok((None, unavailable, "tags")) => Step::Continue {
+            Ok((None, unavailable, "tags", matched)) => Step::Continue {
                 phase: "provider",
                 cursor: None,
                 unavailable,
+                matched,
             },
-            Ok((None, unavailable, _)) => Step::Complete { unavailable },
+            Ok((None, unavailable, _, matched)) => Step::Complete {
+                unavailable,
+                matched,
+            },
             Err(Error::Conflict(_)) => Step::Busy,
             Err(Error::Unauthorized | Error::NotFound | Error::Forbidden) => Step::Dropped,
             Err(_) => Step::Failed,
@@ -207,12 +225,14 @@ impl ArtistCatalog {
                 phase,
                 cursor,
                 unavailable,
+                matched,
             } => {
-                sqlx::query("UPDATE artist_matching_jobs SET phase = ?,cursor = ?,
+                sqlx::query("UPDATE artist_matching_jobs SET phase = ?,cursor = ?,matched = matched + ?,
                     rerun = rerun OR ?,attempts = attempts + ?,lease_token = NULL,lease_until = NULL,
                     next_run_at = unixepoch() WHERE user_id = ? AND lease_token = ?")
                     .bind(phase)
                     .bind(cursor)
+                    .bind(matched)
                     .bind(unavailable)
                     .bind(i64::from(unavailable))
                     .bind(&job.user_id)
@@ -221,7 +241,17 @@ impl ArtistCatalog {
                     .await?;
                 "advanced"
             }
-            Step::Complete { unavailable } => {
+            Step::Complete {
+                unavailable,
+                matched,
+            } => {
+                sqlx::query("INSERT INTO account_metadata_automation(user_id,matching_finished_at,matching_matched)
+                    VALUES (?,unixepoch(),?) ON CONFLICT(user_id) DO UPDATE SET
+                    matching_finished_at = excluded.matching_finished_at,matching_matched = excluded.matching_matched")
+                    .bind(&job.user_id)
+                    .bind(job.matched + matched)
+                    .execute(&mut *tx)
+                    .await?;
                 let attempts = job.attempts + i64::from(unavailable);
                 if (job.rerun || unavailable) && attempts < MAX_ATTEMPTS {
                     let delay = if attempts == 0 {
@@ -229,7 +259,7 @@ impl ArtistCatalog {
                     } else {
                         (60i64 << attempts.min(6)).min(3600)
                     };
-                    sqlx::query("UPDATE artist_matching_jobs SET phase = 'tags',cursor = NULL,rerun = 0,
+                    sqlx::query("UPDATE artist_matching_jobs SET phase = 'tags',cursor = NULL,rerun = 0,matched = 0,
                         attempts = ?,lease_token = NULL,lease_until = NULL,next_run_at = unixepoch() + ?
                         WHERE user_id = ? AND lease_token = ?")
                         .bind(attempts)
@@ -298,4 +328,45 @@ async fn release(connection: &mut SqliteConnection, job: &Job, delay: i64) -> Re
     .execute(connection)
     .await?;
     Ok(())
+}
+
+impl ArtistCatalog {
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(operation = "artist_matching_status")
+    )]
+    pub async fn artist_matching_status(&self, actor: &Actor) -> Result<ArtistMatchingStatus> {
+        let mut connection = self.store.pool.acquire().await?;
+        actor.check_session_on(&mut connection).await?;
+        let settings = policy::read(&mut connection, actor).await?;
+        let enabled = settings.automatic_artist_lookup
+            && policy::selected(&settings, &MetadataProvider::BuiltinMusicBrainz);
+        let job: Option<(i64, bool)> = sqlx::query_as(
+            "SELECT matched,lease_token IS NOT NULL AND lease_until > unixepoch() FROM artist_matching_jobs WHERE user_id = ?",
+        )
+        .bind(actor.id())
+        .fetch_optional(&mut *connection)
+        .await?;
+        let last: Option<(Option<i64>, i64)> = sqlx::query_as(
+            "SELECT matching_finished_at,matching_matched FROM account_metadata_automation WHERE user_id = ?",
+        )
+        .bind(actor.id())
+        .fetch_optional(&mut *connection)
+        .await?;
+        let (last_finished_at, last_matched) = last.unwrap_or((None, 0));
+        let (state, matched_so_far) = match job {
+            _ if !enabled => (ArtistMatchingState::Idle, 0),
+            Some((matched, true)) => (ArtistMatchingState::Running, matched),
+            Some((matched, false)) => (ArtistMatchingState::Queued, matched),
+            None => (ArtistMatchingState::Idle, 0),
+        };
+        Ok(ArtistMatchingStatus {
+            enabled,
+            state,
+            matched_so_far,
+            last_finished_at,
+            last_matched,
+        })
+    }
 }

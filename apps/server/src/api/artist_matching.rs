@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
 };
 use hito_core::{
-    ArtistMatchReceipt, ArtistMatchSuggestions, ArtistProviderMatchReceipt,
+    ArtistMatchReceipt, ArtistMatchSuggestions, ArtistMatchingStatus, ArtistProviderMatchReceipt,
     DismissArtistMatchSuggestion, MatchArtistsFromProviderEvidence, MatchArtistsFromTags,
     RestoreArtistMatchSuggestion, Services,
 };
@@ -161,4 +161,21 @@ pub async fn restore(
         "Artist match restore HTTP request completed"
     );
     Ok(Json(result?))
+}
+
+#[utoipa::path(get, path = "/api/v1/artist-matching/status", operation_id = "artist_matching_status",
+    security(("session" = []), ("bearer" = [])), responses(
+    (status = 200, body = ArtistMatchingStatus), (status = 401, body = ErrorResponse),
+    (status = 403, body = ErrorResponse), (status = 500, body = ErrorResponse),
+))]
+pub async fn status(
+    State(services): State<Services>,
+    Account(actor): Account,
+) -> ApiResult<Json<ArtistMatchingStatus>> {
+    Ok(Json(
+        services
+            .artist_catalog
+            .artist_matching_status(&actor)
+            .await?,
+    ))
 }

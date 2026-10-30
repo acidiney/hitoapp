@@ -55,11 +55,11 @@ pub use similar_artists::{ReadSimilarArtists, SimilarArtistView, SimilarArtistsA
 pub use types::{
     ArtistAssociation, ArtistAssociationEvidence, ArtistCandidatePreviewAvailability,
     ArtistCandidateSearchAvailability, ArtistCreditRole, ArtistDiscographyAvailability,
-    ArtistProfileAvailability, ArtistReviewConnection, ArtistReviewContext,
-    ArtistReviewMetadataBinding, AssociateRecordingArtist, EditionTrackListAvailability,
-    MetadataProvider, MetadataSettings, ReadArtistDiscography, ReadEditionTrackList,
-    ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability, UpdateAutomaticLookups,
-    UpdateMetadataSettings,
+    ArtistMatchingState, ArtistMatchingStatus, ArtistProfileAvailability, ArtistReviewConnection,
+    ArtistReviewContext, ArtistReviewMetadataBinding, AssociateRecordingArtist,
+    EditionTrackListAvailability, MetadataProvider, MetadataSettings, ReadArtistDiscography,
+    ReadEditionTrackList, ReadReleaseGroupEditions, ReleaseGroupEditionsAvailability,
+    UpdateAutomaticLookups, UpdateMetadataSettings,
 };
 
 use crate::{Catalog, Error, HostDeviceId, Plugins, Result, admission::Accounts, store::Store};

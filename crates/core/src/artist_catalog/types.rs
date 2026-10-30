@@ -25,6 +25,8 @@ pub struct MetadataSettings {
     pub automatic_artist_lookup: bool,
     /// Fetch album artwork from the Cover Art Archive for albums that have a MusicBrainz identifier.
     pub automatic_artwork: bool,
+    /// Search connected services for playable sources of saved recordings without being asked.
+    pub automatic_service_search: bool,
 }
 
 /// Omitted choices keep their current value.
@@ -33,6 +35,32 @@ pub struct MetadataSettings {
 pub struct UpdateAutomaticLookups {
     pub automatic_artist_lookup: Option<bool>,
     pub automatic_artwork: Option<bool>,
+    pub automatic_service_search: Option<bool>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtistMatchingState {
+    /// Nothing is waiting, or automatic matching is off for this account.
+    Idle,
+    /// A walk is waiting for its turn or for a later retry.
+    Queued,
+    /// A walk is working through the library now.
+    Running,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ArtistMatchingStatus {
+    /// Whether the account's settings allow automatic matching.
+    pub enabled: bool,
+    pub state: ArtistMatchingState,
+    /// Recordings matched so far by the walk in progress.
+    pub matched_so_far: i64,
+    /// Unix seconds when the last walk finished, if one has.
+    #[schema(required = true)]
+    pub last_finished_at: Option<i64>,
+    /// Recordings the last finished walk matched.
+    pub last_matched: i64,
 }
 
 #[derive(Deserialize, ToSchema)]

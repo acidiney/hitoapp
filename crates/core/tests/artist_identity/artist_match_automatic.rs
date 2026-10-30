@@ -3,7 +3,7 @@
 mod library;
 
 use hito_core::test_support::musicbrainz::Reply;
-use hito_core::{ArtistAssociationEvidence, UpdateAutomaticLookups};
+use hito_core::{ArtistAssociationEvidence, ArtistMatchingState, UpdateAutomaticLookups};
 use library::{CREDIT, NOVA, NameLibrary, nova_discography};
 use std::time::{Duration, Instant};
 
@@ -92,6 +92,7 @@ async fn turning_the_choice_off_stops_the_job_without_any_lookup_and_manual_runs
             UpdateAutomaticLookups {
                 automatic_artist_lookup: Some(false),
                 automatic_artwork: None,
+                automatic_service_search: None,
             },
         )
         .await
@@ -220,4 +221,46 @@ async fn a_finished_scan_schedules_one_job_for_every_account_with_access_and_coa
         "Only accounts with access, one row each"
     );
     assert!(!accounts.contains(&outsider.id));
+}
+
+#[tokio::test]
+async fn the_status_reports_waiting_work_the_last_result_and_the_setting() {
+    let library = NameLibrary::nova().await;
+    expect_nova(&library);
+    let artists = &library.hito.artist_catalog;
+    let waiting = artists
+        .artist_matching_status(&library.actor)
+        .await
+        .unwrap();
+    assert!(waiting.enabled);
+    assert_eq!(waiting.state, ArtistMatchingState::Queued);
+    assert_eq!(waiting.last_finished_at, None);
+
+    library.automatic().await;
+    let done = artists
+        .artist_matching_status(&library.actor)
+        .await
+        .unwrap();
+    assert_eq!(done.state, ArtistMatchingState::Idle);
+    assert_eq!(done.last_matched, 3);
+    assert!(done.last_finished_at.is_some());
+    assert_eq!(done.matched_so_far, 0);
+
+    artists
+        .set_automatic_lookups(
+            &library.actor,
+            UpdateAutomaticLookups {
+                automatic_artist_lookup: Some(false),
+                automatic_artwork: None,
+                automatic_service_search: None,
+            },
+        )
+        .await
+        .unwrap();
+    let off = artists
+        .artist_matching_status(&library.actor)
+        .await
+        .unwrap();
+    assert!(!off.enabled);
+    assert_eq!(off.state, ArtistMatchingState::Idle);
 }
