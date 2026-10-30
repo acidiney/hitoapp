@@ -125,6 +125,8 @@ test("account metadata preferences persist ordered personal providers without to
     const defaults = {
       revision: 0,
       enabled: true,
+      automatic_artist_lookup: true,
+      automatic_artwork: true,
       providers: [builtin],
     } satisfies Schema<"MetadataSettings">;
     expect(

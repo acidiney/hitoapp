@@ -11,7 +11,13 @@ export function settings(
   revision = 0,
   enabled = true,
 ): Schema<"MetadataSettings"> {
-  return { revision, enabled, providers: [...providers] };
+  return {
+    revision,
+    enabled,
+    automatic_artist_lookup: true,
+    automatic_artwork: true,
+    providers: [...providers],
+  };
 }
 
 export function catalog(index: number, name = `Personal catalog ${index}`) {

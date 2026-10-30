@@ -25,6 +25,8 @@ vi.mock("../../plugins/api/pluginsApi", async (importOriginal) => {
 const initial: Schema<"MetadataSettings"> = {
   revision: 0,
   enabled: true,
+  automatic_artist_lookup: true,
+  automatic_artwork: true,
   providers: [{ kind: "builtin_musicbrainz" }],
 };
 const connections: Schema<"PluginSettings"> = {

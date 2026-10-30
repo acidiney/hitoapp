@@ -9,7 +9,8 @@ type Lines = Schema<"TimedLyrics">;
 
 export type NowPlayingLyricsState =
   | { status: "loading"; providers: Provider[] }
-  | { status: "no_provider" | "none_for_track"; providers: Provider[] }
+  | { status: "no_provider"; providers: Provider[] }
+  | { status: "none_for_track"; providers: Provider[] }
   | { status: "failed"; providers: Provider[] }
   | {
       status: "done";
