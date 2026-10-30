@@ -1,25 +1,18 @@
-use axum::{
-    Json, Router,
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::{get, post},
-};
+use axum::http::{HeaderMap, StatusCode};
 use hito_plugin_sdk::{
     ArtistProfileRequest, CATALOG_VERSION, Capability, CatalogArtistKind, CatalogArtistProfile,
-    CatalogArtistRef, CatalogCapabilities, CatalogOperation, Manifest, PROTOCOL_VERSION,
+    CatalogArtistRef, CatalogCapabilities, CatalogOperation, MANIFEST_PATH, Manifest,
+    PROTOCOL_VERSION,
 };
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::Duration,
+use hito_testkit::fake_plugin::{self as fake, FakePlugin, Gate};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
-use tokio::{
-    sync::{Mutex, Semaphore, oneshot},
-    task::JoinHandle,
-};
+
+const CAPABILITIES: &str = "v1/catalog/capabilities";
+const PROFILE: &str = "v1/catalog/artists/profile";
+const PROFILE_LIMIT: usize = 16;
 
 pub const ARTIST_ID: &str = "opaque:artist/one?credit=lead";
 pub const MISSING_DESCRIPTOR_BODY: &str = "private-catalog-descriptor-404-body-canary";
@@ -32,186 +25,110 @@ pub struct Counts {
     pub unexpected: usize,
 }
 
-#[derive(Default)]
-struct Requests {
-    manifests: AtomicUsize,
-    descriptors: AtomicUsize,
-    descriptor_missing: AtomicBool,
-    profiles: Mutex<Vec<String>>,
-    unexpected: AtomicUsize,
-    profile_gate: Mutex<Option<Arc<ProfileGate>>>,
-}
-
-pub struct ProfileGate {
-    entered: Semaphore,
-    release: Semaphore,
-    retired: Semaphore,
-}
-
-impl ProfileGate {
-    pub async fn entered(&self) {
-        self.entered.acquire().await.unwrap().forget();
-    }
-
-    pub async fn retired(&self) {
-        self.retired.acquire().await.unwrap().forget();
-    }
-}
-
-struct HeldProfile(Arc<ProfileGate>);
-
-impl Drop for HeldProfile {
-    fn drop(&mut self) {
-        self.0.retired.add_permits(1);
-    }
-}
-
 pub struct CatalogServer {
     pub url: String,
-    requests: Arc<Requests>,
-    stop: Option<oneshot::Sender<()>>,
-    task: Option<JoinHandle<bool>>,
+    plugin: FakePlugin,
+    descriptor_missing: Arc<AtomicBool>,
+    profiles: Arc<Mutex<Vec<String>>>,
+    rejected: Arc<AtomicUsize>,
+    held: Mutex<Option<Arc<Gate>>>,
 }
 
 impl CatalogServer {
     pub async fn start() -> Self {
-        let requests = Arc::new(Requests::default());
-        let router = Router::new()
-            .route("/prefix/v1/manifest", get(manifest))
-            .route("/prefix/v1/catalog/capabilities", get(capabilities))
-            .route("/prefix/v1/catalog/artists/profile", post(profile))
-            .fallback(unexpected)
-            .with_state(requests.clone());
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}/prefix/", listener.local_addr().unwrap());
-        let (stop, stopped) = oneshot::channel();
-        let task = tokio::spawn(async move {
-            axum::serve(listener, router)
-                .with_graceful_shutdown(async {
-                    let _ = stopped.await;
-                })
-                .await
-                .is_ok()
-        });
+        let descriptor_missing = Arc::new(AtomicBool::new(false));
+        let profiles = Arc::new(Mutex::new(Vec::<String>::new()));
+        let rejected = Arc::new(AtomicUsize::new(0));
+        let plugin = FakePlugin::builder(Manifest {
+            id: "org.hito.artist-catalog-fixture".into(),
+            name: "Owned artist catalog".into(),
+            protocol_version: PROTOCOL_VERSION,
+            capabilities: [Capability::Catalog].into(),
+            authorization: None,
+            content_policy: None,
+        })
+        .get(CAPABILITIES, {
+            let missing = descriptor_missing.clone();
+            move |_| {
+                if missing.load(Ordering::SeqCst) {
+                    return fake::Reply::Raw {
+                        status: StatusCode::NOT_FOUND,
+                        headers: HeaderMap::new(),
+                        body: MISSING_DESCRIPTOR_BODY.as_bytes().to_vec(),
+                        chunked: false,
+                    };
+                }
+                fake::Reply::Json(
+                    serde_json::to_value(CatalogCapabilities {
+                        catalog_version: CATALOG_VERSION,
+                        operations: vec![CatalogOperation::ArtistProfile],
+                    })
+                    .unwrap(),
+                )
+            }
+        })
+        .post(PROFILE, {
+            let (profiles, rejected) = (profiles.clone(), rejected.clone());
+            move |request| {
+                let mut profiles = profiles.lock().unwrap();
+                let parsed = serde_json::from_value::<ArtistProfileRequest>(request.json()).ok();
+                let Some(parsed) = parsed.filter(|parsed| {
+                    parsed.validate().is_ok()
+                        && parsed.artist_id == ARTIST_ID
+                        && profiles.len() < PROFILE_LIMIT
+                }) else {
+                    rejected.fetch_add(1, Ordering::SeqCst);
+                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                };
+                profiles.push(parsed.artist_id);
+                fake::Reply::Json(serde_json::to_value(expected_profile()).unwrap())
+            }
+        })
+        .start()
+        .await;
         Self {
-            url,
-            requests,
-            stop: Some(stop),
-            task: Some(task),
+            url: plugin.url.clone(),
+            plugin,
+            descriptor_missing,
+            profiles,
+            rejected,
+            held: Mutex::new(None),
         }
     }
 
     pub async fn counts(&self) -> Counts {
         Counts {
-            manifests: self.requests.manifests.load(Ordering::SeqCst),
-            descriptors: self.requests.descriptors.load(Ordering::SeqCst),
-            profiles: self.requests.profiles.lock().await.len(),
-            unexpected: self.requests.unexpected.load(Ordering::SeqCst),
+            manifests: self.plugin.requests_for(MANIFEST_PATH).len(),
+            descriptors: self.plugin.requests_for(CAPABILITIES).len(),
+            profiles: self.profiles.lock().unwrap().len(),
+            unexpected: self.rejected.load(Ordering::SeqCst) + self.plugin.unmatched(),
         }
     }
 
     pub async fn profile_requests(&self) -> Vec<String> {
-        self.requests.profiles.lock().await.clone()
+        self.profiles.lock().unwrap().clone()
     }
 
     pub fn set_descriptor_missing(&self, missing: bool) {
-        self.requests
-            .descriptor_missing
-            .store(missing, Ordering::SeqCst);
+        self.descriptor_missing.store(missing, Ordering::SeqCst);
     }
 
-    pub async fn hold_profile(&self) -> Arc<ProfileGate> {
-        let gate = Arc::new(ProfileGate {
-            entered: Semaphore::new(0),
-            release: Semaphore::new(0),
-            retired: Semaphore::new(0),
-        });
-        *self.requests.profile_gate.lock().await = Some(gate.clone());
+    pub async fn hold_profile(&self) -> Arc<Gate> {
+        let gate = self.plugin.hold(PROFILE);
+        *self.held.lock().unwrap() = Some(gate.clone());
         gate
     }
 
     pub async fn release_profile(&self) {
-        if let Some(gate) = self.requests.profile_gate.lock().await.take() {
-            gate.release.add_permits(1);
+        if let Some(gate) = self.held.lock().unwrap().take() {
+            self.plugin.clear_fault(PROFILE);
+            gate.release();
         }
     }
 
     pub async fn finish(&mut self) -> bool {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        let Some(mut task) = self.task.take() else {
-            return true;
-        };
-        match tokio::time::timeout(Duration::from_secs(3), &mut task).await {
-            Ok(result) => matches!(result, Ok(true)),
-            Err(_) => {
-                task.abort();
-                let _ = task.await;
-                false
-            }
-        }
+        self.plugin.finish().await
     }
-}
-
-impl Drop for CatalogServer {
-    fn drop(&mut self) {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-        if let Some(task) = self.task.take() {
-            task.abort();
-        }
-    }
-}
-
-async fn manifest(State(requests): State<Arc<Requests>>) -> Json<Manifest> {
-    requests.manifests.fetch_add(1, Ordering::SeqCst);
-    Json(Manifest {
-        id: "org.hito.artist-catalog-fixture".into(),
-        name: "Owned artist catalog".into(),
-        protocol_version: PROTOCOL_VERSION,
-        capabilities: [Capability::Catalog].into(),
-        authorization: None,
-        content_policy: None,
-    })
-}
-
-async fn capabilities(State(requests): State<Arc<Requests>>) -> Response {
-    requests.descriptors.fetch_add(1, Ordering::SeqCst);
-    if requests.descriptor_missing.load(Ordering::SeqCst) {
-        return (StatusCode::NOT_FOUND, MISSING_DESCRIPTOR_BODY).into_response();
-    }
-    Json(CatalogCapabilities {
-        catalog_version: CATALOG_VERSION,
-        operations: vec![CatalogOperation::ArtistProfile],
-    })
-    .into_response()
-}
-
-async fn profile(
-    State(requests): State<Arc<Requests>>,
-    Json(request): Json<ArtistProfileRequest>,
-) -> Response {
-    let mut profiles = requests.profiles.lock().await;
-    if request.validate().is_err() || request.artist_id != ARTIST_ID || profiles.len() >= 16 {
-        requests.unexpected.fetch_add(1, Ordering::SeqCst);
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-    profiles.push(request.artist_id);
-    drop(profiles);
-    let gate = requests.profile_gate.lock().await.clone();
-    if let Some(gate) = gate {
-        let _held = HeldProfile(gate.clone());
-        gate.entered.add_permits(1);
-        gate.release.acquire().await.unwrap().forget();
-    }
-    Json(expected_profile()).into_response()
-}
-
-async fn unexpected(State(requests): State<Arc<Requests>>) -> StatusCode {
-    requests.unexpected.fetch_add(1, Ordering::SeqCst);
-    StatusCode::NOT_FOUND
 }
 
 pub fn expected_profile() -> CatalogArtistProfile {
