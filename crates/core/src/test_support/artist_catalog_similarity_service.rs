@@ -1,29 +1,21 @@
-use axum::http::{Method, StatusCode};
+pub use super::observed::ObservedRequest;
+use super::observed::observed;
+use axum::http::StatusCode;
 use hito_plugin_sdk::{
     ArtistSimilarityPage, ArtistSimilarityRequest, CATALOG_SIMILARITY_VERSION, Capability,
     CatalogArtistRef, CatalogSimilarityCapabilities, CatalogSimilarityIdentity,
     CatalogSimilarityOperation, Manifest, PROTOCOL_VERSION, SimilarArtist,
 };
-use hito_testkit::fake_plugin::{self as fake, FakePlugin, Fault, RecordedRequest};
+use hito_testkit::fake_plugin::{self as fake, FakePlugin, Fault};
 use serde_json::Value;
 use std::{
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
 const CAPABILITIES: &str = "v1/catalog/similarity/capabilities";
 const ARTISTS: &str = "v1/catalog/similarity/artists";
 const REQUEST_LIMIT: usize = 32;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ObservedRequest {
-    pub method: Method,
-    pub path: String,
-    pub body: Value,
-}
 
 #[derive(Clone)]
 pub enum Reply {
@@ -41,7 +33,6 @@ pub struct SimilarityServer {
     pub url: String,
     plugin: FakePlugin,
     behavior: Arc<Mutex<Behavior>>,
-    rejected: Arc<AtomicUsize>,
 }
 
 impl SimilarityServer {
@@ -50,21 +41,6 @@ impl SimilarityServer {
             declared: true,
             reply: Reply::Similar(Vec::new()),
         }));
-        let rejected = Arc::new(AtomicUsize::new(0));
-        let seen = Arc::new(AtomicUsize::new(0));
-        let guard = {
-            let (rejected, seen) = (rejected.clone(), seen.clone());
-            move |request: &RecordedRequest| {
-                let over_limit = seen.fetch_add(1, Ordering::SeqCst) >= REQUEST_LIMIT;
-                let malformed = !request.body.is_empty()
-                    && serde_json::from_slice::<Value>(&request.body).is_err();
-                let rejects = over_limit || malformed || request.query.is_some();
-                if rejects {
-                    rejected.fetch_add(1, Ordering::SeqCst);
-                }
-                rejects
-            }
-        };
         let plugin = FakePlugin::builder(Manifest {
             id: "org.hito.artist-similarity-fixture".into(),
             name: "Owned artist similarity".into(),
@@ -74,11 +50,8 @@ impl SimilarityServer {
             content_policy: None,
         })
         .get(CAPABILITIES, {
-            let (behavior, guard) = (behavior.clone(), guard.clone());
-            move |request| {
-                if guard(request) {
-                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
-                }
+            let behavior = behavior.clone();
+            move |_| {
                 if behavior.lock().unwrap().declared {
                     fake::Reply::Json(
                         serde_json::to_value(CatalogSimilarityCapabilities {
@@ -94,18 +67,14 @@ impl SimilarityServer {
             }
         })
         .post(ARTISTS, {
-            let (behavior, rejected) = (behavior.clone(), rejected.clone());
+            let behavior = behavior.clone();
             move |request| {
-                if guard(request) {
-                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
-                }
                 let behavior = behavior.lock().unwrap();
                 let parsed = serde_json::from_value::<ArtistSimilarityRequest>(request.json())
                     .ok()
                     .filter(|parsed| behavior.declared && parsed.validate().is_ok());
                 let Some(parsed) = parsed else {
-                    rejected.fetch_add(1, Ordering::SeqCst);
-                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                    return fake::Reply::Refuse;
                 };
                 match &behavior.reply {
                     Reply::Similar(items) => fake::Reply::Json(
@@ -130,13 +99,13 @@ impl SimilarityServer {
                 }
             }
         })
+        .strict(REQUEST_LIMIT)
         .start()
         .await;
         Self {
             url: plugin.url.clone(),
             plugin,
             behavior,
-            rejected,
         }
     }
 
@@ -164,16 +133,7 @@ impl SimilarityServer {
     }
 
     pub fn requests(&self) -> Vec<ObservedRequest> {
-        self.plugin
-            .requests()
-            .into_iter()
-            .take(REQUEST_LIMIT)
-            .map(|request| ObservedRequest {
-                path: format!("/prefix/{}", request.operation),
-                body: request.json(),
-                method: request.method,
-            })
-            .collect()
+        observed(&self.plugin, REQUEST_LIMIT)
     }
 
     pub fn similarity_requests(&self) -> Vec<Value> {
@@ -185,7 +145,7 @@ impl SimilarityServer {
     }
 
     pub fn unexpected(&self) -> usize {
-        self.rejected.load(Ordering::SeqCst) + self.plugin.unmatched()
+        self.plugin.unexpected()
     }
 
     pub async fn finish(&mut self) -> bool {

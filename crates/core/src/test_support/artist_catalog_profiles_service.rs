@@ -7,7 +7,7 @@ use hito_plugin_sdk::{
 use hito_testkit::fake_plugin::{self as fake, FakePlugin, Gate};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, Ordering},
 };
 
 const CAPABILITIES: &str = "v1/catalog/capabilities";
@@ -30,7 +30,6 @@ pub struct CatalogServer {
     plugin: FakePlugin,
     descriptor_missing: Arc<AtomicBool>,
     profiles: Arc<Mutex<Vec<String>>>,
-    rejected: Arc<AtomicUsize>,
     held: Mutex<Option<Arc<Gate>>>,
 }
 
@@ -38,7 +37,6 @@ impl CatalogServer {
     pub async fn start() -> Self {
         let descriptor_missing = Arc::new(AtomicBool::new(false));
         let profiles = Arc::new(Mutex::new(Vec::<String>::new()));
-        let rejected = Arc::new(AtomicUsize::new(0));
         let plugin = FakePlugin::builder(Manifest {
             id: "org.hito.artist-catalog-fixture".into(),
             name: "Owned artist catalog".into(),
@@ -68,7 +66,7 @@ impl CatalogServer {
             }
         })
         .post(PROFILE, {
-            let (profiles, rejected) = (profiles.clone(), rejected.clone());
+            let profiles = profiles.clone();
             move |request| {
                 let mut profiles = profiles.lock().unwrap();
                 let parsed = serde_json::from_value::<ArtistProfileRequest>(request.json()).ok();
@@ -77,8 +75,7 @@ impl CatalogServer {
                         && parsed.artist_id == ARTIST_ID
                         && profiles.len() < PROFILE_LIMIT
                 }) else {
-                    rejected.fetch_add(1, Ordering::SeqCst);
-                    return fake::Reply::Status(StatusCode::BAD_REQUEST);
+                    return fake::Reply::Refuse;
                 };
                 profiles.push(parsed.artist_id);
                 fake::Reply::Json(serde_json::to_value(expected_profile()).unwrap())
@@ -91,7 +88,6 @@ impl CatalogServer {
             plugin,
             descriptor_missing,
             profiles,
-            rejected,
             held: Mutex::new(None),
         }
     }
@@ -101,7 +97,7 @@ impl CatalogServer {
             manifests: self.plugin.requests_for(MANIFEST_PATH).len(),
             descriptors: self.plugin.requests_for(CAPABILITIES).len(),
             profiles: self.profiles.lock().unwrap().len(),
-            unexpected: self.rejected.load(Ordering::SeqCst) + self.plugin.unmatched(),
+            unexpected: self.plugin.unexpected(),
         }
     }
 
