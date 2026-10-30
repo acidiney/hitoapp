@@ -1,14 +1,20 @@
 mod arguments;
 mod config;
-mod logging;
 mod private_files;
 
 use hito_plugin_all_debrid::router;
+use hito_plugin_sdk::server::init_logging;
 use std::{process::ExitCode, time::Instant};
 use tracing::Instrument;
 
 pub(super) async fn run() -> ExitCode {
-    if logging::initialize().is_err() {
+    if init_logging(&[
+        "hito_plugin_all_debrid",
+        "hito_debrid_all_debrid",
+        "hito_remote_audio",
+    ])
+    .is_err()
+    {
         return ExitCode::FAILURE;
     }
     let started = Instant::now();

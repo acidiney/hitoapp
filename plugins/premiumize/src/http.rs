@@ -6,10 +6,8 @@ use crate::{
 };
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Request, State, rejection::JsonRejection},
-    http::HeaderValue,
-    middleware::{Next, from_fn_with_state},
-    response::{IntoResponse, Response},
+    extract::rejection::JsonRejection,
+    middleware::from_fn_with_state,
     routing::{get, post},
 };
 use hito_plugin_sdk::{
@@ -17,40 +15,37 @@ use hito_plugin_sdk::{
     PreparationStatusRequest, PreparationStatusResponse, PreparationSubmission,
     PreparationSubmitResponse, ProviderRecording, ProviderSource, RecordingRequest, SearchPage,
     SearchRequest, SourcePage, SourcePersistence,
+    server::{RequestPolicy, observe_requests, with_manifest},
 };
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tokio::sync::Semaphore;
-use tracing::Instrument;
+use std::sync::Arc;
 
 pub(crate) struct HttpState {
     pub(crate) connections: Vec<Arc<Connection>>,
-    slots: Arc<Semaphore>,
 }
 
 pub fn router(config: Config) -> Result<Router, InitError> {
     let state = Arc::new(HttpState {
         connections: config::connections(config)?,
-        slots: Arc::new(Semaphore::new(16)),
     });
-    Ok(Router::new()
-        .route("/v1/manifest", get(manifest))
+    let policy = Arc::new(
+        RequestPolicy::new(hito_plugin_sdk::request_telemetry!("premiumize"), None)
+            .with_request_id_header(),
+    );
+    let routes = Router::new()
         .route("/v1/search", post(search))
         .route("/v1/recordings/detail", post(detail))
         .route("/v1/sources", post(sources))
         .route("/v1/sources/prepare", post(prepare))
         .route("/v1/sources/preparation/status", post(status))
         .route("/v1/audio", get(audio::response))
-        .fallback(|| async { Error::NotFound })
-        .layer(DefaultBodyLimit::max(4096))
-        .layer(from_fn_with_state(state.clone(), observe))
+        .fallback(|| async { Error::NotFound });
+    Ok(with_manifest(routes, manifest(), 4096)
+        .layer(from_fn_with_state(policy, observe_requests))
         .with_state(state))
 }
 
-async fn manifest() -> Json<Manifest> {
-    Json(Manifest {
+fn manifest() -> Manifest {
+    Manifest {
         id: "org.hito.premiumize".into(),
         name: "Premiumize curated WAV".into(),
         protocol_version: PROTOCOL_VERSION,
@@ -64,7 +59,7 @@ async fn manifest() -> Json<Manifest> {
         content_policy: Some(ContentPolicy {
             source_persistence: SourcePersistence::PlaybackOnly,
         }),
-    })
+    }
 }
 
 async fn search(
@@ -146,95 +141,4 @@ async fn status(
         handle: request.handle,
         status,
     }))
-}
-
-async fn observe(State(state): State<Arc<HttpState>>, request: Request, next: Next) -> Response {
-    let operation = match request.uri().path() {
-        "/v1/manifest" => "manifest",
-        "/v1/search" => "search",
-        "/v1/recordings/detail" => "detail",
-        "/v1/sources" => "sources",
-        "/v1/sources/prepare" => "prepare",
-        "/v1/sources/preparation/status" => "preparation_status",
-        "/v1/audio" => "audio",
-        _ => "unknown",
-    };
-    let request_id = uuid::Uuid::new_v4();
-    let span = tracing::debug_span!("premiumize_plugin_request", %request_id, operation);
-    let mut log = RequestLog {
-        dispatch: tracing::dispatcher::get_default(Clone::clone),
-        span: span.clone(),
-        started: Instant::now(),
-        outcome: "cancelled",
-        status: 0,
-    };
-    let result = async {
-        if request
-            .uri()
-            .query()
-            .is_some_and(|value| value.len() > 4096)
-            || request.headers().len() > 32
-            || request
-                .headers()
-                .iter()
-                .map(|(name, value)| name.as_str().len() + value.as_bytes().len())
-                .sum::<usize>()
-                > 8192
-        {
-            return Err(Error::InvalidRequest);
-        }
-        let _permit = state
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Error::Busy)?;
-        tokio::time::timeout(Duration::from_secs(14), next.run(request))
-            .await
-            .map_err(|_| Error::Deadline)
-    }
-    .instrument(span)
-    .await;
-    let mut response = result.unwrap_or_else(IntoResponse::into_response);
-    response.headers_mut().insert(
-        "cache-control",
-        HeaderValue::from_static("private, no-store"),
-    );
-    response.headers_mut().insert(
-        "x-content-type-options",
-        HeaderValue::from_static("nosniff"),
-    );
-    response.headers_mut().insert(
-        "x-request-id",
-        HeaderValue::from_str(&request_id.to_string())
-            .expect("a generated request UUID is a valid header value"),
-    );
-    log.status = response.status().as_u16();
-    log.outcome = match log.status {
-        200..=299 => "success",
-        401 => "unauthorized",
-        _ => "rejected",
-    };
-    response
-}
-
-struct RequestLog {
-    dispatch: tracing::Dispatch,
-    span: tracing::Span,
-    started: Instant,
-    outcome: &'static str,
-    status: u16,
-}
-
-impl Drop for RequestLog {
-    fn drop(&mut self) {
-        let _dispatch = tracing::dispatcher::set_default(&self.dispatch);
-        let span = std::mem::replace(&mut self.span, tracing::Span::none());
-        let _entered = span.enter();
-        tracing::debug!(
-            event = "premiumize_plugin_request_finished",
-            outcome = self.outcome,
-            status = self.status,
-            elapsed_ms = self.started.elapsed().as_millis() as u64
-        );
-    }
 }

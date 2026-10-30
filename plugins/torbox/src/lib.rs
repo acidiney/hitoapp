@@ -76,7 +76,7 @@ impl Service {
             media_origins,
             recordings,
         } = config;
-        let policy = policy::Policy::new(service_bearer)?;
+        let policy = policy::request_policy(service_bearer)?;
         let catalog = catalog::Catalog::new(recordings)?;
         journal::Journal::validate_catalog(&catalog)?;
         let journal = journal::Journal::open(state, &client, &catalog).await?;

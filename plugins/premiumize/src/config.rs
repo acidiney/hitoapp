@@ -1,9 +1,9 @@
 use hito_debrid_premiumize::{MediaAllowlist, PremiumizeClient, TransferFileBinding};
-use hito_plugin_sdk::ProviderRecording;
+use hito_plugin_sdk::{ProviderRecording, server::credential_digest};
 use std::sync::Arc;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::{catalog::Catalog, policy, receipts::Receipts};
+use crate::{catalog::Catalog, receipts::Receipts};
 
 pub struct Config {
     pub connections: Vec<ConnectionConfig>,
@@ -41,7 +41,7 @@ pub(crate) fn connections(config: Config) -> Result<Vec<Arc<Connection>>, InitEr
     for mut config in config.connections {
         let service_bearer = Zeroizing::new(std::mem::take(&mut config.service_bearer));
         let service_authority =
-            policy::credential_digest(&service_bearer).ok_or(InitError::InvalidConfiguration)?;
+            credential_digest(&service_bearer).ok_or(InitError::InvalidConfiguration)?;
         let receipt_key = Zeroizing::new(config.receipt_key);
         config.receipt_key.zeroize();
         if receipt_key.iter().all(|byte| *byte == 0)

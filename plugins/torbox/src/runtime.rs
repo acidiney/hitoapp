@@ -1,15 +1,21 @@
 mod arguments;
 mod config;
 mod http;
-mod logging;
 mod private_files;
 
+use hito_plugin_sdk::server::init_logging;
 use hito_plugin_torbox::Service;
 use std::{process::ExitCode, time::Instant};
 use tracing::Instrument;
 
 pub(super) async fn run() -> ExitCode {
-    if logging::initialize().is_err() {
+    if init_logging(&[
+        "hito_plugin_torbox",
+        "hito_debrid_torbox",
+        "hito_remote_audio",
+    ])
+    .is_err()
+    {
         return ExitCode::FAILURE;
     }
     let started = Instant::now();

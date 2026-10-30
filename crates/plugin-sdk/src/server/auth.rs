@@ -47,6 +47,7 @@ pub fn require_protocol(headers: &HeaderMap) -> Result<(), AuthFailure> {
     Ok(())
 }
 
+#[derive(Clone)]
 pub struct ServiceAuth {
     digest: [u8; 32],
 }

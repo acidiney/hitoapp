@@ -11,7 +11,7 @@ base64.workspace = true
 chacha20poly1305.workspace = true
 futures-util.workspace = true
 hito-debrid-all-debrid = { path = "../../crates/debrid/all-debrid" }
-hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk", features = ["server"] }
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -20,7 +20,6 @@ subtle = "=2.6.1"
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
 

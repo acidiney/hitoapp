@@ -2,13 +2,12 @@ use crate::{
     audio,
     catalog::Catalog,
     journal::{Handle, Target},
-    policy::{Error, Policy},
+    policy::Error,
     preparation,
 };
 use axum::{
     Json, Router,
-    extract::Request,
-    extract::{DefaultBodyLimit, State, rejection::JsonRejection},
+    extract::{Request, State, rejection::JsonRejection},
     middleware::{Next, from_fn_with_state},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -19,6 +18,7 @@ use hito_plugin_sdk::{
     PreparationStatusRequest, PreparationStatusResponse, PreparationSubmitResponse,
     ProviderRecording, ProviderSource, RecordingRequest, SearchPage, SearchRequest, SourcePage,
     SourcePersistence,
+    server::{RequestPolicy, observe_requests, with_manifest},
 };
 use std::sync::{
     Arc,
@@ -33,7 +33,7 @@ pub(crate) struct HttpState {
 }
 
 pub(crate) fn router(
-    policy: Policy,
+    policy: RequestPolicy,
     catalog: Catalog,
     client: TorBoxClient,
     media_origins: MediaAllowlist,
@@ -47,17 +47,16 @@ pub(crate) fn router(
         media_origins,
         journal,
     });
-    Router::new()
-        .route("/v1/manifest", get(manifest))
+    let routes = Router::new()
         .route("/v1/search", post(search))
         .route("/v1/recordings/detail", post(detail))
         .route("/v1/sources", post(sources))
         .route("/v1/sources/prepare", post(prepare))
         .route("/v1/sources/preparation/status", post(status))
-        .route("/v1/audio", get(audio::response))
-        .layer(DefaultBodyLimit::max(4096))
+        .route("/v1/audio", get(audio::response));
+    with_manifest(routes, manifest(), 4096)
         .layer(from_fn_with_state(gate, admitted))
-        .layer(from_fn_with_state(policy, crate::policy::observe))
+        .layer(from_fn_with_state(policy, observe_requests))
         .with_state(state)
 }
 
@@ -68,8 +67,8 @@ async fn admitted(State(gate): State<Arc<AtomicBool>>, request: Request, next: N
     next.run(request).await
 }
 
-async fn manifest() -> Json<Manifest> {
-    Json(Manifest {
+fn manifest() -> Manifest {
+    Manifest {
         id: "org.hito.torbox".into(),
         name: "TorBox curated WAV".into(),
         protocol_version: PROTOCOL_VERSION,
@@ -83,7 +82,7 @@ async fn manifest() -> Json<Manifest> {
         content_policy: Some(ContentPolicy {
             source_persistence: SourcePersistence::PlaybackOnly,
         }),
-    })
+    }
 }
 
 async fn search(

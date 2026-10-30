@@ -16,7 +16,7 @@ cap-std.workspace = true
 futures-util.workspace = true
 hmac = "=0.12.1"
 hito-debrid-torbox = { path = "../../crates/debrid/torbox" }
-hito-plugin-sdk = { path = "../../crates/plugin-sdk" }
+hito-plugin-sdk = { path = "../../crates/plugin-sdk", features = ["server"] }
 hyper.workspace = true
 hyper-util.workspace = true
 libc = "=0.2.190"
@@ -28,11 +28,11 @@ subtle = "=2.6.1"
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 hito-plugin-torbox = { path = ".", features = ["test-support"] }
 hito-audio = { path = "../../crates/audio" }
 hito-testkit = { path = "../../crates/testkit" }
