@@ -45,9 +45,10 @@ export default function SearchPage({
   const sentAutomatically =
     automatic && query !== "" && libraryTotal < FEW_LIBRARY_RESULTS;
   const requested =
-    scope === "providers" ||
-    (asked === query && query !== "") ||
-    sentAutomatically;
+    scope !== "library" &&
+    (scope === "providers" ||
+      (asked === query && query !== "") ||
+      sentAutomatically);
   const providers = useProviderSearch(
     user.id,
     connections,
@@ -80,6 +81,15 @@ export default function SearchPage({
           onChange={setDraft}
           onSubmit={(value) => router.get("/search", { q: value })}
         />
+        {automatic && scope !== "library" && connections.length > 0 && (
+          <p className="muted">
+            With few matches in your library, your search is sent to your
+            connected services.{" "}
+            <Link className="text-link" href="/settings?section=privacy">
+              Change in Settings
+            </Link>
+          </p>
+        )}
         <FilterPills<Scope>
           label="Search scope"
           options={[

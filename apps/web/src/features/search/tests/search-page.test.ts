@@ -335,9 +335,11 @@ test("few library results search the connected services without another click", 
   ).toBeTruthy();
   expect(
     screen
-      .getByRole("link", { name: "Change in Settings" })
-      .getAttribute("href"),
-  ).toBe("/settings?section=privacy");
+      .getAllByRole("link", { name: "Change in Settings" })
+      .every(
+        (link) => link.getAttribute("href") === "/settings?section=privacy",
+      ),
+  ).toBe(true);
   expect(
     screen.queryByRole("button", { name: "Search your services" }),
   ).toBeNull();
@@ -365,5 +367,74 @@ test("turning automatic service search off restores the explicit button", async 
   expect(fetch).not.toHaveBeenCalled();
   expect(
     screen.getByRole("button", { name: "Search your services" }),
+  ).toBeTruthy();
+});
+
+test("the Library scope never sends the query to a service", async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  const connected = {
+    connections: [connection],
+    service_names: { service: "Home" },
+  };
+  const view = render(createElement(SearchPage, props(connected)));
+  fireEvent.click(screen.getByRole("button", { name: "Library" }));
+  view.rerender(
+    createElement(
+      SearchPage,
+      props({
+        ...connected,
+        query: "joe",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+      }),
+    ),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test("when storage is unavailable automatic service search stays off", async () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const empty = { items: [], total: 0, offset: 0, limit: 8 };
+  render(
+    createElement(
+      SearchPage,
+      props({
+        query: "joe",
+        recordings: empty,
+        releases: empty,
+        artists: empty,
+        connections: [connection],
+        service_names: { service: "Home" },
+      }),
+    ),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(fetch).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("button", { name: "Search your services" }),
+  ).toBeTruthy();
+  vi.restoreAllMocks();
+});
+
+test("the disclosure sits next to the search field before any result", () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}")));
+  render(
+    createElement(
+      SearchPage,
+      props({ query: "", connections: [connection], service_names: {} }),
+    ),
+  );
+  expect(
+    screen.getByText(
+      /few matches in your library, your search is sent to your connected services/i,
+    ),
   ).toBeTruthy();
 });
