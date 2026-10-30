@@ -124,23 +124,37 @@ impl ArtistCatalog {
         release: &str,
         cancelled: impl Future<Output = ()> + Send,
     ) -> Result<AlbumEditionTrackListAvailability> {
-        self.bounded_album_read(cancelled, async {
-            let choice = self.saved_album_edition(actor, release).await?;
-            let AlbumEditionChoiceState::Ready { edition } = choice.state else {
-                return Ok(AlbumEditionTrackListAvailability::NeedsChoice);
-            };
-            self.read_album_edition(
-                actor,
-                release,
-                ReadAlbumEditionTrackList {
-                    recording_id: edition.recording_id,
-                    association_id: edition.association_id,
-                    release_group_id: edition.release_group_id,
-                    edition_id: edition.edition_id,
-                },
-            )
-            .await
-        })
+        self.bounded_album_read(
+            cancelled,
+            self.read_saved_album_edition(actor, release, None),
+        )
+        .await
+    }
+
+    /// Reads the remembered edition, optionally only while it still belongs to one release group.
+    pub(super) async fn read_saved_album_edition(
+        &self,
+        actor: &Actor,
+        release: &str,
+        release_group: Option<&str>,
+    ) -> Result<AlbumEditionTrackListAvailability> {
+        let choice = self.saved_album_edition(actor, release).await?;
+        let AlbumEditionChoiceState::Ready { edition } = choice.state else {
+            return Ok(AlbumEditionTrackListAvailability::NeedsChoice);
+        };
+        if release_group.is_some_and(|group| group != edition.release_group_id) {
+            return Ok(AlbumEditionTrackListAvailability::NeedsChoice);
+        }
+        self.read_album_edition(
+            actor,
+            release,
+            ReadAlbumEditionTrackList {
+                recording_id: edition.recording_id,
+                association_id: edition.association_id,
+                release_group_id: edition.release_group_id,
+                edition_id: edition.edition_id,
+            },
+        )
         .await
     }
 

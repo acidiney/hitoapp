@@ -97,6 +97,8 @@ mod artwork;
 
 #[path = "api/album_editions.rs"]
 mod album_editions;
+#[path = "api/album_library_level.rs"]
+mod album_library_level;
 #[path = "api/artist_association_changes.rs"]
 mod artist_association_changes;
 #[path = "api/artist_discography.rs"]

@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/albums/{id}/edition/library-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["album_library_level"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/albums/{id}/edition/track-list": {
         parameters: {
             query?: never;
@@ -2366,6 +2382,30 @@ export interface components {
             query: string;
             releases: components["schemas"]["ReleasePage"];
         };
+        AlbumLibraryLevel: {
+            /** Format: int32 */
+            edition_tracks: number;
+            level: components["schemas"]["LibraryLevel"];
+            /** Format: int32 */
+            matched_tracks: number;
+            /** @enum {string} */
+            status: "compared";
+        } | {
+            /** @enum {string} */
+            status: "needs_choice";
+        } | {
+            /** @enum {string} */
+            status: "disabled";
+        } | {
+            /** @enum {string} */
+            status: "unsupported";
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+        } | {
+            /** @enum {string} */
+            status: "cancelled";
+        };
         AlbumPageProps: components["schemas"]["SharedPageProps"] & {
             detail: components["schemas"]["ReleaseDetail"];
         };
@@ -3308,6 +3348,8 @@ export interface components {
             /** Format: int64 */
             track_count: number;
         };
+        /** @enum {string} */
+        LibraryLevel: "in_library" | "partly" | "linked";
         LibraryReleaseGroup: {
             albums: components["schemas"]["LibraryAlbum"][];
             release_group_id: string;
@@ -4173,6 +4215,9 @@ export interface components {
             association_id: string;
             edition_id: string;
             recording_id: string;
+            release_group_id: string;
+        };
+        ReadAlbumLibraryLevel: {
             release_group_id: string;
         };
         ReadArtistDiscography: {
@@ -5526,6 +5571,97 @@ export interface operations {
                 };
             };
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    album_library_level: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadAlbumLibraryLevel"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    /** @description private, no-store */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlbumLibraryLevel"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

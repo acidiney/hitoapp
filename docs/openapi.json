@@ -1001,6 +1001,130 @@
         ]
       }
     },
+    "/api/v1/albums/{id}/edition/library-level": {
+      "post": {
+        "operationId": "album_library_level",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadAlbumLibraryLevel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumLibraryLevel"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/albums/{id}/edition/track-list": {
       "post": {
         "operationId": "saved_album_edition_track_list",
@@ -15052,6 +15176,110 @@
           }
         ]
       },
+      "AlbumLibraryLevel": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "level",
+              "matched_tracks",
+              "edition_tracks",
+              "status"
+            ],
+            "properties": {
+              "edition_tracks": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "level": {
+                "$ref": "#/components/schemas/LibraryLevel"
+              },
+              "matched_tracks": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "compared"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "needs_choice"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "disabled"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unsupported"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "AlbumPageProps": {
         "allOf": [
           {
@@ -18852,6 +19080,14 @@
           }
         }
       },
+      "LibraryLevel": {
+        "type": "string",
+        "enum": [
+          "in_library",
+          "partly",
+          "linked"
+        ]
+      },
       "LibraryReleaseGroup": {
         "type": "object",
         "required": [
@@ -22271,6 +22507,18 @@
           "recording_id": {
             "type": "string"
           },
+          "release_group_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReadAlbumLibraryLevel": {
+        "type": "object",
+        "required": [
+          "release_group_id"
+        ],
+        "properties": {
           "release_group_id": {
             "type": "string"
           }

@@ -160,6 +160,7 @@ fn api_routes() -> OpenApiRouter<Services> {
         .routes(routes!(api::album_editions::track_list))
         .routes(routes!(api::album_editions::track_audio))
         .routes(routes!(api::album_editions::saved_track_list))
+        .routes(routes!(api::album_editions::library_level))
         .routes(routes!(api::album_editions::choose))
         .routes(routes!(api::album_editions::clear))
         .routes(routes!(api::artist_editions::list))
