@@ -63,7 +63,9 @@ check-plugins:
 check-community:
 	$(RUST) cargo test --locked -p hito-community
 
-check-web: test-web web-lint
+check-web:
+	$(MAKE) test-web
+	$(MAKE) web-lint
 
 web-install:
 	$(NODE) npm ci
@@ -90,7 +92,8 @@ e2e:
 	$(NODE) node /workspace/scripts/audio-fixtures.mjs --e2e
 	$(COMPOSE) --profile e2e rm -sf e2e-server
 	$(COMPOSE) --profile e2e up --build -d e2e-server
-	$(COMPOSE) --profile e2e run --rm browser npm run $(E2E_SCRIPT); status=$$?; $(COMPOSE) --profile e2e stop e2e-server; exit $$status
+	@printf '%s\n' '$(E2E_SCRIPT)' | grep -Eq '^[a-z0-9:_-]+$$' || { echo 'E2E_SCRIPT must match ^[a-z0-9:_-]+$$' >&2; exit 2; }
+	$(COMPOSE) --profile e2e run --rm browser npm run '$(E2E_SCRIPT)'; status=$$?; $(COMPOSE) --profile e2e stop e2e-server; exit $$status
 
 desktop:
 	./scripts/check-desktop.sh

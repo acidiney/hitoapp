@@ -28,6 +28,7 @@ ARG PLUGIN
 ARG SOURCE_ID=
 ARG INPUT_SHA256=
 ARG HITO_PLUGIN_CACHE_ID=hito-plugin-build
+ARG CARGO_OFFLINE=0
 ARG TARGETARCH
 WORKDIR /workspace
 ENV CARGO_TARGET_DIR=/build/plugin-release-target \
@@ -46,11 +47,13 @@ COPY apps/community apps/community
 COPY plugins plugins
 COPY vendor vendor
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${TARGETARCH},sharing=locked,target=/build/plugin-release-target \
+    --mount=type=cache,id=${HITO_PLUGIN_CACHE_ID}-${SOURCE_ID}-${INPUT_SHA256}-${TARGETARCH},sharing=locked,target=/build/plugin-release-target \
     test -n "${PLUGIN}" && \
     { [ -z "${SOURCE_ID}" ] || printf '%s\n' "${SOURCE_ID}" | grep -Eq '^[0-9a-f]{40}$'; } && \
     { [ -z "${INPUT_SHA256}" ] || printf '%s\n' "${INPUT_SHA256}" | grep -Eq '^[0-9a-f]{64}$'; } && \
-    cargo build --locked --release -j 2 -p "${PLUGIN}" --bin "${PLUGIN}" && \
+    printf '%s\n' "${TARGETARCH}" | grep -Eq '^[a-z0-9][a-z0-9_]*$' && \
+    { [ "${CARGO_OFFLINE}" != 1 ] || offline=--offline; } && \
+    cargo build --locked ${offline:-} --release -j 2 -p "${PLUGIN}" --bin "${PLUGIN}" && \
     cp "/build/plugin-release-target/release/${PLUGIN}" /plugin
 
 FROM extras-${EXTRAS} AS extras
@@ -61,9 +64,11 @@ ARG PORT
 ARG STATE_DIR=/state
 ARG SOURCE_ID=
 ARG INPUT_SHA256=
+ARG TARGETARCH
 LABEL org.hito.plugin="${PLUGIN}" \
       org.opencontainers.image.revision="${SOURCE_ID}" \
-      org.hito.product-input-sha256="${INPUT_SHA256}"
+      org.hito.product-input-sha256="${INPUT_SHA256}" \
+      org.hito.build-target-arch="${TARGETARCH}"
 RUN test -n "${PORT}" && \
     apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && \
     groupadd --gid 10001 hito-plugin && \

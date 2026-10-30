@@ -44,10 +44,10 @@ runs before configuration, immediately before build, and after build. The
 `--check-only` command resolves this configuration without starting a compiler.
 
 The pinned Rust and Debian base images follow the reviewed Real-Debrid package.
-Cargo is locked, offline, limited to two jobs, and builds only the release
+Cargo is locked, offline (the Compose overlay sets `CARGO_OFFLINE=1` for the shared `docker/plugin.Dockerfile`), limited to two jobs, and builds only the release
 executable with debug information and incremental compilation disabled. The
 registry cache must already contain its dependencies. The separate release
-target cache includes the input digest and target architecture. Debian package
+target cache includes the source ID, input digest and target architecture. Recorded image `sha256:0973019e…` (digest `bdb39850…`) was built from the earlier per-plugin Dockerfile and is historical. Debian package
 installation during image construction requires its package repositories; the
 runtime audit below has no network access.
 

@@ -168,7 +168,10 @@ Its frozen context contains 1,490 file/mode records over base revision
 `31ebbd03b0d7ca170f53cd6a6e82c92b9d632794` and the packaging additions, with input
 digest `bdb39850323e51f84b0bf3e79bb39e30ce47bc404747680cbd70a4130dfb8c42`.
 Cargo built only the selected executable, locked and offline, with two jobs and
-debug information and incremental compilation disabled. This qualifies that
+debug information and incremental compilation disabled. This evidence was built from
+the earlier per-plugin `docker/plugin-all-debrid.Dockerfile`, which no longer exists; it is
+historical. The shared `docker/plugin.Dockerfile` builds offline when `CARGO_OFFLINE=1`,
+which the all-debrid and torbox overlays set, and has not been re-qualified with a build. This qualifies that
 standalone image, not a current-main Hito application image. All 208 accepted
 service inputs and the packaging implementation match after integration;
 qualification prose was updated afterward.

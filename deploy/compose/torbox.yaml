@@ -14,6 +14,7 @@ services:
         HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
         STATE_DIR: /var/lib/hito-torbox
         SOURCE_ID: ${HITO_TORBOX_SOURCE_ID:?Set the frozen source revision}
+        CARGO_OFFLINE: "1"
         INPUT_SHA256: ${HITO_TORBOX_INPUT_SHA256:?Set the frozen input digest}
     command:
       - --listen

@@ -13,6 +13,7 @@ services:
         PORT: "8097"
         HITO_PLUGIN_CACHE_ID: hito-plugin-${COMPOSE_PROJECT_NAME:-standalone}
         SOURCE_ID: ${HITO_ALL_DEBRID_SOURCE_ID:?Set the frozen source revision}
+        CARGO_OFFLINE: "1"
         INPUT_SHA256: ${HITO_ALL_DEBRID_INPUT_SHA256:?Set the frozen input digest}
     command:
       - --provider-token-file
