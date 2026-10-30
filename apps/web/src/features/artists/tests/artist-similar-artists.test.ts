@@ -31,6 +31,12 @@ vi.mock("@inertiajs/react", () => ({
     createElement("a", props, children),
 }));
 
+const similar = (path: string) => path.endsWith("/similar-artists");
+const quiet = (init?: RequestInit) =>
+  new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+  });
+
 const MBID = "11111111-1111-4111-8111-111111111111";
 const CHOSEN = "22222222-2222-4222-8222-222222222222";
 const NAMESAKE = "33333333-3333-4333-8333-333333333333";
@@ -59,6 +65,7 @@ type Call = { path: string; init: RequestInit };
 function stub(...replies: Array<unknown | (() => Promise<Response>)>) {
   const calls: Call[] = [];
   const fetch = vi.fn(async (path: string, init: RequestInit) => {
+    if (!similar(path)) return quiet(init);
     calls.push({ path, init });
     const next = replies.shift();
     if (typeof next === "function") return (next as () => Promise<Response>)();
@@ -77,19 +84,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const button = () =>
-  screen.getByRole("button", { name: "Show similar artists" });
-
-test("the section waits for an explicit request and is absent for other identity providers", () => {
-  const http = stub();
+test("the section loads by itself, says what is sent, and is absent for other identity providers", async () => {
+  const http = stub(available([]));
   render(createElement(ArtistIdentityGroupPage, props()));
   expect(screen.getByRole("heading", { name: "Similar artists" })).toBeTruthy();
-  expect(button()).toBeTruthy();
-  expect(http.fetch).not.toHaveBeenCalled();
+  expect(screen.getByText(/never your listening history/)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Show similar artists" }),
+  ).toBeNull();
+  await waitFor(() => expect(http.calls).toHaveLength(1));
   cleanup();
+  http.calls.length = 0;
   render(createElement(ArtistIdentityGroupPage, props("plugin")));
   expect(screen.queryByRole("heading", { name: "Similar artists" })).toBeNull();
-  expect(http.fetch).not.toHaveBeenCalled();
+  await Promise.resolve();
+  expect(http.calls).toHaveLength(0);
 });
 
 test("similar artists link only exact chosen artists and never by name", async () => {
@@ -111,7 +120,6 @@ test("similar artists link only exact chosen artists and never by name", async (
     ]),
   );
   render(createElement(ArtistIdentityGroupPage, shown));
-  fireEvent.click(button());
   const link = await screen.findByRole("link", { name: "Chosen band" });
   expect(link.getAttribute("href")).toBe("/artist-groups/chosen-group");
   const list = screen.getByRole("list", { name: "Similar artists" });
@@ -130,27 +138,32 @@ test("similar artists link only exact chosen artists and never by name", async (
   ).toBeNull();
 });
 
+test("a provider without similar artists hides the section", async () => {
+  const http = stub({ status: "unsupported" });
+  render(createElement(ArtistIdentityGroupPage, props()));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("heading", { name: "Similar artists" }),
+    ).toBeNull(),
+  );
+  expect(http.calls).toHaveLength(1);
+  expect(
+    screen.queryByRole("link", { name: "Manage metadata providers" }),
+  ).toBeNull();
+});
+
 test.each([
-  ["unsupported", /Choose a provider that offers similar artists/],
   ["disabled", /Metadata providers are disabled/],
   ["cancelled", /request was cancelled/],
 ])("a %s answer is explained with a way forward", async (status, text) => {
   stub({ status });
   render(createElement(ArtistIdentityGroupPage, props()));
-  fireEvent.click(button());
   await screen.findByText(text);
-  if (status === "unsupported")
-    expect(
-      screen
-        .getByRole("link", { name: "Manage metadata providers" })
-        .getAttribute("href"),
-    ).toBe("/settings?section=metadata");
 });
 
 test("an empty answer is honest", async () => {
   stub(available([]));
   render(createElement(ArtistIdentityGroupPage, props()));
-  fireEvent.click(button());
   await screen.findByText(/returned no similar artists/);
 });
 
@@ -168,13 +181,9 @@ test("a failing service leaves the rest of the page working and can be retried",
     ]),
   );
   render(createElement(ArtistIdentityGroupPage, props()));
-  fireEvent.click(button());
   const alert = await screen.findByRole("alert");
   expect(alert.textContent).toContain("unavailable");
   expect(screen.getByRole("heading", { name: "Libraries" })).toBeTruthy();
-  expect(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   await waitFor(() =>
     expect(screen.getByRole("alert").textContent).toContain("Bad gateway"),
@@ -185,7 +194,7 @@ test("a failing service leaves the rest of the page working and can be retried",
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-test("StrictMode and double clicks send one request", async () => {
+test("StrictMode sends one automatic request", async () => {
   const http = stub(available([]));
   render(
     createElement(
@@ -194,9 +203,6 @@ test("StrictMode and double clicks send one request", async () => {
       createElement(ArtistIdentityGroupPage, props()),
     ),
   );
-  const first = button();
-  fireEvent.click(first);
-  fireEvent.click(first);
   await screen.findByRole("status", { name: "Similar artists result" });
   expect(http.calls).toHaveLength(1);
 });
@@ -206,17 +212,17 @@ test("leaving the page cancels the read and a late answer is never shown", async
   let answer!: (response: Response) => void;
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      (_path: string, init: RequestInit) =>
-        new Promise<Response>((resolve, reject) => {
-          signal = init.signal as AbortSignal;
-          answer = resolve;
-          signal.addEventListener("abort", () => reject(signal?.reason));
-        }),
+    vi.fn((path: string, init: RequestInit) =>
+      similar(path)
+        ? new Promise<Response>((resolve, reject) => {
+            signal = init.signal as AbortSignal;
+            answer = resolve;
+            signal.addEventListener("abort", () => reject(signal?.reason));
+          })
+        : quiet(init),
     ),
   );
   const view = render(createElement(ArtistIdentityGroupPage, props()));
-  fireEvent.click(button());
   await waitFor(() => expect(signal).toBeDefined());
   expect(
     screen.getByRole("status", { name: "Similar artists result" }).textContent,
@@ -232,17 +238,9 @@ test("a read that never answers times out with a retry", async () => {
   vi.useFakeTimers();
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      (_path: string, init: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init.signal?.addEventListener("abort", () =>
-            reject(init.signal?.reason),
-          );
-        }),
-    ),
+    vi.fn((_path: string, init: RequestInit) => quiet(init)),
   );
   render(createElement(ArtistIdentityGroupPage, props()));
-  fireEvent.click(button());
   await act(async () => {
     await vi.advanceTimersByTimeAsync(20_001);
   });

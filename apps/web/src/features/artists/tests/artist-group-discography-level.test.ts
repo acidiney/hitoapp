@@ -83,9 +83,6 @@ async function open(albumsByGroup: Record<string, string[]>) {
   });
   const { detail } = artistIdentityBrowsing();
   render(createElement(ArtistIdentityGroupPage, detail));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   const region = await screen.findByRole("region", { name: "Discography" });
   await within(region).findAllByText(/Compare|Not linked/);
   return { http, region };

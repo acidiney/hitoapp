@@ -977,3 +977,16 @@ section[aria-label="Complete track list"] > h2 {
   background: #ffffff;
   color: #141414;
 }
+
+.discography-unavailable {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 0 24px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.correction-action {
+  margin: 40px 0 16px;
+}

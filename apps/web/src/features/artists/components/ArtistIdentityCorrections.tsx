@@ -46,14 +46,11 @@ export default function ArtistIdentityCorrections({
 
   if (!opened)
     return (
-      <section aria-labelledby="group-corrections-title">
-        <h2 className="discography-heading" id="group-corrections-title">
-          Corrections
-        </h2>
+      <div className="correction-action">
         <Button type="button" onClick={() => setOpened(true)}>
           Correct this artist
         </Button>
-      </section>
+      </div>
     );
 
   return (

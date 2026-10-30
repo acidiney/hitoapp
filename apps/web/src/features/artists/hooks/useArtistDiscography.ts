@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { artistDiscographyApi } from "../api/artistDiscographyApi";
 import { errorMessage } from "../../../shared/format";
 import { HttpError } from "../../../shared/http";
@@ -39,6 +39,8 @@ function empty(owner: Owner): State {
   };
 }
 
+export const AUTO_RETRY_DELAY_MS = 800;
+
 export function discographyUnavailable(
   status: Exclude<
     Schema<"ArtistDiscographyAvailability">["status"],
@@ -70,6 +72,8 @@ export function useArtistDiscography(
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
+  const lastOutcome = useRef("");
+  const [retrying, setRetrying] = useState(false);
 
   async function load(continuation: string | null, restarting = false) {
     const request = scope.capture();
@@ -198,6 +202,7 @@ export function useArtistDiscography(
       clearTimeout(timer);
       request.signal.removeEventListener("abort", cancel);
       owner.pending = false;
+      lastOutcome.current = outcome;
       if (request.active())
         setSnapshot((value) =>
           request.active() && value.owner === owner
@@ -218,16 +223,34 @@ export function useArtistDiscography(
   useEffect(() => {
     if (!browseOnMount) return;
     let active = true;
-    queueMicrotask(() => {
-      if (active) void load(null);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    queueMicrotask(async () => {
+      if (!active) return;
+      await load(null);
+      if (!active || lastOutcome.current === "accepted") return;
+      if (
+        lastOutcome.current !== "failed" &&
+        lastOutcome.current !== "timed_out"
+      )
+        return;
+      setRetrying(true);
+      await new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, AUTO_RETRY_DELAY_MS);
+      });
+      if (!active) return;
+      setRetrying(false);
+      await load(null, true);
     });
     return () => {
       active = false;
+      setRetrying(false);
+      clearTimeout(timer);
     };
   }, [browseOnMount, owner, scope]);
 
   return {
     ...current,
+    retrying,
     browse: () => (!current.opened ? load(null) : Promise.resolve()),
     more: () =>
       current.continuation && !current.restartRequired

@@ -78,9 +78,6 @@ function page(
 async function open() {
   const { detail } = artistIdentityBrowsing();
   render(createElement(ArtistIdentityGroupPage, detail));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   return screen.findByRole("region", { name: "Discography" });
 }
 
@@ -226,15 +223,14 @@ test("a failed library check keeps the catalog and retries only the availability
 test("a provider outage is retryable while the rest of the artist page works", async () => {
   const http = artistGroupHttp();
   http.reply("discography", { status: "unavailable" });
+  http.reply("discography", { status: "unavailable" });
   const { detail } = artistIdentityBrowsing();
   render(createElement(ArtistIdentityGroupPage, detail));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   const region = await screen.findByRole("region", { name: "Discography" });
-  expect((await within(region).findByRole("alert")).textContent).toContain(
-    "This discography is unavailable. Try again.",
-  );
+  expect(
+    (await within(region).findByRole("alert", {}, { timeout: 3000 }))
+      .textContent,
+  ).toContain("This discography is unavailable. Try again.");
   expect(http.libraryRequests).toEqual([]);
   expect(screen.getByRole("heading", { name: "Libraries" })).toBeTruthy();
   fireEvent.click(within(region).getByRole("button", { name: "Try again" }));

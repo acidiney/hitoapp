@@ -12,6 +12,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import ArtistIdentityGroupPage from "../pages/ArtistIdentityGroupPage";
 import { artistIdentityBrowsing } from "../fixtures/artistIdentityBrowsing";
 import { artistGroupHttp } from "../fixtures/artistGroupDiscography";
+import { flush } from "../../../test/async";
 
 import {
   artistAssociation,
@@ -60,9 +61,6 @@ test("StrictMode starts only one successful first discography read", async () =>
       null,
       createElement(ArtistIdentityGroupPage, detail),
     ),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
   );
   const region = await screen.findByRole("region", { name: "Discography" });
   await within(region).findByRole("heading", { name: discographyTitle });
@@ -120,9 +118,6 @@ test.each([
     const http = artistGroupHttp();
     http.reply("associations", [wrong]);
     render(createElement(ArtistIdentityGroupPage, detail));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Browse full discography" }),
-    );
     const region = screen.getByRole("region", { name: "Full discography" });
     expect((await within(region).findByRole("alert")).textContent).toContain(
       "This chosen artist has changed.",
@@ -144,9 +139,6 @@ test.each(["association", "artist"] as const)(
     const http = artistGroupHttp();
     http.reply("profile", wrong);
     render(createElement(ArtistIdentityGroupPage, detail));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Browse full discography" }),
-    );
     expect((await screen.findByRole("alert")).textContent).toContain(
       "This chosen artist has changed.",
     );
@@ -158,7 +150,6 @@ test.each(["association", "artist"] as const)(
 test.each([
   ["disabled", "Metadata providers are disabled"],
   ["unsupported", "does not support artist profiles"],
-  ["unavailable", "Artist information is unavailable"],
   ["cancelled", "request was cancelled"],
 ] as const)(
   "a %s profile stays honest until an explicit retry",
@@ -167,9 +158,6 @@ test.each([
     const http = artistGroupHttp();
     http.reply("profile", { status });
     render(createElement(ArtistIdentityGroupPage, detail));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Browse full discography" }),
-    );
     expect((await screen.findByRole("alert")).textContent).toContain(message);
     expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 0 });
     expect(
@@ -233,9 +221,6 @@ test("one action browses the chosen artist's exact full discography independentl
   );
   const view = render(createElement(ArtistIdentityGroupPage, detail));
   expect(fetch).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   const region = await screen.findByRole("region", { name: "Discography" });
   const list = within(
     await within(region).findByRole("region", { name: "Albums" }),
@@ -306,23 +291,97 @@ test("one action browses the chosen artist's exact full discography independentl
   expect(errors).not.toHaveBeenCalled();
 });
 
-test("an unavailable automatic first page waits for an explicit retry", async () => {
+test("a briefly unavailable profile is retried once automatically", async () => {
+  const { detail } = artistIdentityBrowsing();
+  const http = artistGroupHttp();
+  http.reply("profile", { status: "unavailable" });
+  render(createElement(ArtistIdentityGroupPage, detail));
+  expect(screen.queryByRole("alert")).toBeNull();
+  const region = await screen.findByRole(
+    "region",
+    { name: "Discography" },
+    { timeout: 3000 },
+  );
+  await within(region).findByRole("heading", { name: discographyTitle });
+  expect(http.calls).toEqual({ associations: 2, profile: 2, discography: 1 });
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a profile that stays unavailable shows one compact state and then waits for an explicit retry", async () => {
+  const { detail } = artistIdentityBrowsing();
+  const http = artistGroupHttp();
+  http.reply("profile", { status: "unavailable" });
+  http.reply("profile", { status: "unavailable" });
+  render(createElement(ArtistIdentityGroupPage, detail));
+  const alert = await screen.findByRole("alert", {}, { timeout: 3000 });
+  expect(alert.textContent).toContain("Discography unavailable right now");
+  expect(alert.textContent).toContain("Artist information is unavailable");
+  expect(http.calls).toEqual({ associations: 2, profile: 2, discography: 0 });
+  expect(screen.queryByText(/Albums \(0\)/)).toBeNull();
+  expect(screen.queryByText("Only what I'm missing")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  const region = await screen.findByRole("region", { name: "Discography" });
+  await within(region).findByRole("heading", { name: discographyTitle });
+  expect(http.calls).toEqual({ associations: 3, profile: 3, discography: 1 });
+});
+
+test("a briefly unavailable first page is retried once automatically", async () => {
   const { detail } = artistIdentityBrowsing();
   const http = artistGroupHttp();
   http.reply("discography", { status: "unavailable" });
   render(createElement(ArtistIdentityGroupPage, detail));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   const region = await screen.findByRole("region", { name: "Discography" });
-  expect((await within(region).findByRole("alert")).textContent).toContain(
-    "This discography is unavailable",
+  await within(region).findByRole(
+    "heading",
+    { name: discographyTitle },
+    { timeout: 3000 },
   );
-  expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 1 });
-  fireEvent.click(within(region).getByRole("button", { name: "Try again" }));
-  await within(region).findByRole("heading", { name: discographyTitle });
   expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 2 });
+  expect(within(region).queryByRole("alert")).toBeNull();
   expect(within(region).getByText("Type not provided")).toBeTruthy();
   expect(within(region).getByText("Artist credit not provided")).toBeTruthy();
   expect(within(region).getByText("Release date not provided")).toBeTruthy();
+});
+
+test("an unavailable first page shows one compact state without empty type sections", async () => {
+  const { detail } = artistIdentityBrowsing();
+  const http = artistGroupHttp();
+  http.reply("discography", { status: "unavailable" });
+  http.reply("discography", { status: "unavailable" });
+  render(createElement(ArtistIdentityGroupPage, detail));
+  const region = await screen.findByRole("region", { name: "Discography" });
+  const alert = await within(region).findByRole("alert", {}, { timeout: 3000 });
+  expect(alert.textContent).toContain("Discography unavailable right now");
+  expect(alert.textContent).toContain("This discography is unavailable");
+  expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 2 });
+  expect(within(region).queryByText(/\(0\)/)).toBeNull();
+  expect(within(region).queryByRole("button", { name: /Show / })).toBeNull();
+  expect(within(region).queryByText("Only what I'm missing")).toBeNull();
+  fireEvent.click(within(region).getByRole("button", { name: "Try again" }));
+  await within(region).findByRole("heading", { name: discographyTitle });
+  expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 3 });
+});
+
+test("leaving the page during the retry delay sends no further request", async () => {
+  const { detail } = artistIdentityBrowsing();
+  const http = artistGroupHttp();
+  http.reply("profile", { status: "unavailable" });
+  const view = render(createElement(ArtistIdentityGroupPage, detail));
+  await waitFor(() => expect(http.calls.profile).toBe(1));
+  await flush();
+  view.unmount();
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 0 });
+});
+
+test("opening the page reads the chosen artist by itself without a click", async () => {
+  const { detail } = artistIdentityBrowsing();
+  const http = artistGroupHttp();
+  render(createElement(ArtistIdentityGroupPage, detail));
+  expect(
+    screen.queryByRole("button", { name: "Browse full discography" }),
+  ).toBeNull();
+  const region = await screen.findByRole("region", { name: "Discography" });
+  await within(region).findByRole("heading", { name: discographyTitle });
+  expect(http.calls).toEqual({ associations: 1, profile: 1, discography: 1 });
 });

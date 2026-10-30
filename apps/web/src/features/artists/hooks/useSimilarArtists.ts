@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
 
@@ -25,6 +25,7 @@ function empty(owner: Owner): State {
 export function useSimilarArtists(
   account: string,
   group: Schema<"ArtistIdentityGroupDetail">["group"],
+  auto = false,
 ) {
   const scope = useRequestScope(
     JSON.stringify([
@@ -99,6 +100,18 @@ export function useSimilarArtists(
       });
     }
   }
+
+  useEffect(() => {
+    if (!auto) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, owner, scope]);
 
   return { ...current, load };
 }

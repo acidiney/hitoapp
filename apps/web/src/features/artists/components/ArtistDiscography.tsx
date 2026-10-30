@@ -63,7 +63,7 @@ export default function ArtistDiscography({
     );
   return (
     <section aria-label="Discography" aria-busy={workflow.pending}>
-      <h3>Discography</h3>
+      {!showLibrary && <h3>Discography</h3>}
       {workflow.pending && (
         <p role="status">
           {workflow.pages > 0
@@ -71,7 +71,32 @@ export default function ArtistDiscography({
             : "Loading discography…"}
         </p>
       )}
-      {workflow.error && <p role="alert">{workflow.error}</p>}
+      {workflow.error &&
+        !workflow.retrying &&
+        !(showLibrary && groups.length === 0) && (
+          <p role="alert">{workflow.error}</p>
+        )}
+      {showLibrary &&
+        groups.length === 0 &&
+        workflow.error &&
+        !workflow.retrying &&
+        !workflow.pending && (
+          <p role="alert" className="discography-unavailable">
+            <span>Discography unavailable right now</span>
+            <span className="sr-only">{workflow.error}</span>
+            <Button
+              type="button"
+              disabled={workflow.pending}
+              onClick={() =>
+                void (workflow.restartRequired
+                  ? workflow.restart()
+                  : workflow.retry())
+              }
+            >
+              Try again
+            </Button>
+          </p>
+        )}
       {showLibrary && library.error && (
         <p role="status">
           {library.error}{" "}
@@ -81,28 +106,30 @@ export default function ArtistDiscography({
         </p>
       )}
       {showLibrary ? (
-        <DiscographySections
-          account={account}
-          recording={recording}
-          association={association}
-          profile={profile}
-          groups={groups}
-          library={library.albums}
-          release={release}
-          onAlbumEdition={onAlbumEdition}
-          paging={{
-            catalogComplete:
-              workflow.pages > 0 &&
-              workflow.continuation === null &&
-              !workflow.limited &&
-              !workflow.restartRequired &&
-              !workflow.error,
-            unsupported: typed.unsupported,
-            pending: typed.pending,
-            types: typed.types,
-            more: (type) => void typed.more(type),
-          }}
-        />
+        (groups.length > 0 || workflow.pages > 0) && (
+          <DiscographySections
+            account={account}
+            recording={recording}
+            association={association}
+            profile={profile}
+            groups={groups}
+            library={library.albums}
+            release={release}
+            onAlbumEdition={onAlbumEdition}
+            paging={{
+              catalogComplete:
+                workflow.pages > 0 &&
+                workflow.continuation === null &&
+                !workflow.limited &&
+                !workflow.restartRequired &&
+                !workflow.error,
+              unsupported: typed.unsupported,
+              pending: typed.pending,
+              types: typed.types,
+              more: (type) => void typed.more(type),
+            }}
+          />
+        )
       ) : (
         <ul aria-label="Discography releases">
           {workflow.groups.map((group) => (
@@ -126,7 +153,9 @@ export default function ArtistDiscography({
       {workflow.limited && (
         <p>Showing the first 50 pages of this artist's catalog.</p>
       )}
-      {workflow.restartRequired ? (
+      {showLibrary &&
+      groups.length === 0 &&
+      workflow.error ? null : workflow.restartRequired ? (
         <Button
           type="button"
           disabled={workflow.pending}

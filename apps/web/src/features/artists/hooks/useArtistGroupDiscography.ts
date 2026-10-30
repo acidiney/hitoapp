@@ -1,5 +1,5 @@
 import type { Schema } from "../../../shared/schema";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { artistReviewApi } from "../api/artistReviewApi";
 import { errorMessage } from "../../../shared/format";
 import { log } from "../../../shared/log";
@@ -8,8 +8,11 @@ import { createUuid } from "../../../shared/uuid";
 import { useRequestScope } from "../../../shared/hooks/useRequestScope";
 
 const REQUEST_DEADLINE_MS = 20_000;
+export const AUTO_RETRY_DELAY_MS = 800;
 const CHANGED_ARTIST =
   "This chosen artist has changed. Reload the page to browse its discography.";
+
+class FinalError extends Error {}
 
 type Owner = { pending: boolean };
 type Ready = {
@@ -70,10 +73,12 @@ export function useArtistGroupDiscography(
   const owner = useMemo<Owner>(() => ({ pending: false }), [scope]);
   const [snapshot, setSnapshot] = useState(() => empty(owner));
   const current = snapshot.owner === owner ? snapshot : empty(owner);
+  const [retrying, setRetrying] = useState(false);
+  const retryable = useRef(true);
 
-  async function browse() {
+  async function browse(): Promise<boolean> {
     const request = scope.capture();
-    if (!request.active() || owner.pending || current.ready) return;
+    if (!request.active() || owner.pending || current.ready) return false;
     owner.pending = true;
     const started = performance.now();
     const requestId = createUuid();
@@ -126,7 +131,7 @@ export function useArtistGroupDiscography(
             association.provider_artist_id !== group.provider_artist_id ||
             !sameProvider(association.provider, group.provider)
           )
-            throw new Error(CHANGED_ARTIST);
+            throw new FinalError(CHANGED_ARTIST);
           const result = await artistReviewApi.profile(
             account,
             group.name.recording_id,
@@ -136,13 +141,15 @@ export function useArtistGroupDiscography(
           check();
           if (result.status !== "available") {
             outcome = result.status;
-            throw new Error(unavailable(result.status));
+            throw result.status === "unavailable"
+              ? new Error(unavailable(result.status))
+              : new FinalError(unavailable(result.status));
           }
           if (
             result.association_id !== association.id ||
             result.profile.artist.id !== group.provider_artist_id
           )
-            throw new Error(CHANGED_ARTIST);
+            throw new FinalError(CHANGED_ARTIST);
           return { association, profile: result.profile };
         })(),
         stopped,
@@ -150,6 +157,7 @@ export function useArtistGroupDiscography(
       check();
       setSnapshot({ owner, ready, pending: false, error: "" });
       outcome = "accepted";
+      return true;
     } catch (error) {
       if (request.active()) {
         if (outcome === "cancelled")
@@ -161,6 +169,8 @@ export function useArtistGroupDiscography(
             : errorMessage(error),
         });
       }
+      retryable.current = !(error instanceof FinalError);
+      return false;
     } finally {
       clearTimeout(timer);
       request.signal.removeEventListener("abort", cancel);
@@ -175,5 +185,26 @@ export function useArtistGroupDiscography(
     }
   }
 
-  return { ...current, browse };
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    queueMicrotask(async () => {
+      if (!active || (await browse()) || !active || !retryable.current) return;
+      setRetrying(true);
+      await new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, AUTO_RETRY_DELAY_MS);
+      });
+      if (!active) return;
+      setRetrying(false);
+      await browse();
+    });
+    return () => {
+      active = false;
+      setRetrying(false);
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner, scope]);
+
+  return { ...current, retrying, browse };
 }

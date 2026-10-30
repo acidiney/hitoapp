@@ -15,10 +15,21 @@ export default function ArtistGroupDiscography({
   return (
     <section aria-label="Full discography" aria-busy={workflow.pending}>
       <h2 className="discography-heading">Full discography</h2>
-      <p>Browse this chosen artist's catalog beyond your library.</p>
       {workflow.pending && <p role="status">Loading chosen artist…</p>}
-      {workflow.error && <p role="alert">{workflow.error}</p>}
-      {workflow.ready ? (
+      {workflow.error && !workflow.retrying && !workflow.pending && (
+        <p role="alert" className="discography-unavailable">
+          <span>Discography unavailable right now</span>
+          <span className="sr-only">{workflow.error}</span>
+          <Button
+            type="button"
+            disabled={workflow.pending}
+            onClick={() => void workflow.browse()}
+          >
+            Try again
+          </Button>
+        </p>
+      )}
+      {workflow.ready && (
         <ArtistDiscography
           account={account}
           recording={group.name.recording_id}
@@ -27,14 +38,6 @@ export default function ArtistGroupDiscography({
           browseOnMount
           showLibrary
         />
-      ) : (
-        <Button
-          type="button"
-          disabled={workflow.pending}
-          onClick={() => void workflow.browse()}
-        >
-          {workflow.error ? "Try again" : "Browse full discography"}
-        </Button>
       )}
     </section>
   );

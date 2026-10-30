@@ -83,9 +83,6 @@ function albums(from: number, count: number) {
 async function open() {
   const { detail } = artistIdentityBrowsing();
   render(createElement(ArtistIdentityGroupPage, detail));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Browse full discography" }),
-  );
   return screen.findByRole("region", { name: "Discography" });
 }
 

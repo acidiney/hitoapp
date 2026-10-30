@@ -73,11 +73,6 @@ export default function ArtistIdentityGroupPage({
       />
       <ArtistGroupDiscography account={user.id} group={group} />
       <SimilarArtists account={user.id} group={group} />
-      <ArtistIdentityCorrections
-        account={user.id}
-        admin={user.admin}
-        detail={detail}
-      />
       <section aria-labelledby="group-libraries-title">
         <h2 className="discography-heading" id="group-libraries-title">
           Libraries
@@ -188,6 +183,11 @@ export default function ArtistIdentityGroupPage({
           />
         </section>
       )}
+      <ArtistIdentityCorrections
+        account={user.id}
+        admin={user.admin}
+        detail={detail}
+      />
     </>
   );
 }

@@ -59,11 +59,18 @@ test.each([
           : reviewedArtistProfile,
       status,
     );
+    const again = http.hold(
+      stage,
+      mode,
+      status === 409
+        ? { error: "Owned conflict" }
+        : stage === "associations"
+          ? [artistAssociation]
+          : reviewedArtistProfile,
+      status,
+    );
     const view = render(createElement(ArtistIdentityGroupPage, detail));
     try {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Browse full discography" }),
-      );
       await act(async () => {
         await held.entered;
       });
@@ -77,10 +84,20 @@ test.each([
       });
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
+      expect(screen.queryByRole("alert")).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(800);
+      });
+      await act(async () => {
+        await again.entered;
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      expect(again.signal()?.aborted).toBe(true);
       expect(screen.getByRole("alert").textContent).toContain("timed out");
       const before = { ...http.calls };
       await act(async () => {
         held.release();
+        again.release();
         await vi.advanceTimersByTimeAsync(60_000);
       });
       await flush();
@@ -125,9 +142,6 @@ test.each([
     const held = http.hold("profile", "body", reviewedArtistProfile);
     const view = render(createElement(ArtistIdentityGroupPage, detail));
     try {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Browse full discography" }),
-      );
       await act(async () => {
         await held.entered;
       });
@@ -162,20 +176,13 @@ test.each([
       view.rerender(createElement(ArtistIdentityGroupPage, changed));
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
-      expect(
-        screen.getByRole("button", { name: "Browse full discography" }),
-      ).toBeTruthy();
+      await flush();
+      const settled = { ...http.calls };
       await act(async () => {
         held.release();
       });
       await flush();
-      expect(http.calls).toEqual({
-        associations: 1,
-        profile: 1,
-        discography: 0,
-      });
-      expect(screen.queryByRole("region", { name: "Discography" })).toBeNull();
-      expect(screen.queryByRole("alert")).toBeNull();
+      expect(http.calls).toEqual(settled);
       expect(errors).not.toHaveBeenCalled();
     } finally {
       view.unmount();
@@ -206,15 +213,12 @@ test.each([
     );
     const view = render(createElement(ArtistIdentityGroupPage, detail));
     try {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Browse full discography" }),
-      );
       if (stage === "discography")
         await waitFor(() => expect(http.calls.discography).toBe(1));
       await act(async () => {
         await held.entered;
       });
-      const before = { ...http.calls };
+      let before = { ...http.calls };
       if (change === "unmount") view.unmount();
       else {
         const changed: Schema<"ArtistIdentityGroupPageProps"> =
@@ -222,9 +226,8 @@ test.each([
         if (change === "account") changed.user.id = "another-account";
         else changed.detail.group.name.association_id = "another-association";
         view.rerender(createElement(ArtistIdentityGroupPage, changed));
-        expect(
-          screen.getByRole("button", { name: "Browse full discography" }),
-        ).toBeTruthy();
+        await flush();
+        before = { ...http.calls };
       }
       expect(held.signal()?.aborted).toBe(true);
       expect(held.aborts()).toBe(1);
@@ -236,7 +239,7 @@ test.each([
       expect(
         screen.queryByRole("list", { name: "Discography releases" }),
       ).toBeNull();
-      expect(screen.queryByRole("alert")).toBeNull();
+      if (change === "unmount") expect(screen.queryByRole("alert")).toBeNull();
       expect(errors).not.toHaveBeenCalled();
     } finally {
       view.unmount();
