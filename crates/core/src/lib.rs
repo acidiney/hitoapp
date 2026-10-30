@@ -87,7 +87,8 @@ pub use downloads::{
 };
 pub use error::{Error, Result};
 pub use identity::{
-    Actor, AuthSession, Credentials, Identity, Library, LockStatus, RemovePin, SetPin, Unlock, User,
+    AccountDeletion, Actor, AuthSession, Credentials, DeleteAccount, Identity, Library, LockStatus,
+    RemovePin, SetPin, Unlock, User,
 };
 pub use library_storage::AudioFile;
 #[cfg(feature = "test-support")]

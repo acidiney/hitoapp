@@ -5,7 +5,35 @@ use std::time::Instant;
 
 impl Downloads {
     pub(super) async fn reclaim_pending(&self) -> Result<bool> {
+        if self.reclaim_erased().await? {
+            return Ok(true);
+        }
         self.reclaim(None).await
+    }
+
+    /// Removes one managed file whose account was deleted, then forgets it.
+    async fn reclaim_erased(&self) -> Result<bool> {
+        let file: Option<(String, String)> = sqlx::query_as(
+            "SELECT file_id,attempt_id FROM erased_download_files WHERE host_device=? ORDER BY file_id LIMIT 1",
+        )
+        .bind(self.host.as_str())
+        .fetch_optional(&self.store.pool)
+        .await?;
+        let Some((file, attempt)) = file else {
+            return Ok(false);
+        };
+        self.files
+            .remove_owned(stored_uuid(&file)?, stored_uuid(&attempt)?)
+            .await?;
+        sqlx::query("DELETE FROM erased_download_files WHERE file_id=?")
+            .bind(&file)
+            .execute(&self.store.pool)
+            .await?;
+        tracing::debug!(
+            outcome = "reclaimed",
+            "Erased account download file removed"
+        );
+        Ok(true)
     }
 
     pub(super) async fn reclaim_file(&self, file: &str) -> Result<bool> {

@@ -116,3 +116,17 @@ pub struct RemovePin {
 pub struct Unlock {
     pub pin: String,
 }
+
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteAccount {
+    /// The account name the administrator saw, so a stale or mistaken request cannot erase a different account.
+    pub username: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AccountDeletion {
+    pub sessions_revoked: u64,
+    pub rows_removed: u64,
+    pub files_queued: u64,
+}
