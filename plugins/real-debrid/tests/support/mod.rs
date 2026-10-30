@@ -39,6 +39,7 @@ pub fn binding() -> TorrentFileBinding {
 
 pub fn recording() -> ProviderRecording {
     ProviderRecording {
+        isrc: None,
         id: RECORDING.into(),
         title: TITLE.into(),
         artist: ARTIST.into(),

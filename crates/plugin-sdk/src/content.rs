@@ -38,6 +38,9 @@ pub struct ProviderRecording {
     pub revision: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<crate::RecordingAttribution>,
+    /// ISO 3901 recording code when the provider states one. Hosts treat it as evidence, not identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isrc: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,7 +158,14 @@ impl ProviderRecording {
         if let Some(attribution) = &self.attribution {
             attribution.validate()?;
         }
+        if self.isrc.is_some() && self.normalized_isrc().is_none() {
+            return Err("The provider returned a malformed ISRC");
+        }
         Ok(())
+    }
+
+    pub fn normalized_isrc(&self) -> Option<String> {
+        self.isrc.as_deref().and_then(crate::normalize_isrc)
     }
 }
 

@@ -105,6 +105,7 @@ impl SearchEntry {
             })
             .transpose()?;
         let recording = ProviderRecording {
+            isrc: None,
             id: entry.id,
             title: entry.title,
             artist,

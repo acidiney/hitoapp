@@ -24,6 +24,7 @@ fn admit(entries: Vec<Entry>) -> Result<Vec<Entry>, CuratedCatalogError> {
 fn small(index: usize) -> Entry {
     Entry {
         recording: ProviderRecording {
+            isrc: None,
             id: format!("recording-{index:04}"),
             title: format!("Title {index}"),
             artist: "Artist".into(),

@@ -62,6 +62,7 @@ fn source_id(index: usize) -> String {
 fn recording(id: String, source_id: String, binding: TorrentFileBinding) -> CuratedWavRecording {
     CuratedWavRecording {
         recording: ProviderRecording {
+            isrc: None,
             id,
             title: "owned-private-capacity-title".into(),
             artist: "owned-private-capacity-artist".into(),

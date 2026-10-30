@@ -196,6 +196,7 @@ async fn start(
                 .unwrap(),
             recordings: vec![CuratedWavRecording {
                 recording: ProviderRecording {
+                    isrc: None,
                     id: RECORDING.into(),
                     title: "owned-private-control-title".into(),
                     artist: "owned-private-control-artist".into(),

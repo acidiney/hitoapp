@@ -87,6 +87,7 @@ fn private_json(bytes: &[u8]) {
 
 fn recording() -> ProviderRecording {
     ProviderRecording {
+        isrc: None,
         id: RECORDING.into(),
         title: TITLE.into(),
         artist: ARTIST.into(),

@@ -74,6 +74,7 @@ impl Fixture {
                 .unwrap(),
                 recordings: vec![CuratedWavRecording {
                     recording: ProviderRecording {
+                        isrc: None,
                         id: RECORDING.into(),
                         title: "owned-private-restart-title".into(),
                         artist: "owned-private-restart-artist".into(),

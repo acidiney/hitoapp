@@ -100,6 +100,7 @@ async fn changed_provider_file_is_revalidated_before_audio_unrestriction() {
 async fn rejected_control_requests_and_catalog_pagination_do_not_contact_the_provider() {
     let first = support::recording();
     let second = ProviderRecording {
+        isrc: None,
         id: "curated-recording-2".into(),
         title: format!("{} second", first.title),
         ..first.clone()

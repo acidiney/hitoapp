@@ -286,6 +286,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
                     occurrence_id: Some(format!("owned-lyrics-occurrence-{index}")),
                     item: ProviderPlaylistItem::Recording {
                         recording: ProviderRecording {
+                            isrc: None,
                             id: PROVIDER_ID.into(),
                             title: TITLE.into(),
                             artist: "Owned lyric performer".into(),

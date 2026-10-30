@@ -290,6 +290,7 @@ pub async fn request_counts(origin: &ProviderServer) -> Vec<(&'static str, usize
 
 fn recording(id: &str) -> ProviderRecording {
     ProviderRecording {
+        isrc: None,
         id: id.into(),
         title: if id == FIRST {
             "First imported recording"

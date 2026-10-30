@@ -83,6 +83,7 @@ fn other() -> CuratedWavRecording {
 fn recording(id: &str, source: &str, binding: TorrentFileBinding) -> CuratedWavRecording {
     CuratedWavRecording {
         recording: ProviderRecording {
+            isrc: None,
             id: id.into(),
             title: "owned-private-catalog-title".into(),
             artist: "owned-private-catalog-artist".into(),

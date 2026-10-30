@@ -32,6 +32,7 @@ impl Inputs {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
             .unwrap_or_else(|_| panic!("the owned runtime directory must be private"));
         let recording = ProviderRecording {
+            isrc: None,
             id: RECORDING.into(),
             title: TITLE.into(),
             artist: "owned-private-premiumize-runtime-artist".into(),

@@ -104,6 +104,7 @@ pub(crate) struct Track {
 impl Track {
     pub fn recording(&self) -> ProviderRecording {
         ProviderRecording {
+            isrc: None,
             id: self.id.clone(),
             title: self.title.clone(),
             artist: self.artist.clone(),

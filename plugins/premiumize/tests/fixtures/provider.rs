@@ -129,6 +129,7 @@ impl Provider {
 
 pub fn recording(peer: bool) -> ProviderRecording {
     ProviderRecording {
+        isrc: None,
         id: if peer { PEER_RECORDING } else { RECORDING }.into(),
         title: if peer { PEER_TITLE } else { TITLE }.into(),
         artist: ARTIST.into(),

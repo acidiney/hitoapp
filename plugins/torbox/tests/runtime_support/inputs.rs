@@ -50,6 +50,7 @@ impl Inputs {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
             .expect("the owned input directory must be private");
         let recording = ProviderRecording {
+            isrc: None,
             id: RECORDING.into(),
             title: TITLE.into(),
             artist: "owned-private-torbox-runtime-artist".into(),

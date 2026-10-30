@@ -91,6 +91,7 @@ async fn recording_sources_relay_owned_aac_with_ranges_and_native_decode() {
     assert!(
         detail
             == ProviderRecording {
+                isrc: None,
                 id: "HitoTone001".into(),
                 title: "Owned AAC tone".into(),
                 artist: "Hito test performer".into(),

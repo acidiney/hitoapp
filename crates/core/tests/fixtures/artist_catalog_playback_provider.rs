@@ -144,6 +144,7 @@ async fn detail(
         return reject(&requests);
     }
     Json(ProviderRecording {
+        isrc: None,
         id: RECORDING_ID.into(),
         title: "Owned playback recording".into(),
         artist: "Owned playback performer".into(),

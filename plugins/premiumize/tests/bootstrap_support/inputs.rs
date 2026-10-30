@@ -84,6 +84,7 @@ pub fn catalog_with(count: usize, title_padding: usize) -> Value {
     let recordings = (0..count)
         .map(|index| {
             let recording = ProviderRecording {
+                isrc: None,
                 id: format!("{PRIVATE}recording-{index}"),
                 title: format!("{PRIVATE}title-{index}{}", "x".repeat(title_padding)),
                 artist: format!("{PRIVATE}artist"),

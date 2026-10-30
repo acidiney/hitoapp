@@ -181,6 +181,7 @@ async fn exchange(State(state): State<Arc<Fixture>>, request: Request) -> Respon
         {
             state.detail.fetch_add(1, Ordering::SeqCst);
             json!(ProviderRecording {
+                isrc: None,
                 id: RECORDING.into(),
                 title: TITLE.into(),
                 artist: "Owned attached performer".into(),

@@ -56,6 +56,7 @@ impl Workflow {
                 .unwrap(),
                 recordings: vec![CuratedWavRecording {
                     recording: ProviderRecording {
+                        isrc: None,
                         id: RECORDING.into(),
                         title: "owned-private-reuse-title".into(),
                         artist: "owned-private-reuse-artist".into(),

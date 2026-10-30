@@ -14,6 +14,7 @@ pub fn selection(index: usize) -> CuratedWavRecording {
     binding.info_hash = format!("{:040x}", index + 1);
     CuratedWavRecording {
         recording: ProviderRecording {
+            isrc: None,
             id: format!("curated-admission-recording-{index}"),
             title: "owned-private-admission-title".into(),
             artist: "owned-private-admission-artist".into(),

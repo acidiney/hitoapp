@@ -152,6 +152,7 @@ async fn authenticated_preparation_waits_then_revalidates_only_its_bound_wav_thr
 
 fn recording() -> ProviderRecording {
     ProviderRecording {
+        isrc: None,
         id: RECORDING.into(),
         title: TITLE.into(),
         artist: ARTIST.into(),

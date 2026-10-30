@@ -406,6 +406,7 @@ fn assert_logs(text: &str, owners: usize, directory: &Path) {
 fn curated_recording() -> CuratedWavRecording {
     CuratedWavRecording {
         recording: ProviderRecording {
+            isrc: None,
             id: RECORDING.into(),
             title: TITLE.into(),
             artist: ARTIST.into(),

@@ -168,6 +168,7 @@ fn normalize(track: Track) -> Result<ProviderPlaylistEntry, Error> {
         None
     };
     let recording = ProviderRecording {
+        isrc: None,
         id: id.to_owned(),
         title: track.name,
         artist,
