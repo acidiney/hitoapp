@@ -4,6 +4,7 @@ import { Link } from "@inertiajs/react";
 import FallbackCover from "../../../shared/ui/FallbackCover";
 import { releaseAvailability } from "../model/releaseAvailability";
 import AvailabilityLabel from "../../../shared/ui/AvailabilityLabel";
+import AlbumLevelCheck from "./AlbumLevelCheck";
 import ArtistEditions from "./ArtistEditions";
 
 const kinds = {
@@ -18,7 +19,15 @@ function tracks(count: number) {
   return `${count} ${count === 1 ? "track" : "tracks"}`;
 }
 
-function Availability({ albums }: { albums: Schema<"LibraryAlbum">[] }) {
+function Availability({
+  account,
+  albums,
+  group,
+}: {
+  account: string;
+  albums: Schema<"LibraryAlbum">[];
+  group: string;
+}) {
   if (albums.length === 0) return <p>Not linked to a library album</p>;
   return (
     <ul aria-label="In your library">
@@ -31,6 +40,11 @@ function Availability({ albums }: { albums: Schema<"LibraryAlbum">[] }) {
                 ? `${tracks(album.track_count)} in your library, all playable`
                 : `${album.playable_count} of ${album.track_count} tracks playable`}
           </p>
+          <AlbumLevelCheck
+            account={account}
+            release={album.release_id}
+            releaseGroup={group}
+          />
           <Link
             className="text-link"
             href={`/albums/${encodeURIComponent(album.release_id)}`}
@@ -92,7 +106,9 @@ export default function DiscographyRelease({
           : "Artist credit not provided"}
       </p>
       <p>{group.first_release_date ?? "Release date not provided"}</p>
-      {library && <Availability albums={library} />}
+      {library && (
+        <Availability account={account} albums={library} group={group.id} />
+      )}
       <ArtistEditions
         account={account}
         recording={recording}

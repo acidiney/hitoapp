@@ -15,6 +15,15 @@ const statuses: Record<
   needs_choice: true,
 };
 
+const levelStatuses: Record<Schema<"AlbumLibraryLevel">["status"], true> = {
+  compared: true,
+  needs_choice: true,
+  disabled: true,
+  unsupported: true,
+  unavailable: true,
+  cancelled: true,
+};
+
 const audioStatuses: Record<Schema<"AlbumTrackAudio">["status"], true> = {
   saved: true,
   no_match: true,
@@ -73,6 +82,28 @@ export const albumEditionApi = {
       },
     );
     return availability(response);
+  },
+
+  async libraryLevel(
+    account: string,
+    release: string,
+    body: Schema<"ReadAlbumLibraryLevel">,
+    signal: AbortSignal,
+  ): Promise<Schema<"AlbumLibraryLevel">> {
+    const response = await request(
+      `/albums/${encodeURIComponent(release)}/edition/library-level`,
+      {
+        action: "album_library_level.read",
+        method: "POST",
+        account,
+        body,
+        signal,
+      },
+    );
+    const value = await statusBody(response);
+    if (!Object.hasOwn(levelStatuses, value.status))
+      throw new Error(INVALID_RESPONSE);
+    return value as Schema<"AlbumLibraryLevel">;
   },
 
   async audio(
