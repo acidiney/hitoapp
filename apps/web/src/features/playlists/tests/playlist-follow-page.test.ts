@@ -39,9 +39,7 @@ test("Playlists follows a provider playlist daily and navigates only after its r
     screen.getByRole("region", { name: "Import a playlist" }),
   );
   expect(form.getByRole("button", { name: "Import a copy" })).toBeTruthy();
-  fireEvent.change(form.getByRole("combobox", { name: "Playlist service" }), {
-    target: { value: connection.id },
-  });
+  expect(form.queryByRole("combobox", { name: "Playlist service" })).toBeNull();
   fireEvent.click(form.getByRole("radio", { name: "Follow playlist" }));
   const interval = form.getByRole("combobox", { name: "Refresh interval" });
   expect(

@@ -36,9 +36,8 @@ test("Playlists imports an editable provider copy and navigates only after its r
   const form = within(
     screen.getByRole("region", { name: "Import a playlist" }),
   );
-  const services = form.getByRole("combobox", { name: "Playlist service" });
+  expect(form.queryByRole("combobox", { name: "Playlist service" })).toBeNull();
   expect(form.queryByRole("option", { name: /Search collection/ })).toBeNull();
-  fireEvent.change(services, { target: { value: connection.id } });
   const reference =
     "https://provider.invalid/playlists/private-pasted-reference";
   fireEvent.change(

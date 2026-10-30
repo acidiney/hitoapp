@@ -172,7 +172,6 @@ test("a provider playlist becomes a durable editable metadata copy without phant
     const importPath = `/api/v1/plugins/${connectionId}/playlists/import`;
     await page.goto("/playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
-    const selector = form.getByRole("combobox", { name: "Playlist service" });
     const reference = form.getByRole("textbox", {
       name: "Playlist link or identifier",
     });
@@ -180,7 +179,6 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       name: "Import a copy",
       exact: true,
     });
-    await selector.selectOption(connection.id);
     await reference.fill(`  ${fixture.reference}  `);
     expect(fixture.requests).toHaveLength(1);
     expect(importRequests).toBe(0);
@@ -189,7 +187,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
       page,
       info,
       "playlist-import-form",
-      [selector, reference, submit],
+      [reference, submit],
       targets,
     );
     await reference.focus();
@@ -284,9 +282,7 @@ test("a provider playlist becomes a durable editable metadata copy without phant
           .getByRole("button", { name: fixture.recording.title, exact: true }),
       ).toBeEnabled();
       await expect(
-        rows
-          .nth(index)
-          .getByText("Plays from your services", { exact: true }),
+        rows.nth(index).getByText("Plays from your services", { exact: true }),
       ).toBeVisible();
     }
     for (const [index, status] of [

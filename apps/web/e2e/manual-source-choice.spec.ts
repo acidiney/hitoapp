@@ -388,9 +388,7 @@ test("manual source choice saves distinct B audio, plays it locally through prov
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("combobox", { name: "Playlist service", exact: true })
-      .selectOption(connections[0].id);
+
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

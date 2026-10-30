@@ -296,9 +296,7 @@ test("ordinary Play resolves one imported Spotify recording to real YouTube AAC 
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("combobox", { name: "Playlist service", exact: true })
-      .selectOption(spotify.id);
+
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

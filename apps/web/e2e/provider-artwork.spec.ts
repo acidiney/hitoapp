@@ -161,9 +161,7 @@ test("existing independent playlist copies automatically retain private provider
     for (let index = 0; index < 2; index++) {
       await page.goto("/playlists");
       const form = page.getByRole("region", { name: "Import a playlist" });
-      await form
-        .getByRole("combobox", { name: "Playlist service" })
-        .selectOption(connectionId);
+
       await form
         .getByRole("textbox", { name: "Playlist link or identifier" })
         .fill(fixture.reference);

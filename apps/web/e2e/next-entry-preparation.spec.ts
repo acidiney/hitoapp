@@ -242,9 +242,7 @@ test("playlist Play prepares the next distinct recording while current audio pla
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("combobox", { name: "Playlist service", exact: true })
-      .selectOption(connection.id);
+
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",

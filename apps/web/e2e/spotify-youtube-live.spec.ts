@@ -141,9 +141,7 @@ test.describe("isolated Spotify copy with reviewed YouTube audio", () => {
         name: "Import a playlist",
         exact: true,
       });
-      await form
-        .getByRole("combobox", { name: "Playlist service" })
-        .selectOption(spotify.id);
+
       await form
         .getByRole("textbox", { name: "Playlist link or identifier" })
         .fill(configuration.playlist);

@@ -74,9 +74,7 @@ async function createFollow(
   await form
     .getByRole("radio", { name: "Follow playlist", exact: true })
     .check();
-  await form
-    .getByRole("combobox", { name: "Playlist service", exact: true })
-    .selectOption(connection.id);
+
   const refreshInterval = form.getByRole("combobox", {
     name: "Refresh interval",
     exact: true,

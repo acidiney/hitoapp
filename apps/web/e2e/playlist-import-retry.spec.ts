@@ -149,9 +149,7 @@ test("a committed but lost import retries its original body while preserving an 
     );
     await page.goto("/playlists");
     const form = page.getByRole("region", { name: "Import a playlist" });
-    await form
-      .getByRole("combobox", { name: "Playlist service" })
-      .selectOption(connection.id);
+
     const field = form.getByRole("textbox", {
       name: "Playlist link or identifier",
     });

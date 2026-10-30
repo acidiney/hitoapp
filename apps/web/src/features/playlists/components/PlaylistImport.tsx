@@ -5,6 +5,7 @@ import {
   useProviderPlaylist,
   type PlaylistCreationMode,
 } from "../hooks/useProviderPlaylist";
+import { inferPlaylistService } from "../model/playlistService";
 import SegmentedControl from "../../../shared/ui/SegmentedControl";
 
 import Button from "../../../shared/ui/Button";
@@ -23,13 +24,17 @@ export default function PlaylistImport({
   );
   const [choice, setChoice] = useState("");
   const [reference, setReference] = useState("");
-  const [mode, setMode] = useState<PlaylistCreationMode>("copy");
+  const [chosenMode, setMode] = useState<PlaylistCreationMode | null>(null);
   const [interval, setInterval] =
     useState<Schema<"PlaylistFollowInterval">>("hourly");
+  const inferred = inferPlaylistService(reference, providers, names);
   const selected =
+    inferred.provider ??
     providers.find((provider) => provider.id === choice) ??
     providers[0] ??
     null;
+  const mode: PlaylistCreationMode =
+    chosenMode ?? (inferred.recognised ? "follow" : "copy");
   const workflow = useProviderPlaylist(account, selected);
   const previousAttempt = workflow.attemptKind === mode;
   const submitLabel =
@@ -66,19 +71,21 @@ export default function PlaylistImport({
               ]}
             />
           </div>
-          <label>
-            Playlist service
-            <select
-              value={selected.id}
-              onChange={(event) => setChoice(event.target.value)}
-            >
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {names[provider.service_id] ?? provider.manifest.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {inferred.ambiguous && (
+            <label>
+              Playlist service
+              <select
+                value={selected.id}
+                onChange={(event) => setChoice(event.target.value)}
+              >
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {names[provider.service_id] ?? provider.manifest.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {mode === "follow" && (
             <label>
               Refresh interval

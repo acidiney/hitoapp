@@ -656,9 +656,7 @@ async function savePlaylist(
   });
   const label = mode === "copy" ? "Import a copy" : "Follow playlist";
   await form.getByRole("radio", { name: label, exact: true }).check();
-  await form
-    .getByRole("combobox", { name: "Playlist service" })
-    .selectOption(connection.id);
+
   if (mode === "follow")
     await form
       .getByRole("combobox", { name: "Refresh interval", exact: true })

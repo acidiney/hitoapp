@@ -212,9 +212,7 @@ test("ordinary playlist Play automatically chooses studio audio for imported una
       name: "Import a playlist",
       exact: true,
     });
-    await form
-      .getByRole("combobox", { name: "Playlist service", exact: true })
-      .selectOption(connections[0].id);
+
     await form
       .getByRole("textbox", {
         name: "Playlist link or identifier",
