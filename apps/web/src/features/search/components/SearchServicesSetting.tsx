@@ -2,7 +2,11 @@ import SettingsCard from "../../../shared/ui/SettingsCard";
 import Switch from "../../../shared/ui/Switch";
 import { useAutomaticServiceSearch } from "../model/autoSearch";
 
-export default function SearchServicesSetting({ account }: { account: string }) {
+export default function SearchServicesSetting({
+  account,
+}: {
+  account: string;
+}) {
   const [enabled, setEnabled] = useAutomaticServiceSearch(account);
   return (
     <SettingsCard title="Search">

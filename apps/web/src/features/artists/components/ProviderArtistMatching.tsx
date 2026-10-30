@@ -30,12 +30,20 @@ export default function ProviderArtistMatching({
   if (state.status === "checking" || state.status === "disabled") return null;
   const text = summary(state);
   return (
-    <p className="muted artist-matching-status" role="status" aria-live="polite">
+    <p
+      className="muted artist-matching-status"
+      role="status"
+      aria-live="polite"
+    >
       {text}
       {state.status !== "running" && (
         <>
           {text && " "}
-          <button type="button" className="text-link" onClick={() => void run()}>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => void run()}
+          >
             Match again
           </button>
         </>

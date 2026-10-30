@@ -171,7 +171,9 @@ test("pending source resolution is announced inside the expanded player", async 
 });
 
 test("disposing the player closes its native dialog and removes its opener", async () => {
-  const { unmount } = await act(async () => render(createElement(PlayerDock, { account: "alice" })));
+  const { unmount } = await act(async () =>
+    render(createElement(PlayerDock, { account: "alice" })),
+  );
   const opener = screen.getByRole("button", { name: "Expand player" });
   fireEvent.click(opener);
   const dialog = screen.getByRole("dialog", { name: "Now playing" });

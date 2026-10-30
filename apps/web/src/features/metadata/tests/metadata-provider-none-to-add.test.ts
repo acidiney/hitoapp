@@ -28,7 +28,11 @@ test("with nothing left to add the add row is replaced by a one line hint", asyn
   expect(
     await screen.findByText("Every available metadata provider is in use."),
   ).toBeTruthy();
-  expect(screen.queryByRole("combobox", { name: "Metadata provider" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Add metadata provider" })).toBeNull();
+  expect(
+    screen.queryByRole("combobox", { name: "Metadata provider" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Add metadata provider" }),
+  ).toBeNull();
   expect(screen.queryByText("No available metadata providers")).toBeNull();
 });

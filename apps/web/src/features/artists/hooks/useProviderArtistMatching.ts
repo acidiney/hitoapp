@@ -34,7 +34,9 @@ const PAUSE_MS = 10 * 60 * 1000;
 
 function recentlyRun(account: string) {
   try {
-    const at = Number(localStorage.getItem(`hito:artist-provider-match:${account}`));
+    const at = Number(
+      localStorage.getItem(`hito:artist-provider-match:${account}`),
+    );
     return Number.isFinite(at) && at > 0 && Date.now() - at < PAUSE_MS;
   } catch {
     return false;

@@ -30,7 +30,7 @@ Track playback uses stable recording IDs. Likes and playlists therefore keep the
 
 ## Provider albums with unknown album artists
 
-A provider can identify a release without supplying its album artist. Hito retains the verified release ID and title, disc/track positions and recording performers. Its album artist and artist ID are null. The UI shows "Album artist not provided" and does not create a guessed artist link. A recording performer does not establish an album artist.
+A provider can identify a release without supplying its album artist. Hito retains the verified release ID and title, disc/track positions and recording performers. Its album artist and artist ID are null. The album header shows the one artist that every loaded track shares, or "Various artists" when they differ, as plain text and never as a guessed artist link; album cards without an album artist show no artist line (the list has no track data). The server should infer the album artist itself so every surface agrees. A recording performer does not establish an album artist.
 
 Provider release appearances exist independently of playable sources. Importing metadata can therefore create an unavailable album page without requesting audio or creating a download. Repeated playlist entries retain their stable entry IDs; the same recording at the same album position contributes one album row. Album reads combine these appearances with source metadata and retain the provider binding for later source refresh.
 

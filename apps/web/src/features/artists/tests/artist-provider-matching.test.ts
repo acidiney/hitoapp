@@ -80,7 +80,8 @@ test("the cursor is walked automatically and the running line counts matches", a
       if (path === SETTINGS) return settings(true);
       const body = JSON.parse(options?.body as string);
       afters.push(body.after);
-      if (!body.after) return receipt(body, { matched: 2, uncertain: 1 }, "r-8");
+      if (!body.after)
+        return receipt(body, { matched: 2, uncertain: 1 }, "r-8");
       await gate;
       return receipt(body, { matched: 1, uncertain: 2 }, null);
     }),

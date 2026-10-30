@@ -330,13 +330,17 @@ test("few library results search the connected services without another click", 
     await screen.findByRole("button", { name: "Play Provider joe" }),
   ).toBeTruthy();
   expect(JSON.parse(fetch.mock.calls[0][1].body).query).toBe("joe");
-  expect(screen.getByText(/query is sent to your connected services/i)).toBeTruthy();
+  expect(
+    screen.getByText(/query is sent to your connected services/i),
+  ).toBeTruthy();
   expect(
     screen
       .getByRole("link", { name: "Change in Settings" })
       .getAttribute("href"),
   ).toBe("/settings?section=privacy");
-  expect(screen.queryByRole("button", { name: "Search your services" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Search your services" }),
+  ).toBeNull();
 });
 
 test("turning automatic service search off restores the explicit button", async () => {
@@ -359,5 +363,7 @@ test("turning automatic service search off restores the explicit button", async 
   );
   await Promise.resolve();
   expect(fetch).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Search your services" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Search your services" }),
+  ).toBeTruthy();
 });

@@ -96,7 +96,9 @@ test("arrow keys move between the tabs", () => {
 test("Lyrics asks the account for a lyrics provider instead of waiting for a click", async () => {
   const dialog = screen.getByRole("dialog", { name: "Now playing" });
   fireEvent.click(within(dialog).getByRole("tab", { name: "Lyrics" }));
-  expect(await within(dialog).findByText("No lyrics found for this track.")).toBeTruthy();
+  expect(
+    await within(dialog).findByText("No lyrics found for this track."),
+  ).toBeTruthy();
   expect(
     within(dialog).getByRole("link", { name: "Track details" }),
   ).toHaveProperty("pathname", "/recordings/r0");

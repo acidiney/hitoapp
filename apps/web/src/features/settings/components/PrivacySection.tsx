@@ -16,7 +16,10 @@ export default function PrivacySection({
         account={user.id}
         lock={lock}
       />
-      <SearchServicesSetting key={`search-services:${user.id}`} account={user.id} />
+      <SearchServicesSetting
+        key={`search-services:${user.id}`}
+        account={user.id}
+      />
       <CommunitySettings
         key={`community-preferences:${user.id}`}
         account={user.id}

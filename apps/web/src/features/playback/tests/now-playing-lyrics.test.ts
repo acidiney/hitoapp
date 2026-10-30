@@ -91,7 +91,9 @@ test("Choose another provider loads the lyrics of the chosen one", async () => {
     .mockResolvedValueOnce(ready("b", "Other line"));
   open();
   await screen.findByText("First line");
-  fireEvent.click(screen.getByRole("button", { name: "Choose another provider" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Choose another provider" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Lyrics B" }));
   expect(await screen.findByText("Other line")).toBeTruthy();
   expect(apis.read.mock.calls[1][2].observation_id).toBe("obs-b");
@@ -103,7 +105,9 @@ test("without a lyrics provider the panel points to Settings plugins", async () 
   open();
   expect(await screen.findByText("No lyrics provider connected")).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "Connect one in Settings" }).getAttribute("href"),
+    screen
+      .getByRole("link", { name: "Connect one in Settings" })
+      .getAttribute("href"),
   ).toBe("/settings?section=plugins");
   expect(apis.read).not.toHaveBeenCalled();
 });

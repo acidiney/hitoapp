@@ -50,7 +50,8 @@ export function useNowPlayingLyrics(account: string, recording: string) {
         status: "done",
         providers: providers.current,
         provider,
-        lyrics: result.status === "ready" ? (result.document.lyrics ?? null) : null,
+        lyrics:
+          result.status === "ready" ? (result.document.lyrics ?? null) : null,
         unsupported: result.status !== "ready",
       });
     },
@@ -68,7 +69,11 @@ export function useNowPlayingLyrics(account: string, recording: string) {
       let outcome = "ok";
       try {
         if (observation === undefined) {
-          const listed = await lyricsApi.providers(account, recording, own.signal);
+          const listed = await lyricsApi.providers(
+            account,
+            recording,
+            own.signal,
+          );
           if (own.signal.aborted) return;
           providers.current = listed.items;
           if (listed.items.length === 0) {
@@ -86,8 +91,9 @@ export function useNowPlayingLyrics(account: string, recording: string) {
           }
         }
         const chosen =
-          providers.current.find((item) => item.observation_id === observation) ??
-          providers.current[0];
+          providers.current.find(
+            (item) => item.observation_id === observation,
+          ) ?? providers.current[0];
         await read(chosen, own.signal);
       } catch {
         outcome = own.signal.aborted ? "cancelled" : "failed";

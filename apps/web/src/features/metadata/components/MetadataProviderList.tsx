@@ -103,32 +103,32 @@ export default function MetadataProviderList({
       </ol>
       {!providers.length && <p>No metadata providers selected.</p>}
       {available.length ? (
-      <div className="provider-add">
-        <label>
-          Metadata provider
-          <select
-            value={selected?.key ?? ""}
-            disabled={pending}
-            onChange={(event) => setChoice(event.target.value)}
+        <div className="provider-add">
+          <label>
+            Metadata provider
+            <select
+              value={selected?.key ?? ""}
+              disabled={pending}
+              onChange={(event) => setChoice(event.target.value)}
+            >
+              {available.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            disabled={pending || !canAdd || !selected}
+            onClick={() => {
+              if (!selected) return;
+              onAdd(selected.provider);
+              setChoice("");
+            }}
           >
-            {available.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Button
-          disabled={pending || !canAdd || !selected}
-          onClick={() => {
-            if (!selected) return;
-            onAdd(selected.provider);
-            setChoice("");
-          }}
-        >
-          Add metadata provider
-        </Button>
-      </div>
+            Add metadata provider
+          </Button>
+        </div>
       ) : (
         <p className="muted">Every available metadata provider is in use.</p>
       )}
