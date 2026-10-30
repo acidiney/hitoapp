@@ -14,6 +14,7 @@ async fn blocked_storage_bounds_terminal_checkpoints_preserves_order_and_retries
     let f = fixture::LocalPlayback::start().await;
     let events = progress_events::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

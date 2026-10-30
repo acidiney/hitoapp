@@ -48,6 +48,7 @@ async fn continue_restores_fresh_exact_chapter_position_and_tempo_without_interr
     assert_eq!(rendered.continuation.as_ref().unwrap().chapter, first);
     let peer_before = peer_state(&f).await;
     let signals = output::WorkflowSignals::default();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(tracing_subscriber::registry().with(signals.clone()));
     let capture = capture::Capture::open();
     let (player, owner) =

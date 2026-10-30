@@ -39,6 +39,7 @@ async fn pending_old_account_progress_never_changes_the_new_accounts_activity_or
         .unwrap();
     let events = progress_events::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

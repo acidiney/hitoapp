@@ -29,6 +29,7 @@ async fn an_owned_session_retains_workflow_logs_across_threads_without_private_i
         .unwrap();
     let captured = Arc::new(Mutex::new(Vec::new()));
     let writer = captured.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .with_ansi(false)

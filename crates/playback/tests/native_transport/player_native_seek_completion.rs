@@ -15,6 +15,7 @@ async fn a_seek_accepted_as_audio_finishes_applies_without_stalling_or_advancing
     let gate = event_gate::EventGate::new("player_command_accepted");
     let _release = gate.guard();
     let writer = gate.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

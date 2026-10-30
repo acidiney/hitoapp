@@ -19,6 +19,7 @@ async fn completion_before_the_first_playing_observation_still_saves_the_finishe
     let _release = gate.guard();
     let writer = gate.clone();
     let opening_writer = opening.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

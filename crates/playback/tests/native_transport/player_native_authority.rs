@@ -135,6 +135,7 @@ async fn source_authority_failure_preserves_a_paused_selection_without_starting_
     let gate = event_gate::EventGate::new("native_session_finished");
     let _release = gate.guard();
     let writer = gate.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

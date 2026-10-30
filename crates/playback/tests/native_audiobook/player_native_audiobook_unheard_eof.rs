@@ -41,6 +41,7 @@ async fn a_silent_seek_and_coalesced_resume_at_eof_never_select_an_unheard_audio
     let controls = event_gate::EventGate::new("player_controls_applied");
     let _release = controls.guard();
     let writer = controls.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

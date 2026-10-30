@@ -46,6 +46,7 @@ async fn a_heard_chapter_retains_its_anchor_when_the_first_observation_is_alread
     let _controls_release = controls.guard();
     let opening_writer = opening.clone();
     let controls_writer = controls.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

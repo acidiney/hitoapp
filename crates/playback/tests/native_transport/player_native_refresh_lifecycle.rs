@@ -54,6 +54,7 @@ async fn cancelling_close_observation_retains_admitted_source_publication_until_
         .await;
     let events = Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

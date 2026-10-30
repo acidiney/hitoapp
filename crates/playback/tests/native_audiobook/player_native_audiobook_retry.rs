@@ -52,6 +52,7 @@ async fn retried_native_checkpoint_keeps_both_operation_ids_and_chapter_before_l
         .execute(&pool).await.unwrap();
     let events = checkpoint_events::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

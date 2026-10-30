@@ -20,6 +20,7 @@ async fn a_completed_old_refresh_cannot_start_output_before_current_retirement_j
     let refresh = f.server.hold("v1/sources").await;
     let events = retirement::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

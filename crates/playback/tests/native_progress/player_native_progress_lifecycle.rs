@@ -13,6 +13,7 @@ async fn canceling_close_observation_keeps_admitted_progress_owned_until_commit_
     let f = fixture::LocalPlayback::start().await;
     let events = progress_events::Events::default();
     let writer = events.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()

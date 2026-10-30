@@ -63,6 +63,7 @@ async fn a_successful_read_during_suspension_restores_once_then_preserves_pause_
  {
     let loads = Loads::default();
     let writer = loads.clone();
+    hito_testkit::logs::anchor_callsite_interest();
     let dispatch = tracing::Dispatch::new(
         tracing_subscriber::fmt()
             .json()
