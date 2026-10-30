@@ -69,6 +69,7 @@ export async function audiobookPlaybackGateFixture(
         inherited_artist: "Owned playback gate artist",
         duration_ms: 90_000,
         available: true,
+        plays_from_services: false,
         liked: false,
       }),
     ),

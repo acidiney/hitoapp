@@ -41,6 +41,7 @@ test("A retained episode Like succeeds without reloading inactive podcast detail
       duration_ms: 120_000,
       liked: false,
       available: true,
+      plays_from_services: false,
     },
   } satisfies components["schemas"]["PodcastEpisode"];
   const props = {

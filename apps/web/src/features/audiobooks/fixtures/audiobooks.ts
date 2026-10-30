@@ -13,6 +13,7 @@ export function audiobookPages() {
     duration_ms: 120_000,
     liked: true,
     available: true,
+    plays_from_services: false,
   };
   const chapters: Schema<"PlaylistEntry">[] = [
     first,

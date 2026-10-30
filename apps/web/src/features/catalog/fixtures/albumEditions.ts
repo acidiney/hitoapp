@@ -37,6 +37,7 @@ const recording = (id: string, title: string, personal = title) => ({
   album: "Catalog album",
   duration_ms: 1000,
   available: false,
+  plays_from_services: true,
   liked: false,
 });
 
@@ -68,6 +69,7 @@ export const albumDetail = {
     title: "Catalog album",
     artist: "Performer",
     artist_id: "artist",
+    inferred_artist: null,
     track_count: 2,
     duration_ms: 2000,
     artwork_recording_id: firstLibraryRecording.id,

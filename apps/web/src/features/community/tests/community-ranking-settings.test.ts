@@ -215,6 +215,7 @@ test("Privacy saves source rankings independently and requires review after a st
         [
           "/api/v1/community/preferences",
           "/api/v1/community/ranking-preferences",
+          "/api/v1/metadata/settings",
         ].includes(request.path),
       ),
     ).toBe(true);

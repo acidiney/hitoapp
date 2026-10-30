@@ -28,7 +28,11 @@ test.each(serverComponents())(
 );
 
 test("every registered page is a server component and unknown names are rejected", () => {
-  expect(Object.keys(pages).sort()).toEqual(serverComponents().sort());
+  expect(Object.keys(pages).sort()).toEqual(
+    serverComponents()
+      .filter((name) => name !== "NotFoundPage")
+      .sort(),
+  );
   expect(() => resolvePage("MissingPage")).toThrow("Unknown page: MissingPage");
 });
 

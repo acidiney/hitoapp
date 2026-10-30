@@ -36,6 +36,7 @@ const recording = (index: number) => ({
   library_id: "personal",
   inherited_title: `Track ${index}`,
   inherited_artist: "Owned performer",
+  plays_from_services: false,
   liked: false,
 });
 const items = (from: number, count: number) =>

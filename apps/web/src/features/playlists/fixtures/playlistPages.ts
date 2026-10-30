@@ -13,6 +13,7 @@ const first: Schema<"PlaylistEntry"> = {
   duration_ms: 12000,
   liked: false,
   available: true,
+  plays_from_services: false,
   origin: {
     kind: "recording",
     provider_recording_id: "provider/a",
@@ -123,6 +124,7 @@ export const unavailablePlaylistPages: Schema<"PlaylistPageProps">[] = [
           ...entry,
           position: index,
           available: false,
+          plays_from_services: true,
         }),
       ),
     },

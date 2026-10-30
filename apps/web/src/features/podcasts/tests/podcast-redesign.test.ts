@@ -52,6 +52,7 @@ function episode(id: string, title: string): Schema<"PodcastEpisode"> {
       duration_ms: 3_600_000,
       liked: false,
       available: true,
+      plays_from_services: false,
     },
   };
 }

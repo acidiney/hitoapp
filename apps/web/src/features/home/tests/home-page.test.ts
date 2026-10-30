@@ -28,6 +28,7 @@ const track = (id: string, title: string): Schema<"Recording"> => ({
   release_id: "tide",
   duration_ms: 1000,
   available: true,
+  plays_from_services: false,
   liked: false,
 });
 const props = (

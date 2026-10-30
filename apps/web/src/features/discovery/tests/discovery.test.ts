@@ -32,6 +32,7 @@ const recording: Schema<"Recording"> = {
   inherited_artist: hit.artist,
   duration_ms: 90000,
   available: true,
+  plays_from_services: false,
   liked: false,
 };
 const player = {

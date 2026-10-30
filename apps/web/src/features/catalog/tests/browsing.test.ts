@@ -37,6 +37,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
     album: "Two discs",
     duration_ms: 1000,
     available: true,
+    plays_from_services: false,
     liked: false,
   };
   render(
@@ -54,6 +55,7 @@ test("album playback keeps repeated recording occurrences and their tagged order
           title: "Two discs",
           artist: "Performer",
           artist_id: "artist",
+          inferred_artist: null,
           track_count: 2,
           duration_ms: 2000,
           artwork_recording_id: "recording",
@@ -110,6 +112,7 @@ test("an album with unknown credit keeps its card and detail links without inven
     title: "Owned source-free album",
     artist: null,
     artist_id: null,
+    inferred_artist: { kind: "various" },
     track_count: 2,
     duration_ms: 2000,
     artwork_recording_id: "recording-one",
@@ -127,6 +130,7 @@ test("an album with unknown credit keeps its card and detail links without inven
       album: release.title,
       duration_ms: 1000,
       available: false,
+      plays_from_services: true,
       liked: false,
       disc_number: 1,
       track_number: 1,
@@ -143,6 +147,7 @@ test("an album with unknown credit keeps its card and detail links without inven
       album: release.title,
       duration_ms: 1000,
       available: false,
+      plays_from_services: true,
       liked: false,
       disc_number: 2,
       track_number: 1,
@@ -253,6 +258,7 @@ test("albumless artist tracks play only their page and keep album pagination sep
     album: null,
     duration_ms: 1000,
     available: true,
+    plays_from_services: false,
     liked: false,
   };
   render(

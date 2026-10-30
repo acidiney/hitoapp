@@ -240,6 +240,7 @@ test("retiring delivery during an owned response fetch cannot create a late conf
         duration_ms: 60_000,
         liked: false,
         available: true,
+        plays_from_services: false,
       },
     ],
     bookmarks: [],

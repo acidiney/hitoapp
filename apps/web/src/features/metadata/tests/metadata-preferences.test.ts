@@ -27,6 +27,7 @@ const initial: Schema<"MetadataSettings"> = {
   enabled: true,
   automatic_artist_lookup: true,
   automatic_artwork: true,
+  automatic_service_search: true,
   providers: [{ kind: "builtin_musicbrainz" }],
 };
 const connections: Schema<"PluginSettings"> = {

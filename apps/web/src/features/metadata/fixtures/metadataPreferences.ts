@@ -16,6 +16,7 @@ export function settings(
     enabled,
     automatic_artist_lookup: true,
     automatic_artwork: true,
+    automatic_service_search: true,
     providers: [...providers],
   };
 }

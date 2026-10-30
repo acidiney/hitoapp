@@ -125,6 +125,7 @@ test("album covers retrieve exact release artwork, retry failures and reject an 
             title: "My retained album",
             artist: null,
             artist_id: null,
+            inferred_artist: null,
             track_count: 0,
             duration_ms: 0,
             artwork_recording_id: null,

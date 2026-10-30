@@ -68,6 +68,7 @@ test("Podcast unsubscribe recovers its exact receipt after status omits the subs
       duration_ms: 120_000,
       liked: true,
       available: true,
+      plays_from_services: false,
     },
   } satisfies components["schemas"]["PodcastEpisode"];
   const props = {

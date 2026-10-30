@@ -127,6 +127,7 @@ test("account metadata preferences persist ordered personal providers without to
       enabled: true,
       automatic_artist_lookup: true,
       automatic_artwork: true,
+      automatic_service_search: true,
       providers: [builtin],
     } satisfies Schema<"MetadataSettings">;
     expect(

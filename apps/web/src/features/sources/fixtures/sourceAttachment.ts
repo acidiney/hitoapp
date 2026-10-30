@@ -17,6 +17,7 @@ export const savedRecording: Schema<"Recording"> = {
   duration_ms: 120_000,
   liked: true,
   available: false,
+  plays_from_services: true,
 };
 
 const primary: Schema<"MetadataObservation"> = {
