@@ -293,7 +293,7 @@ fn application(
             tower_http::services::ServeDir::new(config.web_dir.join("assets")),
         )
         .merge(api)
-        .fallback(inertia::page)
+        .fallback(inertia::fallback)
         .layer(axum::extract::DefaultBodyLimit::max(262144))
         .layer(Extension(Arc::new(document)))
         .layer(Extension(config.clone()))

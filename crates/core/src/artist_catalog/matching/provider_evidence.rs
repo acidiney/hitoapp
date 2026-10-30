@@ -206,7 +206,7 @@ impl ArtistCatalog {
             return Ok(empty_receipt(request.request_id, next_after));
         }
         let (resolutions, examined) = {
-            let _admission = self.admit(actor.id())?;
+            let _admission = self.admit_matching(actor)?;
             self.resolve_lookups(&candidates, LOOKUP_WINDOW).await
         };
         let mut next_after = next_after;

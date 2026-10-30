@@ -25,6 +25,27 @@ pub(super) struct ArtistPagination {
     cursor: Option<String>,
 }
 
+/// Unknown paths: API paths answer JSON and file-like paths a bare 404 before any session or
+/// version work; other paths render the not-found page.
+pub async fn fallback(
+    State(services): State<Services>,
+    request: axum::extract::Request,
+) -> Response {
+    use axum::handler::Handler;
+    let path = request.uri().path();
+    if path == "/api" || path.starts_with("/api/") {
+        return crate::error::ApiError(hito_core::Error::NotFound).into_response();
+    }
+    if path
+        .rsplit('/')
+        .next()
+        .is_some_and(|last| last.contains('.'))
+    {
+        return (StatusCode::NOT_FOUND, "Not found").into_response();
+    }
+    page.call(request, services).await
+}
+
 pub async fn page(
     State(services): State<Services>,
     (Extension(config), Extension(playback)): (
@@ -44,9 +65,6 @@ pub async fn page(
     }
     let screen = Screen::from_path(uri.path());
     let unknown = screen.is_unknown();
-    if unknown && (uri.path() == "/api" || uri.path().starts_with("/api/")) {
-        return Err(hito_core::Error::NotFound.into());
-    }
     let locked = actor.as_ref().is_some_and(|actor| actor.is_locked());
     let component = if locked {
         PageComponent::LockPage

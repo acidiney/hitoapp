@@ -263,6 +263,8 @@ impl ArtistCatalog {
                         AND NOT EXISTS (SELECT 1 FROM release_artwork ra WHERE ra.user_id = ?1 AND ra.release_id = a.id)
                         AND NOT EXISTS (SELECT 1 FROM source_metadata sm JOIN sources s ON s.id = sm.source_id
                             WHERE sm.release_id = a.id AND s.provider = 'local')
+                        AND NOT EXISTS (SELECT 1 FROM cover_art_lookups c
+                            WHERE c.user_id = ?1 AND c.kind = o.entity AND c.mbid = o.mbid)
                         AND COALESCE((SELECT artwork FROM account_metadata_automation WHERE user_id = ?1),1) = 1
                      LIMIT 32",
                 )

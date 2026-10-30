@@ -114,6 +114,19 @@ impl Albums {
             .unwrap()
     }
 
+    async fn age(&self, mbid: &str) {
+        let mut connection =
+            sqlx::SqliteConnection::connect(&format!("sqlite://{}", self.database.display()))
+                .await
+                .unwrap();
+        sqlx::query("UPDATE cover_art_lookups SET updated_at = unixepoch() - 90000 WHERE mbid = ?")
+            .bind(mbid)
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        connection.close().await.unwrap();
+    }
+
     async fn drive(&self) {
         let mut steps = 0;
         while self
@@ -314,4 +327,35 @@ async fn the_matching_walk_queues_covers_for_albums_without_local_files() {
             .is_none()
     );
     assert_eq!(albums.state(OTHER_MBID).await.unwrap().0, "missing");
+}
+
+#[tokio::test]
+async fn a_missing_cover_is_asked_again_after_the_retry_window_when_the_album_is_read() {
+    let albums = Albums::prepare().await;
+    albums.caa.front("release", RELEASE_MBID, Reply::NotFound);
+    let (hito, actor, release) = (&albums.hito, &albums.actor, &albums.releases[0]);
+    hito.catalog.release_artwork(actor, release).await.unwrap();
+    albums.drive().await;
+    assert_eq!(albums.state(RELEASE_MBID).await.unwrap().0, "missing");
+
+    hito.catalog.release_artwork(actor, release).await.unwrap();
+    assert_eq!(
+        albums.state(RELEASE_MBID).await.unwrap().0,
+        "missing",
+        "A fresh answer is not asked for again"
+    );
+    albums.age(RELEASE_MBID).await;
+    albums
+        .caa
+        .front("release", RELEASE_MBID, Reply::Png(COVER_A.to_vec()));
+    hito.catalog.release_artwork(actor, release).await.unwrap();
+    assert_eq!(albums.state(RELEASE_MBID).await.unwrap().0, "queued");
+    albums.drive().await;
+    assert!(
+        hito.catalog
+            .release_artwork(actor, release)
+            .await
+            .unwrap()
+            .is_some()
+    );
 }

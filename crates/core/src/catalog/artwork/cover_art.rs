@@ -160,7 +160,7 @@ impl Catalog {
         actor: &Actor,
         release: &str,
     ) -> Result<Option<Artwork>> {
-        let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let mut tx = self.store.pool.begin().await?;
         actor.check_session_on(&mut tx).await?;
         let identifiers: Vec<(String, String)> = sqlx::query_as(
             "SELECT DISTINCT o.entity,o.mbid FROM recording_musicbrainz_observations o
@@ -172,18 +172,21 @@ impl Catalog {
         .fetch_all(&mut *tx)
         .await?;
         let mut found = None;
+        let mut wanted = Vec::new();
         for (entity, mbid) in identifiers {
             let kind = CoverArtKind::from_stored(&entity)?;
-            let known: Option<(String, Option<String>)> = sqlx::query_as(
-                "SELECT state,content_hash FROM cover_art_lookups WHERE user_id = ? AND kind = ? AND mbid = ?",
+            let known: Option<(String, Option<String>, bool)> = sqlx::query_as(
+                "SELECT state,content_hash,updated_at < unixepoch() - ? FROM cover_art_lookups
+                 WHERE user_id = ? AND kind = ? AND mbid = ?",
             )
+            .bind(RETRY_AFTER_SECONDS)
             .bind(actor.id())
             .bind(kind.stored())
             .bind(&mbid)
             .fetch_optional(&mut *tx)
             .await?;
             match known {
-                Some((_, Some(hash))) => {
+                Some((_, Some(hash), _)) => {
                     let asset: (String, Vec<u8>) = sqlx::query_as(
                         "SELECT content_type,bytes FROM artwork_assets WHERE user_id = ? AND content_hash = ?",
                     )
@@ -194,11 +197,21 @@ impl Catalog {
                     found = Some(assets::stored(asset)?);
                     break;
                 }
+                Some((state, None, true)) if state == "missing" || state == "unavailable" => {
+                    wanted.push((kind, mbid));
+                }
                 Some(_) => {}
-                None => enqueue(&mut tx, actor.id(), kind, &mbid).await?,
+                None => wanted.push((kind, mbid)),
             }
         }
         tx.commit().await?;
+        if found.is_none() && !wanted.is_empty() {
+            let mut write = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
+            for (kind, mbid) in wanted {
+                enqueue(&mut write, actor.id(), kind, &mbid).await?;
+            }
+            write.commit().await?;
+        }
         actor.check_session(&self.store).await?;
         Ok(found)
     }

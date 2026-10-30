@@ -264,3 +264,34 @@ async fn the_status_reports_waiting_work_the_last_result_and_the_setting() {
     assert!(!off.enabled);
     assert_eq!(off.state, ArtistMatchingState::Idle);
 }
+
+#[tokio::test]
+async fn a_background_step_never_makes_the_accounts_own_matching_requests_busy() {
+    let library = NameLibrary::nova().await;
+    expect_nova(&library);
+    for _ in 0..2 {
+        assert!(
+            library
+                .hito
+                .artist_catalog
+                .run_next_automatic_matching_until(std::future::pending())
+                .await
+                .unwrap(),
+            "The tag and evidence steps come first"
+        );
+    }
+    library.musicbrainz.delay_replies(Duration::from_secs(2));
+    let artists = library.hito.artist_catalog.clone();
+    let background = tokio::spawn(async move {
+        artists
+            .run_next_automatic_matching_until(std::future::pending())
+            .await
+    });
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let manual = library.run().await;
+    assert!(
+        manual.matched <= 3,
+        "The account's own walk must not find its slot taken by the background walk"
+    );
+    background.await.unwrap().unwrap();
+}

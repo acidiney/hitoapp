@@ -386,3 +386,29 @@ async fn search_pages_can_carry_chosen_artists() {
     assert_eq!(page["props"]["artist_groups"]["items"], json!([]));
     assert_eq!(page["props"]["artist_groups"]["total"], 0);
 }
+
+#[tokio::test]
+async fn asset_like_and_api_misses_answer_without_pages_or_version_checks() {
+    let (_dir, app) = app().await;
+    let (status, body, headers) = get(&app, "/favicon.ico", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        !body.contains("data-page"),
+        "No page is rendered for a file-like path"
+    );
+    assert!(headers.get("vary").is_none() || !body.contains("NotFoundPage"));
+
+    let (status, body, headers) = get(
+        &app,
+        "/api/v1/missing",
+        &[("x-inertia", "true"), ("x-inertia-version", "stale")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    assert!(
+        headers["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json")
+    );
+}

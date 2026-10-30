@@ -144,13 +144,17 @@ impl ArtistCatalog {
         let queued = async {
             let mut tx = self.store.pool.begin_with("BEGIN IMMEDIATE").await?;
             for group in groups {
-                crate::catalog::enqueue_cover_art(
+                match crate::catalog::enqueue_cover_art(
                     &mut tx,
                     actor.id(),
                     crate::CoverArtKind::ReleaseGroup,
                     &group.id,
                 )
-                .await?;
+                .await
+                {
+                    Ok(()) | Err(Error::Invalid(_)) => {}
+                    Err(error) => return Err(error),
+                }
             }
             tx.commit().await?;
             Ok::<_, crate::Error>(())

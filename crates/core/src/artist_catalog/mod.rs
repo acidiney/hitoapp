@@ -80,6 +80,8 @@ pub struct ArtistCatalog {
     builtin: MusicBrainzClient,
     slots: Arc<Semaphore>,
     accounts: Accounts,
+    background_slots: Arc<Semaphore>,
+    background_accounts: Accounts,
     continuations: continuation::Key,
 }
 
@@ -109,8 +111,29 @@ impl ArtistCatalog {
             builtin,
             slots: Arc::new(Semaphore::new(4)),
             accounts: Accounts::new(1),
+            background_slots: Arc::new(Semaphore::new(1)),
+            background_accounts: Accounts::new(1),
             continuations: continuation::Key::new(),
         })
+    }
+
+    /// Admission for matching lookups. Background walks have their own slots, so they never take
+    /// the ones the account's own profile, preview and review requests need.
+    fn admit_matching(
+        &self,
+        actor: &crate::Actor,
+    ) -> Result<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {
+        if !actor.is_unattended() {
+            return self.admit(actor.id());
+        }
+        let global = self
+            .background_slots
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| {
+                Error::Conflict("Background artist matching is busy. Try again.".into())
+            })?;
+        Ok((global, self.background_accounts.enter(actor.id())?))
     }
 
     fn admit(&self, account: &str) -> Result<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {

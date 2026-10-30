@@ -224,10 +224,12 @@ impl ArtistCatalog {
     }
 }
 
-const MAX_EXACT_CANDIDATES: i64 = 500;
+const EXACT_SCAN_PAGE: i64 = 500;
+const MAX_EXACT_SCAN: i64 = 20_000;
 
 /// Identifiers (as a JSON array) of the matching groups whose name equals the search text
-/// without regard to case, spacing or common accents.
+/// without regard to case, spacing or common accents. Every matching group is examined, page by
+/// page, up to a fixed bound.
 async fn exact_names(
     connection: &mut sqlx::SqliteConnection,
     actor: &Actor,
@@ -238,18 +240,32 @@ async fn exact_names(
     if terms.is_empty() || wanted.is_empty() {
         return Ok("[]".into());
     }
-    let mut candidates = visible(actor, query.library.as_deref(), None);
-    candidates.push("SELECT id,name FROM summary");
-    filter_member_names(&mut candidates, actor, terms);
-    candidates
-        .push(" ORDER BY name COLLATE NOCASE,id LIMIT ")
-        .push_bind(MAX_EXACT_CANDIDATES);
-    let rows: Vec<(String, String)> = candidates.build_query_as().fetch_all(connection).await?;
-    let exact: Vec<String> = rows
-        .into_iter()
-        .filter(|(_, name)| fold(name) == wanted)
-        .map(|(id, _)| id)
-        .collect();
+    let mut exact: Vec<String> = Vec::new();
+    let mut offset = 0;
+    while offset < MAX_EXACT_SCAN {
+        let mut candidates = visible(actor, query.library.as_deref(), None);
+        candidates.push("SELECT id,name FROM summary");
+        filter_member_names(&mut candidates, actor, terms);
+        candidates
+            .push(" ORDER BY name COLLATE NOCASE,id LIMIT ")
+            .push_bind(EXACT_SCAN_PAGE)
+            .push(" OFFSET ")
+            .push_bind(offset);
+        let rows: Vec<(String, String)> = candidates
+            .build_query_as()
+            .fetch_all(&mut *connection)
+            .await?;
+        let last = (rows.len() as i64) < EXACT_SCAN_PAGE;
+        exact.extend(
+            rows.into_iter()
+                .filter(|(_, name)| fold(name) == wanted)
+                .map(|(id, _)| id),
+        );
+        if last {
+            break;
+        }
+        offset += EXACT_SCAN_PAGE;
+    }
     serde_json::to_string(&exact)
         .map_err(|_| Error::Internal("Artist search could not be ordered".into()))
 }
@@ -279,6 +295,7 @@ fn fold(text: &str) -> String {
             'ù'..='ü' | 'Ù'..='Ü' | 'ū' | 'ů' | 'ű' | 'Ū' | 'Ů' | 'Ű' => folded.push('u'),
             'ý' | 'ÿ' | 'Ý' => folded.push('y'),
             'ź' | 'ż' | 'ž' | 'Ź' | 'Ż' | 'Ž' => folded.push('z'),
+            '\u{300}'..='\u{36f}' => {}
             'ß' => folded.push_str("ss"),
             'æ' | 'Æ' => folded.push_str("ae"),
             'œ' | 'Œ' => folded.push_str("oe"),
@@ -298,6 +315,12 @@ mod fold_tests {
         assert_eq!(fold("Sigur Rós"), fold("sigur  ros"));
         assert_eq!(fold("Mötley Crüe"), "motley crue");
         assert_eq!(fold("Beyoncé"), "beyonce");
+        assert_eq!(
+            fold("Beyonce\u{301}"),
+            "beyonce",
+            "Decomposed accents fold too"
+        );
+        assert_eq!(fold("Mo\u{308}tley Cru\u{308}e"), "motley crue");
     }
 }
 

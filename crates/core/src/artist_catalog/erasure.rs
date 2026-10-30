@@ -63,16 +63,26 @@ async fn scoped(
         .execute(&mut *connection)
         .await?;
     let outcome = erase_within_scope(connection, kind, subject, statements).await;
-    let closing = if outcome.is_ok() {
-        "RELEASE correction_erasure"
-    } else {
-        "ROLLBACK TO correction_erasure"
-    };
-    sqlx::query(closing).execute(&mut *connection).await?;
-    if outcome.is_err() {
+    if outcome.is_ok() {
         sqlx::query("RELEASE correction_erasure")
             .execute(&mut *connection)
             .await?;
+    } else {
+        for closing in [
+            "ROLLBACK TO correction_erasure",
+            "RELEASE correction_erasure",
+        ] {
+            if sqlx::query(closing)
+                .execute(&mut *connection)
+                .await
+                .is_err()
+            {
+                tracing::warn!(
+                    event = "correction_erasure_rollback_failed",
+                    "Erasure scope cleanup failed; the original error is returned"
+                );
+            }
+        }
     }
     outcome
 }

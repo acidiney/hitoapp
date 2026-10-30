@@ -47,6 +47,10 @@ impl Actor {
         &self.user
     }
 
+    pub(crate) fn is_unattended(&self) -> bool {
+        self.unattended
+    }
+
     pub(crate) fn id(&self) -> &str {
         &self.user.id
     }

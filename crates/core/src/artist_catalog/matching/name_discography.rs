@@ -202,7 +202,7 @@ impl ArtistCatalog {
         let mut budget = Budget::new(LOOKUP_WINDOW);
         let mut answers = Answers::default();
         {
-            let _admission = self.admit(actor.id())?;
+            let _admission = self.admit_matching(actor)?;
             for (index, credit) in credits.iter().enumerate() {
                 if index > 0 && budget.lookups + MAX_CREDIT_LOOKUPS > MAX_LOOKUPS {
                     break;
