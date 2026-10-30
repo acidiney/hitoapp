@@ -2561,6 +2561,9 @@ name = "hito-testkit"
 version = "0.1.0-dev"
 dependencies = [
  "axum",
+ "bytes",
+ "futures-util",
+ "hito-plugin-sdk",
  "rcgen",
  "reqwest",
  "rustls",
