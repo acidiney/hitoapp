@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -136,4 +137,40 @@ test("a failure offers a retry", async () => {
   open();
   fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
   expect(await screen.findByText("Back again")).toBeTruthy();
+});
+
+test("the deadline ends in a failure with Try again, not an endless loading line", async () => {
+  vi.useFakeTimers();
+  apis.providers.mockImplementation(() => new Promise(() => {}));
+  open();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(15_100);
+  });
+  expect(screen.getByText("Lyrics could not be loaded.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  vi.useRealTimers();
+});
+
+test("with automatic loading off nothing is requested until the listener asks", async () => {
+  localStorage.setItem("hito:lyrics-auto:alice", "off");
+  apis.providers.mockResolvedValue({
+    recording_id: "r1",
+    items: [provider("a", "Lyrics A")],
+  });
+  apis.read.mockResolvedValue(ready("a", "Asked line"));
+  open();
+  await Promise.resolve();
+  expect(apis.providers).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Load lyrics" }));
+  expect(await screen.findByText("Asked line")).toBeTruthy();
+});
+
+test("the provider is named in a muted line", async () => {
+  apis.providers.mockResolvedValue({
+    recording_id: "r1",
+    items: [provider("a", "Lyrics A")],
+  });
+  apis.read.mockResolvedValue(ready("a", "Line"));
+  open();
+  expect(await screen.findByText("Lyrics from Lyrics A")).toBeTruthy();
 });

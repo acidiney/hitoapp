@@ -2,6 +2,7 @@ import type { Schema } from "../../../shared/schema";
 
 import CommunitySettings from "../../community/components/CommunitySettings";
 import CommunityRankingSettings from "../../community/components/CommunityRankingSettings";
+import LyricsAutoSetting from "../../lyrics/components/LyricsAutoSetting";
 import SearchServicesSetting from "../../search/components/SearchServicesSetting";
 import ScreenLockSettings from "../../session/components/ScreenLockSettings";
 
@@ -20,6 +21,7 @@ export default function PrivacySection({
         key={`search-services:${user.id}`}
         account={user.id}
       />
+      <LyricsAutoSetting key={`lyrics-auto:${user.id}`} account={user.id} />
       <CommunitySettings
         key={`community-preferences:${user.id}`}
         account={user.id}

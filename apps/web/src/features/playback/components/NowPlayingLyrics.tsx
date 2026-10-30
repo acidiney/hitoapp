@@ -3,6 +3,7 @@ import type { Track } from "../model";
 import { useNowPlayingLyrics } from "../../lyrics/hooks/useNowPlayingLyrics";
 import RouteLink from "../../../shared/ui/RouteLink";
 import FilterPills from "../../../shared/ui/FilterPills";
+import { useAccountSwitch } from "../../../shared/hooks/useAccountSwitch";
 
 function TrackLyrics({
   account,
@@ -13,7 +14,12 @@ function TrackLyrics({
   track: Track;
   leave: () => void;
 }) {
-  const { state, choose, retry } = useNowPlayingLyrics(account, track.id);
+  const [automatic] = useAccountSwitch("lyrics-auto", account);
+  const { state, choose, retry } = useNowPlayingLyrics(
+    account,
+    track.id,
+    automatic,
+  );
   const [choosing, setChoosing] = useState(false);
   const details = (
     <RouteLink
@@ -23,6 +29,18 @@ function TrackLyrics({
       Track details
     </RouteLink>
   );
+  if (state.status === "idle")
+    return (
+      <>
+        <button type="button" className="text-link" onClick={retry}>
+          Load lyrics
+        </button>
+        <p className="muted">
+          Lyrics are loaded from your lyrics provider when you ask.
+        </p>
+        {details}
+      </>
+    );
   if (state.status === "loading")
     return (
       <p role="status" className="muted">
@@ -70,7 +88,7 @@ function TrackLyrics({
             : "No lyrics found for this track."}
         </p>
       )}
-      <p className="muted">From {provider.label}</p>
+      <p className="muted">Lyrics from {provider.label}</p>
       {providers.length > 1 && !choosing && (
         <button
           type="button"

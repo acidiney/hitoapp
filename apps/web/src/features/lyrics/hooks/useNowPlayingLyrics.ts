@@ -8,6 +8,7 @@ type Provider = Schema<"RecordingLyricsProvider">;
 type Lines = Schema<"TimedLyrics">;
 
 export type NowPlayingLyricsState =
+  | { status: "idle"; providers: Provider[] }
   | { status: "loading"; providers: Provider[] }
   | { status: "no_provider"; providers: Provider[] }
   | { status: "none_for_track"; providers: Provider[] }
@@ -27,7 +28,11 @@ const DEADLINE_MS = 15_000;
  * panel opens. Another provider can be chosen afterwards. Leaving the panel or changing the track
  * cancels whatever is in flight.
  */
-export function useNowPlayingLyrics(account: string, recording: string) {
+export function useNowPlayingLyrics(
+  account: string,
+  recording: string,
+  automatic = true,
+) {
   const [state, setState] = useState<NowPlayingLyricsState>({
     status: "loading",
     providers: [],
@@ -64,7 +69,12 @@ export function useNowPlayingLyrics(account: string, recording: string) {
       controller.current?.abort();
       const own = new AbortController();
       controller.current = own;
-      const timer = setTimeout(() => own.abort(), DEADLINE_MS);
+      const timer = setTimeout(() => {
+        if (controller.current !== own || own.signal.aborted) return;
+        outcome = "deadline";
+        own.abort();
+        setState({ status: "failed", providers: providers.current });
+      }, DEADLINE_MS);
       const started = performance.now();
       setState({ status: "loading", providers: providers.current });
       let outcome = "ok";
@@ -97,7 +107,8 @@ export function useNowPlayingLyrics(account: string, recording: string) {
           ) ?? providers.current[0];
         await read(chosen, own.signal);
       } catch {
-        outcome = own.signal.aborted ? "cancelled" : "failed";
+        if (outcome !== "deadline")
+          outcome = own.signal.aborted ? "cancelled" : "failed";
         if (!own.signal.aborted)
           setState({ status: "failed", providers: providers.current });
       } finally {
@@ -113,9 +124,10 @@ export function useNowPlayingLyrics(account: string, recording: string) {
 
   useEffect(() => {
     providers.current = [];
-    void start();
+    if (automatic) void start();
+    else setState({ status: "idle", providers: [] });
     return () => controller.current?.abort();
-  }, [start]);
+  }, [start, automatic]);
 
   return { state, choose: start, retry: () => void start() };
 }
