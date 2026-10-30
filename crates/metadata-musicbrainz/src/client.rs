@@ -1,6 +1,6 @@
 use crate::{
-    Error, IsrcRecording, discography, edition, edition_listing, identifiers, projection, search,
-    transport::Transport,
+    ArtistRecordings, Error, IsrcRecording, discography, edition, edition_listing, identifiers,
+    projection, search, transport::Transport,
 };
 use hito_plugin_sdk::{
     ArtistDiscographyPage, ArtistDiscographyRequest, ArtistProfileRequest, ArtistSearchPage,
@@ -216,6 +216,40 @@ impl MusicBrainzClient {
             item_count = result.as_ref().map(Vec::len).unwrap_or(0),
             elapsed_ms = started.elapsed().as_millis() as u64,
             "MusicBrainz ISRC lookup completed"
+        );
+        result
+    }
+
+    /// Lists the first hundred recordings credited to an artist with their lengths. An unknown
+    /// artist is an empty result. The answer says whether the page covers every recording.
+    #[tracing::instrument(level = "info", skip_all, fields(operation = "artist_recordings", request_id = tracing::field::Empty))]
+    pub async fn artist_recordings(&self, artist_id: &str) -> Result<ArtistRecordings, Error> {
+        let started = Instant::now();
+        let request_id = Uuid::new_v4();
+        tracing::Span::current().record("request_id", tracing::field::display(request_id));
+        let result = async {
+            if !identifiers::canonical_artist(artist_id) {
+                return Err(Error::InvalidLookupRequest);
+            }
+            match self.transport.artist_recordings(artist_id).await {
+                Ok(bytes) => identifiers::artist_recordings(&bytes),
+                Err(Error::Status(404)) => Ok(ArtistRecordings {
+                    total: 0,
+                    items: Vec::new(),
+                }),
+                Err(Error::InvalidResponse) => Err(Error::InvalidLookup),
+                Err(error) => Err(error),
+            }
+        }
+        .await;
+        tracing::info!(
+            outcome = match &result {
+                Ok(_) => "success",
+                Err(error) => error.code(),
+            },
+            item_count = result.as_ref().map(|found| found.items.len()).unwrap_or(0),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "MusicBrainz artist recordings completed"
         );
         result
     }

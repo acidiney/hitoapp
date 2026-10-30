@@ -5,12 +5,53 @@ use uuid::Uuid;
 
 const MAX_RECORDINGS: usize = 100;
 const MAX_CREDIT_MEMBERS: usize = 64;
+const MAX_TITLE_BYTES: usize = 512;
 
 /// A MusicBrainz recording that carries a looked-up ISRC, with the distinct artists in its credit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IsrcRecording {
     pub id: String,
     pub artist_ids: Vec<String>,
+}
+
+/// One recording credited to an artist, as listed by a browse. The length is absent when
+/// MusicBrainz does not know it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArtistRecording {
+    pub id: String,
+    pub title: String,
+    pub length_ms: Option<u64>,
+}
+
+/// The first page of an artist's recordings and how many MusicBrainz states in total.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArtistRecordings {
+    pub total: u32,
+    pub items: Vec<ArtistRecording>,
+}
+
+impl ArtistRecordings {
+    /// Whether the page lists every recording MusicBrainz states for the artist.
+    pub fn complete(&self) -> bool {
+        self.items.len() as u32 >= self.total
+    }
+}
+
+#[derive(Deserialize)]
+struct RecordingBrowse {
+    #[serde(rename = "recording-count")]
+    count: u32,
+    #[serde(rename = "recording-offset")]
+    offset: u32,
+    #[serde(default)]
+    recordings: Vec<BrowsedRecording>,
+}
+
+#[derive(Deserialize)]
+struct BrowsedRecording {
+    id: String,
+    title: String,
+    length: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -82,6 +123,44 @@ pub(super) fn url_artists(bytes: &[u8]) -> Result<Vec<String>, Error> {
         }
     }
     Ok(artists)
+}
+
+pub(super) fn artist_recordings(bytes: &[u8]) -> Result<ArtistRecordings, Error> {
+    let browse: RecordingBrowse =
+        serde_json::from_slice(bytes).map_err(|_| Error::InvalidLookup)?;
+    if browse.offset != 0
+        || browse.recordings.len() > MAX_RECORDINGS
+        || browse.recordings.len() as u32 > browse.count
+    {
+        return Err(Error::InvalidLookup);
+    }
+    let mut seen = HashSet::new();
+    let items = browse
+        .recordings
+        .into_iter()
+        .map(|recording| {
+            canonical_id(&recording.id)?;
+            if !seen.insert(recording.id.clone())
+                || recording.title.is_empty()
+                || recording.title.len() > MAX_TITLE_BYTES
+            {
+                return Err(Error::InvalidLookup);
+            }
+            Ok(ArtistRecording {
+                id: recording.id,
+                title: recording.title,
+                length_ms: recording.length,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ArtistRecordings {
+        total: browse.count,
+        items,
+    })
+}
+
+pub(super) fn canonical_artist(artist: &str) -> bool {
+    canonical_id(artist).is_ok()
 }
 
 pub(super) fn valid_isrc(isrc: &str) -> bool {

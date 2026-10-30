@@ -23,6 +23,7 @@ mod http;
 mod isrc;
 mod limiter;
 mod protocol;
+mod recordings;
 mod search;
 mod search_context;
 mod search_limiter;

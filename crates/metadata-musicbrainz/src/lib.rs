@@ -10,7 +10,7 @@ mod transport;
 
 pub use client::MusicBrainzClient;
 pub use error::Error;
-pub use identifiers::IsrcRecording;
+pub use identifiers::{ArtistRecording, ArtistRecordings, IsrcRecording};
 
 #[cfg(test)]
 mod tests;

@@ -132,6 +132,20 @@ impl Transport {
         self.json(endpoint, MAX_SEARCH_BODY_BYTES).await
     }
 
+    pub(super) async fn artist_recordings(&self, artist_id: &str) -> Result<Vec<u8>, Error> {
+        let mut endpoint = self
+            .endpoint
+            .join("recording")
+            .map_err(|_| Error::Configuration)?;
+        endpoint.query_pairs_mut().extend_pairs([
+            ("artist", artist_id),
+            ("fmt", "json"),
+            ("limit", "100"),
+            ("offset", "0"),
+        ]);
+        self.json(endpoint, MAX_BROWSE_BODY_BYTES).await
+    }
+
     pub(super) async fn isrc(&self, isrc: &str) -> Result<Vec<u8>, Error> {
         let mut endpoint = self
             .endpoint
